@@ -1,0 +1,347 @@
+/* Todo detail meta pills and edit drawer */
+
+/* Todo detail meta: colored summary pills. */
+#todo-modal.todo-detail-view .todo-meta-summary-chip {
+  --meta-tone: var(--accent);
+  color: color-mix(in srgb, var(--meta-tone) 72%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--meta-tone) 34%, transparent);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--meta-tone) 18%, transparent),
+      color-mix(in srgb, var(--meta-tone) 8%, transparent));
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip .ui-icon,
+#todo-modal.todo-detail-view .todo-meta-summary-label {
+  color: color-mix(in srgb, var(--meta-tone) 70%, var(--text-muted));
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip strong {
+  color: color-mix(in srgb, var(--meta-tone) 48%, var(--text-primary));
+}
+
+#todo-modal.todo-detail-view .todo-meta-tone-project { --meta-tone: #6366f1; }
+#todo-modal.todo-detail-view .todo-meta-tone-section,
+#todo-modal.todo-detail-view .todo-meta-tone-layers { --meta-tone: #8b5cf6; }
+#todo-modal.todo-detail-view .todo-meta-tone-priority-very-high { --meta-tone: #ef4444; }
+#todo-modal.todo-detail-view .todo-meta-tone-priority-high { --meta-tone: #f59e0b; }
+#todo-modal.todo-detail-view .todo-meta-tone-priority-medium { --meta-tone: #10b981; }
+#todo-modal.todo-detail-view .todo-meta-tone-priority-low { --meta-tone: #94a3b8; }
+#todo-modal.todo-detail-view .todo-meta-tone-status-pending { --meta-tone: #94a3b8; }
+#todo-modal.todo-detail-view .todo-meta-tone-status-in-progress { --meta-tone: #f59e0b; }
+#todo-modal.todo-detail-view .todo-meta-tone-status-done { --meta-tone: #10b981; }
+#todo-modal.todo-detail-view .todo-meta-tone-due-overdue { --meta-tone: #ef4444; }
+#todo-modal.todo-detail-view .todo-meta-tone-due-soon { --meta-tone: #f59e0b; }
+#todo-modal.todo-detail-view .todo-meta-tone-due-neutral { --meta-tone: #0ea5e9; }
+#todo-modal.todo-detail-view .todo-meta-tone-reminder,
+#todo-modal.todo-detail-view .todo-meta-tone-bell { --meta-tone: #ec4899; }
+#todo-modal.todo-detail-view .todo-meta-tone-repeat { --meta-tone: #14b8a6; }
+#todo-modal.todo-detail-view .todo-meta-tone-pin { --meta-tone: #ef4444; }
+
+/* Todo detail meta editing panel defaults */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 58%, color-mix(in srgb, var(--bg-primary) 12%, transparent));
+  z-index: 2;
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
+    background: color-mix(in srgb, #000 28%, transparent);
+    pointer-events: none;
+  }
+
+}
+
+/* Todo detail meta editing: single-piece desktop sidebar drawer. */
+#todo-modal.todo-detail-view .todo-meta-edit-drawer {
+  display: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+  position: absolute;
+  top: 106px;
+  right: 18px;
+  bottom: 44px;
+  z-index: 4;
+  display: block;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 42%),
+    color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .24);
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
+#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+  position: static;
+  inset: auto;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  z-index: auto;
+  display: block;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .ui-section-heading {
+  margin-bottom: 18px;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .ui-section-icon {
+  display: inline-flex;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .ui-section-heading h4 {
+  color: var(--text-primary);
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .ui-section-heading p {
+  display: block;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .ui-field-grid.two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+    position: fixed;
+    top: auto;
+    left: max(14px, env(safe-area-inset-left, 0px));
+    right: max(14px, env(safe-area-inset-right, 0px));
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .ui-field-grid.two-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Todo detail meta editing: slightly wider desktop sidebar. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+  width: min(440px, calc(100% - 36px));
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
+  padding-right: min(490px, 40vw);
+}
+
+/* Todo meta drawer: fix location reminder switch and full-width address. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-content: start;
+  gap: 10px;
+  width: 100%;
+  margin: 4px 0 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row .settings-switch {
+  order: 0;
+  grid-column: 1;
+  width: 44px;
+  min-width: 44px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer #todo-location-address-group {
+  grid-column: 1 / -1;
+}
+
+/* Todo meta drawer: location reminder switch shape */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-sizing: border-box;
+  display: inline-block;
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)) !important;
+  background: var(--bg-tertiary) !important;
+  position: relative;
+  cursor: pointer;
+  flex: 0 0 46px !important;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  top: 2px;
+  left: 2px;
+  border-radius: 999px;
+  background: var(--text-secondary);
+  box-shadow: 0 2px 5px rgba(0,0,0,.28);
+  transition: transform .16s, background .16s;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked::after {
+  transform: translateX(20px);
+  background: white;
+}
+
+/* Todo detail meta: accent switch + location/star meta tones. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked {
+  background: var(--accent) !important;
+  border-color: color-mix(in srgb, var(--accent) 86%, white) !important;
+}
+
+#todo-modal.todo-detail-view .todo-meta-tone-location,
+#todo-modal.todo-detail-view .todo-meta-tone-map-pin { --meta-tone: #06b6d4; }
+#todo-modal.todo-detail-view .todo-meta-tone-star { --meta-tone: #f59e0b; }
+
+/* Todo meta drawer: mobile fullscreen details editor with close header. */
+#todo-modal.todo-detail-view .todo-meta-drawer-header {
+  display: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
+  display: grid;
+  gap: 0;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:hover,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:focus-visible {
+  color: var(--text-primary);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close .ui-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+    inset: 0;
+    width: 100vw;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    -webkit-overflow-scrolling: auto;
+    background:
+      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 42%),
+      var(--bg-primary);
+    box-shadow: none;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 62px;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
+    background: transparent;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+    backdrop-filter: none;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header h4 {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: .01em;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header p {
+    display: none;
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 18px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+    width: 100%;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+

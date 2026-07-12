@@ -140,6 +140,21 @@ export function createPushNotificationsFeature({ pushApi }) {
     }
   }
 
+  let pushActionsBound = false;
+  function bindPushActions() {
+    if (pushActionsBound) return;
+    pushActionsBound = true;
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-push-action]');
+      if (!target) return;
+      event.preventDefault();
+      const action = target.dataset.pushAction;
+      if (action === 'enable') await enablePushNotifications();
+      else if (action === 'disable') await disablePushNotifications();
+      else if (action === 'test') await sendTestPush();
+    });
+  }
+
   window.addEventListener('nia-language-change', () => {
     setTimeout(() => updatePushStatus(lastPushStatus, lastPushError), 0);
   });
@@ -150,6 +165,7 @@ export function createPushNotificationsFeature({ pushApi }) {
     enablePushNotifications,
     disablePushNotifications,
     sendTestPush,
+    bindPushActions,
     getPushSubscription: () => pushSubscription,
   };
 }

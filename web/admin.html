@@ -5,254 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n-key="admin.pageTitle">nia-todo Admin</title>
 <link rel="stylesheet" href="/static/style.css">
-<style>
-body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: auto; }
-.admin-container { width: min(100%, 1180px); margin: 0 auto; padding: 34px 20px; }
-.admin-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 32px; }
-.admin-header h1 { font-size: 24px; margin: 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 10px; }
-.admin-card { background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)); border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 18px; padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
-.admin-section-card { overflow: hidden; transition: border-color .15s, background .15s; }
-.admin-section-card.collapsed { padding-bottom: 0; }
-.admin-section-card h2 { width: 100%; }
-.admin-section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
-.admin-section-header { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; }
-.admin-section-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
-.admin-section-summary { color: var(--text-muted); font-size: 12px; font-weight: 600; margin-left: auto; white-space: nowrap; }
-.admin-section-toggle { display: inline-flex; align-items: center; flex: 0 0 auto; }
-.admin-section-toggle input { flex: 0 0 46px; }
-.admin-section-chevron { color: var(--text-muted); transition: transform .15s ease; }
-.admin-section-card.collapsed .admin-section-chevron { transform: rotate(-90deg); }
-.admin-section-body { margin-top: 16px; }
-.admin-section-card.collapsed .admin-section-body { display: none; }
-.admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
-.user-table-wrap { width: 100%; overflow: visible; }
-.user-list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.user-search-wrap { flex: 1 1 260px; min-width: 220px; }
-.user-search-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
-.user-search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
-.user-search-count { color: var(--text-muted); font-size: 12px; font-weight: 650; white-space: nowrap; }
-.user-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; min-width: 0; }
-.user-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
-.user-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.user-table tr { display: block; min-width: 0; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); overflow: hidden; }
-.user-table tr:last-child td { border-bottom: none; }
-.user-table td.user-card-cell { display: block; padding: 0; border: 0; color: var(--text-primary); }
-.user-card { display: flex; flex-direction: column; gap: 12px; padding: 14px; min-height: 100%; }
-.user-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent); }
-.user-card-title-wrap { min-width: 0; }
-.user-card-title-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.user-card-title { min-width: 0; font-size: 16px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.user-card-subtitle { margin-top: 2px; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.user-card-id { flex: 0 0 auto; font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 999px; padding: 2px 6px; }
-.user-card-section { display: flex; flex-direction: column; gap: 0; }
-.user-card-row { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 30px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 36%, transparent); }
-.user-card-row:last-child { border-bottom: 0; }
-.user-card-label { display: block; color: var(--text-muted); font-size: 11px; font-weight: 650; }
-.user-card-value { min-width: 0; color: var(--text-primary); font-size: 13px; }
-.user-card-braindump-control { justify-content: flex-start; }
-.user-card-braindump-control { display: inline-flex; align-items: center; gap: 10px; }
-.user-card-switch { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
-.user-card-switch::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
-.user-card-switch:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
-.user-card-switch:checked::after { transform: translateX(20px); background: white; }
-.user-card-switch:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); outline: none; }
-.user-card-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: center; }
-.user-card-actions.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.user-card-actions.single { grid-template-columns: 1fr; }
-.user-card-actions .admin-table-action { width: 100%; }
-.user-card .settings-2fa-devices-wrap { margin-top: 2px; }
-.user-card .settings-device-row { overflow: hidden; }
-.user-card .settings-device-row > div { min-width: 0; }
-.user-card .settings-device-row span { overflow-wrap: anywhere; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
-.badge-admin { background: var(--accent); color: white; }
-.badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
-.badge-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
-.badge-warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
-.badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
-.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font: inherit; font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; text-decoration: none; }
-.btn-danger { background: var(--danger); color: white; }
-.btn-danger:hover { opacity: 0.9; }
-.btn-primary { background: var(--accent); color: white; }
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-.btn-secondary:hover { background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--accent)); border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); }
-.btn-ghost { background: transparent; color: var(--text-secondary); padding: 4px 6px; }
-.btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-.form-row input, .form-row select { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
-.form-row select { flex: 0 0 150px; min-width: 130px; padding-right: 36px; appearance: none; -webkit-appearance: none; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
-.form-row select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
-.form-row select option { background: var(--bg-secondary); color: var(--text-primary); }
-.admin-ui-select { flex: 0 1 150px; width: 150px; min-width: 130px; }
-.admin-config-field .admin-ui-select { flex: 0 0 auto; width: 100%; min-width: 0; }
-@media (max-width: 720px) {
-  .form-row .admin-ui-select { flex: 0 0 auto; width: 100%; min-width: 0; }
-}
-.admin-ui-select-menu { z-index: 420; }
-.form-row input:focus, .form-row select:focus, .admin-config-textarea:focus, .admin-config-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
-.admin-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.admin-config-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.admin-config-field.full { grid-column: 1 / -1; }
-.admin-config-field label { font-size: 12px; font-weight: 650; color: var(--text-secondary); }
-.admin-config-field input, .admin-config-field select, .admin-config-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
-.admin-config-field input[type="checkbox"] { width: auto; }
-.admin-config-checkbox { flex-direction: row; align-items: center; gap: 12px; padding: 9px 0; }
-.admin-config-checkbox label { margin: 0; }
-.admin-config-checkbox.switch-right { justify-content: space-between; }
-.admin-config-checkbox.switch-right label { flex: 1 1 auto; }
-.admin-config-checkbox.switch-right input[type="checkbox"] { order: 2; margin-left: auto; width: 46px; min-width: 46px; max-width: 46px; flex: 0 0 46px; }
-.admin-config-checkbox input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
-.admin-config-checkbox input[type="checkbox"]::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
-.admin-config-checkbox input[type="checkbox"]:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
-.admin-config-checkbox input[type="checkbox"]:checked::after { transform: translateX(20px); background: white; }
-.admin-config-checkbox input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
-.admin-secret-note { font-size: 12px; color: var(--text-muted); }
-.admin-inline-check { display: inline-flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; }
-.admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.admin-config-textarea.readonly { color: var(--text-secondary); background: color-mix(in srgb, var(--bg-primary) 82%, var(--bg-tertiary)); white-space: pre; }
-.admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
-.admin-muted { color: var(--text-muted); font-size: 12px; }
-.admin-linked-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-.admin-linked-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--border) 68%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 76%, var(--bg-secondary)); }
-.admin-linked-item > div { min-width: 0; overflow-wrap: anywhere; }
-.admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.admin-stat-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin: 8px 0 16px; }
-.admin-stat-coverage { display:inline-flex; align-items:center; width:max-content; margin-top:8px; padding:5px 10px; border-radius:999px; background:color-mix(in srgb, var(--accent) 13%, transparent); color:var(--text-secondary); border:1px solid color-mix(in srgb, var(--accent) 28%, transparent); font-size:12px; font-weight:750; }
-.admin-stat-tabs { display:inline-flex; gap:6px; padding:4px; border-radius:999px; background: var(--bg-tertiary); border:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
-.admin-stat-tab { border:0; border-radius:999px; padding:7px 11px; cursor:pointer; background:transparent; color:var(--text-muted); font-size:12px; font-weight:750; }
-.admin-stat-tab.active { background:var(--accent); color:white; box-shadow:0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent); }
-.admin-stat-layout { display:grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap:14px; align-items:stretch; }
-.admin-stat-panel { border:1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius:16px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); padding:14px; min-width:0; }
-.admin-stat-panel.wide { grid-column:1 / -1; }
-.admin-stat-panel-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; color:var(--text-primary); font-size:13px; font-weight:850; }
-.admin-stat-panel-subtitle { color:var(--text-muted); font-size:11px; font-weight:650; }
-.admin-stat-kpis { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
-.admin-stat-tile { padding:12px; border:1px solid color-mix(in srgb, var(--border) 66%, transparent); border-radius:14px; background: linear-gradient(135deg, color-mix(in srgb, var(--bg-primary) 82%, var(--accent) 5%), color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary))); min-width:0; }
-.admin-stat-label { color: var(--text-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .045em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.admin-stat-value { margin-top: 5px; color: var(--text-primary); font-size: 22px; font-weight: 900; line-height:1.05; }
-.admin-stat-foot { margin-top:5px; color:var(--text-muted); font-size:11px; }
-.admin-stat-chart { width:100%; height:210px; display:block; overflow:visible; }
-.admin-stat-chart path.line-a { stroke:var(--accent); }
-.admin-stat-chart path.line-b { stroke:var(--success); }
-.admin-stat-chart path.line-c { stroke:var(--warning); }
-.admin-stat-chart .grid { stroke:color-mix(in srgb, var(--border) 60%, transparent); stroke-width:1; }
-.admin-stat-chart text { fill:var(--text-muted); font-size:10px; }
-.admin-stat-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; color:var(--text-muted); font-size:11px; }
-.admin-stat-legend span::before { content:''; display:inline-block; width:9px; height:9px; border-radius:999px; margin-right:5px; background:var(--accent); }
-.admin-stat-legend span:nth-child(2)::before { background:var(--success); }
-.admin-stat-legend span:nth-child(3)::before { background:var(--warning); }
-.admin-stat-bars { display:flex; flex-direction:column; gap:10px; }
-.admin-stat-bar-row { display:grid; grid-template-columns: 98px minmax(0,1fr) 56px; gap:10px; align-items:center; color:var(--text-secondary); font-size:12px; }
-.admin-stat-bar-track { height:9px; border-radius:999px; overflow:hidden; background:var(--bg-tertiary); }
-.admin-stat-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--accent), var(--success)); }
-.admin-stat-metric-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
-.admin-stat-metric { min-width:0; padding:10px; border-radius:13px; background:color-mix(in srgb, var(--bg-secondary) 74%, transparent); border:1px solid color-mix(in srgb, var(--border) 54%, transparent); }
-.admin-stat-metric-label { color:var(--text-muted); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.admin-stat-metric-value { margin-top:4px; color:var(--text-primary); font-size:20px; font-weight:900; line-height:1.1; }
-.admin-stat-metric-foot { margin-top:3px; color:var(--text-muted); font-size:11px; min-height:14px; }
-@media (max-width: 860px) { .admin-stat-layout { grid-template-columns:1fr; } .admin-stat-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-.admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
-.admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
-.setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
-.setup-link-box input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; }
-.email-display { display: inline-flex; align-items: center; gap: 6px; width: 100%; max-width: 100%; }
-.email-display span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.user-table th:nth-child(4), .user-table td:nth-child(4) { overflow: hidden; }
-.admin-table-action { min-width: 0; width: 100%; padding: 6px 8px; white-space: nowrap; }
-.admin-last-active { display: inline-block; color: var(--text-secondary); font-size: 12px; line-height: 1.35; }
-.admin-last-active.muted { color: var(--text-muted); }
-.email-missing { color: var(--text-muted); }
-.email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
-.email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
-.email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
-.admin-nav { display: flex; gap: 12px; align-items: center; }
-.admin-back-btn { height: 32px; min-height: 32px; padding: 0 12px; box-sizing: border-box; border-radius: var(--radius); background: var(--accent); color: white; text-decoration: none; font-size: 13px; font-weight: 600; line-height: 32px; display: inline-block; }
-.admin-back-btn:hover { background: var(--accent-hover); }
-.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
-.admin-theme-toggle { display: flex; gap: 6px; }
-.admin-theme-toggle button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: background .15s, border-color .15s, color .15s, transform .1s; }
-.admin-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
-.admin-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
-.admin-status-card { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.admin-status-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.server-update-card { position: relative; overflow: hidden; }
-.server-update-card.update-ok,
-.server-update-card.update-warning,
-.server-update-card.update-danger { border-color: color-mix(in srgb, var(--border) 82%, transparent); background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)); box-shadow: var(--shadow); }
-.server-update-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
-.server-update-badge.ok { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
-.server-update-badge.warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
-.server-update-badge.danger { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
-.security-policy-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.security-policy-main { display: flex; flex-direction: column; gap: 4px; }
-.security-policy-title { font-weight: 650; color: var(--text-primary); }
-.security-policy-desc { font-size: 13px; color: var(--text-muted); }
-.twofa-stack { display: flex; flex-wrap: wrap; gap: 4px; }
-.admin-status-text { font-size: 14px; color: var(--text-secondary); display:inline-flex; align-items:center; gap:8px; }
-.admin-mobile-label { display: block; color: var(--text-muted); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .055em; margin-bottom: 3px; }
-.admin-header-switch-source { position: absolute; opacity: 0; pointer-events: none; }
-.admin-dialog { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; padding: 16px; }
-.admin-dialog.active { display: flex; }
-.admin-dialog-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(4px); }
-.admin-dialog-content { position: relative; z-index: 1; width: min(100%, 430px); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 22px; }
-.admin-dialog-content h3 { margin: 0 0 8px 0; font-size: 18px; color: var(--text-primary); }
-.admin-dialog-content p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.45; }
-.admin-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
-.ui-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; }
-.admin-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-@media (max-width: 720px) {
-  .admin-container { padding: 18px 12px 32px; }
-  .admin-header { align-items: flex-start; flex-direction: column; margin-bottom: 18px; }
-  .admin-nav { width: 100%; justify-content: space-between; }
-  .admin-card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
-  .form-row { flex-direction: column; gap: 10px; }
-  .admin-config-grid { grid-template-columns: 1fr; }
-  .form-row input, .form-row select { width: 100%; flex-basis: auto; }
-  .user-list-toolbar { align-items: stretch; flex-direction: column; }
-  .user-search-wrap { flex-basis: auto; min-width: 0; }
-  .user-search-count { white-space: normal; }
-  .form-row .admin-config-checkbox input[type="checkbox"] { width: 46px; min-width: 46px; flex: 0 0 46px; }
-  .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
-  #admin-login-card .form-row .btn,
-  #create-user-card .form-row .btn { width: 100%; }
-  .setup-link-box { flex-direction: column; align-items: stretch; }
-  .setup-link-box .btn { width: 100%; min-height: 38px; }
-  .admin-status-card { align-items: flex-start; flex-direction: column; }
-  .admin-status-actions { width: 100%; align-items: stretch; }
-  .admin-status-actions .btn { flex: 1 1 0; min-height: 38px; }
-  .admin-status-actions .btn-secondary,
-  .admin-status-actions .btn-danger { flex: 1 1 0; }
-  .admin-status-actions .btn-danger { border: 1px solid transparent; }
-  #admin-password-dialog { padding: 0; align-items: stretch; justify-content: stretch; }
-  #admin-password-dialog .admin-dialog-content { width: 100%; min-height: 100dvh; border: 0; border-radius: 0; padding: 22px 18px; display: flex; flex-direction: column; justify-content: center; }
-  #admin-password-dialog .admin-dialog-actions { margin-top: 22px; }
-  #admin-password-dialog .admin-dialog-actions .btn { flex: 1; min-height: 42px; }
-  .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
-  .user-table tbody { display: grid; grid-template-columns: 1fr; }
-  .user-table tr { padding: 0; margin-bottom: 0; }
-  .user-table td.user-card-cell { padding: 0; margin-top: 0 !important; }
-  .user-card { padding: 12px; gap: 10px; }
-  .user-card-header { flex-direction: column; gap: 8px; }
-  .user-card-row { grid-template-columns: 1fr; gap: 4px; align-items: start; }
-  .user-card-actions { grid-template-columns: 1fr; }
-  .user-card .settings-device-row { flex-direction: column; align-items: stretch; }
-  .admin-section-summary { display: none; }
-  .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
-}
-</style>
+<link rel="stylesheet" href="/static/css/72-admin.css">
+
 </head>
 <body>
 <div class="admin-container">
   <div class="admin-header">
     <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
     <div class="admin-nav">
-      <a class="admin-back-btn" href="/" data-i18n-key="admin.backToApp">Back to app</a>
-      <div class="admin-theme-toggle">
-        <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
-        <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
-        <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
+      <button class="btn btn-secondary btn-icon login-theme-cycle-btn admin-theme-cycle-btn" type="button" data-theme-cycle onclick="cycleAdminTheme()" title="System"><span data-theme-cycle-icon data-icon="monitor"></span></button>
+      <div class="admin-status-actions" id="admin-header-actions" hidden>
+        <button type="button" class="btn btn-secondary admin-header-action admin-mobile-icon-action" onclick="openAdminPasswordDialog()"><span class="admin-action-icon" data-icon="key-round"></span><span class="admin-action-label" data-i18n-key="admin.password.shortChange">Change password</span></button>
+        <button type="button" class="btn btn-danger admin-header-action admin-mobile-icon-action" onclick="adminLogout()"><span class="admin-action-icon" data-icon="log-out"></span><span class="admin-action-label" data-i18n-key="auth.signOut">Sign out</span></button>
       </div>
     </div>
   </div>
@@ -262,7 +26,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <form class="admin-dialog-content" id="admin-dialog-form">
       <h3 id="admin-dialog-title" data-i18n-key="admin.dialog.confirmTitle">Confirm action</h3>
       <p id="admin-dialog-message"></p>
-      <div class="admin-dialog-actions">
+      <div class="admin-dialog-actions admin-action-row split">
         <button type="button" class="btn" id="admin-dialog-cancel" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" id="admin-dialog-confirm" data-i18n-key="common.confirm">Confirm</button>
       </div>
@@ -275,61 +39,77 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       <h3 id="admin-password-dialog-title" data-i18n-key="admin.password.title">Change own admin password</h3>
       <div class="admin-config-field full">
         <label for="admin-old-password" data-i18n-key="admin.password.currentPlaceholder">Current admin password</label>
-        <input type="password" id="admin-old-password" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
+        <input class="ui-field" type="password" id="admin-old-password" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
       </div>
       <div class="admin-config-field full" style="margin-top:10px;">
         <label for="admin-new-password" data-i18n-key="admin.password.newPlaceholder">New admin password (12+ characters)</label>
-        <input type="password" id="admin-new-password" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
+        <input class="ui-field" type="password" id="admin-new-password" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
       </div>
       <div class="admin-config-field full" style="margin-top:10px;">
         <label for="admin-confirm-password" data-i18n-key="setup.confirmPasswordLabel">Confirm new password</label>
-        <input type="password" id="admin-confirm-password" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
+        <input class="ui-field" type="password" id="admin-confirm-password" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
       </div>
       <div style="font-size: 12px; color: var(--text-muted); margin-top: 10px;" data-i18n-key="admin.password.requirements">
         At least 12 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
       </div>
       <div class="admin-error" id="admin-pw-error"></div>
       <div class="admin-success" id="admin-pw-success"></div>
-      <div class="admin-dialog-actions">
+      <div class="admin-dialog-actions admin-action-row split">
         <button type="button" class="btn" id="admin-password-dialog-cancel" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" data-i18n-key="admin.password.change">Change admin password</button>
       </div>
     </form>
   </div>
 
-  <div class="admin-card" id="admin-login-card">
-    <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin sign-in</span></h2>
-    <form class="form-row" id="admin-login-form" autocomplete="on" onsubmit="event.preventDefault(); doAdminLogin();">
+  <div class="login-box admin-login-box" id="admin-login-card">
+    <div class="login-brand">
+      <div class="admin-login-logo-wrap">
+        <img src="/static/icons/icon-192.png" class="login-logo admin-login-logo" alt="nia-todo">
+        <span class="admin-login-logo-badge" data-icon="shield"></span>
+      </div>
+      <div class="login-title" data-i18n-key="admin.login.title">Admin sign-in</div>
+      <div class="login-subtitle">nia-todo Admin</div>
+    </div>
+    <form id="admin-login-form" autocomplete="on" onsubmit="event.preventDefault(); doAdminLogin();">
       <label class="admin-visually-hidden" for="admin-login-username">Admin username</label>
       <input class="admin-visually-hidden" type="text" id="admin-login-username" name="username" value="admin" autocomplete="username" readonly tabindex="-1">
-      <label class="admin-visually-hidden" for="admin-login-password" data-i18n-key="auth.password">Password</label>
-      <input type="password" id="admin-login-password" name="password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="current-password" required>
-      <button class="btn btn-primary" type="submit" data-i18n-key="auth.signIn">Sign in</button>
-      <a class="btn btn-secondary hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login" data-i18n-key="admin.oidc.signIn">Sign in with OIDC</a>
+      <div class="login-field">
+        <label for="admin-login-password" data-i18n-key="auth.password">Password</label>
+        <input class="ui-field" type="password" id="admin-login-password" name="password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="current-password" required>
+      </div>
+      <div class="login-error" id="admin-login-error"></div>
+      <button class="btn btn-primary login-action-btn" type="submit" data-i18n-key="auth.signIn">Sign in</button>
+      <div class="login-auth-alternatives">
+        <div class="login-auth-divider"><span data-i18n-key="auth.alternativeSignIn">or</span></div>
+        <a class="btn btn-secondary login-action-btn login-passkey-btn hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login" data-i18n-key="admin.oidc.signIn">Sign in with OIDC</a>
+      </div>
     </form>
-    <div class="admin-error" id="admin-login-error"></div>
   </div>
 
   <div id="admin-content" style="display:none;">
   <input type="checkbox" id="braindump-enabled" class="admin-header-switch-source" aria-label="BrainDump aktivieren">
   <input type="checkbox" id="email-smtp-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.email.enableSending" aria-label="Enable email sending">
   <input type="checkbox" id="oidc-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.oidc.enable" aria-label="Enable OIDC">
+  <input type="checkbox" id="attachments-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.attachments.enabled" aria-label="Uploads erlauben">
   <input type="checkbox" id="twofa-policy-toggle" class="admin-header-switch-source" data-i18n-aria-label-key="admin.security.toggle" aria-label="Toggle 2FA policy">
 
-  <!-- Admin Toolbar -->
-  <div class="admin-card admin-status-card">
-    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
-    <div class="admin-status-actions">
-      <button class="btn btn-secondary" onclick="openAdminPasswordDialog()" data-i18n-key="admin.password.shortChange">Change password</button>
-      <button class="btn btn-secondary hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
-      <button class="btn btn-secondary hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
-      <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
-    </div>
-  </div>
+
+  <div class="admin-page-shell">
+    <nav class="admin-page-nav" data-i18n-aria-label-key="admin.nav.ariaLabel" aria-label="Admin sections">
+      <button type="button" class="ui-nav-pill admin-page-nav-btn active" data-admin-page="overview"><span data-icon="layout-dashboard"></span><span data-i18n-key="admin.nav.overview">Übersicht</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="instance"><span data-icon="server"></span><span data-i18n-key="admin.nav.instance">Instanz</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="users"><span data-icon="users"></span><span data-i18n-key="admin.nav.users">Benutzer</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="email"><span data-icon="mail"></span><span data-i18n-key="admin.nav.email">E-Mail / SMTP</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="security"><span data-icon="shield"></span><span data-i18n-key="admin.nav.securityLogin">Sicherheit & Login</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="attachments"><span data-icon="package"></span><span data-i18n-key="admin.nav.attachments">Anhänge</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="braindump"><span data-icon="rocket"></span><span data-i18n-key="admin.nav.braindump">BrainDump</span></button>
+    </nav>
+    <main class="admin-page-content">
+      <section class="admin-main-section active" data-admin-page-panel="overview">
 
   <!-- Server Update -->
   <div class="admin-card server-update-card" id="server-update-card">
-    <h2><span data-icon="download-cloud"></span> <span data-i18n-key="admin.serverUpdate.title">Server update</span> <span class="server-update-badge ok" id="server-update-badge" data-i18n-key="admin.serverUpdate.badge.checking">Checking</span></h2>
+    <h2><span id="server-update-icon" data-icon="cloud"></span> <span data-i18n-key="admin.serverUpdate.title">Server update</span> <span class="server-update-badge ok" id="server-update-badge" data-i18n-key="admin.serverUpdate.badge.checking">Checking</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
         <div class="security-policy-title" id="server-update-title" data-i18n-key="admin.serverUpdate.checkingTitle">Suche nach Updates…</div>
@@ -348,7 +128,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Stats -->
   <div class="admin-card" id="technical-stats-card">
-    <h2><span data-icon="activity"></span> <span data-i18n-key="admin.stats.title">Statistik</span></h2>
+    <h2><span data-icon="chart-line"></span> <span data-i18n-key="admin.stats.title">Statistik</span></h2>
     <div class="admin-help" data-i18n-key="admin.stats.help">Aggregierte technische Statistik für Kapazität, Last und Wachstum — ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents.</div>
     <div class="admin-stat-toolbar">
       <div>
@@ -405,6 +185,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-error" id="technical-stats-error"></div>
     <div class="admin-success" id="technical-stats-success"></div>
   </div>
+      </section>
+      <section class="admin-main-section" data-admin-page-panel="instance">
 
   <!-- Instance Configuration -->
   <div class="admin-card" id="instance-config-card">
@@ -412,229 +194,54 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-config-grid">
       <div class="admin-config-field full">
         <label for="instance-public-url" data-i18n-key="admin.instance.publicUrl">Public base URL</label>
-        <input type="url" id="instance-public-url" placeholder="https://todo.example.org" autocomplete="off">
+        <input class="ui-field" type="url" id="instance-public-url" placeholder="https://todo.example.org" autocomplete="off">
       </div>
       <div class="admin-config-field full">
         <label for="instance-allowed-origins">Allowed Origins / CORS</label>
-        <textarea id="instance-allowed-origins" class="admin-config-textarea" placeholder="https://todo.example.org&#10;https://todo-dev.example.org"></textarea>
+        <textarea id="instance-allowed-origins" class="admin-config-textarea ui-field" placeholder="https://todo.example.org&#10;https://todo-dev.example.org"></textarea>
       </div>
       <div class="admin-config-field full">
         <label for="instance-trusted-proxies">Trusted Proxies</label>
-        <textarea id="instance-trusted-proxies" class="admin-config-textarea" placeholder="10.0.10.14&#10;172.18.0.0/16"></textarea>
+        <textarea id="instance-trusted-proxies" class="admin-config-textarea ui-field" placeholder="10.0.10.14&#10;172.18.0.0/16"></textarea>
       </div>
     </div>
     <div class="admin-help" data-i18n-key="admin.instance.help">The base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.</div>
-    <div class="form-row" style="margin-top:12px;">
+    <div class="admin-action-row">
       <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Save instance configuration</button>
     </div>
     <div class="admin-error" id="instance-config-error"></div>
     <div class="admin-success" id="instance-config-success"></div>
   </div>
-
-  <!-- Email Configuration -->
-  <div class="admin-card" id="email-config-card">
-    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">SMTP</span></h2>
-    <div class="admin-config-grid">
-      <div class="admin-config-field">
-        <label for="email-smtp-host">SMTP Host</label>
-        <input type="text" id="email-smtp-host" placeholder="smtp.example.org" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-port">SMTP Port</label>
-        <input type="number" id="email-smtp-port" min="1" max="65535" value="587">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport security</label>
-        <select id="email-smtp-security">
-          <option value="starttls">STARTTLS</option>
-          <option value="tls">TLS/SSL</option>
-          <option value="none" data-i18n-key="admin.none">None</option>
-        </select>
-      </div>
-      <div class="admin-config-field admin-config-checkbox">
-        <input type="checkbox" id="email-smtp-auth-enabled">
-        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">Use SMTP auth</label>
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-username">SMTP Username</label>
-        <input type="text" id="email-smtp-username" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP password / secret</label>
-        <input type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
-        <div class="admin-secret-note" id="email-smtp-password-note"></div>
-      </div>
-      <div class="admin-config-field">
-        <label for="email-from-address" data-i18n-key="admin.email.fromAddress">From-Adresse</label>
-        <input type="email" id="email-from-address" placeholder="todo@example.org" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-from-name" data-i18n-key="admin.email.fromName">From-Name</label>
-        <input type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-reply-to">Reply-To optional</label>
-        <input type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link validity in hours</label>
-        <input type="number" id="email-link-ttl" min="1" max="168" value="24">
-      </div>
-      <div class="admin-config-field full">
-        <label for="email-test-to" data-i18n-key="admin.email.testTo">Test-Mail an</label>
-        <div class="form-row" style="margin-bottom:0;">
-          <input type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
-          <button class="btn btn-primary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Send test email</button>
-        </div>
-      </div>
-    </div>
-    <div class="admin-help" data-i18n-key="admin.email.help">Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without email sending enabled, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.</div>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Save email configuration</button>
-    </div>
-    <div class="admin-error" id="email-config-error"></div>
-    <div class="admin-success" id="email-config-success"></div>
-  </div>
-
-  <!-- OIDC Configuration -->
-  <div class="admin-card" id="oidc-config-card">
-    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.oidc.title">OIDC</span></h2>
-    <div class="admin-config-grid">
-      <div class="admin-config-field"><label for="oidc-provider-name" data-i18n-key="admin.oidc.providerName">Provider name</label><input type="text" id="oidc-provider-name" placeholder="Pocket ID"></div>
-      <div class="admin-config-field full"><label for="oidc-issuer-url" data-i18n-key="admin.oidc.issuerUrl">Issuer / provider URL</label><input type="url" id="oidc-issuer-url" placeholder="https://id.example.org"></div>
-      <div class="admin-config-field"><label for="oidc-client-id" data-i18n-key="admin.oidc.clientId">Client ID</label><input type="text" id="oidc-client-id" autocomplete="off"></div>
-      <div class="admin-config-field"><label for="oidc-client-secret" data-i18n-key="admin.oidc.clientSecret">Client secret</label><input type="password" id="oidc-client-secret" data-i18n-placeholder-key="admin.oidc.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password"><div class="admin-secret-note" id="oidc-client-secret-note"></div></div>
-      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-public-client"><label for="oidc-public-client" data-i18n-key="admin.oidc.publicClient">Advanced: use public client</label><div class="admin-help" data-i18n-key="admin.oidc.publicClientHelp">Usually leave this off. Enable it only when the OIDC provider registered this client explicitly as a public client without a secret. With a client secret, nia-todo is a confidential client.</div></div>
-      <div class="admin-config-field"><label for="oidc-token-auth-method" data-i18n-key="admin.oidc.tokenAuthMethod">Token endpoint auth</label><select id="oidc-token-auth-method"><option value="auto" data-i18n-key="admin.oidc.tokenAuth.auto">Auto</option><option value="client_secret_basic">client_secret_basic</option><option value="client_secret_post">client_secret_post</option></select><div class="admin-help" data-i18n-key="admin.oidc.tokenAuthHelp">Auto is usually right for Pocket ID.</div></div>
-      <div class="admin-config-field"><label for="oidc-scopes" data-i18n-key="admin.oidc.scopes">Scopes</label><input type="text" id="oidc-scopes" value="openid email profile"></div>
-      <div class="admin-config-field full"><label data-i18n-key="admin.oidc.redirectUri">Redirect URI</label><code id="oidc-redirect-uri">/api/oidc/callback</code></div>
-    </div>
-    <div class="admin-help" data-i18n-key="admin.oidc.help">User login maps strictly by verified email on both sides. Admin OIDC must be linked manually. Register the redirect URI exactly like this in the provider.</div>
-    <div class="admin-linked-list" id="oidc-admin-links"></div>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveOidcConfig()" data-i18n-key="admin.oidc.save">Save OIDC configuration</button>
-    </div>
-    <div class="admin-error" id="oidc-config-error"></div>
-    <div class="admin-success" id="oidc-config-success"></div>
-  </div>
-
-  <!-- Security / 2FA -->
-  <div class="admin-card" id="security-card">
-    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Require 2FA</span></h2>
-    <div class="security-policy-row">
-      <div class="security-policy-main">
-        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
-        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
-      </div>
-    </div>
-    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
-    <div class="admin-error" id="security-error"></div>
-    <div class="admin-success" id="security-success"></div>
-  </div>
-
-  <!-- BrainDump Configuration -->
-  <div class="admin-card" id="braindump-config-card">
-    <h2><span data-icon="sparkles"></span> <span data-i18n-key="admin.braindump.title">BrainDump AI</span></h2>
-    <div class="admin-help" data-i18n-key="admin.braindump.help">Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
-    <div class="admin-config-grid">
-      <div class="admin-config-field">
-        <label for="braindump-llm-provider" data-i18n-key="admin.braindump.llmProvider">LLM endpoint</label>
-        <select id="braindump-llm-provider">
-          <option value="openai_compatible" data-i18n-key="admin.braindump.provider.openaiCompatible">OpenAI-compatible endpoint</option>
-          <option value="ollama" data-i18n-key="admin.braindump.provider.ollama">Ollama API</option>
-        </select>
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-llm-base-url" data-i18n-key="admin.braindump.llmBaseUrl">LLM base URL</label>
-        <input type="url" id="braindump-llm-base-url" placeholder="http://llm:11434" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-llm-model" data-i18n-key="admin.braindump.llmModel">LLM model</label>
-        <input type="text" id="braindump-llm-model" placeholder="openclaw/default or llama3.1" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-llm-api-key" data-i18n-key="admin.braindump.llmApiKeyOptional">LLM API key optional</label>
-        <input type="password" id="braindump-llm-api-key" data-i18n-placeholder-key="admin.braindump.optionalSecretPlaceholder" placeholder="Optional; blank = no change" autocomplete="new-password">
-        <label class="admin-inline-check">
-          <input type="checkbox" id="braindump-llm-api-key-clear">
-          <span data-i18n-key="admin.braindump.clearStoredKey">Clear stored key</span>
-        </label>
-        <div class="admin-secret-note" id="braindump-llm-api-key-note"></div>
-      </div>
-      <div class="admin-config-field full">
-        <label for="braindump-llm-extra-headers" data-i18n-key="admin.braindump.llmExtraHeaders">LLM extra headers JSON optional</label>
-        <input type="text" id="braindump-llm-extra-headers" placeholder='{"x-openclaw-model":"gpt-mini"}' autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-llm-timeout" data-i18n-key="admin.braindump.llmTimeout">LLM timeout seconds</label>
-        <input type="number" id="braindump-llm-timeout" min="1" max="300" value="180">
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-system-prompt-mode" data-i18n-key="admin.braindump.systemPrompt">System prompt</label>
-        <select id="braindump-system-prompt-mode">
-          <option value="default" data-i18n-key="admin.braindump.systemPrompt.default">Use nia-todo default</option>
-          <option value="append" data-i18n-key="admin.braindump.systemPrompt.append">Append custom instructions</option>
-          <option value="replace" data-i18n-key="admin.braindump.systemPrompt.replace">Replace default prompt</option>
-        </select>
-      </div>
-      <div class="admin-config-field full">
-        <label for="braindump-default-system-prompt" data-i18n-key="admin.braindump.defaultSystemPrompt">Current nia-todo default extraction prompt</label>
-        <textarea id="braindump-default-system-prompt" class="admin-config-textarea readonly" rows="12" readonly spellcheck="false"></textarea>
-        <div class="admin-help" data-i18n-key="admin.braindump.defaultSystemPromptHelp">Loaded from the backend's active default prompt definition. Use it as reference before appending or replacing instructions.</div>
-      </div>
-      <div class="admin-config-field full">
-        <label for="braindump-system-prompt-custom" data-i18n-key="admin.braindump.customSystemPrompt">Custom system prompt / instructions</label>
-        <textarea id="braindump-system-prompt-custom" class="admin-config-textarea" rows="8" data-i18n-placeholder-key="admin.braindump.customSystemPromptPlaceholder" placeholder="Optional. Leave empty to use the built-in BrainDump extractor prompt."></textarea>
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-stt-provider" data-i18n-key="admin.braindump.sttProvider">STT provider</label>
-        <select id="braindump-stt-provider">
-          <option value="whisper_cpp_remote" data-i18n-key="admin.braindump.sttProvider.remoteWhisper">Remote whisper.cpp server</option>
-          <option value="local_whisper_cpp" data-i18n-key="admin.braindump.sttProvider.localWhisper">Local whisper.cpp CLI fallback</option>
-        </select>
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-stt-url" data-i18n-key="admin.braindump.sttUrl">STT URL</label>
-        <input type="url" id="braindump-stt-url" placeholder="http://whisper:8766/inference" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-stt-language" data-i18n-key="admin.braindump.sttLanguage">STT language</label>
-        <input type="text" id="braindump-stt-language" placeholder="de" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="braindump-stt-timeout" data-i18n-key="admin.braindump.sttTimeout">STT timeout seconds</label>
-        <input type="number" id="braindump-stt-timeout" min="1" max="300" value="60">
-      </div>
-      <div class="admin-config-field full">
-        <label for="braindump-stt-token" data-i18n-key="admin.braindump.sttTokenOptional">STT token optional</label>
-        <input type="password" id="braindump-stt-token" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
-        <div class="admin-secret-note" id="braindump-stt-token-note"></div>
-      </div>
-    </div>
-    <div class="admin-help" data-i18n-key="admin.braindump.endpointHelp">BrainDump talks to any OpenAI-compatible endpoint. OpenClaw is only one possible endpoint; use model <code>openclaw/default</code> there, or any model name required by your provider.</div>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveBrainDumpConfig()" data-i18n-key="admin.braindump.save">Save BrainDump configuration</button>
-      <button class="btn btn-secondary" onclick="testBrainDumpConfig()" data-i18n-key="admin.braindump.testConnection">Test connection</button>
-    </div>
-    <div class="admin-error" id="braindump-config-error"></div>
-    <div class="admin-success" id="braindump-config-success"></div>
-  </div>
+      </section>
+      <section class="admin-main-section" data-admin-page-panel="users">
 
   <!-- Create User -->
   <div class="admin-card" id="create-user-card">
     <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Create new user</span></h2>
-    <div class="form-row">
-      <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
-      <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') focusAdminCreateLanguage()">
-      <select id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
+    <div class="form-row admin-create-user-form">
+      <input class="ui-field" type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
+      <input class="ui-field" type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
+      <input class="ui-field" type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') focusAdminCreateLanguage()">
+      <select class="ui-field" id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
         <option value="de" data-i18n-key="settings.language.de">German</option>
         <option value="en" data-i18n-key="settings.language.en">English</option>
+        <option value="cs" data-i18n-key="settings.language.cs">Czech</option>
+        <option value="fr" data-i18n-key="settings.language.fr">French</option>
+        <option value="it" data-i18n-key="settings.language.it">Italian</option>
+        <option value="nl" data-i18n-key="settings.language.nl">Dutch</option>
+        <option value="pl" data-i18n-key="settings.language.pl">Polish</option>
+        <option value="pt-BR" data-i18n-key="settings.language.pt-BR">Brazilian Portuguese</option>
+        <option value="ru" data-i18n-key="settings.language.ru">Russian</option>
+        <option value="sv" data-i18n-key="settings.language.sv">Swedish</option>
+        <option value="es" data-i18n-key="settings.language.es">Spanish</option>
+        <option value="zh-CN" data-i18n-key="settings.language.zh-CN">Chinese (Simplified)</option>
       </select>
       <div class="admin-config-field admin-config-checkbox switch-right" id="new-braindump-field" style="display:none;">
         <label for="new-braindump-enabled" data-i18n-key="admin.user.enableBrainDump">BrainDump AI aktivieren</label>
         <input type="checkbox" id="new-braindump-enabled">
       </div>
+    </div>
+    <div class="admin-action-row">
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
@@ -643,7 +250,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-error" id="create-error"></div>
     <div class="admin-success" id="create-success"></div>
     <div class="setup-link-box" id="create-link-box">
-      <input type="text" id="create-link-input" readonly>
+      <input class="ui-field" type="text" id="create-link-input" readonly>
       <button class="btn btn-primary" onclick="copySetupLink('create-link-input')" data-i18n-key="common.copy">Copy</button>
     </div>
   </div>
@@ -653,7 +260,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
     <div class="user-list-toolbar">
       <label class="user-search-wrap" for="user-search">
-        <input class="user-search-input" type="search" id="user-search" data-i18n-placeholder-key="admin.user.searchPlaceholder" placeholder="Search users" autocomplete="off" oninput="renderUsers()">
+        <input class="user-search-input ui-field" type="search" id="user-search" data-i18n-placeholder-key="admin.user.searchPlaceholder" placeholder="Search users" autocomplete="off" oninput="renderUsers()">
       </label>
       <div class="user-search-count" id="user-search-count"></div>
     </div>
@@ -681,6 +288,237 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     </table>
     </div>
   </div>
+      </section>
+      <section class="admin-main-section" data-admin-page-panel="email">
+
+  <!-- Email Configuration -->
+  <div class="admin-card" id="email-config-card">
+    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">SMTP</span></h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field">
+        <label for="email-smtp-host">SMTP Host</label>
+        <input class="ui-field" type="text" id="email-smtp-host" placeholder="smtp.example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-port">SMTP Port</label>
+        <input class="ui-field" type="number" id="email-smtp-port" min="1" max="65535" value="587">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport security</label>
+        <select class="ui-field" id="email-smtp-security">
+          <option value="starttls">STARTTLS</option>
+          <option value="tls">TLS/SSL</option>
+          <option value="none" data-i18n-key="admin.none">None</option>
+        </select>
+      </div>
+      <div class="admin-config-field admin-config-checkbox">
+        <input type="checkbox" id="email-smtp-auth-enabled">
+        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">Use SMTP auth</label>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-username">SMTP Username</label>
+        <input class="ui-field" type="text" id="email-smtp-username" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP password / secret</label>
+        <input class="ui-field" type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <div class="admin-secret-note" id="email-smtp-password-note"></div>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-from-address" data-i18n-key="admin.email.fromAddress">From-Adresse</label>
+        <input class="ui-field" type="email" id="email-from-address" placeholder="todo@example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-from-name" data-i18n-key="admin.email.fromName">From-Name</label>
+        <input class="ui-field" type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-reply-to">Reply-To optional</label>
+        <input class="ui-field" type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link validity in hours</label>
+        <input class="ui-field" type="number" id="email-link-ttl" min="1" max="168" value="24">
+      </div>
+      <div class="admin-config-field full">
+        <label for="email-test-to" data-i18n-key="admin.email.testTo">Test-Mail an</label>
+        <div class="form-row" style="margin-bottom:0;">
+          <input class="ui-field" type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
+          <button class="btn btn-secondary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Send test email</button>
+        </div>
+      </div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.email.help">Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without email sending enabled, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.</div>
+    <div class="admin-action-row">
+      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Save email configuration</button>
+    </div>
+    <div class="admin-error" id="email-config-error"></div>
+    <div class="admin-success" id="email-config-success"></div>
+  </div>
+      </section>
+      <section class="admin-main-section" data-admin-page-panel="security">
+  <!-- OIDC Configuration -->
+  <div class="admin-card" id="oidc-config-card">
+    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.oidc.title">OIDC</span></h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field"><label for="oidc-provider-name" data-i18n-key="admin.oidc.providerName">Provider name</label><input class="ui-field" type="text" id="oidc-provider-name" placeholder="Pocket ID"></div>
+      <div class="admin-config-field full"><label for="oidc-issuer-url" data-i18n-key="admin.oidc.issuerUrl">Issuer / provider URL</label><input class="ui-field" type="url" id="oidc-issuer-url" placeholder="https://id.example.org"></div>
+      <div class="admin-config-field"><label for="oidc-client-id" data-i18n-key="admin.oidc.clientId">Client ID</label><input class="ui-field" type="text" id="oidc-client-id" autocomplete="off"></div>
+      <div class="admin-config-field"><label for="oidc-client-secret" data-i18n-key="admin.oidc.clientSecret">Client secret</label><input class="ui-field" type="password" id="oidc-client-secret" data-i18n-placeholder-key="admin.oidc.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password"><div class="admin-secret-note" id="oidc-client-secret-note"></div></div>
+      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-public-client"><label for="oidc-public-client" data-i18n-key="admin.oidc.publicClient">Advanced: use public client</label><div class="admin-help" data-i18n-key="admin.oidc.publicClientHelp">Usually leave this off. Enable it only when the OIDC provider registered this client explicitly as a public client without a secret. With a client secret, nia-todo is a confidential client.</div></div>
+      <div class="admin-config-field"><label for="oidc-token-auth-method" data-i18n-key="admin.oidc.tokenAuthMethod">Token endpoint auth</label><select class="ui-field" id="oidc-token-auth-method"><option value="auto" data-i18n-key="admin.oidc.tokenAuth.auto">Auto</option><option value="client_secret_basic">client_secret_basic</option><option value="client_secret_post">client_secret_post</option></select><div class="admin-help" data-i18n-key="admin.oidc.tokenAuthHelp">Auto is usually right for Pocket ID.</div></div>
+      <div class="admin-config-field"><label for="oidc-scopes" data-i18n-key="admin.oidc.scopes">Scopes</label><input class="ui-field" type="text" id="oidc-scopes" value="openid email profile"></div>
+      <div class="admin-config-field full"><label data-i18n-key="admin.oidc.redirectUri">Redirect URI</label><code id="oidc-redirect-uri">/api/oidc/callback</code></div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.oidc.help">User login maps strictly by verified email on both sides. Admin OIDC must be linked manually. Register the redirect URI exactly like this in the provider.</div>
+    <div class="admin-linked-list" id="oidc-admin-links"></div>
+    <div class="admin-action-row split">
+      <div class="admin-secondary-actions">
+        <button type="button" class="btn btn-secondary hidden" id="admin-oidc-link-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
+        <button type="button" class="btn btn-secondary hidden" id="admin-oidc-unlink-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
+      </div>
+      <div class="admin-primary-actions">
+        <button class="btn btn-primary" onclick="saveOidcConfig()" data-i18n-key="admin.oidc.save">Save OIDC configuration</button>
+      </div>
+    </div>
+    <div class="admin-error" id="oidc-config-error"></div>
+    <div class="admin-success" id="oidc-config-success"></div>
+  </div>
+
+  <!-- Security / 2FA -->
+  <div class="admin-card" id="security-card">
+    <h2><span data-icon="shield"></span> <span data-i18n-key="admin.security.title">Require 2FA</span></h2>
+    <div class="security-policy-row">
+      <div class="security-policy-main">
+        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
+        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
+      </div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
+    <div class="admin-error" id="security-error"></div>
+    <div class="admin-success" id="security-success"></div>
+  </div>
+      </section>
+      <section class="admin-main-section" data-admin-page-panel="attachments">
+
+  <!-- Attachment Configuration -->
+  <div class="admin-card" id="attachment-config-card">
+    <h2><span data-icon="package"></span> <span data-i18n-key="admin.attachments.title">Anhänge</span></h2>
+    <div class="admin-help" data-i18n-key="admin.attachments.help">Steuert Uploads global. Bestehende Anhänge bleiben auch bei deaktivierten Uploads sichtbar und downloadbar.</div>
+    <div class="admin-config-grid">
+      <div class="admin-config-field">
+        <label for="attachments-default-quota-gb" data-i18n-key="admin.attachments.defaultQuotaGb">Standard-Quota pro User (GB)</label>
+        <input class="ui-field" type="number" id="attachments-default-quota-gb" min="0" max="1024" step="0.1" value="5">
+      </div>
+      <div class="admin-config-field full">
+        <label for="attachments-allowed-types" data-i18n-key="admin.attachments.allowedTypes">Erlaubte Dateiendungen</label>
+        <textarea id="attachments-allowed-types" class="admin-config-textarea ui-field" rows="3" placeholder="png, jpg, jpeg, gif, webp, pdf"></textarea>
+        <div class="admin-help" data-i18n-key="admin.attachments.allowedTypesHelp">Kommaseparierte Dateiendungen, z.B. png, jpg, pdf. Gefährliche aktive Formate wie SVG/HTML/JavaScript bleiben zusätzlich blockiert.</div>
+      </div>
+    </div>
+    <div class="admin-action-row">
+      <button class="btn btn-primary" onclick="saveAttachmentConfig()" data-i18n-key="admin.attachments.save">Anhang-Einstellungen speichern</button>
+    </div>
+    <div class="admin-error" id="attachment-config-error"></div>
+    <div class="admin-success" id="attachment-config-success"></div>
+  </div>
+      </section>
+      <section class="admin-main-section" data-admin-page-panel="braindump">
+
+  <!-- BrainDump Configuration -->
+  <div class="admin-card" id="braindump-config-card">
+    <h2><span data-icon="rocket"></span> <span data-i18n-key="admin.braindump.title">BrainDump AI</span></h2>
+    <div class="admin-help" data-i18n-key="admin.braindump.help">Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
+    <div class="admin-config-grid">
+      <div class="admin-config-field">
+        <label for="braindump-llm-provider" data-i18n-key="admin.braindump.llmProvider">LLM endpoint</label>
+        <select class="ui-field" id="braindump-llm-provider">
+          <option value="openai_compatible" data-i18n-key="admin.braindump.provider.openaiCompatible">OpenAI-compatible endpoint</option>
+          <option value="ollama" data-i18n-key="admin.braindump.provider.ollama">Ollama API</option>
+        </select>
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-llm-base-url" data-i18n-key="admin.braindump.llmBaseUrl">LLM base URL</label>
+        <input class="ui-field" type="url" id="braindump-llm-base-url" placeholder="http://llm:11434" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-llm-model" data-i18n-key="admin.braindump.llmModel">LLM model</label>
+        <input class="ui-field" type="text" id="braindump-llm-model" placeholder="openclaw/default or llama3.1" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-llm-api-key" data-i18n-key="admin.braindump.llmApiKeyOptional">LLM API key optional</label>
+        <input class="ui-field" type="password" id="braindump-llm-api-key" data-i18n-placeholder-key="admin.braindump.optionalSecretPlaceholder" placeholder="Optional; blank = no change" autocomplete="new-password">
+        <label class="admin-inline-check">
+          <input type="checkbox" id="braindump-llm-api-key-clear">
+          <span data-i18n-key="admin.braindump.clearStoredKey">Clear stored key</span>
+        </label>
+        <div class="admin-secret-note" id="braindump-llm-api-key-note"></div>
+      </div>
+      <div class="admin-config-field full">
+        <label for="braindump-llm-extra-headers" data-i18n-key="admin.braindump.llmExtraHeaders">LLM extra headers JSON optional</label>
+        <input class="ui-field" type="text" id="braindump-llm-extra-headers" placeholder='{"x-openclaw-model":"gpt-mini"}' autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-llm-timeout" data-i18n-key="admin.braindump.llmTimeout">LLM timeout seconds</label>
+        <input class="ui-field" type="number" id="braindump-llm-timeout" min="1" max="300" value="180">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-system-prompt-mode" data-i18n-key="admin.braindump.systemPrompt">System prompt</label>
+        <select class="ui-field" id="braindump-system-prompt-mode">
+          <option value="default" data-i18n-key="admin.braindump.systemPrompt.default">Use nia-todo default</option>
+          <option value="append" data-i18n-key="admin.braindump.systemPrompt.append">Append custom instructions</option>
+          <option value="replace" data-i18n-key="admin.braindump.systemPrompt.replace">Replace default prompt</option>
+        </select>
+      </div>
+      <div class="admin-config-field full">
+        <label for="braindump-default-system-prompt" data-i18n-key="admin.braindump.defaultSystemPrompt">Current nia-todo default extraction prompt</label>
+        <textarea id="braindump-default-system-prompt" class="admin-config-textarea readonly ui-field" rows="12" readonly spellcheck="false"></textarea>
+        <div class="admin-help" data-i18n-key="admin.braindump.defaultSystemPromptHelp">Loaded from the backend's active default prompt definition. Use it as reference before appending or replacing instructions.</div>
+      </div>
+      <div class="admin-config-field full">
+        <label for="braindump-system-prompt-custom" data-i18n-key="admin.braindump.customSystemPrompt">Custom system prompt / instructions</label>
+        <textarea id="braindump-system-prompt-custom" class="admin-config-textarea ui-field" rows="8" data-i18n-placeholder-key="admin.braindump.customSystemPromptPlaceholder" placeholder="Optional. Leave empty to use the built-in BrainDump extractor prompt."></textarea>
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-stt-provider" data-i18n-key="admin.braindump.sttProvider">STT provider</label>
+        <select class="ui-field" id="braindump-stt-provider">
+          <option value="whisper_cpp_remote" data-i18n-key="admin.braindump.sttProvider.remoteWhisper">Remote whisper.cpp server</option>
+          <option value="local_whisper_cpp" data-i18n-key="admin.braindump.sttProvider.localWhisper">Local whisper.cpp CLI fallback</option>
+        </select>
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-stt-url" data-i18n-key="admin.braindump.sttUrl">STT URL</label>
+        <input class="ui-field" type="url" id="braindump-stt-url" placeholder="http://whisper:8766/inference" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-stt-language" data-i18n-key="admin.braindump.sttLanguage">STT language</label>
+        <input class="ui-field" type="text" id="braindump-stt-language" placeholder="de" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-stt-timeout" data-i18n-key="admin.braindump.sttTimeout">STT timeout seconds</label>
+        <input class="ui-field" type="number" id="braindump-stt-timeout" min="1" max="300" value="60">
+      </div>
+      <div class="admin-config-field full">
+        <label for="braindump-stt-token" data-i18n-key="admin.braindump.sttTokenOptional">STT token optional</label>
+        <input class="ui-field" type="password" id="braindump-stt-token" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <div class="admin-secret-note" id="braindump-stt-token-note"></div>
+      </div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.braindump.endpointHelp">BrainDump talks to any OpenAI-compatible endpoint. OpenClaw is only one possible endpoint; use model <code>openclaw/default</code> there, or any model name required by your provider.</div>
+    <div class="admin-action-row split">
+      <div class="admin-secondary-actions">
+        <button class="btn btn-secondary" onclick="testBrainDumpConfig()" data-i18n-key="admin.braindump.testConnection">Test connection</button>
+      </div>
+      <div class="admin-primary-actions">
+        <button class="btn btn-primary" onclick="saveBrainDumpConfig()" data-i18n-key="admin.braindump.save">Save BrainDump configuration</button>
+      </div>
+    </div>
+    <div class="admin-error" id="braindump-config-error"></div>
+    <div class="admin-success" id="braindump-config-success"></div>
+  </div>
+      </section>
+    </main>
+  </div>
 
   </div>
 </div>
@@ -688,8 +526,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 <script type="module">
 import { initI18n, t as i18nT } from './static/js/i18n/index.js';
 import { hydrateSelect, refreshSelect } from './static/js/ui/dropdowns.js';
+import { initAutoScrollbars } from './static/js/features/auto-scrollbars.js';
+import { hydrateIcons, iconSvg } from './static/js/icons/lucide-icons.js';
 const ADMIN_SELECT_IDS = [
   'email-smtp-security',
+  'oidc-token-auth-method',
   'braindump-llm-provider',
   'braindump-system-prompt-mode',
   'braindump-stt-provider',
@@ -709,6 +550,10 @@ window.refreshAdminSelects = () => {
     if (select) refreshSelect(select);
   });
 };
+initAutoScrollbars();
+window.iconSvg = iconSvg;
+window.hydrateIcons = hydrateIcons;
+hydrateIcons(document);
 await initI18n();
 window.t = i18nT;
 window.hydrateAdminSelects();
@@ -718,38 +563,13 @@ window.dispatchEvent(new CustomEvent('admin-i18n-ready'));
 <script>
 const API = '';
 
-const ICONS = {
-  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
-  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
-  monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
-  'lock-keyhole': '<circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/>',
-  'key-round': '<path d="M2 18v3h3l9.7-9.7"/><circle cx="16.5" cy="7.5" r="5.5"/>',
-  'chevron-down': '<path d="m6 9 6 6 6-6"/>',
-  'user-plus': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
-  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-  'edit-3': '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
-  check: '<path d="M20 6 9 17l-5-5"/>',
-  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-  trash: '<path d="M3 6h18"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M19 6l-1 14c-.1 1-1 2-2 2H8c-1 0-1.9-1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
-  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-  'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
-  settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
-  'download-cloud': '<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
-  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-  sparkles: '<path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/>',
-  mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
-};
-function iconSvg(name) {
-  const paths = ICONS[name] || ICONS.shield;
-  return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-}
 
 function getSectionSummary(card) {
   const translate = window.t || ((key) => key);
   if (card.id === 'braindump-config-card') return translate('admin.braindump.summary');
   if (card.id === 'email-config-card') return translate('admin.email.summary');
   if (card.id === 'oidc-config-card') return translate('admin.oidc.summary');
+  if (card.id === 'attachment-config-card') return translate('admin.attachments.summary');
   if (card.id === 'security-card') return translate('admin.security.summary');
   return '';
 }
@@ -770,8 +590,7 @@ function buildSectionToggle(inputId) {
 }
 
 function setupAdminSections() {
-  const translate = window.t || ((key) => key);
-  const cards = document.querySelectorAll('#admin-content > .admin-card[id]:not(.admin-status-card)');
+  const cards = document.querySelectorAll('#admin-content .admin-card[id]:not(.admin-status-card)');
   cards.forEach((card) => {
     if (card.dataset.sectionReady === '1') return;
     const heading = card.querySelector(':scope > h2');
@@ -784,41 +603,60 @@ function setupAdminSections() {
       body.appendChild(node);
       node = next;
     }
-    const titleHtml = heading.innerHTML;
+    const sourceIcon = heading.querySelector('[data-icon]');
+    const iconName = sourceIcon?.getAttribute('data-icon') || 'settings';
+    const iconId = sourceIcon?.id || '';
+    const iconIdAttr = iconId ? ` id="${iconId}"` : '';
+    const titleClone = heading.cloneNode(true);
+    titleClone.querySelector('[data-icon]')?.remove();
+    const titleHtml = titleClone.innerHTML.trim();
     const summary = getSectionSummary(card);
-    heading.innerHTML = `<span class="admin-section-header-row"><button type="button" class="admin-section-header" aria-expanded="false"><span class="admin-section-title">${titleHtml}</span></button></span>`;
-    const headerRow = heading.querySelector('.admin-section-header-row');
-    const headerButton = heading.querySelector('button');
+    const headerRow = document.createElement('div');
+    headerRow.className = `admin-section-header-row${summary ? '' : ' no-summary'}`;
+    headerRow.innerHTML = `
+      <div class="ui-section-heading admin-section-heading">
+        <div${iconIdAttr} class="ui-section-icon" data-icon="${iconName}"></div>
+        <div class="admin-section-heading-copy">
+          <h4>${titleHtml}</h4>
+          ${summary ? `<p>${summary}</p>` : ''}
+        </div>
+      </div>
+    `;
     const headerToggle = card.id === 'braindump-config-card'
       ? buildSectionToggle('braindump-enabled')
       : card.id === 'email-config-card'
         ? buildSectionToggle('email-smtp-enabled')
         : card.id === 'oidc-config-card'
           ? buildSectionToggle('oidc-enabled')
-          : card.id === 'security-card'
+          : card.id === 'attachment-config-card'
+            ? buildSectionToggle('attachments-enabled')
+            : card.id === 'security-card'
           ? buildSectionToggle('twofa-policy-toggle')
           : null;
-    if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
     if (headerToggle) headerRow.appendChild(headerToggle);
-    headerRow.insertAdjacentHTML('beforeend', `<span class="admin-section-chevron">${iconSvg('chevron-down')}</span>`);
+    heading.replaceWith(headerRow);
     card.appendChild(body);
-    card.classList.add('admin-section-card', 'collapsed');
+    card.classList.add('admin-section-card', 'ui-section-card');
     card.dataset.sectionReady = '1';
-    const setExpandedState = () => headerButton.setAttribute('aria-expanded', card.classList.contains('collapsed') ? 'false' : 'true');
-    headerButton.addEventListener('click', () => {
-      card.classList.toggle('collapsed');
-      setExpandedState();
-    });
-    setExpandedState();
   });
+  window.hydrateIcons?.(document);
   wireHeaderToggles();
 }
 
-function hydrateIcons(root = document) {
-  root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = iconSvg(el.getAttribute('data-icon')); });
+function setupAdminPageNav() {
+  const buttons = document.querySelectorAll('.admin-page-nav-btn');
+  const panels = document.querySelectorAll('.admin-main-section');
+  const activate = (page) => {
+    buttons.forEach((button) => button.classList.toggle('active', button.dataset.adminPage === page));
+    panels.forEach((panel) => panel.classList.toggle('active', panel.dataset.adminPagePanel === page));
+  };
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => activate(button.dataset.adminPage));
+  });
 }
-hydrateIcons();
+
 setupAdminPasswordDialog();
+setupAdminPageNav();
 if (window.adminI18nReady) setupAdminSections();
 else window.addEventListener('admin-i18n-ready', setupAdminSections, { once: true });
 let adminToken = null;
@@ -826,7 +664,14 @@ let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
 let serverUpdateStartedInThisPage = false;
 let adminUsers = [];
+let currentAttachmentConfig = null;
 let currentStatsDays = 30;
+let twoFactorPolicyRequired = false;
+let brainDumpFeatureEnabled = false;
+let oidcFeatureEnabled = false;
+let oidcFeatureConfigured = false;
+let adminOidcIdentities = [];
+
 
 function focusAdminLoginPassword() {
   window.setTimeout(() => {
@@ -835,19 +680,44 @@ function focusAdminLoginPassword() {
 }
 
 function setTheme(mode) {
+  const normalizedMode = ['light', 'dark', 'system'].includes(mode) ? mode : 'system';
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  const isDark = normalizedMode === 'dark' || (normalizedMode === 'system' && prefersDark);
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  localStorage.setItem('theme', mode);
-  document.querySelectorAll('.admin-theme-toggle button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === mode);
-  });
+  if (normalizedMode === 'system') localStorage.removeItem('theme');
+  else localStorage.setItem('theme', normalizedMode);
+  updateAdminThemeCycleButton(normalizedMode);
+}
+
+function updateAdminThemeCycleButton(mode) {
+  const button = document.querySelector('[data-theme-cycle]');
+  if (!button) return;
+  const iconEl = button.querySelector('[data-theme-cycle-icon]');
+  const icons = { light: 'sun', dark: 'moon', system: 'monitor' };
+  const titles = {
+    light: adminTr('common.theme.light'),
+    dark: adminTr('common.theme.dark'),
+    system: adminTr('common.theme.system'),
+  };
+  const title = adminTr('menu.themeTitle', { theme: titles[mode] || titles.system });
+  button.dataset.themeMode = mode;
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  if (iconEl) {
+    iconEl.dataset.icon = icons[mode] || icons.system;
+    window.hydrateIcons?.(button);
+  }
+}
+
+function cycleAdminTheme() {
+  const cycle = ['light', 'dark', 'system'];
+  const current = localStorage.getItem('theme') || 'system';
+  const idx = cycle.indexOf(current);
+  setTheme(cycle[(idx + 1) % cycle.length]);
 }
 
 // Init theme
-const storedTheme = localStorage.getItem('theme');
-if (storedTheme && storedTheme !== 'system') setTheme(storedTheme);
-else setTheme('system');
+setTheme(localStorage.getItem('theme') || 'system');
 
 // Migrate old token storage: clear old plaintext admin_token
 function migrateOldAdminToken() {
@@ -909,6 +779,16 @@ function getAdminToken() {
   return localStorage.getItem('admin_jwt_token');
 }
 
+function setAdminAuthenticated(isAuthenticated) {
+  document.getElementById('admin-header-actions').hidden = !isAuthenticated;
+  document.getElementById('admin-content').style.display = isAuthenticated ? 'block' : 'none';
+  document.getElementById('admin-login-card').style.display = isAuthenticated ? 'none' : 'block';
+  if (!isAuthenticated) {
+    closeAdminPasswordDialog();
+    document.getElementById('admin-login-error').textContent = '';
+  }
+}
+
 function startAdminApp() {
   hydrateAdminOidcLogin();
   consumeAdminOidcErrorNotice();
@@ -918,17 +798,16 @@ function startAdminApp() {
   if (adminToken) {
     // Try to use stored JWT, if invalid show login
     loadAdminData().then(() => {
-      document.getElementById('admin-login-card').style.display = 'none';
-      document.getElementById('admin-content').style.display = 'block';
+      setAdminAuthenticated(true);
       consumeAdminOidcLinkResult();
     }).catch(() => {
       localStorage.removeItem('admin_jwt_token');
       adminToken = null;
-      document.getElementById('admin-login-card').style.display = 'block';
+      setAdminAuthenticated(false);
       focusAdminLoginPassword();
     });
   } else {
-    document.getElementById('admin-login-card').style.display = 'block';
+    setAdminAuthenticated(false);
     focusAdminLoginPassword();
   }
 }
@@ -1052,8 +931,7 @@ async function doAdminLogin() {
     if (data.csrf_token) {
       localStorage.setItem('csrf_token', data.csrf_token);
     }
-    document.getElementById('admin-login-card').style.display = 'none';
-    document.getElementById('admin-content').style.display = 'block';
+    setAdminAuthenticated(true);
     await loadAdminData();
     consumeAdminOidcLinkResult();
   } catch(e) {
@@ -1061,16 +939,11 @@ async function doAdminLogin() {
   }
 }
 
-let twoFactorPolicyRequired = false;
-let brainDumpFeatureEnabled = false;
-let oidcFeatureEnabled = false;
-let oidcFeatureConfigured = false;
-let adminOidcIdentities = [];
-
 async function loadAdminData() {
-  const [usersData, configData, brainDumpConfigData, emailConfigData, oidcConfigData, oidcLinksData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
+  const [usersData, configData, attachmentConfigData, brainDumpConfigData, emailConfigData, oidcConfigData, oidcLinksData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
+    apiGet('/api/admin/attachment-config'),
     apiGet('/api/admin/braindump-config'),
     apiGet('/api/admin/email-config'),
     apiGet('/api/admin/oidc-config'),
@@ -1083,6 +956,7 @@ async function loadAdminData() {
   brainDumpFeatureEnabled = !!brainDumpConfigData.enabled;
   renderTwoFactorPolicy(twoFactorPolicy);
   renderInstanceConfig(configData);
+  renderAttachmentConfig(attachmentConfigData);
   renderBrainDumpConfig(brainDumpConfigData);
   renderUsers(usersData.users);
   renderEmailConfig(emailConfigData);
@@ -1104,6 +978,17 @@ function formatAdminBytes(bytes) {
   let idx = 0;
   while (size >= 1024 && idx < units.length - 1) { size /= 1024; idx += 1; }
   return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[idx]}`;
+}
+
+function bytesToGb(bytes) {
+  const value = Number(bytes || 0) / (1024 ** 3);
+  return Number.isFinite(value) ? Number(value.toFixed(2)) : 0;
+}
+
+function gbToBytes(gb) {
+  const value = Number(gb);
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.round(value * (1024 ** 3));
 }
 
 function statTile(label, value, foot = '') {
@@ -1466,6 +1351,7 @@ function closeAdminPasswordDialog() {
 }
 
 function openAdminPasswordDialog() {
+  if (!adminToken) return;
   const dialog = document.getElementById('admin-password-dialog');
   if (!dialog) return;
   document.getElementById('admin-old-password').value = '';
@@ -1499,24 +1385,68 @@ function renderInstanceConfig(config) {
   document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
 }
 
-function updateAdminOidcToolbar() {
+function attachmentTypesToExtensionInput(types = []) {
+  const mapped = [];
+  const add = (value) => {
+    const normalized = String(value || '').trim().toLowerCase().replace(/^\.+/, '');
+    if (normalized && !mapped.includes(normalized)) mapped.push(normalized);
+  };
+  for (const raw of Array.isArray(types) ? types : []) {
+    const item = String(raw || '').trim().toLowerCase();
+    if (!item) continue;
+    if (item === 'image/*') ['png', 'jpg', 'jpeg', 'gif', 'webp'].forEach(add);
+    else if (item === 'application/pdf') add('pdf');
+    else if (item === 'text/plain') add('txt');
+    else if (item === 'text/markdown') ['md', 'markdown'].forEach(add);
+    else if (item === 'application/zip') add('zip');
+    else if (item === 'application/json') add('json');
+    else if (item.startsWith('.')) add(item);
+    else if (!item.includes('/')) add(item);
+  }
+  return mapped.join(', ');
+}
+
+function renderAttachmentConfig(config = {}) {
+  currentAttachmentConfig = { ...config };
+  document.getElementById('attachments-enabled').checked = config.enabled !== false;
+  document.getElementById('attachments-default-quota-gb').value = bytesToGb(config.default_quota_bytes ?? (5 * 1024 ** 3));
+  document.getElementById('attachments-allowed-types').value = attachmentTypesToExtensionInput(config.allowed_types || []);
+}
+
+function readAttachmentTypesInput(value) {
+  return String(value || '')
+    .split(/[\n,;\s]+/)
+    .map(item => item.trim().toLowerCase().replace(/^\*\./, '').replace(/^\.+/, ''))
+    .filter(Boolean);
+}
+
+function readAttachmentConfigForm() {
+  return {
+    enabled: document.getElementById('attachments-enabled').checked,
+    allowed_types: readAttachmentTypesInput(document.getElementById('attachments-allowed-types').value),
+    default_quota_bytes: gbToBytes(document.getElementById('attachments-default-quota-gb').value),
+  };
+}
+
+function updateAdminOidcActions() {
   const linked = adminOidcIdentities.length > 0;
   const canLink = oidcFeatureEnabled && oidcFeatureConfigured;
-  document.getElementById('admin-oidc-link-toolbar-btn')?.classList.toggle('hidden', !(canLink && !linked));
-  document.getElementById('admin-oidc-unlink-toolbar-btn')?.classList.toggle('hidden', !linked);
+  document.getElementById('admin-oidc-link-btn')?.classList.toggle('hidden', !(canLink && !linked));
+  document.getElementById('admin-oidc-unlink-btn')?.classList.toggle('hidden', !linked);
 }
 
 function renderOidcConfig(config = {}) {
   oidcFeatureEnabled = !!config.enabled;
   oidcFeatureConfigured = !!(config.issuer_url && config.client_id && (config.public_client || config.client_secret_configured));
   document.getElementById('oidc-enabled').checked = oidcFeatureEnabled;
-  updateAdminOidcToolbar();
+  updateAdminOidcActions();
   document.getElementById('oidc-provider-name').value = config.provider_name || 'OIDC';
   document.getElementById('oidc-issuer-url').value = config.issuer_url || '';
   document.getElementById('oidc-client-id').value = config.client_id || '';
   document.getElementById('oidc-client-secret').value = '';
   document.getElementById('oidc-public-client').checked = !!config.public_client;
   document.getElementById('oidc-token-auth-method').value = config.token_auth_method || 'auto';
+  window.refreshAdminSelects?.();
   document.getElementById('oidc-scopes').value = config.scopes || 'openid email profile';
   document.getElementById('oidc-redirect-uri').textContent = config.redirect_uri || '/api/oidc/callback';
   document.getElementById('oidc-client-secret-note').textContent = config.client_secret_configured ? adminTr('admin.oidc.secretStored') : adminTr('admin.oidc.secretMissing');
@@ -1524,7 +1454,7 @@ function renderOidcConfig(config = {}) {
 
 function renderAdminOidcLinks(identities = []) {
   adminOidcIdentities = identities;
-  updateAdminOidcToolbar();
+  updateAdminOidcActions();
   const container = document.getElementById('oidc-admin-links');
   if (!container) return;
   if (!identities.length) {
@@ -1534,7 +1464,6 @@ function renderAdminOidcLinks(identities = []) {
   container.innerHTML = identities.map(identity => `
     <div class="admin-linked-item">
       <div><strong>${escapeHtml(identity.display_label || identity.subject || adminTr('admin.oidc.identityFallback'))}</strong><br><span class="admin-muted">${escapeHtml(identity.issuer || '')}</span></div>
-      <button class="btn btn-secondary" onclick="unlinkAdminOidcIdentity(${Number(identity.id)})">${escapeHtml(adminTr('admin.oidc.unlinkAction'))}</button>
     </div>
   `).join('');
 }
@@ -1791,9 +1720,11 @@ function renderServerUpdateProgress(progress) {
 function renderServerUpdateStatusVisual(status) {
   const card = document.getElementById('server-update-card');
   const badge = document.getElementById('server-update-badge');
+  const icon = document.getElementById('server-update-icon');
   const severity = status.update_severity || (status.update_available ? 'minor_patch' : 'none');
   card.classList.remove('update-ok', 'update-warning', 'update-danger');
   badge.classList.remove('ok', 'warning', 'danger');
+  if (icon) icon.innerHTML = iconSvg(status.update_available ? 'cloud-alert' : 'cloud-check');
   if (severity === 'major') {
     card.classList.add('update-danger');
     badge.classList.add('danger');
@@ -2031,6 +1962,11 @@ function wireHeaderToggles() {
     oidcToggle.dataset.autosaveReady = '1';
     oidcToggle.addEventListener('change', autoSaveOidcToggle);
   }
+  const attachmentToggle = document.getElementById('attachments-enabled');
+  if (attachmentToggle && attachmentToggle.dataset.autosaveReady !== '1') {
+    attachmentToggle.dataset.autosaveReady = '1';
+    attachmentToggle.addEventListener('change', autoSaveAttachmentToggle);
+  }
   const twofaToggle = document.getElementById('twofa-policy-toggle');
   if (twofaToggle && twofaToggle.dataset.autosaveReady !== '1') {
     twofaToggle.dataset.autosaveReady = '1';
@@ -2067,6 +2003,33 @@ async function saveInstanceConfig() {
     document.getElementById('instance-config-success').textContent = t('admin.instance.saved');
   } catch(e) {
     document.getElementById('instance-config-error').textContent = e.message;
+  }
+}
+
+async function saveAttachmentConfig() {
+  document.getElementById('attachment-config-error').textContent = '';
+  document.getElementById('attachment-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/attachment-config', readAttachmentConfigForm());
+    renderAttachmentConfig(data);
+    document.getElementById('attachment-config-success').textContent = t('admin.attachments.saved');
+  } catch(e) {
+    document.getElementById('attachment-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveAttachmentToggle() {
+  const toggle = document.getElementById('attachments-enabled');
+  const previous = currentAttachmentConfig?.enabled !== false;
+  document.getElementById('attachment-config-error').textContent = '';
+  document.getElementById('attachment-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/attachment-config', readAttachmentConfigForm());
+    renderAttachmentConfig(data);
+    document.getElementById('attachment-config-success').textContent = t('admin.attachments.saved');
+  } catch(e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('attachment-config-error').textContent = e.message;
   }
 }
 
@@ -2122,6 +2085,20 @@ function renderUserBrainDump(user) {
   return `<div class="user-card-braindump-control"><span class="badge ${enabled ? 'badge-success' : 'badge-muted'}">${escapeHtml(label)}</span><input class="user-card-switch" type="checkbox" ${enabled ? 'checked' : ''} aria-label="${escapeHtmlAttr(t('admin.user.brainDump'))}" onchange="toggleUserBrainDump(${user.id}, this.checked)"></div>`;
 }
 
+function renderUserAttachmentQuota(user) {
+  const used = Number(user.attachment_usage_bytes || 0);
+  const effective = Number(user.attachment_quota_effective_bytes || 0);
+  const override = user.attachment_quota_bytes == null ? '' : bytesToGb(user.attachment_quota_bytes);
+  const pct = effective > 0 ? Math.min(100, Math.round((used / effective) * 100)) : 100;
+  return `<div class="user-attachment-quota-control">
+    <div class="admin-muted">${escapeHtml(formatAdminBytes(used))} / ${escapeHtml(formatAdminBytes(effective))} · ${pct}%</div>
+    <div class="user-attachment-quota-row">
+      <input class="ui-field" type="number" id="attachment-quota-${user.id}" min="0" max="1024" step="0.1" value="${escapeHtmlAttr(override)}" placeholder="${escapeHtmlAttr(t('admin.attachments.useDefault'))}">
+      <button class="btn btn-secondary" onclick="saveUserAttachmentQuota(${user.id})">${escapeHtml(t('common.save'))}</button>
+    </div>
+  </div>`;
+}
+
 function renderUserLastActive(user) {
   const formatted = formatServerTimestamp(user.last_active_at);
   const label = user.last_active_at ? formatted : t('admin.user.neverActive');
@@ -2132,7 +2109,7 @@ function renderUserUsernameDisplay(userId, usernameValue) {
   const username = usernameValue ? escapeHtml(usernameValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="username-display-${userId}">
     <span>${username}</span>
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('admin.user.editUsername'))}" onclick="editUserUsername(${userId}, ${jsStringAttr(usernameValue || '')})">${iconSvg('edit-3')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('admin.user.editUsername'))}" onclick="editUserUsername(${userId}, ${jsStringAttr(usernameValue || '')})">${iconSvg('edit-3')}</button>
   </span>`;
 }
 
@@ -2140,7 +2117,7 @@ function renderUserEmailDisplay(userId, emailValue) {
   const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="email-display-${userId}">
     <span>${email}</span>
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('admin.user.editEmail'))}" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('admin.user.editEmail'))}" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
   </span>`;
 }
 
@@ -2282,6 +2259,7 @@ function renderUsers(users) {
             <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span><div class="user-card-value">${renderUserLastActive(u)}</div></div>
             <div class="user-card-row"><span class="user-card-label">2FA</span><div class="user-card-value">${renderUserTwoFactorStatus(u)}</div></div>
             <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span><div class="user-card-value">${renderUserApiKeys(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.attachments.quota'))}</span><div class="user-card-value">${renderUserAttachmentQuota(u)}</div></div>
             ${brainDumpFeatureEnabled ? `<div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value">${renderUserBrainDump(u)}</div></div>` : ''}
           </div>
 
@@ -2354,9 +2332,9 @@ function editUserUsername(userId, currentUsername) {
   const container = document.getElementById(`username-display-${userId}`);
   if (!container) return;
   container.outerHTML = `<span class="email-edit" id="username-edit-${userId}">
-    <input id="username-input-${userId}" type="text" value="${escapeHtmlAttr(currentUsername || '')}" placeholder="${escapeHtmlAttr(t('setup.usernameLabel'))}" autocomplete="off" maxlength="80" onkeydown="if(event.key==='Enter') saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')}); if(event.key==='Escape') cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('check')}</button>
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('x')}</button>
+    <input class="ui-field" id="username-input-${userId}" type="text" value="${escapeHtmlAttr(currentUsername || '')}" placeholder="${escapeHtmlAttr(t('setup.usernameLabel'))}" autocomplete="off" maxlength="80" onkeydown="if(event.key==='Enter') saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')}); if(event.key==='Escape') cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('check')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('x')}</button>
   </span>`;
   document.getElementById(`username-input-${userId}`)?.focus();
 }
@@ -2399,9 +2377,9 @@ function editUserEmail(userId, currentEmail) {
   const container = document.getElementById(`email-display-${userId}`);
   if (!container) return;
   container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
-    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="${escapeHtmlAttr(t('admin.user.emailPlaceholder'))}" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
+    <input class="ui-field" id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="${escapeHtmlAttr(t('admin.user.emailPlaceholder'))}" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
   </span>`;
   document.getElementById(`email-input-${userId}`)?.focus();
 }
@@ -2427,6 +2405,24 @@ async function saveUserEmail(userId) {
   }
   try {
     await apiPatch(`/api/admin/users/${userId}`, { email });
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function saveUserAttachmentQuota(userId) {
+  const input = document.getElementById(`attachment-quota-${userId}`);
+  const raw = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error') || document.getElementById('create-error');
+  const successEl = document.getElementById('security-success') || document.getElementById('create-success');
+  if (errorEl) errorEl.textContent = '';
+  if (successEl) successEl.textContent = '';
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, {
+      attachment_quota_bytes: raw === '' ? null : gbToBytes(raw),
+    });
+    if (successEl) successEl.textContent = t('admin.attachments.userQuotaSaved');
     await loadUsers();
   } catch(e) {
     if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
@@ -2535,6 +2531,11 @@ async function generatePasswordLink(userId, username) {
 }
 
 async function adminLogout() {
+  if (!adminToken) {
+    setAdminAuthenticated(false);
+    focusAdminLoginPassword();
+    return;
+  }
   try {
     // Call backend logout to invalidate all admin JWTs
     await fetch(API + '/api/admin/logout', {
@@ -2547,8 +2548,7 @@ async function adminLogout() {
   localStorage.removeItem('admin_jwt_token');
   localStorage.removeItem('csrf_token');
   adminToken = null;
-  document.getElementById('admin-content').style.display = 'none';
-  document.getElementById('admin-login-card').style.display = 'block';
+  setAdminAuthenticated(false);
   document.getElementById('admin-login-password').value = '';
   focusAdminLoginPassword();
 }

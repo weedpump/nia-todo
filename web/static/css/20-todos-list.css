@@ -1,0 +1,495 @@
+/* Todo list rows, groups, swipe states */
+
+/* Todo list */
+.todo-list {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding: 16px 24px;
+}
+
+.todo-group {
+  margin-bottom: 16px;
+}
+
+.todo-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  padding: 4px 0;
+}
+
+.pinned-todos-group {
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12)), color-mix(in srgb, var(--bg-secondary) 88%, transparent));
+  box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+  overflow: visible;
+}
+
+.pinned-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent);
+  margin-bottom: 10px;
+  padding: 0;
+  font-weight: 900;
+}
+
+.pinned-title .ui-icon {
+  width: 15px;
+  height: 15px;
+  fill: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.pinned-todos .todo-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Project groups within global views */
+.project-group {
+  margin-bottom: 12px;
+}
+.project-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.project-group-header .project-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.project-group-name {
+  flex: 1;
+}
+.project-group-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.project-group-todos {
+  padding-left: 0;
+}
+
+.todo-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  transition: all 0.15s;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.todo-item.swiping,
+.calendar-view .calendar-event.swiping {
+  transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012)));
+  transition: none;
+  user-select: none;
+  z-index: 2;
+  --swipe-progress: 0;
+  --swipe-action-opacity: calc(.36 + (var(--swipe-progress, 0) * .64));
+}
+
+.todo-item.swipe-settling,
+.todo-item.swipe-committing,
+.calendar-view .calendar-event.swipe-settling,
+.calendar-view .calendar-event.swipe-committing {
+  transition: transform 0.2s cubic-bezier(.2, .82, .22, 1), border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.todo-item.swipe-committing,
+.calendar-view .calendar-event.swipe-committing {
+  transition-duration: 0.14s;
+}
+
+.todo-item.swiping::before,
+.todo-item.swiping::after,
+.calendar-view .calendar-event.swiping::before,
+.calendar-view .calendar-event.swiping::after {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 132px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, .24);
+  border-radius: calc(var(--radius) + 2px);
+  color: white;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .018em;
+  opacity: var(--swipe-action-opacity);
+  pointer-events: none;
+  backdrop-filter: blur(8px) saturate(1.12);
+}
+
+.todo-item.swiping::before,
+.calendar-view .calendar-event.swiping::before {
+  content: attr(data-swipe-right-label);
+  right: 100%;
+  justify-content: flex-end;
+  width: max(var(--swipe-x, 0), 132px);
+  transform: translateX(calc(var(--swipe-progress, 0) * 5px)) scale(calc(.96 + (var(--swipe-progress, 0) * .04)));
+  transform-origin: right center;
+  background:
+    radial-gradient(circle at 92% 50%, rgba(255,255,255,.22), transparent 26px),
+    linear-gradient(90deg, rgba(251, 191, 36, .54), rgba(217, 119, 6, .96));
+  box-shadow: inset 4px 0 0 rgba(255,255,255,.34), 0 12px 28px rgba(217, 119, 6, .22);
+}
+
+.todo-item.swiping::after,
+.calendar-view .calendar-event.swiping::after {
+  content: attr(data-swipe-left-label);
+  left: 100%;
+  justify-content: flex-start;
+  width: max(calc(var(--swipe-x, 0) * -1), 132px);
+  transform: translateX(calc(var(--swipe-progress, 0) * -5px)) scale(calc(.96 + (var(--swipe-progress, 0) * .04)));
+  transform-origin: left center;
+  background:
+    radial-gradient(circle at 8% 50%, rgba(255,255,255,.22), transparent 26px),
+    linear-gradient(90deg, rgba(22, 163, 74, .96), rgba(74, 222, 128, .54));
+  box-shadow: inset -4px 0 0 rgba(255,255,255,.34), 0 12px 28px rgba(22, 163, 74, .22);
+}
+
+.todo-item.swipe-right,
+.calendar-view .calendar-event.swipe-right {
+  border-color: color-mix(in srgb, var(--warning) 72%, var(--border));
+  background:
+    linear-gradient(90deg, rgba(245, 158, 11, calc(.06 + (var(--swipe-progress, 0) * .10))), transparent 56%),
+    var(--bg-secondary);
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--warning) 78%, white), 0 12px 30px rgba(217, 119, 6, calc(.10 + (var(--swipe-progress, 0) * .16))), 0 4px 10px rgba(0,0,0,.08);
+}
+
+.todo-item.swipe-right.swipe-ready,
+.calendar-view .calendar-event.swipe-right.swipe-ready {
+  box-shadow: inset 5px 0 0 color-mix(in srgb, var(--warning) 84%, white), 0 18px 38px rgba(217, 119, 6, .28), 0 0 0 2px rgba(245, 158, 11, .18);
+}
+
+.todo-item.swipe-left,
+.calendar-view .calendar-event.swipe-left {
+  border-color: color-mix(in srgb, var(--success) 72%, var(--border));
+  background:
+    linear-gradient(270deg, rgba(22, 163, 74, calc(.06 + (var(--swipe-progress, 0) * .10))), transparent 56%),
+    var(--bg-secondary);
+  box-shadow: inset -4px 0 0 color-mix(in srgb, var(--success) 78%, white), 0 12px 30px rgba(22, 163, 74, calc(.10 + (var(--swipe-progress, 0) * .16))), 0 4px 10px rgba(0,0,0,.08);
+}
+
+.todo-item.swipe-left.swipe-ready,
+.calendar-view .calendar-event.swipe-left.swipe-ready {
+  box-shadow: inset -5px 0 0 color-mix(in srgb, var(--success) 84%, white), 0 18px 38px rgba(22, 163, 74, .28), 0 0 0 2px rgba(34, 197, 94, .18);
+}
+
+.todo-item:hover,
+.todo-item:focus-within {
+  border-color: var(--accent);
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12)), var(--bg-tertiary));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary));
+}
+
+.todo-item.done { opacity: 0.5; }
+
+.todo-check {
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--success);
+  transition: all 0.15s;
+  background: transparent;
+  padding: 0;
+  appearance: none;
+}
+
+.todo-check:hover { border-color: var(--accent); }
+
+.todo-item.done .todo-check {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.todo-item.in-progress .todo-check {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.todo-item.in-progress {
+  border-left: 3px solid var(--warning);
+}
+
+.todo-item.in-progress .todo-title {
+  font-weight: 600;
+}
+
+.todo-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.todo-body.has-meta {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.todo-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.todo-meta-row {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.todo-meta-chip.todo-location {
+  color: var(--todo-chip-location);
+  border-color: color-mix(in srgb, var(--todo-chip-location) 30%, transparent);
+  background: color-mix(in srgb, var(--todo-chip-location) 12%, transparent);
+}
+
+.todo-desc-preview {
+  font-style: italic;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.todo-desc-preview ul {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+
+.todo-desc-preview li {
+  margin: 2px 0;
+}
+
+.todo-desc-preview code {
+  background: var(--bg-tertiary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.todo-desc-preview a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.todo-desc-preview a:hover {
+  text-decoration: underline;
+}
+
+.todo-desc-preview strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.todo-desc-preview em {
+  font-style: italic;
+}
+
+.todo-title {
+  font-size: 14px;
+  font-weight: 500;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.todo-item.done .todo-title { text-decoration: line-through; }
+
+.todo-prio {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.todo-meta {
+  display: inline;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.todo-due { color: var(--text-muted); }
+.todo-due.soon { color: var(--warning); font-weight: 600; }
+.todo-due.overdue { color: var(--danger); font-weight: 700; }
+
+.todo-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.todo-actions button,
+.todo-snooze-menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  border-radius: 7px;
+  line-height: 1;
+}
+
+.todo-actions button:hover,
+.todo-snooze-menu summary:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.todo-status-menu {
+  display: none;
+  position: relative;
+}
+
+.todo-item:has(.todo-status-menu[open]),
+.todo-item:has(.todo-snooze-menu[open]) {
+  z-index: 240;
+}
+
+.todo-status-menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 108px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+  list-style-type: none;
+  appearance: none;
+  -webkit-appearance: none;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.todo-status-menu summary::-webkit-details-marker { display: none; }
+.todo-status-menu summary::marker { content: ""; font-size: 0; }
+
+.todo-status-menu summary:hover,
+.todo-status-menu[open] summary {
+  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
+  color: var(--text-primary);
+}
+
+.todo-status-menu summary .ui-icon {
+  width: 13px;
+  height: 13px;
+  opacity: 0.75;
+  transition: transform 0.15s;
+}
+
+.todo-status-menu[open] summary .ui-icon {
+  transform: rotate(180deg);
+}
+
+.todo-action-menu.ui-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  z-index: 1000;
+  min-width: 148px;
+  max-width: min(210px, calc(100vw - 24px));
+  padding: 4px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.20), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 20%, transparent);
+}
+
+
+.todo-status-menu[open]:not(.placement-ready) .todo-action-menu.ui-menu,
+.todo-snooze-menu[open]:not(.placement-ready) .todo-action-menu.ui-menu {
+  visibility: hidden;
+}
+
+.todo-status-menu.opens-up .todo-action-menu.ui-menu,
+.todo-snooze-menu.opens-up .todo-action-menu.ui-menu {
+  top: auto;
+  bottom: calc(100% + 5px);
+}
+
+.todo-action-menu .ui-menu-item {
+  min-height: 30px;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 6px 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.todo-action-menu .ui-menu-item span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.todo-action-menu .ui-menu-item .ui-icon {
+  width: 13px;
+  height: 13px;
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.todo-action-menu .ui-menu-item.active,
+.todo-action-menu .ui-menu-item[aria-current="true"] {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+@media (min-width: 1024px) {
+  .todo-status-menu {
+    display: inline-block;
+  }
+}
+

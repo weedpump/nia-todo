@@ -88,9 +88,16 @@ The response matches the normal login (`access_token`, `csrf_token`, `user`). Th
   "email": "user@example.com",
   "avatar_url": "/api/avatars/user-1.webp",
   "avatar_updated_at": "2026-05-21T00:00:00+00:00",
-  "is_admin": true
+  "is_admin": true,
+  "attachments_enabled": true,
+  "attachment_usage_bytes": 1048576,
+  "attachment_quota_bytes": 5368709120,
+  "attachment_quota_remaining_bytes": 5367660544,
+  "attachments_allowed_types": [".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf"]
 }
 ```
+
+Attachment fields describe the current user's effective upload policy and storage usage. A quota of `0` means uploads are locked/full for that user.
 
 ### Change Own Profile
 `PATCH /api/me/profile`
@@ -587,6 +594,31 @@ Security-sensitive account actions require a fresh, single-use MFA action grant 
 
 Invalidates all admin sessions by increasing the admin token version.
 
+### Attachment Configuration
+`GET /api/admin/attachment-config`
+
+**Response**
+```json
+{
+  "enabled": true,
+  "allowed_types": [".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf"],
+  "default_quota_bytes": 5368709120
+}
+```
+
+`PATCH /api/admin/attachment-config`
+
+**Body**
+```json
+{
+  "enabled": true,
+  "allowed_types": ["png", "jpg", "jpeg", "gif", "webp", "pdf"],
+  "default_quota_bytes": 5368709120
+}
+```
+
+`allowed_types` may be bare extensions or dot-prefixed extensions; the server normalizes them to dot-prefixed lowercase values. `default_quota_bytes=0` makes the global default quota locked/full unless a user override is set.
+
 ### List Users
 `GET /api/admin/users`
 
@@ -599,7 +631,10 @@ Invalidates all admin sessions by increasing the admin token version.
       "username": "demo",
       "display_name": "Max Mustermann",
       "email": "user@example.com",
-      "is_admin": true
+      "is_admin": true,
+      "attachment_quota_bytes": null,
+      "attachment_quota_effective_bytes": 5368709120,
+      "attachment_usage_bytes": 1048576
     }
   ]
 }
@@ -642,10 +677,10 @@ The admin no longer sets a password directly. A one-time password setup link is 
 
 **Body**
 ```json
-{ "email": "neu@example.com" }
+{ "email": "neu@example.com", "attachment_quota_bytes": 1073741824 }
 ```
 
-Optionally, `display_name` can be provided as well.
+Optionally, `display_name`, `username`, `braindump_enabled`, and `attachment_quota_bytes` can be provided as well. `attachment_quota_bytes=null` uses the global default; `0` locks uploads for that user.
 
 **Response**
 ```json
@@ -805,7 +840,14 @@ Authorization: ApiKey nt_...
       "created_at": "2026-05-12T21:39:40",
       "updated_at": "2026-05-12T21:39:40",
       "reminders": [],
-      "labels": []
+      "subtasks": [
+        {
+          "id": 10,
+          "title": "Backup prüfen",
+          "is_done": false,
+          "sort_order": 0
+        }
+      ]
     }
   ]
 }
@@ -824,7 +866,8 @@ Authorization: ApiKey nt_...
   "status": "pending",
   "project_id": 3,
   "section_id": null,
-  "reminders": []
+  "reminders": [],
+  "subtasks": []
 }
 ```
 
@@ -841,7 +884,11 @@ Authorization: ApiKey nt_...
   "section_id": 1,
   "due_date": "2026-05-14T10:00:00Z",
   "remind_at": "2026-05-14T09:00:00Z",
-  "recurring_rule": {"frequency": "daily", "interval": 1}
+  "recurring_rule": {"frequency": "daily", "interval": 1},
+  "subtasks": [
+    {"title": "Waschmaschine starten", "is_done": false},
+    {"title": "Wäsche aufhängen", "is_done": false}
+  ]
 }
 ```
 
@@ -854,6 +901,8 @@ Authorization: ApiKey nt_...
 - `due_date` ISO-8601, optional, valid year `1900..9999`
 - `remind_at` ISO-8601, optional, valid year `1900..9999`
 - `recurring_rule` object, optional; MVP supports `frequency= daily|weekly|monthly|yearly` and `interval >= 1`. Requires `due_date`. When a recurring todo is completed, the API marks the current todo done and creates the next pending occurrence.
+- `subtasks` array, optional; checklist items with `title`, `is_done`, and optional `sort_order`. They are lightweight checklist entries, not full child todos. REST list/get/create/update responses and WebSocket todo sync payloads include `subtasks` consistently.
+- `confirm_incomplete_subtasks_completion` bool, optional; required when setting `status=done` while any subtask remains open.
 
 **Response**
 ```json
@@ -870,6 +919,9 @@ Authorization: ApiKey nt_...
 **Body**
 - same fields as POST, all optional
 - `status=done` sets `completed_at`
+- updating `subtasks` replaces the todo checklist with the provided ordered list
+- omitting `subtasks` leaves the existing checklist unchanged; sending an empty array clears it
+- setting `status=done` while subtasks are open returns HTTP 409 unless `confirm_incomplete_subtasks_completion=true` is included
 
 **Response**
 ```json
@@ -887,6 +939,98 @@ Authorization: ApiKey nt_...
 ```json
 { "deleted": true }
 ```
+
+Deleting a todo also removes its attachment metadata and stored attachment files.
+
+### Attachment Usage
+`GET /api/todos/attachments/usage`
+
+Returns the current user's effective attachment upload policy and usage.
+
+**Response**
+```json
+{
+  "enabled": true,
+  "usage_bytes": 1048576,
+  "quota_bytes": 5368709120,
+  "remaining_bytes": 5367660544,
+  "allowed_types": [".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf"],
+  "max_file_size_bytes": 52428800
+}
+```
+
+### List Attachments
+`GET /api/todos/{todo_id}/attachments`
+
+Requires read access to the todo/project.
+
+**Response**
+```json
+{
+  "attachments": [
+    {
+      "id": 12,
+      "todo_id": 17,
+      "user_id": 1,
+      "original_filename": "screenshot.png",
+      "content_type": "image/png",
+      "size_bytes": 18342,
+      "created_at": "2026-06-17T10:00:00+00:00",
+      "download_url": "/api/todos/17/attachments/12/download"
+    }
+  ]
+}
+```
+
+### Upload Attachment
+`POST /api/todos/{todo_id}/attachments`
+
+Requires write access to the todo/project. Existing attachments remain readable/downloadable when uploads are disabled, but new uploads are rejected.
+
+**Request**
+- Body: raw file bytes
+- Headers:
+  - `Content-Type`: declared MIME type
+  - `X-Nia-Filename` (or `X-File-Name` / `X-Filename`): original filename
+- Limits:
+  - maximum 10 attachments per todo
+  - maximum file size from server policy
+  - allowed extension allowlist from attachment config
+  - default/per-user quota
+  - server-side magic-byte validation for PNG/JPEG/GIF/WebP/PDF/ZIP and hard blocking for active content such as SVG/HTML/JavaScript
+
+**Response**
+```json
+{
+  "attachment": {
+    "id": 12,
+    "todo_id": 17,
+    "original_filename": "screenshot.png",
+    "content_type": "image/png",
+    "size_bytes": 18342,
+    "download_url": "/api/todos/17/attachments/12/download"
+  },
+  "todo": { "id": 17, "attachments_count": 1 },
+  "usage": { "usage_bytes": 18342, "quota_bytes": 5368709120 }
+}
+```
+
+### Download Attachment
+`GET /api/todos/{todo_id}/attachments/{attachment_id}/download`
+
+Requires read access to the todo/project and returns the stored file with the original filename in `Content-Disposition`.
+
+### Delete Attachment
+`DELETE /api/todos/{todo_id}/attachments/{attachment_id}`
+
+Requires write access to the todo/project. Shared/invited project members with current write access can delete attachments.
+
+**Response**
+```json
+{ "deleted": 12, "todo": { "id": 17, "attachments_count": 0 } }
+```
+
+Attachment create/delete actions emit realtime delta events (`todo_attachment_create`, `todo_attachment_delete`).
 
 ## Workspaces
 
@@ -1339,7 +1483,7 @@ Returns public instance metadata for web/native clients, including configured pu
 ### Native App Download Manifest
 `GET /downloads/app-downloads.json`
 
-Returns the available Windows/Android artifacts with version, platform, architecture, filename, size, and SHA256. Intentionally served with `no-store`. If no release artifacts are published, the endpoint responds with `200` and an empty `apps` list so clients can hide the section cleanly without 404 console noise.
+Returns the available Windows, Android, and Debian desktop artifacts with version, platform, architecture, filename, size, and SHA256. Intentionally served with `no-store`. If no release artifacts are published, the endpoint responds with `200` and an empty `apps` list so clients can hide the section cleanly without 404 console noise.
 
 ### Android Digital Asset Links
 `GET /.well-known/assetlinks.json`

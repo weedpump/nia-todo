@@ -1,0 +1,222 @@
+/* Todo detail header actions, menus, and canonical action controls */
+
+#todo-modal.todo-detail-view #todo-save-btn {
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+#todo-modal.todo-detail-view .modal-close-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  top: 19px;
+  right: max(28px, calc((100% - 920px) / 2));
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0;
+}
+
+#todo-modal.todo-detail-view .modal-close-x .ui-icon {
+  width: 20px;
+  height: 20px;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle[hidden] {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary::-webkit-details-marker {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:hover,
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:focus-visible {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .modal-close-x:hover,
+#todo-modal.todo-detail-view .modal-close-x:focus-visible {
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle[open] > summary {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  border: 0;
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  z-index: 20;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu .ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu .ui-menu-item.danger {
+  color: var(--danger);
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view .modal-close-x {
+    top: 19px;
+    right: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  #todo-modal.todo-detail-view .modal-close-x {
+    top: 13px;
+  }
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-view {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+  margin: 10px 0 18px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chips {
+  width: 100%;
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-toggle {
+  justify-self: end;
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view .todo-meta-edit-toggle {
+    align-self: flex-start;
+  }
+}
+
+/* Todo detail attachments: mobile uses normal stacked action buttons, no drag/drop hint. */
+@media (max-width: 640px) {
+  #todo-modal.todo-detail-view .todo-attachments-add-row {
+    grid-template-columns: 1fr;
+  }
+
+  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
+    display: none;
+    content: none;
+  }
+
+  #todo-modal.todo-detail-view .todo-attachment-picker,
+  #todo-modal.todo-detail-view .todo-attachment-picker.has-file,
+  #todo-modal.todo-detail-view #todo-attachment-upload-btn {
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  #todo-modal.todo-detail-view .todo-attachment-picker {
+    justify-content: center;
+  }
+}
+
+/* Todo detail action controls: canonical action row/button classes. */
+#todo-modal.todo-detail-view .todo-detail-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+#todo-modal.todo-detail-view .todo-detail-action-row.has-drop-hint {
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+}
+
+#todo-modal.todo-detail-view .todo-detail-action-row.has-drop-hint::after {
+  content: attr(data-drop-label);
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  opacity: .82;
+}
+
+#todo-modal.todo-detail-view .todo-detail-action-row.has-drop-hint.is-drag-over::after {
+  color: var(--accent);
+  opacity: 1;
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group .todo-detail-action-btn,
+#todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn {
+  justify-self: end;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row .todo-attachment-picker.todo-detail-action-btn {
+  grid-column: 1;
+  justify-self: start;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row #todo-attachment-upload-btn.todo-detail-action-btn {
+  grid-column: 3;
+  justify-self: end;
+}
+
+@media (max-width: 768px) {
+  #todo-modal.todo-detail-view .todo-detail-action-row,
+  #todo-modal.todo-detail-view .todo-detail-action-row.has-drop-hint {
+    grid-template-columns: 1fr;
+  }
+
+  #todo-modal.todo-detail-view .todo-subtasks-add-row {
+    gap: 16px;
+  }
+
+  #todo-modal.todo-detail-view .todo-detail-action-row.has-drop-hint::after {
+    display: none;
+    content: none;
+  }
+
+
+  #todo-modal.todo-detail-view .todo-comments-add-group .todo-detail-action-btn,
+  #todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn,
+  #todo-modal.todo-detail-view .todo-attachments-add-row .todo-attachment-picker.todo-detail-action-btn,
+  #todo-modal.todo-detail-view .todo-attachments-add-row #todo-attachment-upload-btn.todo-detail-action-btn {
+    grid-column: auto;
+    justify-self: stretch;
+  }
+}
+

@@ -1,0 +1,119 @@
+/* Touch fallbacks and Android WebView feedback */
+
+/* Touch pointer drag fallback */
+.native-app .todo-item,
+.native-app .section-header,
+[data-touch-dnd="true"] {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.native-pointer-dragging .todo-item,
+.native-pointer-dragging .section-header,
+.native-pointer-dragging [data-touch-dnd="true"] {
+  touch-action: none;
+}
+
+.native-app .section-dropzone {
+  min-height: 22px;
+  margin: 4px 0;
+}
+
+.native-app .section-dropzone.drag-over {
+  min-height: 34px;
+}
+
+.native-drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.86;
+  transform-origin: top left;
+  box-shadow: var(--shadow-lg);
+  border: 2px solid var(--accent);
+}
+
+.native-pointer-dragging,
+.native-pointer-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+/* Android WebView can leave :hover visually stuck while finger-scrolling.
+   Keep touch feedback neutral: no accent wash, no rectangular tap highlight. */
+.native-android,
+.native-android * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.native-android .todo-item:hover,
+.native-android .todo-item:active,
+.native-android .todo-item.touch-feedback,
+.native-android .overview-project-item:hover,
+.native-android .overview-project-item:active,
+.native-android .overview-project-item.touch-feedback {
+  border-color: var(--border) !important;
+  background: var(--bg-secondary) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.native-android .todo-check:hover,
+.native-android .todo-check:active,
+.native-android .todo-check.touch-feedback {
+  border-color: var(--border) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.native-android button:active,
+.native-android a:active,
+.native-android [role="button"]:active,
+.native-android button.touch-feedback,
+.native-android a.touch-feedback,
+.native-android [role="button"].touch-feedback,
+.native-android .nav-btn:active,
+.native-android .nav-btn.touch-feedback,
+.native-android .workspace-current-btn:active,
+.native-android .workspace-current-btn.touch-feedback,
+.native-android .user-menu-item:active,
+.native-android .user-menu-item.touch-feedback,
+.native-android .section-name:active,
+.native-android .section-name.touch-feedback,
+.native-android .modal-close-x:active,
+.native-android .modal-close-x.touch-feedback,
+.native-android .ui-select-trigger:active,
+.native-android .ui-select-trigger.touch-feedback {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transform: none !important;
+}
+
+.native-android .todo-item.swiping {
+  transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012))) !important;
+}
+
+.native-android .todo-item.swiping.swipe-right {
+  background:
+    linear-gradient(90deg, rgba(245, 158, 11, calc(.08 + (var(--swipe-progress, 0) * .12))), transparent 60%),
+    var(--bg-secondary) !important;
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--warning) 78%, white), 0 14px 30px rgba(217, 119, 6, calc(.13 + (var(--swipe-progress, 0) * .17))) !important;
+}
+
+.native-android .todo-item.swiping.swipe-left {
+  background:
+    linear-gradient(270deg, rgba(22, 163, 74, calc(.08 + (var(--swipe-progress, 0) * .12))), transparent 60%),
+    var(--bg-secondary) !important;
+  box-shadow: inset -4px 0 0 color-mix(in srgb, var(--success) 78%, white), 0 14px 30px rgba(22, 163, 74, calc(.13 + (var(--swipe-progress, 0) * .17))) !important;
+}
+
+.native-android .btn-primary:active,
+.native-android .btn-primary.touch-feedback {
+  background: var(--accent) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}

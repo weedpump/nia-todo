@@ -12,8 +12,9 @@ export function createNavigationFeature({
   renderProjects,
   renderStats,
   renderTodos,
+  showProjectModal = null,
 }) {
-  const baseFilters = ['all','focus','pending','in_progress','done'];
+  const baseFilters = ['all','focus','calendar','pending','in_progress','done'];
   let applyingHistory = false;
 
   function cleanRoute() {
@@ -98,6 +99,24 @@ export function createNavigationFeature({
     }
   }
 
+  function bindNavigationActions() {
+    if (document.documentElement.dataset.navigationActionsBound === '1') return;
+    document.documentElement.dataset.navigationActionsBound = '1';
+    document.addEventListener('click', (event) => {
+      const navButton = event.target?.closest?.('.nav-btn[data-filter], [data-nav-filter]');
+      if (navButton) {
+        event.preventDefault();
+        setFilter(navButton.dataset.filter || navButton.dataset.navFilter);
+        return;
+      }
+      const action = event.target?.closest?.('[data-nav-action]')?.dataset.navAction;
+      if (action === 'new-project') {
+        event.preventDefault();
+        showProjectModal?.();
+      }
+    });
+  }
+
   function bindNavigationHistory() {
     if (document.documentElement.dataset.navigationHistoryBound === '1') return;
     document.documentElement.dataset.navigationHistoryBound = '1';
@@ -110,5 +129,5 @@ export function createNavigationFeature({
     });
   }
 
-  return { setFilter, loadSectionsForCurrentProject, bindNavigationHistory };
+  return { setFilter, loadSectionsForCurrentProject, bindNavigationActions, bindNavigationHistory };
 }

@@ -5,6 +5,53 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-07-13
+
+### Added
+- Added checklist subtasks for todos, including progress chips, independent subtask updates, realtime sync, recurring-todo carry-over, and confirmation before completing a parent todo with open subtasks.
+- Added todo comments with author display, edit/delete actions, shared-project permissions, comment-count chips, and realtime updates.
+- Added todo attachments with authenticated server-local uploads/downloads, attachment-count chips, image/PDF preview, native download handling, shared-project access checks, realtime updates, and backup/restore coverage.
+- Added admin controls for attachments, including global upload enablement, allowed file extensions, a default 5 GB quota, per-user quota overrides, and user-visible storage usage.
+- Added a global Calendar sidebar view for due todos with day, week, and month modes, timeline-style day/week layouts, mobile month day selection, localized labels, offline/PWA coverage, and normal todo interactions from calendar entries.
+- Added draft subtasks, comments, and attachments while creating new todos, with online-only handling when draft data needs a real server todo ID.
+- Added full UI language support for 12 languages: German, English, Czech, French, Italian, Dutch, Polish, Brazilian Portuguese, Russian, Swedish, Spanish, and Simplified Chinese.
+- Added localized app UI, system emails, release-tour content, native/OIDC handoff screens, offline/PWA language precache coverage, and locale-aware date/time formatting.
+- Added a version-aware “What’s new” release tour with per-user seen state, carry-forward display across follow-up releases, responsive icon-based slides, and offline/PWA precache coverage.
+- Added a native Debian desktop app package alongside Windows and Android, including release/download manifest integration, Debian platform download UI, autostart support, tray/global-hotkey settings, OIDC URL handler registration, desktop notifications, and WebKitGTK cache cleanup after app or executable changes.
+- Added Debian desktop global-hotkey activation through the XDG Desktop Portal GlobalShortcuts API when available, with a legacy global-shortcut fallback for desktops without portal support.
+- Added curated Lucide icon choices for projects and workspaces, with localized labels and searchable keywords.
+- Added desktop/tablet drag-and-drop for moving todos directly onto sidebar projects while preserving offline sync behavior.
+- Added auto-hiding overlay scrollbars for the main app and admin panel.
+
+### Changed
+- Refreshed the app with the Next UI design system: calmer surfaces, rounded borderless cards, shared button/field/dropdown/menu primitives, unified light/dark polish, and more consistent responsive desktop/tablet/mobile layouts.
+- Refined Todo, Project, Workspace, Settings, BrainDump, login, setup, admin, confirmation, danger, native OIDC return, app download, and update dialogs to use shared detail-modal and action primitives.
+- Reworked the Todo detail experience into a larger editor shell with compact collapsible sections for content, planning, organization, subtasks, comments, attachments, recurring, and location-related details.
+- Unified project and workspace editors with the Todo detail modal language, including large inline title fields, drawer-style sections, header actions, polished sharing rows, and hidden save actions until changes are present.
+- Merged todo status selection into the left todo control, using a compact icon-only dropdown on mobile and a full status pill with label on desktop.
+- Refined dashboard, project views, todo rows/cards, sidebar navigation, workspace switching, user menu, topbar search, section actions, version/download actions, and mobile swipe actions to match the Next UI visual language.
+- Centralized icon rendering through the generated Lucide icon subset across the app, setup/password pages, and admin panel; the sidebar Focus entry is now labeled as Filter.
+- Renamed the native desktop `.deb` target from Linux to Debian across manifest platform keys, artifact names, UI labels, release metadata, and downloads.
+- Renamed the Debian desktop package/artifact to `nia-todo-desktop` / `nia-todo-desktop-vX.Y.Z-debian-amd64.deb` to avoid conflicts with the server package.
+- Updated release packaging so Windows, Android, and Debian desktop clients are bundled consistently into the server `.deb` and Docker image downloads with versioned SHA256 manifest metadata.
+- Switched packaged backups to snapshot runtime data under `NIA_TODO_DATA_DIR` alongside a consistent SQLite backup, covering database state, attachments, avatars, generated keys, and future runtime files while excluding backup archives and SQLite temp/journal files.
+- Disabled touch pinch-zoom/two-finger page scaling and precision-touchpad pinch zoom for the web app while keeping normal browser zoom via keyboard/menu available.
+- Replaced remaining legacy inline app event handlers with delegated `data-*` actions across todo cards, sections, settings, API keys, and drag-and-drop.
+
+### Fixed
+- Kept cache-busted app-shell modules available offline by matching Service Worker cache entries without query strings.
+- Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays focused on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
+- Guarded authoritative REST refreshes while local offline queue sync is active or pending, preventing cache replacement from clobbering queued offline changes.
+- Deferred server-side todo hard-deletes until the undo grace window expires, so undoing a delete preserves related todo data instead of recreating only the parent todo.
+- Show pinned todos in project views in a dedicated top group, matching the main dashboard behavior.
+- Improved German wording for parent project fields from “Eltern-Projekt” to “Übergeordnetes Projekt”.
+- Improved mobile/touch behavior for todo quick actions, drag-and-drop, swipe gestures, FAB layering, and iPad-sized layouts.
+- Fixed admin header/auth state handling, logged-out action guards, OIDC login button initialization, create-user field height, mobile action stacking, and admin CSS scoping.
+
+### Security
+- Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, file type, file size, and quota.
+- Hardened native attachment downloads with authenticated Tauri download handling, same-origin redirect protection, timeout handling, size guards, and platform download directories.
+
 ## [2.12.2] - 2026-06-16
 
 ### Added

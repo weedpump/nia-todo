@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-download-attachment"
+description = "Enables the desktop_download_attachment command without any pre-configured scope."
+commands.allow = ["desktop_download_attachment"]
+
+[[permission]]
+identifier = "deny-desktop-download-attachment"
+description = "Denies the desktop_download_attachment command without any pre-configured scope."
+commands.deny = ["desktop_download_attachment"]

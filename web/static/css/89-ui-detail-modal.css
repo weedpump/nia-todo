@@ -1,0 +1,409 @@
+/* Shared detail modal primitives for Todo, Project, Workspace-like editors */
+
+.ui-detail-modal.ui-detail-view .modal-overlay,
+.ui-detail-modal.todo-detail-view .modal-overlay {
+  background: color-mix(in srgb, var(--bg-primary) 78%, rgba(0,0,0,.38));
+  backdrop-filter: blur(12px);
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-modal-content,
+.ui-detail-modal.todo-detail-view .ui-detail-modal-content {
+  width: min(1080px, calc(100vw - 40px));
+  height: min(940px, calc(100vh - 32px));
+  max-width: none;
+  max-height: none;
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-primary));
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-modal-header,
+.ui-detail-modal.todo-detail-view .ui-detail-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 56px);
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 18px 48px 16px 0;
+  border-bottom-color: color-mix(in srgb, var(--border) 54%, transparent);
+  background: transparent;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-title-icon,
+.ui-detail-modal.todo-detail-view .ui-detail-title-icon {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: none;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-title-icon .ui-icon,
+.ui-detail-modal.todo-detail-view .ui-detail-title-icon .ui-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  stroke-width: 2;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-modal-header h3,
+.ui-detail-modal.todo-detail-view .ui-detail-modal-header h3 {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-weight: 650;
+  letter-spacing: .01em;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-modal-header p,
+.ui-detail-modal.todo-detail-view .ui-detail-modal-header p {
+  display: none;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-modal-body,
+.ui-detail-modal.todo-detail-view .ui-detail-modal-body {
+  --ui-detail-modal-body-pad-y: clamp(22px, 2.5vw, 38px);
+  --ui-detail-modal-body-pad-x: clamp(24px, 3vw, 44px);
+  padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x);
+  background: transparent;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-shell,
+.ui-detail-modal.todo-detail-view .ui-detail-shell {
+  width: 100%;
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+  gap: 24px;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-section,
+.ui-detail-modal.todo-detail-view .ui-detail-section {
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-section:first-of-type,
+.ui-detail-modal.ui-detail-view .ui-detail-title-section,
+.ui-detail-modal.todo-detail-view .ui-detail-section:first-of-type,
+.ui-detail-modal.todo-detail-view .ui-detail-title-section {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-section:hover,
+.ui-detail-modal.todo-detail-view .ui-detail-section:hover {
+  border-color: color-mix(in srgb, var(--border) 44%, transparent);
+  background: transparent;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-section-heading,
+.ui-detail-modal.todo-detail-view .ui-detail-section-heading {
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-section-heading h4,
+.ui-detail-modal.todo-detail-view .ui-detail-section-heading h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-section-heading p,
+.ui-detail-modal.todo-detail-view .ui-detail-section-heading p {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-title-group,
+.ui-detail-modal.todo-detail-view .ui-detail-title-group {
+  margin-bottom: 0;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-title-group label,
+.ui-detail-modal.todo-detail-view .ui-detail-title-group label {
+  display: none;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-title-field,
+.ui-detail-modal.todo-detail-view .ui-detail-title-field {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 0;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+  color: var(--text-primary);
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.28;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-title-field:focus,
+.ui-detail-modal.ui-detail-view .ui-detail-title-field:focus-visible,
+.ui-detail-modal.todo-detail-view .ui-detail-title-field:focus,
+.ui-detail-modal.todo-detail-view .ui-detail-title-field:focus-visible {
+  padding-inline: 16px;
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
+  outline: none;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-label,
+.ui-detail-modal.ui-detail-view .form-group > label,
+.ui-detail-modal.todo-detail-view .ui-detail-label,
+.ui-detail-modal.todo-detail-view .form-group > label {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.ui-detail-modal .ui-detail-action-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+.ui-detail-modal .ui-detail-action-row .btn {
+  min-height: 36px;
+  min-width: 118px;
+  border-radius: var(--field-radius);
+}
+
+.ui-detail-modal .ui-detail-header-actions {
+  position: absolute;
+  top: 19px;
+  right: max(28px, calc((100% - 920px) / 2));
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  line-height: 0;
+}
+
+.ui-detail-modal .ui-detail-header-actions .btn[hidden],
+.ui-detail-modal .ui-detail-header-menu-toggle[hidden] {
+  display: none;
+}
+
+.ui-detail-modal .ui-detail-header-menu-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  margin: 0;
+  line-height: 0;
+}
+
+.ui-detail-modal .ui-detail-header-menu-toggle > summary {
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  line-height: 0;
+  cursor: pointer;
+}
+
+.ui-detail-modal .ui-detail-header-menu-toggle > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ui-detail-modal .ui-detail-header-menu-toggle > summary:hover,
+.ui-detail-modal .ui-detail-header-menu-toggle > summary:focus-visible,
+.ui-detail-modal .ui-detail-header-menu-toggle[open] > summary {
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.ui-detail-modal .ui-detail-header-menu-toggle[open] > summary {
+  color: var(--accent);
+}
+
+.ui-detail-modal .ui-detail-header-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  z-index: 20;
+}
+
+.ui-detail-modal .ui-detail-header-menu .ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ui-detail-modal .ui-detail-header-menu .ui-menu-item.danger {
+  color: var(--danger);
+}
+
+.ui-detail-modal.ui-detail-view .modal-close-x,
+.ui-detail-modal.todo-detail-view .modal-close-x {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 19px;
+  right: max(28px, calc((100% - 920px) / 2));
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0;
+  line-height: 0;
+}
+
+.ui-detail-modal.ui-detail-view .modal-close-x .ui-icon,
+.ui-detail-modal.todo-detail-view .modal-close-x .ui-icon,
+.ui-detail-modal .ui-detail-header-menu-toggle > summary .ui-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.ui-detail-modal.ui-detail-view .modal-close-x:hover,
+.ui-detail-modal.ui-detail-view .modal-close-x:focus-visible,
+.ui-detail-modal.todo-detail-view .modal-close-x:hover,
+.ui-detail-modal.todo-detail-view .modal-close-x:focus-visible {
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.ui-detail-modal .ui-detail-header-actions .modal-close-x {
+  position: static;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1180px) {
+  .ui-detail-modal.ui-detail-view .ui-detail-modal-content,
+  .ui-detail-modal.todo-detail-view .ui-detail-modal-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .ui-detail-modal.ui-detail-view .ui-detail-modal-header,
+  .ui-detail-modal.ui-detail-view .ui-detail-shell,
+  .ui-detail-modal.todo-detail-view .ui-detail-modal-header,
+  .ui-detail-modal.todo-detail-view .ui-detail-shell {
+    max-width: 900px;
+  }
+
+  .ui-detail-modal.ui-detail-view .modal-close-x,
+  .ui-detail-modal.todo-detail-view .modal-close-x {
+    right: 12px;
+  }
+
+  .ui-detail-modal .ui-detail-header-actions {
+    right: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ui-detail-modal.ui-detail-view .ui-detail-modal-content,
+  .ui-detail-modal.todo-detail-view .ui-detail-modal-content {
+    height: 100svh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100svh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .ui-detail-modal.ui-detail-view .ui-detail-modal-header,
+  .ui-detail-modal.todo-detail-view .ui-detail-modal-header {
+    width: calc(100% - 32px);
+    padding: 12px 94px 12px 0;
+  }
+
+  .ui-detail-modal .ui-detail-header-actions {
+    top: 13px;
+    right: 12px;
+  }
+
+  .ui-detail-modal .ui-detail-header-actions .btn {
+    min-height: 34px;
+    padding: 7px 11px;
+  }
+
+  .ui-detail-modal.ui-detail-view .modal-close-x,
+  .ui-detail-modal.todo-detail-view .modal-close-x {
+    top: 13px;
+    right: 12px;
+  }
+
+  .ui-detail-modal.ui-detail-view .ui-detail-modal-body,
+  .ui-detail-modal.todo-detail-view .ui-detail-modal-body {
+    --ui-detail-modal-body-pad-y: 18px;
+    --ui-detail-modal-body-pad-x: 16px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x) clamp(14px, 3vw, 18px);
+  }
+
+  .ui-detail-modal.ui-detail-view .ui-detail-section:first-of-type,
+  .ui-detail-modal.ui-detail-view .ui-detail-title-section,
+  .ui-detail-modal.todo-detail-view .ui-detail-section:first-of-type,
+  .ui-detail-modal.todo-detail-view .ui-detail-title-section {
+    padding-top: 0;
+  }
+
+  .ui-detail-modal.ui-detail-view .ui-detail-title-field,
+  .ui-detail-modal.todo-detail-view .ui-detail-title-field {
+    font-size: clamp(24px, 8vw, 32px);
+  }
+
+  .ui-detail-modal .ui-detail-action-row .btn {
+    width: 100%;
+    min-height: 42px;
+  }
+}

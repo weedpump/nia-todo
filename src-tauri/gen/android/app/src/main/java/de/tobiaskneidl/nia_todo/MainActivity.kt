@@ -2,10 +2,13 @@ package de.tobiaskneidl.nia_todo
 
 import android.Manifest
 import android.app.PendingIntent
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.media.MediaRecorder
 import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Base64
 import java.util.Locale
 import android.content.pm.PackageManager
@@ -22,6 +25,7 @@ import android.view.HapticFeedbackConstants
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -35,10 +39,13 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetPublicKeyCredentialOption
 import androidx.credentials.PublicKeyCredential
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.File
+import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URL
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -487,6 +494,85 @@ class MainActivity : TauriActivity() {
     return true
   }
 
+  private fun safeDownloadFilename(raw: String): String {
+    val fallback = "attachment"
+    val cleaned = raw
+      .trim()
+      .replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]+"), "_")
+      .trim(' ', '.', '_')
+      .take(180)
+    return cleaned.ifBlank { fallback }
+  }
+
+  private fun startNativeDownloadToDownloads(url: String, filename: String, headersJson: String): String {
+    return try {
+      val uri = URI(url)
+      val scheme = (uri.scheme ?: "").lowercase(Locale.ROOT)
+      if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Unsupported download URL")
+      val configured = configuredPasskeyOrigin
+      val requestedOrigin = "${scheme}://${uri.host}${if (uri.port > 0) ":${uri.port}" else ""}"
+      if (configured != null && canonicalOrigin(requestedOrigin) != configured) {
+        throw IllegalArgumentException("Download URL does not match configured server")
+      }
+      val targetName = safeDownloadFilename(filename)
+      val headers = JSONObject(headersJson.ifBlank { "{}" })
+      lifecycleScope.launch(Dispatchers.IO) {
+        var collectionUri: Uri? = null
+        try {
+          val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15_000
+            readTimeout = 60_000
+            instanceFollowRedirects = false
+            for (key in headers.keys()) {
+              val value = headers.optString(key, "")
+              if (key.isNotBlank() && value.isNotBlank()) setRequestProperty(key, value)
+            }
+          }
+          connection.connect()
+          val status = connection.responseCode
+          if (status !in 200..299) throw IllegalStateException("Download failed: HTTP $status")
+          val mimeType = connection.contentType?.split(";", limit = 2)?.firstOrNull()?.trim()?.ifBlank { null }
+            ?: "application/octet-stream"
+          val savedLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+              put(MediaStore.Downloads.DISPLAY_NAME, targetName)
+              put(MediaStore.Downloads.MIME_TYPE, mimeType)
+              put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/nia-todo")
+              put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            collectionUri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+              ?: throw IllegalStateException("Could not create download entry")
+            contentResolver.openOutputStream(collectionUri!!)?.use { output ->
+              connection.inputStream.use { input -> input.copyTo(output) }
+            } ?: throw IllegalStateException("Could not open download entry")
+            val done = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
+            contentResolver.update(collectionUri!!, done, null, null)
+            "Downloads/nia-todo/$targetName"
+          } else {
+            val dir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "nia-todo").apply { mkdirs() }
+            val target = File(dir, targetName)
+            target.outputStream().use { output ->
+              connection.inputStream.use { input -> input.copyTo(output) }
+            }
+            target.absolutePath
+          }
+          runOnUiThread {
+            Toast.makeText(this@MainActivity, "Gespeichert: $savedLocation", Toast.LENGTH_LONG).show()
+          }
+        } catch (error: Exception) {
+          collectionUri?.let { runCatching { contentResolver.delete(it, null, null) } }
+          runOnUiThread {
+            Toast.makeText(this@MainActivity, "Download fehlgeschlagen: ${error.message ?: error.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+          }
+        }
+      }
+      JSONObject().put("ok", true).put("filename", targetName).toString()
+    } catch (error: Exception) {
+      JSONObject().put("ok", false).put("error", error.message ?: error.javaClass.simpleName).toString()
+    }
+  }
+
   inner class AndroidNativeBridge {
     @JavascriptInterface
     fun setTheme(theme: String) {
@@ -515,6 +601,11 @@ class MainActivity : TauriActivity() {
       } catch (_: Exception) {
         false
       }
+    }
+
+    @JavascriptInterface
+    fun downloadToDownloads(url: String, filename: String, headersJson: String): String {
+      return this@MainActivity.startNativeDownloadToDownloads(url, filename, headersJson)
     }
 
     @JavascriptInterface

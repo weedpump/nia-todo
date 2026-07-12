@@ -219,6 +219,10 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
 
   async function ensureNativeNotificationPermission() {
     if (!isNativeApp()) return true;
+    // Tauri desktop does not need a browser-style permission prompt. On Linux,
+    // asking the notification plugin for permission can emit a confusing
+    // readiness notification ("nia-todo is ready") via the desktop portal.
+    if (isDesktopApp()) return true;
     try {
       const state = await nativeBridge.requestNotificationPermission();
       return state === 'granted' || state === 'prompt';
@@ -460,6 +464,19 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     }
   }
 
+  let desktopActionsBound = false;
+  function bindDesktopActions() {
+    if (desktopActionsBound) return;
+    desktopActionsBound = true;
+    document.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('[data-desktop-action]');
+      if (!target) return;
+      event.preventDefault();
+      const action = target.dataset.desktopAction;
+      if (action === 'test-notification') testNotification();
+    });
+  }
+
   let hotkeyEventsBound = false;
   async function bindHotkeyEvents() {
     if (hotkeyEventsBound) return;
@@ -488,6 +505,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     updateServerUrl,
     resetServerUrl,
     testNotification,
+    bindDesktopActions,
     updateHotkey,
   };
 }

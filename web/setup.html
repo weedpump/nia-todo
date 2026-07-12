@@ -26,23 +26,17 @@ body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-it
 .setup-step p { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
 .setup-field { margin-bottom: 16px; }
 .setup-field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
-.setup-field input { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 15px; outline: none; box-sizing: border-box; }
-.setup-field input:focus { border-color: var(--accent); }
-.setup-btn { width: 100%; padding: 14px; border: none; border-radius: var(--radius); background: var(--accent); color: white; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
-.setup-btn:hover { background: var(--accent-hover); }
-.setup-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.setup-field .ui-field { width: 100%; }
+.setup-btn { width: 100%; margin-top: 8px; }
 .setup-error { color: var(--danger); font-size: 13px; margin-top: 8px; text-align: center; min-height: 20px; }
 .setup-success { color: var(--success); font-size: 13px; margin-top: 8px; text-align: center; }
 .step-indicator { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: background 0.3s; }
 .step-dot.active { background: var(--accent); }
 .setup-theme-toggle { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-.setup-theme-toggle button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: background .15s, border-color .15s, color .15s, transform .1s; }
 .ui-icon { width: 1em; height: 1em; display:inline-block; vertical-align:-0.14em; }
 .success-icon { width:48px; height:48px; margin:0 auto 16px; color:var(--success); }
 .success-icon .ui-icon { width:48px; height:48px; }
-.setup-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
-.setup-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
 @media (max-width: 520px), (max-height: 760px) {
   body { align-items: flex-start; }
   .setup-container { max-width: none; padding-left: 12px; padding-right: 12px; }
@@ -77,13 +71,13 @@ body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-it
       <p data-i18n-key="setup.adminPasswordHint">This password is required to manage users. Requirements: at least 12 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character.</p>
       <div class="setup-field">
         <label data-i18n-key="setup.adminPasswordLabel">Admin password</label>
-        <input type="password" id="admin-password" data-i18n-placeholder-key="setup.adminPasswordPlaceholder" placeholder="Enter a secure password" autocomplete="new-password" onkeydown="if(event.key==='Enter') setAdminPassword()">
+        <input class="ui-field" type="password" id="admin-password" data-i18n-placeholder-key="setup.adminPasswordPlaceholder" placeholder="Enter a secure password" autocomplete="new-password" onkeydown="if(event.key==='Enter') setAdminPassword()">
       </div>
       <div class="setup-field">
         <label data-i18n-key="setup.confirmPasswordLabel">Confirm password</label>
-        <input type="password" id="admin-password-confirm" data-i18n-placeholder-key="setup.repeatPasswordPlaceholder" placeholder="Repeat password" onkeydown="if(event.key==='Enter') setAdminPassword()">
+        <input class="ui-field" type="password" id="admin-password-confirm" data-i18n-placeholder-key="setup.repeatPasswordPlaceholder" placeholder="Repeat password" onkeydown="if(event.key==='Enter') setAdminPassword()">
       </div>
-      <button class="setup-btn" onclick="setAdminPassword()" data-i18n-key="common.continue">Continue</button>
+      <button class="btn btn-primary setup-btn" onclick="setAdminPassword()" data-i18n-key="common.continue">Continue</button>
       <div class="setup-error" id="error-1"></div>
     </div>
 
@@ -93,21 +87,21 @@ body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-it
       <p data-i18n-key="setup.firstUserHint">This user receives all existing data and is the first user. Email is required and will later become the login name. Password requirements: at least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character.</p>
       <div class="setup-field">
         <label data-i18n-key="setup.usernameLabel">Username</label>
-        <input type="text" id="first-username" data-i18n-placeholder-key="setup.usernamePlaceholder" placeholder="e.g. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
+        <input class="ui-field" type="text" id="first-username" data-i18n-placeholder-key="setup.usernamePlaceholder" placeholder="e.g. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
       </div>
       <div class="setup-field">
         <label data-i18n-key="setup.displayNameLabel">Display name</label>
-        <input type="text" id="first-display-name" placeholder="Max Mustermann" onkeydown="if(event.key==='Enter') document.getElementById('first-email').focus()">
+        <input class="ui-field" type="text" id="first-display-name" placeholder="Max Mustermann" onkeydown="if(event.key==='Enter') document.getElementById('first-email').focus()">
       </div>
       <div class="setup-field">
         <label data-i18n-key="settings.profile.email">Email</label>
-        <input type="email" id="first-email" placeholder="max@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('first-password').focus()">
+        <input class="ui-field" type="email" id="first-email" placeholder="max@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('first-password').focus()">
       </div>
       <div class="setup-field">
         <label data-i18n-key="auth.password">Password</label>
-        <input type="password" id="first-password" data-i18n-placeholder-key="auth.passwordPlaceholder" placeholder="Password" autocomplete="new-password" onkeydown="if(event.key==='Enter') createFirstUser()">
+        <input class="ui-field" type="password" id="first-password" data-i18n-placeholder-key="auth.passwordPlaceholder" placeholder="Password" autocomplete="new-password" onkeydown="if(event.key==='Enter') createFirstUser()">
       </div>
-      <button class="setup-btn" onclick="createFirstUser()" data-i18n-key="setup.finishInstallation">Finish installation</button>
+      <button class="btn btn-primary setup-btn" onclick="createFirstUser()" data-i18n-key="setup.finishInstallation">Finish installation</button>
       <div class="setup-error" id="error-2"></div>
     </div>
 
@@ -121,9 +115,9 @@ body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-it
     </div>
 
     <div class="setup-theme-toggle">
-      <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
-      <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
-      <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
+      <button class="btn btn-secondary btn-icon theme-option" data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
+      <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
+      <button class="btn btn-secondary btn-icon theme-option" data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
     </div>
   </div>
 </div>

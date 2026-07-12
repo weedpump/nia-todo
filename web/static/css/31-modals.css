@@ -1,0 +1,261 @@
+/* Shared modal primitives and modal responsiveness */
+
+/* Modal */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.active { display: flex; }
+
+#app-downloads-modal.active {
+  z-index: 1200;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 0;
+}
+
+.modal-content {
+  position: relative;
+  z-index: 1;
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), transparent 40%),
+    var(--bg-secondary);
+  border: 0;
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+
+.modal-close-x {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  z-index: 2;
+}
+.modal-close-x:hover { color: var(--text-primary); }
+
+/* Mobile fullscreen modals */
+@media (max-width: 768px) {
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 300;
+  }
+
+  .modal.active { display: block; }
+
+  .modal-overlay { display: none; }
+
+  .modal-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-secondary);
+  }
+
+  .modal-close-x { display: block; }
+
+  .modal-content h3 {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 12px 40px 12px 16px;
+    font-size: 17px;
+    border-bottom: 1px solid var(--border);
+    z-index: 2;
+    position: relative;
+  }
+
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-actions {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    z-index: 2;
+  }
+
+  .modal-actions,
+  .settings-card-actions,
+  .settings-action-row,
+  .settings-actions-row,
+  .entity-modal-actions,
+  .todo-detail-action-row,
+  .todo-comments-add-group {
+    align-items: stretch;
+  }
+
+  .settings-action-row > .app-resource-links {
+    width: 100%;
+  }
+
+  .modal-actions > .btn:not(.btn-icon),
+  .settings-card-actions > .btn:not(.btn-icon),
+  .settings-action-row > .btn:not(.btn-icon),
+  .settings-action-row > .app-resource-links > .btn:not(.btn-icon),
+  .settings-actions-row > .btn:not(.btn-icon),
+  .entity-modal-actions > .btn:not(.btn-icon),
+  .entity-modal-actions .modal-actions-right > .btn:not(.btn-icon),
+  .todo-detail-action-row > .btn:not(.btn-icon),
+  .todo-comments-add-group > .btn:not(.btn-icon) {
+    width: 100%;
+  }
+}
+
+/* Desktop only: h3 margin and modal centering */
+@media (min-width: 769px) {
+  .modal-content h3 { margin-bottom: 20px; font-size: 18px; }
+}
+
+.form-group {
+  margin-bottom: 16px;
+  min-width: 0;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.ui-field,
+.form-group input,
+.form-group select,
+.form-group textarea {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--field-radius);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 12%, transparent);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease, transform .15s ease;
+}
+
+[data-theme="light"] .ui-field,
+[data-theme="light"] .form-group input,
+[data-theme="light"] .form-group select,
+[data-theme="light"] .form-group textarea {
+  background: var(--bg-tertiary);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+}
+
+.ui-field:hover,
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .ui-field:hover,
+[data-theme="light"] .form-group input:hover,
+[data-theme="light"] .form-group select:hover,
+[data-theme="light"] .form-group textarea:hover {
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
+}
+
+.ui-field:focus,
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { background: var(--bg-hover); }
+
+[data-theme="light"] .ui-field:focus,
+[data-theme="light"] .form-group input:focus,
+[data-theme="light"] .form-group select:focus,
+[data-theme="light"] .form-group textarea:focus { background: var(--bg-hover); }
+
+.ui-field:focus-visible,
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+.form-group textarea:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
+}
+
+.datetime-input-wrap .ui-field {
+  padding-right: 36px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.visually-hidden-native-select {
+  position: absolute !important;
+  flex: 0 0 auto !important;
+  width: 1px !important;
+  min-width: 1px !important;
+  max-width: 1px !important;
+  height: 1px !important;
+  min-height: 1px !important;
+  max-height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+

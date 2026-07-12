@@ -1,0 +1,22 @@
+/* Todo detail mobile viewport and fullscreen tail fixes */
+
+@media (max-width: 768px) {
+  #todo-modal.todo-detail-view .todo-editor-shell {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+    height: 100vh;
+    height: 100svh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100svh;
+    max-height: 100dvh;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
+    padding-bottom: 18px;
+  }
+}

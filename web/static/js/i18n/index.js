@@ -1,5 +1,19 @@
 const LANGUAGE_STORAGE_KEY = 'nia-todo-language';
-const SUPPORTED_LANGUAGES = ['de', 'en'];
+const SUPPORTED_LANGUAGES = ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'es', 'zh-CN'];
+const DATE_TIME_LOCALES = {
+  cs: 'cs-CZ',
+  de: 'de-DE',
+  en: 'en-US',
+  fr: 'fr-FR',
+  it: 'it-IT',
+  nl: 'nl-NL',
+  pl: 'pl-PL',
+  'pt-BR': 'pt-BR',
+  ru: 'ru-RU',
+  sv: 'sv-SE',
+  es: 'es-ES',
+  'zh-CN': 'zh-CN',
+};
 const DEFAULT_LANGUAGE = 'en';
 const dictionaries = new Map();
 let activeLanguage = DEFAULT_LANGUAGE;
@@ -9,10 +23,20 @@ function normalizeLanguage(value) {
   return SUPPORTED_LANGUAGES.includes(value) ? value : 'auto';
 }
 
+function normalizeBrowserLanguage(value) {
+  const language = String(value || '').toLowerCase();
+  if (!language) return null;
+  if (language === 'zh-cn' || language === 'zh-hans' || language.startsWith('zh-hans-')) return 'zh-CN';
+  if (language === 'pt-br' || language.startsWith('pt-br-')) return 'pt-BR';
+  if (language.split('-')[0] === 'pt') return 'pt-BR';
+  return language.split('-')[0];
+}
+
 function detectBrowserLanguage() {
   const candidates = [navigator.language, ...(navigator.languages || [])]
     .filter(Boolean)
-    .map((value) => String(value).toLowerCase().split('-')[0]);
+    .map(normalizeBrowserLanguage)
+    .filter(Boolean);
   return candidates.find((value) => SUPPORTED_LANGUAGES.includes(value)) || DEFAULT_LANGUAGE;
 }
 
@@ -54,6 +78,10 @@ export function getCurrentLanguage() {
 
 export function getActiveLanguage() {
   return activeLanguage;
+}
+
+export function getActiveLocale() {
+  return DATE_TIME_LOCALES[getActiveLanguage()] || DATE_TIME_LOCALES[DEFAULT_LANGUAGE];
 }
 
 export async function setLanguagePreference(mode, { authApi = null, syncServer = false } = {}) {
@@ -116,4 +144,4 @@ export function translatePage(root = document) {
   });
 }
 
-export { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY };
+export { SUPPORTED_LANGUAGES, DATE_TIME_LOCALES, DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY };

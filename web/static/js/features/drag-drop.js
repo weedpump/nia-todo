@@ -3,14 +3,17 @@ import { RUNTIME_CAPABILITIES } from '../core/config.js';
 export function createDragDropFeature({
   getTodos,
   setTodos,
+  getProjects,
   getSections,
   setSections,
   isOnlineForSync,
   todosApi,
   sectionsApi,
   renderTodos,
+  renderProjects,
   dbGetAll,
   dbPut,
+  addToSyncQueue,
 }) {
   let dragSrcTodoId = null;
   let dragSrcSectionId = null;
@@ -34,9 +37,10 @@ export function createDragDropFeature({
   }
 
   function handleTodoDragStart(e) {
-    const rawId = e.target.dataset.id;
+    const item = e.target?.closest?.('.todo-item[data-id]') || e.target;
+    const rawId = item.dataset.id;
     dragSrcTodoId = /^\d+$/.test(String(rawId)) ? parseInt(rawId) : rawId;
-    e.target.classList.add('dragging');
+    item.classList.add('dragging');
     const transfer = eventDataTransfer(e);
     transfer.effectAllowed = 'move';
     transfer.setData('text/plain', 'todo:' + dragSrcTodoId);
@@ -44,15 +48,16 @@ export function createDragDropFeature({
 
   function handleTodoDragEnd(e) {
     stopStandardDragAutoScroll();
-    e.target.classList.remove('dragging');
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => {
+    const item = e.target?.closest?.('.todo-item[data-id]') || e.target;
+    item.classList.remove('dragging');
+    document.querySelectorAll('.section-todos.drag-over, .project-group-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => {
       el.classList.remove('drag-over');
     });
     dragSrcTodoId = null;
   }
 
   function clearTodoDropIndicators() {
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.section-todos.drag-over, .project-group-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => el.classList.remove('drag-over'));
   }
 
   function handleTodoDragOver(e) {
@@ -61,7 +66,7 @@ export function createDragDropFeature({
     eventDataTransfer(e).dropEffect = 'move';
     scheduleStandardDragAutoScroll(e);
     clearTodoDropIndicators();
-    const container = e.target.closest('.section-todos');
+    const container = e.target.closest('.section-todos, .project-group-todos');
     const header = e.target.closest('.section-header');
     if (container) container.classList.add('drag-over');
     else if (header) header.classList.add('drag-over');
@@ -88,11 +93,58 @@ export function createDragDropFeature({
       }
     }
 
-    if (isOnlineForSync() && !isTempTodo) {
-      try {
-        await todosApi.update(todo.id, { section_id: sectionId });
-      } catch (err) {
-        console.error('Move todo failed', err);
+    if (!isTempTodo) {
+      if (isOnlineForSync()) {
+        try {
+          await todosApi.update(todo.id, { section_id: sectionId });
+        } catch (err) {
+          console.error('Move todo failed', err);
+        }
+      } else if (addToSyncQueue) {
+        await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes: { section_id: sectionId } });
+      }
+    }
+    return true;
+  }
+
+  async function moveTodoToProject(todoId, projectId) {
+    const todos = getTodos();
+    const todo = todos.find(t => String(t.id) === String(todoId));
+    const project = (getProjects?.() || []).find(p => String(p.id) === String(projectId));
+    if (!todo || !project) return false;
+
+    const newProjectId = Number(project.id);
+    const changed = Number(todo.project_id) !== newProjectId || todo.section_id !== null;
+    if (!changed) return false;
+
+    // Dropping onto a project means: move to that project, into its unsectioned bucket.
+    const updatedTodo = { ...todo, project_id: newProjectId, section_id: null, updated_at: new Date().toISOString() };
+    const nextTodos = todos.map(t => String(t.id) === String(todoId) ? updatedTodo : t);
+    setTodos(nextTodos);
+    renderTodos();
+    renderProjects?.();
+
+    if (dbPut) await dbPut('todos', updatedTodo);
+
+    const isTempTodo = String(todo.id).startsWith('temp-');
+    if (isTempTodo && dbGetAll && dbPut) {
+      const queue = await dbGetAll('syncQueue');
+      const createItem = queue.find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(todo.id));
+      if (createItem) {
+        await dbPut('syncQueue', { ...createItem, data: { ...createItem.data, project_id: newProjectId, section_id: null } });
+      }
+    }
+
+    if (!isTempTodo) {
+      const changes = { project_id: newProjectId, section_id: null };
+      if (isOnlineForSync()) {
+        try {
+          await todosApi.update(todo.id, changes);
+        } catch (err) {
+          console.error('Move todo to project failed', err);
+        }
+      } else if (addToSyncQueue) {
+        await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
       }
     }
     return true;
@@ -112,9 +164,35 @@ export function createDragDropFeature({
     await moveTodoToSection(dragSrcTodoId, newSectionId);
   }
 
+  function projectDropEnabled() {
+    return window.matchMedia?.('(min-width: 769px)').matches ?? true;
+  }
+
+  function handleProjectDragOver(e) {
+    if (!dragSrcTodoId || !projectDropEnabled()) return;
+    const target = e.target.closest('.project-drop-target[data-project-id]');
+    if (!target) return;
+    e.preventDefault();
+    eventDataTransfer(e).dropEffect = 'move';
+    scheduleStandardDragAutoScroll(e);
+    clearTodoDropIndicators();
+    target.classList.add('drag-over');
+  }
+
+  async function handleProjectDrop(e) {
+    if (!dragSrcTodoId || !projectDropEnabled()) return;
+    const target = e.target.closest('.project-drop-target[data-project-id]');
+    if (!target) return;
+    e.preventDefault();
+    stopStandardDragAutoScroll();
+    target.classList.remove('drag-over');
+    await moveTodoToProject(dragSrcTodoId, target.dataset.projectId);
+  }
+
   function handleSectionDragStart(e) {
-    dragSrcSectionId = parseInt(e.target.dataset.sectionId);
-    e.target.classList.add('dragging');
+    const section = e.target?.closest?.('.section-header[data-section-id]') || e.target;
+    dragSrcSectionId = parseInt(section.dataset.sectionId);
+    section.classList.add('dragging');
     const transfer = eventDataTransfer(e);
     transfer.effectAllowed = 'move';
     transfer.setData('text/plain', 'section:' + dragSrcSectionId);
@@ -126,7 +204,8 @@ export function createDragDropFeature({
 
   function handleSectionDragEnd(e) {
     stopStandardDragAutoScroll();
-    e.target.classList.remove('dragging');
+    const section = e.target?.closest?.('.section-header[data-section-id]') || e.target;
+    section.classList.remove('dragging');
     clearSectionDropIndicators();
     dragSrcSectionId = null;
     currentSectionDropIndex = null;
@@ -212,8 +291,59 @@ export function createDragDropFeature({
     await moveSectionToDropTarget(header, dropzone);
   }
 
+  let standardDragDropBound = false;
+  function bindStandardDragDrop() {
+    if (standardDragDropBound) return;
+    standardDragDropBound = true;
+
+    document.addEventListener('dragstart', (event) => {
+      const todo = event.target?.closest?.('.todo-item[data-id][draggable="true"]');
+      if (todo) {
+        handleTodoDragStart(event);
+        return;
+      }
+      const section = event.target?.closest?.('.section-header[data-section-id]:not(.section-unsorted)[draggable="true"]');
+      if (section) handleSectionDragStart(event);
+    });
+
+    document.addEventListener('dragend', (event) => {
+      const todo = event.target?.closest?.('.todo-item[data-id]');
+      if (todo) {
+        handleTodoDragEnd(event);
+        return;
+      }
+      const section = event.target?.closest?.('.section-header[data-section-id]:not(.section-unsorted)');
+      if (section) handleSectionDragEnd(event);
+    });
+
+    document.addEventListener('dragover', (event) => {
+      if (event.target?.closest?.('.project-drop-target[data-project-id]')) {
+        handleProjectDragOver(event);
+        return;
+      }
+      if (event.target?.closest?.('.section-dropzone, .section-header[data-section-id]')) {
+        handleSectionDragOver(event);
+        handleTodoDragOver(event);
+        return;
+      }
+      if (event.target?.closest?.('.section-todos[data-section-id], .project-group-todos')) handleTodoDragOver(event);
+    });
+
+    document.addEventListener('drop', async (event) => {
+      if (event.target?.closest?.('.project-drop-target[data-project-id]')) {
+        await handleProjectDrop(event);
+        return;
+      }
+      if (event.target?.closest?.('.section-dropzone, .section-header[data-section-id]')) {
+        await handleSectionDrop(event);
+        return;
+      }
+      if (event.target?.closest?.('.section-todos[data-section-id]')) await handleTodoDrop(event);
+    });
+  }
+
   function clearNativeDragIndicators() {
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .section-dropzone.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.section-todos.drag-over, .project-group-todos.drag-over, .section-header.drag-over, .section-dropzone.drag-over, .project-drop-target.drag-over').forEach(el => el.classList.remove('drag-over'));
   }
 
   function nativeDragElementFromPoint(x, y) {
@@ -231,6 +361,7 @@ export function createDragDropFeature({
     if (pointerDrag?.type === 'todo') {
       const sectionTodos = element.closest('.section-todos');
       const sectionHeader = element.closest('.section-header');
+      const projectTarget = projectDropEnabled() ? element.closest('.project-drop-target[data-project-id]') : null;
       if (sectionTodos) {
         sectionTodos.classList.add('drag-over');
         return { sectionTodos };
@@ -238,6 +369,10 @@ export function createDragDropFeature({
       if (sectionHeader) {
         sectionHeader.classList.add('drag-over');
         return { sectionHeader };
+      }
+      if (projectTarget) {
+        projectTarget.classList.add('drag-over');
+        return { projectTarget };
       }
       return null;
     }
@@ -423,6 +558,7 @@ export function createDragDropFeature({
 
   function startNativePointerDrag(event, source, type, id) {
     const isTouch = event.pointerType === 'touch' || event.pointerType === 'pen';
+    try { window.getSelection?.()?.removeAllRanges?.(); } catch (_error) {}
     pointerDrag = {
       pointerId: event.pointerId,
       source,
@@ -473,6 +609,7 @@ export function createDragDropFeature({
     pointerDrag.ignoreCancelUntilMs = Date.now() + 900;
     try { pointerDrag.source.setPointerCapture?.(pointerDrag.pointerId); } catch (_error) {}
     suppressNextNativeClick = true;
+    try { window.getSelection?.()?.removeAllRanges?.(); } catch (_error) {}
     document.body.classList.add('native-pointer-dragging');
     pointerDrag.source.classList.add('dragging');
     pointerDrag.ghost = createNativeGhost(pointerDrag.source);
@@ -504,6 +641,11 @@ export function createDragDropFeature({
     }
 
     if (drag.type === 'todo') {
+      if (target.projectTarget?.dataset.projectId) {
+        await moveTodoToProject(drag.id, target.projectTarget.dataset.projectId);
+        dragSrcTodoId = null;
+        return;
+      }
       const rawSectionId = target.sectionTodos?.dataset.sectionId || target.sectionHeader?.dataset.sectionId;
       if (rawSectionId) await moveTodoToSection(drag.id, rawSectionId === 'null' ? null : parseInt(rawSectionId));
       dragSrcTodoId = null;
@@ -519,6 +661,7 @@ export function createDragDropFeature({
   function disableNativeHtmlDragDrop(root = document) {
     root.querySelectorAll?.('.todo-item[draggable], .section-header[draggable]').forEach((element) => {
       element.setAttribute('data-native-pointer-dnd', 'true');
+      element.setAttribute('data-touch-dnd', 'true');
       element.draggable = false;
       element.removeAttribute('draggable');
     });
@@ -547,8 +690,14 @@ export function createDragDropFeature({
     nativeSummaryPointer = null;
   }
 
+  function shouldUsePointerDragDrop() {
+    if (RUNTIME_CAPABILITIES.native) return true;
+    const coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    return RUNTIME_CAPABILITIES.browser && (coarsePointer || Number(navigator.maxTouchPoints || 0) > 1);
+  }
+
   function bindNativePointerDragDrop() {
-    if (!RUNTIME_CAPABILITIES.native || bindNativePointerDragDrop.bound) return;
+    if (!shouldUsePointerDragDrop() || bindNativePointerDragDrop.bound) return;
     bindNativePointerDragDrop.bound = true;
     disableNativeHtmlDragDrop();
     new MutationObserver((mutations) => {
@@ -566,13 +715,13 @@ export function createDragDropFeature({
     }, true);
 
     document.addEventListener('dragover', (event) => {
-      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone')) return;
+      if (!event.target.closest('.todo-item, .section-header, .section-todos, .project-group-todos, .section-dropzone, .project-drop-target')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     }, true);
 
     document.addEventListener('drop', (event) => {
-      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone')) return;
+      if (!event.target.closest('.todo-item, .section-header, .section-todos, .project-group-todos, .section-dropzone, .project-drop-target')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     }, true);
@@ -725,10 +874,13 @@ export function createDragDropFeature({
     handleTodoDragEnd,
     handleTodoDragOver,
     handleTodoDrop,
+    handleProjectDragOver,
+    handleProjectDrop,
     handleSectionDragStart,
     handleSectionDragEnd,
     handleSectionDragOver,
     handleSectionDrop,
+    bindStandardDragDrop,
     bindNativePointerDragDrop,
   };
 }

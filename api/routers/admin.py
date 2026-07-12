@@ -30,6 +30,13 @@ from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
 from services.server_updates import get_update_progress, get_update_status, install_latest_deb_update
 from services.ops_stats import technical_stats
+from services.attachments import (
+    attachment_usage_bytes,
+    get_attachment_config,
+    normalize_quota_bytes,
+    update_attachment_config,
+    user_attachment_quota_bytes,
+)
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from errors import api_error, validation_api_error
@@ -85,6 +92,7 @@ class UpdateUserRequest(BaseModel):
     email: Optional[str] = None
     display_name: Optional[str] = None
     braindump_enabled: Optional[bool] = None
+    attachment_quota_bytes: Optional[int] = None
 
 class ChangeAdminPasswordRequest(BaseModel):
     old_password: str
@@ -102,6 +110,11 @@ class InstanceConfigRequest(BaseModel):
     public_base_url: str = ""
     allowed_origins: list[str] = []
     trusted_proxies: list[str] = []
+
+class AttachmentConfigRequest(BaseModel):
+    enabled: bool = True
+    allowed_types: list[str] = []
+    default_quota_bytes: int = 5 * 1024 * 1024 * 1024
 
 class BrainDumpConfigRequest(BaseModel):
     enabled: bool = False
@@ -249,6 +262,23 @@ def admin_update_instance_config(data: InstanceConfigRequest, request: Request, 
         trusted_proxies=data.trusted_proxies,
         client_ip=get_client_ip(request),
     )
+
+
+# ─── Attachment Configuration ──────────────────────────────────────────────
+
+@router.get("/attachment-config")
+def admin_get_attachment_config(_: bool = Depends(require_admin)):
+    with get_db() as db:
+        return get_attachment_config(db)
+
+
+@router.patch("/attachment-config")
+def admin_update_attachment_config(data: AttachmentConfigRequest, request: Request, _: bool = Depends(require_admin)):
+    with get_db() as db:
+        config = update_attachment_config(db, data.model_dump())
+        log_audit(db, "attachment_config_changed", ip_address=get_client_ip(request), details=f"enabled={config['enabled']}; quota={config['default_quota_bytes']}; allowed_types={','.join(config['allowed_types'])}")
+        db.commit()
+        return config
 
 
 # ─── BrainDump Configuration ────────────────────────────────────────────────
@@ -509,7 +539,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
     data.display_name = sanitize_text(data.display_name)
     data.email = normalize_email(sanitize_text(data.email))
     data.language = (data.language or 'de').strip().lower()
-    if data.language not in {'de', 'en'}:
+    if data.language not in {'de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-br', 'ru', 'sv', 'es', 'zh-cn'}:
         raise api_error(400, 'language.invalid', 'Invalid language')
     email_error = validate_email(data.email)
     if email_error:
@@ -525,7 +555,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         unusable_password_hash = bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode()
         c = db.execute(
             "INSERT INTO users (username, display_name, email, password_hash, is_admin, language, braindump_enabled) VALUES (?, ?, ?, ?, 0, ?, ?)",
-            (data.username, data.display_name, data.email, unusable_password_hash, data.language, 1 if data.braindump_enabled else 0)
+            (data.username, data.display_name, data.email, unusable_password_hash, 'zh-CN' if data.language == 'zh-cn' else ('pt-BR' if data.language == 'pt-br' else data.language), 1 if data.braindump_enabled else 0)
         )
         user_id = c.lastrowid
 
@@ -559,7 +589,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
                     username=data.username,
                     link=link,
                     purpose="invite",
-                    language=data.language,
+                    language='zh-CN' if data.language == 'zh-cn' else ('pt-BR' if data.language == 'pt-br' else data.language),
                 )
                 emailed = True
             except Exception:
@@ -574,7 +604,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             "username": data.username,
             "display_name": data.display_name,
             "email": data.email,
-            "language": data.language,
+            "language": 'zh-CN' if data.language == 'zh-cn' else ('pt-BR' if data.language == 'pt-br' else data.language),
             "braindump_enabled": bool(data.braindump_enabled),
             "created_at": now_iso(),
             "password_setup_expires_hours": _password_link_ttl_hours(),
@@ -592,6 +622,8 @@ def list_users(_: bool = Depends(require_admin)):
             SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at, u.email_trust_source,
                    u.pending_email, u.password_hash IS NOT NULL AS password_configured, u.is_admin, u.language, u.created_at,
                    COALESCE(u.braindump_enabled, 0) AS braindump_enabled,
+                   u.attachment_quota_bytes,
+                   COALESCE((SELECT SUM(ta.size_bytes) FROM todo_attachments ta WHERE ta.user_id = u.id), 0) AS attachment_usage_bytes,
                    COALESCE(u.two_factor_enabled, 0) AS two_factor_enabled,
                    CASE WHEN u.two_factor_totp_secret IS NOT NULL AND u.two_factor_totp_secret != '' THEN 1 ELSE 0 END AS has_totp,
                    CASE WHEN u.two_factor_recovery_hashes IS NOT NULL AND u.two_factor_recovery_hashes != '[]' THEN 1 ELSE 0 END AS has_recovery_codes,
@@ -606,6 +638,7 @@ def list_users(_: bool = Depends(require_admin)):
         for row in rows:
             item = dict(row)
             item["has_email_fallback"] = bool(email_mfa_available and item.get("email") and item.get("email_verified_at"))
+            item["attachment_quota_effective_bytes"] = user_attachment_quota_bytes(db, item["id"])
             users.append(item)
         return {"users": users, "two_factor_required": get_two_factor_required(db)}
 
@@ -661,7 +694,7 @@ def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool
         if email_error:
             raise validation_api_error(email_error)
     with get_db() as db:
-        user = db.execute("SELECT id, username, email, COALESCE(braindump_enabled, 0) AS braindump_enabled FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, username, email, COALESCE(braindump_enabled, 0) AS braindump_enabled, attachment_quota_bytes FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise api_error(404, "user.notFound", "User not found")
         if username is not None and username != user["username"]:
@@ -697,8 +730,13 @@ def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool
             if enabled != int(user["braindump_enabled"] or 0):
                 db.execute("UPDATE users SET braindump_enabled = ? WHERE id = ?", (enabled, user_id))
                 log_audit(db, "braindump_access_changed", user_id=user_id, ip_address=get_client_ip(request), details=f"enabled={bool(enabled)}")
+        attachment_quota = user["attachment_quota_bytes"]
+        if "attachment_quota_bytes" in data.model_fields_set:
+            attachment_quota = normalize_quota_bytes(data.attachment_quota_bytes, allow_null=True)
+            db.execute("UPDATE users SET attachment_quota_bytes = ? WHERE id = ?", (attachment_quota, user_id))
+            log_audit(db, "attachment_quota_changed", user_id=user_id, ip_address=get_client_ip(request), details=f"quota_bytes={attachment_quota}")
         db.commit()
-        return {"id": user_id, "username": username if username is not None else user["username"], "display_name": display_name, "braindump_enabled": bool(data.braindump_enabled) if data.braindump_enabled is not None else bool(user["braindump_enabled"]), **result}
+        return {"id": user_id, "username": username if username is not None else user["username"], "display_name": display_name, "braindump_enabled": bool(data.braindump_enabled) if data.braindump_enabled is not None else bool(user["braindump_enabled"]), "attachment_quota_bytes": attachment_quota, **result}
 
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int, _: bool = Depends(require_admin)):

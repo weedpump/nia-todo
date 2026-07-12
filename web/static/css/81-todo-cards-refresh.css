@@ -1,0 +1,1170 @@
+/* Todo card/list visual refresh and FAB refinements */
+
+/* Todo list/card visual refresh */
+.todo-list {
+  padding: 18px 24px max(118px, calc(96px + env(safe-area-inset-bottom, 0px)));
+}
+
+.todo-group {
+  margin-bottom: 18px;
+}
+
+.todo-group-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  color: var(--text-muted);
+}
+
+.project-group-header {
+  margin: 4px 0 8px;
+  padding: 8px 2px;
+  font-weight: 750;
+}
+
+.project-group-todos {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.todo-item {
+  min-height: 44px;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--border) 84%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: 0 10px 24px rgba(0,0,0,.075);
+  margin-bottom: 8px;
+  transition: border-color .15s, background .15s, box-shadow .15s, transform .12s, opacity .15s;
+}
+
+.todo-item:hover,
+.todo-item:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14)), transparent 44%),
+    var(--bg-secondary);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary)), 0 14px 30px rgba(0,0,0,.11);
+  transform: translateY(-1px);
+}
+
+.todo-item.swiping,
+.todo-item.swiping:hover,
+.todo-item.swiping:focus-within,
+.calendar-view .calendar-event.swiping,
+.calendar-view .calendar-event.swiping:hover,
+.calendar-view .calendar-event.swiping:focus-within {
+  transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012)));
+}
+
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing),
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing):hover,
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing):focus-within,
+.calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing),
+.calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing):hover,
+.calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing):focus-within {
+  transition: none;
+}
+
+.todo-item.done {
+  opacity: .58;
+  background: color-mix(in srgb, var(--bg-secondary) 84%, var(--bg-primary));
+}
+
+.todo-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-primary) 74%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+.todo-item.done .todo-check {
+  color: white;
+}
+
+.todo-item.in-progress {
+  border-left: 1px solid color-mix(in srgb, var(--warning) 72%, var(--border));
+  box-shadow: inset 4px 0 0 var(--warning), 0 10px 24px rgba(0,0,0,.075);
+}
+
+.todo-main {
+  align-items: center;
+  gap: 10px;
+}
+
+.todo-title-wrap {
+  min-width: 0;
+  min-height: 24px;
+  display: grid;
+  grid-template-columns: fit-content(68%) minmax(0, auto);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 0;
+  flex: 1;
+}
+
+.todo-title {
+  grid-column: 1;
+  grid-row: 1;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.todo-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.todo-badge,
+.todo-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.todo-badge .ui-icon,
+.todo-meta-chip .ui-icon {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
+.todo-badge.pinned {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.todo-badge.progress {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 13%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+}
+
+.todo-meta-row {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: center;
+  justify-self: start;
+  min-width: 0;
+  width: auto;
+  gap: 7px;
+}
+
+.todo-title-wrap:has(.todo-desc-preview) .todo-meta-row {
+  grid-row: 1 / 3;
+}
+
+.todo-meta-chip.todo-due.soon {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.todo-meta-chip.todo-due.overdue {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.todo-reminder {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 28%, transparent);
+  background: color-mix(in srgb, var(--success) 11%, transparent);
+}
+
+.todo-meta-chip.todo-location {
+  color: var(--todo-chip-location);
+  border-color: color-mix(in srgb, var(--todo-chip-location) 30%, transparent);
+  background: color-mix(in srgb, var(--todo-chip-location) 12%, transparent);
+}
+
+.todo-desc-preview {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(420px, 100%);
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.todo-actions {
+  gap: 7px;
+}
+
+.todo-actions button,
+.todo-snooze-menu summary {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-tertiary) 54%, transparent);
+}
+
+.todo-actions .todo-action-menu .ui-menu-item {
+  width: 100%;
+  height: auto;
+}
+
+.todo-actions > .todo-actions-reveal-btn {
+  display: none;
+}
+
+.todo-status-menu summary {
+  min-width: 112px;
+  height: 32px;
+  padding: 0 10px;
+}
+
+.todo-item.pinned {
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), transparent 42%),
+    var(--bg-secondary);
+  box-shadow: inset 4px 0 0 var(--accent), 0 12px 28px rgba(0,0,0,.10);
+}
+
+@media (max-width: 768px) {
+  .todo-list {
+    padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
+  }
+
+
+  .todo-item {
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 15px;
+  }
+
+  .todo-check {
+    margin-top: 0;
+  }
+
+  .todo-desc-preview {
+    max-width: 100%;
+  }
+}
+
+/* Keep compact/tablet todo row actions collapsed until the reveal arrow is tapped.
+   This intentionally uses a wider breakpoint than the sidebar shell: iPad-sized
+   layouts can show the desktop sidebar while keeping noisy card actions tucked away.
+   Touch tablets may report desktop-class widths, so also key off coarse pointers. */
+@media (max-width: 1279px), (hover: none) and (pointer: coarse) {
+  .todo-item {
+    padding-right: 52px;
+  }
+
+  .todo-actions {
+    position: absolute;
+    z-index: 170;
+    top: 50%;
+    right: 12px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    align-self: center;
+    flex: 0 0 auto;
+    gap: 5px;
+    max-width: calc(100% - 24px);
+    margin-left: 0;
+    transform: translateY(-50%);
+  }
+
+  .todo-actions > .todo-snooze-menu,
+  .todo-actions > .todo-pin-btn,
+  .todo-actions > button:not(.todo-actions-reveal-btn):not(.todo-pin-btn) {
+    display: none;
+  }
+
+  .todo-actions > .todo-actions-reveal-btn {
+    display: inline-flex;
+    order: 10;
+    width: 30px;
+    height: 30px;
+  }
+
+  .todo-item.actions-expanded {
+    max-width: 100%;
+  }
+
+  .todo-item.actions-expanded .todo-body {
+    min-width: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 184px), transparent calc(100% - 144px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 184px), transparent calc(100% - 144px), transparent 100%);
+  }
+
+  .todo-item.actions-expanded .todo-title,
+  .todo-item.actions-expanded .todo-desc-preview,
+  .todo-item.actions-expanded .todo-meta-row,
+  .todo-item.actions-expanded .todo-meta-chip,
+  .todo-item.actions-expanded .todo-badge {
+    max-width: 100%;
+  }
+
+  .todo-item.actions-expanded .todo-actions > .todo-snooze-menu {
+    display: inline-block;
+  }
+
+  .todo-item.actions-expanded .todo-actions > .todo-pin-btn,
+  .todo-item.actions-expanded .todo-actions > button:not(.todo-actions-reveal-btn):not(.todo-pin-btn) {
+    display: inline-flex;
+  }
+
+  .todo-item.actions-expanded .todo-actions-reveal-btn .ui-icon {
+    transform: rotate(180deg);
+  }
+
+  .todo-actions-reveal-btn .ui-icon {
+    transition: transform 0.15s ease;
+  }
+
+  .todo-actions button,
+  .todo-snooze-menu summary {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* Mobile FAB safe-area refinement */
+@media (max-width: 768px) {
+  .fab-add-todo {
+    right: calc(22px + env(safe-area-inset-right, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .braindump-fab {
+    right: calc(88px + env(safe-area-inset-right, 0px));
+    bottom: calc(23px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Settings modal desktop shell */
+@media (min-width: 769px) {
+  #settings-modal .settings-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: none;
+  }
+
+  #settings-modal .settings-modal-header,
+  #settings-modal .settings-modal-actions {
+    flex: 0 0 auto;
+  }
+
+  #settings-modal .settings-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  #settings-modal .settings-nav,
+  #settings-modal .settings-sections {
+    max-height: none;
+    overflow: visible;
+  }
+
+  #settings-modal .modal-close-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.todo-modal-title-icon .ui-icon,
+.entity-modal-title-icon .ui-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.todo-status-options {
+  display: grid;
+  gap: 3px;
+}
+
+.todo-action-menu.ui-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  z-index: 1000;
+}
+
+.todo-snooze-menu .todo-status-options {
+  min-width: 156px;
+}
+
+.todo-status-options button,
+.todo-actions .todo-status-options button {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  height: auto;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 6px 8px;
+  white-space: nowrap;
+  line-height: 1.15;
+  text-align: left;
+}
+
+@media (max-width: 768px) {
+  .todo-action-menu.ui-menu {
+    right: 0;
+    left: auto;
+  }
+}
+
+/* Todo card meta layout: text block left, meta chips right when space allows. */
+.todo-body .todo-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+}
+
+/* Todo list descriptions are one-line previews; full multiline text belongs in the modal. */
+.todo-body .todo-desc-preview {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: block;
+  width: 100%;
+  max-width: min(560px, 100%);
+  max-height: 16px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .todo-body .todo-desc-preview {
+    max-width: 100%;
+  }
+}
+
+
+/* Flat project/todo view preview — no extra cards, just calmer existing surfaces. */
+.todo-list {
+  padding: 16px 24px max(116px, calc(96px + env(safe-area-inset-bottom, 0px)));
+}
+
+.todo-group {
+  margin-bottom: 18px;
+}
+
+.todo-group-title {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  margin: 0 0 8px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .07em;
+}
+
+.project-group {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.project-group-header {
+  min-height: 30px;
+  margin: 2px 0 8px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.project-group-header .project-dot,
+.project-group-header .entity-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  border-radius: 999px;
+}
+
+.project-group-count,
+.section-header .section-count {
+  min-width: 26px;
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.project-group-todos,
+.section-todos {
+  display: grid;
+  gap: 7px;
+  padding-left: 0;
+  border-left: 0;
+}
+
+.project-group-todos .todo-item,
+.section-todos .todo-item,
+.todo-list > .todo-item,
+.pinned-todos .todo-item {
+  margin-bottom: 0;
+}
+
+.section-header {
+  min-height: 32px;
+  margin: 14px 0 8px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.section-header::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
+  flex: 0 0 6px;
+}
+
+.section-unsorted,
+.section-unsorted .section-name {
+  color: var(--text-muted);
+}
+
+.section-unsorted::before {
+  background: var(--text-muted);
+}
+
+.section-unsorted::after {
+  content: "";
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+}
+
+.section-header .section-delete {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: .55;
+}
+
+.section-header:hover .section-delete {
+  opacity: 1;
+}
+
+.section-header .section-delete:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.section-todos {
+  margin: 0 0 2px;
+  padding: 0;
+  background: transparent;
+}
+
+.add-section-row {
+  margin: 12px 0 4px;
+}
+
+.inline-section-form,
+.inline-edit-form {
+  min-height: 38px;
+  padding: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 48%, transparent);
+}
+
+.inline-section-form input,
+.inline-edit-form input {
+  min-height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.inline-section-form button,
+.inline-edit-form button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.inline-section-form button:hover,
+.inline-edit-form button:hover {
+  background: color-mix(in srgb, var(--bg-tertiary) 52%, transparent);
+  color: var(--text-primary);
+}
+
+.todo-item {
+  min-height: 48px;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 18px;
+  border-color: color-mix(in srgb, var(--border) 62%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+  box-shadow: none;
+}
+
+.todo-item:hover,
+.todo-item:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-tertiary));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 58%, transparent);
+  transform: none;
+}
+
+.todo-check {
+  width: 26px;
+  height: 26px;
+  border-width: 1px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.todo-item.done {
+  opacity: .54;
+  background: transparent;
+}
+
+.todo-item.in-progress {
+  border-left-width: 1px;
+  border-color: color-mix(in srgb, var(--warning) 38%, var(--border));
+  background: color-mix(in srgb, var(--warning) 6%, var(--bg-secondary));
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.todo-item.pinned {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-secondary));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.todo-title {
+  font-weight: 560;
+}
+
+.todo-meta-chip,
+.todo-badge {
+  min-height: 22px;
+  padding: 3px 8px;
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.todo-status-menu summary,
+.todo-actions button,
+.todo-snooze-menu summary {
+  border-radius: 999px;
+  background: transparent;
+}
+
+.todo-status-menu summary {
+  height: 32px;
+  border-color: color-mix(in srgb, var(--border) 58%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 42%, transparent);
+}
+
+.todo-actions button:hover,
+.todo-snooze-menu summary:hover {
+  background: color-mix(in srgb, var(--bg-tertiary) 66%, transparent);
+}
+
+.pinned-todos-group {
+  margin-bottom: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pinned-title {
+  min-height: 28px;
+  margin: 0 0 8px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.project-dashboard {
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.project-dashboard .project-dashboard-avatar {
+  width: 46px;
+  height: 46px;
+  flex-basis: 46px;
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.project-dashboard .overview-stat-card {
+  min-height: 58px;
+  padding: 11px 14px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--bg-primary) 36%, transparent);
+  box-shadow: none;
+}
+
+.project-dashboard .overview-stat-num {
+  min-width: 34px;
+  font-size: 22px;
+}
+
+.project-dashboard .overview-stat-hint {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .todo-list {
+    padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .todo-item {
+    min-height: 52px;
+    padding: 11px;
+  }
+
+  .project-dashboard .overview-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .project-dashboard .overview-stat-card {
+    min-height: 54px;
+    border-radius: 18px;
+  }
+}
+
+/* Local preview tweak: make todo rows feel more like soft pills than rounded cards. */
+.todo-item {
+  min-height: 50px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--border) 54%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 66%, transparent);
+}
+
+.todo-item.has-open-menu,
+.todo-item:has(.todo-meta-row:not(:empty)),
+.todo-item:has(.todo-desc-preview) {
+  border-radius: 26px;
+}
+
+.todo-item:hover,
+.todo-item:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  background: color-mix(in srgb, var(--bg-secondary) 80%, var(--bg-tertiary));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 48%, transparent);
+}
+
+.todo-item.in-progress {
+  border-radius: 999px;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 82%, transparent);
+}
+
+.todo-item.in-progress:has(.todo-meta-row:not(:empty)),
+.todo-item.in-progress:has(.todo-desc-preview) {
+  border-radius: 26px;
+}
+
+.todo-item.pinned {
+  border-radius: 999px;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
+}
+
+.todo-item.pinned:has(.todo-meta-row:not(:empty)),
+.todo-item.pinned:has(.todo-desc-preview) {
+  border-radius: 26px;
+}
+
+.todo-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+}
+
+.todo-actions button,
+.todo-snooze-menu summary,
+.todo-status-menu summary {
+  border-radius: 999px;
+}
+
+.todo-meta-chip,
+.todo-badge {
+  border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+  .todo-item,
+  .todo-item.in-progress,
+  .todo-item.pinned {
+    border-radius: 24px;
+  }
+}
+
+.todo-item.swiping::before,
+.todo-item.swiping::after,
+.calendar-view .calendar-event.swiping::before,
+.calendar-view .calendar-event.swiping::after {
+  top: 0;
+  bottom: 0;
+  border: 0;
+  border-radius: inherit;
+}
+
+.todo-item.swiping::before,
+.calendar-view .calendar-event.swiping::before {
+  right: calc(100% + 10px);
+}
+
+.todo-item.swiping::after,
+.calendar-view .calendar-event.swiping::after {
+  left: calc(100% + 10px);
+}
+
+/* Local preview fix: keep title + chips in natural flow, put description on its own clipped line. */
+.todo-title-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 3px;
+  min-width: 0;
+}
+
+.todo-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.todo-meta-row {
+  flex: 0 1 auto;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+}
+
+.todo-title-wrap:has(.todo-desc-preview) .todo-meta-row {
+  grid-row: auto;
+}
+
+.todo-body .todo-desc-preview,
+.todo-desc-preview {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Local preview mobile fix: prevent chips/description from escaping pill rows. */
+@media (max-width: 768px) {
+  .todo-item {
+    overflow: hidden;
+    padding-right: 52px;
+  }
+
+  .todo-body,
+  .todo-body.has-meta,
+  .todo-main,
+  .todo-title-wrap {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .todo-title-wrap {
+    overflow: hidden;
+  }
+
+  .todo-meta-row {
+    flex: 1 1 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .todo-meta-chip,
+  .todo-badge {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .todo-meta-chip span,
+  .todo-badge span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .todo-body .todo-desc-preview,
+  .todo-desc-preview {
+    display: -webkit-box;
+    max-width: 100%;
+    max-height: none;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+@media (max-width: 1279px), (hover: none) and (pointer: coarse) {
+  .todo-item {
+    padding-right: 52px;
+  }
+}
+
+/* Project dashboard follow-up: keep desktop hints, match mobile dashboard compactness. */
+.project-dashboard .overview-stat-card {
+  border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+  .project-dashboard .overview-stat-card {
+    border-radius: 999px;
+  }
+
+  .project-dashboard .overview-stat-hint {
+    display: none;
+  }
+}
+
+/* Project dashboard icon shape alignment: keep project icon fully round. */
+.project-dashboard .project-dashboard-avatar {
+  border-radius: 999px;
+}
+
+/* Local preview: remove todo row borders while keeping status/accent paint. */
+.todo-item,
+.todo-item:hover,
+.todo-item:focus-within,
+.todo-item.in-progress,
+.todo-item.pinned {
+  border-color: transparent;
+}
+
+/* Local preview: improve borderless todo contrast on light theme. */
+[data-theme="light"] .todo-item {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, white);
+}
+
+[data-theme="light"] .todo-item:hover,
+[data-theme="light"] .todo-item:focus-within {
+  background: color-mix(in srgb, var(--bg-hover) 62%, white);
+}
+
+[data-theme="light"] .todo-item.done {
+  background: color-mix(in srgb, var(--bg-tertiary) 40%, white);
+}
+
+[data-theme="light"] .todo-item.in-progress {
+  background: color-mix(in srgb, var(--warning) 8%, color-mix(in srgb, var(--bg-tertiary) 72%, white));
+}
+
+[data-theme="light"] .todo-item.pinned {
+  background: color-mix(in srgb, var(--accent) 8%, color-mix(in srgb, var(--bg-tertiary) 72%, white));
+}
+
+/* Merged todo status control: compact on mobile, full status pill on desktop. */
+.todo-status-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.todo-status-control .todo-check {
+  display: none;
+}
+
+.todo-status-menu-left {
+  display: inline-block;
+}
+
+.todo-status-menu-left summary {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  gap: 0;
+  border-color: transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-tertiary) 54%, transparent);
+}
+
+.todo-status-menu-left summary:hover,
+.todo-status-menu-left[open] summary {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--bg-tertiary) 62%, transparent);
+}
+
+.todo-status-menu-left .todo-status-menu-label,
+.todo-status-menu-left summary > .ui-icon {
+  display: none;
+}
+
+.todo-status-menu-left .todo-status-menu-current-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.todo-status-menu-left .todo-status-menu-current-icon .ui-icon,
+.todo-status-menu-left[open] .todo-status-menu-current-icon .ui-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  opacity: 1;
+  vertical-align: 0;
+  transform: none;
+}
+
+.todo-status-menu-left .todo-action-menu.ui-menu,
+.todo-status-menu-left.opens-up .todo-action-menu.ui-menu {
+  right: auto;
+  left: 0;
+}
+
+.todo-item[data-status="pending"] .todo-status-menu-left summary {
+  color: var(--text-secondary);
+}
+
+.todo-item[data-status="in_progress"] .todo-status-menu-left summary {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 11%, transparent);
+}
+
+.todo-item[data-status="in_progress"] .todo-status-menu-left summary:hover,
+.todo-item[data-status="in_progress"] .todo-status-menu-left[open] summary {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+.todo-item[data-status="done"] .todo-status-menu-left summary {
+  color: white;
+  background: var(--success);
+}
+
+.todo-actions > .todo-status-menu-actions {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .todo-status-menu-left summary {
+    width: auto;
+    min-width: 108px;
+    height: 32px;
+    padding: 0 10px;
+    gap: 6px;
+    background: color-mix(in srgb, var(--bg-tertiary) 62%, transparent);
+  }
+
+  .todo-status-menu-left .todo-status-menu-label,
+  .todo-status-menu-left summary > .ui-icon {
+    display: inline-block;
+  }
+
+  .todo-status-menu-left[open] summary > .ui-icon {
+    transform: rotate(180deg);
+  }
+
+  .todo-item[data-status="in_progress"] .todo-status-menu-left summary {
+    background: color-mix(in srgb, var(--warning) 10%, transparent);
+  }
+
+  .todo-item[data-status="done"] .todo-status-menu-left summary {
+    color: var(--success);
+    background: color-mix(in srgb, var(--success) 10%, transparent);
+  }
+}
+
+@media (max-width: 768px) {
+  .todo-item {
+    overflow: visible;
+  }
+}

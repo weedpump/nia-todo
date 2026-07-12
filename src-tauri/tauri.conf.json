@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "nia-todo",
-  "version": "2.12.2",
+  "version": "3.0.0",
   "identifier": "de.tobiaskneidl.nia-todo",
   "build": {
     "beforeDevCommand": "",
@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: http: https:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss:"
     },
     "withGlobalTauri": true
   },
@@ -32,7 +32,10 @@
     "active": true,
     "publisher": "Tobias Kneidl",
     "copyright": "Copyright © 2026 Tobias Kneidl",
-    "targets": ["nsis", "msi"],
+    "targets": ["nsis", "msi", "deb"],
+    "category": "Productivity",
+    "shortDescription": "Native desktop app for nia-todo",
+    "longDescription": "nia-todo is a self-hosted task manager with native desktop integration for quick actions, reminders, tray support and offline access.",
     "icon": [
       "../web/static/icons/icon-192.png",
       "../web/static/icons/icon-512.png"
@@ -45,6 +48,14 @@
         "displayLanguageSelector": true,
         "languages": ["English", "German"],
         "installerHooks": "windows/nsis-hooks.nsh"
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "utils",
+        "priority": "optional",
+        "desktopTemplate": "linux/nia-todo-desktop.desktop",
+        "recommends": ["libnotify-bin"]
       }
     }
   }

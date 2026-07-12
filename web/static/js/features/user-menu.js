@@ -1,6 +1,15 @@
 import { apiResourceUrl } from '../core/config.js';
 
-export function createUserMenuFeature({ getCurrentUser }) {
+export function createUserMenuFeature({
+  getCurrentUser,
+  openSettingsModal = null,
+  cycleTheme = null,
+  toggleAccentPresetMenu = null,
+  cycleSort = null,
+  toggleHideDone = null,
+  toggleProjectWidget = null,
+  logout = null,
+}) {
   function closeUserMenu() {
     const menu = document.getElementById('user-menu');
     const button = document.getElementById('user-menu-button');
@@ -43,7 +52,7 @@ export function createUserMenuFeature({ getCurrentUser }) {
     const initial = (name.trim()[0] || 'U').toUpperCase();
     const src = avatarSrc(user);
 
-    renderAvatar(document.getElementById('user-menu-button'), initial, src);
+    renderAvatar(document.getElementById('user-menu-button-avatar'), initial, src);
     renderAvatar(document.getElementById('user-menu-avatar'), initial, src);
     const menuName = document.getElementById('user-menu-name');
     const menuEmail = document.getElementById('user-menu-email');
@@ -55,8 +64,35 @@ export function createUserMenuFeature({ getCurrentUser }) {
     if (sidebarEmail) sidebarEmail.textContent = email || 'Account';
   }
 
+  function handleUserMenuAction(action, event) {
+    if (action === 'toggle') {
+      toggleUserMenu(event);
+      return;
+    }
+    if (action === 'settings') {
+      closeUserMenu();
+      openSettingsModal?.();
+      return;
+    }
+    if (action === 'theme') cycleTheme?.();
+    if (action === 'accent-preset') toggleAccentPresetMenu?.(event);
+    if (action === 'sort') cycleSort?.();
+    if (action === 'toggle-done') toggleHideDone?.();
+    if (action === 'project-widget') toggleProjectWidget?.();
+    if (action === 'logout') logout?.();
+  }
+
+  let userMenuBound = false;
   function bindUserMenu() {
+    if (userMenuBound) return;
+    userMenuBound = true;
     document.addEventListener('click', (event) => {
+      const actionTarget = event.target?.closest?.('[data-user-menu-action]');
+      if (actionTarget) {
+        event.preventDefault();
+        handleUserMenuAction(actionTarget.dataset.userMenuAction, event);
+        return;
+      }
       const menuWrap = event.target?.closest?.('.user-menu-wrap');
       if (!menuWrap) closeUserMenu();
     });

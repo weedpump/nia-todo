@@ -24,7 +24,7 @@ DEFAULT_INSTANCE_CONFIG = {
     "min_native_client_version": "1.7.0",
 }
 
-SOURCE_MIN_NATIVE_CLIENT_VERSION = "2.9.0"
+SOURCE_MIN_NATIVE_CLIENT_VERSION = "3.0.0"
 
 PUBLIC_INSTANCE_CAPABILITIES = [
     "offline-sync",

@@ -32,6 +32,23 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     const modal = document.getElementById(modalId);
     if (modalId === 'settings-modal' && modal?.classList.contains('mfa-enrollment-locked')) return;
     modal?.classList.remove('active');
+
+    const activeElement = document.activeElement;
+    if (activeElement?.matches?.('.nav-edit, [data-project-action="edit"], [data-workspace-action="edit"]')) {
+      activeElement.blur();
+    }
+  }
+
+  let modalCloseControlsBound = false;
+  function bindModalCloseControls() {
+    if (modalCloseControlsBound) return;
+    modalCloseControlsBound = true;
+    document.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('[data-close-modal]');
+      if (!target) return;
+      event.preventDefault();
+      closeModal(target.dataset.closeModal);
+    });
   }
 
   function setupDescPreview() {
@@ -40,6 +57,16 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     if (!textarea || !preview) return;
     preview.innerHTML = renderMarkdown(textarea.value);
     textarea.oninput = () => { preview.innerHTML = renderMarkdown(textarea.value); };
+  }
+
+  function bindSidebarControls() {
+    if (document.documentElement.dataset.sidebarControlsBound === '1') return;
+    document.documentElement.dataset.sidebarControlsBound = '1';
+    document.addEventListener('click', (event) => {
+      if (!event.target?.closest?.('[data-sidebar-toggle]')) return;
+      event.preventDefault();
+      toggleSidebar();
+    });
   }
 
   function bindSidebarEdgeSwipe() {
@@ -125,6 +152,36 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     });
   }
 
+  let dateTimePickerBound = false;
+
+  function bindDateTimePickerOpeners() {
+    if (dateTimePickerBound || typeof document === 'undefined') return;
+    dateTimePickerBound = true;
+
+    document.addEventListener('pointerdown', (event) => {
+      // Mobile browsers already handle native date/time controls well. This
+      // desktop-only assist keeps custom calendar icons from turning into a
+      // dead text-selection target when the native indicator is visually hidden.
+      if (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+      const wrap = event.target?.closest?.('.datetime-input-wrap');
+      if (!wrap) return;
+
+      const input = wrap.querySelector('input[type="date"], input[type="datetime-local"], input[type="time"]');
+      if (!input || input.disabled || input.readOnly) return;
+
+      if (typeof input.showPicker === 'function') {
+        event.preventDefault();
+        input.focus({ preventScroll: true });
+        try {
+          input.showPicker();
+        } catch {
+          // Browsers may reject showPicker outside an accepted user activation.
+          // Keeping focus is still the safest fallback.
+        }
+      }
+    });
+  }
+
   function isTypingTarget(element) {
     const tag = element?.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || element?.isContentEditable;
@@ -137,11 +194,16 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
         await showTodoModal();
       }
       if (e.key === 'Escape') {
+        if (document.getElementById('attachment-preview-modal')?.classList.contains('active')) {
+          e.preventDefault();
+          window.closeAttachmentPreview?.();
+          return;
+        }
         closeModal('todo-modal');
         closeModal('project-modal');
       }
     });
   }
 
-  return { openSidebar, toggleSidebar, closeSidebar, closeModal, setupDescPreview, bindSidebarEdgeSwipe, bindTouchFeedback, bindKeyboardShortcuts };
+  return { openSidebar, toggleSidebar, closeSidebar, closeModal, bindModalCloseControls, setupDescPreview, bindSidebarControls, bindSidebarEdgeSwipe, bindTouchFeedback, bindDateTimePickerOpeners, bindKeyboardShortcuts };
 }

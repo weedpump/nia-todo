@@ -39,17 +39,17 @@ export function createSyncFeature({
     if (!item || typeof item !== 'object' || typeof item.action !== 'string') return null;
     const data = item.data && typeof item.data === 'object' ? item.data : {};
     const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
-    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', 'location_reminder', 'recurring_rule', '_tempId'];
+    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', 'location_reminder', 'recurring_rule', 'subtasks', 'confirm_incomplete_subtasks_completion', '_tempId'];
     const projectFields = ['name', 'color', 'icon', 'sort_order', 'parent_id', 'workspace_id', '_tempId'];
     const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
 
     switch (item.action) {
       case 'CREATE_TODO':
-        return { ...item, data: pickAllowed(data, todoFields) };
+        return { ...item, data: { ...pickAllowed(data, todoFields), undo_grace_until: data.undo_grace_until } };
       case 'UPDATE_TODO':
         return { ...item, data: { id: data.id, changes: pickAllowed(changes, todoFields.filter(f => f !== '_tempId')) } };
       case 'DELETE_TODO':
-        return { ...item, data: { id: data.id } };
+        return { ...item, data: { id: data.id, undo_grace_until: data.undo_grace_until } };
       case 'CREATE_PROJECT':
         return { ...item, data: pickAllowed(data, projectFields) };
       case 'UPDATE_PROJECT':
@@ -84,19 +84,25 @@ export function createSyncFeature({
       }
       try {
         if (item.action === 'CREATE_TODO') {
-          let res = await todosApi.create(item.data);
+          const undoGraceUntil = Number(item.data.undo_grace_until || 0);
+          if (undoGraceUntil && Date.now() < undoGraceUntil) {
+            continue;
+          }
+          const createData = { ...item.data };
+          delete createData.undo_grace_until;
+          let res = await todosApi.create(createData);
           let localTempTodo = null;
-          if (item.data._tempId) {
-            localTempTodo = await getFromDB('todos', item.data._tempId);
-            const localSectionChanged = localTempTodo && localTempTodo.section_id !== item.data.section_id;
+          if (createData._tempId) {
+            localTempTodo = await getFromDB('todos', createData._tempId);
+            const localSectionChanged = localTempTodo && localTempTodo.section_id !== createData.section_id;
             if (localSectionChanged) {
               res = await todosApi.update(res.id, { section_id: localTempTodo.section_id });
             }
-            await deleteFromDB('todos', item.data._tempId);
-            setTodos(getTodos().filter(t => t.id !== item.data._tempId));
+            await deleteFromDB('todos', createData._tempId);
+            setTodos(getTodos().filter(t => t.id !== createData._tempId));
           }
           await dbPut('todos', res);
-          const withoutTemp = item.data._tempId ? getTodos().filter(t => t.id !== item.data._tempId) : getTodos();
+          const withoutTemp = createData._tempId ? getTodos().filter(t => t.id !== createData._tempId) : getTodos();
           if (!withoutTemp.find(t => t.id === res.id)) setTodos([...withoutTemp, res]);
           else setTodos(withoutTemp.map(t => t.id === res.id ? res : t));
           successCount++;
@@ -120,6 +126,10 @@ export function createSyncFeature({
           }
           successCount++;
         } else if (item.action === 'DELETE_TODO') {
+          const undoGraceUntil = Number(item.data.undo_grace_until || 0);
+          if (undoGraceUntil && Date.now() < undoGraceUntil) {
+            continue;
+          }
           await todosApi.delete(item.data.id);
           await deleteFromDB('todos', item.data.id);
           successCount++;
@@ -195,15 +205,41 @@ export function createSyncFeature({
     console.log(`Sync complete: ${successCount} success, ${failCount} failed`);
   }
 
+  async function waitForActiveSync(syncInProgressRef, timeoutMs = 5000) {
+    if (!syncInProgressRef?.value) return true;
+    const deadline = Date.now() + timeoutMs;
+    while (syncInProgressRef.value && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return !syncInProgressRef.value;
+  }
+
   async function refreshFromServer({ wsState, syncInProgressRef }) {
     if (!isOnlineForSync(wsState) || !getDb()) return;
 
     // Local offline edits must be pushed before any authoritative pull clears
     // and rewrites the local cache. Otherwise server state can visually or
-    // persistently clobber queued local changes.
+    // persistently clobber queued local changes. If another sync is already
+    // draining the queue, wait for it to finish before deciding whether a full
+    // pull is safe.
+    if (syncInProgressRef.value) {
+      const completed = await waitForActiveSync(syncInProgressRef);
+      if (!completed) {
+        console.warn('Skipping server refresh while local sync is still in progress');
+        return;
+      }
+    }
+
     const pendingQueue = await dbGetAll('syncQueue');
-    if (pendingQueue.length && !syncInProgressRef.value) {
+    if (pendingQueue.length) {
       await syncWithServer({ wsState, syncInProgressRef });
+      if (syncInProgressRef.value) {
+        const completed = await waitForActiveSync(syncInProgressRef);
+        if (!completed) {
+          console.warn('Skipping server refresh while local sync is still in progress');
+          return;
+        }
+      }
       const remainingQueue = await dbGetAll('syncQueue');
       if (remainingQueue.length) {
         console.warn('Skipping server refresh while local sync queue still has pending changes');

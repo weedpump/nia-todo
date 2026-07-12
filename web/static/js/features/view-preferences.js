@@ -127,6 +127,14 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     btn.title = c.title;
   }
 
+  let topbarPreferenceButtonsBound = false;
+  function bindTopbarPreferenceButtons() {
+    if (topbarPreferenceButtonsBound) return;
+    topbarPreferenceButtonsBound = true;
+    document.getElementById('today-focus-btn')?.addEventListener('click', () => toggleTodayFocus());
+    document.getElementById('minimal-todos-btn')?.addEventListener('click', () => toggleMinimalTodos());
+  }
+
   function sortTodoList(list) {
     const withPinsFirst = (items) => [...items].sort((a, b) => Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned)));
     const sortMode = getSortMode();
@@ -170,5 +178,5 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     });
   }
 
-  return { toggleHideDone, updateToggleDoneButton, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, cycleSort, updateSortButton, sortTodoList };
+  return { toggleHideDone, updateToggleDoneButton, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, bindTopbarPreferenceButtons, cycleSort, updateSortButton, sortTodoList };
 }

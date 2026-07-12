@@ -7,10 +7,15 @@ __pycache__/
 
 # Database (NEVER commit SQLite DBs)
 *.db
+*.db-shm
+*.db-wal
 api/data/*.db
 api/data/*.db.backup*
 api/data/*.db.bak
 api/data/*.db.bak
+api/data/*.db.bak-shm
+api/data/*.db.bak-wal
+api/data/backups/
 api/data/avatars/
 
 # Environment
@@ -49,3 +54,6 @@ dist/
 
 # Local BrainDump/OpenClaw scratch artifacts
 .local/
+
+# Runtime app data
+api/data/attachments/

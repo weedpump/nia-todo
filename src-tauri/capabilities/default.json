@@ -13,6 +13,7 @@
     "allow-desktop-set-server-url",
     "allow-desktop-clear-server-url",
     "allow-desktop-open-url",
+    "allow-desktop-download-attachment",
     "allow-desktop-set-hotkey",
     "allow-desktop-request-notification-permission",
     "allow-desktop-notify",

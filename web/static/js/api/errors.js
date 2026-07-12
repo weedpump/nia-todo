@@ -15,6 +15,11 @@ const LEGACY_DETAIL_KEYS = new Map(Object.entries({
   'Too many requests. Please try again later.': 'api.error.rateLimit.passwordReset',
   'Too many requests. Please slow down.': 'api.error.rateLimit.api',
   'You are not authenticated.': 'api.error.auth.notAuthenticated',
+  'Attachments are disabled by the administrator': 'todo.attachments.disabled',
+  'This attachment file type is not allowed': 'todo.attachments.typeNotAllowed',
+  'Attachment quota exceeded': 'todo.attachments.quotaExceeded',
+  'Attachment is too large': 'todo.attachments.fileTooLargeGeneric',
+  'Too many attachments': 'todo.attachments.tooMany',
 }));
 
 function normalizeApiErrorData(data, fallback) {

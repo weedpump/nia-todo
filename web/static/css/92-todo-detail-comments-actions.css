@@ -1,0 +1,61 @@
+/* Todo detail section surfaces, comments, and actions */
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-attachments-card,
+#todo-modal.todo-detail-view .todo-comments-card {
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card:hover,
+#todo-modal.todo-detail-view .todo-attachments-card:hover,
+#todo-modal.todo-detail-view .todo-comments-card:hover {
+  border-color: color-mix(in srgb, var(--border) 44%, transparent);
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view #todo-attachment-file-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Todo detail comments: actions belong in the comment header row, right-aligned. */
+#todo-modal.todo-detail-view .todo-comment-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "meta actions"
+    "body body";
+  gap: 4px 10px;
+  padding: 8px 0 8px 12px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-meta {
+  grid-area: meta;
+  grid-column: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-body {
+  grid-area: body;
+  grid-column: auto;
+}
+
+#todo-modal.todo-detail-view .todo-comment-actions {
+  grid-area: actions;
+  grid-column: auto;
+  justify-self: end;
+  align-self: start;
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 0;
+  opacity: 0;
+  transition: opacity .14s ease;
+}

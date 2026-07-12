@@ -1,0 +1,54 @@
+/* Minimal todo list mode */
+
+/* Minimal todo list mode */
+body.is-minimal-todos .todo-item:not(.calendar-event) {
+  min-height: 44px;
+  align-items: center;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-body,
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-body.has-meta {
+  min-width: 0;
+}
+
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-main {
+  align-items: center;
+}
+
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-title-wrap {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .todo-title-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .todo-meta-row {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 6px;
+  }
+
+  .todo-title-wrap:has(.todo-desc-preview) .todo-meta-row {
+    grid-row: 3;
+  }
+
+  .todo-body .todo-desc-preview {
+    grid-row: 2;
+  }
+}
+
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-badges,
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-meta-row,
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-desc-preview {
+  display: none !important;

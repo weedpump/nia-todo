@@ -1,0 +1,157 @@
+/* Base tokens, reset, focus/press primitives */
+
+/* nia-todo: Modern, clean, compact */
+
+:root {
+  color-scheme: dark;
+  /* ─── Dark Theme (default) ─── */
+  --bg-primary: #0f0f23;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #242442;
+  --bg-hover: #2d2d52;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-rgb: 99, 102, 241;
+  --accent-hover-rgb: 129, 140, 248;
+  --accent-intensity: 1;
+  --accent-strength: 100%;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --todo-chip-location: #06b6d4;
+  --todo-chip-recurring: #3b82f6;
+  --border: #334155;
+  --radius: 8px;
+  --field-radius: 18px;
+  --dropdown-menu-radius: calc(var(--field-radius) + 4px);
+  --dropdown-option-radius: calc(var(--field-radius) - 4px);
+  --shadow: 0 4px 12px rgba(0,0,0,0.3);
+  --press-bg: rgba(var(--accent-rgb), 0.28);
+  --press-ring: rgba(var(--accent-rgb), 0.42);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --bg-hover: #cbd5e1;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-rgb: 79, 70, 229;
+  --accent-hover-rgb: 67, 56, 202;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --todo-chip-location: #0891b2;
+  --todo-chip-recurring: #2563eb;
+  --border: #cbd5e1;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
+  --press-bg: rgba(var(--accent-rgb), 0.20);
+  --press-ring: rgba(var(--accent-rgb), 0.36);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html,
+body,
+#app {
+  touch-action: pan-x pan-y;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+#app { display: flex; height: 100dvh; }
+
+html,
+body,
+button,
+a,
+[role="button"],
+input,
+select,
+textarea,
+.todo-item,
+.nav-btn,
+.workspace-current-btn,
+.user-menu-item,
+.overview-project-item {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus,
+a:focus,
+[role="button"]:focus,
+.todo-item:focus,
+.nav-btn:focus,
+.workspace-current-btn:focus,
+.user-menu-item:focus,
+.overview-project-item:focus {
+  outline: none;
+}
+
+button,
+a,
+[role="button"],
+.nav-btn,
+.workspace-current-btn,
+.user-menu-item,
+.todo-item,
+.overview-project-item {
+  transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease, opacity 0.12s ease, filter 0.12s ease;
+}
+
+button:active,
+a:active,
+[role="button"]:active,
+.nav-btn:active,
+.workspace-current-btn:active,
+.user-menu-item:active,
+.todo-item.todo-press-active,
+.overview-project-item:active,
+.touch-feedback {
+  background-color: var(--press-bg);
+  box-shadow: inset 0 0 0 999px rgba(var(--accent-rgb), 0.14), 0 0 0 2px var(--press-ring), 0 8px 20px rgba(var(--accent-rgb), 0.18);
+  transform: translateY(1px) scale(0.975);
+}
+
+.btn-primary.touch-feedback,
+.btn-primary:active {
+  background-color: color-mix(in srgb, var(--accent-hover) 90%, white);
+  filter: brightness(1.08);
+}
+
+.todo-item.touch-feedback,
+.todo-item.todo-press-active,
+.overview-project-item.touch-feedback,
+.overview-project-item:active {
+  background-color: color-mix(in srgb, var(--bg-tertiary) 62%, var(--accent));
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+.nav-btn:focus-visible,
+.workspace-current-btn:focus-visible,
+.user-menu-item:focus-visible,
+.todo-item:focus-visible,
+.overview-project-item:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.28), 0 0 0 1px rgba(var(--accent-rgb), 0.45);
+}
+

@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v2.12.2';
+const SW_VERSION = 'v3.0.0';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // Assets required for offline startup
@@ -8,7 +8,48 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/static/style.css',
+  '/static/css/00-base.css',
+  '/static/css/10-navigation-sidebar.css',
+  '/static/css/11-main-shell.css',
+  '/static/css/12-overview-dashboard.css',
+  '/static/css/13-calendar-view.css',
+  '/static/css/20-todos-list.css',
+  '/static/css/30-buttons-empty.css',
+  '/static/css/31-modals.css',
+  '/static/css/32-dropdowns-selects.css',
+  '/static/css/33-color-scrollbars.css',
+  '/static/css/40-responsive-mobile.css',
+  '/static/css/50-auth-login.css',
+  '/static/css/51-auth-downloads-install.css',
+  '/static/css/52-auth-mobile.css',
+  '/static/css/53-version-bar.css',
+  '/static/css/60-feedback-markdown.css',
+  '/static/css/61-workspace-confirm-icons.css',
+  '/static/css/62-touch-native.css',
+  '/static/css/63-security-auth.css',
+  '/static/css/64-focus-controls.css',
+  '/static/css/70-braindump.css',
+  '/static/css/71-settings.css',
+  '/static/css/74-whats-new.css',
+  '/static/css/80-form-todo-modal.css',
+  '/static/css/80-todo-detail-workspace-base.css',
+  '/static/css/81-todo-cards-refresh.css',
+  '/static/css/82-entity-modals.css',
+  '/static/css/83-focus-selects.css',
+  '/static/css/89-ui-detail-modal.css',
+  '/static/css/90-minimal-list.css',
+  '/static/css/90-detail-extras.css',
+  '/static/css/90-attachments-preview.css',
+  '/static/css/91-todo-detail-layout.css',
+  '/static/css/92-todo-detail-content.css',
+  '/static/css/92-todo-detail-comments-actions.css',
+  '/static/css/92-todo-detail-attachments.css',
+  '/static/css/92-todo-detail-description.css',
+  '/static/css/93-todo-detail-meta-drawer.css',
+  '/static/css/94-todo-detail-header-actions.css',
+  '/static/css/95-todo-detail-mobile-viewport.css',
   '/static/js/main.js',
+  '/static/js/features/auto-scrollbars.js',
   '/static/js/app.js',
   '/static/js/api/http.js',
   '/static/js/api/errors.js',
@@ -29,21 +70,37 @@ const PRECACHE_ASSETS = [
   '/static/js/storage/indexed-db.js',
   '/static/js/sync/queue.js',
   '/static/js/icons/lucide-icons.js',
+  '/static/js/icons/lucide-generated.js',
   '/static/js/i18n/index.js',
   '/static/js/ui/dropdowns.js',
+  '/static/js/ui/color-picker.js',
   '/static/i18n/de.json',
   '/static/i18n/en.json',
+  '/static/i18n/cs.json',
+  '/static/i18n/fr.json',
+  '/static/i18n/it.json',
+  '/static/i18n/nl.json',
+  '/static/i18n/pl.json',
+  '/static/i18n/pt-BR.json',
+  '/static/i18n/ru.json',
+  '/static/i18n/sv.json',
+  '/static/i18n/es.json',
+  '/static/i18n/zh-CN.json',
   '/static/js/features/api-keys.js',
   '/static/js/features/app-downloads.js',
   '/static/js/features/app-rendering.js',
   '/static/js/features/app-lifecycle.js',
+  '/static/js/features/calendar-view.js',
   '/static/js/features/desktop-integration.js',
   '/static/js/features/native-bridge.js',
   '/static/js/features/auth-session.js',
+  '/static/js/features/oidc-notice.js',
   '/static/js/features/connection-status.js',
   '/static/js/features/confirm-dialog.js',
+  '/static/js/features/mobile-search.js',
+  '/static/js/features/focus-filters.js',
   '/static/js/features/drag-drop.js',
-  '/static/js/features/legacy-globals.js',
+  '/static/js/features/runtime-globals.js',
   '/static/js/features/push-notifications.js',
   '/static/js/features/project-sharing.js',
   '/static/js/features/theme.js',
@@ -54,11 +111,16 @@ const PRECACHE_ASSETS = [
   '/static/js/features/workspaces.js',
   '/static/js/features/navigation.js',
   '/static/js/features/todos.js',
+  '/static/js/features/todo-attachments.js',
+  '/static/js/features/todo-quick-add.js',
   '/static/js/features/sync.js',
+  '/static/js/features/sync-controller.js',
   '/static/js/features/todo-rendering.js',
   '/static/js/features/toast-undo.js',
   '/static/js/features/view-preferences.js',
   '/static/js/features/websocket-client.js',
+  '/static/js/features/whats-new.js',
+  '/static/content/whats-new.json',
   '/static/js/features/service-worker-updates.js',
   '/static/js/features/section-actions.js',
   '/static/js/features/sections.js',
@@ -134,6 +196,13 @@ function isHardReloadRequest(event, url) {
 function cacheKeyForReloadedAppShell(request, url) {
   if (request.mode === 'navigate' || request.destination === 'document') return '/index.html';
   return url.pathname;
+}
+
+async function matchAppShellCache(request, url) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  if (url.search) return caches.match(url.pathname, { ignoreSearch: true });
+  return null;
 }
 
 async function purgeNeverCacheEntries() {
@@ -296,7 +365,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
         }
         return response;
-      }).catch(() => caches.match(event.request).then((cached) => {
+      }).catch(() => matchAppShellCache(event.request, url).then((cached) => {
         if (cached) return cached;
         if (event.request.mode === 'navigate' || event.request.destination === 'document') {
           return caches.match('/index.html').then((index) => index || new Response(OFFLINE_HTML, { headers: { 'Content-Type': 'text/html' } }));
@@ -309,7 +378,7 @@ self.addEventListener('fetch', (event) => {
 
   // Alle anderen Requests
   event.respondWith(
-    caches.match(event.request)
+    matchAppShellCache(event.request, url)
       .then((cached) => {
         if (cached) return cached;
         return fetch(event.request).then((response) => {

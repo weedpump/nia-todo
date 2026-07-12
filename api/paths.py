@@ -21,6 +21,7 @@ if not DB_PATH.is_absolute():
 AVATAR_DIR = _path_from_env("NIA_TODO_AVATAR_DIR", DATA_DIR / "avatars")
 VAPID_KEYS_PATH = _path_from_env("NIA_TODO_VAPID_KEYS", DATA_DIR / "vapid_keys.json")
 BACKUP_DIR = _path_from_env("NIA_TODO_BACKUP_DIR", DATA_DIR / "backups")
+ATTACHMENT_DIR = _path_from_env("NIA_TODO_ATTACHMENT_DIR", DATA_DIR / "attachments")
 
-for directory in (DATA_DIR, DB_PATH.parent, AVATAR_DIR, VAPID_KEYS_PATH.parent, BACKUP_DIR):
+for directory in (DATA_DIR, DB_PATH.parent, AVATAR_DIR, VAPID_KEYS_PATH.parent, BACKUP_DIR, ATTACHMENT_DIR):
     directory.mkdir(parents=True, exist_ok=True)

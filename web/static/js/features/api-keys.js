@@ -99,8 +99,9 @@ export function createApiKeysFeature({ authApi }) {
         const btn = document.createElement('button');
         btn.className = 'btn btn-danger settings-api-key-revoke';
         btn.title = t('settings.apiKeys.revoke');
+        btn.dataset.apiKeyAction = 'revoke';
+        btn.dataset.apiKeyId = String(k.id);
         btn.innerHTML = iconSvg('trash-2');
-        btn.onclick = () => revokeApiKey(k.id);
         container.appendChild(btn);
       }
 
@@ -194,9 +195,24 @@ export function createApiKeysFeature({ authApi }) {
     });
   }
 
+  let apiKeyActionsBound = false;
+  function bindApiKeyActions() {
+    if (apiKeyActionsBound) return;
+    apiKeyActionsBound = true;
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-api-key-action]');
+      if (!target) return;
+      event.preventDefault();
+      const action = target.dataset.apiKeyAction;
+      if (action === 'create') await createApiKey();
+      else if (action === 'copy') copyApiKey();
+      else if (action === 'revoke') await revokeApiKey(target.dataset.apiKeyId);
+    });
+  }
+
   window.addEventListener('nia-language-change', () => {
     if (hasLoadedApiKeys) renderApiKeys(lastApiKeys);
   });
 
-  return { resetApiKeyUi, loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey };
+  return { resetApiKeyUi, loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey, bindApiKeyActions };
 }

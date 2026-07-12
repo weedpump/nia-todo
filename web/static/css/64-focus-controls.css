@@ -1,0 +1,309 @@
+/* Today focus, quick add, pins, snooze, and sync badges */
+
+/* Today focus, quick add, pins, snooze, and sync badge */
+.today-focus-btn,
+.minimal-todos-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 92px;
+  border: 0;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: all 0.18s ease;
+}
+
+.today-focus-btn:hover,
+.minimal-todos-btn:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+}
+
+.today-focus-btn.active,
+.minimal-todos-btn.active {
+  color: white;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #111827));
+  box-shadow: 0 8px 20px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.26));
+}
+
+.today-focus-btn.active::after,
+.minimal-todos-btn.active::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.95;
+}
+
+.today-focus-btn .ui-icon,
+.minimal-todos-btn .ui-icon { display: block; width: 15px; height: 15px; margin: 0; }
+
+.quick-add-hint {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.quick-add-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.quick-add-preview[hidden] {
+  display: none;
+}
+
+.quick-add-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.quick-add-chip-label {
+  color: var(--text-secondary);
+}
+
+.quick-add-chip.priority { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.13); }
+.quick-add-chip.due { border-color: rgba(99, 102, 241, 0.45); background: rgba(99, 102, 241, 0.14); }
+.quick-add-chip.reminder { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.13); }
+.quick-add-chip.project { border-color: rgba(14, 165, 233, 0.45); background: rgba(14, 165, 233, 0.13); }
+.quick-add-chip.section { border-color: rgba(168, 85, 247, 0.45); background: rgba(168, 85, 247, 0.13); }
+.quick-add-chip.location { border-color: rgba(20, 184, 166, 0.45); background: rgba(20, 184, 166, 0.13); }
+
+.checkbox-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pin-checkbox-row {
+  margin-top: -2px;
+  margin-bottom: 18px;
+}
+
+.checkbox-row .pin-checkbox-heading {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pin-checkbox-label {
+  position: relative;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10)), var(--bg-primary));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.pin-checkbox-label input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pin-checkbox-box {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: white;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pin-checkbox-box::before {
+  content: "★";
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  transform: scale(0.7) rotate(-12deg);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.pin-checkbox-label:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.20)), var(--bg-secondary));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12));
+}
+
+.pin-checkbox-label:has(input:focus-visible) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
+}
+
+.pin-checkbox-label:has(input:checked) .pin-checkbox-box {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #fbbf24));
+  box-shadow: 0 6px 16px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
+}
+
+.pin-checkbox-label:has(input:checked) .pin-checkbox-box::before {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.todo-item.pinned {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  border-radius: 16px;
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13)), var(--bg-secondary) 42%);
+  box-shadow: inset 4px 0 0 var(--accent), 0 0 0 1px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12));
+}
+
+.todo-pin-marker {
+  display: inline-flex;
+  color: var(--accent);
+  margin-right: 2px;
+}
+
+.todo-pin-marker .ui-icon,
+.todo-pin-btn .ui-icon,
+.todo-snooze-menu summary .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.todo-pin-btn.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.todo-snooze-menu {
+  position: relative;
+}
+
+.todo-snooze-menu summary {
+  list-style: none;
+}
+
+.todo-snooze-menu summary:hover,
+.todo-snooze-menu[open] summary {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.todo-snooze-menu summary::-webkit-details-marker { display: none; }
+.todo-snooze-menu summary::marker { content: ""; font-size: 0; }
+
+.todo-snooze-menu .todo-status-options {
+  right: 0;
+  left: auto;
+  min-width: 152px;
+}
+
+.status-syncing,
+.status-pending-sync {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, var(--bg-secondary));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.status-syncing::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 8px color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.status-pending-sync::after { content: none; }
+
+@media (max-width: 640px) {
+  .today-focus-btn,
+  .minimal-todos-btn {
+    min-width: 36px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+  .today-focus-btn span[data-i18n-key="todayFocus.short"],
+  .minimal-todos-btn span[data-i18n-key="minimalTodos.short"] { display: none; }
+  .today-focus-btn.active::after,
+  .minimal-todos-btn.active::after {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    width: 6px;
+    height: 6px;
+  }
+  .status-syncing,
+  .status-pending-sync {
+    width: 30px;
+    min-width: 30px;
+    height: 26px;
+    padding: 0;
+    font-size: 0;
+  }
+  .status-syncing::before {
+    width: 9px;
+    height: 9px;
+    margin-right: 0;
+  }
+  .status-pending-sync::after {
+    content: attr(data-count);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--warning);
+    color: var(--bg-primary);
+    font-size: 11px;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+}

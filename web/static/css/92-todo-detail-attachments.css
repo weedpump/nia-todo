@@ -1,0 +1,50 @@
+/* Todo detail attachments dropzone and alignment */
+
+/* Todo detail attachments: compact empty picker, full-width selection, desktop drag/drop. */
+#todo-modal.todo-detail-view .todo-attachment-picker.has-file {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: min(520px, 100%);
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker.has-file #todo-attachment-file-name {
+  max-width: none;
+}
+
+/* Todo detail attachments: persistent dropzone and preview layering fixes. */
+#attachment-preview-modal.active {
+  z-index: 1300;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  margin: 4px 0 0;
+  border: 1px dashed color-mix(in srgb, var(--border) 48%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-secondary) 20%, transparent);
+  transition: border-color .14s ease, background .14s ease;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over {
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker {
+  grid-column: 1;
+  justify-self: start;
+  flex: none;
+  width: auto;
+  min-width: 0;
+  max-width: 220px;
+}
+
+#todo-modal.todo-detail-view #todo-attachment-upload-btn {
+  grid-column: 3;
+  justify-self: end;
+}

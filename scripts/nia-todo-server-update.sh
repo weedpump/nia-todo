@@ -11,8 +11,23 @@ STATUS_FILE="${CACHE_DIR}/status.json"
 UPDATE_LOG_DIR="/var/lib/nia-todo/update-logs"
 UPDATE_LOG_FILE="${UPDATE_LOG_DIR}/nia-todo-server-update.log"
 SOURCE_CONFIG="/etc/nia-todo/update-source.env"
+ENV_CONFIG="/etc/nia-todo/nia-todo.env"
 RELEASE_API_LATEST="${RELEASE_API_LATEST:-https://api.github.com/repos/weedpump/nia-todo/releases/latest}"
 UNIT_NAME="nia-todo-server-update"
+
+if [ -f "${ENV_CONFIG}" ]; then
+  owner_uid="$(stat -c '%u' "${ENV_CONFIG}")"
+  mode="$(stat -c '%a' "${ENV_CONFIG}")"
+  perm=$((8#${mode}))
+  if [ "${owner_uid}" != "0" ] || [ $((perm & 022)) -ne 0 ]; then
+    echo "Refusing insecure environment config ${ENV_CONFIG}; expected root-owned and not group/world-writable." >&2
+    exit 2
+  fi
+  set -a
+  # shellcheck disable=SC1090
+  source "${ENV_CONFIG}"
+  set +a
+fi
 
 if [ -f "${SOURCE_CONFIG}" ]; then
   owner_uid="$(stat -c '%u' "${SOURCE_CONFIG}")"
@@ -102,6 +117,12 @@ if [ "${RUN_IN_PLACE}" != "1" ]; then
         --setenv="RELEASE_API_LATEST=${RELEASE_API_LATEST}" \
         --setenv="SERVICE_NAME=${SERVICE_NAME}" \
         --setenv="NIA_TODO_SERVICE_NAME=${SERVICE_NAME}" \
+        --setenv="NIA_TODO_DATA_DIR=${NIA_TODO_DATA_DIR:-/var/lib/nia-todo}" \
+        --setenv="NIA_TODO_BACKUP_DIR=${NIA_TODO_BACKUP_DIR:-${NIA_TODO_DATA_DIR:-/var/lib/nia-todo}/backups}" \
+        --setenv="NIA_TODO_DB=${NIA_TODO_DB:-nia-todo.db}" \
+        --setenv="NIA_TODO_AVATAR_DIR=${NIA_TODO_AVATAR_DIR:-${NIA_TODO_DATA_DIR:-/var/lib/nia-todo}/avatars}" \
+        --setenv="NIA_TODO_ATTACHMENT_DIR=${NIA_TODO_ATTACHMENT_DIR:-${NIA_TODO_DATA_DIR:-/var/lib/nia-todo}/attachments}" \
+        --setenv="NIA_TODO_VAPID_KEYS=${NIA_TODO_VAPID_KEYS:-${NIA_TODO_DATA_DIR:-/var/lib/nia-todo}/vapid_keys.json}" \
         "$(readlink -f "$0")" --systemd-child; then
       write_status "running" "Server update detached from app service. Installing package…" "" "${UNIT_NAME}.service"
       echo "nia-todo server update detached into systemd unit ${UNIT_NAME}."
@@ -227,7 +248,9 @@ fi
 
 write_status "running" "Downloaded and verified package. Creating backup…" "${PACKAGE_VERSION}"
 
-if [ -f /var/lib/nia-todo/nia-todo.db ]; then
+if command -v nia-todo-backup >/dev/null 2>&1; then
+  nia-todo-backup || true
+elif [ -f /var/lib/nia-todo/nia-todo.db ]; then
   mkdir -p /var/lib/nia-todo/backups
   cp /var/lib/nia-todo/nia-todo.db "/var/lib/nia-todo/backups/pre-self-update-$(date +%Y%m%d-%H%M%S).db" || true
 fi
