@@ -336,18 +336,27 @@ export function createTodosFeature({
     if (tag === 'h2') return `## ${children().trim()}\n\n`;
     if (tag === 'h3') return `### ${children().trim()}\n\n`;
     if (tag === 'li') {
+      const marginDepth = Math.max(0, Math.round((parseFloat(node.style?.marginLeft || '') || 0) / 40));
+      const effectiveListDepth = listDepth + marginDepth;
       const direct = Array.from(node.childNodes)
         .filter(child => !(child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase())))
-        .map(child => htmlNodeToMarkdown(child, listDepth))
+        .map(child => htmlNodeToMarkdown(child, effectiveListDepth))
         .join('')
         .trim();
       const nested = Array.from(node.childNodes)
         .filter(child => child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase()))
-        .map(child => htmlNodeToMarkdown(child, listDepth + 1))
+        .map(child => htmlNodeToMarkdown(child, effectiveListDepth + 1))
         .join('');
-      return `${'  '.repeat(listDepth)}- ${direct}\n${nested}`;
+      return `${'  '.repeat(effectiveListDepth)}- ${direct}\n${nested}`;
     }
-    if (tag === 'ul' || tag === 'ol') return `${children(listDepth)}\n`;
+    if (tag === 'ul' || tag === 'ol') {
+      return `${Array.from(node.childNodes).map(child => {
+        if (child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase())) {
+          return htmlNodeToMarkdown(child, listDepth + 1);
+        }
+        return htmlNodeToMarkdown(child, listDepth);
+      }).join('')}\n`;
+    }
     if (tag === 'p' || tag === 'div') return `${children().trim()}\n\n`;
     return children();
   }
