@@ -461,10 +461,10 @@ export function createTodosFeature({
       toolbar.classList.remove('is-stuck');
       return;
     }
-    const topOffset = parseFloat(window.getComputedStyle(toolbar).top) || 0;
     const toolbarTop = toolbar.getBoundingClientRect().top;
-    const stuckTop = scrollPort.getBoundingClientRect().top + topOffset;
-    toolbar.classList.toggle('is-stuck', toolbarTop <= stuckTop + 1);
+    const scrollPortTop = scrollPort.getBoundingClientRect().top;
+    const isAtStickyEdge = toolbarTop <= scrollPortTop + 8;
+    toolbar.classList.toggle('is-stuck', scrollPort.scrollTop > 0 && isAtStickyEdge);
   }
 
   function updateRichKeyboardToolbar() {
@@ -481,9 +481,8 @@ export function createTodosFeature({
     }
     const viewport = window.visualViewport;
     const wrap = toolbar.closest('.todo-rich-keyboard-wrap') || toolbar.parentElement;
-    const rect = wrap.getBoundingClientRect();
-    toolbar.style.setProperty('--todo-rich-toolbar-left', `${Math.max(0, rect.left)}px`);
-    toolbar.style.setProperty('--todo-rich-toolbar-width', `${Math.max(0, rect.width)}px`);
+    toolbar.style.setProperty('--todo-rich-toolbar-left', `${Math.max(0, viewport?.offsetLeft || 0)}px`);
+    toolbar.style.setProperty('--todo-rich-toolbar-width', `${Math.max(window.innerWidth || 0, viewport?.width || 0)}px`);
     toolbar.style.setProperty('--todo-rich-toolbar-top', `${Math.max(0, viewport?.offsetTop || 0)}px`);
     wrap.style.setProperty('--todo-rich-toolbar-height', `${toolbar.getBoundingClientRect().height}px`);
     wrap.classList.add('is-keyboard-toolbar-fixed');
