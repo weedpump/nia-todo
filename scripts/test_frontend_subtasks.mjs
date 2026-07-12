@@ -13,8 +13,8 @@ await withFreshDb(async () => {
       subtasks: document.querySelector('#todo-subtasks-panel')?.open,
       comments: document.querySelector('#todo-comments-panel')?.open,
     }));
-    if (!initialState.detailView || initialState.metaEditing || !initialState.subtasks || !initialState.comments) {
-      throw new Error(`Expected read-first todo modal with visible content sections and closed meta drawer: ${JSON.stringify(initialState)}`);
+    if (!initialState.detailView || !initialState.metaEditing || !initialState.subtasks || !initialState.comments) {
+      throw new Error(`Expected create todo modal with visible content sections and open desktop meta drawer: ${JSON.stringify(initialState)}`);
     }
     await page.fill('#todo-title', 'Frontend subtasks persistence');
     await page.fill('#todo-subtask-new-title', 'First checklist item');
@@ -140,7 +140,8 @@ await withFreshDb(async () => {
 
     await openTodoModal();
     await page.fill('#todo-title', 'Frontend metadata panels');
-    await page.click('#todo-meta-edit-toggle');
+    const metadataDrawerOpen = await page.evaluate(() => document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'));
+    if (!metadataDrawerOpen) await page.click('#todo-meta-edit-toggle');
     await page.locator('.todo-meta-edit-drawer').waitFor({ state: 'visible', timeout: 5000 });
     await page.selectOption('#todo-priority', '1', { force: true });
     await page.fill('#todo-due', '2099-01-02T03:04', { force: true });
