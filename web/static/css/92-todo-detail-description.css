@@ -24,7 +24,7 @@
 
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar {
   position: sticky;
-  top: 0;
+  top: calc(-1 * var(--ui-detail-modal-body-pad-y, 0px));
   z-index: 5;
   display: flex;
   flex-wrap: wrap;
