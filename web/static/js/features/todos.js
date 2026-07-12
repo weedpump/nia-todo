@@ -377,18 +377,28 @@ export function createTodosFeature({
     return match && root.contains(match) ? match : null;
   }
 
+  function clearToolbarState(toolbar) {
+    toolbar?.querySelectorAll?.('button[aria-pressed]')?.forEach(button => setToolbarButtonActive(button, false));
+  }
+
   function updateRichToolbarState(editor, toolbar) {
     if (!editor || !toolbar) return;
     const element = getSelectionElementWithin(editor);
+    if (!element) {
+      clearToolbarState(toolbar);
+      return;
+    }
+    const selection = window.getSelection?.();
     const inlineElement = closestInside(element, 'strong,b,em,i,u,code', editor);
     const blockElement = closestInside(element, 'h1,h2,blockquote,li,ul,ol', editor);
-    const inlineTag = inlineElement?.tagName?.toLowerCase() || '';
+    const hasInlineContent = Boolean(selection?.toString?.().trim() || inlineElement?.textContent?.trim());
+    const inlineTag = hasInlineContent ? (inlineElement?.tagName?.toLowerCase() || '') : '';
     const blockTag = blockElement?.tagName?.toLowerCase() || '';
     toolbar.querySelectorAll('button[data-rich-command], button[data-rich-block], button[data-rich-format]').forEach(button => {
       let active = false;
-      if (button.dataset.richCommand === 'bold') active = document.queryCommandState?.('bold') || ['strong', 'b'].includes(inlineTag);
-      else if (button.dataset.richCommand === 'italic') active = document.queryCommandState?.('italic') || ['em', 'i'].includes(inlineTag);
-      else if (button.dataset.richCommand === 'underline') active = document.queryCommandState?.('underline') || inlineTag === 'u';
+      if (button.dataset.richCommand === 'bold') active = ['strong', 'b'].includes(inlineTag);
+      else if (button.dataset.richCommand === 'italic') active = ['em', 'i'].includes(inlineTag);
+      else if (button.dataset.richCommand === 'underline') active = inlineTag === 'u';
       else if (button.dataset.richCommand === 'insertUnorderedList') active = ['li', 'ul'].includes(blockTag) || Boolean(blockElement?.closest?.('ul'));
       else if (button.dataset.richBlock) active = blockTag === button.dataset.richBlock;
       else if (button.dataset.richFormat === 'code') active = inlineTag === 'code';
@@ -425,8 +435,9 @@ export function createTodosFeature({
       updateRichToolbarState(editor, toolbar);
     };
     editor.addEventListener('input', syncFromEditor);
-    editor.addEventListener('keyup', () => updateRichToolbarState(editor, toolbar));
+    editor.addEventListener('keyup', () => window.setTimeout(() => updateRichToolbarState(editor, toolbar), 0));
     editor.addEventListener('mouseup', () => updateRichToolbarState(editor, toolbar));
+    editor.addEventListener('blur', () => clearToolbarState(toolbar));
     document.addEventListener('selectionchange', () => updateRichToolbarState(editor, toolbar));
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
@@ -592,6 +603,7 @@ export function createTodosFeature({
     textarea.addEventListener('mouseup', updateState);
     textarea.addEventListener('select', updateState);
     textarea.addEventListener('focus', updateState);
+    textarea.addEventListener('blur', () => clearToolbarState(toolbar));
   }
 
   function bindTodoDescriptionInlineEditor() {
