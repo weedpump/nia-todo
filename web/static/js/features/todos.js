@@ -381,6 +381,40 @@ export function createTodosFeature({
     toolbar?.querySelectorAll?.('button[aria-pressed]')?.forEach(button => setToolbarButtonActive(button, false));
   }
 
+  function placeCaretAtStart(element) {
+    const selection = window.getSelection?.();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function resetRichTypingStyleAfterLineBreak(editor, toolbar, syncFromEditor) {
+    window.setTimeout(() => {
+      const element = getSelectionElementWithin(editor);
+      if (!element) return;
+      const block = closestInside(element, 'h1,h2,blockquote,p,div', editor);
+      const inline = closestInside(element, 'strong,b,em,i,u,code', editor);
+      const isEmptyLine = !String(block?.textContent || inline?.textContent || '').trim();
+      for (const command of ['bold', 'italic', 'underline']) {
+        if (document.queryCommandState?.(command)) document.execCommand(command, false, null);
+      }
+      if (isEmptyLine && block && block !== editor) {
+        const blockTag = block.tagName?.toLowerCase();
+        const resetBlock = ['h1', 'h2', 'blockquote'].includes(blockTag) ? document.createElement('div') : block;
+        resetBlock.innerHTML = '<br>';
+        if (resetBlock !== block) block.replaceWith(resetBlock);
+        placeCaretAtStart(resetBlock);
+      } else if (isEmptyLine && inline) {
+        inline.replaceWith(document.createElement('br'));
+      }
+      syncFromEditor();
+      updateRichToolbarState(editor, toolbar);
+    }, 0);
+  }
+
   function updateRichToolbarState(editor, toolbar) {
     if (!editor || !toolbar) return;
     const element = getSelectionElementWithin(editor);
@@ -443,6 +477,10 @@ export function createTodosFeature({
       if (event.key === 'Escape') {
         event.preventDefault();
         getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingDescription);
+        return;
+      }
+      if (event.key === 'Enter') {
+        resetRichTypingStyleAfterLineBreak(editor, toolbar, syncFromEditor);
         return;
       }
       if (event.key === ' ') {
