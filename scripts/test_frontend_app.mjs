@@ -12,6 +12,13 @@ async function run() {
       const expand = page.locator('[data-focus-action="toggle-expanded"][aria-expanded="false"]').first();
       if (await expand.count()) await expand.click();
     };
+    const closeWebUpdateModalIfVisible = async () => {
+      await page.evaluate(() => window.closeModal?.('web-update-modal'));
+      await page.locator('#web-update-modal.active').waitFor({ state: 'hidden', timeout: 1000 }).catch(() => {});
+    };
+    const waitForTodoTitle = async (title) => {
+      await page.locator('.todo-item .todo-title').filter({ hasText: title }).first().waitFor({ state: 'visible', timeout: 10000 });
+    };
 
     const initialDueTodayCount = await page.evaluate(() => Number(document.querySelector('.overview-focus-item strong')?.textContent || 0));
     await page.evaluate(async () => {
@@ -56,7 +63,7 @@ async function run() {
     await expandFocusFilters();
     await page.selectOption('#focus-due-mode', 'today');
     await page.fill('#search-input', 'Reminder-only today focus regression');
-    await page.getByText('Reminder-only today focus regression', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    await waitForTodoTitle('Reminder-only today focus regression');
     await page.fill('#search-input', 'Reminder-only tomorrow focus regression');
     await page.waitForFunction(() => !document.body.innerText.includes('Reminder-only tomorrow focus regression'), null, { timeout: 5000 });
     await page.fill('#search-input', '');
@@ -66,7 +73,7 @@ async function run() {
     await page.locator('#today-focus-btn').click();
     await page.locator('#today-focus-btn.active[aria-pressed="true"]').waitFor({ state: 'visible', timeout: 5000 });
     await page.fill('#search-input', 'Reminder-only today focus regression');
-    await page.getByText('Reminder-only today focus regression', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    await waitForTodoTitle('Reminder-only today focus regression');
     await page.fill('#search-input', 'Reminder-only tomorrow focus regression');
     await page.waitForFunction(() => !document.body.innerText.includes('Reminder-only tomorrow focus regression'), null, { timeout: 5000 });
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -361,6 +368,7 @@ async function run() {
       await page.click('#todo-cancel-btn');
     }
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await closeWebUpdateModalIfVisible();
     await page.locator('.nav-btn[data-filter="done"]').click();
     await page.waitForFunction(() => document.body.innerText.includes('Section Todo Edited'), { timeout: 10000 });
 
