@@ -663,8 +663,11 @@
             <div id="todo-comments-list" class="todo-comments-list"></div>
             <p id="todo-comments-empty" class="todo-comments-empty" data-i18n-key="todo.comments.empty">No comments yet.</p>
             <div class="form-group todo-comments-add-group">
-              <label for="todo-comment-new-body" data-i18n-key="todo.comments.newLabel">New comment</label>
-              <textarea class="ui-field" id="todo-comment-new-body" rows="3" maxlength="5000" placeholder="Notiz hinzufügen…" data-i18n-placeholder-key="todo.comments.placeholder"></textarea>
+              <label for="todo-comment-new-editor" data-i18n-key="todo.comments.newLabel">New comment</label>
+              <div class="todo-comment-rich-wrap">
+                <div class="todo-desc-rich-toolbar todo-comment-rich-toolbar" data-i18n-aria-label-key="todo.comments.formatToolbar"></div>
+                <div id="todo-comment-new-editor" class="todo-comment-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder=""></div>
+              </div>
               <button type="button" id="todo-comment-add-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="add-comment"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
             </div>
           </div>
