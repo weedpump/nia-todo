@@ -1,5 +1,5 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
-import { getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
@@ -151,7 +151,7 @@ export function createTodosFeature({
     if (!value) return '';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '';
-    return new Intl.DateTimeFormat(getActiveLanguage() === 'de' ? 'de-DE' : 'en-US', {
+    return new Intl.DateTimeFormat(getActiveLocale(), {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(date);
@@ -186,14 +186,14 @@ export function createTodosFeature({
       drawer = document.createElement('aside');
       drawer.id = 'todo-meta-drawer';
       drawer.className = 'todo-meta-edit-drawer';
-      drawer.setAttribute('aria-label', getActiveLanguage() === 'de' ? 'Todo Details bearbeiten' : 'Edit todo details');
+      drawer.setAttribute('aria-label', t('todo.meta.drawerAria'));
       drawer.innerHTML = `
         <div class="todo-meta-drawer-header">
           <div>
-            <h4>${getActiveLanguage() === 'de' ? 'Details bearbeiten' : 'Edit details'}</h4>
-            <p>${getActiveLanguage() === 'de' ? 'Planung, Einordnung und Erinnerungen.' : 'Planning, organization, and reminders.'}</p>
+            <h4>${escapeHtmlAttr(t('todo.meta.drawerTitle'))}</h4>
+            <p>${escapeHtmlAttr(t('todo.meta.drawerSubtitle'))}</p>
           </div>
-          <button type="button" class="todo-meta-drawer-close" aria-label="${getActiveLanguage() === 'de' ? 'Details schließen' : 'Close details'}">${iconSvg('x')}</button>
+          <button type="button" class="todo-meta-drawer-close" aria-label="${escapeHtmlAttr(t('todo.meta.close'))}">${iconSvg('x')}</button>
         </div>
         <div class="todo-meta-drawer-body"></div>
       `;
@@ -223,7 +223,6 @@ export function createTodosFeature({
     if (!summary) return;
     ensureTodoMetaDrawer();
     summary.hidden = false;
-    const lang = getActiveLanguage();
     const chips = [];
     const addChip = (icon, label, value, options = {}) => {
       if (!value) return;
@@ -244,19 +243,19 @@ export function createTodosFeature({
     const statusIcon = status === 'done' ? 'check-circle' : status === 'in_progress' ? 'flame' : 'clock';
     const dueTone = isOverdue ? 'due-overdue' : isSoon ? 'due-soon' : 'due-neutral';
     const projectIcon = /^[a-z0-9-]+$/i.test(String(selectedProject?.icon || '')) ? selectedProject.icon : 'folder';
-    addChip(projectIcon, lang === 'de' ? 'Projekt' : 'Project', getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color });
-    addChip('layers', lang === 'de' ? 'Section' : 'Section', getSelectedOptionLabel('todo-section'), { tone: 'section' });
-    addChip('flag', lang === 'de' ? 'Priorität' : 'Priority', getSelectedOptionLabel('todo-priority'), { tone: priorityTone });
-    addChip(statusIcon, 'Status', getSelectedOptionLabel('todo-status'), { tone: statusTone });
-    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', lang === 'de' ? 'Deadline' : 'Deadline', formatTodoMetaDate(dueValue), { tone: dueTone });
-    addChip('bell', lang === 'de' ? 'Erinnerung' : 'Reminder', formatTodoMetaDate(remindValue), { tone: 'reminder' });
-    addChip('map-pin', lang === 'de' ? 'Ort' : 'Location', todoLocationReminderLabel(todo), { tone: 'location' });
+    addChip(projectIcon, t('todo.project'), getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color });
+    addChip('layers', t('todo.section'), getSelectedOptionLabel('todo-section'), { tone: 'section' });
+    addChip('flag', t('todo.priority'), getSelectedOptionLabel('todo-priority'), { tone: priorityTone });
+    addChip(statusIcon, t('todo.status'), getSelectedOptionLabel('todo-status'), { tone: statusTone });
+    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', t('todo.deadline'), formatTodoMetaDate(dueValue), { tone: dueTone });
+    addChip('bell', t('todo.reminder'), formatTodoMetaDate(remindValue), { tone: 'reminder' });
+    addChip('map-pin', t('quickAdd.detected.location'), todoLocationReminderLabel(todo), { tone: 'location' });
     const selectedFrequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
     const recurringRule = todo?.recurring_rule ? normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null }) : { frequency: selectedFrequency };
-    if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', lang === 'de' ? 'Wiederholung' : 'Repeat', getSelectedOptionLabel('todo-recurring-frequency'));
-    if (todo?.is_pinned || document.getElementById('todo-pinned')?.checked) addChip('star', lang === 'de' ? 'Angepinnt' : 'Pinned', lang === 'de' ? 'Ja' : 'Yes');
-    const empty = lang === 'de' ? 'Keine Planung oder Einordnung gesetzt.' : 'No planning or organization set.';
-    const edit = lang === 'de' ? 'Details bearbeiten' : 'Edit details';
+    if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', t('todo.recurring'), getSelectedOptionLabel('todo-recurring-frequency'));
+    if (todo?.is_pinned || document.getElementById('todo-pinned')?.checked) addChip('star', t('todo.pinned'), t('todo.meta.pinnedYes'));
+    const empty = t('todo.meta.empty');
+    const edit = t('todo.meta.edit');
     summary.innerHTML = `
       <div class="todo-meta-summary-chips">${chips.length ? chips.join('') : `<span class="todo-meta-summary-empty">${empty}</span>`}</div>
       <button type="button" class="btn btn-secondary todo-detail-action-btn todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
@@ -264,7 +263,7 @@ export function createTodosFeature({
     const toggle = summary.querySelector('#todo-meta-edit-toggle');
     const syncToggleLabel = () => {
       const active = getTodoModal()?.classList.contains(TODO_MODAL_CLASSES.editingMeta);
-      const label = active ? (lang === 'de' ? 'Details schließen' : 'Close details') : edit;
+      const label = active ? t('todo.meta.close') : edit;
       toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
     };
     toggle?.addEventListener('click', () => {
@@ -318,7 +317,7 @@ export function createTodosFeature({
     const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');
     if (headerMenu) headerMenu.hidden = !isExistingTodo;
     const preview = document.getElementById('todo-desc-preview');
-    if (preview) preview.dataset.emptyLabel = getActiveLanguage() === 'de' ? 'Beschreibung hinzufügen…' : 'Add description…';
+    if (preview) preview.dataset.emptyLabel = t('todo.description.add');
     renderTodoMetaSummary(todo);
   }
 
@@ -355,12 +354,12 @@ export function createTodosFeature({
     wrap.id = 'todo-desc-rich-wrap';
     wrap.className = 'todo-desc-rich-wrap';
     wrap.innerHTML = `
-      <div class="todo-desc-rich-toolbar" aria-label="Beschreibung formatieren">
+      <div class="todo-desc-rich-toolbar" aria-label="${escapeHtmlAttr(t('todo.description.formatToolbar'))}">
         <button type="button" data-rich-command="bold"><strong>B</strong></button>
         <button type="button" data-rich-command="italic"><em>I</em></button>
         <button type="button" data-rich-block="h1">H1</button>
         <button type="button" data-rich-block="h2">H2</button>
-        <button type="button" data-rich-command="insertUnorderedList">• Liste</button>
+        <button type="button" data-rich-command="insertUnorderedList">${escapeHtmlAttr(t('todo.description.bulletList'))}</button>
       </div>
       <div id="todo-desc-rich-editor" class="todo-desc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>
     `;
@@ -411,7 +410,7 @@ export function createTodosFeature({
     textarea.dataset.inlineEditorBound = '1';
     const wrap = ensureDescriptionRichEditor(textarea, preview);
     const editor = wrap.querySelector('#todo-desc-rich-editor');
-    editor?.setAttribute('data-placeholder', getActiveLanguage() === 'de' ? 'Beschreibung schreiben…' : 'Write description…');
+    editor?.setAttribute('data-placeholder', t('todo.description.write'));
     const openEditor = () => {
       if (!modal.classList.contains(TODO_MODAL_CLASSES.detail)) return;
       editor.innerHTML = renderMarkdown(textarea.value || '');
@@ -738,7 +737,7 @@ export function createTodosFeature({
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return '';
     try {
-      return date.toLocaleString(getActiveLanguage(), { dateStyle: 'short', timeStyle: 'short' });
+      return date.toLocaleString(getActiveLocale(), { dateStyle: 'short', timeStyle: 'short' });
     } catch (_error) {
       return date.toLocaleString();
     }

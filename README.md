@@ -31,7 +31,27 @@ systemctl restart nia-todo-dev
 - 🔔 Native local reminders on Windows and Android, plus Debian desktop notifications; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, with configurable STT/LLM providers including OpenAI-compatible endpoints, Ollama, and OpenClaw agents
 - 🎨 Theme toggle
+- 🌐 UI language support for 12 languages
 - 🗄️ Local SQLite
+
+## 🌐 Supported languages
+
+nia-todo currently supports:
+
+- German (`de`)
+- English (`en`)
+- Czech (`cs`)
+- French (`fr`)
+- Italian (`it`)
+- Dutch (`nl`)
+- Polish (`pl`)
+- Brazilian Portuguese (`pt`)
+- Russian (`ru`)
+- Swedish (`sv`)
+- Spanish (`es`)
+- Simplified Chinese (`zh-CN`)
+
+Language support covers the web/native UI, system emails, and release-tour content.
 
 ## 🧱 Project Structure
 

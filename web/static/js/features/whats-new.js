@@ -96,10 +96,22 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     return slides[Math.max(0, Math.min(activeSlide, slides.length - 1))] || null;
   }
 
+  function renderInlineText(value) {
+    return String(value || '')
+      .split(/(\*\*[^*]+\*\*)/g)
+      .map((part) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return `<strong>${escapeHtml(part.slice(2, -2))}</strong>`;
+        }
+        return escapeHtml(part);
+      })
+      .join('');
+  }
+
   function renderSlideBullets(slide) {
     const bullets = Array.isArray(slide?.bullets) ? slide.bullets.filter(Boolean) : [];
     if (!bullets.length) return '';
-    return `<ul class="whats-new-slide-bullets">${bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join('')}</ul>`;
+    return `<ul class="whats-new-slide-bullets">${bullets.map((bullet) => `<li>${renderInlineText(bullet)}</li>`).join('')}</ul>`;
   }
 
   function renderSlideMedia(slide) {
@@ -160,7 +172,7 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
             ${renderSlideMedia(slide)}
             <div class="whats-new-slide-copy">
               <h4>${escapeHtml(slide?.title || '')}</h4>
-              <p>${escapeHtml(slide?.body || '')}</p>
+              <p>${renderInlineText(slide?.body || '')}</p>
               ${renderSlideBullets(slide)}
             </div>
           </article>

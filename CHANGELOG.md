@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Added full UI language support for 12 languages: German, English, Czech, French, Italian, Dutch, Polish, Brazilian Portuguese, Russian, Swedish, Spanish, and Simplified Chinese, including profile/admin language selection, localized system emails, localized “What’s new” release content, native/OIDC handoff screens, offline/PWA language precache coverage, and locale-aware date/time formatting.
 - Added a version-aware “What’s new” release tour that loads localized release content from `web/static/content/whats-new.json`, supports per-user seen state, carry-forward display across follow-up releases, responsive icon-based slides, and offline/PWA precache coverage.
 - Added a native Debian desktop app package alongside Windows and Android, including release/download manifest integration, Debian platform download UI, autostart support, tray/global-hotkey settings, OIDC URL handler registration, and volatile WebKitGTK cache cleanup after app version or executable changes.
 - Added Debian desktop release/package regression coverage for the native `.deb` package name, Debian desktop WebView cache migration behavior, native desktop settings UI, native passkey capability gating, and native artifact reuse.
