@@ -42,6 +42,20 @@
   border-radius: 14px 14px 0 0;
 }
 
+#todo-modal.todo-detail-view .todo-rich-keyboard-wrap.is-keyboard-toolbar-fixed {
+  padding-top: var(--todo-rich-toolbar-height, 44px);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed {
+  position: fixed;
+  top: var(--todo-rich-toolbar-top, 0px);
+  left: var(--todo-rich-toolbar-left, 0px);
+  width: var(--todo-rich-toolbar-width, 100vw);
+  z-index: 1200;
+  border-radius: 14px 14px 0 0;
+  background: color-mix(in srgb, var(--bg-primary) 96%, var(--bg-secondary));
+}
+
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar button {
   min-height: 30px;
   padding: 5px 9px;
