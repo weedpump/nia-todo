@@ -17,22 +17,25 @@ systemctl restart nia-todo-dev
 
 ## ✨ Features
 
-- 📝 Todos with description, checklist subtasks, priority, deadline, reminders, and recurring schedules
-- 🔁 Recurring todos with daily, weekly, monthly, or yearly intervals; completing one creates the next occurrence
-- 📁 Projects/categories including subprojects and protected per-user inbox
-- 🤝 Project sharing between users with invitations and undo
+- 📝 Todos with rich descriptions, status, priority, deadline, reminders, recurring schedules, checklist subtasks, comments, and attachments
+- ✅ Checklist-style subtasks with progress chips, parent-complete confirmation, realtime sync, and recurring-todo carry-over
+- 💬 Todo comments with author display, edit/delete actions, shared-project permissions, and realtime updates
+- 📎 Todo attachments with authenticated uploads/downloads, image/PDF preview, native download handling, quotas, file-type controls, and backup/restore coverage
+- 🔁 Recurring todos with daily, weekly, monthly, or yearly intervals; completing one creates the next occurrence and carries compatible reminders/subtasks forward
+- 📅 Global Calendar view for todos with due dates, including day, week, and month modes plus mobile-friendly month selection
+- 📁 Projects/categories with subprojects, sections, workspaces, protected per-user inboxes, curated icons/colors, and sidebar drag-and-drop todo moves
+- 🤝 Project sharing between users with invitations, undo, member management, and shared-project access checks
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
-- 🔲 Sections per project
-- 📱 Offline PWA plus native Windows, Android, and Debian desktop wrappers
+- 📱 Offline PWA plus native Windows, Android, and Debian desktop wrappers with bundled downloads from the server
+- 🐧 Native Debian desktop app with autostart, tray/global-hotkey settings, OIDC return handling, desktop notifications, and cache cleanup
 - 🔐 Auth, admin panel, API keys, CSRF protection, OIDC/SSO support, and user data isolation
 - 🛡️ 2FA/MFA with authenticator app (TOTP), passkeys/WebAuthn including native Windows/Android bridge, email code fallback, recovery codes, trusted devices, and admin policy
-- ⏰ Reminders/deadlines with validated date/time input
-- 🔁 Recurring todos require a due date and can carry reminders forward to the next occurrence
 - 🔔 Native local reminders on Windows and Android, plus Debian desktop notifications; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, with configurable STT/LLM providers including OpenAI-compatible endpoints, Ollama, and OpenClaw agents
-- 🎨 Theme toggle
-- 🌐 UI language support for 12 languages
-- 🗄️ Local SQLite
+- 🎨 Next UI refresh with shared detail-modal primitives, cleaner responsive surfaces, Lucide icons, overlay scrollbars, and polished light/dark themes
+- 🆕 Localized “What’s new” release tour with per-user seen state and offline/PWA precache coverage
+- 🌐 UI language support for 12 languages across app UI, emails, release tour, native/OIDC handoff screens, and locale-aware dates/times
+- 🗄️ Local SQLite with packaged backups that snapshot runtime data, attachments, avatars, generated keys, and database state
 
 ## 🌐 Supported languages
 
@@ -63,10 +66,10 @@ Language support covers the web/native UI, system emails, and release-tour conte
 
 ## 🔧 Development
 
-- Dev branch: `develop`
+- Dev branch: `nia-todo-next` for this release-readiness branch; `develop` remains the normal integration branch after release.
 - Dev folder: `~/projects/nia-todo-dev`
 - Release only from `develop` through `./release.sh VERSION --github-repo OWNER/REPO`
-- UI changes must follow the [Design Concept](docs/design-concept.md) for desktop/mobile layout, modals, buttons, and reusable patterns.
+- UI changes must follow the [Design Concept](docs/design-concept.md) for desktop/mobile layout, modals, buttons, reusable patterns, and the Next UI primitives.
 
 ## 🧪 Tests
 
@@ -92,6 +95,8 @@ Details: [Test docs](docs/testing.md)
 - 2FA policy and user reset: `/admin` → Security/user list
 - Passkeys require an HTTPS `public_base_url` in production setups; native passkeys are supported on Windows and Android, while Debian desktop passkey integration is intentionally deferred. Android uses the bundled app signature through `/.well-known/assetlinks.json`.
 - BrainDump is disabled by default until configured: set up global STT/LLM providers in `/admin`, enable the global feature, then grant per-user access. See [BrainDump](docs/braindump-v2.md).
+- Attachments are admin-controlled: configure global upload enablement, allowed extensions, default quota, and per-user quota overrides in `/admin`.
+- Native app downloads are served from `/downloads/` and include Windows, Android, and Debian desktop clients when bundled by release packaging.
 - Dev branding: `setup-dev.sh`
 
 ## 📄 License
