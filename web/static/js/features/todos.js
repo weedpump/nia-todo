@@ -416,6 +416,7 @@ export function createTodosFeature({
 
   let activeRichKeyboardToolbar = null;
   let richKeyboardViewportBound = false;
+  const richKeyboardToolbarPortals = new WeakMap();
 
   function isLikelyTouchKeyboardOpen() {
     const viewport = window.visualViewport;
@@ -429,15 +430,38 @@ export function createTodosFeature({
     return hiddenLayoutSpace > 80 || hiddenScreenSpace > Math.max(180, screenHeight * 0.22);
   }
 
+  function getRichKeyboardToolbarWrap(toolbar) {
+    return richKeyboardToolbarPortals.get(toolbar)?.wrap || toolbar?.closest?.('.todo-rich-keyboard-wrap') || toolbar?.parentElement || null;
+  }
+
+  function portalRichKeyboardToolbar(toolbar, wrap) {
+    if (!toolbar || !wrap || richKeyboardToolbarPortals.has(toolbar)) return;
+    richKeyboardToolbarPortals.set(toolbar, {
+      parent: toolbar.parentNode,
+      nextSibling: toolbar.nextSibling,
+      wrap,
+    });
+    document.body.appendChild(toolbar);
+  }
+
+  function restoreRichKeyboardToolbar(toolbar) {
+    const portal = richKeyboardToolbarPortals.get(toolbar);
+    if (!portal) return;
+    const anchor = portal.nextSibling?.parentNode === portal.parent ? portal.nextSibling : null;
+    if (portal.parent?.isConnected) portal.parent.insertBefore(toolbar, anchor);
+    richKeyboardToolbarPortals.delete(toolbar);
+  }
+
   function releaseRichKeyboardToolbarFixed(toolbar = activeRichKeyboardToolbar) {
     if (!toolbar) return;
+    const wrap = getRichKeyboardToolbarWrap(toolbar);
     toolbar.classList.remove('is-keyboard-fixed');
     toolbar.style.removeProperty('--todo-rich-toolbar-left');
     toolbar.style.removeProperty('--todo-rich-toolbar-width');
     toolbar.style.removeProperty('--todo-rich-toolbar-top');
-    const wrap = toolbar.closest('.todo-rich-keyboard-wrap');
     wrap?.classList.remove('is-keyboard-toolbar-fixed');
     wrap?.style.removeProperty('--todo-rich-toolbar-height');
+    restoreRichKeyboardToolbar(toolbar);
   }
 
   function clearRichKeyboardToolbar() {
@@ -480,13 +504,15 @@ export function createTodosFeature({
       return;
     }
     const viewport = window.visualViewport;
-    const wrap = toolbar.closest('.todo-rich-keyboard-wrap') || toolbar.parentElement;
+    const wrap = getRichKeyboardToolbarWrap(toolbar);
+    if (!wrap) return;
+    wrap.classList.add('is-keyboard-toolbar-fixed');
+    portalRichKeyboardToolbar(toolbar, wrap);
     toolbar.style.setProperty('--todo-rich-toolbar-left', `${Math.max(0, viewport?.offsetLeft || 0)}px`);
     toolbar.style.setProperty('--todo-rich-toolbar-width', `${Math.max(window.innerWidth || 0, viewport?.width || 0)}px`);
     toolbar.style.setProperty('--todo-rich-toolbar-top', `${Math.max(0, viewport?.offsetTop || 0)}px`);
-    wrap.style.setProperty('--todo-rich-toolbar-height', `${toolbar.getBoundingClientRect().height}px`);
-    wrap.classList.add('is-keyboard-toolbar-fixed');
     toolbar.classList.add('is-keyboard-fixed');
+    wrap.style.setProperty('--todo-rich-toolbar-height', `${toolbar.getBoundingClientRect().height}px`);
     updateRichToolbarStickyState(toolbar);
   }
 
