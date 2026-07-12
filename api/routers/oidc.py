@@ -73,7 +73,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
-  <title>Returning to nia-todo…</title>
+  <title>nia-todo</title>
   <style>
     :root {{
       color-scheme: dark;
@@ -248,44 +248,63 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
   <main class="login-box" aria-labelledby="return-title">
     <div class="login-brand">
       <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
-      <h1 id="return-title" class="login-title" data-i18n="title">Returning to nia-todo…</h1>
-      <p class="login-subtitle" data-i18n="subtitle">Sign-in completed</p>
+      <h1 id="return-title" class="login-title" data-i18n-key="auth.oidc.return.title">nia-todo</h1>
+      <p class="login-subtitle" data-i18n-key="auth.oidc.return.subtitle">…</p>
     </div>
     <div class="return-status" role="status" aria-live="polite">
       <span class="return-spinner" aria-hidden="true"></span>
-      <span data-i18n="body">We are opening the app now.</span>
+      <span data-i18n-key="auth.oidc.return.body">…</span>
     </div>
-    <a class="btn btn-primary" href="{safe_callback_href}" data-i18n="open">Open nia-todo</a>
-    <p class="hint" data-i18n="hint">After nia-todo opens, you can close this browser tab.</p>
+    <a class="btn btn-primary" href="{safe_callback_href}" data-i18n-key="auth.oidc.return.open">nia-todo</a>
+    <p class="hint" data-i18n-key="auth.oidc.return.hint">…</p>
   </main>
   </div>
   <script>
     (function() {{
       const callbackUrl = {safe_callback};
-      const messages = {{
-        de: {{
-          title: 'Zurück zu nia-todo…',
-          subtitle: 'Anmeldung abgeschlossen',
-          body: 'Wir öffnen jetzt die App.',
-          open: 'nia-todo öffnen',
-          hint: 'Nachdem nia-todo geöffnet wurde, kannst du diesen Browser-Tab schließen.'
-        }},
-        en: {{
-          title: 'Returning to nia-todo…',
-          subtitle: 'Sign-in completed',
-          body: 'We are opening the app now.',
-          open: 'Open nia-todo',
-          hint: 'After nia-todo opens, you can close this browser tab.'
+      const fallbackLanguage = 'en';
+      function normalizeLanguage(value) {{
+        const raw = String(value || '').trim();
+        const lower = raw.toLowerCase();
+        if (lower === 'zh-cn' || lower === 'zh-hans' || lower.startsWith('zh-hans-')) return 'zh-CN';
+        const base = lower.split('-')[0];
+        if (base === 'zh') return 'zh-CN';
+        return base || fallbackLanguage;
+      }}
+      function languageCandidates() {{
+        const seen = new Set();
+        const result = [];
+        for (const language of (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language])) {{
+          const normalized = normalizeLanguage(language);
+          if (!seen.has(normalized)) {{
+            seen.add(normalized);
+            result.push(normalized);
+          }}
         }}
-      }};
-      const lang = String(navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en';
-      document.documentElement.lang = lang;
-      document.querySelectorAll('[data-i18n]').forEach((el) => {{
-        const key = el.getAttribute('data-i18n');
-        if (messages[lang][key]) el.textContent = messages[lang][key];
-      }});
-      document.title = messages[lang].title;
-      window.addEventListener('load', () => {{
+        if (!seen.has(fallbackLanguage)) result.push(fallbackLanguage);
+        return result;
+      }}
+      async function loadMessages() {{
+        for (const language of languageCandidates()) {{
+          try {{
+            const response = await fetch('/static/i18n/' + encodeURIComponent(language) + '.json', {{ cache: 'no-store' }});
+            if (!response.ok) continue;
+            return {{ language, messages: await response.json() }};
+          }} catch (error) {{}}
+        }}
+        return {{ language: fallbackLanguage, messages: {{}} }};
+      }}
+      function applyMessages(language, messages) {{
+        document.documentElement.lang = language;
+        document.querySelectorAll('[data-i18n-key]').forEach((el) => {{
+          const key = el.getAttribute('data-i18n-key');
+          if (typeof messages[key] === 'string') el.textContent = messages[key];
+        }});
+        if (typeof messages['auth.oidc.return.title'] === 'string') document.title = messages['auth.oidc.return.title'];
+      }}
+      window.addEventListener('load', async () => {{
+        const {{ language, messages }} = await loadMessages();
+        applyMessages(language, messages);
         setTimeout(() => {{ window.location.href = callbackUrl; }}, 900);
       }});
     }})();
@@ -294,7 +313,6 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
 </html>""")
     response.headers["Cache-Control"] = "no-store"
     return response
-
 
 def _native_completion_or_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLResponse:
     native = _native_marker_info(redirect_to)
@@ -316,48 +334,86 @@ def _json_for_script(value) -> str:
 def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLResponse:
     safe_payload = _json_for_script(payload)
     safe_redirect = _json_for_script(redirect_to or "/")
-    title = "OIDC sign-in complete"
-    if kind == "error":
-        title = "OIDC sign-in failed"
-    script = f"""
-      (function() {{
-        const payload = {safe_payload};
-        if ({_json_for_script(kind)} === 'user') {{
-          localStorage.setItem('jwt_token', payload.access_token);
-          if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
-          if (payload.user) {{
-            localStorage.setItem('cached_user', JSON.stringify(payload.user));
-            localStorage.setItem('last_user_id', String(payload.user.id));
-          }}
-          location.replace({safe_redirect});
-          return;
+    safe_kind = _json_for_script(kind)
+    response = HTMLResponse(f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>nia-todo</title>
+</head>
+<body>
+  <p id="message" data-i18n-key="auth.oidc.completing">…</p>
+  <script>
+    (function() {{
+      const payload = {safe_payload};
+      const kind = {safe_kind};
+      if (kind === 'user') {{
+        localStorage.setItem('jwt_token', payload.access_token);
+        if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
+        if (payload.user) {{
+          localStorage.setItem('cached_user', JSON.stringify(payload.user));
+          localStorage.setItem('last_user_id', String(payload.user.id));
         }}
-        if ({_json_for_script(kind)} === 'admin') {{
-          localStorage.setItem('admin_jwt_token', payload.access_token);
-          if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
-          location.replace('/admin');
-          return;
+        location.replace({safe_redirect});
+        return;
+      }}
+      if (kind === 'admin') {{
+        localStorage.setItem('admin_jwt_token', payload.access_token);
+        if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
+        location.replace('/admin');
+        return;
+      }}
+      if (kind === 'admin_link') {{
+        sessionStorage.setItem('nia_admin_oidc_link_result', JSON.stringify(payload));
+        location.replace('/admin');
+        return;
+      }}
+      if (kind === 'error') {{
+        sessionStorage.setItem('nia_oidc_error', JSON.stringify({{ error_key: payload.error_key || 'auth.oidc.errorMessage', error: payload.error || '', kind: payload.kind || 'user' }}));
+        location.replace({safe_redirect});
+        return;
+      }}
+      const fallbackLanguage = 'en';
+      function normalizeLanguage(value) {{
+        const raw = String(value || '').trim();
+        const lower = raw.toLowerCase();
+        if (lower === 'zh-cn' || lower === 'zh-hans' || lower.startsWith('zh-hans-')) return 'zh-CN';
+        const base = lower.split('-')[0];
+        if (base === 'zh') return 'zh-CN';
+        return base || fallbackLanguage;
+      }}
+      async function loadMessages() {{
+        const candidates = [];
+        const seen = new Set();
+        for (const language of (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language])) {{
+          const normalized = normalizeLanguage(language);
+          if (!seen.has(normalized)) {{ seen.add(normalized); candidates.push(normalized); }}
         }}
-        if ({_json_for_script(kind)} === 'admin_link') {{
-          sessionStorage.setItem('nia_admin_oidc_link_result', JSON.stringify(payload));
-          location.replace('/admin');
-          return;
+        if (!seen.has(fallbackLanguage)) candidates.push(fallbackLanguage);
+        for (const language of candidates) {{
+          try {{
+            const response = await fetch('/static/i18n/' + encodeURIComponent(language) + '.json', {{ cache: 'no-store' }});
+            if (!response.ok) continue;
+            return {{ language, messages: await response.json() }};
+          }} catch (error) {{}}
         }}
-        if ({_json_for_script(kind)} === 'error') {{
-          sessionStorage.setItem('nia_oidc_error', JSON.stringify({{ error_key: payload.error_key || 'auth.oidc.errorMessage', error: payload.error || '', kind: payload.kind || 'user' }}));
-          location.replace({safe_redirect});
-          return;
-        }}
-        document.getElementById('message').textContent = payload.error || 'OIDC failed';
-      }})();
-    """
-    response = HTMLResponse(f"""<!doctype html><html><head><meta charset='utf-8'><title>{html.escape(title)}</title></head>
-<body><p id='message'>Completing OIDC sign-in…</p><script>{script}</script></body></html>""")
+        return {{ language: fallbackLanguage, messages: {{}} }};
+      }}
+      loadMessages().then(({{ language, messages }}) => {{
+        document.documentElement.lang = language;
+        const message = document.getElementById('message');
+        const fallback = payload.error || messages['auth.oidc.failedFallback'] || 'OIDC failed';
+        message.textContent = fallback;
+        document.title = messages['auth.oidc.errorTitle'] || 'OIDC sign-in failed';
+      }});
+    }})();
+  </script>
+</body>
+</html>""")
     response.headers["Cache-Control"] = "no-store"
     if payload.get("csrf_token"):
         set_csrf_cookie(response, payload["csrf_token"])
     return response
-
 
 def _error_html(message: str, *, redirect_to: str = "/", kind: str = "user") -> HTMLResponse:
     return _native_completion_or_html("error", {"error_key": "auth.oidc.errorMessage", "error": message, "kind": kind}, redirect_to)
