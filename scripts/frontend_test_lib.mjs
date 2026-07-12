@@ -189,6 +189,24 @@ export async function launchPage() {
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('dialog', dialog => dialog.accept());
 
+  async function dismissWhatsNewIfVisible() {
+    const modal = page.locator('#whats-new-modal.active');
+    const appeared = await modal.waitFor({ state: 'visible', timeout: 1500 }).then(() => true).catch(() => false);
+    if (!appeared) return false;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const done = modal.locator('[data-whats-new-action="done"]');
+      if (await done.isVisible().catch(() => false)) {
+        await done.click();
+        await modal.waitFor({ state: 'hidden', timeout: 5000 });
+        return true;
+      }
+      const next = modal.locator('[data-whats-new-action="next"]');
+      if (!(await next.isVisible().catch(() => false))) break;
+      await next.click();
+    }
+    throw new Error("What's new modal did not reach the done action");
+  }
+
   const helpers = {
     visible: (sel, timeout = 5000) => page.locator(sel).waitFor({ state: 'visible', timeout }),
     hidden: (sel, timeout = 5000) => page.locator(sel).waitFor({ state: 'hidden', timeout }),
@@ -232,7 +250,9 @@ export async function launchPage() {
       await page.click('button.login-btn');
       await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
       await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+      await dismissWhatsNewIfVisible();
     },
+    dismissWhatsNewIfVisible,
     assertNoFrontendErrors: () => {
       const filtered = consoleErrors.filter(msg => !msg.includes('Failed to load resource: the server responded with a status of 404'));
       if (pageErrors.length || filtered.length) {
