@@ -1,5 +1,6 @@
 import { t } from '../i18n/index.js';
 import { WHATS_NEW_RELEASES } from '../content/whats-new.js';
+import { iconSvg } from '../icons/lucide-icons.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -15,6 +16,11 @@ function normalizeVersion(value) {
     .trim()
     .replace(/^v/i, '')
     .split('-')[0];
+}
+
+function releaseBadge(release) {
+  if (release?.badgeKey) return t(release.badgeKey);
+  return t('whatsNew.versionBadge', { version: String(release?.version || '').replace(/^v/i, '') });
 }
 
 function releaseMatchesAppVersion(release, appVersion) {
@@ -37,7 +43,9 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
   let bound = false;
 
   function getCurrentRelease() {
-    return WHATS_NEW_RELEASES.find((release) => releaseMatchesAppVersion(release, appVersion)) || null;
+    const currentRelease = WHATS_NEW_RELEASES.find((release) => releaseMatchesAppVersion(release, appVersion));
+    if (currentRelease) return currentRelease;
+    return WHATS_NEW_RELEASES.find((release) => release.carryForward && !hasSeenRelease(release)) || null;
   }
 
   function hasSeenRelease(release) {
@@ -55,6 +63,14 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     return slides[Math.max(0, Math.min(activeSlide, slides.length - 1))] || null;
   }
 
+  function renderSlideMedia(slide) {
+    const media = slide?.media || (slide?.image ? { type: 'image', src: slide.image, altKey: slide.altKey } : { type: 'icon', icon: slide?.icon });
+    if (media.type === 'image' && media.src) {
+      return `<figure class="whats-new-slide-media whats-new-slide-media-image"><img src="${escapeHtml(media.src)}" alt="${escapeHtml(media.altKey ? t(media.altKey) : '')}"></figure>`;
+    }
+    return `<div class="whats-new-slide-media whats-new-slide-media-icon" aria-hidden="true">${iconSvg(media.icon || 'sparkles')}</div>`;
+  }
+
   function render() {
     if (!modal || !activeRelease) return;
     const slides = activeRelease.slides || [];
@@ -63,29 +79,33 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     const isLast = activeSlide >= slides.length - 1;
     modal.innerHTML = `
       <div class="modal-overlay" data-whats-new-action="dismiss"></div>
-      <section class="modal-content whats-new-content" role="dialog" aria-modal="true" aria-labelledby="whats-new-title">
-        <button type="button" class="modal-close-x" data-whats-new-action="dismiss" aria-label="${escapeHtml(t('common.close'))}">×</button>
-        <div class="whats-new-hero">
-          <div class="whats-new-badge">${escapeHtml(t(activeRelease.badgeKey))}</div>
-          <h3 id="whats-new-title">${escapeHtml(t(activeRelease.titleKey))}</h3>
-          <p>${escapeHtml(t(activeRelease.introKey))}</p>
-        </div>
-        <div class="modal-body whats-new-body">
+      <section class="modal-content entity-modal-content ui-detail-modal-content whats-new-content" role="dialog" aria-modal="true" aria-labelledby="whats-new-title">
+        <header class="entity-modal-header ui-detail-modal-header whats-new-header">
+          <span class="entity-modal-title-icon ui-detail-title-icon whats-new-title-icon" aria-hidden="true">${iconSvg('newspaper')}</span>
+          <div class="whats-new-title-wrap">
+            <div class="whats-new-badge">${escapeHtml(releaseBadge(activeRelease))}</div>
+            <h3 id="whats-new-title">${escapeHtml(t(activeRelease.titleKey))}</h3>
+            <p>${escapeHtml(t(activeRelease.introKey))}</p>
+          </div>
+          <div class="ui-detail-header-actions whats-new-header-actions">
+            <button type="button" class="modal-close-x" data-whats-new-action="dismiss" aria-label="${escapeHtml(t('common.close'))}">${iconSvg('x')}</button>
+          </div>
+        </header>
+        <div class="entity-modal-body ui-detail-modal-body whats-new-body">
           <article class="whats-new-slide">
-            ${slide?.image ? `<figure class="whats-new-slide-media"><img src="${escapeHtml(slide.image)}" alt="${escapeHtml(slide.altKey ? t(slide.altKey) : '')}"></figure>` : `<div class="whats-new-slide-icon" aria-hidden="true">${escapeHtml(slide?.icon || '✨')}</div>`}
-            <div>
+            ${renderSlideMedia(slide)}
+            <div class="whats-new-slide-copy">
               <h4>${escapeHtml(t(slide?.titleKey || ''))}</h4>
               <p>${escapeHtml(t(slide?.bodyKey || ''))}</p>
             </div>
           </article>
-          <div class="whats-new-dots" role="tablist" aria-label="${escapeHtml(t('whatsNew.progress'))}">
-            ${slides.map((item, index) => `
-              <button type="button" class="whats-new-dot ${index === activeSlide ? 'active' : ''}" data-whats-new-slide="${index}" aria-label="${escapeHtml(t('whatsNew.slideLabel', { current: index + 1, total: slides.length }))}" aria-selected="${index === activeSlide ? 'true' : 'false'}"></button>
-            `).join('')}
-          </div>
         </div>
-        <div class="modal-actions whats-new-actions">
-          <button type="button" class="btn btn-secondary" data-whats-new-action="dismiss">${escapeHtml(t('whatsNew.dismiss'))}</button>
+        <div class="whats-new-dots" role="tablist" aria-label="${escapeHtml(t('whatsNew.progress'))}">
+          ${slides.map((item, index) => `
+            <button type="button" class="whats-new-dot ${index === activeSlide ? 'active' : ''}" data-whats-new-slide="${index}" aria-label="${escapeHtml(t('whatsNew.slideLabel', { current: index + 1, total: slides.length }))}" aria-selected="${index === activeSlide ? 'true' : 'false'}"></button>
+          `).join('')}
+        </div>
+        <div class="entity-modal-actions whats-new-actions">
           <div class="modal-actions-right">
             <button type="button" class="btn btn-secondary" data-whats-new-action="prev" ${isFirst ? 'disabled' : ''}>${escapeHtml(t('common.back'))}</button>
             <button type="button" class="btn btn-primary" data-whats-new-action="${isLast ? 'done' : 'next'}">${escapeHtml(t(isLast ? 'whatsNew.done' : 'common.continue'))}</button>
@@ -121,7 +141,7 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'whats-new-modal';
-      modal.className = 'modal whats-new-modal';
+      modal.className = 'modal ui-detail-modal ui-detail-view whats-new-modal';
       modal.setAttribute('aria-hidden', 'true');
       document.body.appendChild(modal);
     }
@@ -131,7 +151,9 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
   function maybeShowWhatsNew({ force = false } = {}) {
     const release = getCurrentRelease();
     if (!release) return false;
-    if (!force && hasSeenRelease(release)) return false;
+    // Temporarily disabled for visual testing: keep writing the seen flag,
+    // but show the tour on every reload while this branch is in review.
+    // if (!force && hasSeenRelease(release)) return false;
     return open(release);
   }
 
@@ -148,7 +170,11 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
       }
       const action = event.target.closest('[data-whats-new-action]')?.dataset.whatsNewAction;
       if (!action) return;
-      if (action === 'dismiss' || action === 'done') {
+      if (action === 'dismiss') {
+        close({ remember: false });
+        return;
+      }
+      if (action === 'done') {
         close({ remember: true });
         return;
       }
@@ -158,7 +184,7 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     });
     document.addEventListener('keydown', (event) => {
       if (!activeRelease || event.key !== 'Escape') return;
-      close({ remember: true });
+      close({ remember: false });
     });
     window.addEventListener('nia-language-change', () => {
       if (activeRelease) render();

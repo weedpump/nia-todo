@@ -38,6 +38,7 @@ export function createAppLifecycle({
   updateTodayFocusButton,
   updateMinimalTodosButton,
   refreshInvites = null,
+  onAppReady = null,
 }) {
   let lifecycleInitialized = false;
 
@@ -163,6 +164,7 @@ export function createAppLifecycle({
     updateMinimalTodosButton?.();
     initTheme();
     refreshInvites?.();
+    onAppReady?.();
 
     console.log('App initialized');
   }

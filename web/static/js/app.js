@@ -613,14 +613,13 @@ const appLifecycle = createAppLifecycle({
   updateMinimalTodosButton,
   renderWorkspaces,
   refreshInvites: () => sharingFeature?.loadInvites?.(),
+  onAppReady: () => {
+    brainDumpLiveFeature.init();
+    whatsNewFeature.maybeShowWhatsNew();
+  },
 });
 const initApp = async function() {
   await appLifecycle.initApp();
-  brainDumpLiveFeature.init();
-  whatsNewFeature.maybeShowWhatsNew();
-  if (sharingFeature?.loadInvites) {
-    sharingFeature.loadInvites();
-  }
 };
 const loadFromLocalDB = appLifecycle.loadFromLocalDB;
 const loadAll = appLifecycle.loadAll;
