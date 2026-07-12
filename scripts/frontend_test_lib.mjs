@@ -180,9 +180,35 @@ export async function prepareFreshDb() {
   });
 }
 
-export async function launchPage() {
+export async function launchPage({ serviceWorkers = 'block' } = {}) {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers });
+  const page = await context.newPage();
+  if (serviceWorkers === 'block') {
+    await page.addInitScript(() => {
+      const mockRegistration = {
+        scope: `${window.location.origin}/`,
+        active: null,
+        waiting: null,
+        installing: null,
+        update: async () => undefined,
+        unregister: async () => true,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      };
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: {
+          controller: null,
+          ready: Promise.resolve(null),
+          register: async () => mockRegistration,
+          getRegistrations: async () => [],
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        },
+      });
+    });
+  }
   const consoleErrors = [];
   const pageErrors = [];
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
