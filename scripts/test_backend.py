@@ -29,6 +29,8 @@ DB_PATH = BASE / "api" / "data" / "nia-todo-dev.db"
 DB_BACKUP = BASE / "api" / "data" / "nia-todo-dev.db.backup"
 DB_WAL = Path(str(DB_PATH) + "-wal")
 DB_SHM = Path(str(DB_PATH) + "-shm")
+ATTACHMENT_DIR = BASE / "api" / "data" / "attachments"
+ATTACHMENT_BACKUP = BASE / "api" / "data" / "attachments.backend-test-backup"
 URL = "http://localhost:8754"
 SERVICE = "nia-todo-dev"
 
@@ -65,6 +67,28 @@ def service_wait(timeout: int = 30) -> bool:
 
 # --- Database Backup/Restore --------------------------------------------------
 
+def dev_db_user_count(path=DB_PATH):
+    """Return current users count, -1 when schema has no users table, or None when DB is absent."""
+    if not path.exists():
+        return None
+    with sqlite3.connect(path) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "users" not in tables:
+            return -1
+        return db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+
+def assert_restorable_dev_db(path=DB_PATH, context="backup"):
+    user_count = dev_db_user_count(path)
+    if user_count is None:
+        return
+    if user_count <= 0 and os.environ.get("NIA_TODO_ALLOW_EMPTY_DEV_DB_BACKUP") != "1":
+        raise RuntimeError(
+            f"{context} refused: {path} has users={user_count}. "
+            "Refusing to treat an empty dev DB as the original DB."
+        )
+
+
 def db_backup():
     """Backup existing database after stopping the service and checkpointing SQLite WAL."""
     service_stop()
@@ -74,15 +98,21 @@ def db_backup():
             check = db.execute("PRAGMA quick_check").fetchone()[0]
             if check != "ok":
                 raise RuntimeError(f"DB quick_check failed before backup: {check}")
+        assert_restorable_dev_db(DB_PATH, "Backend test DB backup")
         for sidecar in (DB_WAL, DB_SHM):
             if sidecar.exists():
                 sidecar.unlink()
         if DB_BACKUP.exists():
             DB_BACKUP.unlink()
         shutil.move(str(DB_PATH), str(DB_BACKUP))
-        print(f"  💾 DB gesichert: {DB_BACKUP}")
+        print(f"  💾 DB backed up: {DB_BACKUP}")
     else:
-        print("  ℹ️  Keine bestehende DB zum Sichern")
+        print("  ℹ️  No existing DB to back up")
+    if ATTACHMENT_BACKUP.exists():
+        shutil.rmtree(ATTACHMENT_BACKUP)
+    if ATTACHMENT_DIR.exists():
+        shutil.move(str(ATTACHMENT_DIR), str(ATTACHMENT_BACKUP))
+        print(f"  💾 Attachments backed up: {ATTACHMENT_BACKUP}")
 
 def db_restore():
     """Restore original database from backup."""
@@ -92,9 +122,15 @@ def db_restore():
             path.unlink()
     if DB_BACKUP.exists():
         shutil.move(str(DB_BACKUP), str(DB_PATH))
-        print(f"  🔄 DB wiederhergestellt: {DB_PATH}")
+        print(f"  🔄 DB restored: {DB_PATH}")
     else:
-        print("  ⚠️  Kein Backup zum Wiederherstellen")
+        print("  ⚠️  No backup to restore")
+    if ATTACHMENT_DIR.exists():
+        shutil.rmtree(ATTACHMENT_DIR)
+    if ATTACHMENT_BACKUP.exists():
+        shutil.move(str(ATTACHMENT_BACKUP), str(ATTACHMENT_DIR))
+        print(f"  🔄 Attachments restored: {ATTACHMENT_DIR}")
+    assert_restorable_dev_db(DB_PATH, "Backend test DB restore")
     service_start()
     service_wait()
 
@@ -103,7 +139,7 @@ def db_reset():
     for path in (DB_PATH, DB_WAL, DB_SHM):
         if path.exists():
             path.unlink()
-    print("  🗑️  Alte DB entfernt")
+    print("  🗑️  Old DB removed")
 
 # --- HTTP Helper --------------------------------------------------------------
 
@@ -170,16 +206,16 @@ def curl_headers(method: str, endpoint: str, headers: Optional[dict] = None) -> 
 
 def perform_setup() -> bool:
     """Perform initial setup: admin + first user."""
-    print("\n🔧 Setup durchführen...")
+    print("\n🔧 Performing setup...")
     
-    # Admin setzen
+    # Configure admin password
     status, data = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD})
     if status != 200:
-        print(f"  ❌ Admin-Setup fehlgeschlagen: {status}")
+        print(f"  ❌ Admin setup failed: {status}")
         return False
-    print(f"  ✅ Admin-Setup: {status}")
+    print(f"  ✅ Admin setup: {status}")
     
-    # First User erstellen
+    # Create first user
     status, data = curl("POST", "/api/setup/first-user", {
         "username": "testuser",
         "email": "testuser@example.invalid",
@@ -187,9 +223,9 @@ def perform_setup() -> bool:
         "display_name": "Test User"
     })
     if status != 200:
-        print(f"  ❌ User-Setup fehlgeschlagen: {status}")
+        print(f"  ❌ User setup failed: {status}")
         return False
-    print(f"  ✅ User-Setup: {status}")
+    print(f"  ✅ User setup: {status}")
     
     return True
 
@@ -525,6 +561,17 @@ class TestSuite:
         passed = status == 200 and headers.get("access-control-allow-origin") == origin
         self.results["native_tauri_origin_with_port_allowed"] = {"status": status, "passed": passed, "expected": "200 + tauri origin with port allowed"}
         return passed
+
+    def test_native_tauri_custom_scheme_origin_allowed(self):
+        origin = "tauri://localhost"
+        status, headers = curl_headers("GET", "/api/instance", {"Origin": origin})
+        passed = status == 200 and headers.get("access-control-allow-origin") == origin
+        self.results["native_tauri_custom_scheme_origin_allowed"] = {"status": status, "passed": passed, "expected": "200 + tauri custom-scheme origin allowed"}
+        return passed
+
+    def test_unknown_custom_scheme_origin_rejected(self):
+        status, _ = curl_headers("GET", "/api/instance", {"Origin": "evil://localhost"})
+        return self.record("unknown_custom_scheme_origin_rejected", status, expected=403)
 
     def test_instance_config_update(self):
         status, data = curl("PATCH", "/api/admin/instance-config", {
@@ -1604,6 +1651,8 @@ class TestSuite:
             self.test_strict_cors_unknown_origin_rejected,
             self.test_native_tauri_origin_allowed,
             self.test_native_tauri_origin_with_port_allowed,
+            self.test_native_tauri_custom_scheme_origin_allowed,
+            self.test_unknown_custom_scheme_origin_rejected,
             self.test_untrusted_proxy_ignores_forwarded_host,
             self.test_instance_config_update,
             self.test_instance_config_audit_written,
@@ -1770,19 +1819,19 @@ def main():
     
     try:
         # Step 1: Backup existing DB
-        print("\n📦 Schritt 1/6: Bestehende DB sichern...")
+        print("\n📦 Step 1/6: Backing up existing DB...")
         db_backup()
         
         # Step 2: Restart service (fresh DB)
-        print("\n🔄 Schritt 2/6: Service neustarten (leere DB)...")
+        print("\n🔄 Step 2/6: Restarting service with an empty DB...")
         service_restart()
         if not service_wait():
-            print("❌ Service startet nicht!")
+            print("❌ Service did not start!")
             return 1
-        print("✅ Service läuft")
+        print("✅ Service is running")
         
         # Step 3: Run tests (includes setup tests!)
-        print("\n🏃 Schritt 3/6: Tests ausführen (inkl. Setup)...")
+        print("\n🏃 Step 3/6: Running tests, including setup...")
         suite = TestSuite()
         results = suite.run_all()
         
@@ -1794,36 +1843,36 @@ def main():
         output_file = BASE / "test-results.json"
         with open(output_file, "w") as f:
             json.dump(results, f, indent=2)
-        print(f"\n📄 Ergebnisse: {output_file}")
+        print(f"\n📄 Results: {output_file}")
         
     finally:
         # Step 4+5: Restore DB and restart
-        print("\n🔄 Schritt 4/6: Ursprüngliche DB wiederherstellen...")
+        print("\n🔄 Step 4/6: Restoring original DB...")
         try:
             db_restore()
         except Exception as e:
             all_passed = False
-            print(f"❌ DB-Wiederherstellung fehlgeschlagen: {e}")
+            print(f"❌ DB restore failed: {e}")
         
-        print("\n🔄 Schritt 5/6: Service neustarten...")
+        print("\n🔄 Step 5/6: Restarting service...")
         try:
             service_restart()
             if not service_wait():
                 all_passed = False
-                print("❌ Service startet nach Restore nicht korrekt!")
+                print("❌ Service did not start correctly after restore!")
             else:
-                print("✅ Service läuft wieder normal")
+                print("✅ Service is running normally again")
         except Exception as e:
             all_passed = False
-            print(f"❌ Service-Neustart nach Restore fehlgeschlagen: {e}")
+            print(f"❌ Service restart after restore failed: {e}")
     
     # Final summary
     print("\n" + "=" * 70)
     if all_passed:
-        print("🎉 ALLE TESTS BESTANDEN!")
+        print("🎉 ALL TESTS PASSED!")
         return 0
     else:
-        print("⚠️  EINIGE TESTS FEHLGESCHLAGEN")
+        print("⚠️  SOME TESTS FAILED")
         return 1
 
 if __name__ == "__main__":

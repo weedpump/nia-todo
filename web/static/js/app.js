@@ -9,7 +9,7 @@ import { updateConnectionStatus as renderConnectionStatus } from './features/con
 import { createPushNotificationsFeature } from './features/push-notifications.js';
 import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
-import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setAccentIntensity, setAccentPreset, setTheme, toggleAccentPresetMenu } from './features/theme.js';
+import { applyTheme, bindSystemThemeListener, bindThemeOptionButtons, cycleTheme, initTheme, toggleAccentPresetMenu } from './features/theme.js';
 import { createUserSettingsFeature } from './features/user-settings.js';
 import { createUserMenuFeature } from './features/user-menu.js';
 import { createProjectsFeature } from './features/projects.js';
@@ -17,21 +17,27 @@ import { createWorkspacesFeature } from './features/workspaces.js';
 import { createProjectSharingFeature } from './features/project-sharing.js';
 import { createTodosFeature } from './features/todos.js';
 import { createSyncFeature } from './features/sync.js';
+import { createSyncController } from './features/sync-controller.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
+import { createMobileSearchFeature } from './features/mobile-search.js';
+import { createFocusFiltersFeature } from './features/focus-filters.js';
 import { createWebSocketClient } from './features/websocket-client.js';
 import { createToastUndoFeature } from './features/toast-undo.js';
 import { createDragDropFeature } from './features/drag-drop.js';
 import { createConfirmDialogFeature } from './features/confirm-dialog.js';
 import { createDesktopIntegration } from './features/desktop-integration.js';
 import { createAppDownloadsFeature } from './features/app-downloads.js';
+import { createWhatsNewFeature } from './features/whats-new.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
+import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
-import { exposeLegacyGlobals } from './features/legacy-globals.js';
+import { createOidcNoticeFeature } from './features/oidc-notice.js';
+import { exposeRuntimeGlobals } from './features/runtime-globals.js';
 import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
 let todos = [];
@@ -47,188 +53,18 @@ let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') !== 'false';
 let sortMode = localStorage.getItem('nia-sort') || 'priority';
 let showProjectWidget = localStorage.getItem('nia-project-widget') !== 'false';
-const DEFAULT_FOCUS_FILTERS = Object.freeze({
-  dueMode: 'next_days',
-  dueDays: 7,
-  projectIds: [],
-  priorities: [1, 2, 3, 4],
-  statuses: ['pending', 'in_progress'],
-});
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let minimalTodos = localStorage.getItem('nia-minimal-todos') === 'true';
-let focusFilters = loadFocusFilters();
-let focusFiltersExpanded = false;
-let focusProjectMenuOpen = false;
-let focusProjectSearch = '';
 let desktopIntegration = null;
+let syncController = null;
 
-function normalizeFocusFilters(value = {}) {
-  const source = value && typeof value === 'object' ? value : {};
-  const dueModes = new Set(['any', 'none', 'overdue', 'today', 'tomorrow', 'next_days']);
-  const statuses = new Set(['pending', 'in_progress', 'done']);
-  const priorities = new Set([1, 2, 3, 4]);
-  const next = {
-    ...DEFAULT_FOCUS_FILTERS,
-    ...source,
-    projectIds: Array.isArray(source.projectIds) ? source.projectIds.map(Number).filter(Number.isFinite) : [...DEFAULT_FOCUS_FILTERS.projectIds],
-    priorities: Array.isArray(source.priorities) ? source.priorities.map(Number).filter(priority => priorities.has(priority)) : [...DEFAULT_FOCUS_FILTERS.priorities],
-    statuses: Array.isArray(source.statuses) ? source.statuses.filter(status => statuses.has(status)) : [...DEFAULT_FOCUS_FILTERS.statuses],
-  };
-  next.dueMode = dueModes.has(next.dueMode) ? next.dueMode : DEFAULT_FOCUS_FILTERS.dueMode;
-  next.dueDays = Math.min(365, Math.max(1, Number.parseInt(next.dueDays, 10) || DEFAULT_FOCUS_FILTERS.dueDays));
-  if (!next.priorities.length) next.priorities = [...DEFAULT_FOCUS_FILTERS.priorities];
-  if (!next.statuses.length) next.statuses = [...DEFAULT_FOCUS_FILTERS.statuses];
-  return next;
-}
-
-function loadFocusFilters() {
-  try {
-    return normalizeFocusFilters(JSON.parse(localStorage.getItem('nia-focus-filters') || '{}'));
-  } catch {
-    return normalizeFocusFilters();
-  }
-}
-
-function saveFocusFilters() {
-  localStorage.setItem('nia-focus-filters', JSON.stringify(focusFilters));
-}
-
-function updateFocusFilters(patch = {}) {
-  focusFilters = normalizeFocusFilters({ ...focusFilters, ...patch });
-  saveFocusFilters();
-  renderTodos();
-}
-
-function toggleFocusFiltersExpanded() {
-  focusFiltersExpanded = !focusFiltersExpanded;
-  renderTodos();
-}
-
-function applyFocusProjectMenuSearch() {
-  const term = String(focusProjectSearch || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const menu = document.querySelector('.focus-project-menu');
-  if (!menu) return;
-  let visibleCount = 0;
-  menu.querySelectorAll('[data-focus-project-option]').forEach(option => {
-    const label = String(option.dataset.label || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const matches = !term || label.includes(term);
-    option.hidden = !matches;
-    if (matches) visibleCount += 1;
-  });
-  const empty = menu.querySelector('.ui-select-empty');
-  if (empty) empty.hidden = visibleCount > 0 || !menu.querySelector('[data-focus-project-option]');
-  const highlighted = menu.querySelector('[data-focus-project-option].is-highlighted');
-  if (!highlighted || highlighted.hidden) highlightFocusProjectOption(focusProjectOptionRows()[0]);
-}
-
-function filterFocusProjectMenu(value) {
-  focusProjectSearch = String(value || '');
-  applyFocusProjectMenuSearch();
-}
-
-function focusProjectOptionRows() {
-  return Array.from(document.querySelectorAll('.focus-project-menu [data-focus-project-option]')).filter(option => !option.hidden);
-}
-
-function highlightFocusProjectOption(target) {
-  const rows = focusProjectOptionRows();
-  rows.forEach(option => option.classList.remove('is-highlighted'));
-  if (!target) return;
-  target.classList.add('is-highlighted');
-  target.scrollIntoView({ block: 'nearest' });
-}
-
-function moveFocusProjectHighlight(direction = 1) {
-  const rows = focusProjectOptionRows();
-  if (!rows.length) return;
-  const current = rows.findIndex(option => option.classList.contains('is-highlighted'));
-  const next = current >= 0 ? (current + direction + rows.length) % rows.length : (direction > 0 ? 0 : rows.length - 1);
-  highlightFocusProjectOption(rows[next]);
-}
-
-function handleFocusProjectMenuKeydown(event) {
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    event.preventDefault();
-    moveFocusProjectHighlight(event.key === 'ArrowDown' ? 1 : -1);
-    return;
-  }
-  if (event.key === 'Enter') {
-    const target = document.querySelector('.focus-project-menu [data-focus-project-option].is-highlighted:not([hidden])') || focusProjectOptionRows()[0];
-    if (target) {
-      event.preventDefault();
-      target.click();
-    }
-    return;
-  }
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    closeFocusProjectMenu();
-  }
-}
-
-function toggleFocusProjectMenu() {
-  focusProjectMenuOpen = !focusProjectMenuOpen;
-  if (!focusProjectMenuOpen) focusProjectSearch = '';
-  renderTodos();
-  if (focusProjectMenuOpen) window.setTimeout(() => {
-    document.querySelector('.focus-project-menu .ui-select-search-input')?.focus();
-    highlightFocusProjectOption(focusProjectOptionRows()[0]);
-  }, 0);
-}
-
-function closeFocusProjectMenu() {
-  if (!focusProjectMenuOpen) return;
-  focusProjectMenuOpen = false;
-  focusProjectSearch = '';
-  renderTodos();
-}
-
-function resetFocusFilters() {
-  focusFilters = normalizeFocusFilters();
-  focusProjectMenuOpen = false;
-  focusProjectSearch = '';
-  saveFocusFilters();
-  renderTodos();
-}
-
-function setFocusDueMode(dueMode) {
-  updateFocusFilters({ dueMode });
-}
-
-function setFocusDueDays(dueDays) {
-  updateFocusFilters({ dueDays });
-}
-
-function toggleFocusProject(projectId) {
-  const id = Number(projectId);
-  if (!Number.isFinite(id)) return;
-  const current = new Set(focusFilters.projectIds || []);
-  if (current.has(id)) current.delete(id);
-  else current.add(id);
-  updateFocusFilters({ projectIds: Array.from(current) });
-  focusProjectMenuOpen = true;
-  window.setTimeout(() => {
-    document.querySelector('.focus-project-menu .ui-select-search-input')?.focus();
-    highlightFocusProjectOption(focusProjectOptionRows()[0]);
-  }, 0);
-}
-
-function toggleFocusPriority(priority) {
-  const value = Number(priority);
-  if (![1, 2, 3, 4].includes(value)) return;
-  const current = new Set(focusFilters.priorities || []);
-  if (current.has(value) && current.size > 1) current.delete(value);
-  else current.add(value);
-  updateFocusFilters({ priorities: Array.from(current).sort((a, b) => a - b) });
-}
-
-function toggleFocusStatus(status) {
-  if (!['pending', 'in_progress', 'done'].includes(status)) return;
-  const current = new Set(focusFilters.statuses || []);
-  if (current.has(status) && current.size > 1) current.delete(status);
-  else current.add(status);
-  updateFocusFilters({ statuses: Array.from(current) });
-}
+const {
+  getFocusFilters,
+  getFocusFiltersExpanded,
+  getFocusProjectMenuOpen,
+  getFocusProjectSearch,
+  bindFocusProjectMenuDismissal,
+} = createFocusFiltersFeature({ renderTodos: () => renderTodos() });
 
 function setTodosState(next) {
   todos = next;
@@ -244,7 +80,11 @@ const confirmDialogFeature = createConfirmDialogFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
 const alertInfo = confirmDialogFeature.alertInfo;
 const appDownloadsFeature = createAppDownloadsFeature();
-const openAppDownloadsModal = appDownloadsFeature.openAppDownloadsModal;
+const bindAppDownloadLaunchers = appDownloadsFeature.bindAppDownloadLaunchers;
+const whatsNewFeature = createWhatsNewFeature({
+  appVersion: APP_VERSION,
+  getCurrentUser: () => currentUser,
+});
 const brainDumpLiveFeature = createBrainDumpLiveFeature({
   getProjects: () => projects,
   getSections: () => sections,
@@ -275,6 +115,7 @@ const toggleTodayFocus = viewPreferences.toggleTodayFocus;
 const updateTodayFocusButton = viewPreferences.updateTodayFocusButton;
 const toggleMinimalTodos = viewPreferences.toggleMinimalTodos;
 const updateMinimalTodosButton = viewPreferences.updateMinimalTodosButton;
+const bindTopbarPreferenceButtons = viewPreferences.bindTopbarPreferenceButtons;
 const sectionsFeature = createSectionsFeature({
   getTodos: () => todos,
   getCurrentProjectId: () => currentProjectId,
@@ -334,6 +175,8 @@ const todosFeature = createTodosFeature({
   getProjects: () => projects,
   getCurrentProjectId: () => currentProjectId,
   getCurrentWorkspaceId: () => currentWorkspaceId,
+  getCurrentUser: () => currentUser,
+  setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   getAppInitialized: () => appInitialized,
   getDb: () => db,
   dbPut,
@@ -342,6 +185,7 @@ const todosFeature = createTodosFeature({
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,
+  todosApi,
   sectionsApi,
   placesApi,
   renderProjects: () => renderProjects(),
@@ -360,6 +204,7 @@ const sharingFeature = createProjectSharingFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   showToast: (...args) => showToast(...args),
+  confirmDanger,
   projectsApi,
 });
 const projectsFeature = createProjectsFeature({
@@ -387,7 +232,16 @@ const projectsFeature = createProjectsFeature({
   getCurrentUser: () => currentUser,
 });
 let workspacesFeature = null;
-const userMenuFeature = createUserMenuFeature({ getCurrentUser: () => currentUser });
+const userMenuFeature = createUserMenuFeature({
+  getCurrentUser: () => currentUser,
+  openSettingsModal: () => openSettingsModal(),
+  cycleTheme: () => cycleTheme(),
+  toggleAccentPresetMenu: (event) => toggleAccentPresetMenu(event),
+  cycleSort: () => cycleSort(),
+  toggleHideDone: () => toggleHideDone(),
+  toggleProjectWidget: () => toggleProjectWidget(),
+  logout: () => logout(),
+});
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
   placesApi,
@@ -409,8 +263,7 @@ const authSessionFeature = createAuthSessionFeature({
 });
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature();
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
-const triggerUpdate = serviceWorkerUpdates.triggerUpdate;
-const forceReloadApp = serviceWorkerUpdates.forceReloadApp;
+const bindServiceWorkerUpdateButtons = serviceWorkerUpdates.bindServiceWorkerUpdateButtons;
 
 const getAuthToken = authSessionFeature.getAuthToken;
 const getCsrfToken = authSessionFeature.getCsrfToken;
@@ -423,40 +276,9 @@ const hideLoginOverlay = authSessionFeature.hideLoginOverlay;
 const handleLogin = authSessionFeature.handleLogin;
 const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
+const bindUserSettingsActions = userSettingsFeature.bindUserSettingsActions;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
-const changeLanguagePreference = userSettingsFeature.changeLanguagePreference;
-const changeDefaultReminderSetting = userSettingsFeature.changeDefaultReminderSetting;
-const saveCustomDefaultReminderSetting = userSettingsFeature.saveCustomDefaultReminderSetting;
-const changeBrainDumpLearningSetting = userSettingsFeature.changeBrainDumpLearningSetting;
-const resetBrainDumpLearning = userSettingsFeature.resetBrainDumpLearning;
-const editUserEmail = userSettingsFeature.editUserEmail;
-const cancelUserEmailEdit = userSettingsFeature.cancelUserEmailEdit;
-const saveUserEmail = userSettingsFeature.saveUserEmail;
-const changeUserPassword = userSettingsFeature.changeUserPassword;
-const startTwoFactorTotp = userSettingsFeature.startTwoFactorTotp;
-const confirmTwoFactorTotp = userSettingsFeature.confirmTwoFactorTotp;
-const disableTwoFactor = userSettingsFeature.disableTwoFactor;
-const addPasskey = userSettingsFeature.addPasskey;
-const regenerateRecoveryCodes = userSettingsFeature.regenerateRecoveryCodes;
-const removeTotpDevice = userSettingsFeature.removeTotpDevice;
-const removePasskeyDevice = userSettingsFeature.removePasskeyDevice;
-const toggleTrustedDevicesList = userSettingsFeature.toggleTrustedDevicesList;
-const revokeTrustedDevice = userSettingsFeature.revokeTrustedDevice;
-const revokeAllTrustedDevices = userSettingsFeature.revokeAllTrustedDevices;
-const editUserDisplayName = userSettingsFeature.editUserDisplayName;
-const cancelUserDisplayNameEdit = userSettingsFeature.cancelUserDisplayNameEdit;
-const saveUserProfile = userSettingsFeature.saveUserProfile;
-const startAvatarUpload = userSettingsFeature.startAvatarUpload;
-const cancelAvatarCrop = userSettingsFeature.cancelAvatarCrop;
-const saveAvatarCrop = userSettingsFeature.saveAvatarCrop;
-const deleteUserAvatar = userSettingsFeature.deleteUserAvatar;
 const loadSavedPlaces = userSettingsFeature.loadSavedPlaces;
-const saveSettingsPlace = userSettingsFeature.saveSettingsPlace;
-const editSettingsPlace = userSettingsFeature.editSettingsPlace;
-const cancelSettingsPlaceEdit = userSettingsFeature.cancelSettingsPlaceEdit;
-const deleteSettingsPlace = userSettingsFeature.deleteSettingsPlace;
-const toggleUserMenu = userMenuFeature.toggleUserMenu;
-const closeUserMenu = userMenuFeature.closeUserMenu;
 const updateUserMenu = userMenuFeature.updateUserMenu;
 const bindUserMenu = userMenuFeature.bindUserMenu;
 // ─── API Keys ────────────────────────────────────────────────────────────────
@@ -464,19 +286,20 @@ const bindUserMenu = userMenuFeature.bindUserMenu;
 const resetApiKeyUi = apiKeysFeature.resetApiKeyUi;
 const loadApiKeys = apiKeysFeature.loadApiKeys;
 const renderApiKeys = apiKeysFeature.renderApiKeys;
-const createApiKey = apiKeysFeature.createApiKey;
 const revokeApiKey = apiKeysFeature.revokeApiKey;
-const copyApiKey = apiKeysFeature.copyApiKey;
+const bindApiKeyActions = apiKeysFeature.bindApiKeyActions;
 
 // ─── Theme System ───────────────────────────────────────────────────────────
 
 bindSystemThemeListener();
+bindThemeOptionButtons();
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 const wsClient = createWebSocketClient({
   wsUrl: WS_URL,
   getAuthToken: () => getAuthToken(),
   syncWithServer: () => syncWithServer(),
+  refreshFromServer: () => refreshFromServer(),
   renderConnectionStatus: (state) => updateConnectionStatusView(state),
   dbGetAll,
   dbPut,
@@ -511,50 +334,16 @@ const disconnectWebSocket = wsClient.disconnectWebSocket;
 const updateConnectionStatus = () => updateConnectionStatusView(wsClient.getWsState());
 const handleWsMessage = wsClient.handleWsMessage;
 
-function openMobileSearch() {
-  const box = document.getElementById('search-box');
-  const input = document.getElementById('search-input');
-  box?.classList.add('open');
-  requestAnimationFrame(() => {
-    input?.focus();
-    input?.select();
-  });
-}
-
-function closeMobileSearch() {
-  const box = document.getElementById('search-box');
-  const input = document.getElementById('search-input');
-  if (input?.value) {
-    input.value = '';
-    renderTodos();
-  }
-  box?.classList.remove('open');
-  input?.blur();
-}
-
-function toggleMobileSearch() {
-  const box = document.getElementById('search-box');
-  if (box?.classList.contains('open')) closeMobileSearch();
-  else openMobileSearch();
-}
-
-function isTypingTarget(element) {
-  const tag = element?.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element?.isContentEditable;
-}
-
-function bindTodayFocusHotkey() {
-  if (document.documentElement.dataset.todayFocusHotkeyBound === '1') return;
-  document.documentElement.dataset.todayFocusHotkeyBound = '1';
-  document.addEventListener('keydown', (event) => {
-    const key = event.key?.toLowerCase();
-    if ((key !== 'f' && key !== 'm') || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-    if (isTypingTarget(event.target) || document.querySelector('.modal.active')) return;
-    event.preventDefault();
-    if (key === 'f') toggleTodayFocus();
-    else toggleMinimalTodos();
-  });
-}
+const {
+  openMobileSearch,
+  bindMobileSearchEvents,
+  bindTodayFocusHotkey,
+} = createMobileSearchFeature({
+  renderStats: () => renderStats(),
+  renderTodos: () => renderTodos(),
+  toggleTodayFocus: () => toggleTodayFocus(),
+  toggleMinimalTodos: () => toggleMinimalTodos(),
+});
 
 desktopIntegration = createDesktopIntegration({
   showToast: (...args) => showToast(...args),
@@ -573,27 +362,24 @@ desktopIntegration = createDesktopIntegration({
 // ─── Sync Logic (Kern der Offline→Online Synchronisation) ───────────────────
 
 function isOnlineForSync() {
-  return syncFeature.isOnlineForSync(wsClient.getWsState());
+  return syncController.isOnlineForSync();
 }
 
 async function syncWithServer() {
-  await updateConnectionStatusView(wsClient.getWsState());
-  await syncFeature.syncWithServer({ wsState: wsClient.getWsState(), syncInProgressRef });
-  syncInProgress = syncInProgressRef.value;
-  await updateConnectionStatusView(wsClient.getWsState());
+  await syncController.syncWithServer();
 }
 
 async function refreshFromServer() {
-  await updateConnectionStatusView(wsClient.getWsState());
-  await syncFeature.refreshFromServer({ wsState: wsClient.getWsState(), syncInProgressRef });
-  syncInProgress = syncInProgressRef.value;
-  await updateConnectionStatusView(wsClient.getWsState());
-  ensureCurrentWorkspace();
-  renderWorkspaces();
-  renderProjects();
-  renderStats();
-  renderTodos();
+  await syncController.refreshFromServer();
 }
+
+const calendarViewFeature = createCalendarViewFeature({
+  escapeHtml,
+  escapeHtmlAttr,
+  renderTodos: () => renderTodos(),
+  openTodo: (id) => todosFeature.editTodo(id),
+  setTodoStatus: (id, status) => todosFeature.setTodoStatus(id, status),
+});
 
 const sectionActions = createSectionActionsFeature({
   getTodos: () => todos,
@@ -611,11 +397,7 @@ const sectionActions = createSectionActionsFeature({
   sectionsFeature,
 });
 const renderSectionHeader = sectionActions.renderSectionHeader;
-const showAddSectionForm = sectionActions.showAddSectionForm;
-const editSectionInline = sectionActions.editSectionInline;
-const saveNewSection = sectionActions.saveNewSection;
-const saveSectionEdit = sectionActions.saveSectionEdit;
-const deleteSection = sectionActions.deleteSection;
+const bindSectionActions = sectionActions.bindSectionActions;
 const appRendering = createAppRenderingFeature({
   appVersion: APP_VERSION,
   escapeHtml,
@@ -630,13 +412,15 @@ const appRendering = createAppRenderingFeature({
   getTodayFocus: () => todayFocus,
   getShowProjectWidget: () => showProjectWidget,
   getCurrentUser: () => currentUser,
-  getFocusFilters: () => focusFilters,
-  getFocusFiltersExpanded: () => focusFiltersExpanded,
-  getFocusProjectMenuOpen: () => focusProjectMenuOpen,
-  getFocusProjectSearch: () => focusProjectSearch,
+  getFocusFilters,
+  getFocusFiltersExpanded,
+  getFocusProjectMenuOpen,
+  getFocusProjectSearch,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
+  renderCalendarView: calendarViewFeature.renderCalendarView,
+  cleanupCalendarView: calendarViewFeature.cleanupCalendarView,
 });
 const renderVersionInfo = appRendering.renderVersionInfo;
 const renderProjects = appRendering.renderProjects;
@@ -663,20 +447,20 @@ workspacesFeature = createWorkspacesFeature({
   showToast: (...args) => showToast(...args),
 });
 const renderWorkspaces = workspacesFeature.renderWorkspaces;
-const switchWorkspace = workspacesFeature.switchWorkspace;
-const createWorkspace = workspacesFeature.createWorkspace;
-const showWorkspaceModal = workspacesFeature.showWorkspaceModal;
-const closeWorkspaceModal = workspacesFeature.closeWorkspaceModal;
-const saveWorkspace = workspacesFeature.saveWorkspace;
-const deleteWorkspaceFromModal = workspacesFeature.deleteWorkspaceFromModal;
-const toggleWorkspaceMenu = workspacesFeature.toggleWorkspaceMenu;
-const closeWorkspaceMenu = workspacesFeature.closeWorkspaceMenu;
-const loadWorkspacesFromServer = workspacesFeature.loadWorkspacesFromServer;
+syncController = createSyncController({
+  syncFeature,
+  syncInProgressRef,
+  getWsState: () => wsClient.getWsState(),
+  updateConnectionStatusView,
+  setSyncInProgress: (next) => { syncInProgress = next; },
+  ensureCurrentWorkspace: () => ensureCurrentWorkspace(),
+  renderWorkspaces: () => renderWorkspaces(),
+  renderProjects: () => renderProjects(),
+  renderStats: () => renderStats(),
+  renderTodos: () => renderTodos(),
+});
+const bindWorkspaceControls = workspacesFeature.bindWorkspaceControls;
 const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
-
-// Make renderInvites globally available for project-sharing.js
-window.renderInvites = renderInvites;
-window.loadInvites = () => sharingFeature.loadInvites();
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
@@ -694,28 +478,29 @@ const navigationFeature = createNavigationFeature({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
+  showProjectModal: () => showProjectModal(),
 });
 const setFilter = navigationFeature.setFilter;
 const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
+const bindNavigationActions = navigationFeature.bindNavigationActions;
 const bindNavigationHistory = navigationFeature.bindNavigationHistory;
 
 const showProjectModal = projectsFeature.showProjectModal;
-const editProject = projectsFeature.editProject;
-const saveProject = projectsFeature.saveProject;
 const deleteProject = projectsFeature.deleteProject;
-const deleteProjectFromModal = projectsFeature.deleteProjectFromModal;
+const bindProjectActions = projectsFeature.bindProjectActions;
 const clearDoneFromModal = projectsFeature.clearDoneFromModal;
-const clearDoneInProject = projectsFeature.clearDoneInProject;
 
 const markTodoDone = todosFeature.markTodoDone;
 const markTodoInProgress = todosFeature.markTodoInProgress;
 const setTodoStatus = todosFeature.setTodoStatus;
 const toggleTodoPin = todosFeature.toggleTodoPin;
+const deleteTodoComment = todosFeature.deleteTodoComment;
+const deleteTodoAttachment = todosFeature.deleteTodoAttachment;
 const snoozeTodo = todosFeature.snoozeTodo;
 const duplicateTodo = todosFeature.duplicateTodo;
 const toggleTodo = todosFeature.toggleTodo;
 const showTodoModal = todosFeature.showTodoModal;
-const onProjectChange = todosFeature.onProjectChange;
+const bindTodoActions = todosFeature.bindTodoActions;
 const saveTodo = todosFeature.saveTodo;
 const editTodo = todosFeature.editTodo;
 const deleteTodoFromModal = todosFeature.deleteTodoFromModal;
@@ -725,12 +510,14 @@ const uiShell = createUiShell({
   renderMarkdown,
   showTodoModal: () => showTodoModal(),
 });
-const toggleSidebar = uiShell.toggleSidebar;
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
 const setupDescPreview = uiShell.setupDescPreview;
+const bindModalCloseControls = uiShell.bindModalCloseControls;
+const bindSidebarControls = uiShell.bindSidebarControls;
 uiShell.bindSidebarEdgeSwipe();
 uiShell.bindTouchFeedback();
+uiShell.bindDateTimePickerOpeners();
 uiShell.bindKeyboardShortcuts();
 
 // ─── Drag & Drop ─────────────────────────────────────────────────────────────
@@ -738,47 +525,34 @@ uiShell.bindKeyboardShortcuts();
 const dragDropFeature = createDragDropFeature({
   getTodos: () => todos,
   setTodos: setTodosState,
+  getProjects: () => projects,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   isOnlineForSync,
   todosApi,
   sectionsApi,
   renderTodos: () => renderTodos(),
+  renderProjects: () => renderProjects(),
   dbGetAll,
   dbPut,
+  addToSyncQueue,
 });
-const handleTodoDragStart = dragDropFeature.handleTodoDragStart;
-const handleTodoDragEnd = dragDropFeature.handleTodoDragEnd;
-const handleTodoDragOver = dragDropFeature.handleTodoDragOver;
-const handleTodoDrop = dragDropFeature.handleTodoDrop;
-const handleSectionDragStart = dragDropFeature.handleSectionDragStart;
-const handleSectionDragEnd = dragDropFeature.handleSectionDragEnd;
-const handleSectionDragOver = dragDropFeature.handleSectionDragOver;
-const handleSectionDrop = dragDropFeature.handleSectionDrop;
+const bindStandardDragDrop = dragDropFeature.bindStandardDragDrop;
 const bindNativePointerDragDrop = dragDropFeature.bindNativePointerDragDrop;
 
-function consumeOidcErrorNotice() {
-  const raw = sessionStorage.getItem('nia_oidc_error');
-  if (!raw) return;
-  sessionStorage.removeItem('nia_oidc_error');
-  let message = t('auth.oidc.errorMessage');
-  try {
-    const data = JSON.parse(raw);
-    message = data?.error_key ? t(data.error_key) : message;
-  } catch (_) {}
-  requestAnimationFrame(() => {
-    showLoginOverlay();
-    const errorEl = document.getElementById('login-error');
-    if (errorEl) errorEl.textContent = message;
-    alertInfo({ title: t('auth.oidc.errorTitle'), message }).catch(() => {});
-  });
-}
+const { consumeOidcErrorNotice } = createOidcNoticeFeature({
+  t,
+  showLoginOverlay,
+  alertInfo,
+});
 
 const toastUndoFeature = createToastUndoFeature({
   getDb: () => db,
   getTodos: () => todos,
   setTodos: setTodosState,
   dbPut,
+  dbGetAll,
+  deleteFromDB,
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,
@@ -791,8 +565,7 @@ const toastUndoFeature = createToastUndoFeature({
 });
 const showToast = toastUndoFeature.showToast;
 const showBatchToast = toastUndoFeature.showBatchToast;
-const hideToast = toastUndoFeature.hideToast;
-const undoLastAction = toastUndoFeature.undoLastAction;
+const bindToastControls = toastUndoFeature.bindToastControls;
 const restoreBatchTodos = toastUndoFeature.restoreBatchTodos;
 const restoreTodo = toastUndoFeature.restoreTodo;
 
@@ -800,9 +573,7 @@ const restoreTodo = toastUndoFeature.restoreTodo;
 
 const updatePushStatus = pushFeature.updatePushStatus;
 const updatePushSettingsUI = pushFeature.updatePushSettingsUI;
-const enablePushNotifications = pushFeature.enablePushNotifications;
-const disablePushNotifications = pushFeature.disablePushNotifications;
-const sendTestPush = pushFeature.sendTestPush;
+const bindPushActions = pushFeature.bindPushActions;
 
 const appLifecycle = createAppLifecycle({
   authApi,
@@ -842,13 +613,15 @@ const appLifecycle = createAppLifecycle({
   updateMinimalTodosButton,
   renderWorkspaces,
   refreshInvites: () => sharingFeature?.loadInvites?.(),
+  onAppReady: () => {
+    brainDumpLiveFeature.init();
+    whatsNewFeature.maybeShowWhatsNew().catch((error) => {
+      console.warn("What's new content unavailable:", error);
+    });
+  },
 });
 const initApp = async function() {
   await appLifecycle.initApp();
-  brainDumpLiveFeature.init();
-  if (sharingFeature?.loadInvites) {
-    sharingFeature.loadInvites();
-  }
 };
 const loadFromLocalDB = appLifecycle.loadFromLocalDB;
 const loadAll = appLifecycle.loadAll;
@@ -865,24 +638,39 @@ export function startAppModule() {
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
+  bindUserSettingsActions();
+  bindApiKeyActions();
+  bindPushActions();
+  desktopIntegration?.bindDesktopActions?.();
   hydrateIcons(document);
   confirmDialogFeature.bindConfirmDialog();
   consumeOidcErrorNotice();
+  bindServiceWorkerUpdateButtons();
+  bindAppDownloadLaunchers();
+  whatsNewFeature.bindWhatsNewActions();
   appDownloadsFeature.initAppDownloads();
   brainDumpLiveFeature.init();
+  bindStandardDragDrop();
   bindNativePointerDragDrop();
+  bindMobileSearchEvents();
+  bindTopbarPreferenceButtons();
   bindTodayFocusHotkey();
+  bindSidebarControls();
+  bindModalCloseControls();
+  bindToastControls();
+  bindWorkspaceControls();
+  bindTodoActions();
+  sharingFeature.bindProjectSharingActions();
+  bindProjectActions();
+  bindSectionActions();
+  bindNavigationActions();
   bindNavigationHistory();
+  bindFocusProjectMenuDismissal();
   document.addEventListener('click', (event) => {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
-    if (focusProjectMenuOpen && !event.target?.closest?.('.focus-project-dropdown')) closeFocusProjectMenu();
     if (!box?.classList.contains('open') || box.contains(event.target) || input?.value) return;
     box.classList.remove('open');
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !focusProjectMenuOpen) return;
-    closeFocusProjectMenu();
   });
   desktopIntegration?.init();
   window.addEventListener('nia-language-change', () => {
@@ -901,39 +689,33 @@ export function startAppModule() {
   });
   setInterval(() => renderStats(), 30 * 1000);
 
-  // Expose legacy inline handlers for module-loaded frontend.
-  exposeLegacyGlobals({
+  // Expose runtime globals needed by native integrations and cross-module callbacks.
+  exposeRuntimeGlobals({
   auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin, bindLoginForm },
-  apiKeys: { loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey },
+  apiKeys: { loadApiKeys, renderApiKeys, revokeApiKey },
   utils: { escapeHtml, escapeHtmlAttr, jsArg, formatDate, renderTodoItem },
-  theme: { initTheme, setTheme, applyTheme, cycleTheme, setAccentPreset, setAccentIntensity, toggleAccentPresetMenu },
+  theme: { initTheme, applyTheme, cycleTheme, toggleAccentPresetMenu },
   websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
   storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
-  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview, openMobileSearch, closeMobileSearch, toggleMobileSearch },
-  lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
-  appDownloads: { openAppDownloadsModal },
-  rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
+  ui: { closeSidebar, closeModal, setupDescPreview, openMobileSearch },
+  lifecycle: { initServiceWorker, initApp, loadFromLocalDB, loadAll },
+  rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject, renderInvites },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
-  workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
-  todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
-  projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
-  sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
+  todos: { markTodoDone, markTodoInProgress, deleteTodoComment, deleteTodoAttachment, saveTodo, editTodo, deleteTodoFromModal },
+  projects: { showProjectModal, deleteProject, clearDoneFromModal },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
-  sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
-  dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusProject, filterFocusProjectMenu, handleFocusProjectMenuKeydown, toggleFocusPriority, toggleFocusStatus },
-  toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
-    push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
+  viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
+  toastUndo: { showToast, showBatchToast, restoreBatchTodos, restoreTodo },
+    push: { updatePushStatus, updatePushSettingsUI },
     desktopIntegration: {
       updateDesktopSetting: (key, value) => desktopIntegration?.updateSetting(key, value),
       updateDesktopServerUrl: (value) => desktopIntegration?.updateServerUrl(value),
       resetDesktopServerUrl: () => desktopIntegration?.resetServerUrl(),
-      testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeDefaultReminderSetting, saveCustomDefaultReminderSetting, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices, loadSavedPlaces, saveSettingsPlace, editSettingsPlace, cancelSettingsPlaceEdit, deleteSettingsPlace },
-    userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
+    userSettings: { renderUserInfo, openSettingsModal, loadSavedPlaces },
+    userMenu: { updateUserMenu },
   });
 
   bindLoginForm();

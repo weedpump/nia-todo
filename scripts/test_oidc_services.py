@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Focused tests for generic OIDC config and local identity mapping."""
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import sqlite3
@@ -42,7 +44,8 @@ class FakeRequest:
 
 
 def main():
-    run_migrations()
+    with contextlib.redirect_stdout(io.StringIO()):
+        run_migrations()
     with get_db() as db:
         db.execute("UPDATE app_config SET value = ? WHERE key = 'public_base_url'", ("https://todo.example.org",))
         db.commit()
@@ -179,9 +182,12 @@ def main():
     assert_true(exchange_body["redirect_after"] == "/inbox", "native exchange should return redirect target")
     assert_true("set-cookie" in exchange_response.headers, "native exchange should set CSRF cookie on the returned response")
     native_redirect_html = _native_redirect_html("test-code", "user", "/inbox").body.decode()
+    native_redirect_de = json.loads((BASE / "web/static/i18n/de.json").read_text())
+    native_redirect_en = json.loads((BASE / "web/static/i18n/en.json").read_text())
     assert_true("window.close()" not in native_redirect_html, "native OIDC return page must not rely on browser tab auto-close")
-    assert_true("data-i18n" in native_redirect_html and "Zurück zu nia-todo" in native_redirect_html and "Returning to nia-todo" in native_redirect_html, "native OIDC return page should include German and English UI copy")
-    assert_true("After nia-todo opens" in native_redirect_html and "nia-todo://oidc/callback" in native_redirect_html, "native OIDC return page should keep a manual open fallback")
+    assert_true("data-i18n-key" in native_redirect_html and "auth.oidc.return.title" in native_redirect_html and "auth.oidc.return.hint" in native_redirect_html, "native OIDC return page should render i18n hooks")
+    assert_true("Zurück zu nia-todo" in native_redirect_de["auth.oidc.return.title"] and "Returning to nia-todo" in native_redirect_en["auth.oidc.return.title"], "native OIDC return page should include German and English UI copy")
+    assert_true("After nia-todo opens" in native_redirect_en["auth.oidc.return.hint"] and "nia-todo://oidc/callback" in native_redirect_html, "native OIDC return page should keep a manual open fallback")
     assert_true("login-box" in native_redirect_html and "login-logo" in native_redirect_html and "/static/icons/icon-192.png" in native_redirect_html, "native OIDC return page should use nia-todo login branding and app icon")
     assert_true("btn btn-primary" in native_redirect_html and "--bg-primary" in native_redirect_html and "--accent" in native_redirect_html, "native OIDC return page should use nia-todo button classes and design tokens")
     assert_true("return-page" in native_redirect_html and "100dvh" in native_redirect_html and "overflow: hidden" in native_redirect_html and "place-items: center" in native_redirect_html, "native OIDC return page should be centered and non-scrollable on mobile")

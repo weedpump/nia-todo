@@ -1,7 +1,10 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
-import { getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
+import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
+import { createTodoAttachmentsFeature } from './todo-attachments.js';
+import { createTodoQuickAddFeature } from './todo-quick-add.js';
 
 export function createTodosFeature({
   getTodos,
@@ -9,6 +12,8 @@ export function createTodosFeature({
   getProjects,
   getCurrentProjectId,
   getCurrentWorkspaceId,
+  getCurrentUser,
+  setCurrentUser,
   getAppInitialized,
   getDb,
   dbPut,
@@ -17,6 +22,7 @@ export function createTodosFeature({
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,
+  todosApi,
   sectionsApi,
   placesApi,
   renderProjects,
@@ -31,6 +37,1266 @@ export function createTodosFeature({
   const nativeBridge = createNativeBridge();
   let todoFormBound = false;
   let savedPlaces = [];
+  let todoSaveSnapshot = null;
+  const deletingSubtaskIds = new Set();
+  const TODO_MODAL_CLASSES = Object.freeze({
+    detail: 'todo-detail-view',
+    create: 'todo-create-view',
+    editingDescription: 'todo-desc-editing',
+    editingMeta: 'todo-meta-editing',
+  });
+
+  const {
+    getSelectedAttachmentFiles,
+    renderTodoAttachments,
+    uploadTodoAttachmentFromInput,
+    closeAttachmentPreview,
+    downloadPreviewAttachment,
+    deleteTodoAttachment,
+    bindTodoAttachmentInputs,
+  } = createTodoAttachmentsFeature({
+    getTodos,
+    setTodos,
+    getProjects,
+    getCurrentUser,
+    setCurrentUser,
+    getAppInitialized,
+    getDb,
+    dbPut,
+    isOnlineForSync,
+    todosApi,
+    renderStats,
+    renderTodos,
+    closeModal,
+    confirmDanger,
+    showToast,
+    t,
+    iconSvg,
+    escapeHtmlAttr,
+    setTodoCollapsibleOpen,
+    refreshTodoActionButtonState,
+    refreshTodoSaveButtonState,
+    nativeBridge,
+  });
+
+  const {
+    nextWeekday,
+    loadSectionsForQuickAdd,
+    parseQuickAddTitle,
+    renderQuickAddPreview,
+    bindQuickAddPreview,
+  } = createTodoQuickAddFeature({
+    getActiveLanguage,
+    t,
+    getProjects,
+    getCurrentProjectId,
+    getSavedPlaces: () => savedPlaces,
+    dbGetAll,
+  });
+
+  function escapeHtmlAttr(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function normalizeSubtasks(subtasks = []) {
+    return (Array.isArray(subtasks) ? subtasks : [])
+      .map((subtask, index) => ({
+        id: subtask.id ?? null,
+        title: String(subtask.title || '').trim(),
+        is_done: Boolean(subtask.is_done),
+        sort_order: Number.isFinite(Number(subtask.sort_order)) ? Number(subtask.sort_order) : index,
+      }))
+      .filter(subtask => subtask.title);
+  }
+
+  function getOpenSubtaskCount(todoOrSubtasks) {
+    const subtasks = Array.isArray(todoOrSubtasks) ? todoOrSubtasks : todoOrSubtasks?.subtasks;
+    return normalizeSubtasks(subtasks).filter(subtask => !subtask.is_done).length;
+  }
+
+  function setTodoCollapsibleOpen(panelId, shouldOpen) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    panel.open = Boolean(shouldOpen);
+  }
+
+  function getTodoModal() {
+    return document.getElementById('todo-modal');
+  }
+
+  function getTodoBeingEdited() {
+    const id = document.getElementById('todo-id')?.value;
+    if (!id) return null;
+    return getTodos().find(todo => String(todo.id) === String(id)) || null;
+  }
+
+
+  function updateTodoMetaPanelsOpenState(todo = null) {
+    const existingTodo = Boolean(todo?.id);
+    setTodoCollapsibleOpen('todo-subtasks-panel', existingTodo);
+    setTodoCollapsibleOpen('todo-comments-panel', existingTodo);
+    setTodoCollapsibleOpen('todo-attachments-panel', existingTodo);
+    if (existingTodo) return;
+    setTodoCollapsibleOpen('todo-subtasks-panel', true);
+    setTodoCollapsibleOpen('todo-comments-panel', true);
+    setTodoCollapsibleOpen('todo-attachments-panel', true);
+  }
+
+  function formatTodoMetaDate(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat(getActiveLocale(), {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  }
+
+  function getSelectedOptionLabel(id) {
+    const select = document.getElementById(id);
+    const option = select?.selectedOptions?.[0];
+    return option?.textContent?.trim() || '';
+  }
+
+  function ensureTodoMetaSummary() {
+    const titleGroup = document.getElementById('todo-title')?.closest('.form-group');
+    if (!titleGroup) return null;
+    let summary = document.getElementById('todo-meta-summary');
+    if (!summary) {
+      summary = document.createElement('div');
+      summary.id = 'todo-meta-summary';
+      summary.className = 'todo-meta-summary-view';
+    }
+    if (summary.previousElementSibling !== titleGroup) titleGroup.after(summary);
+    return summary;
+  }
+
+  function ensureTodoMetaDrawer() {
+    const form = document.getElementById('todo-form');
+    const organize = document.getElementById('todo-organize-panel');
+    const schedule = document.getElementById('todo-schedule-panel');
+    if (!form || !organize || !schedule) return null;
+    let drawer = document.getElementById('todo-meta-drawer');
+    if (!drawer) {
+      drawer = document.createElement('aside');
+      drawer.id = 'todo-meta-drawer';
+      drawer.className = 'todo-meta-edit-drawer';
+      drawer.setAttribute('aria-label', t('todo.meta.drawerAria'));
+      drawer.innerHTML = `
+        <div class="todo-meta-drawer-header">
+          <div>
+            <h4>${escapeHtmlAttr(t('todo.meta.drawerTitle'))}</h4>
+            <p>${escapeHtmlAttr(t('todo.meta.drawerSubtitle'))}</p>
+          </div>
+          <button type="button" class="todo-meta-drawer-close" aria-label="${escapeHtmlAttr(t('todo.meta.close'))}">${iconSvg('x')}</button>
+        </div>
+        <div class="todo-meta-drawer-body"></div>
+      `;
+      drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => {
+        getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
+        renderTodoMetaSummary(getTodoBeingEdited());
+      });
+      form.appendChild(drawer);
+    }
+    const body = drawer.querySelector('.todo-meta-drawer-body') || drawer;
+    if (organize.parentElement !== body) body.appendChild(organize);
+    if (schedule.parentElement !== body) body.appendChild(schedule);
+    return drawer;
+  }
+
+  function todoLocationReminderLabel(todo) {
+    const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
+    if (!reminder || reminder.enabled === 0 || reminder.enabled === false) return '';
+    const trigger = String(reminder.trigger_type || reminder.triggerType || '').toLowerCase();
+    const triggerLabel = trigger === 'departure' ? t('todo.location.departureShort') : t('todo.location.arrivalShort');
+    const place = String(reminder.place_name || reminder.placeName || reminder.address || '').trim();
+    return place ? `${triggerLabel}: ${place}` : triggerLabel;
+  }
+
+  function renderTodoMetaSummary(todo = null) {
+    const summary = ensureTodoMetaSummary();
+    if (!summary) return;
+    ensureTodoMetaDrawer();
+    summary.hidden = false;
+    const chips = [];
+    const addChip = (icon, label, value, options = {}) => {
+      if (!value) return;
+      const tone = String(options.tone || icon || 'default').replace(/[^a-z0-9-]/gi, '').toLowerCase();
+      const style = options.color ? ` style="--meta-tone: ${escapeHtmlAttr(options.color)}"` : '';
+      chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${options.muted ? ' is-muted' : ''}"${style}>${iconSvg(icon)}<span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
+    };
+    const selectedProject = getProjects().find(project => String(project.id) === String(document.getElementById('todo-project')?.value || ''));
+    const priority = Number(document.getElementById('todo-priority')?.value || todo.priority || 3);
+    const status = document.getElementById('todo-status')?.value || todo.status || 'pending';
+    const dueValue = todo?.due_date || document.getElementById('todo-due')?.value || '';
+    const remindValue = todo?.remind_at || todo?.reminders?.[0]?.remind_at || document.getElementById('todo-remind')?.value || '';
+    const dueDate = dueValue ? new Date(dueValue) : null;
+    const isOverdue = dueDate && status !== 'done' && dueDate < new Date();
+    const isSoon = dueDate && !isOverdue && status !== 'done' && dueDate <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const priorityTone = { 1: 'priority-very-high', 2: 'priority-high', 3: 'priority-medium', 4: 'priority-low' }[priority] || 'priority-low';
+    const statusTone = status === 'done' ? 'status-done' : status === 'in_progress' ? 'status-in-progress' : 'status-pending';
+    const statusIcon = status === 'done' ? 'check-circle' : status === 'in_progress' ? 'flame' : 'clock';
+    const dueTone = isOverdue ? 'due-overdue' : isSoon ? 'due-soon' : 'due-neutral';
+    const projectIcon = /^[a-z0-9-]+$/i.test(String(selectedProject?.icon || '')) ? selectedProject.icon : 'folder';
+    addChip(projectIcon, t('todo.project'), getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color });
+    addChip('layers', t('todo.section'), getSelectedOptionLabel('todo-section'), { tone: 'section' });
+    addChip('flag', t('todo.priority'), getSelectedOptionLabel('todo-priority'), { tone: priorityTone });
+    addChip(statusIcon, t('todo.status'), getSelectedOptionLabel('todo-status'), { tone: statusTone });
+    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', t('todo.deadline'), formatTodoMetaDate(dueValue), { tone: dueTone });
+    addChip('bell', t('todo.reminder'), formatTodoMetaDate(remindValue), { tone: 'reminder' });
+    addChip('map-pin', t('quickAdd.detected.location'), todoLocationReminderLabel(todo), { tone: 'location' });
+    const selectedFrequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
+    const recurringRule = todo?.recurring_rule ? normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null }) : { frequency: selectedFrequency };
+    if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', t('todo.recurring'), getSelectedOptionLabel('todo-recurring-frequency'));
+    if (todo?.is_pinned || document.getElementById('todo-pinned')?.checked) addChip('star', t('todo.pinned'), t('todo.meta.pinnedYes'));
+    const empty = t('todo.meta.empty');
+    const edit = t('todo.meta.edit');
+    summary.innerHTML = `
+      <div class="todo-meta-summary-chips">${chips.length ? chips.join('') : `<span class="todo-meta-summary-empty">${empty}</span>`}</div>
+      <button type="button" class="btn btn-secondary todo-detail-action-btn todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
+    `;
+    const toggle = summary.querySelector('#todo-meta-edit-toggle');
+    const syncToggleLabel = () => {
+      const active = getTodoModal()?.classList.contains(TODO_MODAL_CLASSES.editingMeta);
+      const label = active ? t('todo.meta.close') : edit;
+      toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
+    };
+    toggle?.addEventListener('click', () => {
+      getTodoModal()?.classList.toggle(TODO_MODAL_CLASSES.editingMeta);
+      syncToggleLabel();
+    });
+    syncToggleLabel();
+    translatePage(summary);
+  }
+
+  function ensureTodoDetailHeaderMenu() {
+    const actions = document.getElementById('todo-detail-header-actions');
+    if (!actions) return null;
+    const menu = actions.querySelector('.todo-detail-header-menu-toggle');
+    if (actions.dataset.todoHeaderActionsBound !== '1') {
+      actions.dataset.todoHeaderActionsBound = '1';
+      actions.querySelector('#todo-detail-duplicate-action')?.addEventListener('click', () => {
+        menu?.removeAttribute('open');
+        const id = document.getElementById('todo-id')?.value;
+        if (id) {
+          duplicateTodo(id);
+          closeModal('todo-modal');
+        }
+      });
+      actions.querySelector('#todo-detail-delete-action')?.addEventListener('click', () => {
+        menu?.removeAttribute('open');
+        deleteTodoFromModal();
+      });
+    }
+    if (menu && menu.dataset.outsideCloseBound !== '1') {
+      menu.dataset.outsideCloseBound = '1';
+      document.addEventListener('pointerdown', (event) => {
+        if (!menu.open || menu.contains(event.target)) return;
+        menu.removeAttribute('open');
+      });
+    }
+    translatePage(actions);
+    return actions;
+  }
+
+  function updateTodoDetailViewMode(todo = null) {
+    const modal = getTodoModal();
+    if (!modal) return;
+    const isExistingTodo = Boolean(todo?.id);
+    modal.classList.add(TODO_MODAL_CLASSES.detail);
+    modal.classList.toggle(TODO_MODAL_CLASSES.create, !isExistingTodo);
+    modal.classList.remove(TODO_MODAL_CLASSES.editingDescription);
+    const shouldOpenMetaDrawer = !isExistingTodo && !window.matchMedia?.('(max-width: 1180px)')?.matches;
+    modal.classList.toggle(TODO_MODAL_CLASSES.editingMeta, shouldOpenMetaDrawer);
+    const headerActions = ensureTodoDetailHeaderMenu();
+    const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');
+    if (headerMenu) headerMenu.hidden = !isExistingTodo;
+    const preview = document.getElementById('todo-desc-preview');
+    if (preview) preview.dataset.emptyLabel = t('todo.description.add');
+    renderTodoMetaSummary(todo);
+  }
+
+  function htmlNodeToMarkdown(node, listDepth = 0) {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const tag = node.tagName.toLowerCase();
+    const children = (depth = listDepth) => Array.from(node.childNodes).map(child => htmlNodeToMarkdown(child, depth)).join('');
+    if (tag === 'br') return '\n';
+    if (tag === 'strong' || tag === 'b') return `**${children()}**`;
+    if (tag === 'em' || tag === 'i') return `*${children()}*`;
+    if (tag === 'u') return `<u>${children()}</u>`;
+    if (tag === 'code') return `\`${children()}\``;
+    if (tag === 'blockquote') return children().split('\n').map(line => line.trim() ? `> ${line.trim()}` : '').join('\n') + '\n\n';
+    if (tag === 'h1') return `# ${children().trim()}\n\n`;
+    if (tag === 'h2') return `## ${children().trim()}\n\n`;
+    if (tag === 'h3') return `### ${children().trim()}\n\n`;
+    if (tag === 'li') {
+      const marginDepth = Math.max(0, Math.round((parseFloat(node.style?.marginLeft || '') || 0) / 40));
+      const effectiveListDepth = listDepth + marginDepth;
+      const direct = Array.from(node.childNodes)
+        .filter(child => !(child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase())))
+        .map(child => htmlNodeToMarkdown(child, effectiveListDepth))
+        .join('')
+        .trim();
+      const nested = Array.from(node.childNodes)
+        .filter(child => child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase()))
+        .map(child => htmlNodeToMarkdown(child, effectiveListDepth + 1))
+        .join('');
+      return `${'  '.repeat(effectiveListDepth)}- ${direct}\n${nested}`;
+    }
+    if (tag === 'ul' || tag === 'ol') {
+      return `${Array.from(node.childNodes).map(child => {
+        if (child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase())) {
+          return htmlNodeToMarkdown(child, listDepth + 1);
+        }
+        return htmlNodeToMarkdown(child, listDepth);
+      }).join('')}\n`;
+    }
+    if (tag === 'p' || tag === 'div') return `${children().trim()}\n\n`;
+    return children();
+  }
+
+  function insertInlineCode(editor) {
+    const selection = window.getSelection?.();
+    if (!selection?.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+    const text = selection.toString() || 'code';
+    document.execCommand('insertHTML', false, `<code>${escapeHtml(text)}</code>`);
+  }
+
+  function richEditorToolbarHtml() {
+    return `
+      <button type="button" data-rich-command="bold"><strong>B</strong></button>
+      <button type="button" data-rich-command="italic"><em>I</em></button>
+      <button type="button" data-rich-command="underline"><u>U</u></button>
+      <button type="button" data-rich-block="h1">H1</button>
+      <button type="button" data-rich-block="h2">H2</button>
+      <button type="button" data-rich-block="blockquote">${escapeHtmlAttr(t('todo.description.quote'))}</button>
+      <button type="button" data-rich-format="code">${escapeHtmlAttr(t('todo.description.code'))}</button>
+      <button type="button" data-rich-command="insertUnorderedList">${escapeHtmlAttr(t('todo.description.bulletList'))}</button>
+    `;
+  }
+
+  function richDescriptionToMarkdown(editor) {
+    return Array.from(editor.childNodes)
+      .map(htmlNodeToMarkdown)
+      .join('')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function setToolbarButtonActive(button, active) {
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+
+  function getSelectionElementWithin(root) {
+    const selection = window.getSelection?.();
+    if (!selection?.rangeCount) return null;
+    const node = selection.anchorNode;
+    const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    if (!element || !root.contains(element)) return null;
+    return element;
+  }
+
+  function closestInside(element, selector, root) {
+    const match = element?.closest?.(selector);
+    return match && root.contains(match) ? match : null;
+  }
+
+  function clearToolbarState(toolbar) {
+    toolbar?.querySelectorAll?.('button[aria-pressed]')?.forEach(button => setToolbarButtonActive(button, false));
+  }
+
+  let activeRichKeyboardToolbar = null;
+  let richKeyboardViewportBound = false;
+  const richKeyboardToolbarPortals = new WeakMap();
+
+  function isLikelyTouchKeyboardOpen() {
+    const viewport = window.visualViewport;
+    if (!viewport) return false;
+    const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
+    if (!coarsePointer) return false;
+    const layoutHeight = Math.max(window.innerHeight || 0, document.documentElement?.clientHeight || 0);
+    const screenHeight = window.screen?.height || layoutHeight;
+    const hiddenLayoutSpace = layoutHeight - viewport.height - viewport.offsetTop;
+    const hiddenScreenSpace = screenHeight - viewport.height;
+    return hiddenLayoutSpace > 80 || hiddenScreenSpace > Math.max(180, screenHeight * 0.22);
+  }
+
+  function getRichKeyboardToolbarWrap(toolbar) {
+    return richKeyboardToolbarPortals.get(toolbar)?.wrap || toolbar?.closest?.('.todo-rich-keyboard-wrap') || toolbar?.parentElement || null;
+  }
+
+  function portalRichKeyboardToolbar(toolbar, wrap) {
+    if (!toolbar || !wrap || richKeyboardToolbarPortals.has(toolbar)) return;
+    richKeyboardToolbarPortals.set(toolbar, {
+      parent: toolbar.parentNode,
+      nextSibling: toolbar.nextSibling,
+      wrap,
+    });
+    document.body.appendChild(toolbar);
+  }
+
+  function restoreRichKeyboardToolbar(toolbar) {
+    const portal = richKeyboardToolbarPortals.get(toolbar);
+    if (!portal) return;
+    const anchor = portal.nextSibling?.parentNode === portal.parent ? portal.nextSibling : null;
+    if (portal.parent?.isConnected) portal.parent.insertBefore(toolbar, anchor);
+    richKeyboardToolbarPortals.delete(toolbar);
+  }
+
+  function releaseRichKeyboardToolbarFixed(toolbar = activeRichKeyboardToolbar) {
+    if (!toolbar) return;
+    const wrap = getRichKeyboardToolbarWrap(toolbar);
+    toolbar.classList.remove('is-keyboard-fixed');
+    toolbar.style.removeProperty('--todo-rich-toolbar-left');
+    toolbar.style.removeProperty('--todo-rich-toolbar-width');
+    toolbar.style.removeProperty('--todo-rich-toolbar-top');
+    wrap?.classList.remove('is-keyboard-toolbar-fixed');
+    wrap?.style.removeProperty('--todo-rich-toolbar-height');
+    restoreRichKeyboardToolbar(toolbar);
+  }
+
+  function clearRichKeyboardToolbar() {
+    activeRichKeyboardToolbar?.classList.remove('is-stuck');
+    releaseRichKeyboardToolbarFixed();
+    activeRichKeyboardToolbar = null;
+  }
+
+  function getRichToolbarScrollPort(toolbar) {
+    return toolbar?.closest?.('.ui-detail-modal-body') || toolbar?.closest?.('.modal-content') || null;
+  }
+
+  function updateRichToolbarStickyState(toolbar) {
+    if (!toolbar) return;
+    if (toolbar.classList.contains('is-keyboard-fixed')) {
+      toolbar.classList.add('is-stuck');
+      return;
+    }
+    const scrollPort = getRichToolbarScrollPort(toolbar);
+    if (!scrollPort) {
+      toolbar.classList.remove('is-stuck');
+      return;
+    }
+    const toolbarTop = toolbar.getBoundingClientRect().top;
+    const scrollPortTop = scrollPort.getBoundingClientRect().top;
+    const isAtStickyEdge = toolbarTop <= scrollPortTop + 8;
+    toolbar.classList.toggle('is-stuck', scrollPort.scrollTop > 0 && isAtStickyEdge);
+  }
+
+  function updateRichKeyboardToolbar() {
+    const toolbar = activeRichKeyboardToolbar;
+    if (!toolbar) return;
+    if (!document.activeElement?.closest?.('.todo-desc-rich-editor, .todo-comment-rich-editor')) {
+      clearRichKeyboardToolbar();
+      return;
+    }
+    if (!isLikelyTouchKeyboardOpen()) {
+      releaseRichKeyboardToolbarFixed(toolbar);
+      updateRichToolbarStickyState(toolbar);
+      return;
+    }
+    const viewport = window.visualViewport;
+    const wrap = getRichKeyboardToolbarWrap(toolbar);
+    if (!wrap) return;
+    wrap.classList.add('is-keyboard-toolbar-fixed');
+    portalRichKeyboardToolbar(toolbar, wrap);
+    toolbar.style.setProperty('--todo-rich-toolbar-left', `${Math.max(0, viewport?.offsetLeft || 0)}px`);
+    toolbar.style.setProperty('--todo-rich-toolbar-width', `${Math.max(window.innerWidth || 0, viewport?.width || 0)}px`);
+    toolbar.style.setProperty('--todo-rich-toolbar-top', `${Math.max(0, viewport?.offsetTop || 0)}px`);
+    toolbar.classList.add('is-keyboard-fixed');
+    wrap.style.setProperty('--todo-rich-toolbar-height', `${toolbar.getBoundingClientRect().height}px`);
+    updateRichToolbarStickyState(toolbar);
+  }
+
+  function bindRichKeyboardViewportHandlers() {
+    if (richKeyboardViewportBound) return;
+    richKeyboardViewportBound = true;
+    const update = () => window.requestAnimationFrame?.(updateRichKeyboardToolbar) || updateRichKeyboardToolbar();
+    window.visualViewport?.addEventListener('resize', update, { passive: true });
+    window.visualViewport?.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    window.addEventListener('orientationchange', update, { passive: true });
+  }
+
+  function activateRichKeyboardToolbar(toolbar) {
+    if (!toolbar) return;
+    bindRichKeyboardViewportHandlers();
+    if (activeRichKeyboardToolbar && activeRichKeyboardToolbar !== toolbar) clearRichKeyboardToolbar();
+    activeRichKeyboardToolbar = toolbar;
+    window.setTimeout(updateRichKeyboardToolbar, 0);
+  }
+
+  function placeCaret(element, atEnd = false) {
+    const selection = window.getSelection?.();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(!atEnd);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function placeCaretAtStart(element) {
+    placeCaret(element, false);
+  }
+
+  function placeCaretAtEnd(element) {
+    placeCaret(element, true);
+  }
+
+  function indentRichListItem(editor, outdent, syncFromEditor) {
+    const element = getSelectionElementWithin(editor);
+    const listItem = closestInside(element, 'li', editor);
+    if (!listItem) return false;
+    document.execCommand(outdent ? 'outdent' : 'indent', false, null);
+    window.setTimeout(syncFromEditor, 0);
+    return true;
+  }
+
+  function resetRichTypingStyleAfterLineBreak(editor, toolbar, syncFromEditor) {
+    window.setTimeout(() => {
+      const element = getSelectionElementWithin(editor);
+      if (!element) return;
+      const block = closestInside(element, 'h1,h2,blockquote,p,div', editor);
+      const inline = closestInside(element, 'strong,b,em,i,u,code', editor);
+      const isEmptyLine = !String(block?.textContent || inline?.textContent || '').trim();
+      for (const command of ['bold', 'italic', 'underline']) {
+        if (document.queryCommandState?.(command)) document.execCommand(command, false, null);
+      }
+      if (isEmptyLine && block && block !== editor) {
+        const blockTag = block.tagName?.toLowerCase();
+        const resetBlock = ['h1', 'h2', 'blockquote'].includes(blockTag) ? document.createElement('div') : block;
+        resetBlock.innerHTML = '<br>';
+        if (resetBlock !== block) block.replaceWith(resetBlock);
+        placeCaretAtStart(resetBlock);
+      } else if (isEmptyLine && inline) {
+        inline.replaceWith(document.createElement('br'));
+      }
+      syncFromEditor();
+      updateRichToolbarState(editor, toolbar);
+    }, 0);
+  }
+
+  function cleanupRichEditors(root = document) {
+    root.querySelectorAll?.('[data-rich-editor-bound="1"]').forEach(editor => {
+      editor._richEditorCleanup?.();
+    });
+  }
+
+  function updateRichToolbarState(editor, toolbar) {
+    if (!editor || !toolbar) return;
+    const element = getSelectionElementWithin(editor);
+    if (!element) {
+      clearToolbarState(toolbar);
+      return;
+    }
+    const selection = window.getSelection?.();
+    const inlineElement = closestInside(element, 'strong,b,em,i,u,code', editor);
+    const blockElement = closestInside(element, 'h1,h2,blockquote,li,ul,ol', editor);
+    const hasInlineContent = Boolean(selection?.toString?.().trim() || inlineElement?.textContent?.trim());
+    const inlineTag = hasInlineContent ? (inlineElement?.tagName?.toLowerCase() || '') : '';
+    const blockTag = blockElement?.tagName?.toLowerCase() || '';
+    toolbar.querySelectorAll('button[data-rich-command], button[data-rich-block], button[data-rich-format]').forEach(button => {
+      let active = false;
+      if (button.dataset.richCommand === 'bold') active = ['strong', 'b'].includes(inlineTag);
+      else if (button.dataset.richCommand === 'italic') active = ['em', 'i'].includes(inlineTag);
+      else if (button.dataset.richCommand === 'underline') active = inlineTag === 'u';
+      else if (button.dataset.richCommand === 'insertUnorderedList') active = ['li', 'ul'].includes(blockTag) || Boolean(blockElement?.closest?.('ul'));
+      else if (button.dataset.richBlock) active = blockTag === button.dataset.richBlock;
+      else if (button.dataset.richFormat === 'code') active = inlineTag === 'code';
+      setToolbarButtonActive(button, Boolean(active));
+    });
+  }
+
+  function bindRichEditor(editor, toolbar, syncFromEditor) {
+    if (!editor || !toolbar || editor.dataset.richEditorBound === '1') return;
+    editor.dataset.richEditorBound = '1';
+    const controller = new AbortController();
+    const { signal } = controller;
+    const listenerOptions = { signal };
+    const passiveListenerOptions = { passive: true, signal };
+    editor._richEditorCleanup = () => {
+      if (signal.aborted) return;
+      if (activeRichKeyboardToolbar === toolbar) clearRichKeyboardToolbar();
+      else releaseRichKeyboardToolbarFixed(toolbar);
+      toolbar.classList.remove('is-stuck');
+      controller.abort();
+    };
+    toolbar.parentElement?.classList.add('todo-rich-keyboard-wrap');
+    const updateStickyState = () => window.requestAnimationFrame?.(() => updateRichToolbarStickyState(toolbar)) || updateRichToolbarStickyState(toolbar);
+    getRichToolbarScrollPort(toolbar)?.addEventListener('scroll', updateStickyState, passiveListenerOptions);
+    window.addEventListener('resize', updateStickyState, passiveListenerOptions);
+    editor.addEventListener('input', () => {
+      syncFromEditor();
+      updateRichKeyboardToolbar();
+      updateStickyState();
+    }, listenerOptions);
+    editor.addEventListener('focus', () => {
+      activateRichKeyboardToolbar(toolbar);
+      updateStickyState();
+    }, listenerOptions);
+    editor.addEventListener('keyup', () => window.setTimeout(() => {
+      if (signal.aborted) return;
+      updateRichToolbarState(editor, toolbar);
+      updateRichKeyboardToolbar();
+      updateStickyState();
+    }, 0), listenerOptions);
+    editor.addEventListener('mouseup', () => updateRichToolbarState(editor, toolbar), listenerOptions);
+    editor.addEventListener('blur', () => {
+      clearToolbarState(toolbar);
+      window.setTimeout(() => {
+        if (signal.aborted) return;
+        if (!document.activeElement?.closest?.('.todo-desc-rich-editor, .todo-comment-rich-editor')) clearRichKeyboardToolbar();
+      }, 0);
+    }, listenerOptions);
+    document.addEventListener('selectionchange', () => updateRichToolbarState(editor, toolbar), listenerOptions);
+    editor.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingDescription);
+        return;
+      }
+      if (event.key === 'Enter') {
+        resetRichTypingStyleAfterLineBreak(editor, toolbar, syncFromEditor);
+        return;
+      }
+      if (event.key === 'Tab' && indentRichListItem(editor, event.shiftKey, syncFromEditor)) {
+        event.preventDefault();
+        return;
+      }
+      if (event.key === ' ') {
+        window.setTimeout(() => {
+          if (signal.aborted) return;
+          const selection = window.getSelection?.();
+          const node = selection?.anchorNode;
+          const block = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+          if (!block || !editor.contains(block)) return;
+          if ((block.textContent || '').trim() !== '-') return;
+          block.textContent = '';
+          document.execCommand('insertUnorderedList', false, null);
+          syncFromEditor();
+        }, 0);
+      }
+    }, listenerOptions);
+    toolbar.querySelectorAll('button[data-rich-command], button[data-rich-block], button[data-rich-format]').forEach(button => {
+      button.addEventListener('mousedown', event => event.preventDefault(), listenerOptions);
+      button.addEventListener('click', () => {
+        editor.focus();
+        if (button.dataset.richBlock) document.execCommand('formatBlock', false, button.dataset.richBlock);
+        else if (button.dataset.richFormat === 'code') insertInlineCode(editor);
+        else document.execCommand(button.dataset.richCommand, false, null);
+        syncFromEditor();
+        updateRichToolbarState(editor, toolbar);
+      }, listenerOptions);
+    });
+  }
+
+  function ensureDescriptionRichEditor(textarea, preview) {
+    let wrap = document.getElementById('todo-desc-rich-wrap');
+    if (wrap) return wrap;
+    wrap = document.createElement('div');
+    wrap.id = 'todo-desc-rich-wrap';
+    wrap.className = 'todo-desc-rich-wrap';
+    wrap.innerHTML = `
+      <div class="todo-desc-rich-toolbar" aria-label="${escapeHtmlAttr(t('todo.description.formatToolbar'))}">
+        ${richEditorToolbarHtml()}
+      </div>
+      <div id="todo-desc-rich-editor" class="todo-desc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>
+    `;
+    preview.after(wrap);
+    const editor = wrap.querySelector('#todo-desc-rich-editor');
+    const toolbar = wrap.querySelector('.todo-desc-rich-toolbar');
+    const syncFromEditor = () => {
+      textarea.value = richDescriptionToMarkdown(editor);
+      preview.innerHTML = renderMarkdown(textarea.value);
+      refreshTodoSaveButtonState();
+      updateRichToolbarState(editor, toolbar);
+    };
+    bindRichEditor(editor, toolbar, syncFromEditor);
+    return wrap;
+  }
+
+  function getTodoCommentEditor() {
+    return document.getElementById('todo-comment-new-editor');
+  }
+
+  function getTodoCommentEditorBody(editor = getTodoCommentEditor()) {
+    return editor ? richDescriptionToMarkdown(editor).trim() : '';
+  }
+
+  function clearTodoCommentEditor(editor = getTodoCommentEditor()) {
+    if (!editor) return;
+    editor.innerHTML = '';
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function bindTodoDescriptionInlineEditor() {
+    const modal = getTodoModal();
+    const textarea = document.getElementById('todo-desc');
+    const preview = document.getElementById('todo-desc-preview');
+    if (!modal || !textarea || !preview || textarea.dataset.inlineEditorBound === '1') return;
+    textarea.dataset.inlineEditorBound = '1';
+    const wrap = ensureDescriptionRichEditor(textarea, preview);
+    const editor = wrap.querySelector('#todo-desc-rich-editor');
+    editor?.setAttribute('data-placeholder', t('todo.description.write'));
+    const openEditor = () => {
+      if (!modal.classList.contains(TODO_MODAL_CLASSES.detail)) return;
+      editor.innerHTML = renderMarkdown(textarea.value || '');
+      modal.classList.add(TODO_MODAL_CLASSES.editingDescription);
+      window.requestAnimationFrame?.(() => editor.focus());
+    };
+    preview.addEventListener('click', openEditor);
+    preview.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openEditor();
+    });
+  }
+
+  function getTodoSaveRelevantState() {
+    const id = document.getElementById('todo-id')?.value || '';
+    const state = {
+      title: document.getElementById('todo-title')?.value || '',
+      description: document.getElementById('todo-desc')?.value || '',
+      priority: Number(document.getElementById('todo-priority')?.value || 3),
+      is_pinned: Boolean(document.getElementById('todo-pinned')?.checked),
+      project_id: document.getElementById('todo-project')?.value || '',
+      section_id: document.getElementById('todo-section')?.value || '',
+      status: document.getElementById('todo-status')?.value || 'pending',
+      due_date: document.getElementById('todo-due')?.value || '',
+      remind_at: document.getElementById('todo-remind')?.value || '',
+      recurring_frequency: document.getElementById('todo-recurring-frequency')?.value || 'none',
+      recurring_interval: document.getElementById('todo-recurring-interval')?.value || '1',
+      location_enabled: Boolean(document.getElementById('todo-location-enabled')?.checked),
+      location_trigger: document.getElementById('todo-location-trigger')?.value || 'arrival',
+      location_place: document.getElementById('todo-location-place')?.value || '',
+      location_address: document.getElementById('todo-location-address')?.value || '',
+    };
+    if (!id) {
+      state.subtasks = collectTodoSubtasksFromEditor();
+      state.comments = collectTodoDraftCommentsFromEditor();
+      state.attachments = getSelectedAttachmentFiles().map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+      }));
+    }
+    return state;
+  }
+
+  function hasPersistedTodoId() {
+    const id = document.getElementById('todo-id')?.value || '';
+    return Boolean(id) && !String(id).startsWith('temp-');
+  }
+
+  function refreshTodoActionButtonState() {
+    const hasTodo = hasPersistedTodoId();
+    const subtaskTitle = document.getElementById('todo-subtask-new-title')?.value?.trim() || '';
+    const commentBody = getTodoCommentEditorBody();
+    const attachmentFiles = getSelectedAttachmentFiles();
+    const subtaskButton = document.getElementById('todo-subtask-add-btn');
+    const commentButton = document.getElementById('todo-comment-add-btn');
+    const attachmentPicker = document.querySelector('.todo-attachment-picker');
+    const uploadButton = document.getElementById('todo-attachment-upload-btn');
+    if (subtaskButton) subtaskButton.disabled = !subtaskTitle;
+    if (commentButton) commentButton.disabled = !commentBody;
+    if (attachmentPicker) attachmentPicker.disabled = false;
+    if (uploadButton) uploadButton.disabled = !hasTodo || attachmentFiles.length === 0;
+  }
+
+  function refreshTodoSaveButtonState() {
+    const saveButton = document.getElementById('todo-save-btn');
+    if (!saveButton) return;
+    const current = JSON.stringify(getTodoSaveRelevantState());
+    const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
+    saveButton.hidden = unchanged;
+    saveButton.disabled = unchanged;
+    refreshTodoActionButtonState();
+  }
+
+  function resetTodoSaveSnapshot() {
+    todoSaveSnapshot = JSON.stringify(getTodoSaveRelevantState());
+    refreshTodoSaveButtonState();
+  }
+
+  function updateSubtaskEditorCount() {
+    const subtasks = collectTodoSubtasksFromEditor();
+    const done = subtasks.filter(subtask => subtask.is_done).length;
+    const count = document.getElementById('todo-subtasks-count');
+    if (count) count.textContent = t('todo.subtasks.progress', { done, total: subtasks.length });
+    refreshTodoSaveButtonState();
+  }
+
+  function collectTodoSubtasksFromEditor() {
+    return Array.from(document.querySelectorAll('#todo-subtasks-list .todo-subtask-row')).map((row, index) => ({
+      id: row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null,
+      title: row.querySelector('.todo-subtask-title-input')?.value?.trim() || '',
+      is_done: Boolean(row.querySelector('.todo-subtask-check')?.checked),
+      sort_order: index,
+    })).filter(subtask => subtask.title);
+  }
+
+  async function applySubtaskTodoResponse(response) {
+    const updatedTodo = response?.todo;
+    if (!updatedTodo) return;
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+    renderTodoSubtaskEditor(updatedTodo.subtasks || []);
+    renderStats();
+    renderTodos();
+  }
+
+  async function createTodoSubtask(todoId, title, isDone = false) {
+    if (!todoId || String(todoId).startsWith('temp-')) {
+      showToast(t('todo.subtasks.saveFirst'));
+      return false;
+    }
+    if (!isOnlineForSync()) {
+      showToast(t('todo.subtasks.onlineOnly'));
+      return false;
+    }
+    try {
+      const response = await todosApi.createSubtask(todoId, { title, is_done: isDone });
+      await applySubtaskTodoResponse(response);
+      return true;
+    } catch (error) {
+      console.error('Failed to add todo subtask', error);
+      showToast(t('todo.subtasks.saveFailed'));
+      return false;
+    }
+  }
+
+  async function updateTodoSubtask(todoId, subtaskId, changes) {
+    if (!todoId || !subtaskId || !isOnlineForSync()) {
+      showToast(t('todo.subtasks.onlineOnly'));
+      return false;
+    }
+    try {
+      const response = await todosApi.updateSubtask(todoId, subtaskId, changes);
+      await applySubtaskTodoResponse(response);
+      return true;
+    } catch (error) {
+      console.error('Failed to update todo subtask', error);
+      showToast(t('todo.subtasks.saveFailed'));
+      return false;
+    }
+  }
+
+  async function deleteTodoSubtask(todoId, subtaskId) {
+    if (!todoId || !subtaskId || !isOnlineForSync()) {
+      showToast(t('todo.subtasks.onlineOnly'));
+      return false;
+    }
+    try {
+      const response = await todosApi.deleteSubtask(todoId, subtaskId);
+      await applySubtaskTodoResponse(response);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete todo subtask', error);
+      showToast(t('todo.subtasks.deleteFailed'));
+      return false;
+    }
+  }
+
+  function addTodoSubtaskRow(subtask = {}) {
+    const list = document.getElementById('todo-subtasks-list');
+    if (!list) return;
+    const todoId = document.getElementById('todo-id')?.value || '';
+    const row = document.createElement('div');
+    row.className = 'todo-subtask-row';
+    row.dataset.subtaskId = subtask.id ? String(subtask.id) : `new-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const checkboxLabel = document.createElement('label');
+    checkboxLabel.className = 'ui-checkbox-label todo-subtask-check-label';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'todo-subtask-check';
+    checkbox.checked = Boolean(subtask.is_done);
+    checkbox.setAttribute('aria-label', t('todo.subtasks.toggleDone'));
+    checkbox.addEventListener('change', async () => {
+      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      if (persistedId && todoId) {
+        const previous = !checkbox.checked;
+        const ok = await updateTodoSubtask(todoId, persistedId, { is_done: checkbox.checked });
+        if (!ok) checkbox.checked = previous;
+      } else {
+        updateSubtaskEditorCount();
+      }
+    });
+
+    const checkboxBox = document.createElement('span');
+    checkboxBox.className = 'ui-checkbox-box';
+    checkboxBox.setAttribute('aria-hidden', 'true');
+    checkboxBox.innerHTML = iconSvg('check');
+    checkboxLabel.append(checkbox, checkboxBox);
+
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'form-group todo-subtask-title-group';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'ui-field todo-subtask-title-input';
+    input.maxLength = 500;
+    input.value = subtask.title || '';
+    input.dataset.originalTitle = input.value;
+    input.placeholder = t('todo.subtasks.placeholder');
+    input.setAttribute('aria-label', t('todo.subtasks.titleLabel'));
+    input.addEventListener('input', updateSubtaskEditorCount);
+    input.addEventListener('blur', async () => {
+      if (row.dataset.deleting === '1') return;
+      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      const title = input.value.trim();
+      if (!persistedId || !todoId || title === input.dataset.originalTitle) return;
+      if (!title) {
+        input.value = input.dataset.originalTitle || '';
+        return;
+      }
+      const ok = await updateTodoSubtask(todoId, persistedId, { title });
+      if (!ok) input.value = input.dataset.originalTitle || '';
+    });
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+    inputWrap.appendChild(input);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn btn-secondary btn-small btn-icon todo-subtask-remove';
+    remove.innerHTML = iconSvg('trash-2');
+    remove.setAttribute('aria-label', t('todo.subtasks.delete'));
+    remove.setAttribute('title', t('todo.subtasks.delete'));
+    remove.addEventListener('mousedown', (event) => event.preventDefault());
+    remove.addEventListener('click', async () => {
+      row.dataset.deleting = '1';
+      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      const hasTitle = Boolean(input.value.trim());
+      if (persistedId || hasTitle) {
+        const confirmed = await confirmDanger({
+          title: t('todo.subtasks.deleteTitle'),
+          message: t('todo.subtasks.deleteMessage'),
+          confirmText: t('todo.subtasks.deleteConfirm'),
+        });
+        if (!confirmed) {
+          row.dataset.deleting = '0';
+          return;
+        }
+      }
+      if (persistedId && todoId) {
+        deletingSubtaskIds.add(String(persistedId));
+        row.remove();
+        updateSubtaskEditorCount();
+        const ok = await deleteTodoSubtask(todoId, persistedId);
+        if (!ok) {
+          deletingSubtaskIds.delete(String(persistedId));
+          row.dataset.deleting = '0';
+        }
+        return;
+      }
+      row.remove();
+      updateSubtaskEditorCount();
+    });
+
+    row.append(checkboxLabel, inputWrap, remove);
+    list.appendChild(row);
+    updateSubtaskEditorCount();
+    return input;
+  }
+
+
+  function renderTodoSubtaskEditor(subtasks = []) {
+    const list = document.getElementById('todo-subtasks-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const normalized = normalizeSubtasks(subtasks)
+      .filter(subtask => !deletingSubtaskIds.has(String(subtask.id)))
+      .sort((a, b) => Number(a.sort_order) - Number(b.sort_order));
+    normalized.forEach(subtask => addTodoSubtaskRow(subtask));
+    updateSubtaskEditorCount();
+    setTodoCollapsibleOpen('todo-subtasks-panel', normalized.length > 0);
+  }
+
+  async function addTodoSubtaskFromInput() {
+    const input = document.getElementById('todo-subtask-new-title');
+    const title = input?.value?.trim() || '';
+    const todoId = document.getElementById('todo-id')?.value || '';
+    if (!title) {
+      input?.focus();
+      return;
+    }
+    if (todoId && !String(todoId).startsWith('temp-')) {
+      const ok = await createTodoSubtask(todoId, title, false);
+      if (!ok) return;
+    } else {
+      addTodoSubtaskRow({ title, is_done: false });
+    }
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    refreshTodoActionButtonState();
+  }
+
+
+  function collectTodoDraftCommentsFromEditor() {
+    return Array.from(document.querySelectorAll('#todo-comments-list .todo-comment-item[data-draft-comment="1"] .todo-comment-body'))
+      .map(item => item.dataset.rawBody?.trim() || item.textContent?.trim() || '')
+      .filter(Boolean);
+  }
+
+  function removeTodoDraftComment(commentId) {
+    const comments = collectTodoDraftCommentsFromEditor();
+    const next = comments.filter((_, index) => `draft-comment-${index}` !== String(commentId));
+    renderTodoComments(next.map((body, index) => ({
+      id: `draft-comment-${index}`,
+      body,
+      is_draft: true,
+      user_id: getCurrentUser?.()?.id,
+      author_display_name: t('todo.comments.draftAuthor'),
+    })), null);
+    refreshTodoSaveButtonState();
+  }
+
+  function formatTodoCommentTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    try {
+      return date.toLocaleString(getActiveLocale(), { dateStyle: 'short', timeStyle: 'short' });
+    } catch (_error) {
+      return date.toLocaleString();
+    }
+  }
+
+  function renderTodoComments(comments = [], todo = null) {
+    const todoId = todo?.id || null;
+    const list = document.getElementById('todo-comments-list');
+    const empty = document.getElementById('todo-comments-empty');
+    const input = getTodoCommentEditor();
+    const addButton = document.getElementById('todo-comment-add-btn');
+    if (!list) return;
+    const normalized = Array.isArray(comments) ? comments : [];
+    const count = document.getElementById('todo-comments-count');
+    cleanupRichEditors(list);
+    list.innerHTML = '';
+    if (count) count.textContent = String(normalized.length);
+    setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
+    if (empty) {
+      empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.draftEmpty');
+      empty.hidden = normalized.length > 0;
+    }
+    if (input) {
+      input.innerHTML = '';
+      input.contentEditable = 'true';
+      input.closest('.todo-comment-rich-wrap')?.querySelectorAll('button').forEach(button => {
+        button.disabled = false;
+      });
+    }
+    if (addButton) addButton.disabled = true;
+    refreshTodoActionButtonState();
+    for (const comment of normalized) {
+      const item = document.createElement('article');
+      item.className = 'todo-comment-item';
+      item.dataset.commentId = comment.id;
+      if (comment.is_draft) item.dataset.draftComment = '1';
+
+      const meta = document.createElement('div');
+      meta.className = 'todo-comment-meta';
+      const author = document.createElement('span');
+      const authorName = comment.author_display_name || comment.author_username || t('todo.comments.unknownAuthor');
+      author.textContent = authorName;
+      if (comment.author_username && comment.author_username !== authorName) author.title = comment.author_username;
+      const time = document.createElement('time');
+      time.dateTime = comment.created_at || '';
+      time.textContent = formatTodoCommentTime(comment.created_at);
+      meta.append(author, time);
+
+      const body = document.createElement('div');
+      body.className = 'todo-comment-body';
+      body.dataset.rawBody = comment.body || '';
+      body.innerHTML = renderMarkdown(comment.body || '');
+
+      const actions = document.createElement('div');
+      actions.className = 'todo-comment-actions';
+      const currentUserId = getCurrentUser?.()?.id;
+      const isDraft = Boolean(comment.is_draft) || String(comment.id || '').startsWith('draft-comment-');
+      const isAuthor = String(comment.user_id) === String(currentUserId);
+      const canDelete = isDraft || isAuthor || String(todo?.user_id) === String(currentUserId);
+      if (isAuthor && !isDraft) {
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'btn btn-secondary btn-small btn-icon';
+        edit.innerHTML = iconSvg('edit-3');
+        edit.setAttribute('aria-label', t('todo.comments.edit'));
+        edit.setAttribute('title', t('todo.comments.edit'));
+        edit.addEventListener('click', () => startTodoCommentEdit(item, body, actions, todoId, comment));
+        actions.appendChild(edit);
+      }
+      if (canDelete) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn-secondary btn-small btn-icon';
+        remove.innerHTML = iconSvg('trash-2');
+        remove.setAttribute('aria-label', t('todo.comments.delete'));
+        remove.setAttribute('title', t('todo.comments.delete'));
+        remove.addEventListener('click', () => {
+          if (isDraft) removeTodoDraftComment(comment.id);
+          else deleteTodoComment(todoId, comment.id);
+        });
+        actions.appendChild(remove);
+      }
+
+      item.append(meta, body, actions);
+      list.appendChild(item);
+    }
+  }
+
+  function startTodoCommentEdit(item, bodyEl, actionsEl, todoId, comment) {
+    if (!todoId || !comment?.id || item.dataset.editing === '1') return;
+    item.dataset.editing = '1';
+    const original = comment.body || '';
+    const editorWrap = document.createElement('div');
+    editorWrap.className = 'todo-comment-edit-wrap todo-comment-rich-wrap';
+    const toolbar = document.createElement('div');
+    toolbar.className = 'todo-desc-rich-toolbar todo-comment-rich-toolbar';
+    toolbar.setAttribute('aria-label', t('todo.comments.formatToolbar'));
+    toolbar.innerHTML = richEditorToolbarHtml();
+    const editor = document.createElement('div');
+    editor.className = 'todo-comment-rich-editor todo-comment-edit-input';
+    editor.contentEditable = 'true';
+    editor.setAttribute('role', 'textbox');
+    editor.setAttribute('aria-multiline', 'true');
+    editor.innerHTML = renderMarkdown(original);
+    const syncEditEditor = () => updateRichToolbarState(editor, toolbar);
+    editorWrap.append(toolbar, editor);
+    bodyEl.replaceWith(editorWrap);
+    bindRichEditor(editor, toolbar, syncEditEditor);
+    actionsEl.innerHTML = '';
+
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn btn-primary btn-small btn-icon';
+    save.innerHTML = iconSvg('check');
+    save.setAttribute('aria-label', t('common.save'));
+    save.setAttribute('title', t('common.save'));
+    save.addEventListener('click', () => updateTodoComment(todoId, comment.id, richDescriptionToMarkdown(editor)));
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn btn-secondary btn-small btn-icon';
+    cancel.innerHTML = iconSvg('x');
+    cancel.setAttribute('aria-label', t('common.cancel'));
+    cancel.setAttribute('title', t('common.cancel'));
+    cancel.addEventListener('click', () => {
+      item.dataset.editing = '0';
+      renderTodoComments(getTodos().find(todo => String(todo.id) === String(todoId))?.comments || [], getTodos().find(todo => String(todo.id) === String(todoId)) || null);
+    });
+
+    actionsEl.append(save, cancel);
+    editor.focus();
+    placeCaretAtEnd(editor);
+  }
+
+  async function applyCommentTodoResponse(response) {
+    const updatedTodo = response?.todo;
+    if (!updatedTodo) return;
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+    renderTodoComments(updatedTodo.comments || [], updatedTodo);
+    renderStats();
+    renderTodos();
+  }
+
+  async function addTodoCommentFromInput() {
+    if (!getAppInitialized() || !getDb()) return;
+    const id = document.getElementById('todo-id')?.value;
+    const input = getTodoCommentEditor();
+    const body = getTodoCommentEditorBody(input);
+    if (!body) {
+      input?.focus();
+      return;
+    }
+    if (!id || id.startsWith('temp-')) {
+      const comments = [...collectTodoDraftCommentsFromEditor(), body];
+      renderTodoComments(comments.map((commentBody, index) => ({
+        id: `draft-comment-${index}`,
+        body: commentBody,
+        is_draft: true,
+        user_id: getCurrentUser?.()?.id,
+        author_display_name: t('todo.comments.draftAuthor'),
+      })), null);
+      if (input) {
+        clearTodoCommentEditor(input);
+        input.focus();
+      }
+      refreshTodoSaveButtonState();
+      return;
+    }
+    if (!isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    try {
+      const response = await todosApi.createComment(id, { body });
+      await applyCommentTodoResponse(response);
+      if (input) {
+        clearTodoCommentEditor(input);
+      }
+    } catch (error) {
+      console.error('Failed to add todo comment', error);
+      showToast(t('todo.comments.saveFailed'));
+    }
+  }
+
+  async function updateTodoComment(todoId, commentId, body) {
+    const normalized = String(body || '').trim();
+    if (!normalized) {
+      showToast(t('todo.comments.emptyBody'));
+      return;
+    }
+    if (!todoId || !commentId || !isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    try {
+      const response = await todosApi.updateComment(todoId, commentId, { body: normalized });
+      await applyCommentTodoResponse(response);
+    } catch (error) {
+      console.error('Failed to update todo comment', error);
+      showToast(t('todo.comments.saveFailed'));
+    }
+  }
+
+  async function deleteTodoComment(todoId, commentId) {
+    if (!todoId || !commentId || !isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    const confirmed = await confirmDanger({
+      title: t('todo.comments.deleteTitle'),
+      message: t('todo.comments.deleteMessage'),
+      confirmText: t('todo.comments.deleteConfirm'),
+    });
+    if (!confirmed) return;
+    try {
+      const response = await todosApi.deleteComment(todoId, commentId);
+      await applyCommentTodoResponse(response);
+    } catch (error) {
+      console.error('Failed to delete todo comment', error);
+      showToast(t('todo.comments.deleteFailed'));
+    }
+  }
 
   function bindTodoForm() {
     if (todoFormBound) return;
@@ -38,6 +1304,25 @@ export function createTodosFeature({
     if (!form) return;
     todoFormBound = true;
     form.addEventListener('submit', saveTodo);
+    form.addEventListener('input', refreshTodoSaveButtonState);
+    form.addEventListener('change', refreshTodoSaveButtonState);
+    bindTodoAttachmentInputs();
+    const commentInput = getTodoCommentEditor();
+    const commentToolbar = commentInput?.closest('.todo-comment-rich-wrap')?.querySelector('.todo-comment-rich-toolbar');
+    if (commentToolbar && !commentToolbar.innerHTML.trim()) commentToolbar.innerHTML = richEditorToolbarHtml();
+    if (commentInput && commentToolbar) {
+      commentInput.setAttribute('data-placeholder', t('todo.comments.placeholder'));
+      bindRichEditor(commentInput, commentToolbar, () => {
+        refreshTodoSaveButtonState();
+        updateRichToolbarState(commentInput, commentToolbar);
+      });
+    }
+    document.getElementById('todo-subtask-new-title')?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addTodoSubtaskFromInput();
+      }
+    });
   }
 
   function hydrateTodoSelects() {
@@ -312,405 +1597,6 @@ export function createTodosFeature({
     }
   }
 
-  function setDateTimeInputValue(id, date) {
-    const input = document.getElementById(id);
-    if (!input || !date || !Number.isFinite(date.getTime())) return;
-    input.value = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
-  }
-
-  function startOfToday(base = new Date()) {
-    const d = new Date(base);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-
-  function nextWeekday(base, targetDay) {
-    const d = startOfToday(base);
-    const delta = (targetDay + 7 - d.getDay()) % 7 || 7;
-    d.setDate(d.getDate() + delta);
-    d.setHours(9, 0, 0, 0);
-    return d;
-  }
-
-  function normalizedName(value) {
-    return String(value || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
-  }
-
-  function compactName(value) {
-    return normalizedName(value).replace(/\s+/g, '');
-  }
-
-  function quickAddAliases(key) {
-    const value = t(key);
-    if (!value || value === key) return [];
-    return value.split('|').map(item => item.trim().toLowerCase()).filter(Boolean);
-  }
-
-  function findProjectByQuickAddName(rawName) {
-    const wanted = normalizedName(rawName);
-    const compact = compactName(rawName);
-    return getProjects().find(p => normalizedName(p.name) === wanted || compactName(p.name) === compact) || null;
-  }
-
-  async function loadSectionsForQuickAdd() {
-    try { return await dbGetAll('sections'); }
-    catch { return []; }
-  }
-
-  function findSectionByQuickAddName(rawName, projectId, allSections = []) {
-    const wanted = normalizedName(rawName);
-    const compact = compactName(rawName);
-    return allSections.find(s => {
-      if (projectId && String(s.project_id) !== String(projectId)) return false;
-      return normalizedName(s.name) === wanted || compactName(s.name) === compact;
-    }) || null;
-  }
-
-  function parseRelativeQuickAddDate(value, now = new Date()) {
-    const n = String(value || '').toLowerCase();
-    const todayWords = quickAddAliases('quickAdd.syntax.today');
-    const tomorrowWords = quickAddAliases('quickAdd.syntax.tomorrow');
-    const dayAfterWords = quickAddAliases('quickAdd.syntax.dayAfterTomorrow');
-    const weekendWords = quickAddAliases('quickAdd.syntax.weekend');
-    const nextWeekWords = quickAddAliases('quickAdd.syntax.nextWeek');
-    const weekdays = quickAddAliases('quickAdd.syntax.weekdays');
-    const weekdayIndex = weekdays.indexOf(n);
-    let due = null;
-    if (todayWords.includes(n)) { due = startOfToday(now); due.setHours(18, 0, 0, 0); }
-    else if (tomorrowWords.includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 1); due.setHours(9, 0, 0, 0); }
-    else if (dayAfterWords.includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 2); due.setHours(9, 0, 0, 0); }
-    else if (weekendWords.includes(n)) due = nextWeekday(now, 6);
-    else if (nextWeekWords.includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 7); due.setHours(9, 0, 0, 0); }
-    else if (weekdayIndex >= 0) due = nextWeekday(now, weekdayIndex % 7);
-    return due;
-  }
-
-  function applyQuickAddTime(date, rawTime, now = new Date()) {
-    const value = String(rawTime || '').trim().toLowerCase();
-    const match = value.match(/^([01]?\d|2[0-3])(?:[:.]([0-5]\d))?$/);
-    if (!match) return null;
-    const next = date ? new Date(date) : startOfToday(now);
-    next.setHours(Number(match[1]), Number(match[2] || 0), 0, 0);
-    if (next < now && !date) next.setDate(next.getDate() + 1);
-    return next;
-  }
-
-  function quickAddDateLabel(value) {
-    if (!value) return '';
-    const date = new Date(value);
-    if (!Number.isFinite(date.getTime())) return '';
-    return new Intl.DateTimeFormat(getActiveLanguage(), { dateStyle: 'short', timeStyle: 'short' }).format(date);
-  }
-
-  function tokenIndexMap(rawText) {
-    const indexes = [];
-    const pattern = /\S+/g;
-    let match;
-    while ((match = pattern.exec(rawText)) !== null) indexes.push({ start: match.index, end: match.index + match[0].length });
-    return indexes;
-  }
-
-  function markTokenRange(used, tokenSpans, start, end) {
-    tokenSpans.forEach((span, index) => {
-      if (span.start < end && span.end > start) used.add(index);
-    });
-  }
-
-  function tokenIndexForRange(tokenSpans, start, end) {
-    const index = tokenSpans.findIndex(span => span.start < end && span.end > start);
-    return index >= 0 ? index : 0;
-  }
-
-  function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  function aliasPattern(aliases) {
-    return aliases
-      .filter(Boolean)
-      .sort((a, b) => b.length - a.length)
-      .map(alias => escapeRegExp(alias).replace(/\\\s+/g, '\\s+'))
-      .join('|');
-  }
-
-  function quickAddNamePatterns(items = []) {
-    const variants = new Set();
-    items.forEach(item => {
-      const name = String(item.name || '').trim();
-      if (!name) return;
-      variants.add(escapeRegExp(name).replace(/\\\s+/g, '\\s+'));
-      const compact = compactName(name);
-      if (compact && compact !== normalizedName(name)) variants.add(escapeRegExp(compact));
-    });
-    return Array.from(variants).sort((a, b) => b.length - a.length).join('|');
-  }
-
-  function projectNamePattern() {
-    return quickAddNamePatterns(getProjects());
-  }
-
-  function sectionNamePattern(allSections = []) {
-    return quickAddNamePatterns(allSections);
-  }
-
-  function addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, type, start, end, label, value = '', uniqueKey = null) {
-    const tokenIndex = tokenIndexForRange(tokenSpans, start, end);
-    if (uniqueKey && matchIndexes.has(uniqueKey)) {
-      const existing = matches[matchIndexes.get(uniqueKey)];
-      existing.value = value;
-      existing.token = tokens[tokenIndex] || '';
-    } else {
-      if (uniqueKey) matchIndexes.set(uniqueKey, matches.length);
-      matches.push({ type, label, value, token: tokens[tokenIndex] || '' });
-    }
-    markTokenRange(used, tokenSpans, start, end);
-  }
-
-  async function parseQuickAddTitle(rawTitle, currentProjectId, formProjectId = null) {
-    const original = String(rawTitle || '').trim();
-    if (!original) return { title: original, changes: {}, matches: [] };
-    const now = new Date();
-    const tokens = original.split(/\s+/);
-    const tokenSpans = tokenIndexMap(original);
-    const used = new Set();
-    const changes = {};
-    const matches = [];
-    const matchIndexes = new Map();
-    const allSections = await loadSectionsForQuickAdd();
-    const activeProjectId = formProjectId || currentProjectId;
-    const prefixAliases = {
-      due: quickAddAliases('quickAdd.syntax.duePrefixes'),
-      remind: quickAddAliases('quickAdd.syntax.reminderPrefixes'),
-      section: quickAddAliases('quickAdd.syntax.sectionPrefixes'),
-      project: quickAddAliases('quickAdd.syntax.projectPrefixes'),
-      recurring: quickAddAliases('quickAdd.syntax.recurringPrefixes'),
-    };
-    const timeSuffixes = quickAddAliases('quickAdd.syntax.timeSuffixes');
-    const timeSuffixPattern = aliasPattern(timeSuffixes);
-    const dateAliases = [
-      ...quickAddAliases('quickAdd.syntax.today'),
-      ...quickAddAliases('quickAdd.syntax.tomorrow'),
-      ...quickAddAliases('quickAdd.syntax.dayAfterTomorrow'),
-      ...quickAddAliases('quickAdd.syntax.weekend'),
-      ...quickAddAliases('quickAdd.syntax.nextWeek'),
-      ...quickAddAliases('quickAdd.syntax.weekdays'),
-    ];
-    const timePattern = `(?:[01]?\\d|2[0-3])(?:[:.]?[0-5]\\d)?(?:\\s+(?:${timeSuffixPattern}))?`;
-    const datePattern = aliasPattern(dateAliases);
-    const valuePattern = datePattern ? `(?:${datePattern})(?:\\s+${timePattern})?|${timePattern}` : timePattern;
-
-    const addMatch = (type, tokenIndex, label, value = '') => {
-      matches.push({ type, label, value, token: tokens[tokenIndex] });
-      used.add(tokenIndex);
-    };
-
-    tokens.forEach((token, index) => {
-      const normalized = token.toLowerCase();
-      const priorityMap = new Map([
-        ...quickAddAliases('quickAdd.syntax.priority.veryHigh').map(alias => [alias, 1]),
-        ...quickAddAliases('quickAdd.syntax.priority.high').map(alias => [alias, 2]),
-        ...quickAddAliases('quickAdd.syntax.priority.medium').map(alias => [alias, 3]),
-        ...quickAddAliases('quickAdd.syntax.priority.low').map(alias => [alias, 4]),
-      ]);
-      if (priorityMap.has(normalized)) {
-        changes.priority = priorityMap.get(normalized);
-        addMatch('priority', index, t('quickAdd.detected.priority'), t(`todo.priority.${changes.priority === 1 ? 'veryHigh' : changes.priority === 2 ? 'high' : changes.priority === 3 ? 'medium' : 'low'}`));
-      }
-    });
-
-
-    const recurringValueAliases = [
-      ['daily', quickAddAliases('quickAdd.syntax.recurring.daily')],
-      ['weekly', quickAddAliases('quickAdd.syntax.recurring.weekly')],
-      ['monthly', quickAddAliases('quickAdd.syntax.recurring.monthly')],
-      ['yearly', quickAddAliases('quickAdd.syntax.recurring.yearly')],
-    ];
-    const recurringPrefixPattern = aliasPattern(prefixAliases.recurring);
-    const recurringValuePattern = aliasPattern(recurringValueAliases.flatMap(([, aliases]) => aliases));
-    if (recurringPrefixPattern && recurringValuePattern) {
-      const recurringRegexes = [
-        new RegExp(`(^|\\s)(?:${recurringPrefixPattern})\\s*:?\\s*(?<value>${recurringValuePattern})(?=$|\\s)`, 'giu'),
-      ];
-      for (const regex of recurringRegexes) {
-        for (const match of original.matchAll(regex)) {
-          const value = String(match.groups?.value || '').toLowerCase().replace(/\s+/g, ' ').trim();
-          const frequency = recurringValueAliases.find(([, aliases]) => aliases.includes(value))?.[0];
-          if (!frequency) continue;
-          const valueOffset = match[0].lastIndexOf(match.groups.value);
-          const start = match.index + match[0].search(/\S/u);
-          const end = match.index + valueOffset + match.groups.value.length;
-          changes.recurring_rule = { frequency, interval: 1 };
-          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'recurring', start, end, t('quickAdd.detected.recurring'), t(`todo.recurring.${frequency}`), 'recurring_rule');
-        }
-      }
-    }
-
-    const projectNames = projectNamePattern();
-    if (projectNames) {
-      const projectPrefixPattern = aliasPattern(prefixAliases.project);
-      const projectRegexes = [
-        new RegExp(`(^|\\s)#(?<name>${projectNames})(?=$|\\s)`, 'giu'),
-      ];
-      if (projectPrefixPattern) projectRegexes.push(new RegExp(`(^|\\s)(?:${projectPrefixPattern})\\s*:\\s*(?<name>${projectNames})(?=$|\\s)`, 'giu'));
-      for (const regex of projectRegexes) {
-        for (const match of original.matchAll(regex)) {
-          const name = match.groups?.name;
-          const start = match.index + match[0].indexOf(name) - (match[0].includes('#') ? 1 : 0);
-          const end = match.index + match[0].length;
-          const project = findProjectByQuickAddName(name);
-          if (!project) continue;
-          changes.project_id = project.id;
-          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'project', start, end, t('quickAdd.detected.project'), project.name, 'project_id');
-        }
-      }
-    }
-
-    const sectionNames = sectionNamePattern(allSections);
-    if (sectionNames) {
-      const sectionPrefixPattern = aliasPattern(prefixAliases.section);
-      const sectionRegexes = [
-        new RegExp(`(^|\\s)[/§](?<name>${sectionNames})(?=$|\\s)`, 'giu'),
-      ];
-      if (sectionPrefixPattern) sectionRegexes.push(new RegExp(`(^|\\s)(?:${sectionPrefixPattern})\\s*:\\s*(?<name>${sectionNames})(?=$|\\s)`, 'giu'));
-      for (const regex of sectionRegexes) {
-        for (const match of original.matchAll(regex)) {
-          const name = match.groups?.name;
-          const start = match.index + match[0].search(/[\/§]|\S+\s*:/u);
-          const end = match.index + match[0].length;
-          const projectId = changes.project_id || activeProjectId;
-          const section = findSectionByQuickAddName(name, projectId, allSections);
-          if (!section) continue;
-          changes.section_id = section.id;
-          if (!changes.project_id && section.project_id) changes.project_id = section.project_id;
-          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'section', start, end, t('quickAdd.detected.section'), section.name, 'section_id');
-        }
-      }
-    }
-
-    function normalizeTimeValue(rawValue) {
-      let value = String(rawValue || '').trim().toLowerCase();
-      for (const suffix of timeSuffixes) value = value.replace(new RegExp(`\\s+${escapeRegExp(suffix)}$`, 'iu'), '');
-      const compact = value.match(/^([01]?\d|2[0-3])([0-5]\d)$/);
-      if (compact) value = `${compact[1]}:${compact[2]}`;
-      return value;
-    }
-
-    function parseQuickAddDateValue(rawValue, kind) {
-      const parts = String(rawValue || '').trim().split(/\s+/).filter(Boolean);
-      let date = null;
-      let consumed = 0;
-      for (let length = Math.min(3, parts.length); length >= 1; length -= 1) {
-        const spacedCandidate = parts.slice(0, length).join(' ').toLowerCase();
-        const dashedCandidate = parts.slice(0, length).join('-').toLowerCase();
-        date = parseRelativeQuickAddDate(spacedCandidate, now) || parseRelativeQuickAddDate(dashedCandidate, now);
-        if (date) { consumed = length; break; }
-      }
-      const timeValue = normalizeTimeValue(parts.slice(consumed).join(' '));
-      date = applyQuickAddTime(date || baseDateForKind(kind), timeValue, now) || date;
-      return date;
-    }
-
-    function setDateField(kind, date, start, end) {
-      if (!date || !Number.isFinite(date.getTime())) return;
-      const field = kind === 'remind' ? 'remind_at' : 'due_date';
-      changes[field] = date.toISOString();
-      addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, kind === 'remind' ? 'reminder' : 'due', start, end, t(kind === 'remind' ? 'quickAdd.detected.reminder' : 'quickAdd.detected.due'), quickAddDateLabel(changes[field]), field);
-    }
-
-    function baseDateForKind(kind) {
-      if (kind === 'remind') return changes.remind_at ? new Date(changes.remind_at) : (changes.due_date ? new Date(changes.due_date) : null);
-      return changes.due_date ? new Date(changes.due_date) : null;
-    }
-
-    const dateCandidates = [];
-    const prefixedRanges = [];
-    const duePrefixPattern = aliasPattern(prefixAliases.due);
-    const remindPrefixPattern = aliasPattern(prefixAliases.remind);
-    const prefixedPatterns = [];
-    if (duePrefixPattern) prefixedPatterns.push({ kind: 'due', regex: new RegExp(`(^|\\s)(?:${duePrefixPattern})\\s*:?\\s*(?<value>${valuePattern})(?=$|\\s)`, 'giu') });
-    if (remindPrefixPattern) prefixedPatterns.push({ kind: 'remind', regex: new RegExp(`(^|\\s)(?:${remindPrefixPattern})\\s*:?\\s*(?<value>${valuePattern})(?=$|\\s)`, 'giu') });
-    for (const { kind, regex } of prefixedPatterns) {
-      for (const match of original.matchAll(regex)) {
-        const value = match.groups?.value;
-        const valueOffset = match[0].lastIndexOf(value);
-        const start = match.index + match[0].search(/\S/u);
-        const end = match.index + valueOffset + value.length;
-        dateCandidates.push({ kind, value, start, end });
-        prefixedRanges.push({ kind, start, end });
-      }
-    }
-
-    if (datePattern) {
-      const dueRegex = new RegExp(`(^|\\s)(?<value>(?:${datePattern})(?:\\s+${timePattern})?)(?=$|\\s)`, 'giu');
-      for (const match of original.matchAll(dueRegex)) {
-        const value = match.groups?.value;
-        const start = match.index + match[0].lastIndexOf(value);
-        const end = start + value.length;
-        if (prefixedRanges.some(range => range.kind === 'remind' && range.start <= start && range.end >= end)) continue;
-        dateCandidates.push({ kind: 'due', value, start, end });
-      }
-    }
-
-    dateCandidates.sort((a, b) => a.start - b.start || (a.kind === 'remind' ? -1 : 1));
-    for (const candidate of dateCandidates) {
-      if (tokenSpans.some((span, index) => used.has(index) && span.start < candidate.end && span.end > candidate.start)) continue;
-      const date = parseQuickAddDateValue(candidate.value, candidate.kind);
-      setDateField(candidate.kind, date, candidate.start, candidate.end);
-    }
-
-    const explicitTimeRegex = new RegExp(`(^|\\s)(?<value>${timePattern})(?=$|\\s)`, 'giu');
-    for (const match of original.matchAll(explicitTimeRegex)) {
-      const value = match.groups?.value;
-      const start = match.index + match[0].lastIndexOf(value);
-      const end = start + value.length;
-      if (tokenSpans.some((span, index) => used.has(index) && span.start < end && span.end > start)) continue;
-      if (prefixedRanges.some(range => range.kind === 'remind' && range.start <= start && range.end >= end)) continue;
-      if (!/[:.]|\s/.test(value)) continue;
-      const date = parseQuickAddDateValue(value, 'due');
-      setDateField('due', date, start, end);
-    }
-
-    const title = tokens.filter((_, index) => !used.has(index)).join(' ').trim() || original;
-    return { title, changes, matches };
-  }
-
-  function renderQuickAddPreview(result) {
-    const preview = document.getElementById('quick-add-preview');
-    if (!preview) return;
-    const matches = result?.matches || [];
-    preview.innerHTML = '';
-    preview.hidden = !matches.length;
-    if (!matches.length) return;
-    for (const match of matches) {
-      const chip = document.createElement('span');
-      chip.className = `quick-add-chip ${match.type}`;
-      const label = document.createElement('span');
-      label.className = 'quick-add-chip-label';
-      label.textContent = match.label;
-      const value = document.createElement('strong');
-      value.textContent = match.value || match.token || '';
-      chip.append(label, value);
-      preview.appendChild(chip);
-    }
-  }
-
-  function bindQuickAddPreview() {
-    const input = document.getElementById('todo-title');
-    if (!input || input.dataset.quickAddPreviewBound === '1') return;
-    input.dataset.quickAddPreviewBound = '1';
-    let seq = 0;
-    const update = async () => {
-      const id = document.getElementById('todo-id')?.value;
-      if (id) { renderQuickAddPreview(null); return; }
-      const mySeq = ++seq;
-      const projectId = document.getElementById('todo-project')?.value || null;
-      const result = await parseQuickAddTitle(input.value, getCurrentProjectId(), projectId);
-      if (mySeq === seq) renderQuickAddPreview(result);
-    };
-    input.addEventListener('input', update);
-    document.getElementById('todo-project')?.addEventListener('change', update);
-    window.setTimeout(update, 0);
-  }
 
   function getTodoDueTime(todo) {
     if (!todo?.due_date) return null;
@@ -757,6 +1643,17 @@ export function createTodosFeature({
     if (!getAppInitialized() || !getDb()) return;
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo || todo.status === status) return;
+    const changes = { status };
+    const openSubtasks = getOpenSubtaskCount(todo);
+    if (status === 'done' && openSubtasks > 0) {
+      const confirmed = await confirmDanger({
+        title: t('todo.subtasks.completeWithOpenTitle'),
+        message: t('todo.subtasks.completeWithOpenMessage', { count: openSubtasks }),
+        confirmText: t('todo.subtasks.completeAnyway'),
+      });
+      if (!confirmed) return;
+      changes.confirm_incomplete_subtasks_completion = true;
+    }
     const nowIso = new Date().toISOString();
     const completed_at = status === 'done' ? nowIso : null;
     const updatedTodo = { ...todo, status, completed_at, updated_at: nowIso };
@@ -767,7 +1664,7 @@ export function createTodosFeature({
     runHapticFeedback(status === 'done' ? 18 : 10);
     if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
     else if (todo.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: todo.id, previousStatus: todo.status });
-    await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes: { status } });
+    await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -823,7 +1720,13 @@ export function createTodosFeature({
     document.addEventListener('click', (event) => {
       if (event.defaultPrevented) return;
       const item = event.target?.closest?.('.todo-item[data-id]');
-      if (!item || isTodoInteractiveTarget(event.target)) return;
+      if (!item) return;
+      if (item.__niaRevealHandledAt && Date.now() - item.__niaRevealHandledAt < 700) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (isTodoInteractiveTarget(event.target)) return;
       event.preventDefault();
       editTodo(item.dataset.id);
     });
@@ -905,6 +1808,13 @@ export function createTodosFeature({
 
     document.addEventListener('pointermove', (event) => {
       if (!active || event.pointerId !== active.pointerId) return;
+      const dragDropActive = document.body.classList.contains('native-pointer-dragging') || active.item.classList.contains('dragging');
+      if (dragDropActive) {
+        cleanupSwipeVisual(active.item);
+        active = null;
+        suppressClickUntil = Date.now() + 450;
+        return;
+      }
       active.dx = event.clientX - active.startX;
       active.dy = event.clientY - active.startY;
 
@@ -976,6 +1886,107 @@ export function createTodosFeature({
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || element?.isContentEditable;
   }
 
+  function setTodoActionsExpanded(current, expanded) {
+    if (!current) return;
+    current.classList.toggle('actions-expanded', Boolean(expanded));
+    current.querySelector('.todo-actions-reveal-btn')?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+
+  function closeOtherTodoActions(current) {
+    document.querySelectorAll('.todo-item.actions-expanded').forEach((item) => {
+      if (item === current) return;
+      setTodoActionsExpanded(item, false);
+    });
+  }
+
+  function toggleTodoActions(idOrItem, event = null) {
+    event?.stopPropagation?.();
+    const current = idOrItem?.classList?.contains?.('todo-item')
+      ? idOrItem
+      : Array.from(document.querySelectorAll('.todo-item')).find((item) => item.dataset.id === String(idOrItem));
+    if (!current) return;
+    const expanded = !current.classList.contains('actions-expanded');
+    closeOtherTodoActions(current);
+    setTodoActionsExpanded(current, expanded);
+  }
+
+  function bindTodoActionsReveal() {
+    if (document.documentElement.dataset.todoActionsRevealBound === '1') return;
+    document.documentElement.dataset.todoActionsRevealBound = '1';
+    let suppressTodoClickUntil = 0;
+    let suppressTodoClickItem = null;
+    let suppressActionClickUntil = 0;
+    let suppressActionClickItem = null;
+    const handleReveal = (event) => {
+      if (event.type === 'click' && suppressActionClickItem && Date.now() < suppressActionClickUntil) {
+        const actionItem = event.target?.closest?.('.todo-item[data-id]');
+        if (actionItem === suppressActionClickItem && event.target?.closest?.('.todo-actions')) {
+          event.preventDefault?.();
+          event.stopPropagation?.();
+          event.stopImmediatePropagation?.();
+          suppressActionClickItem = null;
+          return;
+        }
+      }
+
+      const button = event.target?.closest?.('.todo-actions-reveal-btn');
+      if (!button) return;
+      const item = button.closest('.todo-item[data-id]');
+      if (!item) return;
+      if (event.type === 'click' && button.__niaRevealPointerHandledAt && Date.now() - button.__niaRevealPointerHandledAt < 600) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        event.stopImmediatePropagation?.();
+        return;
+      }
+      event.preventDefault?.();
+      if (event.type === 'pointerup') {
+        button.__niaRevealPointerHandledAt = Date.now();
+        suppressActionClickUntil = Date.now() + 600;
+        suppressActionClickItem = item;
+      }
+      item.__niaRevealHandledAt = Date.now();
+      toggleTodoActions(item, event);
+      event.stopImmediatePropagation?.();
+    };
+    const closeExpandedActionsFromEvent = (event, { suppressTodoClick = false } = {}) => {
+      const expandedItems = Array.from(document.querySelectorAll('.todo-item.actions-expanded'));
+      if (!expandedItems.length) return false;
+      if (event.target?.closest?.('.todo-actions')) return false;
+      expandedItems.forEach((item) => setTodoActionsExpanded(item, false));
+      const tappedTodo = event.target?.closest?.('.todo-item[data-id]');
+      if (suppressTodoClick && tappedTodo && !isTodoInteractiveTarget(event.target)) {
+        suppressTodoClickUntil = Date.now() + 700;
+        suppressTodoClickItem = tappedTodo;
+      }
+      return true;
+    };
+    const handleOutsidePointerDown = (event) => {
+      if (!event.isPrimary || event.button > 0) return;
+      closeExpandedActionsFromEvent(event, { suppressTodoClick: true });
+    };
+    const handleOutsideClick = (event) => {
+      const tappedTodo = event.target?.closest?.('.todo-item[data-id]');
+      const shouldSuppressTodoClick = Boolean(
+        tappedTodo &&
+        suppressTodoClickItem === tappedTodo &&
+        Date.now() < suppressTodoClickUntil &&
+        !isTodoInteractiveTarget(event.target)
+      );
+      const closed = closeExpandedActionsFromEvent(event, { suppressTodoClick: true });
+      if (closed || shouldSuppressTodoClick) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        event.stopImmediatePropagation?.();
+      }
+      if (shouldSuppressTodoClick) suppressTodoClickItem = null;
+    };
+    document.addEventListener('pointerup', handleReveal, { capture: true, passive: false });
+    document.addEventListener('click', handleReveal, true);
+    document.addEventListener('pointerdown', handleOutsidePointerDown, { capture: true, passive: false });
+    document.addEventListener('click', handleOutsideClick, true);
+  }
+
   function resetTodoActionMenuPlacement(menu) {
     menu?.classList?.remove('opens-up', 'placement-ready');
   }
@@ -1014,6 +2025,65 @@ export function createTodosFeature({
   function bindTodoStatusMenuBehavior() {
     if (document.documentElement.dataset.todoStatusMenuBound === '1') return;
     document.documentElement.dataset.todoStatusMenuBound = '1';
+    let touchSummaryPress = null;
+    let suppressSummaryClick = null;
+
+    const summaryFromTarget = (target) => target?.closest?.('.todo-status-menu > summary, .todo-snooze-menu > summary') || null;
+    const isTouchPointer = (event) => event.isPrimary && (event.pointerType === 'touch' || event.pointerType === 'pen');
+
+    function toggleActionSummary(summary) {
+      const menu = summary?.parentElement;
+      if (!summary || !menu) return false;
+      const nextOpen = !menu.open;
+      closeTodoActionMenus(nextOpen ? menu : null);
+      menu.open = nextOpen;
+      if (nextOpen) updateTodoActionMenuPlacement(menu);
+      else resetTodoActionMenuPlacement(menu);
+      return true;
+    }
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!isTouchPointer(event)) return;
+      const summary = summaryFromTarget(event.target);
+      if (!summary) return;
+      touchSummaryPress = {
+        pointerId: event.pointerId,
+        summary,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+      };
+    }, { capture: true, passive: true });
+
+    document.addEventListener('pointermove', (event) => {
+      if (!touchSummaryPress || touchSummaryPress.pointerId !== event.pointerId) return;
+      if (Math.hypot(event.clientX - touchSummaryPress.startX, event.clientY - touchSummaryPress.startY) > 8) {
+        touchSummaryPress.moved = true;
+      }
+    }, { capture: true, passive: true });
+
+    document.addEventListener('pointerup', (event) => {
+      if (!touchSummaryPress || touchSummaryPress.pointerId !== event.pointerId) return;
+      const press = touchSummaryPress;
+      touchSummaryPress = null;
+      if (press.moved || summaryFromTarget(event.target) !== press.summary) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressSummaryClick = { summary: press.summary, until: Date.now() + 500 };
+      toggleActionSummary(press.summary);
+    }, { capture: true, passive: false });
+
+    document.addEventListener('click', (event) => {
+      const summary = summaryFromTarget(event.target);
+      if (!summary || suppressSummaryClick?.summary !== summary || Date.now() > suppressSummaryClick.until) return;
+      suppressSummaryClick = null;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, { capture: true, passive: false });
+
+    document.addEventListener('pointercancel', (event) => {
+      if (touchSummaryPress?.pointerId === event.pointerId) touchSummaryPress = null;
+    }, { capture: true, passive: true });
 
     document.addEventListener('click', (event) => {
       const menu = event.target?.closest?.('.todo-status-menu, .todo-snooze-menu');
@@ -1077,6 +2147,7 @@ export function createTodosFeature({
 
   bindTodoItemClickBehavior();
   bindTodoSwipeGestures();
+  bindTodoActionsReveal();
   bindTodoStatusMenuBehavior();
   bindTodoHoverKeyboardShortcuts();
 
@@ -1100,11 +2171,20 @@ export function createTodosFeature({
     hydrateTodoSelects();
     bindRecurringControls();
     bindLocationReminderControls();
+    bindTodoDescriptionInlineEditor();
+    updateTodoDetailViewMode(todo);
     await loadSavedPlacesForTodoModal();
+    deletingSubtaskIds.clear();
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
     clearLocationReminderForm();
     document.getElementById('todo-id').value = '';
+    const newSubtaskInput = document.getElementById('todo-subtask-new-title');
+    if (newSubtaskInput) newSubtaskInput.value = '';
+    renderTodoSubtaskEditor([]);
+    renderTodoComments([], null);
+    renderTodoAttachments([], null);
+    updateTodoMetaPanelsOpenState(null);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
       modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
@@ -1166,23 +2246,28 @@ export function createTodosFeature({
         document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
       populateLocationReminderForm(todo);
+      renderTodoSubtaskEditor(todo.subtasks || []);
+      renderTodoComments(todo.comments || [], todo);
+      renderTodoAttachments(todo.attachments || [], todo);
+      updateTodoMetaPanelsOpenState(todo);
+      renderTodoMetaSummary(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
       document.getElementById('todo-recurring-interval').value = 1;
       updateRecurringControls();
+      renderTodoComments([], null);
+      renderTodoAttachments([], null);
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
       document.getElementById('todo-project').value = getCurrentProjectId() || inboxProject?.id || '';
       await onProjectChange(null);
+      updateTodoMetaPanelsOpenState(null);
     }
 
     hydrateTodoSelects();
     updateRecurringControls();
-    document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
-    const duplicateBtn = document.getElementById('todo-duplicate-btn');
-    if (duplicateBtn) duplicateBtn.style.display = todo ? '' : 'none';
     setupDescPreview();
     bindQuickAddPreview();
     renderQuickAddPreview(null);
@@ -1190,7 +2275,11 @@ export function createTodosFeature({
       const quickAddResult = await parseQuickAddTitle(document.getElementById('todo-title')?.value || '', getCurrentProjectId(), document.getElementById('todo-project')?.value || null);
       renderQuickAddPreview(quickAddResult);
     }
-    document.getElementById('todo-modal')?.classList.add('active');
+    resetTodoSaveSnapshot();
+    updateTodoDetailViewMode(todo);
+    renderTodoMetaSummary(todo);
+    document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
+    getTodoModal()?.classList.add('active');
     if (!todo) focusTodoTitle();
   }
 
@@ -1258,6 +2347,7 @@ export function createTodosFeature({
       project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
       section_id: document.getElementById('todo-section').value ? parseInt(document.getElementById('todo-section').value) : null,
       status: document.getElementById('todo-status').value,
+      subtasks: collectTodoSubtasksFromEditor(),
       due_date: toIsoOrNull('todo-due'),
       remind_at: toIsoOrNull('todo-remind'),
       recurring_rule: recurringRuleFromForm(),
@@ -1274,6 +2364,16 @@ export function createTodosFeature({
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
       if (parsedQuickAdd.changes.recurring_rule && !todoData.recurring_rule) todoData.recurring_rule = parsedQuickAdd.changes.recurring_rule;
+      if (parsedQuickAdd.changes.location_reminder && !todoData.location_reminder) todoData.location_reminder = parsedQuickAdd.changes.location_reminder;
+    }
+    if (todoData.status === 'done' && getOpenSubtaskCount(todoData.subtasks) > 0) {
+      const confirmed = await confirmDanger({
+        title: t('todo.subtasks.completeWithOpenTitle'),
+        message: t('todo.subtasks.completeWithOpenMessage', { count: getOpenSubtaskCount(todoData.subtasks) }),
+        confirmText: t('todo.subtasks.completeAnyway'),
+      });
+      if (!confirmed) return;
+      todoData.confirm_incomplete_subtasks_completion = true;
     }
     if (todoData.recurring_rule && !todoData.due_date) {
       const dueInput = document.getElementById('todo-due');
@@ -1290,6 +2390,14 @@ export function createTodosFeature({
       if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
+    const draftComments = id ? [] : collectTodoDraftCommentsFromEditor();
+    const draftAttachmentFiles = id ? [] : getSelectedAttachmentFiles();
+    const hasPostCreateDrafts = draftComments.length > 0 || draftAttachmentFiles.length > 0;
+    if (hasPostCreateDrafts && !isOnlineForSync()) {
+      showToast(t('todo.drafts.onlineOnly'));
+      return;
+    }
+    if (id) delete todoData.subtasks;
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
       if (existing) {
@@ -1300,10 +2408,31 @@ export function createTodosFeature({
         await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
         if (isOnlineForSync()) await syncWithServer();
       }
+    } else if (hasPostCreateDrafts) {
+      let createdTodo = await todosApi.create(todoData);
+      await dbPut('todos', createdTodo);
+      setTodos([...getTodos(), createdTodo]);
+      document.getElementById('todo-id').value = String(createdTodo.id);
+      for (const body of draftComments) {
+        const response = await todosApi.createComment(createdTodo.id, { body });
+        createdTodo = response?.todo || createdTodo;
+        await applyCommentTodoResponse(response);
+      }
+      if (draftAttachmentFiles.length > 0) {
+        const uploaded = await uploadTodoAttachmentFromInput();
+        if (!uploaded) return;
+      } else {
+        await dbPut('todos', createdTodo);
+        setTodos(getTodos().map(todo => String(todo.id) === String(createdTodo.id) ? createdTodo : todo));
+      }
+      renderProjects();
+      renderStats();
+      renderTodos();
+      closeModal('todo-modal');
     } else {
       const tempId = 'temp-' + Date.now();
       const nowIso = new Date().toISOString();
-      const newTodo = { id: tempId, ...todoData, completed_at: todoData.status === 'done' ? nowIso : null, created_at: nowIso, updated_at: nowIso, reminders: [] };
+      const newTodo = { id: tempId, ...todoData, completed_at: todoData.status === 'done' ? nowIso : null, created_at: nowIso, updated_at: nowIso, reminders: [], subtasks: normalizeSubtasks(todoData.subtasks) };
       await dbPut('todos', newTodo);
       setTodos([...getTodos(), newTodo]);
       renderProjects();
@@ -1354,6 +2483,7 @@ export function createTodosFeature({
     if (!todo) return;
     await updateTodoFields(id, { is_pinned: !Boolean(todo.is_pinned) }, Boolean(todo.is_pinned) ? t('todo.toast.unpinned') : t('todo.toast.pinned'));
   }
+
 
   function getTodoReminderTime(todo) {
     const raw = todo?.remind_at || todo?.reminders?.find?.(reminder => !reminder.sent_at)?.remind_at || todo?.reminders?.[0]?.remind_at;
@@ -1411,6 +2541,7 @@ export function createTodosFeature({
       due_date: todo.due_date || null,
       remind_at: reminder ? reminder.toISOString() : null,
       recurring_rule: todo.recurring_rule || null,
+      subtasks: normalizeSubtasks(todo.subtasks || []).map((subtask, index) => ({ title: subtask.title, is_done: false, sort_order: index })),
       location_reminder: cloneLocationReminderPayload(todo),
     };
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
@@ -1421,9 +2552,12 @@ export function createTodosFeature({
     setTodos([...getTodos(), duplicated]);
     renderStats();
     renderTodos();
-    showToast(t('todo.toast.duplicated'));
-    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+    showToast(t('todo.toast.duplicated'), { type: 'duplicate', id: tempId });
+    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
     if (isOnlineForSync()) await syncWithServer();
+    setTimeout(() => {
+      if (isOnlineForSync()) syncWithServer();
+    }, 5200);
   }
 
   function editTodo(id) {
@@ -1451,9 +2585,86 @@ export function createTodosFeature({
     renderTodos();
     closeModal('todo-modal');
     showToast(t('todo.toast.deleted'), { type: 'delete', id, data: { ...todo } });
-    await addToSyncQueue('DELETE_TODO', { id });
+    await addToSyncQueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 });
     if (isOnlineForSync()) await syncWithServer();
+    setTimeout(() => {
+      if (isOnlineForSync()) syncWithServer();
+    }, 5200);
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  function resolveTodoActionId(target) {
+    const rawId = target?.dataset?.todoId || target?.closest?.('.todo-item[data-id]')?.dataset?.id;
+    if (!rawId) return null;
+    const todo = getTodos().find(item => String(item.id) === String(rawId));
+    return todo ? todo.id : rawId;
+  }
+
+  async function handleTodoCardAction(action, target, event) {
+    const id = resolveTodoActionId(target);
+    if (id === null) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    target.closest('details')?.removeAttribute('open');
+
+    if (action === 'toggle-status') {
+      await toggleTodo(id);
+      return true;
+    }
+    if (action === 'set-status') {
+      const status = target.dataset.todoStatus;
+      if (!['pending', 'in_progress', 'done'].includes(status)) return true;
+      await setTodoStatus(id, status);
+      return true;
+    }
+    if (action === 'snooze') {
+      const mode = target.dataset.snoozeMode;
+      if (!['hour', 'evening', 'tomorrow', 'weekend', 'next-week'].includes(mode)) return true;
+      await snoozeTodo(id, mode);
+      return true;
+    }
+    if (action === 'toggle-pin') {
+      await toggleTodoPin(id);
+      return true;
+    }
+    if (action === 'duplicate') {
+      await duplicateTodo(id);
+      return true;
+    }
+    if (action === 'delete') {
+      await deleteTodo(id);
+      return true;
+    }
+    return false;
+  }
+
+  let todoActionsBound = false;
+  function bindTodoActions() {
+    if (todoActionsBound) return;
+    todoActionsBound = true;
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-todo-action]');
+      if (!target) return;
+      const action = target.dataset.todoAction;
+      if (await handleTodoCardAction(action, target, event)) return;
+      event.preventDefault();
+      if (action === 'new') {
+        showTodoModal();
+      } else if (action === 'add-subtask') {
+        await addTodoSubtaskFromInput();
+      } else if (action === 'add-comment') {
+        await addTodoCommentFromInput();
+      } else if (action === 'choose-attachment') {
+        document.getElementById('todo-attachment-file')?.click();
+      } else if (action === 'upload-attachment') {
+        await uploadTodoAttachmentFromInput();
+      } else if (action === 'close-attachment-preview') {
+        closeAttachmentPreview();
+      } else if (action === 'download-preview-attachment') {
+        await downloadPreviewAttachment();
+      }
+    });
+    document.getElementById('todo-project')?.addEventListener('change', onProjectChange);
+  }
+
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

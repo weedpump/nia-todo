@@ -1,6 +1,7 @@
 window.__niaMainModuleLoaded = true;
 
 import { initI18n, t } from './i18n/index.js';
+import { initAutoScrollbars } from './features/auto-scrollbars.js';
 
 function showBootError(error) {
   const subtitle = document.getElementById('boot-subtitle');
@@ -23,9 +24,11 @@ function showNativeServerSetup(config) {
       <img src="/static/icons/icon-192.png" class="boot-logo" alt="nia-todo">
       <div class="boot-title">${t('nativeSetup.title')}</div>
       <div class="boot-subtitle">${t('nativeSetup.subtitle')}</div>
-      <label class="native-server-label" for="native-server-url">${t('nativeSetup.serverLabel')}</label>
-      <input class="native-server-input" id="native-server-url" type="text" inputmode="url" autocomplete="url" required placeholder="todo.example.test">
-      <button class="native-server-button" type="submit">${t('nativeSetup.verifyAndSave')}</button>
+      <div class="form-group native-server-field">
+        <label class="native-server-label" for="native-server-url">${t('nativeSetup.serverLabel')}</label>
+        <input class="ui-field native-server-input" id="native-server-url" type="text" inputmode="url" autocomplete="url" required placeholder="todo.example.test">
+      </div>
+      <button class="btn btn-primary native-server-button" type="submit">${t('nativeSetup.verifyAndSave')}</button>
       <div class="native-server-error" id="native-server-error"></div>
       <div class="native-server-hint">${t('nativeSetup.hint')}</div>
     </form>
@@ -48,7 +51,12 @@ function showNativeServerSetup(config) {
   });
 }
 
+document.getElementById('boot-retry')?.addEventListener('click', () => {
+  window.niaHardReloadApp?.();
+});
+
 const startImport = () => {
+  initAutoScrollbars();
   setTimeout(async () => {
     try {
       await initI18n();

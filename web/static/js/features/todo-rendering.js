@@ -40,18 +40,43 @@ export function renderTodoItem(t) {
   const remindStr = reminderTime ? formatDate(reminderTime) : '';
   const recurrenceStr = recurringLabel(t.recurring_rule);
   const locationStr = locationReminderLabel(t);
-  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr;
+  const subtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
+  const doneSubtasks = subtasks.filter(subtask => Boolean(subtask.is_done)).length;
+  const hasSubtasks = subtasks.length > 0;
+  const subtaskProgress = hasSubtasks ? i18nT('todo.subtasks.progress', { done: doneSubtasks, total: subtasks.length }) : '';
+  const commentsCount = Number(t.comments_count ?? (Array.isArray(t.comments) ? t.comments.length : 0)) || 0;
+  const hasComments = commentsCount > 0;
+  const attachmentsCount = Number(t.attachments_count ?? (Array.isArray(t.attachments) ? t.attachments.length : 0)) || 0;
+  const hasAttachments = attachmentsCount > 0;
+  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr || hasSubtasks || hasComments || hasAttachments;
   const desc = t.description ? truncateWords(String(t.description).replace(/\s+/g, ' ').trim(), 18) : '';
   const hasDesc = desc && desc.length > 0;
-  const idArg = JSON.stringify(t.id);
+  const todoIdAttr = escapeHtmlAttr(String(t.id));
   const pinned = Boolean(t.is_pinned);
+  const statusLabel = i18nT(t.status === 'done' ? 'todo.status.done' : t.status === 'in_progress' ? 'todo.status.inProgress' : 'todo.status.pending');
+  const statusIcon = t.status === 'done' ? 'check' : t.status === 'in_progress' ? 'flame' : 'circle';
+  const renderStatusMenu = (className = '') => `
+        <details class="todo-status-menu ${className}">
+          <summary aria-label="${escapeHtml(i18nT('todo.status'))}" title="${escapeHtml(statusLabel)}">
+            <span class="todo-status-menu-current-icon" aria-hidden="true">${iconSvg(statusIcon)}</span>
+            <span class="todo-status-menu-label">${escapeHtml(statusLabel)}</span>
+            ${iconSvg('chevron-down')}
+          </summary>
+          <div class="todo-status-options todo-action-menu ui-menu" role="menu">
+            <button type="button" class="ui-menu-item ${t.status === 'pending' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'pending' ? 'true' : 'false'}" data-todo-action="set-status" data-todo-id="${todoIdAttr}" data-todo-status="pending"><span>${escapeHtml(i18nT('todo.status.pending'))}</span>${t.status === 'pending' ? iconSvg('check') : ''}</button>
+            <button type="button" class="ui-menu-item ${t.status === 'in_progress' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'in_progress' ? 'true' : 'false'}" data-todo-action="set-status" data-todo-id="${todoIdAttr}" data-todo-status="in_progress"><span>${escapeHtml(i18nT('todo.status.inProgress'))}</span>${t.status === 'in_progress' ? iconSvg('check') : ''}</button>
+            <button type="button" class="ui-menu-item ${t.status === 'done' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'done' ? 'true' : 'false'}" data-todo-action="set-status" data-todo-id="${todoIdAttr}" data-todo-status="done"><span>${escapeHtml(i18nT('todo.status.done'))}</span>${t.status === 'done' ? iconSvg('check') : ''}</button>
+          </div>
+        </details>`;
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${escapeHtmlAttr(String(t.id))}" data-status="${escapeHtml(t.status)}" draggable="true"
-      ondragstart="handleTodoDragStart(event)" ondragend="handleTodoDragEnd(event)">
-      <button type="button" class="todo-check" onclick='event.stopPropagation(); toggleTodo(${idArg})' aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
-        ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}
-      </button>
+    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" draggable="true">
+      <div class="todo-status-control">
+        <button type="button" class="todo-check" data-todo-action="toggle-status" data-todo-id="${todoIdAttr}" aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
+          ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}
+        </button>
+        ${renderStatusMenu('todo-status-menu-left')}
+      </div>
       <div class="todo-body ${hasMeta || hasDesc ? 'has-meta' : ''}">
         <div class="todo-main">
           <span class="todo-prio priority-dot" title="${escapeHtml(i18nT('todo.priority'))}" style="background:${prioColor}"></span>
@@ -63,37 +88,31 @@ export function renderTodoItem(t) {
               ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
               ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
               ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
+              ${hasSubtasks ? `<span class="todo-meta-chip todo-subtasks-progress">${iconSvg('list-todo')} ${escapeHtml(subtaskProgress)}</span>` : ''}
+              ${hasComments ? `<span class="todo-meta-chip todo-comments-progress">${iconSvg('notebook-pen')} ${escapeHtml(i18nT('todo.comments.count', { count: commentsCount }))}</span>` : ''}
+              ${hasAttachments ? `<span class="todo-meta-chip todo-attachments-progress">${iconSvg('paperclip')} ${escapeHtml(i18nT('todo.attachments.count', { count: attachmentsCount }))}</span>` : ''}
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
           </div>
         </div>
       </div>
-      <div class="todo-actions" onclick="event.stopPropagation()">
-        <details class="todo-status-menu" onclick="event.stopPropagation()">
-          <summary aria-label="${escapeHtml(i18nT('todo.status'))}" title="${escapeHtml(i18nT('todo.status'))}">
-            <span>${escapeHtml(i18nT(t.status === 'done' ? 'todo.status.done' : t.status === 'in_progress' ? 'todo.status.inProgress' : 'todo.status.pending'))}</span>
-            ${iconSvg('chevron-down')}
-          </summary>
-          <div class="todo-status-options todo-action-menu ui-menu" role="menu">
-            <button type="button" class="ui-menu-item ${t.status === 'pending' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'pending' ? 'true' : 'false'}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "pending")'><span>${escapeHtml(i18nT('todo.status.pending'))}</span>${t.status === 'pending' ? iconSvg('check') : ''}</button>
-            <button type="button" class="ui-menu-item ${t.status === 'in_progress' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'in_progress' ? 'true' : 'false'}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "in_progress")'><span>${escapeHtml(i18nT('todo.status.inProgress'))}</span>${t.status === 'in_progress' ? iconSvg('check') : ''}</button>
-            <button type="button" class="ui-menu-item ${t.status === 'done' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'done' ? 'true' : 'false'}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "done")'><span>${escapeHtml(i18nT('todo.status.done'))}</span>${t.status === 'done' ? iconSvg('check') : ''}</button>
-          </div>
-        </details>
-        <details class="todo-snooze-menu" onclick="event.stopPropagation()">
+      <div class="todo-actions">
+        ${renderStatusMenu('todo-status-menu-actions')}
+        <details class="todo-snooze-menu">
           <summary aria-label="${escapeHtml(i18nT('todo.snooze'))}" title="${escapeHtml(i18nT('todo.snooze'))}">${iconSvg('clock')}</summary>
           <div class="todo-status-options todo-action-menu ui-menu" role="menu">
-            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "hour")'>${escapeHtml(i18nT('todo.snooze.hour'))}</button>
-            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "evening")'>${escapeHtml(i18nT('todo.snooze.evening'))}</button>
-            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "tomorrow")'>${escapeHtml(i18nT('todo.snooze.tomorrow'))}</button>
-            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "weekend")'>${escapeHtml(i18nT('todo.snooze.weekend'))}</button>
-            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "next-week")'>${escapeHtml(i18nT('todo.snooze.nextWeek'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" data-todo-action="snooze" data-todo-id="${todoIdAttr}" data-snooze-mode="hour">${escapeHtml(i18nT('todo.snooze.hour'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" data-todo-action="snooze" data-todo-id="${todoIdAttr}" data-snooze-mode="evening">${escapeHtml(i18nT('todo.snooze.evening'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" data-todo-action="snooze" data-todo-id="${todoIdAttr}" data-snooze-mode="tomorrow">${escapeHtml(i18nT('todo.snooze.tomorrow'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" data-todo-action="snooze" data-todo-id="${todoIdAttr}" data-snooze-mode="weekend">${escapeHtml(i18nT('todo.snooze.weekend'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" data-todo-action="snooze" data-todo-id="${todoIdAttr}" data-snooze-mode="next-week">${escapeHtml(i18nT('todo.snooze.nextWeek'))}</button>
           </div>
         </details>
-        <button type="button" onclick='toggleTodoPin(${idArg})' class="todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
-        <button type="button" onclick='duplicateTodo(${idArg})' title="${escapeHtml(i18nT('todo.duplicate'))}">${iconSvg('copy')}</button>
-        <button type="button" onclick='deleteTodo(${idArg})' title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
+        <button type="button" data-todo-action="toggle-pin" data-todo-id="${todoIdAttr}" class="btn btn-secondary btn-icon todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
+        <button type="button" class="btn btn-secondary btn-icon" data-todo-action="duplicate" data-todo-id="${todoIdAttr}" title="${escapeHtml(i18nT('todo.duplicate'))}">${iconSvg('copy')}</button>
+        <button type="button" class="btn btn-danger btn-icon" data-todo-action="delete" data-todo-id="${todoIdAttr}" title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
+        <button type="button" class="btn btn-secondary btn-icon todo-actions-reveal-btn" data-todo-actions-reveal="true" aria-expanded="false" aria-label="${escapeHtml(i18nT('common.more'))}" title="${escapeHtml(i18nT('common.more'))}">${iconSvg('chevron-left')}</button>
       </div>
     </div>
   `;

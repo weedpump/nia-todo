@@ -35,7 +35,7 @@ print(json.dumps({"token": pyjwt.encode(payload, secret, algorithm="HS256"), "us
 async function run() {
   console.log('🔐 Running frontend sliding-session test...');
   const { token, user_id: userId } = createNearExpiryToken();
-  const { browser, page, consoleErrors, pageErrors, assertNoFrontendErrors } = await launchPage();
+  const { browser, page, consoleErrors, pageErrors, assertNoFrontendErrors } = await launchPage({ serviceWorkers: 'allow' });
 
   try {
     await page.addInitScript(({ token, userId }) => {

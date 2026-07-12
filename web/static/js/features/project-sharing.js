@@ -9,6 +9,7 @@ export function createProjectSharingFeature({
   renderStats,
   renderTodos,
   showToast,
+  confirmDanger,
   projectsApi,
 }) {
   let currentProject = null;
@@ -109,7 +110,12 @@ export function createProjectSharingFeature({
         const memberId = Number(btn.getAttribute('data-remove-member'));
         const member = currentMembers.find(m => Number(m.user_id) === memberId);
         if (!member) return;
-        if (!confirm(t('project.share.removeMemberConfirm', { username: member.username }))) return;
+        const confirmed = await confirmDanger({
+          title: t('project.share.removeMember'),
+          message: t('project.share.removeMemberConfirm', { username: member.username }),
+          confirmText: t('project.share.remove'),
+        });
+        if (!confirmed) return;
         await removeMember(member);
       });
     });
@@ -268,6 +274,29 @@ export function createProjectSharingFeature({
     }
   }
 
+  let projectSharingActionsBound = false;
+  function bindProjectSharingActions() {
+    if (projectSharingActionsBound) return;
+    projectSharingActionsBound = true;
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-project-sharing-action]');
+      if (!target) return;
+      const action = target.dataset.projectSharingAction;
+      event.preventDefault();
+      if (action === 'invite') {
+        await inviteByUsername();
+      } else if (action === 'leave') {
+        await leaveProject();
+      } else if (action === 'show-share-input') {
+        showShareInput();
+      } else if (action === 'accept-invite') {
+        await acceptInvite(target.dataset.projectId, target.dataset.inviteId);
+      } else if (action === 'decline-invite') {
+        await declineInvite(target.dataset.projectId, target.dataset.inviteId);
+      }
+    });
+  }
+
   function showShareInput() {
     const content = document.getElementById('project-sharing-content');
     const startRow = document.getElementById('project-share-start-row');
@@ -285,6 +314,7 @@ export function createProjectSharingFeature({
     const sharingContent = document.getElementById('project-sharing-content');
     const shareStartRow = document.getElementById('project-share-start-row');
     const leaveBtn = document.getElementById('project-leave-btn');
+    const leaveRow = document.getElementById('project-leave-row');
     const ownerInfo = document.getElementById('project-owner-info');
     const inviteRow = document.getElementById('project-share-row');
     const fields = ['project-name', 'project-color', 'project-parent-id', 'project-icon'];
@@ -293,7 +323,8 @@ export function createProjectSharingFeature({
     const saveBtn = document.getElementById('project-save-btn');
 
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
-    if (leaveBtn) leaveBtn.style.display = shared && !isOwn ? '' : 'none';
+    if (leaveRow) leaveRow.style.display = shared && !isOwn ? '' : 'none';
+    if (leaveBtn) leaveBtn.style.display = '';
     if (ownerInfo) {
       if (project && shared && !isOwn) {
         const ownerName = project.owner_display_name || project.owner_username || 'Unbekannt';
@@ -365,6 +396,7 @@ export function createProjectSharingFeature({
     acceptInvite,
     declineInvite,
     loadInvites,
+    bindProjectSharingActions,
     applyProjectModalState,
     loadMembers,
     showShareInput,

@@ -1,5 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
-import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
@@ -28,8 +28,17 @@ function formatLocaleDateTime(value) {
   if (!value) return '-';
   const raw = String(value);
   const normalized = raw.replace(' ', 'T') + (raw.includes('Z') ? '' : 'Z');
-  const language = getActiveLanguage() === 'de' ? 'de-DE' : 'en-US';
-  return new Date(normalized).toLocaleString(language);
+  return new Date(normalized).toLocaleString(getActiveLocale());
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let size = value / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) { size /= 1024; idx += 1; }
+  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[idx]}`;
 }
 
 function isHeicFile(file) {
@@ -92,7 +101,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const name = displayNameValue ? escapeHtml(displayNameValue) : '<span class="settings-email-missing">-</span>';
     return `<span class="settings-display-name-display" id="settings-display-name-display">
       <span class="settings-display-name-value">${name}</span>
-      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('settings.profile.editDisplayName'))}" onclick="editUserDisplayName()">${iconSvg('edit-3')}</button>
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('settings.profile.editDisplayName'))}" data-user-settings-action="edit-display-name">${iconSvg('edit-3')}</button>
     </span>`;
   }
 
@@ -108,7 +117,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       <span class="settings-email-value">${email}</span>
       ${verified}
       ${pending}
-      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('settings.email.edit'))}" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('settings.email.edit'))}" data-user-settings-action="edit-email">${iconSvg('edit-3')}</button>
     </span>`;
   }
 
@@ -133,6 +142,23 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (!customRow) return;
     customRow.hidden = !visible;
     customRow.classList.toggle('is-active', Boolean(visible));
+  }
+
+  function renderAttachmentUsage(user = getCurrentUser()) {
+    const statusEl = document.getElementById('settings-attachments-status');
+    const usageEl = document.getElementById('settings-attachments-usage');
+    const fillEl = document.getElementById('settings-attachments-meter-fill');
+    const remainingEl = document.getElementById('settings-attachments-remaining');
+    if (!statusEl || !usageEl) return;
+    const enabled = user?.attachments_enabled !== false;
+    const used = Number(user?.attachment_usage_bytes || 0);
+    const quota = Number(user?.attachment_quota_bytes || 0);
+    const remaining = Number(user?.attachment_remaining_bytes || 0);
+    const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 100;
+    statusEl.textContent = enabled ? t('settings.attachments.enabled') : t('settings.attachments.disabled');
+    usageEl.textContent = t('settings.attachments.usageValue', { used: formatBytes(used), quota: formatBytes(quota) });
+    if (fillEl) fillEl.style.width = `${pct}%`;
+    if (remainingEl) remainingEl.textContent = t('settings.attachments.remaining', { remaining: formatBytes(remaining), percent: pct });
   }
 
   function renderDefaultReminderSetting(user = getCurrentUser()) {
@@ -161,6 +187,15 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (customUnit) refreshSelect(customUnit);
   }
 
+  function updatePasswordChangeAction() {
+    const oldPw = document.getElementById('settings-old-password')?.value || '';
+    const newPw = document.getElementById('settings-new-password')?.value || '';
+    const confirmPw = document.getElementById('settings-confirm-password')?.value || '';
+    const button = document.getElementById('settings-change-password-btn');
+    if (!button) return;
+    button.disabled = !oldPw || !newPw || !confirmPw || newPw !== confirmPw;
+  }
+
   function renderUserInfo() {
     const currentUser = getCurrentUser();
     const settingsUsernameEl = document.getElementById('settings-username');
@@ -172,11 +207,20 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     renderSettingsAvatar(currentUser);
     renderLanguageSetting();
     renderDefaultReminderSetting(currentUser);
+    renderAttachmentUsage(currentUser);
     renderBrainDumpLearningSetting(currentUser);
   }
 
   let savedPlaces = [];
   let editingPlaceId = null;
+
+  function updatePlaceSaveAction() {
+    const name = document.getElementById('settings-place-name')?.value?.trim() || '';
+    const address = document.getElementById('settings-place-address')?.value?.trim() || '';
+    const button = document.querySelector('[data-user-settings-action="save-place"]');
+    if (!button) return;
+    button.disabled = !name || !address;
+  }
 
   function updatePlaceFormMode() {
     const saveIcon = document.getElementById('settings-place-save-icon');
@@ -193,6 +237,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       saveLabel.textContent = t(editing ? 'settings.places.update' : 'settings.places.save');
     }
     if (cancelBtn) cancelBtn.hidden = !editing;
+    updatePlaceSaveAction();
   }
 
   function resetPlaceForm() {
@@ -233,8 +278,8 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
           <span>${escapeHtml(place.address || '')}</span>
         </div>
         <div class="settings-place-row-actions">
-          <button type="button" class="btn btn-secondary" onclick="editSettingsPlace(${Number(place.id)})">${escapeHtml(t('common.edit'))}</button>
-          <button type="button" class="btn btn-danger" onclick="deleteSettingsPlace(${Number(place.id)})">${escapeHtml(t('common.delete'))}</button>
+          <button type="button" class="btn btn-secondary" data-user-settings-action="edit-place" data-place-id="${escapeHtmlAttr(place.id)}">${escapeHtml(t('common.edit'))}</button>
+          <button type="button" class="btn btn-danger" data-user-settings-action="delete-place" data-place-id="${escapeHtmlAttr(place.id)}">${escapeHtml(t('common.delete'))}</button>
         </div>
       </div>
     `).join('');
@@ -334,8 +379,8 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     modal?.classList.toggle('mfa-enrollment-locked', locked);
     const overlay = modal?.querySelector('.modal-overlay');
     if (overlay) {
-      if (locked) overlay.removeAttribute('onclick');
-      else overlay.setAttribute('onclick', "closeModal('settings-modal')");
+      if (locked) overlay.removeAttribute('data-close-modal');
+      else overlay.dataset.closeModal = 'settings-modal';
     }
     modal?.querySelector('.modal-close-x')?.toggleAttribute('hidden', locked);
     const closeBtn = document.getElementById('settings-close-btn');
@@ -418,7 +463,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
         const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
         const ipLocation = sessionIpLocation(device);
         const userAgent = cleanSessionUserAgent(device.user_agent || '');
-        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span>${ipLocation ? `<span>${escapeHtml(ipLocation)}</span>` : ''}<span title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 120))}</span></div><button type="button" class="btn btn-danger" onclick="revokeTrustedDevice('${escapeHtmlAttr(device.id)}')">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
+        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span>${ipLocation ? `<span>${escapeHtml(ipLocation)}</span>` : ''}<span title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 120))}</span></div><button type="button" class="btn btn-danger" data-user-settings-action="revoke-trusted-device" data-device-id="${escapeHtmlAttr(device.id)}">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
       }).join('');
     } catch (err) {
       if (countEl) countEl.textContent = '';
@@ -432,14 +477,14 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const items = [];
     const enrollmentOnly = Boolean(isMfaEnrollmentLocked() || (state?.required && !state?.enabled && !state?.has_totp && !state?.has_passkey && !state?.has_recovery_codes && !state?.has_email_fallback));
     if (state?.has_totp) {
-      items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpReady'))}</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
+      items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpReady'))}</span></div><button type="button" class="btn btn-danger" data-user-settings-action="remove-totp-device">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
     }
     try {
       const data = enrollmentOnly ? { passkeys: [] } : await authApi.listPasskeys();
       (data.passkeys || []).forEach((pk) => {
         const used = pk.last_used_at ? t('settings.2fa.device.lastUsed', { date: formatLocaleDateTime(pk.last_used_at) }) : '';
         const details = t('settings.2fa.device.passkeyCreated', { created: pk.created_at || '-', used });
-        items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || t('settings.2fa.passkeyDefaultName'))}</strong><span>${escapeHtml(details)}</span></div><button type="button" class="btn btn-danger" onclick="removePasskeyDevice(${Number(pk.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
+        items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || t('settings.2fa.passkeyDefaultName'))}</strong><span>${escapeHtml(details)}</span></div><button type="button" class="btn btn-danger" data-user-settings-action="remove-passkey-device" data-passkey-id="${escapeHtmlAttr(pk.id)}">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
       });
     } catch (err) {
       items.push(`<div class="settings-device-note">${escapeHtml(t('settings.2fa.device.passkeysLoadFailed', { error: err.message || err }))}</div>`);
@@ -485,9 +530,9 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       if (state.has_email_fallback && !hasPrimaryFactor) parts.push(t('settings.2fa.factor.emailFallback'));
       statusEl.removeAttribute('data-i18n-key');
       statusEl.textContent = t('settings.2fa.status', { status: parts.join(' · ') });
-      const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
+      const setupBtn = document.querySelector('#settings-2fa-actions [data-user-settings-action="start-totp"]');
       if (setupBtn) setupBtn.style.display = state.has_totp ? 'none' : '';
-      const passkeyBtn = document.querySelector('#settings-2fa-actions button[onclick="addPasskey()"]');
+      const passkeyBtn = document.querySelector('#settings-2fa-actions [data-user-settings-action="add-passkey"]');
       if (passkeyBtn) passkeyBtn.style.display = state.passkey_setup_available === false ? 'none' : '';
       const disableBtn = document.getElementById('settings-2fa-disable-btn');
       if (disableBtn) disableBtn.style.display = state.enabled ? '' : 'none';
@@ -505,6 +550,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     document.getElementById('settings-old-password').value = '';
     document.getElementById('settings-new-password').value = '';
     document.getElementById('settings-confirm-password').value = '';
+    updatePasswordChangeAction();
     document.getElementById('settings-pw-error').textContent = '';
     document.getElementById('settings-pw-success').textContent = '';
     document.getElementById('settings-email-error').textContent = '';
@@ -528,6 +574,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     document.getElementById('settings-2fa-setup').style.display = 'none';
     document.getElementById('settings-2fa-recovery').style.display = 'none';
     renderUserInfo();
+    resetPlaceForm();
     document.getElementById('settings-modal')?.classList.add('active');
     updateSettingsEnrollmentLock();
     await refreshCurrentUser().catch(() => {});
@@ -668,9 +715,9 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const cell = document.getElementById('settings-display-name-cell');
     if (!cell) return;
     cell.innerHTML = `<span class="settings-display-name-edit" id="settings-display-name-edit">
-      <input id="settings-display-name-input" type="text" maxlength="80" value="${escapeHtmlAttr(currentName)}" placeholder="${escapeHtmlAttr(t('settings.profile.displayName'))}" autocomplete="name" onkeydown="if(event.key==='Enter') saveUserProfile(); if(event.key==='Escape') cancelUserDisplayNameEdit()">
-      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserProfile()">${iconSvg('check')}</button>
-      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserDisplayNameEdit()">${iconSvg('x')}</button>
+      <input id="settings-display-name-input" type="text" maxlength="80" value="${escapeHtmlAttr(currentName)}" placeholder="${escapeHtmlAttr(t('settings.profile.displayName'))}" autocomplete="name" data-user-settings-input="display-name">
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('common.save'))}" data-user-settings-action="save-profile">${iconSvg('check')}</button>
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('common.cancel'))}" data-user-settings-action="cancel-display-name">${iconSvg('x')}</button>
     </span>`;
     document.getElementById('settings-display-name-input')?.focus();
   }
@@ -974,9 +1021,9 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const cell = document.getElementById('settings-email-cell');
     if (!cell) return;
     cell.innerHTML = `<span class="settings-email-edit" id="settings-email-edit">
-      <input id="settings-email-input" type="email" value="${escapeHtmlAttr(currentEmail)}" placeholder="${escapeHtmlAttr(t('settings.email.placeholder'))}" autocomplete="email" onkeydown="if(event.key==='Enter') saveUserEmail(); if(event.key==='Escape') cancelUserEmailEdit()">
-      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail()">${iconSvg('check')}</button>
-      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit()">${iconSvg('x')}</button>
+      <input id="settings-email-input" type="email" value="${escapeHtmlAttr(currentEmail)}" placeholder="${escapeHtmlAttr(t('settings.email.placeholder'))}" autocomplete="email" data-user-settings-input="email">
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('common.save'))}" data-user-settings-action="save-email">${iconSvg('check')}</button>
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('common.cancel'))}" data-user-settings-action="cancel-email">${iconSvg('x')}</button>
     </span>`;
     document.getElementById('settings-email-input')?.focus();
   }
@@ -1256,6 +1303,114 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     }
   }
 
+  let userSettingsActionsBound = false;
+  function bindUserSettingsActions() {
+    if (userSettingsActionsBound) return;
+    userSettingsActionsBound = true;
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-user-settings-action]');
+      if (!target) return;
+      const action = target.dataset.userSettingsAction;
+      event.preventDefault();
+      if (action === 'start-totp') {
+        await startTwoFactorTotp();
+      } else if (action === 'add-passkey') {
+        await addPasskey();
+      } else if (action === 'remove-totp-device') {
+        await removeTotpDevice();
+      } else if (action === 'remove-passkey-device') {
+        await removePasskeyDevice(target.dataset.passkeyId);
+      } else if (action === 'revoke-trusted-device') {
+        await revokeTrustedDevice(target.dataset.deviceId);
+      } else if (action === 'edit-display-name') {
+        editUserDisplayName();
+      } else if (action === 'save-profile') {
+        await saveUserProfile();
+      } else if (action === 'cancel-display-name') {
+        cancelUserDisplayNameEdit();
+      } else if (action === 'edit-email') {
+        editUserEmail();
+      } else if (action === 'save-email') {
+        await saveUserEmail();
+      } else if (action === 'cancel-email') {
+        cancelUserEmailEdit();
+      } else if (action === 'edit-place') {
+        editSettingsPlace(target.dataset.placeId);
+      } else if (action === 'delete-place') {
+        await deleteSettingsPlace(target.dataset.placeId);
+      } else if (action === 'choose-avatar') {
+        document.getElementById('settings-avatar-input')?.click();
+      } else if (action === 'delete-avatar') {
+        await deleteUserAvatar();
+      } else if (action === 'cancel-avatar-crop') {
+        cancelAvatarCrop();
+      } else if (action === 'save-avatar-crop') {
+        await saveAvatarCrop();
+      } else if (action === 'save-custom-default-reminder') {
+        await saveCustomDefaultReminderSetting();
+      } else if (action === 'save-place') {
+        await saveSettingsPlace();
+      } else if (action === 'cancel-place-edit') {
+        cancelSettingsPlaceEdit();
+      } else if (action === 'reset-braindump-learning') {
+        await resetBrainDumpLearning();
+      } else if (action === 'change-password') {
+        await changeUserPassword();
+      } else if (action === 'confirm-totp') {
+        await confirmTwoFactorTotp();
+      } else if (action === 'regenerate-recovery-codes') {
+        await regenerateRecoveryCodes();
+      } else if (action === 'disable-2fa') {
+        await disableTwoFactor();
+      } else if (action === 'toggle-trusted-devices') {
+        toggleTrustedDevicesList();
+      } else if (action === 'revoke-all-trusted-devices') {
+        await revokeAllTrustedDevices();
+      }
+    });
+
+    document.addEventListener('input', (event) => {
+      const input = event.target?.closest?.('[data-user-settings-input], #settings-place-name, #settings-place-address');
+      if (!input) return;
+      const inputType = input.dataset.userSettingsInput;
+      if (inputType === 'password-current' || inputType === 'password-new' || inputType === 'password-confirm') {
+        updatePasswordChangeAction();
+      } else if (input.id === 'settings-place-name' || input.id === 'settings-place-address') {
+        updatePlaceSaveAction();
+      }
+    });
+
+    document.addEventListener('change', async (event) => {
+      const input = event.target?.closest?.('[data-user-settings-input]');
+      if (!input) return;
+      const inputType = input.dataset.userSettingsInput;
+      if (inputType === 'avatar-file') await startAvatarUpload(input.files?.[0]);
+      else if (inputType === 'language') await changeLanguagePreference(input.value);
+      else if (inputType === 'default-reminder') await changeDefaultReminderSetting(input.value);
+      else if (inputType === 'braindump-learning') await changeBrainDumpLearningSetting(input.checked);
+    });
+
+    document.addEventListener('keydown', async (event) => {
+      const input = event.target?.closest?.('[data-user-settings-input]');
+      if (!input || (event.key !== 'Enter' && event.key !== 'Escape')) return;
+      event.preventDefault();
+      const inputType = input.dataset.userSettingsInput;
+      if (inputType === 'display-name') {
+        if (event.key === 'Enter') await saveUserProfile();
+        else cancelUserDisplayNameEdit();
+      } else if (inputType === 'email') {
+        if (event.key === 'Enter') await saveUserEmail();
+        else cancelUserEmailEdit();
+      } else if (inputType === 'password-current' && event.key === 'Enter') {
+        document.getElementById('settings-new-password')?.focus();
+      } else if (inputType === 'password-new' && event.key === 'Enter') {
+        document.getElementById('settings-confirm-password')?.focus();
+      } else if (inputType === 'password-confirm' && event.key === 'Enter') {
+        await changeUserPassword();
+      }
+    });
+  }
+
   async function changeUserPassword() {
     const oldPw = document.getElementById('settings-old-password').value;
     const newPw = document.getElementById('settings-new-password').value;
@@ -1276,6 +1431,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     try {
       await withRecentMfaRetry(() => authApi.changePassword(oldPw, newPw), t('settings.password.mfaPurpose'));
       document.getElementById('settings-pw-success').textContent = t('settings.password.changed');
+      updatePasswordChangeAction();
       setTimeout(() => logout(), 1500);
     } catch (e) {
       document.getElementById('settings-pw-error').textContent = e.message;
@@ -1284,6 +1440,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
 
   return {
     renderUserInfo,
+    bindUserSettingsActions,
     openSettingsModal,
     changeLanguagePreference,
     changeDefaultReminderSetting,

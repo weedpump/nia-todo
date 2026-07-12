@@ -1,5 +1,6 @@
 import { t } from '../i18n/index.js';
 import { renderIconPicker } from '../icons/lucide-icons.js';
+import { renderColorPicker } from '../ui/color-picker.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 
 export function createProjectsFeature({
@@ -27,6 +28,38 @@ export function createProjectsFeature({
   getCurrentUser,
 }) {
   let projectFormBound = false;
+  let projectActionsBound = false;
+  let projectSaveSnapshot = null;
+
+  function getProjectSaveRelevantState() {
+    return {
+      id: document.getElementById('project-id')?.value || '',
+      name: (document.getElementById('project-name')?.value || '').trim(),
+      color: document.getElementById('project-color')?.value || '#6366f1',
+      icon: document.getElementById('project-icon')?.value || '',
+      parent_id: document.getElementById('project-parent-id')?.value || '',
+      display_workspace_id: document.getElementById('project-display-workspace-id')?.value || '',
+    };
+  }
+
+  function canSaveProject() {
+    const state = getProjectSaveRelevantState();
+    const unchanged = projectSaveSnapshot !== null && JSON.stringify(state) === projectSaveSnapshot;
+    return !!state.name && !unchanged;
+  }
+
+  function refreshProjectSaveButtonState() {
+    const saveBtn = document.getElementById('project-save-btn');
+    if (!saveBtn) return;
+    const canSave = canSaveProject();
+    saveBtn.hidden = !canSave;
+    saveBtn.disabled = !canSave;
+  }
+
+  function resetProjectSaveSnapshot() {
+    projectSaveSnapshot = JSON.stringify(getProjectSaveRelevantState());
+    refreshProjectSaveButtonState();
+  }
 
   function bindProjectForm() {
     if (projectFormBound) return;
@@ -34,6 +67,12 @@ export function createProjectsFeature({
     if (!form) return;
     projectFormBound = true;
     form.addEventListener('submit', saveProject);
+    form.addEventListener('input', refreshProjectSaveButtonState);
+    form.addEventListener('change', refreshProjectSaveButtonState);
+    document.getElementById('project-icon-picker')?.addEventListener('click', (event) => {
+      if (!event.target?.closest?.('.icon-picker-option')) return;
+      window.setTimeout(refreshProjectSaveButtonState, 0);
+    });
   }
 
   function isOwner(project) {
@@ -123,6 +162,7 @@ export function createProjectsFeature({
     select.onchange = () => {
       if (ownMovableProject) renderParentProjectSelect(project, null, select.value);
       refreshSelect(select);
+      refreshProjectSaveButtonState();
     };
     hydrateSelect(select);
     refreshSelect(select);
@@ -133,7 +173,10 @@ export function createProjectsFeature({
     document.getElementById('project-form')?.reset();
     document.getElementById('project-id').value = '';
     const saveBtn = document.getElementById('project-save-btn');
-    if (saveBtn) saveBtn.style.display = '';
+    if (saveBtn) {
+      saveBtn.hidden = false;
+      saveBtn.disabled = false;
+    }
     const iconPicker = document.getElementById('project-icon-picker');
     if (iconPicker) {
       iconPicker.style.pointerEvents = '';
@@ -153,9 +196,8 @@ export function createProjectsFeature({
     renderProjectWorkspaceSelect(project);
 
     const sharingSection = document.getElementById('project-sharing-section');
-    const shareRow = document.getElementById('project-share-row');
-    const leaveBtn = document.getElementById('project-leave-btn');
     const deleteBtn = document.getElementById('project-delete-btn');
+    const headerMenu = document.getElementById('project-detail-header-menu');
 
     if (project) {
       document.getElementById('project-id').value = project.id;
@@ -170,13 +212,22 @@ export function createProjectsFeature({
       });
       const owner = isOwner(project);
       const shared = !!project.is_shared;
-      if (deleteBtn) deleteBtn.style.display = (owner && !project.is_inbox) ? '' : 'none';
+      const canDelete = owner && !project.is_inbox;
+      if (deleteBtn) deleteBtn.style.display = canDelete ? '' : 'none';
+      if (headerMenu) {
+        headerMenu.hidden = !canDelete;
+        headerMenu.removeAttribute('open');
+      }
       if (sharingFeature?.applyProjectModalState) {
         sharingFeature.applyProjectModalState(project, owner, shared);
       }
     } else {
       if (sharingSection) sharingSection.style.display = 'none';
       if (deleteBtn) deleteBtn.style.display = 'none';
+      if (headerMenu) {
+        headerMenu.hidden = true;
+        headerMenu.removeAttribute('open');
+      }
       document.getElementById('project-form')?.classList.remove('readonly-project');
       document.getElementById('project-icon').value = '';
       renderIconPicker({
@@ -197,15 +248,27 @@ export function createProjectsFeature({
 
     const colorInput = document.getElementById('project-color');
     if (colorInput) {
-      colorInput.oninput = () => renderIconPicker({
-        container: document.getElementById('project-icon-picker'),
-        input: document.getElementById('project-icon'),
-        selected: document.getElementById('project-icon')?.value || '',
-        color: colorInput.value || '#6366f1',
+      renderColorPicker({
+        container: document.getElementById('project-color-picker'),
+        input: colorInput,
+        selected: colorInput.value || '#6366f1',
+        onChange: (color) => {
+          renderIconPicker({
+            container: document.getElementById('project-icon-picker'),
+            input: document.getElementById('project-icon'),
+            selected: document.getElementById('project-icon')?.value || '',
+            color,
+          });
+          refreshProjectSaveButtonState();
+        },
       });
     }
 
     document.getElementById('project-modal')?.classList.add('active');
+    resetProjectSaveSnapshot();
+    if (!project) {
+      window.setTimeout(() => document.getElementById('project-name')?.focus(), 0);
+    }
   }
 
   function editProject(id) {
@@ -215,6 +278,8 @@ export function createProjectsFeature({
 
   async function saveProject(event) {
     event.preventDefault();
+    refreshProjectSaveButtonState();
+    if (!canSaveProject()) return;
     const id = document.getElementById('project-id').value;
     const parentIdVal = document.getElementById('project-parent-id')?.value;
     const existing = id ? getProjects().find(p => String(p.id) === String(id)) : null;
@@ -308,6 +373,26 @@ export function createProjectsFeature({
     if (id) deleteProject(parseInt(id));
   }
 
+  function bindProjectActions() {
+    if (projectActionsBound) return;
+    projectActionsBound = true;
+    document.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('[data-project-action]');
+      if (!target) return;
+      const action = target.dataset.projectAction;
+      event.preventDefault();
+      if (action === 'edit') {
+        event.stopPropagation();
+        editProject(target.dataset.projectId);
+      } else if (action === 'delete-from-modal') {
+        document.getElementById('project-detail-header-menu')?.removeAttribute('open');
+        deleteProjectFromModal();
+      } else if (action === 'clear-done-current') {
+        clearDoneInProject();
+      }
+    });
+  }
+
   async function removeDeletedTodosFromLocalState(deletedIds) {
     const ids = new Set((deletedIds || []).map(id => Number(id)));
     if (!ids.size) return;
@@ -366,5 +451,5 @@ export function createProjectsFeature({
     }
   }
 
-  return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject };
+  return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, bindProjectActions, clearDoneFromModal, clearDoneInProject };
 }

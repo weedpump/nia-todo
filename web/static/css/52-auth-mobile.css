@@ -1,0 +1,63 @@
+/* Mobile login layout */
+
+@media (max-width: 768px) {
+  .login-overlay {
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 0;
+  }
+
+  .login-box {
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    margin: 0;
+    padding: calc(28px + env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom));
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .login-box > :not(.login-theme-toggle) {
+    width: 100%;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .login-brand {
+    margin-bottom: 24px;
+  }
+
+  .login-theme-toggle {
+    top: calc(12px + env(safe-area-inset-top));
+    right: 12px;
+  }
+
+}
+
+@media (max-width: 768px) and (max-height: 700px) {
+  .login-box {
+    padding-top: calc(20px + env(safe-area-inset-top));
+  }
+
+  .login-brand {
+    margin-bottom: 18px;
+  }
+
+  .login-theme-toggle {
+    top: calc(10px + env(safe-area-inset-top));
+    right: 10px;
+  }
+
+  .login-logo {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 8px;
+  }
+}

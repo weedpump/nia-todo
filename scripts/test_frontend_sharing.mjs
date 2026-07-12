@@ -250,8 +250,10 @@ async function run() {
     }
     
     // Accept via UI button
-    await page.locator('.invite-action.invite-accept').first().click();
-    await page.getByText(/Einladung angenommen|Invitation accepted/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.evaluate(() => window.closeModal?.('web-update-modal'));
+    await page.locator('#web-update-modal.active').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    await page.locator('.invite-item').filter({ hasText: 'Sharing Test Project' }).locator('.invite-action.invite-accept').click();
+    await page.getByText(/Einladung angenommen|Invitation accepted/).waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     
     // Invites section should disappear
     await page.locator('#invites-section').waitFor({ state: 'hidden', timeout: 10000 });
@@ -300,14 +302,15 @@ async function run() {
     await page.click('#project-save-btn');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(() => ![...document.querySelectorAll('.project-tree-item')].some(el => el.textContent.includes('Sharing Test Project')), null, { timeout: 10000 });
-    await page.evaluate((workspaceId) => window.switchWorkspace(String(workspaceId)), teamWorkspace.id);
+    await page.locator('#workspace-current-btn').click();
+    await page.locator(`[data-workspace-action="switch"][data-workspace-id="${teamWorkspace.id}"]`).click();
     await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).waitFor({ state: 'visible', timeout: 10000 });
 
     await page.getByRole('button', { name: /Neues Todo|New todo/i }).click();
     await visible('#todo-modal');
     const sharedOptionCount = await page.locator('#todo-project option').filter({ hasText: 'Sharing Test Project' }).count();
     if (sharedOptionCount !== 1) throw new Error('Shared project missing from Todo project select in its display workspace');
-    await page.selectOption('#todo-project', String(createResult.id));
+    await page.selectOption('#todo-project', String(createResult.id), { force: true });
     await page.fill('#todo-title', 'Todo in Shared Project');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });

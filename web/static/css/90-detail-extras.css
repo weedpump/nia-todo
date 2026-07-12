@@ -1,0 +1,395 @@
+/* Todo detail extra editors and collapsible cards */
+
+}
+
+body.is-minimal-todos .todo-actions {
+  align-self: center;
+}
+
+.todo-recurring-subsection {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.todo-recurring-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.todo-recurring-heading > span {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  flex: 0 0 auto;
+}
+
+.todo-recurring-heading svg {
+  width: 16px;
+  height: 16px;
+}
+
+.todo-recurring-heading p {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#todo-recurring-interval-group.is-disabled {
+  opacity: 0.55;
+}
+
+.todo-location-toggle-row {
+  justify-content: flex-start;
+  gap: 12px;
+  margin: 2px 0 10px;
+  padding: 0;
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.todo-location-toggle-row .settings-switch {
+  order: -1;
+}
+
+.todo-location-fields {
+  transition: opacity .16s ease, filter .16s ease;
+}
+
+.todo-location-fields.is-disabled {
+  opacity: 0.48;
+  filter: saturate(0.75);
+}
+
+.todo-location-fields.is-disabled label {
+  color: var(--text-muted);
+}
+
+.todo-meta-chip.todo-recurring {
+  color: var(--todo-chip-recurring);
+  border-color: color-mix(in srgb, var(--todo-chip-recurring) 28%, transparent);
+  background: color-mix(in srgb, var(--todo-chip-recurring) 10%, transparent);
+}
+
+.ui-checkbox-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.ui-checkbox-label input[type="checkbox"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ui-checkbox-box {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: white;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-checkbox-box .ui-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  transform: scale(0.7) rotate(-8deg);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.ui-checkbox-label:has(input:focus-visible) .ui-checkbox-box {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
+}
+
+.ui-checkbox-label:has(input:checked) .ui-checkbox-box {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #22c55e));
+  box-shadow: 0 6px 16px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.24));
+}
+
+.ui-checkbox-label:has(input:checked) .ui-checkbox-box .ui-icon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.todo-subtasks-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.todo-subtasks-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.todo-subtasks-list {
+  display: grid;
+  gap: 7px;
+}
+
+.todo-subtasks-list:empty {
+  display: none;
+}
+
+.todo-subtask-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
+}
+
+.todo-subtask-row:has(.todo-subtask-check:checked) {
+  border-color: color-mix(in srgb, var(--border) 54%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 48%, var(--bg-primary));
+  opacity: 0.86;
+}
+
+.todo-subtask-row:has(.todo-subtask-check:checked) .todo-subtask-title-input {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: color-mix(in srgb, var(--text-muted) 72%, transparent);
+}
+
+.todo-subtask-row:has(.todo-subtask-check:checked) .todo-subtask-remove {
+  opacity: 0.62;
+}
+
+.todo-subtasks-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.todo-subtask-title-group {
+  margin: 0;
+}
+
+.todo-subtask-title-input,
+#todo-subtask-new-title {
+  min-width: 0;
+}
+
+.form-group .todo-subtask-title-input {
+  padding: 7px 4px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.form-group .todo-subtask-title-input:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.todo-meta-chip.todo-subtasks-progress {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .todo-subtasks-add-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+}
+
+.todo-comments-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.todo-comments-list {
+  display: grid;
+  gap: 9px;
+}
+
+.todo-comment-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
+}
+
+.todo-comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.todo-comment-body {
+  grid-column: 1 / -1;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.todo-comment-actions {
+  grid-row: 1;
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.todo-comments-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.todo-comments-add-group {
+  display: grid;
+  gap: 8px;
+}
+
+.todo-comments-add-group .btn {
+  justify-self: end;
+}
+
+.todo-meta-chip.todo-comments-progress {
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--text-muted) 22%, transparent);
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+}
+
+body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
+  display: none;
+}
+
+.todo-comment-edit-wrap {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
+.todo-comment-edit-input {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: 0 0 12px 12px;
+  background: var(--bg-primary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bg-secondary) 46%, transparent);
+  line-height: 1.45;
+  padding: 10px 11px;
+}
+
+.todo-comment-item:has(.todo-comment-edit-input) .todo-comment-actions {
+  flex-wrap: wrap;
+}
+
+.todo-comment-edit-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  outline: none;
+}
+
+.todo-collapsible-card {
+  display: block;
+}
+
+.todo-collapsible-summary {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0;
+  user-select: none;
+}
+
+.todo-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.todo-collapsible-summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+
+.todo-collapsible-card[open] > .todo-collapsible-summary {
+  margin-bottom: 16px;
+}
+
+.todo-collapsible-spacer {
+  flex: 1 1 auto;
+}
+
+.todo-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transform: rotate(-90deg);
+  transition: transform 0.16s ease, color 0.16s ease;
+}
+
+.todo-collapsible-card[open] .todo-collapsible-chevron {
+  color: var(--accent);
+  transform: rotate(0deg);
+}
+
+.todo-collapsible-summary .todo-meta-chip {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+@media (max-width: 640px) {
+  .todo-collapsible-summary {
+    gap: 10px;
+  }
+
+  .todo-collapsible-summary .todo-meta-chip {
+    margin-left: auto;
+  }
+}
+
+.todo-attachments-editor {
+  display: grid;
+  gap: 0.75rem;
+}

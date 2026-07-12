@@ -1,0 +1,308 @@
+/* Version bar and update prompts */
+
+/* ─── Version Bar ──────────────────────────────────────────────────────────── */
+.version-bar {
+  margin-top: 10px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.theme-toggle-bar {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s;
+}
+.theme-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .theme-toggle-bar {
+    padding: 8px 12px;
+  }
+}
+
+.native-app .version-info,
+.native-app .web-version-actions,
+.native-app #web-update-modal {
+  display: none !important;
+}
+
+.version-info,
+.version-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.version-actions {
+  width: 100%;
+}
+
+.version-text {
+  font-family: monospace;
+  opacity: 0.7;
+}
+
+.version-separator,
+.version-action-separator {
+  opacity: 0.45;
+}
+
+.version-action-separator {
+  line-height: 1;
+}
+
+.native-version-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.native-version-text {
+  opacity: 0.82;
+}
+
+.native-version-actions {
+  margin-top: 0;
+}
+
+.changelog-link,
+.force-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-tertiary) 76%, var(--bg-secondary));
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 12%, transparent);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.changelog-link {
+  text-decoration: none;
+}
+
+.version-action-btn {
+  min-width: 104px;
+}
+
+.version-download-divider {
+  width: calc(100% + 32px);
+  height: 1px;
+  margin: 2px -16px 0;
+  background: var(--border);
+  opacity: 0.95;
+}
+
+.app-download-launcher {
+  width: 100%;
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.login-box > .login-download-launcher {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  text-align: center;
+}
+
+[data-theme="light"] .changelog-link,
+[data-theme="light"] .force-refresh-btn {
+  background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--bg-secondary));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+}
+
+.changelog-link:hover,
+.force-refresh-btn:hover {
+  background: color-mix(in srgb, var(--bg-tertiary) 86%, var(--bg-secondary));
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .changelog-link:hover,
+[data-theme="light"] .force-refresh-btn:hover {
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary));
+}
+
+.force-refresh-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+  transform: none;
+}
+
+.force-refresh-btn.is-offline-disabled:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.web-update-modal {
+  z-index: 1200;
+}
+
+.web-update-backdrop {
+  display: block;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.web-update-content {
+  width: min(440px, calc(100vw - 32px));
+  max-width: none;
+  padding: 34px 32px 26px;
+  border: 0;
+  border-radius: 28px;
+  overflow: hidden;
+  text-align: center;
+  background:
+    radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.web-update-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: 28px;
+}
+
+.web-update-icon .ui-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.web-update-content h3 {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.web-update-content p {
+  max-width: 340px;
+  margin: 0 auto 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.web-update-meta {
+  padding: 14px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+  color: var(--text-muted) !important;
+  font-size: 13px;
+}
+
+.web-update-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.web-update-actions .btn {
+  min-height: 42px;
+  min-width: 132px;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .web-update-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+
+  .web-update-modal .modal-overlay {
+    display: block;
+  }
+
+  .web-update-content {
+    position: relative;
+    inset: auto;
+    width: min(100%, 440px);
+    height: auto;
+    max-height: calc(100vh - 36px);
+    border: 0;
+    border-radius: 28px;
+    padding: 30px 22px 22px;
+    display: block;
+    overflow-y: auto;
+  }
+
+  .web-update-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .web-update-actions .btn,
+  #web-update-apply-btn {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    justify-content: center;
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 768px) {
+  .version-bar {
+    padding: 8px 12px;
+    margin-top: 10px;
+    flex-shrink: 0;
+  }
+}

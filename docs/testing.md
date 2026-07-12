@@ -1,146 +1,165 @@
-# Test Docs
+# Test Strategy
 
-## Getting Started
+nia-todo has many regression scripts. The default gate is intentionally release-focused: it should catch domain/API/security/sync/native regressions without preserving every historical UI/layout micro-test forever.
 
-- Full release gate: `./scripts/test_all.sh` or `npm test`
-- Backend-focused suite: `npm run test:backend`
-- Frontend-focused suite: `npm run test:frontend`
-- Native-focused suite: `npm run test:native`
+## Policy
 
-`./scripts/test_all.sh` is the release gate. It runs 42 serial steps and retries Playwright/realtime-sensitive frontend steps once to filter timing flakes. DB-mutating tests must stay serial.
+- `./scripts/test_all.sh` / `npm test` is the release gate.
+- The release gate is serial and aborts on the first failure.
+- Playwright/realtime-sensitive checks retry once where useful.
+- DB-mutating tests must stay serial. Do not run review agents or another frontend/backend gate against the same dev DB at the same time.
+- Frontend/browser tests that touch the dev DB are grouped by DB needs:
+  - no DB/static checks
+  - one shared fresh frontend DB for representative core UI flows
+  - isolated fresh DBs for setup/auth/offline/realtime/native-runtime flows
+- Before real frontend/backend test runs or builds in the dev project, back up `api/data/nia-todo-dev.db`; after long gates verify the dev DB still has users and was not left as the `frontenduser` test DB.
+- Probe/manual scripts that require external services, configured LLMs, real audio tooling, or operator judgment must not be named as `scripts/test_*` unless they are part of the maintained automated test surface.
+
+## Commands
+
+```bash
+# Release gate, also called by release.sh
+./scripts/test_all.sh
+npm test
+
+# Focused suites
+npm run test:backend
+npm run test:frontend
+npm run test:native
+npm run test:todo
+npm run test:ui
+```
 
 ## Release Gate: `./scripts/test_all.sh`
 
-Current steps:
+`release.sh` calls `./scripts/test_all.sh` and aborts immediately on failure: no merge, no tag, no push.
 
-1. Backend Tests — `python3 scripts/test_backend.py`
-2. BrainDump Service Tests — `python3 scripts/test_braindump_v2_services.py`
-3. BrainDump Extractor Normalization Tests — `python3 scripts/test_braindump_v2_extractor_normalization.py`
-4. BrainDump Todo Creation Tests — `python3 scripts/test_braindump_v2_todo_creation.py`
-5. BrainDump Admin STT Probe Tests — `python3 scripts/test_braindump_admin_stt_probe.py`
-6. Email Service Tests — `python3 scripts/test_email_services.py`
-7. 2FA Service/Security Tests — `python3 scripts/test_two_factor_services.py`
-8. Instance Config Service Tests — `python3 scripts/test_instance_config_services.py`
-9. Migration 022 Duplicate Email Test — `python3 scripts/test_migration_022_email_duplicates.py`
-10. Migration Partial Recovery Test — `python3 scripts/test_migration_email_partial_recovery.py`
-11. Release Version Checker Test — `python3 scripts/test_release_versions.py`
-12. Server Update Tests — `python3 scripts/test_server_updates.py`
-13. Admin Password Reset Test — `python3 scripts/test_admin_password_reset.py`
-14. Service Worker Precache Test — `node scripts/test_sw_precache.mjs`
-15. Frontend Smoke Test — `node scripts/test_frontend_smoke.mjs`
-16. Frontend App Test — `node scripts/test_frontend_app.mjs`
-17. Frontend Setup Test — `node scripts/test_frontend_setup.mjs`
-18. Frontend Admin Test — `node scripts/test_frontend_admin.mjs`
-19. Frontend Password Reset Test — `node scripts/test_frontend_password_reset.mjs`
-20. Frontend Settings Test — `node scripts/test_frontend_settings.mjs`
-21. Frontend User Menu Alignment Test — `node scripts/test_frontend_user_menu_alignment.mjs`
-22. Frontend User Menu Scroll Anchor Test — `node scripts/test_frontend_user_menu_scroll_anchor.mjs`
-23. Frontend Projects Test — `node scripts/test_frontend_projects.mjs`
-24. Frontend Workspaces Test — `node scripts/test_frontend_workspaces.mjs`
-25. Frontend DragDrop Test — `node scripts/test_frontend_dragdrop.mjs`
-26. Frontend Sharing Test — `node scripts/test_frontend_sharing.mjs`
-27. Frontend Security Test — `node scripts/test_frontend_security.mjs`
-28. Frontend Minimal Todo Mode Test — `node scripts/test_frontend_minimal_todos.mjs`
-29. Frontend Session Test — `node scripts/test_frontend_session.mjs`
-30. Frontend Offline Sync Test — `node scripts/test_frontend_offline_sync.mjs`
-31. Frontend Realtime Sync Test — `node scripts/test_frontend_realtime_sync.mjs`
-32. Frontend Native Runtime Config Test — `node scripts/test_frontend_native_runtime_config.mjs`
-33. Frontend Native Passkeys Test — `node scripts/test_frontend_native_passkeys.mjs`
-34. Frontend Native Offline Test — `node scripts/test_frontend_native_offline.mjs`
-35. Frontend Android Reminder Rehydration Test — `node scripts/test_frontend_android_reminder_rehydration.mjs`
-36. Location Reminder Backend Test — `python3 scripts/test_location_reminders.py`
-37. Frontend Location Reminder Test — `node scripts/test_frontend_location_reminders.mjs`
-38. Native Android Location Reminder Test — `node scripts/test_native_android_location_reminders.mjs`
-39. Frontend BrainDump Capture Test — `node scripts/test_frontend_braindump_capture.mjs`
-40. Native Windows Installer Cache Hook Test — `node scripts/test_native_windows_installer_cache_hooks.mjs`
-41. Native Android WebView Cache Migration Test — `node scripts/test_native_android_webview_cache_migration.mjs`
-42. Native Android Reminder Alarm Policy Test — `node scripts/test_native_android_reminder_alarm_policy.mjs`
+### Backend / API / domain
 
-`release.sh` calls `./scripts/test_all.sh` first and aborts immediately on failure: no merge, no tag, no push.
-
-## Additional Focused Tests
-
-These are covered by npm scripts or useful for targeted work, but not all are part of the 31-step release gate:
-
-### Backend / API / migrations
-
-- `python3 scripts/test_changelog_nested_lists.py`
+- `python3 scripts/test_backend.py`
 - `python3 scripts/test_api_validation_errors.py`
 - `python3 scripts/test_braindump_v2_services.py`
 - `python3 scripts/test_braindump_v2_extractor_normalization.py`
 - `python3 scripts/test_braindump_v2_todo_creation.py`
-- `python3 scripts/test_braindump_admin_stt_probe.py`
+- `python3 scripts/test_recurring_todos.py`
 - `python3 scripts/test_default_reminder_offset.py`
-- `python3 scripts/test_instance_config_services.py`
+- `python3 scripts/test_subtasks.py`
+- `python3 scripts/test_todo_comments.py`
+- `python3 scripts/test_todo_attachments.py`
 - `python3 scripts/test_location_reminders.py`
+- `python3 scripts/test_websocket_location_reminders.py`
+- `python3 scripts/test_email_services.py`
+- `python3 scripts/test_two_factor_services.py`
 - `python3 scripts/test_oidc_services.py`
 - `python3 scripts/test_push_services.py`
-- `python3 scripts/test_recurring_todos.py`
+- `python3 scripts/test_instance_config_services.py`
+- `python3 scripts/test_fresh_migrations.py`
+- `python3 scripts/test_release_versions.py`
 - `python3 scripts/test_release_native_reuse.py`
-- `python3 scripts/test_websocket_location_reminders.py`
-- `python3 scripts/test_braindump_audio_fixture_e2e.py`
-- `python3 scripts/test_braindump_semantic_extractor.py`
+- `python3 scripts/test_server_updates.py`
+- `python3 scripts/test_packaging_backup.py`
+- `python3 scripts/test_admin_password_reset.py`
 
-### Frontend
+### Frontend static / no DB
 
-- `node scripts/test_frontend_api_errors.mjs`
-- `node scripts/test_frontend_app_downloads.mjs`
-- `node scripts/test_frontend_clear_done_projects.mjs`
-- `node scripts/test_frontend_todo_quick_status.mjs`
+These checks run before the frontend DB suite because they do not need a browser-backed dev DB reset.
+
+- `node scripts/test_sw_precache.mjs`
 - `node scripts/test_frontend_quick_add_inline.mjs`
-- `node scripts/test_frontend_braindump_capture.mjs`
-- `node scripts/test_frontend_design_layout.mjs`
-- `node scripts/test_frontend_location_reminders.mjs`
-- `node scripts/test_frontend_login_auth_layout.mjs`
-- `node scripts/test_frontend_mfa_login.mjs`
-- `node scripts/test_frontend_minimal_todos.mjs`
-- `node scripts/test_frontend_todo_menu_flip.mjs`
-- `node scripts/test_frontend_todo_modal_mobile_layout.mjs`
-- `node scripts/test_frontend_ui_dropdowns.mjs`
-- `node scripts/test_frontend_todo_interactive_clicks.mjs`
-- `node scripts/test_frontend_native_todo_actions.mjs`
+- `node scripts/test_frontend_security.mjs`
+- `node scripts/test_frontend_native_passkeys.mjs`
 - `node scripts/test_frontend_android_todo_gestures.mjs`
+- `node scripts/test_sync_feature_race.mjs`
 
-### Native
+### Frontend DB suite
+
+`test_all.sh` creates one suite backup with `scripts/frontend_db_suite.mjs begin` and restores it at the end, also via `trap` on abort. The suite backup is copy-based and refuses to preserve a DB that only contains the `frontenduser` test account.
+
+#### Shared fresh frontend DB
+
+One fresh frontend test DB is prepared for representative core UI flows. These tests may create todos/projects/sections, but they should not depend on an otherwise pristine DB beyond the initial shared setup.
+
+- `node scripts/test_frontend_smoke.mjs`
+- `node scripts/test_frontend_app.mjs`
+- `node scripts/test_frontend_subtasks.mjs`
+- `node scripts/test_frontend_todo_interactive_clicks.mjs`
+- `node scripts/test_frontend_dragdrop.mjs`
+
+#### Isolated fresh frontend DB
+
+These tests get a fresh DB per script because they modify setup/auth/session/offline/realtime/native state or are otherwise order-sensitive.
+
+- `node scripts/test_frontend_setup.mjs`
+- `node scripts/test_frontend_password_reset.mjs`
+- `node scripts/test_frontend_mfa_login.mjs`
+- `node scripts/test_frontend_sharing.mjs`
+- `node scripts/test_frontend_session.mjs`
+- `node scripts/test_frontend_offline_sync.mjs`
+- `node scripts/test_frontend_realtime_sync.mjs`
+- `node scripts/test_frontend_native_runtime_config.mjs`
+- `node scripts/test_frontend_native_offline.mjs`
+- `node scripts/test_frontend_android_reminder_rehydration.mjs`
+
+### Native / packaging release blockers
+
+These checks run after the frontend DB suite restore unless explicitly listed above.
 
 - `node scripts/test_native_android_location_reminders.mjs`
+- `node scripts/test_native_android_webview_cache_migration.mjs`
+- `node scripts/test_native_linux_webview_cache_migration.mjs`
+- `node scripts/test_native_debian_deb_package_name.mjs`
+- `node scripts/test_native_desktop_settings_static.mjs`
+- `node scripts/test_native_android_reminder_alarm_policy.mjs`
 - `node scripts/test_native_android_microphone_permission.mjs`
+- `node scripts/test_native_windows_installer_cache_hooks.mjs`
 
-## Coverage Areas
+## Focused Suites
 
 ### Backend
 
-`python3 scripts/test_backend.py`
+```bash
+npm run test:backend
+```
 
-Covers:
-- Setup
-- Auth
-- Admin
-- API keys
-- Projects
-- Workspaces
-- Sections
-- Todos
-- Push
-- Reminders
-- Project sharing and multi-user isolation
-- Security regressions for CSRF/API key, IDOR, and date/time validation
-- Email/SMTP integration: neutral responses, verified email lookups, token hashing/prefix lookup
-- 2FA service/security regressions for TOTP, recovery code consumption, challenge lockout, old JWTs after policy activation, WebAuthn RP/origin/HTTPS binding, one-time MFA grants, reauth replay protection, and recovery code cleanup after removing the last primary factor
+Runs the backend/domain/security/release Python checks from the release gate. Some service tests create temporary databases and run migrations in quiet mode; `test_fresh_migrations.py` intentionally exercises a full fresh migration.
 
 ### Frontend
 
-Representative coverage:
-- Smoke: login, app start, create project, search, delete + undo
-- App: sections, todo modal, validation, quick-add/status, clear-done
-- Setup/password reset
-- Admin: users, SMTP, OIDC provider config, global 2FA, server update UI paths
-- Settings: API keys, push status/test/disable, email verification, password changes, 2FA/passkeys, dialogs without browser popups
-- Projects/workspaces/drag & drop/sharing
-- Security: Markdown XSS, service-worker API cache exclusion, offline sync field allowlist, email enumeration protection, MFA regressions
-- Offline/realtime sync
-- Native runtime config, native offline, native passkeys, native todo actions
-- Android reminder rehydration, location reminders, todo gestures, microphone permission
+```bash
+npm run test:frontend
+```
+
+Runs the focused frontend subset from `package.json`. For the full DB-suite grouping and native/static additions, use `./scripts/test_all.sh`.
+
+### Todo feature checks
+
+```bash
+npm run test:todo
+```
+
+Use before merging larger Todo UX/interaction changes. The suite keeps Todo API coverage plus representative Todo frontend/native interaction checks.
+
+### UI contract check
+
+```bash
+npm run test:ui
+```
+
+Currently runs the maintained touch-zoom contract. Historical one-off pixel/layout tests were removed from the automated gate instead of being kept forever as release baggage.
+
+### Native
+
+```bash
+npm run test:native
+```
+
+Use for native runtime, desktop settings, Android wrapper, passkey, reminder, microphone, WebView cache, Debian package naming, or installer changes.
+
+The native suite includes static/package checks that protect platform-specific release contracts:
+
+- Debian desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
+- Debian desktop WebView cache migration must only clear volatile cache directories when the app version or executable marker changes.
+- Native desktop settings must keep desktop-only options scoped correctly and avoid leaking Windows-only wording onto Debian desktop.
 
 ## Manual Smoke Paths
 
@@ -157,6 +176,7 @@ Representative coverage:
 ### Android passkeys
 
 For Android passkey changes, verify that `/.well-known/assetlinks.json` still serves:
+
 - package `de.tobiaskneidl.nia_todo`
 - the bundled release certificate fingerprint
 - relation `delegate_permission/common.get_login_creds`
@@ -164,20 +184,18 @@ For Android passkey changes, verify that `/.well-known/assetlinks.json` still se
 ### BrainDump audio/STT
 
 For audio/STT work, use controlled fixture recordings instead of making Tobi trial-and-error test core flows. Prefer replay/probe scripts such as:
+
 - `python3 scripts/braindump_audio_fixture_probe.py`
 - `python3 scripts/braindump_audio_replay_probe.py`
 - `python3 scripts/braindump_llm_latency_probe.py`
-
-## Email/SMTP Tests
-
-`python3 scripts/test_email_services.py` covers SMTP config, sending, templates, token hashing/prefix lookup.
-
-Migration tests:
-- `python3 scripts/test_migration_022_email_duplicates.py` — case-insensitive uniqueness and duplicate cleanup
-- `python3 scripts/test_migration_email_partial_recovery.py` — partial schema repair and idempotency
+- `python3 scripts/braindump_semantic_extractor_probe.py`
+- `python3 scripts/braindump_audio_fixture_e2e_probe.py`
 
 ## Notes
 
 - Frontend tests run against headless Chromium.
-- Tests back up/restore the dev DB; always run DB-mutating tests serially, not in parallel.
-- `web/manifest.json` is maintained by the dev/release flow.
+- `withFreshDb` still protects single-test execution by backing up/restoring the dev DB for isolated runs.
+- Inside `test_all.sh`, `NIA_TODO_FRONTEND_DB_SUITE=1` switches frontend tests to the suite-managed DB lifecycle.
+- `NIA_TODO_FRONTEND_DB_SHARED=1` tells `withFreshDb` to reuse the already prepared shared test DB instead of creating an isolated DB.
+- Review subagents should not run full gates by default. They may run static/syntax checks or a focused suite only when explicitly requested.
+- `web/manifest.json` and `src-tauri/frontend-dist/` are maintained by the dev/release flow; source tests generally target `web/` unless a native packaging test says otherwise.

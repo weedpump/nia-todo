@@ -31,6 +31,7 @@ def make_db(default_offset=60):
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
+            display_name TEXT,
             default_reminder_offset_minutes INTEGER
         );
         CREATE TABLE projects (
@@ -67,6 +68,24 @@ def make_db(default_offset=60):
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now')),
             user_id INTEGER
+        );
+
+        CREATE TABLE todo_subtasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            is_done INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE todo_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

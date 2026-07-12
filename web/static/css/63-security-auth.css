@@ -1,0 +1,317 @@
+/* Settings 2FA and security confirmation dialogs */
+
+/* Settings 2FA UX */
+.settings-2fa-setup-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  margin: 10px 0;
+}
+
+#settings-modal .settings-2fa-setup-card {
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+.settings-2fa-setup-header strong,
+.settings-2fa-subtitle {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.settings-2fa-setup-header p {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-2fa-setup-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) 1fr;
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.settings-2fa-qr {
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px;
+  min-height: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-2fa-qr svg {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  display: block;
+}
+
+.settings-2fa-manual label,
+.settings-2fa-code-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 5px 0;
+}
+
+.settings-2fa-manual code,
+.settings-2fa-manual input,
+#settings-2fa-code {
+  width: 100%;
+  display: block;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 10px;
+  color: var(--text-primary);
+  word-break: break-all;
+  margin-bottom: 10px;
+}
+
+.settings-2fa-devices-wrap {
+  margin: 12px 0 8px 0;
+}
+
+.settings-2fa-trusted-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settings-2fa-devices {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-sessions-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.settings-sessions-chevron {
+  display: inline-block;
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.settings-sessions-toggle[aria-expanded="true"] .settings-sessions-chevron {
+  transform: rotate(90deg);
+}
+
+.settings-session-count {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#settings-2fa-trusted-panel {
+  margin-top: 8px;
+}
+
+.settings-device-row {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#settings-modal .settings-device-row {
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+#settings-modal .settings-device-row:first-child {
+  border-top: 0;
+}
+
+.settings-device-row strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.settings-device-row span,
+.settings-device-note {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.settings-device-row .btn {
+  flex-shrink: 0;
+}
+
+/* Generic security modal for MFA/password confirmations */
+.security-action-content {
+  max-width: 430px;
+}
+
+.security-action-main {
+  padding: 0;
+  overflow: visible;
+}
+
+.security-action-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.14);
+  color: var(--primary);
+  margin-bottom: 10px;
+}
+
+.security-action-message,
+.security-dialog-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.security-action-message {
+  margin: 0 0 14px 0;
+}
+
+.security-action-body {
+  display: grid;
+  gap: 12px;
+}
+
+.security-field {
+  display: block;
+}
+
+.security-field span {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
+}
+
+.security-field input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent) 18%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-primary) 92%, var(--bg-tertiary) 8%);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.security-field input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.72;
+}
+
+.security-field input:hover {
+  border-color: color-mix(in srgb, var(--border) 58%, var(--accent) 42%);
+  background: color-mix(in srgb, var(--bg-primary) 82%, var(--bg-tertiary) 18%);
+}
+
+.security-field input:focus {
+  border-color: var(--accent);
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.security-field input:-webkit-autofill,
+.security-field input:-webkit-autofill:hover,
+.security-field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  transition: background-color 9999s ease-in-out 0s;
+  box-shadow: 0 0 0 1000px var(--bg-primary) inset;
+}
+
+.security-passkey-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.security-action-actions {
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .settings-2fa-setup-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-2fa-qr {
+    max-width: 220px;
+    margin: 0 auto;
+  }
+  .settings-device-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .security-action-content {
+    max-width: none;
+  }
+
+  .security-action-icon {
+    margin: 14px 16px 2px;
+    flex-shrink: 0;
+  }
+
+  .security-action-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .security-action-message {
+    margin-bottom: 14px;
+  }
+
+  .security-action-body,
+  .security-field,
+  .security-field input,
+  .security-passkey-btn {
+    max-width: 100%;
+  }
+}
+
+.security-action-modal {
+  z-index: 420;
+}

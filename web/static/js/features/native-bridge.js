@@ -223,6 +223,25 @@ export function createNativeBridge() {
     return false;
   }
 
+  async function downloadToDownloads(url, filename, headers = {}) {
+    if (isAndroid() && hasAndroidMethod('downloadToDownloads')) {
+      const result = parseAndroidJsonResult(
+        android().downloadToDownloads(String(url || ''), String(filename || 'attachment'), JSON.stringify(headers || {})),
+        'Android download failed',
+      );
+      if (!result.ok) throw new Error(result.error || 'Android download failed');
+      return result;
+    }
+    if (isDesktop()) {
+      return invokeTauri('desktop_download_attachment', {
+        url: String(url || ''),
+        filename: String(filename || 'attachment'),
+        headers: headers || {},
+      });
+    }
+    return false;
+  }
+
 
   function ensureOidcCallbackBridge() {
     if (typeof window.__niaNativeOidcCallback !== 'function') {
@@ -358,6 +377,7 @@ export function createNativeBridge() {
     passkeyRegister,
     passkeyAuthenticate,
     openExternal,
+    downloadToDownloads,
     listenOidcCallbacks,
     setSystemBarsTheme,
     getAppVersion,

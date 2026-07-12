@@ -32,6 +32,7 @@ function platformFromNativeRuntime() {
   if (!RUNTIME_CAPABILITIES.nativeAppVersion) return '';
   if (RUNTIME_PLATFORM === 'android') return 'android';
   if (RUNTIME_PLATFORM === 'windows') return 'windows';
+  if (RUNTIME_PLATFORM === 'linux') return 'debian';
   return RUNTIME_PLATFORM || 'unknown';
 }
 
@@ -44,13 +45,21 @@ const DOWNLOAD_VERSION_RE = /^v?\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?$/;
 const DOWNLOADS_BY_PLATFORM = {
   windows: {
     arch: 'x64',
+    filenamePrefix: 'nia-todo-v',
     filenameSuffix: '-windows-x64-setup.exe',
     filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-windows-x64-setup\.exe$/,
   },
   android: {
     arch: 'arm64',
+    filenamePrefix: 'nia-todo-v',
     filenameSuffix: '-android-arm64.apk',
     filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-android-arm64\.apk$/,
+  },
+  debian: {
+    arch: 'amd64',
+    filenamePrefix: 'nia-todo-desktop-v',
+    filenameSuffix: '-debian-amd64.deb',
+    filenameRe: /^nia-todo-desktop-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-debian-amd64\.deb$/,
   },
 };
 
@@ -89,12 +98,12 @@ function validateDownloadEntry(app, fallbackVersion = '') {
   const version = String(app.version || fallbackVersion || '').trim();
   if (!DOWNLOAD_VERSION_RE.test(version)) return null;
   const versionSlug = normalizeVersion(version);
-  if (filename !== `nia-todo-v${versionSlug}${spec.filenameSuffix}`) return null;
+  if (filename !== `${spec.filenamePrefix}${versionSlug}${spec.filenameSuffix}`) return null;
 
   return {
     platform,
     arch: spec.arch,
-    label: app.label || (platform === 'windows' ? 'Windows Setup' : 'Android APK'),
+    label: app.label || (platform === 'windows' ? 'Windows Setup' : platform === 'debian' ? 'Debian Package' : 'Android APK'),
     version,
     filename,
     url: absoluteDownloadUrl(parsed.pathname),
@@ -108,6 +117,7 @@ function downloadsFromManifest(manifest) {
   const apps = [
     manifest?.latest?.windows,
     manifest?.latest?.android,
+    manifest?.latest?.debian,
     ...(Array.isArray(manifest?.apps) ? manifest.apps : []),
   ].filter(Boolean);
   const byPlatform = new Map();
@@ -116,24 +126,27 @@ function downloadsFromManifest(manifest) {
     if (!download || byPlatform.has(download.platform)) continue;
     byPlatform.set(download.platform, download);
   }
-  return ['windows', 'android'].map((platform) => byPlatform.get(platform)).filter(Boolean);
+  return ['windows', 'android', 'debian'].map((platform) => byPlatform.get(platform)).filter(Boolean);
 }
 
 function platformIconClass(platform) {
   if (platform === 'android') return 'app-download-icon-android';
   if (platform === 'windows') return 'app-download-icon-windows';
+  if (platform === 'debian') return 'app-download-icon-debian';
   return '';
 }
 
 function platformTitle(download) {
   if (download.platform === 'android') return 'Android-App herunterladen';
   if (download.platform === 'windows') return 'Windows-App herunterladen';
+  if (download.platform === 'debian') return 'Debian-Paket herunterladen';
   return `${download.label || 'App'} herunterladen`;
 }
 
 function platformLabel(platform) {
   if (platform === 'android') return 'Android';
   if (platform === 'windows') return 'Windows';
+  if (platform === 'debian') return 'Debian';
   return 'App';
 }
 
@@ -294,7 +307,7 @@ function renderDownloads(target, downloads) {
   target.replaceChildren();
   for (const download of downloads) {
     const link = document.createElement('a');
-    link.className = `app-download-button app-download-button-${download.platform}`;
+    link.className = `btn btn-secondary app-download-button app-download-button-${download.platform}`;
     link.href = download.url;
     link.download = download.filename;
     link.title = platformTitle(download);
@@ -528,6 +541,18 @@ export function createAppDownloadsFeature() {
     refreshInterval = window.setInterval(() => { refreshAppDownloads(); }, 60 * 60 * 1000);
   }
 
+  let appDownloadLaunchersBound = false;
+  function bindAppDownloadLaunchers() {
+    if (appDownloadLaunchersBound) return;
+    appDownloadLaunchersBound = true;
+    document.addEventListener('click', (event) => {
+      const launcher = event.target?.closest?.('[data-app-download-launcher]');
+      if (!launcher) return;
+      event.preventDefault();
+      openAppDownloadsModal();
+    });
+  }
+
   async function initAppDownloads() {
     const downloadTargets = Array.from(document.querySelectorAll('[data-app-downloads]'));
     const downloadLaunchers = Array.from(document.querySelectorAll('[data-app-download-launcher]'));
@@ -589,5 +614,5 @@ export function createAppDownloadsFeature() {
     refreshInterval = null;
   }
 
-  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads, openAppDownloadsModal };
+  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads, openAppDownloadsModal, bindAppDownloadLaunchers };
 }

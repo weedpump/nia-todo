@@ -3,6 +3,8 @@ export function createToastUndoFeature({
   getTodos,
   setTodos,
   dbPut,
+  dbGetAll,
+  deleteFromDB,
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,
@@ -61,6 +63,8 @@ export function createToastUndoFeature({
       else toggleTodo(undoAction.id);
     } else if (undoAction.type === 'delete') {
       restoreTodo(undoAction.id, undoAction.data);
+    } else if (undoAction.type === 'duplicate') {
+      undoDuplicatedTodo(undoAction.id);
     } else if (undoAction.type === 'fields') {
       restoreTodoFields(undoAction.id, undoAction.changes);
     } else if (undoAction.type === 'batch_delete' && pendingUndoBatch) {
@@ -125,10 +129,48 @@ export function createToastUndoFeature({
     setTodos(existing ? todos.map(t => t.id === data.id ? data : t) : [...todos, data]);
     renderStats();
     renderTodos();
+    const canceledPendingDelete = await cancelPendingTodoDelete(id);
     if (isOnlineForSync()) {
-      await addToSyncQueue('CREATE_TODO', { ...data, _tempId: data.id });
+      if (!canceledPendingDelete) await addToSyncQueue('CREATE_TODO', { ...data, _tempId: data.id });
       await syncWithServer();
     }
+  }
+
+  async function undoDuplicatedTodo(id) {
+    if (!getDb()) return;
+    await deleteFromDB('todos', id);
+    setTodos(getTodos().filter(todo => String(todo.id) !== String(id)));
+    renderStats();
+    renderTodos();
+    const canceledPendingCreate = await cancelPendingTodoCreate(id);
+    if (isOnlineForSync()) {
+      if (!canceledPendingCreate) await addToSyncQueue('DELETE_TODO', { id });
+      await syncWithServer();
+    }
+  }
+
+  let toastControlsBound = false;
+  function bindToastControls() {
+    if (toastControlsBound) return;
+    toastControlsBound = true;
+    document.getElementById('toast-undo')?.addEventListener('click', undoLastAction);
+    document.getElementById('toast-close')?.addEventListener('click', hideToast);
+  }
+
+  async function cancelPendingTodoDelete(id) {
+    if (!dbGetAll || !deleteFromDB) return false;
+    const queue = await dbGetAll('syncQueue');
+    const pendingDeletes = queue.filter(item => item?.action === 'DELETE_TODO' && String(item?.data?.id) === String(id));
+    await Promise.all(pendingDeletes.map(item => deleteFromDB('syncQueue', item.id)));
+    return pendingDeletes.length > 0;
+  }
+
+  async function cancelPendingTodoCreate(id) {
+    if (!dbGetAll || !deleteFromDB) return false;
+    const queue = await dbGetAll('syncQueue');
+    const pendingCreates = queue.filter(item => item?.action === 'CREATE_TODO' && String(item?.data?._tempId) === String(id));
+    await Promise.all(pendingCreates.map(item => deleteFromDB('syncQueue', item.id)));
+    return pendingCreates.length > 0;
   }
 
   return {
@@ -136,6 +178,7 @@ export function createToastUndoFeature({
     showBatchToast,
     hideToast,
     undoLastAction,
+    bindToastControls,
     restoreBatchTodos,
     restoreTodo,
     restoreTodoFields,

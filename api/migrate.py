@@ -331,6 +331,109 @@ def repair_default_reminder_settings_migration(conn):
     conn.commit()
 
 
+
+def require_columns(conn, table: str, required_columns: set[str]):
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    missing = sorted(required_columns - existing)
+    if missing:
+        raise sqlite3.OperationalError(f"{table} is missing required column(s): {', '.join(missing)}")
+
+
+def repair_todo_subtasks_migration(conn):
+    """Make migration 048 idempotent for partially-created subtask tables."""
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS todo_subtasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        todo_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        is_done INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+    );
+    """)
+    require_columns(conn, "todo_subtasks", {"id"})
+    add_column_if_missing(conn, "todo_subtasks", "todo_id", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "todo_subtasks", "title", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(conn, "todo_subtasks", "is_done", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "todo_subtasks", "sort_order", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "todo_subtasks", "created_at", "TEXT")
+    add_column_if_missing(conn, "todo_subtasks", "updated_at", "TEXT")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_todo_subtasks_todo ON todo_subtasks(todo_id, sort_order, id)")
+    conn.commit()
+
+
+def repair_todo_comments_migration(conn):
+    """Make migration 049 idempotent for partially-created comment tables."""
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS todo_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        todo_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    """)
+    require_columns(conn, "todo_comments", {"id"})
+    add_column_if_missing(conn, "todo_comments", "todo_id", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "todo_comments", "user_id", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "todo_comments", "body", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(conn, "todo_comments", "created_at", "TEXT")
+    add_column_if_missing(conn, "todo_comments", "updated_at", "TEXT")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_todo_comments_todo ON todo_comments(todo_id, created_at, id)")
+    conn.commit()
+
+
+def repair_todo_attachments_migration(conn):
+    """Make migration 050 idempotent for partially-created attachment schema."""
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS todo_attachments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        todo_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        original_filename TEXT NOT NULL,
+        stored_filename TEXT NOT NULL,
+        content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+        size_bytes INTEGER NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    """)
+    require_columns(conn, "todo_attachments", {"id"})
+    add_column_if_missing(conn, "todo_attachments", "todo_id", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "todo_attachments", "user_id", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "todo_attachments", "original_filename", "TEXT NOT NULL DEFAULT 'attachment'")
+    add_column_if_missing(conn, "todo_attachments", "stored_filename", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(conn, "todo_attachments", "content_type", "TEXT NOT NULL DEFAULT 'application/octet-stream'")
+    add_column_if_missing(conn, "todo_attachments", "size_bytes", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "todo_attachments", "created_at", "TEXT")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_todo_attachments_todo ON todo_attachments(todo_id, created_at, id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_todo_attachments_user ON todo_attachments(user_id)")
+    if table_exists(conn, "users"):
+        add_column_if_missing(conn, "users", "attachment_quota_bytes", "INTEGER")
+    if table_exists(conn, "app_config"):
+        conn.executescript("""
+        INSERT INTO app_config (key, value, updated_at)
+        VALUES
+          ('attachments_enabled', '1', datetime('now')),
+          ('attachments_allowed_types', '[".png",".jpg",".jpeg",".gif",".webp",".pdf"]', datetime('now')),
+          ('attachments_default_quota_bytes', '5368709120', datetime('now'))
+        ON CONFLICT(key) DO NOTHING;
+        """)
+    conn.commit()
+
+
+POST_APPLY_REPAIRS = {
+    48: repair_todo_subtasks_migration,
+    49: repair_todo_comments_migration,
+    50: repair_todo_attachments_migration,
+}
+
 def get_migration_files():
     """Holt alle Migrations-Dateien sortiert nach Nummer."""
     if not MIGRATIONS_DIR.exists():
@@ -376,12 +479,19 @@ def run_migrations():
             
             try:
                 conn.executescript(sql)
+                repair = POST_APPLY_REPAIRS.get(version)
+                if repair:
+                    repair(conn)
                 set_db_version(conn, version)
                 applied += 1
                 print(f"[MIGRATION] ✅ {filepath.name} applied successfully")
             except sqlite3.OperationalError as e:
                 error_msg = str(e).lower()
-                if version == 16 and "duplicate column" in error_msg and column_exists(conn, "projects", "workspace_id"):
+                if version == 12 and "duplicate column" in error_msg and column_exists(conn, "projects", "is_inbox"):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - is_inbox already exists, continuing with inbox repair migration")
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 16 and "duplicate column" in error_msg and column_exists(conn, "projects", "workspace_id"):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - workspace_id exists, repairing remaining workspace schema")
                     repair_workspace_migration(conn)
                     set_db_version(conn, version)
@@ -436,10 +546,15 @@ def run_migrations():
                     repair_default_reminder_settings_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
-                elif "duplicate column" in error_msg or "already exists" in error_msg:
-                    print(f"[MIGRATION] ⚠️ {filepath.name} - parts already applied, marking as done")
+                elif version in POST_APPLY_REPAIRS and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - todo detail schema partially exists, repairing remaining schema")
+                    POST_APPLY_REPAIRS[version](conn)
                     set_db_version(conn, version)
                     applied += 1
+                elif "duplicate column" in error_msg or "already exists" in error_msg:
+                    print(f"[MIGRATION] ❌ {filepath.name} - unhandled partial migration state: {e}")
+                    conn.close()
+                    raise
                 else:
                     print(f"[MIGRATION] ❌ Failed: {e}")
                     conn.close()

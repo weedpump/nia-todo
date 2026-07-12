@@ -24,6 +24,8 @@ export function createAppRenderingFeature({
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
+  renderCalendarView,
+  cleanupCalendarView,
   getInvites,
 }) {
   function renderVersionInfo() {
@@ -68,7 +70,6 @@ export function createAppRenderingFeature({
       button.id = 'force-refresh-btn';
       button.title = t('version.refreshCache');
       button.textContent = t('version.reload');
-      button.addEventListener('click', () => window.forceReloadApp?.());
       if (document.getElementById('online-status')?.classList.contains('status-offline')) {
         button.disabled = true;
         button.classList.add('is-offline-disabled');
@@ -148,12 +149,12 @@ export function createAppRenderingFeature({
       html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
       html += `<div class="nav-item-with-action">`;
       const isActiveProject = Number(currentProjectId) === Number(project.id);
-      html += `<button class="nav-btn ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" onclick="setFilter('${project.id}')">`;
+      html += `<button class="nav-btn ui-nav-pill project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}">`;
       html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
       html += `</button>`;
-      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${escapeHtmlAttr(JSON.stringify(project.id))})" title="${escapeHtmlAttr(t('common.edit'))}">`;
+      html += `<button class="nav-edit" data-project-action="edit" data-project-id="${escapeHtmlAttr(project.id)}" title="${escapeHtmlAttr(t('common.edit'))}">`;
       html += iconSvg('edit-3');
       html += `</button>`;
       html += `</div>`;
@@ -204,6 +205,7 @@ export function createAppRenderingFeature({
     const done = todos.filter(t => t.status === 'done').length;
     const validProjectIds = new Set(projects.map(project => Number(project.id)));
     const focusCount = applyFocusFilters(todos, validProjectIds).length;
+    const calendarCount = activeTodos.filter(t => t.due_date).length;
     const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < now).length;
     const dueToday = activeTodos.filter(t => {
       if (!t.due_date) return false;
@@ -219,6 +221,7 @@ export function createAppRenderingFeature({
     };
     setCount('count-all', total);
     setCount('count-focus', focusCount);
+    setCount('count-calendar', calendarCount);
     setCount('count-pending', pending);
     setCount('count-in_progress', inprog);
     setCount('count-done', done);
@@ -238,7 +241,7 @@ export function createAppRenderingFeature({
       minute: '2-digit',
     }).format(now);
 
-    document.querySelectorAll('.nav-btn[data-filter="all"], .nav-btn[data-filter="focus"], .nav-btn[data-filter="pending"], .nav-btn[data-filter="in_progress"], .nav-btn[data-filter="done"]').forEach((button) => {
+    document.querySelectorAll('.nav-btn[data-filter="all"], .nav-btn[data-filter="focus"], .nav-btn[data-filter="calendar"], .nav-btn[data-filter="pending"], .nav-btn[data-filter="in_progress"], .nav-btn[data-filter="done"]').forEach((button) => {
       button.classList.toggle('active', !currentProjectId && button.dataset.filter === String(currentFilter));
     });
 
@@ -342,7 +345,7 @@ export function createAppRenderingFeature({
             <div class="overview-panel-title">${escapeHtml(t('overview.activeProjects'))}</div>
             <div class="overview-project-list">
               ${projectsByRecentTodo.length ? projectsByRecentTodo.map(project => `
-                <button type="button" class="overview-project-item" onclick="setFilter('${escapeHtmlAttr(project.id)}')">
+                <button type="button" class="overview-project-item" data-nav-filter="${escapeHtmlAttr(project.id)}">
                   ${markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon })}
                   <span>${escapeHtml(project.name)}</span>
                   <strong>${escapeHtml(project.latestTodoLabel)}</strong>
@@ -529,20 +532,19 @@ export function createAppRenderingFeature({
       const children = (project.children || []).sort((a, b) => a.name.localeCompare(b.name));
       const label = String(project.name || '');
       const matchesSearch = !normalizedProjectSearch || label.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalizedProjectSearch);
-      return `<button type="button" class="focus-project-option ${selected ? 'is-selected' : ''}" style="--project-depth:${depth}" data-focus-project-option data-label="${escapeHtmlAttr(label)}" ${matchesSearch ? '' : 'hidden'} onclick="toggleFocusProject(${Number(project.id)})" role="menuitemcheckbox" aria-checked="${selected ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(label)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>${children.map(child => renderProjectOption(child, depth + 1)).join('')}`;
+      return `<button type="button" class="focus-project-option ${selected ? 'is-selected' : ''}" style="--project-depth:${depth}" data-focus-project-option data-focus-project-id="${Number(project.id)}" data-label="${escapeHtmlAttr(label)}" ${matchesSearch ? '' : 'hidden'} role="menuitemcheckbox" aria-checked="${selected ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(label)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>${children.map(child => renderProjectOption(child, depth + 1)).join('')}`;
     };
     const projectOptions = rootProjects.map(project => renderProjectOption(project)).join('') || `<div class="focus-project-empty">${escapeHtml(t('focus.noProjects'))}</div>`;
     const projectMatchCount = rootProjects.length ? (projectOptions.match(/data-focus-project-option/g) || []).length - (projectOptions.match(/data-focus-project-option[^>]*hidden/g) || []).length : 0;
     const headingActions = expanded
-      ? `<button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button><button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button>`
-      : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
+      ? `<button type="button" class="btn btn-secondary btn-small focus-reset-btn" data-focus-action="reset">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button><button type="button" class="btn btn-secondary btn-small focus-toggle-btn" data-focus-action="toggle-expanded" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button>`
+      : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" data-focus-action="toggle-expanded" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
 
     return `<section class="overview-dashboard focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
       <div class="overview-dashboard-header focus-filter-heading">
         <div class="overview-greeting">
-          <span class="overview-avatar focus-filter-avatar" aria-hidden="true">${iconSvg('target')}</span>
+          <span class="overview-avatar focus-filter-avatar" aria-hidden="true">${iconSvg('funnel')}</span>
           <div>
-            <div class="overview-kicker">${escapeHtml(t('focus.kicker'))}</div>
             <h2>${escapeHtml(t('focus.title'))}</h2>
             <div class="overview-subtitle">${escapeHtml(t('focus.subtitle'))}</div>
           </div>
@@ -557,7 +559,7 @@ export function createAppRenderingFeature({
         <div class="focus-filter-grid">
           <div class="form-group focus-due-field">
             <label for="focus-due-mode">${escapeHtml(t('focus.due.label'))}</label>
-            <select id="focus-due-mode" data-ui-select onchange="setFocusDueMode(this.value)">
+            <select id="focus-due-mode" data-ui-select data-focus-control="due-mode">
               <option value="any" ${dueMode === 'any' ? 'selected' : ''}>${escapeHtml(t('focus.due.any'))}</option>
               <option value="next_days" ${dueMode === 'next_days' ? 'selected' : ''}>${escapeHtml(t('focus.due.nextDays'))}</option>
               <option value="today" ${dueMode === 'today' ? 'selected' : ''}>${escapeHtml(t('focus.due.today'))}</option>
@@ -568,20 +570,20 @@ export function createAppRenderingFeature({
           </div>
           <div class="form-group focus-days-field ${dueMode === 'next_days' ? '' : 'is-muted'}">
             <label for="focus-due-days">${escapeHtml(t('focus.due.days'))}</label>
-            <input id="focus-due-days" type="number" min="1" max="365" value="${escapeHtmlAttr(dueDays)}" ${dueMode === 'next_days' ? '' : 'disabled'} onchange="setFocusDueDays(this.value)">
+            <input id="focus-due-days" type="number" min="1" max="365" value="${escapeHtmlAttr(dueDays)}" ${dueMode === 'next_days' ? '' : 'disabled'} data-focus-control="due-days">
           </div>
         </div>
         <div class="focus-filter-section">
           <div class="focus-filter-label">${iconSvg('folder')} ${escapeHtml(t('focus.projects'))}</div>
           <div class="focus-project-dropdown ${projectMenuOpen ? 'is-open' : ''}">
-            <button type="button" class="ui-select-trigger focus-project-trigger" onclick="toggleFocusProjectMenu()" aria-haspopup="menu" aria-expanded="${projectMenuOpen ? 'true' : 'false'}">
+            <button type="button" class="ui-select-trigger focus-project-trigger" data-focus-action="toggle-project-menu" aria-haspopup="menu" aria-expanded="${projectMenuOpen ? 'true' : 'false'}">
               <span class="ui-select-value">${escapeHtml(projectSummary)}</span>
               <span class="ui-select-chevron" aria-hidden="true">${iconSvg('chevron-down')}</span>
             </button>
             <div class="focus-project-menu ui-select-menu project-ui-select-menu" role="menu" ${projectMenuOpen ? '' : 'hidden'}>
               <div class="ui-select-search">
                 <span class="ui-select-search-icon" aria-hidden="true">${iconSvg('search')}</span>
-                <input type="search" class="ui-select-search-input" value="${escapeHtmlAttr(projectSearch)}" placeholder="${escapeHtmlAttr(t('focus.projects.search'))}" aria-label="${escapeHtmlAttr(t('focus.projects.search'))}" oninput="filterFocusProjectMenu(this.value)" onkeydown="handleFocusProjectMenuKeydown(event)">
+                <input type="search" class="ui-select-search-input" value="${escapeHtmlAttr(projectSearch)}" placeholder="${escapeHtmlAttr(t('focus.projects.search'))}" aria-label="${escapeHtmlAttr(t('focus.projects.search'))}" data-focus-control="project-search">
               </div>
               ${projectOptions}
               <div class="ui-select-empty focus-project-empty" ${projectMatchCount > 0 || !rootProjects.length ? 'hidden' : ''}>${escapeHtml(t('focus.projects.noMatches'))}</div>
@@ -591,11 +593,11 @@ export function createAppRenderingFeature({
         <div class="focus-filter-section focus-filter-split">
           <div>
             <div class="focus-filter-label">${iconSvg('flag')} ${escapeHtml(t('focus.priorities'))}</div>
-            <div class="focus-chip-row">${priorityOptions.map(([priority, label, color]) => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" onclick="toggleFocusPriority(${priority})"><span class="priority-dot" style="--priority-color:${escapeHtmlAttr(color)}"></span><span>${escapeHtml(label)}</span></button>`).join('')}</div>
+            <div class="focus-chip-row">${priorityOptions.map(([priority, label, color]) => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" data-focus-priority="${priority}"><span class="priority-dot" style="--priority-color:${escapeHtmlAttr(color)}"></span><span>${escapeHtml(label)}</span></button>`).join('')}</div>
           </div>
           <div>
             <div class="focus-filter-label">${iconSvg('list')} ${escapeHtml(t('focus.statuses'))}</div>
-            <div class="focus-chip-row">${statusOptions.map(([status, icon, label]) => `<button type="button" class="focus-chip ${statuses.has(status) ? 'active' : ''}" onclick="toggleFocusStatus('${escapeHtmlAttr(status)}')">${icon}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
+            <div class="focus-chip-row">${statusOptions.map(([status, icon, label]) => `<button type="button" class="focus-chip ${statuses.has(status) ? 'active' : ''}" data-focus-status="${escapeHtmlAttr(status)}">${icon}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
           </div>
         </div>
       </div>
@@ -627,7 +629,7 @@ export function createAppRenderingFeature({
         (t.description || '').toLowerCase().includes(search)
       );
     }
-    if (getTodayFocus?.() && currentFilter !== 'done') {
+    if (getTodayFocus?.() && currentFilter !== 'done' && currentFilter !== 'calendar') {
       const now = new Date();
       const todayEnd = new Date(now);
       todayEnd.setHours(23, 59, 59, 999);
@@ -644,6 +646,14 @@ export function createAppRenderingFeature({
     }
     filtered = sortTodoList(filtered);
 
+    if (currentFilter === 'calendar' && !currentProjectId) {
+      el.innerHTML = renderCalendarView
+        ? renderCalendarView({ todos: filtered, projects, hideDone, search })
+        : '';
+      return;
+    }
+    cleanupCalendarView?.();
+
     if (currentProjectId) {
       let html = '';
       const currentProject = projects.find(p => Number(p.id) === Number(currentProjectId));
@@ -657,7 +667,7 @@ export function createAppRenderingFeature({
       }
       if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
 
-      const showPinnedGroup = currentFilter === 'all';
+      const showPinnedGroup = !search;
       const pinnedProjectTodos = showPinnedGroup ? filtered.filter(t => t.is_pinned) : [];
       const sectionSource = showPinnedGroup ? filtered.filter(t => !t.is_pinned) : filtered;
       if (pinnedProjectTodos.length) {
@@ -669,27 +679,27 @@ export function createAppRenderingFeature({
 
       sections.forEach((section, index) => {
         const sectionTodos = sortProjectSectionTodos(sectionSource.filter(t => t.section_id === section.id));
-        html += `<div class="section-dropzone" data-drop-index="${index}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
+        html += `<div class="section-dropzone" data-drop-index="${index}"></div>`;
         html += renderSectionHeader(section, sectionTodos);
-        html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
+        html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}">`;
         html += sectionTodos.map(t => renderTodoItem(t)).join('');
         html += `</div>`;
       });
       if (sections.length) {
-        html += `<div class="section-dropzone" data-drop-index="${sections.length}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
+        html += `<div class="section-dropzone" data-drop-index="${sections.length}"></div>`;
       }
 
       const unsorted = sortProjectSectionTodos(sectionSource.filter(t => !t.section_id || !validSectionIds.has(t.section_id)));
       if (unsorted.length || sections.length) {
         html += renderSectionHeader(null, unsorted);
-        html += `<div class="section-todos" data-section-id="null" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
+        html += `<div class="section-todos" data-section-id="null">`;
         html += unsorted.map(t => renderTodoItem(t)).join('');
         html += `</div>`;
       }
 
       html += `<div class="add-section-row">
-        <button class="btn-add-section" onclick="showAddSectionForm()">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
-        <button class="btn-add-section" onclick="clearDoneInProject()">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
+        <button type="button" class="btn btn-secondary btn-small" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
+        <button type="button" class="btn btn-secondary btn-small" data-project-action="clear-done-current">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
       </div>`;
 
       if (!filtered.length && !sections.length) {
@@ -829,8 +839,8 @@ export function createAppRenderingFeature({
         <div class="invite-item" data-invite-id="${escapeHtmlAttr(invite.id)}">
           <span class="invite-title">${iconSvg('mail')} ${escapeHtml(invite.project_name)}</span>
           <div class="invite-actions">
-            <button class="invite-action invite-accept" onclick="acceptInvite(${invite.project_id}, ${invite.id})" title="${escapeHtmlAttr(t('invite.accept'))}" aria-label="${escapeHtmlAttr(t('invite.acceptAria'))}">${iconSvg('check')}</button>
-            <button class="invite-action invite-decline" onclick="declineInvite(${invite.project_id}, ${invite.id})" title="${escapeHtmlAttr(t('invite.decline'))}" aria-label="${escapeHtmlAttr(t('invite.declineAria'))}">${iconSvg('x')}</button>
+            <button class="btn btn-secondary btn-icon invite-action invite-accept" data-project-sharing-action="accept-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.accept'))}" aria-label="${escapeHtmlAttr(t('invite.acceptAria'))}">${iconSvg('check')}</button>
+            <button class="btn btn-danger btn-icon invite-action invite-decline" data-project-sharing-action="decline-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.decline'))}" aria-label="${escapeHtmlAttr(t('invite.declineAria'))}">${iconSvg('x')}</button>
           </div>
         </div>
       `;
