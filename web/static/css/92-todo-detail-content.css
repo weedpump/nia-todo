@@ -149,21 +149,27 @@
   display: none;
 }
 
-#todo-modal.todo-detail-view .todo-comments-add-group:not(:focus-within) .todo-markdown-toolbar,
+#todo-modal.todo-detail-view .todo-comments-add-group:not(:focus-within) .todo-comment-rich-toolbar,
 #todo-modal.todo-detail-view .todo-comments-add-group:not(:focus-within) .btn {
   display: none;
 }
 
-#todo-modal.todo-detail-view .todo-comments-add-group textarea {
+#todo-modal.todo-detail-view .todo-comment-rich-wrap {
+  display: grid;
+}
+
+#todo-modal.todo-detail-view .todo-comment-rich-editor {
   min-height: 48px;
-  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
   border-radius: 16px;
   background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
-  border-color: color-mix(in srgb, var(--border) 34%, transparent);
+  font-size: 14px;
+  line-height: 1.55;
   transition: min-height 160ms ease, border-radius 160ms ease, background-color 160ms ease;
 }
 
-#todo-modal.todo-detail-view .todo-comments-add-group:focus-within textarea {
+#todo-modal.todo-detail-view .todo-comments-add-group:focus-within .todo-comment-rich-editor {
   min-height: 112px;
   border-radius: 0 0 16px 16px;
   background: color-mix(in srgb, var(--bg-secondary) 34%, transparent);
