@@ -539,7 +539,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
     data.display_name = sanitize_text(data.display_name)
     data.email = normalize_email(sanitize_text(data.email))
     data.language = (data.language or 'de').strip().lower()
-    if data.language not in {'de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt', 'ru', 'sv', 'es', 'zh-cn'}:
+    if data.language not in {'de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-br', 'ru', 'sv', 'es', 'zh-cn'}:
         raise api_error(400, 'language.invalid', 'Invalid language')
     email_error = validate_email(data.email)
     if email_error:
@@ -555,7 +555,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         unusable_password_hash = bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode()
         c = db.execute(
             "INSERT INTO users (username, display_name, email, password_hash, is_admin, language, braindump_enabled) VALUES (?, ?, ?, ?, 0, ?, ?)",
-            (data.username, data.display_name, data.email, unusable_password_hash, 'zh-CN' if data.language == 'zh-cn' else data.language, 1 if data.braindump_enabled else 0)
+            (data.username, data.display_name, data.email, unusable_password_hash, 'zh-CN' if data.language == 'zh-cn' else ('pt-BR' if data.language == 'pt-br' else data.language), 1 if data.braindump_enabled else 0)
         )
         user_id = c.lastrowid
 
@@ -589,7 +589,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
                     username=data.username,
                     link=link,
                     purpose="invite",
-                    language='zh-CN' if data.language == 'zh-cn' else data.language,
+                    language='zh-CN' if data.language == 'zh-cn' else ('pt-BR' if data.language == 'pt-br' else data.language),
                 )
                 emailed = True
             except Exception:
@@ -604,7 +604,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             "username": data.username,
             "display_name": data.display_name,
             "email": data.email,
-            "language": 'zh-CN' if data.language == 'zh-cn' else data.language,
+            "language": 'zh-CN' if data.language == 'zh-cn' else ('pt-BR' if data.language == 'pt-br' else data.language),
             "braindump_enabled": bool(data.braindump_enabled),
             "created_at": now_iso(),
             "password_setup_expires_hours": _password_link_ttl_hours(),

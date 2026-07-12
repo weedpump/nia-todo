@@ -342,7 +342,7 @@ EMAIL_COPY = {
         "smtp_test_detail": "Ten e-mail testowy został wysłany z użyciem aktualnie zapisanej konfiguracji SMTP.",
         "smtp_test_preheader": "Konfiguracja SMTP nia-todo działa.",
     },
-    "pt": {
+    "pt-BR": {
         "auto_sent": "Este e-mail foi enviado automaticamente pelo nia-todo.",
         "button_fallback": "Se o botão não funcionar, copie este link:",
         "link_fallback": "Se o link não funcionar, copie este endereço:",
@@ -583,9 +583,12 @@ EMAIL_COPY = {
 
 def _language(value: str | None) -> str:
     language = str(value or "").strip()
-    if language == "zh-CN" or language.lower() in {"zh-cn", "zh-hans"}:
+    lower = language.lower()
+    if language == "zh-CN" or lower in {"zh-cn", "zh-hans"}:
         return "zh-CN"
-    language = language.lower()
+    if lower == "pt-br":
+        return "pt-BR"
+    language = lower
     if language in EMAIL_COPY:
         return language
     return "en"

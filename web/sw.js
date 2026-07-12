@@ -81,7 +81,7 @@ const PRECACHE_ASSETS = [
   '/static/i18n/it.json',
   '/static/i18n/nl.json',
   '/static/i18n/pl.json',
-  '/static/i18n/pt.json',
+  '/static/i18n/pt-BR.json',
   '/static/i18n/ru.json',
   '/static/i18n/sv.json',
   '/static/i18n/es.json',

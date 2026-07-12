@@ -1,5 +1,5 @@
 const LANGUAGE_STORAGE_KEY = 'nia-todo-language';
-const SUPPORTED_LANGUAGES = ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt', 'ru', 'sv', 'es', 'zh-CN'];
+const SUPPORTED_LANGUAGES = ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'es', 'zh-CN'];
 const DATE_TIME_LOCALES = {
   cs: 'cs-CZ',
   de: 'de-DE',
@@ -8,7 +8,7 @@ const DATE_TIME_LOCALES = {
   it: 'it-IT',
   nl: 'nl-NL',
   pl: 'pl-PL',
-  pt: 'pt-BR',
+  'pt-BR': 'pt-BR',
   ru: 'ru-RU',
   sv: 'sv-SE',
   es: 'es-ES',
@@ -27,6 +27,7 @@ function normalizeBrowserLanguage(value) {
   const language = String(value || '').toLowerCase();
   if (!language) return null;
   if (language === 'zh-cn' || language === 'zh-hans' || language.startsWith('zh-hans-')) return 'zh-CN';
+  if (language === 'pt-br' || language.startsWith('pt-br-')) return 'pt-BR';
   return language.split('-')[0];
 }
 

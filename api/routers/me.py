@@ -86,9 +86,9 @@ def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
 @router.patch('/language')
 def update_own_language(data: UpdateLanguageRequest, user_id: int = Depends(require_auth)):
     language = (data.language or 'auto').strip().lower()
-    if language not in {'auto', 'de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt', 'ru', 'sv', 'es', 'zh-cn'}:
+    if language not in {'auto', 'de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-br', 'ru', 'sv', 'es', 'zh-cn'}:
         raise api_error(400, 'language.invalid', 'Invalid language')
-    stored_language = 'zh-CN' if language == 'zh-cn' else language
+    stored_language = 'zh-CN' if language == 'zh-cn' else ('pt-BR' if language == 'pt-br' else language)
     with get_db() as db:
         user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
