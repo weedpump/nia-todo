@@ -52,8 +52,12 @@
   left: var(--todo-rich-toolbar-left, 0px);
   width: var(--todo-rich-toolbar-width, 100vw);
   z-index: 1200;
-  border-radius: 14px 14px 0 0;
   background: color-mix(in srgb, var(--bg-primary) 96%, var(--bg-secondary));
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-stuck,
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed {
+  border-radius: 0;
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar button {
