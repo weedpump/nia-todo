@@ -188,6 +188,13 @@ export async function launchPage() {
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('dialog', dialog => dialog.accept());
+  if (process.env.NIA_TODO_FRONTEND_ENABLE_WHATS_NEW !== '1') {
+    await page.route('**/static/content/whats-new.json', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: '{"releases":[]}',
+    }));
+  }
 
   async function dismissWhatsNewIfVisible() {
     const modal = page.locator('#whats-new-modal.active');
