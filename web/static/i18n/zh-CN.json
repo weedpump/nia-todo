@@ -147,6 +147,8 @@
   "todo.description.write": "编写描述…",
   "todo.description.formatToolbar": "设置描述格式",
   "todo.description.bulletList": "• 列表",
+  "todo.description.quote": "引用",
+  "todo.description.code": "代码",
   "todo.priority": "优先级",
   "todo.priority.veryHigh": "非常高",
   "todo.priority.high": "高",

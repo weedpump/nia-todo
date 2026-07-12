@@ -147,6 +147,8 @@
   "todo.description.write": "Beschreibung schreiben…",
   "todo.description.formatToolbar": "Beschreibung formatieren",
   "todo.description.bulletList": "• Liste",
+  "todo.description.quote": "Zitat",
+  "todo.description.code": "Code",
   "todo.priority": "Priorität",
   "todo.priority.veryHigh": "Sehr hoch",
   "todo.priority.high": "Hoch",
