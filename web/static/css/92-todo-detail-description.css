@@ -55,12 +55,19 @@
 
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar button:hover,
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar button:focus-visible,
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active,
 #todo-modal.todo-detail-view .todo-markdown-toolbar button:hover,
-#todo-modal.todo-detail-view .todo-markdown-toolbar button:focus-visible {
+#todo-modal.todo-detail-view .todo-markdown-toolbar button:focus-visible,
+#todo-modal.todo-detail-view .todo-markdown-toolbar button.is-active {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 44%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active,
+#todo-modal.todo-detail-view .todo-markdown-toolbar button.is-active {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor {

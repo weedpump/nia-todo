@@ -358,6 +358,44 @@ export function createTodosFeature({
       .trim();
   }
 
+  function setToolbarButtonActive(button, active) {
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+
+  function getSelectionElementWithin(root) {
+    const selection = window.getSelection?.();
+    if (!selection?.rangeCount) return null;
+    const node = selection.anchorNode;
+    const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    if (!element || !root.contains(element)) return null;
+    return element;
+  }
+
+  function closestInside(element, selector, root) {
+    const match = element?.closest?.(selector);
+    return match && root.contains(match) ? match : null;
+  }
+
+  function updateRichToolbarState(editor, toolbar) {
+    if (!editor || !toolbar) return;
+    const element = getSelectionElementWithin(editor);
+    const inlineElement = closestInside(element, 'strong,b,em,i,u,code', editor);
+    const blockElement = closestInside(element, 'h1,h2,blockquote,li,ul,ol', editor);
+    const inlineTag = inlineElement?.tagName?.toLowerCase() || '';
+    const blockTag = blockElement?.tagName?.toLowerCase() || '';
+    toolbar.querySelectorAll('button[data-rich-command], button[data-rich-block], button[data-rich-format]').forEach(button => {
+      let active = false;
+      if (button.dataset.richCommand === 'bold') active = document.queryCommandState?.('bold') || ['strong', 'b'].includes(inlineTag);
+      else if (button.dataset.richCommand === 'italic') active = document.queryCommandState?.('italic') || ['em', 'i'].includes(inlineTag);
+      else if (button.dataset.richCommand === 'underline') active = document.queryCommandState?.('underline') || inlineTag === 'u';
+      else if (button.dataset.richCommand === 'insertUnorderedList') active = ['li', 'ul'].includes(blockTag) || Boolean(blockElement?.closest?.('ul'));
+      else if (button.dataset.richBlock) active = blockTag === button.dataset.richBlock;
+      else if (button.dataset.richFormat === 'code') active = inlineTag === 'code';
+      setToolbarButtonActive(button, Boolean(active));
+    });
+  }
+
   function ensureDescriptionRichEditor(textarea, preview) {
     let wrap = document.getElementById('todo-desc-rich-wrap');
     if (wrap) return wrap;
@@ -379,12 +417,17 @@ export function createTodosFeature({
     `;
     preview.after(wrap);
     const editor = wrap.querySelector('#todo-desc-rich-editor');
+    const toolbar = wrap.querySelector('.todo-desc-rich-toolbar');
     const syncFromEditor = () => {
       textarea.value = richDescriptionToMarkdown(editor);
       preview.innerHTML = renderMarkdown(textarea.value);
       refreshTodoSaveButtonState();
+      updateRichToolbarState(editor, toolbar);
     };
     editor.addEventListener('input', syncFromEditor);
+    editor.addEventListener('keyup', () => updateRichToolbarState(editor, toolbar));
+    editor.addEventListener('mouseup', () => updateRichToolbarState(editor, toolbar));
+    document.addEventListener('selectionchange', () => updateRichToolbarState(editor, toolbar));
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -412,6 +455,7 @@ export function createTodosFeature({
         else if (button.dataset.richFormat === 'code') insertInlineCode(editor);
         else document.execCommand(button.dataset.richCommand, false, null);
         syncFromEditor();
+        updateRichToolbarState(editor, toolbar);
       });
     });
     return wrap;
@@ -476,9 +520,64 @@ export function createTodosFeature({
     return toolbar;
   }
 
+  function getTextareaSelectionContext(textarea) {
+    const value = textarea.value || '';
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? start;
+    const lineStart = value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    const lineEndIndex = value.indexOf('\n', end);
+    const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+    const line = value.slice(lineStart, lineEnd);
+    return { value, start, end, line };
+  }
+
+  function isWrappedInMarkdown(value, start, end, prefix, suffix = prefix) {
+    const before = value.slice(Math.max(0, start - prefix.length), start);
+    const after = value.slice(end, end + suffix.length);
+    if (before === prefix && after === suffix) return true;
+    const cursor = start;
+    const open = value.lastIndexOf(prefix, cursor);
+    if (open === -1) return false;
+    const close = value.indexOf(suffix, open + prefix.length);
+    return close !== -1 && cursor > open + prefix.length && cursor <= close;
+  }
+
+  function isWrappedInSingleAsterisk(value, start, end) {
+    if (isWrappedInMarkdown(value, start, end, '**')) return false;
+    const before = value.slice(Math.max(0, start - 1), start);
+    const after = value.slice(end, end + 1);
+    if (before === '*' && after === '*' && value[start - 2] !== '*' && value[end + 1] !== '*') return true;
+    const cursor = start;
+    for (let open = value.lastIndexOf('*', cursor); open !== -1; open = value.lastIndexOf('*', open - 1)) {
+      if (value[open - 1] === '*' || value[open + 1] === '*') continue;
+      const close = value.indexOf('*', open + 1);
+      if (close !== -1 && value[close - 1] !== '*' && value[close + 1] !== '*' && cursor > open + 1 && cursor <= close) return true;
+    }
+    return false;
+  }
+
+  function updateMarkdownTextareaToolbarState(toolbar, textarea) {
+    if (!toolbar || !textarea) return;
+    const { value, start, end, line } = getTextareaSelectionContext(textarea);
+    toolbar.querySelectorAll('button[data-markdown-format]').forEach(button => {
+      const format = button.dataset.markdownFormat;
+      let active = false;
+      if (format === 'bold') active = isWrappedInMarkdown(value, start, end, '**');
+      else if (format === 'italic') active = isWrappedInSingleAsterisk(value, start, end);
+      else if (format === 'underline') active = isWrappedInMarkdown(value, start, end, '<u>', '</u>');
+      else if (format === 'code') active = isWrappedInMarkdown(value, start, end, '`');
+      else if (format === 'h1') active = line.startsWith('# ') && !line.startsWith('## ');
+      else if (format === 'h2') active = line.startsWith('## ');
+      else if (format === 'quote') active = line.startsWith('> ');
+      else if (format === 'list') active = line.startsWith('- ');
+      setToolbarButtonActive(button, active);
+    });
+  }
+
   function bindMarkdownTextareaToolbar(toolbar, textarea) {
     if (!toolbar || !textarea || toolbar.dataset.markdownToolbarBound === '1') return;
     toolbar.dataset.markdownToolbarBound = '1';
+    const updateState = () => updateMarkdownTextareaToolbarState(toolbar, textarea);
     toolbar.addEventListener('mousedown', event => {
       if (event.target?.closest?.('button[data-markdown-format]')) event.preventDefault();
     });
@@ -486,7 +585,13 @@ export function createTodosFeature({
       const button = event.target?.closest?.('button[data-markdown-format]');
       if (!button) return;
       applyMarkdownFormatToTextarea(textarea, button.dataset.markdownFormat);
+      updateState();
     });
+    textarea.addEventListener('input', updateState);
+    textarea.addEventListener('keyup', updateState);
+    textarea.addEventListener('mouseup', updateState);
+    textarea.addEventListener('select', updateState);
+    textarea.addEventListener('focus', updateState);
   }
 
   function bindTodoDescriptionInlineEditor() {
