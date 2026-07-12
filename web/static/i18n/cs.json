@@ -147,6 +147,8 @@
   "todo.description.write": "Napište popis…",
   "todo.description.formatToolbar": "Formátovat popis",
   "todo.description.bulletList": "• Seznam",
+  "todo.description.quote": "Citace",
+  "todo.description.code": "Kód",
   "todo.priority": "Priorita",
   "todo.priority.veryHigh": "Velmi vysoká",
   "todo.priority.high": "Vysoká",

@@ -371,8 +371,8 @@ export function createTodosFeature({
         <button type="button" data-rich-command="underline"><u>U</u></button>
         <button type="button" data-rich-block="h1">H1</button>
         <button type="button" data-rich-block="h2">H2</button>
-        <button type="button" data-rich-block="blockquote">❝</button>
-        <button type="button" data-rich-format="code"><code>&#96;</code></button>
+        <button type="button" data-rich-block="blockquote">${escapeHtmlAttr(t('todo.description.quote'))}</button>
+        <button type="button" data-rich-format="code">${escapeHtmlAttr(t('todo.description.code'))}</button>
         <button type="button" data-rich-command="insertUnorderedList">${escapeHtmlAttr(t('todo.description.bulletList'))}</button>
       </div>
       <div id="todo-desc-rich-editor" class="todo-desc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>
@@ -469,8 +469,8 @@ export function createTodosFeature({
       <button type="button" data-markdown-format="underline"><u>U</u></button>
       <button type="button" data-markdown-format="h1">H1</button>
       <button type="button" data-markdown-format="h2">H2</button>
-      <button type="button" data-markdown-format="quote">❝</button>
-      <button type="button" data-markdown-format="code"><code>&#96;</code></button>
+      <button type="button" data-markdown-format="quote">${escapeHtmlAttr(t('todo.description.quote'))}</button>
+      <button type="button" data-markdown-format="code">${escapeHtmlAttr(t('todo.description.code'))}</button>
       <button type="button" data-markdown-format="list">${escapeHtmlAttr(t('todo.description.bulletList'))}</button>
     `;
     return toolbar;

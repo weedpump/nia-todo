@@ -147,6 +147,8 @@
   "todo.description.write": "Beschrijving schrijven…",
   "todo.description.formatToolbar": "Beschrijving opmaken",
   "todo.description.bulletList": "• Lijst",
+  "todo.description.quote": "Citaat",
+  "todo.description.code": "Code",
   "todo.priority": "Prioriteit",
   "todo.priority.veryHigh": "Zeer hoog",
   "todo.priority.high": "Hoog",

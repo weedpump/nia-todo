@@ -147,6 +147,8 @@
   "todo.description.write": "Напишите описание…",
   "todo.description.formatToolbar": "Форматировать описание",
   "todo.description.bulletList": "• Список",
+  "todo.description.quote": "Цитата",
+  "todo.description.code": "Код",
   "todo.priority": "Приоритет",
   "todo.priority.veryHigh": "Очень высокий",
   "todo.priority.high": "Высокий",
