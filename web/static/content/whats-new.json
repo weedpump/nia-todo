@@ -92,6 +92,19 @@
             {
               "media": {
                 "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Mehr Sprachen für nia-todo",
+              "body": "nia-todo spricht mit Version 3 deutlich mehr Sprachen — in der Oberfläche, den System-E-Mails und den „Was ist neu?“-Hinweisen.",
+              "bullets": [
+                "neu: Tschechisch, Französisch, Italienisch, Niederländisch, Polnisch, Portugiesisch (Brasilien), Russisch, Schwedisch und Spanisch",
+                "Sprachauswahl für Nutzerprofil und Admin-Bereich erweitert",
+                "lokalisierte System-Mails für Einladungen, Passwort-Reset, E-Mail-Bestätigung und 2FA-Codes"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
                 "icon": "package"
               },
               "title": "Native Apps: jetzt auch für Debian",
@@ -197,6 +210,19 @@
                 "uploads, downloads, and image/PDF previews",
                 "attachment counters and realtime updates",
                 "admin controls for file types and storage quotas"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "More languages for nia-todo",
+              "body": "With version 3, nia-todo speaks many more languages — across the interface, system emails, and the “What’s new?” notes.",
+              "bullets": [
+                "new: Czech, French, Italian, Dutch, Polish, Brazilian Portuguese, Russian, Swedish, and Spanish",
+                "expanded language selection for user profiles and the admin area",
+                "localized system emails for invites, password resets, email verification, and 2FA codes"
               ]
             },
             {
@@ -312,6 +338,19 @@
             {
               "media": {
                 "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Více jazyků pro nia-todo",
+              "body": "S verzí 3 mluví nia-todo výrazně více jazyky — v rozhraní, systémových e-mailech i poznámkách „Co je nového?“.",
+              "bullets": [
+                "nově: čeština, francouzština, italština, nizozemština, polština, brazilská portugalština, ruština, švédština a španělština",
+                "rozšířená volba jazyka v uživatelském profilu i administraci",
+                "lokalizované systémové e-maily pro pozvánky, reset hesla, ověření e-mailu a 2FA kódy"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
                 "icon": "package"
               },
               "title": "Nativní aplikace: nyní včetně Debianu",
@@ -417,6 +456,19 @@
                 "uploads, téléchargements et aperçus d’images/PDF",
                 "compteurs de pièces jointes et mises à jour en temps réel",
                 "contrôles d'administration pour les types de fichiers et les quotas de stockage"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Plus de langues pour nia-todo",
+              "body": "Avec la version 3, nia-todo parle beaucoup plus de langues — dans l’interface, les e-mails système et les notes « Quoi de neuf ? ».",
+              "bullets": [
+                "nouveau : tchèque, français, italien, néerlandais, polonais, portugais brésilien, russe, suédois et espagnol",
+                "sélection de langue étendue pour le profil utilisateur et l’espace admin",
+                "e-mails système localisés pour les invitations, réinitialisations de mot de passe, confirmations d’e-mail et codes 2FA"
               ]
             },
             {
@@ -532,6 +584,19 @@
             {
               "media": {
                 "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Più lingue per nia-todo",
+              "body": "Con la versione 3, nia-todo parla molte più lingue — nell’interfaccia, nelle e-mail di sistema e nelle note “Cosa c’è di nuovo?”.",
+              "bullets": [
+                "nuove: ceco, francese, italiano, olandese, polacco, portoghese brasiliano, russo, svedese e spagnolo",
+                "selezione della lingua ampliata per profilo utente e area admin",
+                "e-mail di sistema localizzate per inviti, reset password, verifica e-mail e codici 2FA"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
                 "icon": "package"
               },
               "title": "App native: ora inclusa Debian",
@@ -637,6 +702,19 @@
                 "uploads, downloads en afbeeldings-/PDF-voorbeelden",
                 "bijlagetellers en realtime updates",
                 "beheerdersopties voor bestandstypen en opslagquota"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Meer talen voor nia-todo",
+              "body": "Met versie 3 spreekt nia-todo veel meer talen — in de interface, systeemmails en de “Wat is er nieuw?”-meldingen.",
+              "bullets": [
+                "nieuw: Tsjechisch, Frans, Italiaans, Nederlands, Pools, Braziliaans Portugees, Russisch, Zweeds en Spaans",
+                "uitgebreide taalkeuze voor gebruikersprofiel en adminomgeving",
+                "gelokaliseerde systeemmails voor uitnodigingen, wachtwoordresets, e-mailbevestiging en 2FA-codes"
               ]
             },
             {
@@ -752,6 +830,19 @@
             {
               "media": {
                 "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Więcej języków w nia-todo",
+              "body": "W wersji 3 nia-todo obsługuje znacznie więcej języków — w interfejsie, e-mailach systemowych i informacjach „Co nowego?”.",
+              "bullets": [
+                "nowe: czeski, francuski, włoski, niderlandzki, polski, portugalski brazylijski, rosyjski, szwedzki i hiszpański",
+                "rozszerzony wybór języka w profilu użytkownika i panelu administratora",
+                "zlokalizowane e-maile systemowe dla zaproszeń, resetu hasła, potwierdzania e-maila i kodów 2FA"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
                 "icon": "package"
               },
               "title": "Aplikacje natywne: teraz łącznie z Debianem",
@@ -857,6 +948,19 @@
                 "uploads, downloads e visualizações de imagens/PDF",
                 "contadores de anexos e atualizações em tempo real",
                 "controles administrativos para tipos de arquivos e cotas de armazenamento"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Mais idiomas para o nia-todo",
+              "body": "Com a versão 3, o nia-todo fala muito mais idiomas — na interface, nos e-mails do sistema e nas notas “O que há de novo?”.",
+              "bullets": [
+                "novo: tcheco, francês, italiano, holandês, polonês, português brasileiro, russo, sueco e espanhol",
+                "seleção de idioma ampliada para perfil de usuário e área administrativa",
+                "e-mails do sistema localizados para convites, redefinição de senha, verificação de e-mail e códigos 2FA"
               ]
             },
             {
@@ -972,6 +1076,19 @@
             {
               "media": {
                 "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Больше языков для nia-todo",
+              "body": "В версии 3 nia-todo поддерживает значительно больше языков — в интерфейсе, системных письмах и заметках «Что нового?».",
+              "bullets": [
+                "новые языки: чешский, французский, итальянский, нидерландский, польский, бразильский португальский, русский, шведский и испанский",
+                "расширенный выбор языка для профиля пользователя и админ-раздела",
+                "локализованные системные письма для приглашений, сброса пароля, подтверждения e-mail и 2FA-кодов"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
                 "icon": "package"
               },
               "title": "Нативные приложения: теперь включая Debian",
@@ -1082,6 +1199,19 @@
             {
               "media": {
                 "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Fler språk för nia-todo",
+              "body": "Med version 3 talar nia-todo många fler språk — i gränssnittet, systemmejl och “Vad är nytt?”-informationen.",
+              "bullets": [
+                "nytt: tjeckiska, franska, italienska, nederländska, polska, brasiliansk portugisiska, ryska, svenska och spanska",
+                "utökad språkval för användarprofil och adminområde",
+                "lokaliserade systemmejl för inbjudningar, lösenordsåterställning, e-postbekräftelse och 2FA-koder"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
                 "icon": "package"
               },
               "title": "Inbyggda appar: nu inklusive Debian",
@@ -1187,6 +1317,19 @@
                 "cargas, descargas y vistas previas de imágenes/PDF",
                 "contadores de archivos adjuntos y actualizaciones en tiempo real",
                 "controles administrativos para tipos de archivos y cuotas de almacenamiento"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Más idiomas para nia-todo",
+              "body": "Con la versión 3, nia-todo habla muchos más idiomas — en la interfaz, los e-mails del sistema y las notas “¿Qué hay de nuevo?”.",
+              "bullets": [
+                "nuevo: checo, francés, italiano, neerlandés, polaco, portugués brasileño, ruso, sueco y español",
+                "selector de idioma ampliado para el perfil de usuario y el área de administración",
+                "e-mails del sistema localizados para invitaciones, restablecimiento de contraseña, verificación de e-mail y códigos 2FA"
               ]
             },
             {
