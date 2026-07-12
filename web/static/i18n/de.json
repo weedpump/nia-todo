@@ -1752,5 +1752,9 @@
   "calendar.empty.title": "Noch nichts geplant",
   "calendar.empty.month": "Todos mit Fälligkeitsdatum erscheinen in dieser Monatsansicht.",
   "calendar.empty.week": "Diese Woche ist frei. Fällige Todos landen automatisch hier.",
-  "calendar.empty.day": "Für diesen Tag sind keine Todos geplant."
+  "calendar.empty.day": "Für diesen Tag sind keine Todos geplant.",
+  "whatsNew.progress": "Fortschritt der Was-ist-neu-Tour",
+  "whatsNew.slideLabel": "Folie {current} von {total}",
+  "whatsNew.done": "Loslegen",
+  "whatsNew.versionBadge": "Version {version}"
 }

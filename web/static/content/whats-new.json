@@ -1,0 +1,233 @@
+{
+  "releases": [
+    {
+      "version": "3.0.0",
+      "appVersions": [
+        "v2.12.3-dev"
+      ],
+      "carryForward": true,
+      "content": {
+        "de": {
+          "title": "Was ist neu in nia-todo?",
+          "intro": "Version 3 ist das bisher größte Update für nia-todo: eine ruhigere Oberfläche, ein neues Todo-Erlebnis und viele Funktionen, die tägliche Arbeit spürbar runder machen.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Eine neue, ruhigere Oberfläche",
+              "body": "nia-todo wirkt moderner, runder und klarer — mit weniger visueller Unruhe und mehr Fokus auf deine Aufgaben.",
+              "bullets": [
+                "weiche Pills, rundere Flächen und ruhigere Menüs",
+                "einheitliche Buttons, Dropdowns, Karten und Dialoge",
+                "konsistente Designsprache für Web, Desktop und Mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos lesen sich jetzt wie Dokumente",
+              "body": "Das Todo-Modal wurde grundlegend überarbeitet und fühlt sich nicht mehr wie ein endloses Formular an.",
+              "bullets": [
+                "klare Detailansicht für bestehende Todos",
+                "Abschnitte für Inhalt, Planung, Organisation und Extras",
+                "Bearbeiten bleibt möglich, steht aber nicht ständig im Weg"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Neue Kalenderansicht",
+              "body": "Todos mit Fälligkeitsdatum bekommen eine eigene Kalenderansicht, damit Zeitplanung sichtbarer wird.",
+              "bullets": [
+                "Tag-, Wochen- und Monatsmodus",
+                "Timeline-Layouts auf Desktop und Tablet",
+                "kompakte Monatsauswahl mit Tagesliste auf Mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Subtasks für echte Checklisten",
+              "body": "Größere Aufgaben lassen sich jetzt direkt im Todo in kleinere Schritte aufteilen.",
+              "bullets": [
+                "Fortschrittsanzeige direkt auf Todo-Karten",
+                "Realtime-Sync und unabhängige Aktionen pro Subtask",
+                "Warnung, wenn ein Todo mit offenen Subtasks abgeschlossen wird"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Kommentare und bessere Zusammenarbeit",
+              "body": "Kontext, Entscheidungen und kurze Notizen bleiben direkt dort, wo sie hingehören: am Todo.",
+              "bullets": [
+                "Kommentare mit Autor, Zeitstempel und Zähler",
+                "Bearbeiten, Löschen und Realtime-Updates",
+                "sauber eingebunden in geteilte Projekte"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Anhänge direkt am Todo",
+              "body": "Dateien können jetzt direkt an Aufgaben hängen — inklusive Vorschau und sauberer Zugriffskontrolle.",
+              "bullets": [
+                "Uploads, Downloads und Vorschau für Bilder/PDFs",
+                "Attachment-Zähler und Realtime-Updates",
+                "Admin-Regeln für Dateitypen und Speicherquoten"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Native Apps: jetzt auch für Debian",
+              "body": "Neben Windows und Android gibt es nia-todo jetzt auch als native Debian-Desktop-App.",
+              "bullets": [
+                ".deb-Paket mit Release- und Download-Integration",
+                "Autostart, Tray, globale Hotkeys und OIDC-Rücksprung",
+                "native Attachment-Downloads in Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Mehr Stabilität unter der Haube",
+              "body": "Viele Verbesserungen sieht man nicht sofort — man merkt sie aber im Alltag.",
+              "bullets": [
+                "robustere Offline-, Sync- und Service-Worker-Pfade",
+                "sicherere Attachment-Verarbeitung",
+                "aufgeräumteres Frontend mit gemeinsamen UI-Primitives"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "What's new in nia-todo?",
+          "intro": "Version 3 is the biggest nia-todo update so far: a calmer interface, a new todo experience, and many improvements that make day-to-day work feel smoother.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "A calmer, more modern interface",
+              "body": "nia-todo now feels rounder, cleaner, and more focused, with less visual noise around your tasks.",
+              "bullets": [
+                "soft pills, rounder surfaces, and calmer menus",
+                "consistent buttons, dropdowns, cards, and dialogs",
+                "one visual language across web, desktop, and mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos now read like documents",
+              "body": "The todo modal has been redesigned so existing tasks no longer feel like an endless form.",
+              "bullets": [
+                "a clearer detail view for existing todos",
+                "sections for content, planning, organization, and extras",
+                "editing stays available without constantly getting in the way"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "New calendar view",
+              "body": "Todos with due dates now have their own calendar view, making time planning easier to scan.",
+              "bullets": [
+                "day, week, and month modes",
+                "timeline-style layouts on desktop and tablet",
+                "compact month picker with daily list on mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Subtasks for real checklists",
+              "body": "Larger tasks can now be broken down into smaller steps directly inside the todo.",
+              "bullets": [
+                "progress indicators directly on todo cards",
+                "realtime sync and independent actions per subtask",
+                "confirmation before completing a todo with open subtasks"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Comments and better collaboration",
+              "body": "Context, decisions, and quick notes now stay exactly where they belong: on the todo.",
+              "bullets": [
+                "comments with author, timestamp, and counters",
+                "edit, delete, and realtime updates",
+                "clean integration with shared projects"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Attachments directly on todos",
+              "body": "Files can now live directly on tasks, with previews and proper access control.",
+              "bullets": [
+                "uploads, downloads, and image/PDF previews",
+                "attachment counters and realtime updates",
+                "admin controls for file types and storage quotas"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Native apps: now including Debian",
+              "body": "In addition to Windows and Android, nia-todo now ships as a native Debian desktop app.",
+              "bullets": [
+                ".deb package with release and download integration",
+                "autostart, tray, global hotkeys, and OIDC return handling",
+                "native attachment downloads into Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "More stability under the hood",
+              "body": "Many improvements are invisible at first glance, but make everyday use smoother.",
+              "bullets": [
+                "more reliable offline, sync, and service-worker paths",
+                "safer attachment handling",
+                "a cleaner frontend built around shared UI primitives"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
