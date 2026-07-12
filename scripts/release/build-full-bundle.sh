@@ -6,7 +6,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/release/build-full-bundle.sh VERSION --windows-installer FILE --android-apk FILE [options]
+Usage: scripts/release/build-full-bundle.sh VERSION --windows-installer FILE --android-apk FILE --debian-deb FILE [options]
 
 Options:
   --native-app-version VERSION
@@ -21,6 +21,7 @@ USAGE
 VERSION=""
 WINDOWS_INSTALLER=""
 ANDROID_APK=""
+DEBIAN_DEB=""
 NATIVE_APP_VERSION=""
 OUTPUT_DIR="dist/release"
 WORK_DIR=""
@@ -32,6 +33,7 @@ while [ "$#" -gt 0 ]; do
     -h|--help) usage; exit 0 ;;
     --windows-installer) WINDOWS_INSTALLER="${2:-}"; shift 2 ;;
     --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
+    --debian-deb) DEBIAN_DEB="${2:-}"; shift 2 ;;
     --native-app-version) NATIVE_APP_VERSION="${2:-}"; shift 2 ;;
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     --work-dir) WORK_DIR="${2:-}"; shift 2 ;;
@@ -87,6 +89,9 @@ if [ -n "${WINDOWS_INSTALLER}" ]; then
 fi
 if [ -n "${ANDROID_APK}" ]; then
   EMBED_ARGS+=(--android-apk "${ANDROID_APK}")
+fi
+if [ -n "${DEBIAN_DEB}" ]; then
+  EMBED_ARGS+=(--debian-deb "${DEBIAN_DEB}")
 fi
 if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
   EMBED_ARGS+=(--allow-missing-apps)
@@ -146,7 +151,7 @@ fi
 if [ -f /etc/nia-todo/nia-todo.env ] && ! grep -q '^NIA_TODO_DATA_DIR=' /etc/nia-todo/nia-todo.env; then
   printf '\nNIA_TODO_DATA_DIR=/var/lib/nia-todo\n' >> /etc/nia-todo/nia-todo.env
 fi
-mkdir -p /var/lib/nia-todo /var/lib/nia-todo/backups /var/lib/nia-todo/avatars /opt/nia-todo/api/data
+mkdir -p /var/lib/nia-todo /var/lib/nia-todo/backups /var/lib/nia-todo/avatars /var/lib/nia-todo/attachments /opt/nia-todo/api/data
 install -d -m 0755 -o root -g root /var/cache/nia-todo/updates
 if [ -f /var/lib/nia-todo/nia-todo.db ]; then
   cp /var/lib/nia-todo/nia-todo.db "/var/lib/nia-todo/backups/pre-upgrade-$(date +%Y%m%d-%H%M%S).db" || true

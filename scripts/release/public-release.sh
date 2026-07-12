@@ -14,6 +14,7 @@ outside the private development repo.
 Options:
   --windows-installer FILE   Signed Windows installer to embed in both release targets
   --android-apk FILE         Signed Android APK to embed in both release targets
+  --debian-deb FILE           Debian package to embed in both release targets
   --native-artifacts-dir DIR Directory containing the standard native artifact names
                            (default: dist/native/vNATIVE_APP_VERSION if it exists)
   --native-app-version VERSION
@@ -23,7 +24,7 @@ Options:
   --docker-tag TAG           Docker image tag (default: nia-todo:VERSION)
   --docker-latest            Also tag Docker image as nia-todo:latest
   --skip-docker              Do not build Docker image
-  --allow-missing-apps       Allow test bundle without Windows/Android app files
+  --allow-missing-apps       Allow test bundle without Windows/Android/Debian app files
   --init-public-git          Initialize exported public source as fresh git repo/tag
   --force                    Remove existing work/output staging dirs where needed
   --dry-run                  Validate inputs and print planned commands only
@@ -33,6 +34,7 @@ USAGE
 VERSION=""
 WINDOWS_INSTALLER=""
 ANDROID_APK=""
+DEBIAN_DEB=""
 NATIVE_ARTIFACTS_DIR=""
 NATIVE_APP_VERSION=""
 OUTPUT_DIR="dist/release"
@@ -50,6 +52,7 @@ while [ "$#" -gt 0 ]; do
     -h|--help) usage; exit 0 ;;
     --windows-installer) WINDOWS_INSTALLER="${2:-}"; shift 2 ;;
     --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
+    --debian-deb) DEBIAN_DEB="${2:-}"; shift 2 ;;
     --native-artifacts-dir) NATIVE_ARTIFACTS_DIR="${2:-}"; shift 2 ;;
     --native-app-version) NATIVE_APP_VERSION="${2:-}"; shift 2 ;;
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
@@ -93,11 +96,13 @@ fi
 if [ -n "${NATIVE_ARTIFACTS_DIR}" ]; then
   [ -n "${WINDOWS_INSTALLER}" ] || WINDOWS_INSTALLER="${NATIVE_ARTIFACTS_DIR}/nia-todo-${NATIVE_TAG}-windows-x64-setup.exe"
   [ -n "${ANDROID_APK}" ] || ANDROID_APK="${NATIVE_ARTIFACTS_DIR}/nia-todo-${NATIVE_TAG}-android-arm64.apk"
+  [ -n "${DEBIAN_DEB}" ] || DEBIAN_DEB="${NATIVE_ARTIFACTS_DIR}/nia-todo-desktop-${NATIVE_TAG}-debian-amd64.deb"
 fi
 
 if [ "${ALLOW_MISSING_APPS}" != "1" ]; then
   [ -n "${WINDOWS_INSTALLER}" ] && [ -f "${WINDOWS_INSTALLER}" ] || { echo "Missing native Windows installer. Build/copy it to dist/native/${NATIVE_TAG}/ or pass --windows-installer FILE" >&2; exit 1; }
   [ -n "${ANDROID_APK}" ] && [ -f "${ANDROID_APK}" ] || { echo "Missing native Android APK. Build/copy it to dist/native/${NATIVE_TAG}/ or pass --android-apk FILE" >&2; exit 1; }
+  [ -n "${DEBIAN_DEB}" ] && [ -f "${DEBIAN_DEB}" ] || { echo "Missing native Debian package. Build/copy it to dist/native/${NATIVE_TAG}/ or pass --debian-deb FILE" >&2; exit 1; }
 fi
 
 run() {
@@ -130,6 +135,10 @@ if [ -n "${ANDROID_APK}" ]; then
   BUNDLE_ARGS+=(--android-apk "${ANDROID_APK}")
   DOCKER_ARGS+=(--android-apk "${ANDROID_APK}")
 fi
+if [ -n "${DEBIAN_DEB}" ]; then
+  BUNDLE_ARGS+=(--debian-deb "${DEBIAN_DEB}")
+  DOCKER_ARGS+=(--debian-deb "${DEBIAN_DEB}")
+fi
 if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
   DOCKER_ARGS+=(--allow-missing-apps)
 fi
@@ -149,7 +158,7 @@ if [ "${DRY_RUN}" = "1" ]; then
   echo "✅ Dry run complete"
 else
   mkdir -p "${OUTPUT_DIR}"
-  python3 - "${VERSION}" "${OUTPUT_DIR}" "${PUBLIC_EXPORT_DIR}" "${DOCKER_TAG}" "${NATIVE_APP_VERSION}" "${WINDOWS_INSTALLER}" "${ANDROID_APK}" <<'PYM'
+  python3 - "${VERSION}" "${OUTPUT_DIR}" "${PUBLIC_EXPORT_DIR}" "${DOCKER_TAG}" "${NATIVE_APP_VERSION}" "${WINDOWS_INSTALLER}" "${ANDROID_APK}" "${DEBIAN_DEB}" <<'PYM'
 import hashlib
 import json
 import subprocess
@@ -157,7 +166,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-version, output_dir, source_dir, docker_tag, native_app_version, windows_path, android_path = sys.argv[1:]
+version, output_dir, source_dir, docker_tag, native_app_version, windows_path, android_path, debian_path = sys.argv[1:]
 out = Path(output_dir)
 deb = out / f"nia-todo-server-v{version}-full.deb"
 manifest = {
@@ -168,7 +177,7 @@ manifest = {
     "native_app_version": f"v{native_app_version}",
     "artifacts": [],
 }
-for path in [deb, Path(str(deb) + ".sha256"), Path(windows_path) if windows_path else None, Path(android_path) if android_path else None]:
+for path in [deb, Path(str(deb) + ".sha256"), Path(windows_path) if windows_path else None, Path(android_path) if android_path else None, Path(debian_path) if debian_path else None]:
     if not path or not path.exists():
         continue
     h = hashlib.sha256()

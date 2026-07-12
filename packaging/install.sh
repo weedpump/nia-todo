@@ -23,7 +23,7 @@ if ! id "${USER_NAME}" >/dev/null 2>&1; then
   useradd --system --gid "${GROUP_NAME}" --home-dir "${APP_DIR}" --shell /usr/sbin/nologin "${USER_NAME}"
 fi
 
-mkdir -p "${APP_DIR}" "${ETC_DIR}" "${DATA_DIR}" "${DATA_DIR}/backups" "${DATA_DIR}/avatars"
+mkdir -p "${APP_DIR}" "${ETC_DIR}" "${DATA_DIR}" "${DATA_DIR}/backups" "${DATA_DIR}/avatars" "${DATA_DIR}/attachments"
 
 if [ -f "${DATA_DIR}/nia-todo.db" ]; then
   cp "${DATA_DIR}/nia-todo.db" "${DATA_DIR}/backups/pre-install-$(date +%Y%m%d-%H%M%S).db" || true

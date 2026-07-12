@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::{
+  collections::HashMap,
   fs,
-  path::PathBuf,
+  io::Read,
+  path::{Path, PathBuf},
   sync::{
     atomic::{AtomicU64, Ordering},
     Arc, Mutex,
@@ -20,6 +22,15 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri_plugin_notification::NotificationExt;
 #[cfg(not(target_os = "android"))]
 use std::process::Command;
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+type LinuxPortalShortcutSession = ashpd::desktop::Session<ashpd::desktop::global_shortcuts::GlobalShortcuts>;
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+static LINUX_PORTAL_HOTKEY_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+static LINUX_PORTAL_SHORTCUT_SESSION: Mutex<Option<Arc<LinuxPortalShortcutSession>>> = Mutex::new(None);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -87,6 +98,13 @@ struct DesktopHotkeyEvent {
   action: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopDownloadResult {
+  path: String,
+  filename: String,
+}
+
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
   app
     .path()
@@ -148,7 +166,55 @@ fn set_autostart(enabled: bool, start_minimized_to_tray: bool) -> Result<(), Str
   Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn quote_desktop_exec_arg(value: &str) -> String {
+  let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+  format!("\"{escaped}\"")
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn linux_autostart_entry_path() -> Result<std::path::PathBuf, String> {
+  let base = std::env::var_os("XDG_CONFIG_HOME")
+    .map(std::path::PathBuf::from)
+    .or_else(|| std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".config")))
+    .ok_or_else(|| "Autostart konnte nicht eingerichtet werden: HOME ist nicht gesetzt.".to_string())?;
+  Ok(base.join("autostart").join("nia-todo.desktop"))
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn set_autostart(enabled: bool, start_minimized_to_tray: bool) -> Result<(), String> {
+  let entry_path = linux_autostart_entry_path()?;
+
+  if !enabled {
+    match fs::remove_file(&entry_path) {
+      Ok(_) => {}
+      Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+      Err(err) => return Err(err.to_string()),
+    }
+    return Ok(());
+  }
+
+  if let Some(parent) = entry_path.parent() {
+    fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+  }
+
+  let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+  let mut exec = quote_desktop_exec_arg(&exe.to_string_lossy());
+  if start_minimized_to_tray {
+    exec.push(' ');
+    exec.push_str(START_MINIMIZED_ARG);
+  }
+
+  let contents = format!(
+    "[Desktop Entry]\nType=Application\nName=nia-todo\nComment=Start nia-todo\nExec={exec}\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"
+  );
+  fs::write(entry_path, contents).map_err(|err| err.to_string())
+}
+
+#[cfg(all(
+  not(target_os = "windows"),
+  not(all(unix, not(target_os = "macos"), not(target_os = "android")))
+))]
 fn set_autostart(_enabled: bool, _start_minimized_to_tray: bool) -> Result<(), String> {
   Ok(())
 }
@@ -188,6 +254,31 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
 fn show_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+  }
+}
+
+#[cfg(desktop)]
+fn conceal_main_window(window: &tauri::WebviewWindow) {
+  let _ = window.hide();
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn present_main_window_with_activation(app: &AppHandle, activation_token: Option<&str>, timestamp_ms: Option<u32>) {
+  use gtk::prelude::GtkWindowExt;
+
+  if let Some(window) = app.get_webview_window("main") {
+    if let Ok(gtk_window) = window.gtk_window() {
+      if let Some(token) = activation_token.filter(|token| !token.is_empty()) {
+        gtk_window.set_startup_id(token);
+      }
+      if let Some(timestamp_ms) = timestamp_ms {
+        gtk_window.present_with_time(timestamp_ms);
+      }
+    }
+    let _ = window.show();
+    let _ = window.unminimize();
     let _ = window.set_focus();
   }
 }
@@ -196,12 +287,11 @@ fn show_main_window(app: &AppHandle) {
 fn toggle_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let is_visible = window.is_visible().unwrap_or(false);
-    let is_focused = window.is_focused().unwrap_or(false);
-    if is_visible && is_focused {
-      let _ = window.hide();
+    let is_minimized = window.is_minimized().unwrap_or(false);
+    if is_visible && !is_minimized {
+      conceal_main_window(&window);
     } else {
-      let _ = window.show();
-      let _ = window.set_focus();
+      show_main_window(app);
     }
   }
 }
@@ -254,6 +344,168 @@ fn emit_desktop_hotkey(app: &AppHandle, action: &str) {
   let _ = app.emit("desktop-hotkey", DesktopHotkeyEvent { action: action.to_string() });
 }
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn shortcut_to_xdg_trigger(shortcut: &str) -> String {
+  shortcut
+    .split('+')
+    .filter_map(|part| {
+      let part = part.trim();
+      if part.is_empty() {
+        return None;
+      }
+      Some(match part.to_ascii_lowercase().as_str() {
+        "ctrl" | "control" => "CTRL".to_string(),
+        "alt" => "ALT".to_string(),
+        "shift" => "SHIFT".to_string(),
+        "super" | "meta" | "logo" | "cmd" | "command" => "LOGO".to_string(),
+        "enter" => "Return".to_string(),
+        "escape" => "Escape".to_string(),
+        " " | "space" => "space".to_string(),
+        "arrowup" => "Up".to_string(),
+        "arrowdown" => "Down".to_string(),
+        "arrowleft" => "Left".to_string(),
+        "arrowright" => "Right".to_string(),
+        "backspace" => "BackSpace".to_string(),
+        "delete" => "Delete".to_string(),
+        "tab" => "Tab".to_string(),
+        key if key.len() == 1 => key.to_string(),
+        _ => part.to_string(),
+      })
+    })
+    .collect::<Vec<_>>()
+    .join("+")
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn activation_token_from_options(options: &std::collections::HashMap<String, ashpd::zbus::zvariant::OwnedValue>) -> Option<String> {
+  options
+    .get("activation_token")
+    .and_then(|value| String::try_from(value.clone()).ok())
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn handle_portal_hotkey(app: &AppHandle, action: &str, activation_token: Option<&str>, timestamp_ms: Option<u32>) {
+  let app = app.clone();
+  let action = action.to_string();
+  let activation_token = activation_token.map(ToOwned::to_owned);
+  let app_for_main_thread = app.clone();
+  let _ = app.run_on_main_thread(move || {
+    match action.as_str() {
+      "toggleApp" => {
+        if let Some(window) = app_for_main_thread.get_webview_window("main") {
+          let is_visible = window.is_visible().unwrap_or(false);
+          let is_minimized = window.is_minimized().unwrap_or(false);
+          if is_visible && !is_minimized {
+            conceal_main_window(&window);
+          } else {
+            present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref(), timestamp_ms);
+          }
+        }
+      }
+      "newTodo" | "search" => {
+        present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref(), timestamp_ms);
+        emit_desktop_hotkey(&app_for_main_thread, &action);
+      }
+      _ => {}
+    }
+  });
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn close_current_portal_hotkey_session() {
+  let session = LINUX_PORTAL_SHORTCUT_SESSION.lock().ok().and_then(|mut current| current.take());
+  if let Some(session) = session {
+    tauri::async_runtime::spawn(async move {
+      let _ = session.close().await;
+    });
+  }
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+async fn try_apply_portal_hotkeys(app: AppHandle, settings: DesktopSettings, generation: u64) -> Result<bool, String> {
+  use ashpd::desktop::global_shortcuts::{BindShortcutsOptions, GlobalShortcuts, NewShortcut};
+  use ashpd::desktop::CreateSessionOptions;
+  use futures_util::StreamExt;
+
+  let entries = [
+    ("toggleApp", "nia-todo anzeigen/verstecken", settings.hotkeys.toggle_app),
+    ("newTodo", "Neues nia-todo Todo", settings.hotkeys.new_todo),
+    ("search", "nia-todo Suche", settings.hotkeys.search),
+  ];
+  let requested_ids = entries
+    .iter()
+    .filter_map(|(id, _, shortcut)| shortcut.as_ref().map(|_| *id))
+    .collect::<Vec<_>>();
+  let shortcuts = entries
+    .into_iter()
+    .filter_map(|(id, description, shortcut)| {
+      shortcut.map(|shortcut| NewShortcut::new(id, description).preferred_trigger(shortcut_to_xdg_trigger(&shortcut).as_str()))
+    })
+    .collect::<Vec<_>>();
+  if shortcuts.is_empty() {
+    return Ok(false);
+  }
+
+  let portal = GlobalShortcuts::new().await.map_err(|err| err.to_string())?;
+  if portal.version() < 2 {
+    return Ok(false);
+  }
+  let session = Arc::new(portal.create_session(CreateSessionOptions::default()).await.map_err(|err| err.to_string())?);
+  let bind_request = match portal
+    .bind_shortcuts(&session, &shortcuts, None, BindShortcutsOptions::default())
+    .await
+  {
+    Ok(request) => request,
+    Err(err) => {
+      let _ = session.close().await;
+      return Err(err.to_string());
+    }
+  };
+  let bind_response = match bind_request.response() {
+    Ok(response) => response,
+    Err(err) => {
+      let _ = session.close().await;
+      return Err(err.to_string());
+    }
+  };
+  let bound_ids = bind_response.shortcuts().iter().map(|shortcut| shortcut.id()).collect::<std::collections::HashSet<_>>();
+  if requested_ids.iter().any(|id| !bound_ids.contains(id)) {
+    let _ = session.close().await;
+    return Ok(false);
+  }
+  if LINUX_PORTAL_HOTKEY_GENERATION.load(Ordering::SeqCst) != generation {
+    let _ = session.close().await;
+    return Ok(false);
+  }
+
+  let mut activated = match portal.receive_activated().await {
+    Ok(stream) => stream,
+    Err(err) => {
+      let _ = session.close().await;
+      return Err(err.to_string());
+    }
+  };
+
+  if let Ok(mut current) = LINUX_PORTAL_SHORTCUT_SESSION.lock() {
+    *current = Some(session.clone());
+  }
+  let session_for_listener = session.clone();
+  tauri::async_runtime::spawn(async move {
+    while let Some(event) = activated.next().await {
+      if LINUX_PORTAL_HOTKEY_GENERATION.load(Ordering::SeqCst) != generation {
+        let _ = session_for_listener.close().await;
+        return;
+      }
+      let action = event.shortcut_id().to_string();
+      let token = activation_token_from_options(event.options());
+      let timestamp_ms = Some(event.timestamp().as_millis().min(u32::MAX as u128) as u32);
+      handle_portal_hotkey(&app, &action, token.as_deref(), timestamp_ms);
+    }
+  });
+
+  Ok(true)
+}
+
 #[cfg(desktop)]
 fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
   use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -261,6 +513,17 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
   let settings = load_settings(app);
   ensure_unique_hotkeys(&settings.hotkeys)?;
   app.global_shortcut().unregister_all().map_err(|err| err.to_string())?;
+
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  {
+    let generation = LINUX_PORTAL_HOTKEY_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    close_current_portal_hotkey_session();
+    match tauri::async_runtime::block_on(try_apply_portal_hotkeys(app.clone(), settings.clone(), generation)) {
+      Ok(true) => return Ok(()),
+      Ok(false) => {}
+      Err(err) => eprintln!("Linux GlobalShortcuts portal is not supported by this desktop; using legacy hotkey fallback: {err}"),
+    }
+  }
 
   let entries = [
     ("toggleApp", settings.hotkeys.toggle_app),
@@ -320,6 +583,133 @@ fn desktop_open_url(url: String) -> Result<(), String> {
   status
     .map_err(|err| err.to_string())
     .and_then(|status| if status.success() { Ok(()) } else { Err(format!("URL öffnen fehlgeschlagen: {status}")) })
+}
+
+fn safe_download_filename(raw: &str) -> String {
+  let cleaned: String = raw
+    .trim()
+    .chars()
+    .map(|ch| match ch {
+      '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+      ch if ch.is_control() => '_',
+      ch => ch,
+    })
+    .collect::<String>()
+    .trim_matches([' ', '.', '_'])
+    .chars()
+    .take(180)
+    .collect();
+  if cleaned.is_empty() { "attachment".into() } else { cleaned }
+}
+
+fn unique_download_path(dir: &Path, filename: &str) -> PathBuf {
+  let candidate = dir.join(filename);
+  if !candidate.exists() {
+    return candidate;
+  }
+  let path = Path::new(filename);
+  let stem = path.file_stem().and_then(|value| value.to_str()).unwrap_or("attachment");
+  let ext = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+  for index in 2..1000 {
+    let next = if ext.is_empty() {
+      format!("{stem}-{index}")
+    } else {
+      format!("{stem}-{index}.{ext}")
+    };
+    let candidate = dir.join(next);
+    if !candidate.exists() {
+      return candidate;
+    }
+  }
+  if ext.is_empty() {
+    dir.join(format!("{stem}-{}", unix_now_ms()))
+  } else {
+    dir.join(format!("{stem}-{}.{ext}", unix_now_ms()))
+  }
+}
+
+fn same_url_origin(left: &url::Url, right: &url::Url) -> bool {
+  left.scheme() == right.scheme()
+    && left.host_str().map(str::to_ascii_lowercase) == right.host_str().map(str::to_ascii_lowercase)
+    && left.port_or_known_default() == right.port_or_known_default()
+}
+
+const DESKTOP_ATTACHMENT_DOWNLOAD_TIMEOUT_SECS: u64 = 60;
+const DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+
+#[cfg(desktop)]
+#[tauri::command]
+fn desktop_download_attachment(app: AppHandle, url: String, filename: String, headers: HashMap<String, String>) -> Result<DesktopDownloadResult, String> {
+  let parsed = url::Url::parse(&url).map_err(|_| "Download-URL ist ungültig.".to_string())?;
+  if !matches!(parsed.scheme(), "https" | "http") {
+    return Err("Nur http(s)-Downloads sind erlaubt.".into());
+  }
+  if let Some(server_url) = load_settings(&app).server_url {
+    let configured = url::Url::parse(&normalize_server_url(&server_url)?).map_err(|_| "Gespeicherte Server-URL ist ungültig.".to_string())?;
+    if !same_url_origin(&parsed, &configured) {
+      return Err("Download-URL passt nicht zur konfigurierten Server-URL.".into());
+    }
+  }
+
+  let downloads = app.path().download_dir().map_err(|err| err.to_string())?.join("nia-todo");
+  fs::create_dir_all(&downloads).map_err(|err| err.to_string())?;
+  let safe_name = safe_download_filename(&filename);
+  let target = unique_download_path(&downloads, &safe_name);
+
+  let allowed_origin = parsed.clone();
+  let client = reqwest::blocking::Client::builder()
+    .timeout(Duration::from_secs(DESKTOP_ATTACHMENT_DOWNLOAD_TIMEOUT_SECS))
+    .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+      if attempt.previous().len() >= 3 {
+        return attempt.error("Zu viele Weiterleitungen beim Download.");
+      }
+      if !same_url_origin(attempt.url(), &allowed_origin) {
+        return attempt.error("Download-Weiterleitung auf fremde Origin blockiert.");
+      }
+      attempt.follow()
+    }))
+    .build()
+    .map_err(|err| err.to_string())?;
+  let mut request = client.get(url);
+  for (key, value) in headers {
+    if key.eq_ignore_ascii_case("content-length") || key.eq_ignore_ascii_case("host") {
+      continue;
+    }
+    if let (Ok(name), Ok(header_value)) = (
+      reqwest::header::HeaderName::from_bytes(key.as_bytes()),
+      reqwest::header::HeaderValue::from_str(&value),
+    ) {
+      request = request.header(name, header_value);
+    }
+  }
+  let response = request.send().map_err(|err| err.to_string())?;
+  if !response.status().is_success() {
+    return Err(format!("Download fehlgeschlagen: HTTP {}", response.status()));
+  }
+  if let Some(content_length) = response.content_length() {
+    if content_length > DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES {
+      return Err("Anhang ist zu groß für den nativen Desktop-Download.".into());
+    }
+  }
+  let mut limited_response = response.take(DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES + 1);
+  let mut file = fs::File::create(&target).map_err(|err| err.to_string())?;
+  let written = std::io::copy(&mut limited_response, &mut file).map_err(|err| err.to_string())?;
+  if written > DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES {
+    let _ = fs::remove_file(&target);
+    return Err("Anhang ist zu groß für den nativen Desktop-Download.".into());
+  }
+  let filename = target
+    .file_name()
+    .and_then(|value| value.to_str())
+    .unwrap_or(safe_name.as_str())
+    .to_string();
+  Ok(DesktopDownloadResult { path: target.to_string_lossy().to_string(), filename })
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+fn desktop_download_attachment(_app: AppHandle, _url: String, _filename: String, _headers: HashMap<String, String>) -> Result<DesktopDownloadResult, String> {
+  Err("Native Downloads werden auf dieser Plattform nicht unterstützt.".into())
 }
 
 #[tauri::command]
@@ -414,13 +804,32 @@ fn desktop_request_notification_permission(_app: AppHandle) -> Result<String, St
   Ok("unsupported".into())
 }
 
-#[cfg(desktop)]
-#[tauri::command]
-fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
-  let settings = load_settings(&app);
-  if !settings.notifications {
-    return Ok(());
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn show_native_notification(app: &AppHandle, title: String, body: String) -> Result<(), String> {
+  match Command::new("notify-send")
+    .args(["--app-name", "nia-todo Desktop", "--icon", "nia-todo-desktop", title.as_str(), body.as_str()])
+    .status()
+  {
+    Ok(status) if status.success() => Ok(()),
+    Ok(status) => app
+      .notification()
+      .builder()
+      .title(title)
+      .body(body)
+      .show()
+      .map_err(|err| format!("notify-send failed with {status}; Tauri notification failed: {err}")),
+    Err(err) => app
+      .notification()
+      .builder()
+      .title(title)
+      .body(body)
+      .show()
+      .map_err(|plugin_err| format!("notify-send unavailable: {err}; Tauri notification failed: {plugin_err}")),
   }
+}
+
+#[cfg(all(desktop, not(all(unix, not(target_os = "macos"), not(target_os = "android")))))]
+fn show_native_notification(app: &AppHandle, title: String, body: String) -> Result<(), String> {
   app
     .notification()
     .builder()
@@ -428,6 +837,16 @@ fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), Str
     .body(body)
     .show()
     .map_err(|err| err.to_string())
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
+  let settings = load_settings(&app);
+  if !settings.notifications {
+    return Ok(());
+  }
+  show_native_notification(&app, title, body)
 }
 
 #[cfg(not(desktop))]
@@ -450,12 +869,7 @@ fn show_scheduled_reminder(app: &AppHandle, title: String, body: String) {
   if !load_settings(app).notifications {
     return;
   }
-  let _ = app
-    .notification()
-    .builder()
-    .title(title)
-    .body(body)
-    .show();
+  let _ = show_native_notification(app, title, body);
 }
 
 #[cfg(not(desktop))]
@@ -494,6 +908,48 @@ fn desktop_schedule_reminders(
   }
 
   Ok(scheduled)
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn clear_linux_webview_caches_on_version_change(app: &AppHandle) -> Result<(), String> {
+  let config_dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
+  fs::create_dir_all(&config_dir).map_err(|err| err.to_string())?;
+  let marker_path = config_dir.join("linux-webview-cache-version");
+  let executable_updated_at = std::env::current_exe()
+    .ok()
+    .and_then(|path| fs::metadata(path).ok())
+    .and_then(|metadata| metadata.modified().ok())
+    .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+    .map(|duration| duration.as_secs())
+    .unwrap_or(0);
+  let current_version = format!("{}:{executable_updated_at}", env!("CARGO_PKG_VERSION"));
+  if fs::read_to_string(&marker_path).unwrap_or_default().trim() == current_version {
+    return Ok(());
+  }
+
+  let mut candidates = Vec::new();
+  if let Ok(cache_dir) = app.path().app_cache_dir() {
+    candidates.extend([
+      cache_dir.join("WebKitCache"),
+      cache_dir.join("GPUCache"),
+      cache_dir.join("Code Cache"),
+      cache_dir.join("Service Worker"),
+      cache_dir.join("Default").join("Cache"),
+      cache_dir.join("Default").join("Code Cache"),
+      cache_dir.join("Default").join("GPUCache"),
+      cache_dir.join("Default").join("Service Worker"),
+    ]);
+  }
+
+  for path in candidates {
+    match fs::remove_dir_all(&path) {
+      Ok(_) => {}
+      Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+      Err(err) => eprintln!("Failed to clear Linux WebView cache {}: {err}", path.display()),
+    }
+  }
+
+  fs::write(marker_path, current_version).map_err(|err| err.to_string())
 }
 
 #[cfg(desktop)]
@@ -977,6 +1433,7 @@ pub fn run() {
       desktop_set_server_url,
       desktop_clear_server_url,
       desktop_open_url,
+      desktop_download_attachment,
       desktop_set_hotkey,
       desktop_request_notification_permission,
       desktop_notify,
@@ -987,6 +1444,10 @@ pub fn run() {
     .setup(|_app| {
       #[cfg(desktop)]
       {
+        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+        if let Err(err) = clear_linux_webview_caches_on_version_change(_app.handle()) {
+          eprintln!("Failed to clear stale Linux WebView caches: {err}");
+        }
         apply_global_hotkeys(_app.handle())?;
         repair_autostart_registration(&load_settings(_app.handle()));
         build_tray(_app)?;
@@ -995,8 +1456,7 @@ pub fn run() {
           let started_minimized = std::env::args().any(|arg| arg == START_MINIMIZED_ARG)
             && load_settings(_app.handle()).start_minimized_to_tray;
           if !started_minimized {
-            let _ = window.show();
-            let _ = window.set_focus();
+            show_main_window(_app.handle());
           }
           if let Some(url) = native_oidc_callback_from_args(&std::env::args().collect::<Vec<_>>()) {
             let app_handle_for_oidc = app_handle.clone();
@@ -1009,7 +1469,7 @@ pub fn run() {
             if let WindowEvent::CloseRequested { api, .. } = event {
               if load_settings(&app_handle).minimize_to_tray {
                 api.prevent_close();
-                let _ = window_for_close.hide();
+                conceal_main_window(&window_for_close);
               }
             }
           });

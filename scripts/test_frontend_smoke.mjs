@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
+async function waitForTodoStatus(page, title, status) {
+  await page.waitForFunction(async ({ title, status }) => {
+    const jwt = localStorage.getItem('jwt_token');
+    const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+    return data.todos.some(todo => todo.title === title && todo.status === status);
+  }, { title, status }, { timeout: 10000 });
+}
+
 async function run() {
   console.log('🌐 Running Playwright frontend smoke test...');
   const { browser, page, visible, waitForText, clickProjectNav, openTodoModal, ensureSectionOptions, createSection, loginApp, assertNoFrontendErrors, dumpErrors } = await launchPage();
@@ -40,7 +48,7 @@ async function run() {
     await page.locator('#web-update-modal').waitFor({ state: 'attached' });
     await page.locator('#web-update-apply-btn').waitFor({ state: 'attached' });
 
-    await page.click('button[onclick="showProjectModal()"]');
+    await page.click('button[data-nav-action="new-project"]');
     await page.fill('#project-name', 'Frontend Smoke Project');
     await page.fill('#project-color', '#ff8800');
     await page.click('button[form="project-form"]');
@@ -54,10 +62,11 @@ async function run() {
     await openTodoModal();
     await page.waitForFunction(() => document.activeElement?.id === 'todo-title', null, { timeout: 5000 });
     await page.fill('#todo-title', 'Frontend Smoke Todo');
-    await page.fill('#todo-desc', '**Smoke** test via Playwright');
-    await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' });
+    await page.click('#todo-desc-preview');
+    await page.locator('#todo-desc-rich-editor').fill('**Smoke** test via Playwright');
+    await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' }, { force: true });
     await ensureSectionOptions(['Frontend Section A', 'Frontend Section B']);
-    await page.selectOption('#todo-section', { label: 'Frontend Section A' });
+    await page.selectOption('#todo-section', { label: 'Frontend Section A' }, { force: true });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForText('Frontend Smoke Todo');
@@ -72,17 +81,66 @@ async function run() {
 
     const todoItem = page.locator('.todo-item').filter({ hasText: 'Frontend Smoke Todo' }).first();
 
+    // Keep a tiny quick-status regression in the smoke test instead of a separate brittle UI suite.
+    await todoItem.hover();
+    const statusMenu = todoItem.locator('.todo-status-menu-left');
+    await statusMenu.locator('summary').click();
+    await todoItem.locator('.todo-status-menu-left[open]').waitFor({ state: 'visible', timeout: 5000 });
+    await statusMenu.locator('button[data-todo-status="in_progress"]').click();
+    await waitForTodoStatus(page, 'Frontend Smoke Todo', 'in_progress');
+    await todoItem.hover();
+    await statusMenu.locator('summary').click();
+    await todoItem.locator('.todo-status-menu-left[open]').waitFor({ state: 'visible', timeout: 5000 });
+    await statusMenu.locator('button[data-todo-status="pending"]').click();
+    await waitForTodoStatus(page, 'Frontend Smoke Todo', 'pending');
+
     await page.fill('#search-input', 'Smoke Todo');
     await waitForText('Frontend Smoke Todo');
     await page.fill('#search-input', '');
 
     await todoItem.click();
     await visible('#todo-modal');
-    await page.click('button[onclick="deleteTodoFromModal()"]');
+    await page.click('#todo-detail-header-actions summary');
+    await page.click('#todo-detail-delete-action');
     await visible('#confirm-modal');
     await page.click('#confirm-confirm-btn');
     await page.waitForTimeout(800);
+    const pendingDeleteBeforeUndo = await page.evaluate(async () => {
+      const db = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('nia-todo-db', 4);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      try {
+        return await new Promise(resolve => {
+          const tx = db.transaction('syncQueue', 'readonly');
+          const req = tx.objectStore('syncQueue').getAll();
+          req.onsuccess = () => resolve(req.result.some(item => item.action === 'DELETE_TODO' && item.data?.undo_grace_until));
+          req.onerror = () => resolve(false);
+        });
+      } finally {
+        db.close();
+      }
+    });
+    if (!pendingDeleteBeforeUndo) throw new Error('Expected todo delete to stay queued during undo grace window');
     await page.click('#toast-undo');
+    await page.waitForFunction(async () => {
+      const db = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('nia-todo-db', 4);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      try {
+        return await new Promise(resolve => {
+          const tx = db.transaction('syncQueue', 'readonly');
+          const req = tx.objectStore('syncQueue').getAll();
+          req.onsuccess = () => resolve(!req.result.some(item => item.action === 'DELETE_TODO'));
+          req.onerror = () => resolve(false);
+        });
+      } finally {
+        db.close();
+      }
+    }, null, { timeout: 5000 });
     await clickProjectNav('Frontend Smoke Project');
     await waitForText('Frontend Smoke Todo');
 

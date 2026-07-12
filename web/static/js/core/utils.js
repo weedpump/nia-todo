@@ -1,4 +1,4 @@
-import { getActiveLanguage, t as i18nT } from '../i18n/index.js';
+import { getActiveLocale, t as i18nT } from '../i18n/index.js';
 
 export function escapeHtml(str) {
   if (str == null) return '';
@@ -30,7 +30,7 @@ export function formatDate(isoString) {
 
   const isToday = date.toDateString() === today.toDateString();
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
-  const locale = getActiveLanguage() === 'en' ? 'en-US' : 'de-DE';
+  const locale = getActiveLocale();
   const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
   if (isToday) return i18nT('date.todayAt', { time });
@@ -47,7 +47,7 @@ export function truncateWords(str, maxWords) {
 
 function renderInlineMarkdown(text) {
   const source = String(text ?? '');
-  const tokenPattern = /(`([^`]+)`)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
+  const tokenPattern = /(`([^`]+)`)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(<u>([^<]+)<\/u>)|(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
   let html = '';
   let lastIndex = 0;
 
@@ -60,11 +60,13 @@ function renderInlineMarkdown(text) {
       html += `<strong>${escapeHtml(match[4])}</strong>`;
     } else if (match[6] != null) {
       html += `<em>${escapeHtml(match[6])}</em>`;
-    } else if (match[8] != null && match[9] != null) {
+    } else if (match[8] != null) {
+      html += `<u>${escapeHtml(match[8])}</u>`;
+    } else if (match[10] != null && match[11] != null) {
       try {
-        const url = new URL(match[9]);
+        const url = new URL(match[11]);
         if (url.protocol === 'http:' || url.protocol === 'https:') {
-          html += `<a href="${escapeHtmlAttr(url.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(match[8])}</a>`;
+          html += `<a href="${escapeHtmlAttr(url.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(match[10])}</a>`;
         } else {
           html += escapeHtml(match[0]);
         }
@@ -84,8 +86,60 @@ function renderInlineMarkdown(text) {
 
 export function renderMarkdown(text) {
   if (!text) return '';
-  return String(text)
-    .split('\n')
-    .map(line => line.startsWith('- ') ? `• ${renderInlineMarkdown(line.slice(2))}` : renderInlineMarkdown(line))
-    .join('<br>');
+  const lines = String(text).split('\n');
+  const html = [];
+  const openListItems = [];
+  let listDepth = -1;
+  let quoteLines = [];
+
+  const flushList = (targetDepth = -1) => {
+    while (listDepth > targetDepth) {
+      if (openListItems[listDepth]) html.push('</li>');
+      html.push('</ul>');
+      openListItems.pop();
+      listDepth -= 1;
+    }
+  };
+  const pushListItem = (depth, content) => {
+    while (listDepth < depth) {
+      html.push('<ul>');
+      listDepth += 1;
+      openListItems[listDepth] = false;
+    }
+    flushList(depth);
+    if (openListItems[depth]) html.push('</li>');
+    html.push(`<li>${content}`);
+    openListItems[depth] = true;
+  };
+  const flushQuote = () => {
+    if (!quoteLines.length) return;
+    html.push(`<blockquote>${quoteLines.join('<br>')}</blockquote>`);
+    quoteLines = [];
+  };
+  const flushBlocks = () => {
+    flushList();
+    flushQuote();
+  };
+
+  for (const line of lines) {
+    const listMatch = /^(\s*)-\s+(.*)$/.exec(line);
+    if (listMatch) {
+      flushQuote();
+      const depth = Math.floor(listMatch[1].replace(/\t/g, '  ').length / 2);
+      pushListItem(depth, renderInlineMarkdown(listMatch[2]));
+      continue;
+    }
+    if (line.startsWith('> ')) {
+      flushList();
+      quoteLines.push(renderInlineMarkdown(line.slice(2)));
+      continue;
+    }
+    flushBlocks();
+    if (line.startsWith('# ')) html.push(`<h1>${renderInlineMarkdown(line.slice(2).trim())}</h1>`);
+    else if (line.startsWith('## ')) html.push(`<h2>${renderInlineMarkdown(line.slice(3).trim())}</h2>`);
+    else if (line.trim()) html.push(`${renderInlineMarkdown(line)}<br>`);
+    else html.push('<br>');
+  }
+  flushBlocks();
+  return html.join('');
 }

@@ -1,0 +1,210 @@
+/* Todo detail description rich editor */
+
+/* Todo detail description: meta before description and lightweight WYSIWYG editor. */
+#todo-modal.todo-detail-view #todo-desc {
+  display: none !important;
+}
+
+#todo-modal.todo-detail-view.todo-desc-editing .desc-live-preview {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-wrap {
+  display: none;
+  margin-top: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-secondary) 22%, transparent);
+  overflow: visible;
+}
+
+#todo-modal.todo-detail-view.todo-desc-editing .todo-desc-rich-wrap {
+  display: block;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar {
+  position: sticky;
+  top: calc(-1 * var(--ui-detail-modal-body-pad-y, 0px));
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 18px 18px 0 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 92%, var(--bg-secondary));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--bg-primary) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comment-rich-toolbar {
+  border: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  border-radius: 14px 14px 0 0;
+}
+
+#todo-modal.todo-detail-view .todo-rich-keyboard-wrap.is-keyboard-toolbar-fixed {
+  padding-top: var(--todo-rich-toolbar-height, 44px);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed,
+.todo-desc-rich-toolbar.is-keyboard-fixed {
+  position: fixed;
+  top: var(--todo-rich-toolbar-top, 0px);
+  left: var(--todo-rich-toolbar-left, 0px);
+  width: var(--todo-rich-toolbar-width, 100vw);
+  z-index: 1200;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 96%, var(--bg-secondary));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--bg-primary) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-stuck,
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed,
+.todo-desc-rich-toolbar.is-keyboard-fixed {
+  border-radius: 0;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button,
+.todo-desc-rich-toolbar.is-keyboard-fixed button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button:hover,
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button:focus-visible,
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active,
+.todo-desc-rich-toolbar.is-keyboard-fixed button:hover,
+.todo-desc-rich-toolbar.is-keyboard-fixed button:focus-visible,
+.todo-desc-rich-toolbar.is-keyboard-fixed button.is-active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active,
+.todo-desc-rich-toolbar.is-keyboard-fixed button.is-active {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor {
+  min-height: 180px;
+  padding: 16px;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.68;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor:empty::before,
+#todo-modal.todo-detail-view .todo-comment-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor::selection,
+#todo-modal.todo-detail-view .todo-desc-rich-editor *::selection,
+#todo-modal.todo-detail-view .todo-comment-rich-editor::selection,
+#todo-modal.todo-detail-view .todo-comment-rich-editor *::selection {
+  color: #ffffff;
+  background: rgba(var(--accent-hover-rgb), 0.46);
+}
+
+[data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor::selection,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor *::selection,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-rich-editor::selection,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-rich-editor *::selection {
+  color: var(--text-primary);
+  background: rgba(var(--accent-rgb), 0.22);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor h1,
+#todo-modal.todo-detail-view .todo-comment-rich-editor h1,
+#todo-modal.todo-detail-view .desc-live-preview h1 {
+  margin: 0 0 12px;
+  font-size: 1.65em;
+  line-height: 1.16;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor h2,
+#todo-modal.todo-detail-view .todo-comment-rich-editor h2,
+#todo-modal.todo-detail-view .desc-live-preview h2 {
+  margin: 18px 0 10px;
+  font-size: 1.3em;
+  line-height: 1.2;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor p,
+#todo-modal.todo-detail-view .todo-comment-rich-editor p,
+#todo-modal.todo-detail-view .desc-live-preview p {
+  margin: 0 0 12px;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor blockquote,
+#todo-modal.todo-detail-view .todo-comment-rich-editor blockquote,
+#todo-modal.todo-detail-view .desc-live-preview blockquote,
+#todo-modal.todo-detail-view .todo-comment-body blockquote {
+  margin: 8px 0 14px;
+  padding: 8px 12px;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  color: var(--text-secondary);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor code,
+#todo-modal.todo-detail-view .todo-comment-rich-editor code,
+#todo-modal.todo-detail-view .desc-live-preview code,
+#todo-modal.todo-detail-view .todo-comment-body code {
+  padding: 0.12em 0.36em;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-hover) 70%, var(--bg-primary));
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+[data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor code,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-rich-editor code,
+[data-theme="light"] #todo-modal.todo-detail-view .desc-live-preview code,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-body code {
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-hover) 38%, var(--bg-secondary));
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor ul,
+#todo-modal.todo-detail-view .todo-comment-rich-editor ul,
+#todo-modal.todo-detail-view .desc-live-preview ul,
+#todo-modal.todo-detail-view .todo-comment-body ul {
+  margin: 8px 0 14px;
+  padding-left: 22px;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor li,
+#todo-modal.todo-detail-view .todo-comment-rich-editor li,
+#todo-modal.todo-detail-view .desc-live-preview li,
+#todo-modal.todo-detail-view .todo-comment-body li {
+  margin: 4px 0;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor li > ul,
+#todo-modal.todo-detail-view .todo-comment-rich-editor li > ul,
+#todo-modal.todo-detail-view .desc-live-preview li > ul,
+#todo-modal.todo-detail-view .todo-comment-body li > ul {
+  margin: 4px 0 6px;
+}

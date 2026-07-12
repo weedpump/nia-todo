@@ -14,10 +14,11 @@ Options:
   --artifact-dir DIR        Release artifact dir (default: dist/release/vVERSION)
   --docker-image IMAGE      Local Docker image to publish (default: nia-todo:VERSION)
   --ghcr-image IMAGE        GHCR image name (default: ghcr.io/OWNER/nia-todo)
+  --dockerhub-image IMAGE   Docker Hub image name (default: docker.io/OWNER/nia-todo)
   --no-source-push          Do not push the public source snapshot/tag
   --no-gh-release           Do not create/upload GitHub release assets
-  --no-docker-push          Do not push Docker image to GHCR
-  --latest                  Also push GHCR :latest tag
+  --no-docker-push          Do not push Docker images to registries
+  --latest                  Also push registry :latest tags
   --git-author-name NAME    Public Git commit/tag author name (default: GitHub account name/login)
   --git-author-email EMAIL  Public Git commit/tag author email (default: GitHub noreply email)
   --execute                 Actually push/upload. Default is dry-run.
@@ -33,6 +34,7 @@ SOURCE_DIR=""
 ARTIFACT_DIR=""
 DOCKER_IMAGE=""
 GHCR_IMAGE=""
+DOCKERHUB_IMAGE=""
 PUSH_SOURCE=1
 CREATE_RELEASE=1
 PUSH_DOCKER=1
@@ -51,6 +53,7 @@ while [ "$#" -gt 0 ]; do
     --artifact-dir) ARTIFACT_DIR="${2:-}"; shift 2 ;;
     --docker-image) DOCKER_IMAGE="${2:-}"; shift 2 ;;
     --ghcr-image) GHCR_IMAGE="${2:-}"; shift 2 ;;
+    --dockerhub-image) DOCKERHUB_IMAGE="${2:-}"; shift 2 ;;
     --no-source-push) PUSH_SOURCE=0; shift ;;
     --no-gh-release) CREATE_RELEASE=0; shift ;;
     --no-docker-push) PUSH_DOCKER=0; shift ;;
@@ -80,6 +83,7 @@ SOURCE_DIR="${SOURCE_DIR:-dist/build/public-release-${TAG}/public-source}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-dist/release/${TAG}}"
 DOCKER_IMAGE="${DOCKER_IMAGE:-nia-todo:${VERSION}}"
 GHCR_IMAGE="${GHCR_IMAGE:-ghcr.io/${OWNER}/nia-todo}"
+DOCKERHUB_IMAGE="${DOCKERHUB_IMAGE:-docker.io/${OWNER}/nia-todo}"
 DEB="${ARTIFACT_DIR}/nia-todo-server-v${VERSION}-full.deb"
 DEB_SHA="${DEB}.sha256"
 RELEASE_MANIFEST="${ARTIFACT_DIR}/release-manifest.json"
@@ -198,8 +202,10 @@ PY
       cat "${CHANGELOG_SECTION}"
       printf "\nDistribution targets:\n"
       printf "%s\n" "- Full Debian/Ubuntu server bundle: $(basename "${DEB}")"
-      printf "%s\n" "- Docker image: ${GHCR_IMAGE}:${VERSION}"
-      printf "\nWindows and Android apps are bundled into the server package/image and served via /downloads/.\n"
+      printf "%s\n" "- Docker images:"
+      printf "%s\n" "  - ${GHCR_IMAGE}:${VERSION}"
+      printf "%s\n" "  - ${DOCKERHUB_IMAGE}:${VERSION}"
+      printf "\nNative client apps are bundled into the server package/image and served via /downloads/.\n"
     } > "${RELEASE_NOTES}"
   else
     echo "+ generate release notes from CHANGELOG.md section ${VERSION}"
@@ -212,9 +218,13 @@ fi
 if [ "${PUSH_DOCKER}" = "1" ]; then
   run docker tag "${DOCKER_IMAGE}" "${GHCR_IMAGE}:${VERSION}"
   run docker push "${GHCR_IMAGE}:${VERSION}"
+  run docker tag "${DOCKER_IMAGE}" "${DOCKERHUB_IMAGE}:${VERSION}"
+  run docker push "${DOCKERHUB_IMAGE}:${VERSION}"
   if [ "${LATEST}" = "1" ]; then
     run docker tag "${DOCKER_IMAGE}" "${GHCR_IMAGE}:latest"
     run docker push "${GHCR_IMAGE}:latest"
+    run docker tag "${DOCKER_IMAGE}" "${DOCKERHUB_IMAGE}:latest"
+    run docker push "${DOCKERHUB_IMAGE}:latest"
   fi
 fi
 

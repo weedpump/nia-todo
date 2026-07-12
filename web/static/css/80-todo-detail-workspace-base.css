@@ -1,0 +1,72 @@
+/* Todo detail workspace base. */
+#todo-modal.todo-detail-view .todo-editor-shell {
+  display: grid;
+  align-items: start;
+}
+
+#todo-modal.todo-detail-view .todo-editor-main { grid-area: content; }
+#todo-modal.todo-detail-view .todo-subtasks-card { grid-area: subtasks; }
+#todo-modal.todo-detail-view .todo-attachments-card { grid-area: attachments; }
+#todo-modal.todo-detail-view .todo-comments-card { grid-area: comments; }
+#todo-modal.todo-detail-view .todo-editor-section {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view .todo-editor-main .ui-section-heading {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-title-group label,
+#todo-modal.todo-detail-view .todo-title-group .quick-add-hint,
+#todo-modal.todo-detail-view .todo-editor-main label[for="todo-desc"],
+#todo-modal.todo-detail-view .todo-editor-main .form-group > label {
+  display: none;
+}
+
+#todo-modal.todo-detail-view.todo-create-view .todo-title-group .quick-add-hint {
+  display: block;
+  margin-top: 8px;
+}
+
+#todo-modal.todo-detail-view.todo-create-view .todo-title-group .quick-add-preview {
+  margin-top: 10px;
+}
+
+#todo-modal.todo-detail-view .desc-live-preview {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1.72;
+  cursor: text;
+}
+
+#todo-modal.todo-detail-view .desc-live-preview:empty::before {
+  content: attr(data-empty-label);
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-collapsible-summary {
+  cursor: default;
+}
+
+#todo-modal.todo-detail-view .todo-collapsible-chevron {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .ui-section-heading p {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row,
+#todo-modal.todo-detail-view .todo-attachment-item,
+#todo-modal.todo-detail-view .todo-comment-item {
+  box-shadow: none;
+}
+

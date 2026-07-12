@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
+async function fillTodoDescription(page, value) {
+  await page.click('#todo-desc-preview');
+  await page.locator('#todo-desc-rich-editor').fill(value);
+}
+
 async function run() {
   console.log('🔁 Running frontend offline→online sync test...');
   const { browser, page, loginApp, visible, waitForText, openTodoModal, assertNoFrontendErrors, dumpErrors } = await launchPage();
@@ -11,7 +16,7 @@ async function run() {
 
     await openTodoModal();
     await page.fill('#todo-title', 'Offline Sync Todo');
-    await page.fill('#todo-desc', 'Created for offline sync regression');
+    await fillTodoDescription(page, 'Created for offline sync regression');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForText('Offline Sync Todo');
@@ -27,7 +32,7 @@ async function run() {
 
     await page.locator('.todo-item').filter({ hasText: 'Offline Sync Todo' }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
-    await page.selectOption('#todo-status', 'done');
+    await fillTodoDescription(page, 'Edited while offline');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
@@ -35,10 +40,10 @@ async function run() {
       const todos = await window.dbGetAll('todos');
       const queue = await window.dbGetAll('syncQueue');
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
-      return { status: todo?.status, queueLength: queue.length, queue };
+      return { description: todo?.description || '', queueLength: queue.length, queue };
     });
-    if (queuedOffline.status !== 'done' || queuedOffline.queueLength < 1) {
-      throw new Error(`Offline update was not queued correctly: ${JSON.stringify(queuedOffline)}`);
+    if (queuedOffline.description !== 'Edited while offline' || queuedOffline.queueLength < 1 || !queuedOffline.queue.some(item => item.action === 'UPDATE_TODO' && item.data?.changes?.description === 'Edited while offline')) {
+      throw new Error(`Offline todo update was not queued correctly: ${JSON.stringify(queuedOffline)}`);
     }
 
     await page.context().setOffline(false);
@@ -50,7 +55,7 @@ async function run() {
       const queue = await window.dbGetAll('syncQueue');
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
-      return queue.length === 0 && todo?.status === 'done';
+      return queue.length === 0 && todo?.description === 'Edited while offline';
     }, null, { timeout: 15000 });
 
     await page.waitForFunction(async () => {
@@ -60,7 +65,7 @@ async function run() {
       const data = await response.json();
       const todos = data.todos || [];
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
-      return response.ok && todo?.status === 'done';
+      return response.ok && todo?.description === 'Edited while offline';
     }, null, { timeout: 15000 });
 
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -69,7 +74,7 @@ async function run() {
       if (typeof window.dbGetAll !== 'function') return false;
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
-      return todo?.status === 'done';
+      return todo?.description === 'Edited while offline';
     }, null, { timeout: 15000 });
 
     const errors = dumpErrors();

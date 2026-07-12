@@ -7,15 +7,19 @@ DB_PATH="${NIA_TODO_DB:-nia-todo.db}"
 if [[ "${DB_PATH}" != /* ]]; then
   DB_PATH="${DATA_DIR}/${DB_PATH}"
 fi
-AVATAR_DIR="${NIA_TODO_AVATAR_DIR:-${DATA_DIR}/avatars}"
-VAPID_KEYS_PATH="${NIA_TODO_VAPID_KEYS:-${DATA_DIR}/vapid_keys.json}"
 LOCK_FILE="${BACKUP_DIR}/.nia-todo-backup.lock"
 
 mkdir -p "${BACKUP_DIR}"
 
+for custom_path in "${NIA_TODO_AVATAR_DIR:-}" "${NIA_TODO_ATTACHMENT_DIR:-}" "${NIA_TODO_VAPID_KEYS:-}"; do
+  if [[ -n "${custom_path}" && "${custom_path}" != "${DATA_DIR}"/* && "${custom_path}" != "${DATA_DIR}" ]]; then
+    echo "Warning: custom runtime path outside NIA_TODO_DATA_DIR is not included in backups: ${custom_path}" >&2
+  fi
+done
+
 {
   flock -n 9 || { echo "$(date -Is) another backup run is active, skipping"; exit 0; }
-  python3 - <<'PY' "${DATA_DIR}" "${BACKUP_DIR}" "${DB_PATH}" "${AVATAR_DIR}" "${VAPID_KEYS_PATH}"
+  python3 - <<'PY' "${DATA_DIR}" "${BACKUP_DIR}" "${DB_PATH}"
 import hashlib
 import json
 import os
@@ -26,11 +30,9 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-data_dir = Path(sys.argv[1])
-backup_dir = Path(sys.argv[2])
-db_path = Path(sys.argv[3])
-avatar_dir = Path(sys.argv[4])
-vapid_keys_path = Path(sys.argv[5])
+data_dir = Path(sys.argv[1]).resolve()
+backup_dir = Path(sys.argv[2]).resolve()
+db_path = Path(sys.argv[3]).resolve()
 backup_dir.mkdir(parents=True, exist_ok=True)
 
 if not db_path.exists():
@@ -73,31 +75,42 @@ def sha256_file(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+def is_relative_to(path: Path, other: Path) -> bool:
+    try:
+        path.relative_to(other)
+        return True
+    except ValueError:
+        return False
+
+def should_include_data_file(path: Path) -> bool:
+    resolved = path.resolve()
+    if resolved == db_path:
+        return False
+    if is_relative_to(resolved, backup_dir):
+        return False
+    if resolved.name.endswith(('.tmp', '.lock', '-journal', '-wal', '-shm')):
+        return False
+    if resolved.name.startswith('.') and resolved.suffix in {'.tmp', '.lock'}:
+        return False
+    return True
+
 db_sha256 = sha256_file(tmp_db)
-avatar_files = sorted(p for p in avatar_dir.rglob('*') if p.is_file()) if avatar_dir.exists() else []
-avatar_manifest = []
-for path in avatar_files:
-    avatar_manifest.append({
-        'path': str(Path('avatars') / path.relative_to(avatar_dir)),
+data_files = sorted(p for p in data_dir.rglob('*') if p.is_file() and should_include_data_file(p)) if data_dir.exists() else []
+data_manifest = []
+for path in data_files:
+    archive_path = Path('data') / path.relative_to(data_dir)
+    data_manifest.append({
+        'path': str(archive_path),
         'size_bytes': path.stat().st_size,
         'sha256': sha256_file(path),
     })
 
-vapid_manifest = None
-if vapid_keys_path.exists():
-    vapid_manifest = {
-        'path': 'vapid_keys.json',
-        'size_bytes': vapid_keys_path.stat().st_size,
-        'sha256': sha256_file(vapid_keys_path),
-    }
-
 metadata = {
     'type': 'nia-todo-daily-backup',
-    'format': 'zip-with-db-metadata-avatars-and-vapid',
+    'format': 'zip-with-sqlite-backup-and-data-dir-v2',
     'data_dir': str(data_dir),
     'source_db': str(db_path),
-    'source_avatars': str(avatar_dir),
-    'source_vapid_keys': str(vapid_keys_path),
+    'excluded_paths': [str(db_path), str(backup_dir)],
     'backup': str(backup),
     'slot': slot,
     'started_at': started_at,
@@ -109,22 +122,19 @@ metadata = {
         'sha256': db_sha256,
         'integrity_check': integrity,
     },
-    'avatars': {
-        'directory': 'avatars/',
-        'file_count': len(avatar_files),
-        'files': avatar_manifest,
+    'data': {
+        'directory': 'data/',
+        'file_count': len(data_files),
+        'files': data_manifest,
     },
-    'vapid_keys': vapid_manifest,
     'retention': '30 rotating daily slots; slot is overwritten after 30 days',
 }
 
 with zipfile.ZipFile(tmp_zip, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
     zf.write(tmp_db, 'nia-todo.db')
     zf.writestr('metadata.json', json.dumps(metadata, indent=2) + '\n')
-    for path in avatar_files:
-        zf.write(path, str(Path('avatars') / path.relative_to(avatar_dir)))
-    if vapid_keys_path.exists():
-        zf.write(vapid_keys_path, 'vapid_keys.json')
+    for path in data_files:
+        zf.write(path, str(Path('data') / path.relative_to(data_dir)))
 
 tmp_db.unlink(missing_ok=True)
 zip_sha256 = sha256_file(tmp_zip)
@@ -139,7 +149,7 @@ meta.write_text(json.dumps(metadata, indent=2) + '\n')
 print(
     f'{datetime.now().isoformat()} backup ok slot={slot:02d} '
     f'archive={backup} schema={schema_version} db_size={metadata["db"]["size_bytes"]} '
-    f'avatar_files={len(avatar_files)} archive_size={backup.stat().st_size}'
+    f'data_files={len(data_files)} archive_size={backup.stat().st_size}'
 )
 PY
 } 9>"${LOCK_FILE}"

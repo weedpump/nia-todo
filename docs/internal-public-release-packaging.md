@@ -9,17 +9,25 @@ A public release has exactly two distribution targets:
 1. `nia-todo-server-vX.Y.Z-full.deb`
    - Debian/Ubuntu server installer
    - contains the web/server source
-   - contains bundled Windows/Android client downloads under `/opt/nia-todo/web/downloads/`
+   - contains bundled Windows/Android/Debian client downloads under `/opt/nia-todo/web/downloads/`
 2. Docker image
    - built from the same clean public export
-   - contains the same bundled Windows/Android client downloads under `/app/web/downloads/`
+   - contains the same bundled Windows/Android/Debian client downloads under `/app/web/downloads/`
    - Python wheels are prepared before the final `docker build` in a temporary Python builder container; the final Dockerfile only installs from the local wheelhouse
 
-Windows and Android installers/APKs are embedded into both release targets, not published as separate required public assets. They must come from the local native build output, either via explicit `--windows-installer` / `--android-apk` paths or via the standard `dist/native/vX.Y.Z/` artifact directory.
+Windows installers, Android APKs, and Debian desktop packages are embedded into both release targets, not published as separate required public assets. They must come from the local native build output, either via explicit `--windows-installer` / `--android-apk` / `--debian-deb` paths or via the standard `dist/native/vX.Y.Z/` artifact directory.
+
+Native artifact names in `dist/native/vX.Y.Z/`:
+
+- `nia-todo-vX.Y.Z-windows-x64-setup.exe`
+- `nia-todo-vX.Y.Z-android-arm64.apk`
+- `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`
+
+The Debian desktop `.deb` is repacked from Tauri's raw package to `Package: nia-todo-desktop` so it can be installed on the same host as the server package `nia-todo` without a Debian package-name conflict.
 
 ## Release entrypoint
 
-A real release is started through the top-level release script and includes GitHub/GHCR publishing plus local cleanup:
+A real release is started through the top-level release script and includes GitHub/GHCR/Docker Hub publishing plus local cleanup:
 
 ```bash
 ./release.sh X.Y.Z --github-repo OWNER/REPO
@@ -37,9 +45,9 @@ The lower-level scripts are implementation steps used by `release.sh`:
 
 ```bash
 scripts/release/export-public.sh X.Y.Z --output dist/public/nia-todo-X.Y.Z --init-git
-scripts/release/build-full-bundle.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk
-scripts/release/build-docker.sh X.Y.Z --tag nia-todo:X.Y.Z
-scripts/release/public-release.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk
+scripts/release/build-full-bundle.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk --debian-deb /path/app.deb
+scripts/release/build-docker.sh X.Y.Z --tag nia-todo:X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk --debian-deb /path/app.deb
+scripts/release/public-release.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk --debian-deb /path/app.deb
 scripts/release/publish-github.sh X.Y.Z --github-repo OWNER/REPO --execute
 ```
 
@@ -64,13 +72,13 @@ Excluded examples:
 
 ## Publishing
 
-`release.sh` calls `publish-github.sh --execute` after the public artifacts are built. `publish-github.sh` remains dry-run by default when invoked directly, so manual publish experiments do not accidentally update GitHub/GHCR.
+`release.sh` calls `publish-github.sh --execute` after the public artifacts are built. `publish-github.sh` remains dry-run by default when invoked directly, so manual publish experiments do not accidentally update GitHub/GHCR/Docker Hub.
 
 It publishes:
 
 - the clean public source snapshot and tag
 - the GitHub release with the full `.deb`, checksum and release manifest
-- the Docker image to GHCR
+- the Docker image to GHCR and Docker Hub (`docker.io/weedpump/nia-todo`)
 
 ## Notes
 
@@ -81,11 +89,11 @@ Runtime data is intentionally outside the application directory:
 - Debian package: `/var/lib/nia-todo`
 - Docker image: `/data`
 
-Both contain the SQLite database, avatars, VAPID keys and local backups.
+Both contain the SQLite database, avatars, todo attachments, VAPID keys and local backups.
 
 The Debian package also installs a daily backup timer (`nia-todo-backup.timer`) and ships manual backup/restore helpers:
 
 - `nia-todo-backup`
 - `nia-todo-restore <backup.zip>`
 
-After a successful release, `release.sh` removes local `dist/native/vX.Y.Z`, `dist/release/vX.Y.Z`, `dist/build/public-release-vX.Y.Z`, and local Docker tags for `nia-todo:X.Y.Z` plus the GHCR publish tags. Use `--keep-release-artifacts` only for debugging.
+After a successful release, `release.sh` removes local `dist/native/vX.Y.Z`, `dist/release/vX.Y.Z`, `dist/build/public-release-vX.Y.Z`, and local Docker tags for `nia-todo:X.Y.Z` plus the GHCR/Docker Hub publish tags. Use `--keep-release-artifacts` only for debugging.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { chromium } from 'playwright';
-import { existsSync, renameSync, unlinkSync, mkdirSync } from 'node:fs';
+import { existsSync, renameSync, unlinkSync, mkdirSync, rmSync, copyFileSync, cpSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -8,6 +8,10 @@ export const BASE_URL = process.env.NIA_TODO_URL || 'http://localhost:8754';
 export const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo-dev';
 export const DB_PATH = '~/projects/nia-todo-dev/api/data/nia-todo-dev.db';
 export const DB_BACKUP = '~/projects/nia-todo-dev/api/data/nia-todo-dev.db.frontend-test-backup';
+export const DB_SUITE_BACKUP = '~/projects/nia-todo-dev/api/data/nia-todo-dev.db.frontend-suite-backup';
+export const ATTACHMENT_DIR = '~/projects/nia-todo-dev/api/data/attachments';
+export const ATTACHMENT_BACKUP = '~/projects/nia-todo-dev/api/data/attachments.frontend-test-backup';
+export const ATTACHMENT_SUITE_BACKUP = '~/projects/nia-todo-dev/api/data/attachments.frontend-suite-backup';
 export const ADMIN_PASSWORD = 'FrontendAdmin123!';
 export const USERNAME = 'frontenduser';
 export const USER_PASSWORD = 'FrontendPass123!';
@@ -48,22 +52,123 @@ export async function api(method, path, body) {
   return data;
 }
 
+function devDbUsers(path = DB_PATH) {
+  if (!existsSync(path)) return null;
+  const script = `
+import json, sqlite3, sys
+path = sys.argv[1]
+con = sqlite3.connect(path)
+try:
+    tables = {row[0] for row in con.execute("select name from sqlite_master where type='table'")}
+    if "users" not in tables:
+        print(json.dumps([]))
+    else:
+        print(json.dumps([
+            {"username": username, "email": email}
+            for username, email in con.execute("select username, email from users order by id")
+        ]))
+finally:
+    con.close()
+`;
+  return JSON.parse(sh('python3', ['-c', script, path]).trim());
+}
+
+function assertRestorableDevDb(path = DB_PATH, context = 'backup') {
+  const users = devDbUsers(path);
+  if (users === null) return;
+  if (users.length <= 0 && process.env.NIA_TODO_ALLOW_EMPTY_DEV_DB_BACKUP !== '1') {
+    throw new Error(`${context} refused: ${path} has users=${users.length}. Refusing to treat an empty dev DB as the original DB.`);
+  }
+}
+
+function assertNotFrontendTestOnlyDb(path = DB_PATH, context = 'backup') {
+  const users = devDbUsers(path);
+  if (users === null) return;
+  const usernames = users.map(user => user.username).sort();
+  if (usernames.length === 1 && usernames[0] === USERNAME) {
+    throw new Error(`${context} refused: ${path} only contains ${USERNAME}. Refusing to preserve a frontend test DB as the dev DB.`);
+  }
+}
+
+function suiteDbManaged() {
+  return process.env.NIA_TODO_FRONTEND_DB_SUITE === '1';
+}
+
+function sharedSuiteDbManaged() {
+  return suiteDbManaged() && process.env.NIA_TODO_FRONTEND_DB_SHARED === '1';
+}
+
+function removeTransientFrontendState() {
+  if (existsSync(DB_PATH)) unlinkSync(DB_PATH);
+  if (existsSync(ATTACHMENT_DIR)) rmSync(ATTACHMENT_DIR, { recursive: true, force: true });
+}
+
+export function beginFrontendDbSuite() {
+  mkdirSync(dirname(DB_PATH), { recursive: true });
+  try { service('stop'); } catch {}
+  assertRestorableDevDb(DB_PATH, 'Frontend suite DB backup');
+  assertNotFrontendTestOnlyDb(DB_PATH, 'Frontend suite DB backup');
+  if (existsSync(DB_SUITE_BACKUP)) {
+    throw new Error(`${DB_SUITE_BACKUP} already exists. Refusing to overwrite a possible original DB backup.`);
+  }
+  if (existsSync(ATTACHMENT_SUITE_BACKUP)) {
+    throw new Error(`${ATTACHMENT_SUITE_BACKUP} already exists. Refusing to overwrite a possible original attachment backup.`);
+  }
+  if (existsSync(DB_BACKUP)) unlinkSync(DB_BACKUP);
+  if (existsSync(ATTACHMENT_BACKUP)) rmSync(ATTACHMENT_BACKUP, { recursive: true, force: true });
+  if (existsSync(DB_PATH)) copyFileSync(DB_PATH, DB_SUITE_BACKUP);
+  if (existsSync(ATTACHMENT_DIR)) cpSync(ATTACHMENT_DIR, ATTACHMENT_SUITE_BACKUP, { recursive: true });
+  removeTransientFrontendState();
+}
+
+export function restoreFrontendDbSuite() {
+  try { service('stop'); } catch {}
+  removeTransientFrontendState();
+  if (existsSync(DB_SUITE_BACKUP)) copyFileSync(DB_SUITE_BACKUP, DB_PATH);
+  if (existsSync(ATTACHMENT_SUITE_BACKUP)) cpSync(ATTACHMENT_SUITE_BACKUP, ATTACHMENT_DIR, { recursive: true });
+  assertRestorableDevDb(DB_PATH, 'Frontend suite DB restore');
+  assertNotFrontendTestOnlyDb(DB_PATH, 'Frontend suite DB restore');
+  if (existsSync(DB_SUITE_BACKUP)) unlinkSync(DB_SUITE_BACKUP);
+  if (existsSync(ATTACHMENT_SUITE_BACKUP)) rmSync(ATTACHMENT_SUITE_BACKUP, { recursive: true, force: true });
+  service('start');
+}
+
 export function backupDb() {
   mkdirSync(dirname(DB_PATH), { recursive: true });
+  if (suiteDbManaged()) {
+    try { service('stop'); } catch {}
+    removeTransientFrontendState();
+    return;
+  }
+  assertRestorableDevDb(DB_PATH, 'Frontend test DB backup');
   if (existsSync(DB_BACKUP)) unlinkSync(DB_BACKUP);
   if (existsSync(DB_PATH)) renameSync(DB_PATH, DB_BACKUP);
+  if (existsSync(ATTACHMENT_BACKUP)) rmSync(ATTACHMENT_BACKUP, { recursive: true, force: true });
+  if (existsSync(ATTACHMENT_DIR)) renameSync(ATTACHMENT_DIR, ATTACHMENT_BACKUP);
 }
 
 export function restoreDb() {
   try { service('stop'); } catch {}
+  if (suiteDbManaged()) {
+    removeTransientFrontendState();
+    service('start');
+    return;
+  }
   if (existsSync(DB_PATH)) unlinkSync(DB_PATH);
   if (existsSync(DB_BACKUP)) renameSync(DB_BACKUP, DB_PATH);
+  if (existsSync(ATTACHMENT_DIR)) rmSync(ATTACHMENT_DIR, { recursive: true, force: true });
+  if (existsSync(ATTACHMENT_BACKUP)) renameSync(ATTACHMENT_BACKUP, ATTACHMENT_DIR);
+  assertRestorableDevDb(DB_PATH, 'Frontend test DB restore');
   service('start');
 }
 
 export async function prepareFreshDb() {
   try { service('stop'); } catch {}
-  backupDb();
+  if (suiteDbManaged()) {
+    removeTransientFrontendState();
+  } else {
+    backupDb();
+  }
   service('start');
   await waitForService();
   await api('POST', '/api/setup/admin', { admin_password: ADMIN_PASSWORD });
@@ -75,14 +180,65 @@ export async function prepareFreshDb() {
   });
 }
 
-export async function launchPage() {
+export async function launchPage({ serviceWorkers = 'block' } = {}) {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers });
+  const page = await context.newPage();
+  if (serviceWorkers === 'block') {
+    await page.addInitScript(() => {
+      const mockRegistration = {
+        scope: `${window.location.origin}/`,
+        active: null,
+        waiting: null,
+        installing: null,
+        update: async () => undefined,
+        unregister: async () => true,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      };
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: {
+          controller: null,
+          ready: Promise.resolve(null),
+          register: async () => mockRegistration,
+          getRegistrations: async () => [],
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        },
+      });
+    });
+  }
   const consoleErrors = [];
   const pageErrors = [];
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('dialog', dialog => dialog.accept());
+  if (process.env.NIA_TODO_FRONTEND_ENABLE_WHATS_NEW !== '1') {
+    await page.route('**/static/content/whats-new.json', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: '{"releases":[]}',
+    }));
+  }
+
+  async function dismissWhatsNewIfVisible() {
+    const modal = page.locator('#whats-new-modal.active');
+    const appeared = await modal.waitFor({ state: 'visible', timeout: 1500 }).then(() => true).catch(() => false);
+    if (!appeared) return false;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const done = modal.locator('[data-whats-new-action="done"]');
+      if (await done.isVisible().catch(() => false)) {
+        await done.click();
+        await modal.waitFor({ state: 'hidden', timeout: 5000 });
+        return true;
+      }
+      const next = modal.locator('[data-whats-new-action="next"]');
+      if (!(await next.isVisible().catch(() => false))) break;
+      await next.click();
+    }
+    throw new Error("What's new modal did not reach the done action");
+  }
 
   const helpers = {
     visible: (sel, timeout = 5000) => page.locator(sel).waitFor({ state: 'visible', timeout }),
@@ -110,11 +266,11 @@ export async function launchPage() {
       }, { labels: expectedLabels, disabled }, { timeout: 10000 });
     },
     createSection: async (name) => {
-      await page.evaluate(() => window.showAddSectionForm());
+      await page.locator('[data-section-action="show-add"]').click();
       const input = page.locator('#new-section-name');
       await input.waitFor({ state: 'visible' });
       await input.fill(name);
-      await page.evaluate(() => window.saveNewSection());
+      await page.locator('[data-section-action="save-new"]').click();
       await page.getByText(name, { exact: true }).waitFor({ state: 'visible' });
     },
     loginApp: async () => {
@@ -127,7 +283,9 @@ export async function launchPage() {
       await page.click('button.login-btn');
       await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
       await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+      await dismissWhatsNewIfVisible();
     },
+    dismissWhatsNewIfVisible,
     assertNoFrontendErrors: () => {
       const filtered = consoleErrors.filter(msg => !msg.includes('Failed to load resource: the server responded with a status of 404'));
       if (pageErrors.length || filtered.length) {
@@ -141,14 +299,28 @@ export async function launchPage() {
 }
 
 export async function withFreshDb(run) {
+  if (sharedSuiteDbManaged()) {
+    await waitForService();
+    await run();
+    return;
+  }
+
   let ok = false;
   try {
-    console.log('📦 Backup DB + prepare fresh frontend test DB...');
+    if (suiteDbManaged()) {
+      console.log('🧪 Preparing isolated frontend test DB...');
+    } else {
+      console.log('📦 Backup DB + prepare fresh frontend test DB...');
+    }
     await prepareFreshDb();
     await run();
     ok = true;
   } finally {
-    console.log('🔄 Restoring original dev DB...');
+    if (suiteDbManaged()) {
+      console.log('🧹 Cleaning frontend test DB...');
+    } else {
+      console.log('🔄 Restoring original dev DB...');
+    }
     restoreDb();
     if (ok) {
       await waitForService();

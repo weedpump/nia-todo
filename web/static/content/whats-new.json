@@ -1,0 +1,1489 @@
+{
+  "releases": [
+    {
+      "version": "3.0.0",
+      "appVersions": [
+        "v2.12.3-dev"
+      ],
+      "carryForward": true,
+      "content": {
+        "de": {
+          "title": "Was ist neu in nia-todo?",
+          "intro": "Version 3 ist das bisher größte Update für nia-todo: eine ruhigere Oberfläche, ein neues Todo-Erlebnis und viele Funktionen, die tägliche Arbeit spürbar runder machen.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Eine neue, ruhigere Oberfläche",
+              "body": "nia-todo wirkt moderner, runder und klarer — mit weniger visueller Unruhe und mehr Fokus auf deine Aufgaben.",
+              "bullets": [
+                "weiche Pills, rundere Flächen und ruhigere Menüs",
+                "einheitliche Buttons, Dropdowns, Karten und Dialoge",
+                "konsistente Designsprache für Web, Desktop und Mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos lesen sich jetzt wie Dokumente",
+              "body": "Das Todo-Modal wurde grundlegend überarbeitet und fühlt sich nicht mehr wie ein endloses Formular an.",
+              "bullets": [
+                "klare Detailansicht für bestehende Todos",
+                "Abschnitte für Inhalt, Planung, Organisation und Extras",
+                "Bearbeiten bleibt möglich, steht aber nicht ständig im Weg"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Neue Kalenderansicht",
+              "body": "Todos mit Fälligkeitsdatum bekommen eine eigene Kalenderansicht, damit Zeitplanung sichtbarer wird.",
+              "bullets": [
+                "Tag-, Wochen- und Monatsmodus",
+                "Timeline-Layouts auf Desktop und Tablet",
+                "kompakte Monatsauswahl mit Tagesliste auf Mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Subtasks für echte Checklisten",
+              "body": "Größere Aufgaben lassen sich jetzt direkt im Todo in kleinere Schritte aufteilen.",
+              "bullets": [
+                "Fortschrittsanzeige direkt auf Todo-Karten",
+                "Realtime-Sync und unabhängige Aktionen pro Subtask",
+                "Warnung, wenn ein Todo mit offenen Subtasks abgeschlossen wird"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Kommentare und bessere Zusammenarbeit",
+              "body": "Kontext, Entscheidungen und kurze Notizen bleiben direkt dort, wo sie hingehören: am Todo.",
+              "bullets": [
+                "Kommentare mit Autor, Zeitstempel und Zähler",
+                "Bearbeiten, Löschen und Realtime-Updates",
+                "sauber eingebunden in geteilte Projekte"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Anhänge direkt am Todo",
+              "body": "Dateien können jetzt direkt an Aufgaben hängen — inklusive Vorschau und sauberer Zugriffskontrolle.",
+              "bullets": [
+                "Uploads, Downloads und Vorschau für Bilder/PDFs",
+                "Attachment-Zähler und Realtime-Updates",
+                "Admin-Regeln für Dateitypen und Speicherquoten"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Mehr Sprachen für nia-todo",
+              "body": "nia-todo spricht nun **12** Sprachen.",
+              "bullets": [
+                "neu: Tschechisch, Französisch, Italienisch, Niederländisch, Polnisch, Portugiesisch (Brasilien), Russisch, Schwedisch, Spanisch und Chinesisch (vereinfacht)",
+                "Sprachauswahl für Nutzerprofil und Admin-Bereich erweitert",
+                "lokalisierte System-Mails für Einladungen, Passwort-Reset, E-Mail-Bestätigung und 2FA-Codes"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Native Apps: jetzt auch für Debian",
+              "body": "Neben Windows und Android gibt es nia-todo jetzt auch als native Debian-Desktop-App.",
+              "bullets": [
+                ".deb-Paket mit Release- und Download-Integration",
+                "Autostart, Tray, globale Hotkeys und OIDC-Rücksprung",
+                "native Attachment-Downloads in Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Mehr Stabilität unter der Haube",
+              "body": "Viele Verbesserungen sieht man nicht sofort — man merkt sie aber im Alltag.",
+              "bullets": [
+                "robustere Offline-, Sync- und Service-Worker-Pfade",
+                "sicherere Attachment-Verarbeitung",
+                "aufgeräumteres Frontend mit gemeinsamen UI-Primitives"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "What's new in nia-todo?",
+          "intro": "Version 3 is the biggest nia-todo update so far: a calmer interface, a new todo experience, and many improvements that make day-to-day work feel smoother.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "A calmer, more modern interface",
+              "body": "nia-todo now feels rounder, cleaner, and more focused, with less visual noise around your tasks.",
+              "bullets": [
+                "soft pills, rounder surfaces, and calmer menus",
+                "consistent buttons, dropdowns, cards, and dialogs",
+                "one visual language across web, desktop, and mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos now read like documents",
+              "body": "The todo modal has been redesigned so existing tasks no longer feel like an endless form.",
+              "bullets": [
+                "a clearer detail view for existing todos",
+                "sections for content, planning, organization, and extras",
+                "editing stays available without constantly getting in the way"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "New calendar view",
+              "body": "Todos with due dates now have their own calendar view, making time planning easier to scan.",
+              "bullets": [
+                "day, week, and month modes",
+                "timeline-style layouts on desktop and tablet",
+                "compact month picker with daily list on mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Subtasks for real checklists",
+              "body": "Larger tasks can now be broken down into smaller steps directly inside the todo.",
+              "bullets": [
+                "progress indicators directly on todo cards",
+                "realtime sync and independent actions per subtask",
+                "confirmation before completing a todo with open subtasks"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Comments and better collaboration",
+              "body": "Context, decisions, and quick notes now stay exactly where they belong: on the todo.",
+              "bullets": [
+                "comments with author, timestamp, and counters",
+                "edit, delete, and realtime updates",
+                "clean integration with shared projects"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Attachments directly on todos",
+              "body": "Files can now live directly on tasks, with previews and proper access control.",
+              "bullets": [
+                "uploads, downloads, and image/PDF previews",
+                "attachment counters and realtime updates",
+                "admin controls for file types and storage quotas"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "More languages for nia-todo",
+              "body": "nia-todo now speaks **12** languages.",
+              "bullets": [
+                "new: Czech, French, Italian, Dutch, Polish, Brazilian Portuguese, Russian, Swedish, Spanish, and Chinese (Simplified)",
+                "expanded language selection for user profiles and the admin area",
+                "localized system emails for invites, password resets, email verification, and 2FA codes"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Native apps: now including Debian",
+              "body": "In addition to Windows and Android, nia-todo now ships as a native Debian desktop app.",
+              "bullets": [
+                ".deb package with release and download integration",
+                "autostart, tray, global hotkeys, and OIDC return handling",
+                "native attachment downloads into Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "More stability under the hood",
+              "body": "Many improvements are invisible at first glance, but make everyday use smoother.",
+              "bullets": [
+                "more reliable offline, sync, and service-worker paths",
+                "safer attachment handling",
+                "a cleaner frontend built around shared UI primitives"
+              ]
+            }
+          ]
+        },
+        "cs": {
+          "title": "Co je nového v nia-todo?",
+          "intro": "Verze 3 je dosud největší aktualizací nia-todo: klidnější rozhraní, nová zkušenost s úkoly a mnoho vylepšení, díky nimž je každodenní práce plynulejší.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Klidnější a modernější rozhraní",
+              "body": "nia-todo je nyní kulatější, čistší a soustředěnější, s menším vizuálním šumem kolem vašich úkolů.",
+              "bullets": [
+                "měkké UI pills, kulatější plochy a klidnější menu",
+                "konzistentní tlačítka, rozevírací seznamy, karty a dialogy",
+                "jeden vizuální jazyk pro web, počítače a mobily"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos se teď čtou jako dokumenty",
+              "body": "Todo modal byl přepracován, takže existující úkoly už nepůsobí jako nekonečný formulář.",
+              "bullets": [
+                "jasnější detailní pohled na existující úkoly",
+                "sekce pro obsah, plánování, organizaci a doplňky",
+                "úpravy zůstávají dostupné, aniž by vám neustále překážely"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Nové zobrazení kalendáře",
+              "body": "Úkoly s termíny odevzdání mají nyní vlastní zobrazení kalendáře, což usnadňuje skenování plánování času.",
+              "bullets": [
+                "denní, týdenní a měsíční režimy",
+                "rozložení ve stylu časové osy na počítači a tabletu",
+                "kompaktní výběr měsíce s denním seznamem na mobilu"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Dílčí úkoly pro skutečné kontrolní seznamy",
+              "body": "Větší úkoly lze nyní rozdělit na menší kroky přímo uvnitř úkolu.",
+              "bullets": [
+                "indikátory průběhu přímo na kartách úkolů",
+                "synchronizace v reálném čase a nezávislé akce na dílčí úkol",
+                "potvrzení před dokončením úkolu s otevřenými dílčími úkoly"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Komentáře a lepší spolupráce",
+              "body": "Kontext, rozhodnutí a rychlé poznámky nyní zůstávají přesně tam, kam patří: na úkolu.",
+              "bullets": [
+                "komentáře s autorem, časovým razítkem a počítadly",
+                "upravovat, mazat a aktualizovat v reálném čase",
+                "čistá integrace se sdílenými projekty"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Přílohy přímo u todos",
+              "body": "Soubory teď mohou být přímo u úkolů — včetně náhledu a správného řízení přístupu.",
+              "bullets": [
+                "nahrávání, stahování a náhledy obrázků/PDF",
+                "počítadla příloh a aktualizace v reálném čase",
+                "administrátorské ovládací prvky pro typy souborů a kvóty úložiště"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Více jazyků pro nia-todo",
+              "body": "nia-todo nyní mluví **12** jazyky.",
+              "bullets": [
+                "nově: čeština, francouzština, italština, nizozemština, polština, brazilská portugalština, ruština, švédština, španělština a zjednodušená čínština",
+                "rozšířená volba jazyka v uživatelském profilu i administraci",
+                "lokalizované systémové e-maily pro pozvánky, reset hesla, ověření e-mailu a 2FA kódy"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Nativní aplikace: nyní včetně Debianu",
+              "body": "Kromě Windows a Androidu se nia-todo nyní dodává jako nativní desktopová aplikace Debianu.",
+              "bullets": [
+                "Balíček .deb s integrací uvolnění a stahování",
+                "autostart, zásobník, globální klávesové zkratky a zpracování návratu OIDC",
+                "nativní přílohy ke stažení do Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Více stability pod kapotou",
+              "body": "Mnohá vylepšení jsou na první pohled neviditelná, ale usnadňují každodenní používání.",
+              "bullets": [
+                "spolehlivější offline, synchronizační a service-worker cesty",
+                "bezpečnější zpracování příloh",
+                "čistší frontend postavený na sdílených primitivech uživatelského rozhraní"
+              ]
+            }
+          ]
+        },
+        "fr": {
+          "title": "Quoi de neuf dans nia-todo ?",
+          "intro": "La version 3 est la plus grande mise à jour de nia-todo à ce jour : une interface plus calme, une nouvelle expérience de tâches et de nombreuses améliorations qui rendent le travail quotidien plus fluide.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Une interface plus calme et plus moderne",
+              "body": "nia-todo semble désormais plus rond, plus propre et plus concentré, avec moins de bruit visuel autour de vos tâches.",
+              "bullets": [
+                "pills UI douces, surfaces plus arrondies et menus plus calmes",
+                "boutons, listes déroulantes, cartes et boîtes de dialogue cohérents",
+                "un langage visuel sur le Web, le bureau et le mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Les todos se lisent maintenant comme des documents",
+              "body": "Le modal todo a été repensé pour que les tâches existantes ne ressemblent plus à un formulaire interminable.",
+              "bullets": [
+                "une vue détaillée plus claire pour les tâches existantes",
+                "sections pour le contenu, la planification, l'organisation et les extras",
+                "l'édition reste disponible sans constamment gêner"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Nouvelle vue du calendrier",
+              "body": "Les tâches avec des dates d'échéance ont désormais leur propre vue de calendrier, ce qui facilite l'analyse de la planification du temps.",
+              "bullets": [
+                "modes jour, semaine et mois",
+                "dispositions de style chronologie sur ordinateur et tablette",
+                "sélecteur de mois compact avec liste quotidienne sur mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Sous-tâches pour de vraies listes de contrôle",
+              "body": "Les tâches plus importantes peuvent désormais être décomposées en étapes plus petites directement dans la tâche.",
+              "bullets": [
+                "indicateurs de progression directement sur les cartes de tâches",
+                "synchronisation en temps réel et actions indépendantes par sous-tâche",
+                "confirmation avant de terminer une tâche avec des sous-tâches ouvertes"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Commentaires et meilleure collaboration",
+              "body": "Le contexte, les décisions et les notes rapides restent désormais exactement à leur place : sur la tâche à faire.",
+              "bullets": [
+                "commentaires avec auteur, horodatage et compteurs",
+                "modifier, supprimer et mettre à jour en temps réel",
+                "intégration propre avec des projets partagés"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Pièces jointes directement sur les todos",
+              "body": "Les fichiers peuvent désormais vivre directement sur les tâches, avec des aperçus et un contrôle d'accès approprié.",
+              "bullets": [
+                "uploads, téléchargements et aperçus d’images/PDF",
+                "compteurs de pièces jointes et mises à jour en temps réel",
+                "contrôles d'administration pour les types de fichiers et les quotas de stockage"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Plus de langues pour nia-todo",
+              "body": "nia-todo parle désormais **12** langues.",
+              "bullets": [
+                "nouveau : tchèque, français, italien, néerlandais, polonais, portugais brésilien, russe, suédois, espagnol et chinois simplifié",
+                "sélection de langue étendue pour le profil utilisateur et l’espace admin",
+                "e-mails système localisés pour les invitations, réinitialisations de mot de passe, confirmations d’e-mail et codes 2FA"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Applications natives : incluant désormais Debian",
+              "body": "En plus de Windows et Android, nia-todo est désormais disponible en tant qu'application de bureau Debian native.",
+              "bullets": [
+                "Package .deb avec intégration de version et de téléchargement",
+                "démarrage automatique, barre d'état, raccourcis clavier globaux et gestion des retours OIDC",
+                "téléchargements de pièces jointes natives dans Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Plus de stabilité sous le capot",
+              "body": "De nombreuses améliorations sont invisibles au premier coup d’œil, mais rendent l’utilisation au quotidien plus fluide.",
+              "bullets": [
+                "des chemins hors ligne, de synchronisation et de service-worker plus fiables",
+                "gestion plus sûre des pièces jointes",
+                "une interface plus propre construite autour de primitives d'interface utilisateur partagées"
+              ]
+            }
+          ]
+        },
+        "it": {
+          "title": "Cosa c'è di nuovo in nia-todo?",
+          "intro": "La versione 3 è il più grande aggiornamento di nia-todo finora: un’interfaccia più calma, una nuova esperienza todo e molti miglioramenti che rendono il lavoro quotidiano più fluido.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Un'interfaccia più calma e moderna",
+              "body": "nia-todo ora sembra più rotondo, più pulito e più concentrato, con meno rumore visivo attorno alle tue attività.",
+              "bullets": [
+                "UI pill morbide, superfici più arrotondate e menu più tranquilli",
+                "pulsanti, menu a discesa, schede e finestre di dialogo coerenti",
+                "un unico linguaggio visivo su web, desktop e dispositivi mobili"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "I todo ora si leggono come documenti",
+              "body": "Il modal todo è stato ridisegnato, così le attività esistenti non sembrano più un modulo infinito.",
+              "bullets": [
+                "una visualizzazione dettagliata più chiara delle cose da fare esistenti",
+                "sezioni per contenuto, pianificazione, organizzazione ed extra",
+                "la modifica rimane disponibile senza intralciarti costantemente"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Nuova visualizzazione del calendario",
+              "body": "Le cose da fare con date di scadenza ora hanno una propria visualizzazione del calendario, rendendo più semplice la scansione della pianificazione temporale.",
+              "bullets": [
+                "modalità giorno, settimana e mese",
+                "layout in stile timeline su desktop e tablet",
+                "selettore mensile compatto con elenco giornaliero su dispositivo mobile"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Sottoattività per liste di controllo reali",
+              "body": "Le attività più grandi possono ora essere suddivise in passaggi più piccoli direttamente all'interno delle cose da fare.",
+              "bullets": [
+                "indicatori di progresso direttamente sulle schede delle cose da fare",
+                "sincronizzazione in tempo reale e azioni indipendenti per attività secondaria",
+                "conferma prima di completare una cosa da fare con le sottoattività aperte"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Commenti e migliore collaborazione",
+              "body": "Il contesto, le decisioni e le note rapide ora rimangono esattamente al loro posto: sulle cose da fare.",
+              "bullets": [
+                "commenti con autore, timestamp e contatori",
+                "modificare, eliminare e aggiornare in tempo reale",
+                "integrazione pulita con progetti condivisi"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Allegati direttamente sui todo",
+              "body": "I file ora possono vivere direttamente sulle attività, con anteprime e un adeguato controllo degli accessi.",
+              "bullets": [
+                "caricamenti, download e anteprime di immagini/PDF",
+                "contatori degli allegati e aggiornamenti in tempo reale",
+                "controlli di amministrazione per tipi di file e quote di archiviazione"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Più lingue per nia-todo",
+              "body": "nia-todo ora parla **12** lingue.",
+              "bullets": [
+                "nuove: ceco, francese, italiano, olandese, polacco, portoghese brasiliano, russo, svedese, spagnolo e cinese semplificato",
+                "selezione della lingua ampliata per profilo utente e area admin",
+                "e-mail di sistema localizzate per inviti, reset password, verifica e-mail e codici 2FA"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "App native: ora inclusa Debian",
+              "body": "Oltre a Windows e Android, nia-todo ora viene fornito come app desktop Debian nativa.",
+              "bullets": [
+                "Pacchetto .deb con integrazione di rilascio e download",
+                "avvio automatico, vassoio, tasti di scelta rapida globali e gestione dei resi OIDC",
+                "gli allegati nativi vengono scaricati in Download/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Più stabilità sotto il cofano",
+              "body": "Molti miglioramenti sono invisibili a prima vista, ma rendono l'uso quotidiano più fluido.",
+              "bullets": [
+                "percorsi offline, di sincronizzazione e di service-worker più affidabili",
+                "gestione più sicura degli allegati",
+                "un frontend più pulito costruito attorno a primitive dell'interfaccia utente condivise"
+              ]
+            }
+          ]
+        },
+        "nl": {
+          "title": "Wat is er nieuw in nia-todo?",
+          "intro": "Versie 3 is de grootste nia-todo-update tot nu toe: een rustigere interface, een nieuwe todo-ervaring en veel verbeteringen waardoor het dagelijkse werk soepeler verloopt.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Een rustigere, modernere interface",
+              "body": "nia-todo voelt nu ronder, schoner en meer gefocust aan, met minder visuele ruis rond uw taken.",
+              "bullets": [
+                "zachte UI-pills, rondere vlakken en rustigere menu’s",
+                "consistente knoppen, vervolgkeuzelijsten, kaarten en dialoogvensters",
+                "één beeldtaal voor internet, desktop en mobiel"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos lezen nu als documenten",
+              "body": "De todo-modal is opnieuw ontworpen, zodat bestaande taken niet langer als een eindeloos formulier aanvoelen.",
+              "bullets": [
+                "een duidelijker detailweergave voor bestaande taken",
+                "secties voor inhoud, planning, organisatie en extra's",
+                "bewerken blijft beschikbaar zonder voortdurend in de weg te staan"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Nieuwe kalenderweergave",
+              "body": "Taken met inleverdatums hebben nu hun eigen kalenderweergave, waardoor tijdplanning gemakkelijker te scannen is.",
+              "bullets": [
+                "dag-, week- en maandmodi",
+                "lay-outs in tijdlijnstijl op desktop en tablet",
+                "compacte maandkiezer met dagelijkse lijst op mobiel"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Subtaken voor echte checklists",
+              "body": "Grotere taken kunnen nu direct in de takenlijst in kleinere stappen worden opgesplitst.",
+              "bullets": [
+                "voortgangsindicatoren rechtstreeks op takenkaarten",
+                "realtime synchronisatie en onafhankelijke acties per subtaak",
+                "bevestiging voordat u een taak met open subtaken voltooit"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Opmerkingen en betere samenwerking",
+              "body": "Context, beslissingen en snelle notities blijven nu precies waar ze horen: op de to-do.",
+              "bullets": [
+                "opmerkingen met auteur, tijdstempel en tellers",
+                "bewerken, verwijderen en realtime updates",
+                "schone integratie met gedeelde projecten"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Bijlagen rechtstreeks op taken",
+              "body": "Bestanden kunnen nu direct aan taken hangen, met previews en goede toegangscontrole.",
+              "bullets": [
+                "uploads, downloads en afbeeldings-/PDF-voorbeelden",
+                "bijlagetellers en realtime updates",
+                "beheerdersopties voor bestandstypen en opslagquota"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Meer talen voor nia-todo",
+              "body": "nia-todo spreekt nu **12** talen.",
+              "bullets": [
+                "nieuw: Tsjechisch, Frans, Italiaans, Nederlands, Pools, Braziliaans Portugees, Russisch, Zweeds, Spaans en Vereenvoudigd Chinees",
+                "uitgebreide taalkeuze voor gebruikersprofiel en adminomgeving",
+                "gelokaliseerde systeemmails voor uitnodigingen, wachtwoordresets, e-mailbevestiging en 2FA-codes"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Native apps: nu inclusief Debian",
+              "body": "Naast Windows en Android wordt nia-todo nu geleverd als een native Debian desktop-app.",
+              "bullets": [
+                ".deb-pakket met release- en downloadintegratie",
+                "autostart, lade, globale sneltoetsen en OIDC-retourafhandeling",
+                "native bijlagedownloads naar Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Meer stabiliteit onder de motorkap",
+              "body": "Veel verbeteringen zijn op het eerste gezicht onzichtbaar, maar maken het dagelijks gebruik soepeler.",
+              "bullets": [
+                "betrouwbaardere offline-, sync- en service-worker-paden",
+                "veiligere verwerking van bijlagen",
+                "een schonere frontend gebouwd rond gedeelde UI-primitieven"
+              ]
+            }
+          ]
+        },
+        "pl": {
+          "title": "Co nowego w nia-todo?",
+          "intro": "Wersja 3 to największa jak dotąd aktualizacja nia-todo: spokojniejszy interfejs, nowe doświadczenie todo i wiele ulepszeń, dzięki którym codzienna praca staje się płynniejsza.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Spokojniejszy, bardziej nowoczesny interfejs",
+              "body": "nia-todo wygląda teraz bardziej spokojnie, czyściej i bardziej skupia uwagę, z mniejszym szumem wizualnym wokół zadań.",
+              "bullets": [
+                "miękkie UI pills, bardziej zaokrąglone powierzchnie i spokojniejsze menu",
+                "spójne przyciski, menu rozwijane, karty i okna dialogowe",
+                "jeden język wizualny w Internecie, komputerach stacjonarnych i urządzeniach mobilnych"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todo czyta się teraz jak dokumenty",
+              "body": "Modal todo został przeprojektowany, dzięki czemu istniejące zadania nie wyglądają już jak niekończący się formularz.",
+              "bullets": [
+                "wyraźniejszy widok szczegółów istniejących zadań",
+                "sekcje dotyczące treści, planowania, organizacji i dodatków",
+                "edycja pozostaje dostępna bez ciągłego przeszkadzania"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Nowy widok kalendarza",
+              "body": "Zadania z terminami mają teraz własny widok kalendarza, dzięki czemu planowanie czasu jest łatwiejsze do przeglądania.",
+              "bullets": [
+                "tryb dzienny, tygodniowy i miesięczny",
+                "układy w stylu osi czasu na komputerach stacjonarnych i tabletach",
+                "kompaktowy selektor miesięcy z codzienną listą na telefonie komórkowym"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Podzadania dla prawdziwych list kontrolnych",
+              "body": "Większe zadania można teraz podzielić na mniejsze kroki bezpośrednio w liście zadań.",
+              "bullets": [
+                "wskaźniki postępu bezpośrednio na kartach zadań do wykonania",
+                "synchronizacja w czasie rzeczywistym i niezależne działania na podzadanie",
+                "potwierdzenie przed wykonaniem zadania z otwartymi podzadaniami"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Komentarze i lepsza współpraca",
+              "body": "Kontekst, decyzje i krótkie notatki pozostają teraz dokładnie tam, gdzie ich miejsce: na rzeczy do zrobienia.",
+              "bullets": [
+                "komentarze z autorem, znacznikiem czasu i licznikami",
+                "edytować, usuwać i aktualizować w czasie rzeczywistym",
+                "czysta integracja ze współdzielonymi projektami"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Załączniki bezpośrednio w todo",
+              "body": "Pliki mogą teraz znajdować się bezpośrednio w zadaniach, z podglądem i odpowiednią kontrolą dostępu.",
+              "bullets": [
+                "przesyłanie, pobieranie i podgląd obrazów/plików PDF",
+                "liczniki załączników i aktualizacje w czasie rzeczywistym",
+                "kontrola administracyjna dotycząca typów plików i przydziałów miejsca na dane"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Więcej języków w nia-todo",
+              "body": "nia-todo obsługuje teraz **12** języków.",
+              "bullets": [
+                "nowe: czeski, francuski, włoski, niderlandzki, polski, portugalski brazylijski, rosyjski, szwedzki, hiszpański i chiński uproszczony",
+                "rozszerzony wybór języka w profilu użytkownika i panelu administratora",
+                "zlokalizowane e-maile systemowe dla zaproszeń, resetu hasła, potwierdzania e-maila i kodów 2FA"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Aplikacje natywne: teraz łącznie z Debianem",
+              "body": "Oprócz systemów Windows i Android, nia-todo jest teraz dostarczana jako natywna aplikacja komputerowa Debiana.",
+              "bullets": [
+                "Pakiet .deb z integracją wydawania i pobierania",
+                "autostart, taca, globalne skróty klawiszowe i obsługa zwrotów OIDC",
+                "natywne pobieranie załączników do Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Większa stabilność pod maską",
+              "body": "Wiele usprawnień jest niewidocznych na pierwszy rzut oka, a jednak sprawiają, że codzienne użytkowanie staje się płynniejsze.",
+              "bullets": [
+                "bardziej niezawodne ścieżki offline, sync i service-worker",
+                "bezpieczniejsza obsługa załączników",
+                "czystszy frontend zbudowany wokół wspólnych prymitywów interfejsu użytkownika"
+              ]
+            }
+          ]
+        },
+        "pt-BR": {
+          "title": "O que há de novo no nia-todo?",
+          "intro": "A versão 3 é a maior atualização do nia-todo até agora: uma interface mais calma, uma nova experiência de tarefas e muitas melhorias que tornam o trabalho diário mais tranquilo.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Uma interface mais calma e moderna",
+              "body": "nia-todo agora parece mais redondo, limpo e focado, com menos ruído visual em torno de suas tarefas.",
+              "bullets": [
+                "UI pills suaves, superfícies mais arredondadas e menus mais calmos",
+                "botões, menus suspensos, cartões e caixas de diálogo consistentes",
+                "uma linguagem visual na web, desktop e dispositivos móveis"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos agora parecem documentos",
+              "body": "O modal de todo foi redesenhado para que tarefas existentes não pareçam mais um formulário infinito.",
+              "bullets": [
+                "uma visão detalhada mais clara para todas as tarefas existentes",
+                "seções para conteúdo, planejamento, organização e extras",
+                "a edição permanece disponível sem atrapalhar constantemente"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Nova visualização do calendário",
+              "body": "Todos com datas de vencimento agora têm sua própria visualização de calendário, facilitando a verificação do planejamento de tempo.",
+              "bullets": [
+                "modos de dia, semana e mês",
+                "layouts estilo linha do tempo em desktop e tablet",
+                "seletor de mês compacto com lista diária no celular"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Subtarefas para listas de verificação reais",
+              "body": "Tarefas maiores agora podem ser divididas em etapas menores diretamente dentro da tarefa.",
+              "bullets": [
+                "indicadores de progresso diretamente nos cartões de tarefas",
+                "sincronização em tempo real e ações independentes por subtarefa",
+                "confirmação antes de concluir uma tarefa com subtarefas abertas"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Comentários e melhor colaboração",
+              "body": "Contexto, decisões e notas rápidas agora ficam exatamente onde pertencem: na tarefa.",
+              "bullets": [
+                "comentários com autor, carimbo de data/hora e contadores",
+                "editar, excluir e atualizações em tempo real",
+                "integração limpa com projetos compartilhados"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Anexos diretamente nas tarefas",
+              "body": "Arquivos agora podem ficar diretamente nas tarefas, com prévias e controle de acesso adequado.",
+              "bullets": [
+                "uploads, downloads e visualizações de imagens/PDF",
+                "contadores de anexos e atualizações em tempo real",
+                "controles administrativos para tipos de arquivos e cotas de armazenamento"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Mais idiomas para o nia-todo",
+              "body": "O nia-todo agora fala **12** idiomas.",
+              "bullets": [
+                "novo: tcheco, francês, italiano, holandês, polonês, português brasileiro, russo, sueco, espanhol e chinês simplificado",
+                "seleção de idioma ampliada para perfil de usuário e área administrativa",
+                "e-mails do sistema localizados para convites, redefinição de senha, verificação de e-mail e códigos 2FA"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Aplicativos nativos: agora incluindo Debian",
+              "body": "Além do Windows e do Android, o nia-todo agora é fornecido como um aplicativo de desktop nativo do Debian.",
+              "bullets": [
+                "Pacote .deb com integração de lançamento e download",
+                "inicialização automática, bandeja, teclas de atalho globais e tratamento de retorno OIDC",
+                "downloads de anexos nativos em Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Mais estabilidade sob o capô",
+              "body": "Muitas melhorias são invisíveis à primeira vista, mas tornam o uso diário mais suave.",
+              "bullets": [
+                "caminhos off-line, de sincronização e de service-worker mais confiáveis",
+                "tratamento de anexos mais seguro",
+                "um front-end mais limpo construído em torno de primitivas de UI compartilhadas"
+              ]
+            }
+          ]
+        },
+        "ru": {
+          "title": "Что нового в nia-todo?",
+          "intro": "Версия 3 — это самое большое обновление nia-todo на данный момент: более спокойный интерфейс, новый интерфейс задач и множество улучшений, которые делают повседневную работу более комфортной.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Более спокойный и современный интерфейс",
+              "body": "nia-todo теперь выглядит круглее, чище и сфокусированнее, с меньшим визуальным шумом вокруг ваших задач.",
+              "bullets": [
+                "мягкие UI-pills, более округлые поверхности и спокойные меню",
+                "согласованные кнопки, раскрывающиеся списки, карточки и диалоговые окна",
+                "один визуальный язык в Интернете, на настольных компьютерах и на мобильных устройствах"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos теперь читаются как документы",
+              "body": "Модальное окно todo было переработано: существующие задачи больше не выглядят как бесконечная форма.",
+              "bullets": [
+                "более четкое детальное представление существующих задач",
+                "разделы для содержания, планирования, организации и дополнительных возможностей",
+                "редактирование остается доступным, не мешая постоянно"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Новый вид календаря",
+              "body": "Задачи со сроками выполнения теперь имеют собственный вид календаря, что упрощает планирование времени.",
+              "bullets": [
+                "режимы дня, недели и месяца",
+                "макеты в стиле временной шкалы на настольных компьютерах и планшетах",
+                "компактный выбор месяца с ежедневным списком на мобильном телефоне"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Подзадачи для реальных чек-листов",
+              "body": "Более крупные задачи теперь можно разбить на более мелкие этапы непосредственно внутри задачи.",
+              "bullets": [
+                "индикаторы прогресса прямо на карточках задач",
+                "синхронизация в реальном времени и независимые действия для каждой подзадачи",
+                "подтверждение перед выполнением задачи с открытыми подзадачами"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Комментарии и лучшее сотрудничество",
+              "body": "Контекст, решения и быстрые заметки теперь остаются там, где им место: в списке дел.",
+              "bullets": [
+                "комментарии с указанием автора, отметки времени и счетчиков",
+                "редактировать, удалять и обновлять в реальном времени",
+                "чистая интеграция с общими проектами"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Вложения прямо в todos",
+              "body": "Теперь файлы могут размещаться непосредственно в задачах с предварительным просмотром и надлежащим контролем доступа.",
+              "bullets": [
+                "загрузка, загрузка и предварительный просмотр изображений/PDF",
+                "счетчики вложений и обновления в реальном времени",
+                "административные элементы управления типами файлов и квотами хранилища"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Больше языков для nia-todo",
+              "body": "nia-todo теперь говорит на **12** языках.",
+              "bullets": [
+                "новые языки: чешский, французский, итальянский, нидерландский, польский, бразильский португальский, русский, шведский, испанский и китайский (упрощённый)",
+                "расширенный выбор языка для профиля пользователя и админ-раздела",
+                "локализованные системные письма для приглашений, сброса пароля, подтверждения e-mail и 2FA-кодов"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Нативные приложения: теперь включая Debian",
+              "body": "Помимо Windows и Android, nia-todo теперь поставляется как собственное настольное приложение Debian.",
+              "bullets": [
+                "Пакет .deb с интеграцией выпуска и загрузки",
+                "автозапуск, трей, глобальные горячие клавиши и обработка возврата OIDC",
+                "встроенные вложения загружаются в Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Больше стабильности под капотом",
+              "body": "Многие улучшения незаметны на первый взгляд, но делают повседневное использование более комфортным.",
+              "bullets": [
+                "более надёжные offline-, sync- и service-worker-пути",
+                "более безопасная обработка вложений",
+                "более чистый интерфейс, построенный на основе общих примитивов пользовательского интерфейса"
+              ]
+            }
+          ]
+        },
+        "sv": {
+          "title": "Vad är nytt i nia-todo?",
+          "intro": "Version 3 är den största nia-todo-uppdateringen hittills: ett lugnare gränssnitt, en ny todo-upplevelse och många förbättringar som gör att det dagliga arbetet känns smidigare.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Ett lugnare, modernare gränssnitt",
+              "body": "nia-todo känns nu rundare, renare och mer fokuserad, med mindre visuellt brus kring dina uppgifter.",
+              "bullets": [
+                "mjuka UI-pills, rundare ytor och lugnare menyer",
+                "konsekventa knappar, rullgardinsmenyer, kort och dialogrutor",
+                "ett visuellt språk på webben, datorn och mobilen"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos läses nu som dokument",
+              "body": "Todo-modalen har gjorts om så att befintliga uppgifter inte längre känns som ett oändligt formulär.",
+              "bullets": [
+                "en tydligare detaljvy för befintliga uppgifter",
+                "sektioner för innehåll, planering, organisation och extramaterial",
+                "redigering förblir tillgänglig utan att ständigt stå i vägen"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Ny kalendervy",
+              "body": "Todos med förfallodatum har nu sin egen kalendervy, vilket gör tidsplanering lättare att skanna.",
+              "bullets": [
+                "lägena dag, vecka och månad",
+                "layouter i tidslinjestil på stationära datorer och surfplattor",
+                "kompakt månadsväljare med daglig lista på mobilen"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Deluppgifter för riktiga checklistor",
+              "body": "Större uppgifter kan nu delas upp i mindre steg direkt inuti uppgiften.",
+              "bullets": [
+                "framstegsindikatorer direkt på att göra-kort",
+                "realtidssynkronisering och oberoende åtgärder per deluppgift",
+                "bekräftelse innan du slutför en uppgift med öppna deluppgifter"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Kommentarer och bättre samarbete",
+              "body": "Sammanhang, beslut och snabba anteckningar stannar nu precis där de hör hemma: på att göra.",
+              "bullets": [
+                "kommentarer med författare, tidsstämpel och räknare",
+                "redigera, ta bort och realtidsuppdateringar",
+                "ren integration med delade projekt"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Bilagor direkt på todos",
+              "body": "Filer kan nu leva direkt på uppgifter, med förhandsvisningar och korrekt åtkomstkontroll.",
+              "bullets": [
+                "uppladdningar, nedladdningar och förhandsvisningar av bilder/PDF",
+                "bilagoräknare och realtidsuppdateringar",
+                "administratörskontroller för filtyper och lagringskvoter"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Fler språk för nia-todo",
+              "body": "nia-todo talar nu **12** språk.",
+              "bullets": [
+                "nytt: tjeckiska, franska, italienska, nederländska, polska, brasiliansk portugisiska, ryska, svenska, spanska och förenklad kinesiska",
+                "utökad språkval för användarprofil och adminområde",
+                "lokaliserade systemmejl för inbjudningar, lösenordsåterställning, e-postbekräftelse och 2FA-koder"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Inbyggda appar: nu inklusive Debian",
+              "body": "Förutom Windows och Android levereras nia-todo nu som en inbyggd Debian-skrivbordsapp.",
+              "bullets": [
+                ".deb-paket med release- och nedladdningsintegration",
+                "autostart, fack, globala snabbtangenter och OIDC returhantering",
+                "inbyggda bifogade filer laddas ner till Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Mer stabilitet under huven",
+              "body": "Många förbättringar är osynliga vid första anblicken, men gör den dagliga användningen smidigare.",
+              "bullets": [
+                "mer tillförlitliga offline-, sync- och service-worker-vägar",
+                "säkrare hantering av bilagor",
+                "en renare frontend byggd kring delade UI-primitiver"
+              ]
+            }
+          ]
+        },
+        "es": {
+          "title": "¿Qué hay de nuevo en nia-todo?",
+          "intro": "La versión 3 es la mayor actualización de nia-todo hasta ahora: una interfaz más tranquila, una nueva experiencia todo y muchas mejoras que hacen que el trabajo diario sea más fluido.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Una interfaz más tranquila y moderna",
+              "body": "nia-todo ahora se siente más redondo, limpio y enfocado, con menos ruido visual alrededor de tus tareas.",
+              "bullets": [
+                "UI pills suaves, superficies más redondeadas y menús más tranquilos",
+                "botones, menús desplegables, tarjetas y cuadros de diálogo consistentes",
+                "un lenguaje visual en la web, el escritorio y el móvil"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Los todos ahora se leen como documentos",
+              "body": "El modal de todo fue rediseñado para que las tareas existentes ya no se sientan como un formulario interminable.",
+              "bullets": [
+                "una vista detallada más clara para todos los existentes",
+                "Secciones de contenido, planificación, organización y extras.",
+                "la edición permanece disponible sin estorbar constantemente"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Nueva vista de calendario",
+              "body": "Todos los que tienen fechas de vencimiento ahora tienen su propia vista de calendario, lo que facilita la planificación del tiempo.",
+              "bullets": [
+                "modos día, semana y mes",
+                "diseños de estilo de línea de tiempo en computadoras de escritorio y tabletas",
+                "selector de meses compacto con lista diaria en el móvil"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Subtareas para listas de verificación reales",
+              "body": "Las tareas más grandes ahora se pueden dividir en pasos más pequeños directamente dentro del todo.",
+              "bullets": [
+                "indicadores de progreso directamente en tarjetas de tareas pendientes",
+                "sincronización en tiempo real y acciones independientes por subtarea",
+                "confirmación antes de completar una tarea pendiente con subtareas abiertas"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Comentarios y mejor colaboración.",
+              "body": "El contexto, las decisiones y las notas rápidas ahora permanecen exactamente donde pertenecen: en la tarea.",
+              "bullets": [
+                "comentarios con autor, marca de tiempo y contadores",
+                "editar, eliminar y actualizaciones en tiempo real",
+                "integración limpia con proyectos compartidos"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Adjuntos directamente en los todos",
+              "body": "Los archivos ahora pueden estar directamente en las tareas, con vistas previas y control de acceso adecuado.",
+              "bullets": [
+                "cargas, descargas y vistas previas de imágenes/PDF",
+                "contadores de archivos adjuntos y actualizaciones en tiempo real",
+                "controles administrativos para tipos de archivos y cuotas de almacenamiento"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "Más idiomas para nia-todo",
+              "body": "nia-todo ahora habla **12** idiomas.",
+              "bullets": [
+                "nuevo: checo, francés, italiano, neerlandés, polaco, portugués brasileño, ruso, sueco, español y chino simplificado",
+                "selector de idioma ampliado para el perfil de usuario y el área de administración",
+                "e-mails del sistema localizados para invitaciones, restablecimiento de contraseña, verificación de e-mail y códigos 2FA"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Aplicaciones nativas: ahora incluye Debian",
+              "body": "Además de Windows y Android, nia-todo ahora se entrega como una aplicación de escritorio nativa de Debian.",
+              "bullets": [
+                "Paquete .deb con integración de lanzamiento y descarga",
+                "inicio automático, bandeja, teclas de acceso rápido globales y manejo de devolución OIDC",
+                "descargas de archivos adjuntos nativos en Descargas/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Más estabilidad bajo el capó",
+              "body": "Muchas mejoras son invisibles a primera vista, pero hacen que el uso diario sea más fluido.",
+              "bullets": [
+                "rutas offline, sync y service-worker más fiables",
+                "gestión de adjuntos más segura",
+                "una interfaz más limpia construida alrededor de primitivas de interfaz de usuario compartidas"
+              ]
+            }
+          ]
+        },
+        "zh-CN": {
+          "title": "nia-todo 有什么新功能？",
+          "intro": "版本 3 是 nia-todo 迄今为止最大的一次更新：更安静的界面、全新的 todo 体验，以及许多让日常使用更顺畅的改进。",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "更安静、更现代的界面",
+              "body": "nia-todo 现在更圆润、更清爽、更聚焦，围绕任务的视觉干扰更少。",
+              "bullets": [
+                "更柔和的 UI pills、更圆润的区域和更安静的菜单",
+                "一致的按钮、下拉菜单、卡片和对话框",
+                "跨网络、桌面和移动设备的一种视觉语言"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Todos 现在读起来像文档",
+              "body": "Todo 模态窗口经过重新设计，现有任务不再像一个没完没了的表单。",
+              "bullets": [
+                "现有待办事项的更清晰的详细视图",
+                "内容、规划、组织和其他部分",
+                "编辑保持可用，不会经常受到干扰"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "新日历视图",
+              "body": "带有截止日期的待办事项现在有自己的日历视图，使时间规划更容易扫描。",
+              "bullets": [
+                "日、周、月模式",
+                "桌面和平板电脑上的时间线样式布局",
+                "紧凑的月份选择器，带有移动设备上的每日列表"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "真实清单的子任务",
+              "body": "现在，较大的任务可以直接在待办事项中分解为较小的步骤。",
+              "bullets": [
+                "进度指示器直接显示在待办事项卡上",
+                "每个子任务的实时同步和独立操作",
+                "完成带有未完成子任务的待办事项之前的确认"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "评论和更好的协作",
+              "body": "上下文、决策和快速注释现在完全保留在它们所属的位置：待办事项上。",
+              "bullets": [
+                "带有作者、时间戳和计数器的评论",
+                "编辑、删除、实时更新",
+                "与共享项目的干净集成"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "附件直接放在 todo 上",
+              "body": "文件现在可以直接附加到任务上，并支持预览和正确的访问控制。",
+              "bullets": [
+                "上传、下载和图像/PDF 预览",
+                "附件计数器和实时更新",
+                "文件类型和存储配额的管理控制"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "languages"
+              },
+              "title": "nia-todo 支持更多语言",
+              "body": "nia-todo 现在支持 **12** 种语言。",
+              "bullets": [
+                "新增：捷克语、法语、意大利语、荷兰语、波兰语、巴西葡萄牙语、俄语、瑞典语、西班牙语和简体中文",
+                "用户资料和管理区域中的语言选择已扩展",
+                "邀请、密码重置、邮箱验证和 2FA 代码的系统邮件已本地化"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "原生应用：现在也支持 Debian",
+              "body": "除了 Windows 和 Android 之外，nia-todo 现在还作为本机 Debian 桌面应用程序提供。",
+              "bullets": [
+                "具有发布和下载集成的 .deb 包",
+                "自动启动、托盘、全局热键和 OIDC 返回处理",
+                "本机附件下载到 Downloads/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "引擎盖下更稳定",
+              "body": "很多改进乍一看是看不见的，但却让日常使用更加顺畅。",
+              "bullets": [
+                "更可靠的离线、同步和 service-worker 路径",
+                "更安全的附件处理",
+                "围绕共享 UI 原语构建的更干净的前端"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

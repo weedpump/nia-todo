@@ -62,6 +62,46 @@ CREATE TABLE IF NOT EXISTS reminders (
     FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
 );
 
+-- Checklist subtasks attached to a todo. These are intentionally lightweight
+-- checklist items, not full child todos with their own reminders/projects.
+CREATE TABLE IF NOT EXISTS todo_subtasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    todo_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    is_done INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+);
+
+-- Lightweight timestamped notes/comments attached to a todo.
+CREATE TABLE IF NOT EXISTS todo_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    todo_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+
+-- Files attached to todos. Binary blobs live on disk; this table stores metadata.
+CREATE TABLE IF NOT EXISTS todo_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    todo_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    original_filename TEXT NOT NULL,
+    stored_filename TEXT NOT NULL,
+    content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+    size_bytes INTEGER NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Saved places for privacy-first location reminders
 CREATE TABLE IF NOT EXISTS saved_places (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,6 +138,10 @@ CREATE INDEX IF NOT EXISTS idx_todos_project ON todos(project_id);
 CREATE INDEX IF NOT EXISTS idx_todos_section ON todos(section_id);
 CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
+CREATE INDEX IF NOT EXISTS idx_todo_subtasks_todo ON todo_subtasks(todo_id, sort_order, id);
+CREATE INDEX IF NOT EXISTS idx_todo_comments_todo ON todo_comments(todo_id, created_at, id);
+CREATE INDEX IF NOT EXISTS idx_todo_attachments_todo ON todo_attachments(todo_id, created_at, id);
+CREATE INDEX IF NOT EXISTS idx_todo_attachments_user ON todo_attachments(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_places_user_name ON saved_places(user_id, lower(name));
 CREATE INDEX IF NOT EXISTS idx_saved_places_user ON saved_places(user_id);
 CREATE INDEX IF NOT EXISTS idx_location_reminders_todo ON location_reminders(todo_id);
@@ -141,6 +185,7 @@ def init_db():
             "ALTER TABLE todos ADD COLUMN recurring_rule TEXT",
             "ALTER TABLE todos ADD COLUMN parent_id INTEGER",
             "ALTER TABLE users ADD COLUMN default_reminder_offset_minutes INTEGER",
+            "ALTER TABLE users ADD COLUMN attachment_quota_bytes INTEGER",
             "ALTER TABLE reminders ADD COLUMN source TEXT NOT NULL DEFAULT 'explicit'",
         ):
             try:

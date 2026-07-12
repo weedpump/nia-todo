@@ -1,0 +1,164 @@
+/* Todo detail layout, panels, and meta summary */
+#todo-modal.todo-detail-view #todo-organize-panel { grid-area: organize; }
+#todo-modal.todo-detail-view #todo-schedule-panel { grid-area: schedule; }
+
+#todo-modal.todo-detail-view .todo-editor-main {
+  max-width: none;
+}
+
+#todo-modal.todo-detail-view .desc-live-preview {
+  max-width: none;
+  margin-top: 10px;
+  min-height: 56px;
+  color: color-mix(in srgb, var(--text-primary) 88%, var(--text-muted));
+}
+
+#todo-modal.todo-detail-view .todo-collapsible-summary {
+  border-top: 0;
+  padding-top: 0;
+}
+
+
+#todo-modal.todo-detail-view #todo-organize-panel,
+#todo-modal.todo-detail-view #todo-schedule-panel {
+  border-color: color-mix(in srgb, var(--border) 44%, transparent);
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+  gap: 12px 14px;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel .form-group,
+#todo-modal.todo-detail-view #todo-schedule-panel .form-group {
+  margin-bottom: 10px;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel label,
+#todo-modal.todo-detail-view #todo-schedule-panel label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+
+#todo-modal.todo-detail-view .todo-location-panel,
+#todo-modal.todo-detail-view .recurring-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-title-group,
+#todo-modal.todo-detail-view .todo-subtask-title-group input {
+  margin: 0;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-add-row {
+  gap: 10px;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-add-row input {
+  background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
+  border-color: color-mix(in srgb, var(--border) 42%, transparent);
+}
+
+
+#todo-modal.todo-detail-view .todo-editor-shell {
+  max-width: 880px;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "content"
+    "subtasks"
+    "attachments"
+    "comments"
+    "organize"
+    "schedule";
+  gap: 24px;
+}
+
+
+#todo-modal.todo-detail-view #todo-organize-panel,
+#todo-modal.todo-detail-view #todo-schedule-panel {
+  grid-column: auto;
+  grid-row: auto;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-comments-card,
+#todo-modal.todo-detail-view .todo-attachments-card {
+  padding-top: 18px;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view .todo-editor-shell {
+    max-width: 900px;
+  }
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
+  #todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Todo detail view-mode meta summary */
+#todo-modal.todo-detail-view #todo-organize-panel,
+#todo-modal.todo-detail-view #todo-schedule-panel {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-view[hidden] {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip strong {
+  font-weight: 650;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 34px;
+}
+

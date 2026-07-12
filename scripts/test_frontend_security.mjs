@@ -72,8 +72,10 @@ assert(indexSource.includes('if (window.__niaMainModuleLoaded)') && indexSource.
 assert(runtimeConfigSource.includes('AbortController') && runtimeConfigSource.includes('timeoutMs = 10000') && runtimeConfigSource.includes('verifyInstance(serverUrl, { timeoutMs: 3500 })'), 'native runtime instance probing must be timeout-bounded so offline cold-start is not blocked by network');
 
 const cssSource = readFileSync(new URL('../web/static/style.css', import.meta.url), 'utf8');
-assert(cssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
-assert(cssSource.includes('@supports (-webkit-touch-callout: none)') && cssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');
+const dropdownCssSource = readFileSync(new URL('../web/static/css/32-dropdowns-selects.css', import.meta.url), 'utf8');
+assert(cssSource.includes('@import url("/static/css/32-dropdowns-selects.css")'), 'main stylesheet must include dropdown/input CSS module');
+assert(dropdownCssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
+assert(dropdownCssSource.includes('@supports (-webkit-touch-callout: none)') && dropdownCssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');
 
 const adminSource = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8');
 assert(adminSource.includes('hardReloadAfterServerUpdate'), 'admin server update reload must use explicit hard reload cleanup');
@@ -157,6 +159,9 @@ assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('hardReload')"
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
 assert(downloadsSource.includes('validateDownloadEntry'), 'app download manifests must be validated before rendering');
+assert(downloadsSource.includes("debian: {") && downloadsSource.includes("filenamePrefix: 'nia-todo-desktop-v'") && downloadsSource.includes("filenameSuffix: '-debian-amd64.deb'") && downloadsSource.includes("return ['windows', 'android', 'debian']"), 'app downloads must expose Debian desktop packages from app-downloads manifests');
+assert(downloadsSource.includes("manifest?.latest?.debian"), 'native Debian update checks must consider legacy latest.debian manifest entries');
+assert(downloadsSource.includes("app-download-icon-debian") && downloadsSource.includes("Debian-Paket herunterladen"), 'Debian downloads must have platform-specific UI labels');
 assert(downloadsSource.includes("rawUrl.startsWith('/downloads/')"), 'app download URLs must be constrained to same-origin /downloads paths');
 assert(downloadsSource.includes('DOWNLOAD_SHA_RE'), 'app download manifests must validate sha256 values');
 assert(!downloadsSource.includes('target.innerHTML = downloads.map'), 'download buttons must not be rendered from manifest data via innerHTML');
@@ -172,7 +177,8 @@ assert(syncSource.includes('sanitizeQueueItem'), 'offline sync must sanitize que
 assert(syncSource.includes('pickAllowed'), 'offline sync must whitelist payload fields');
 
 const renderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
-assert(renderingSource.includes('editProject(${escapeHtmlAttr(JSON.stringify(project.id))})'), 'project edit onclick must quote string/temp IDs safely');
+assert(renderingSource.includes('data-project-action="edit"') && renderingSource.includes('data-project-id="${escapeHtmlAttr(project.id)}"'), 'project edit buttons must use escaped data attributes instead of inline onclick handlers');
+assert(!renderingSource.includes('onclick="editProject('), 'project edit must not use inline onclick handlers');
 assert(renderingSource.includes('invite-action invite-accept') && renderingSource.includes('invite-action invite-decline'), 'invite actions should use compact dedicated buttons');
 
 const mainSource = readFileSync(new URL('../api/main.py', import.meta.url), 'utf8');
@@ -180,5 +186,9 @@ assert(mainSource.includes('app_shell_cache_control_middleware') && mainSource.i
 
 const toastSource = readFileSync(new URL('../web/static/js/features/toast-undo.js', import.meta.url), 'utf8');
 assert(toastSource.includes("undoBtn.style.display = action ? '' : 'none'"), 'toast undo button must be hidden when there is no undo action');
+assert(toastSource.includes('cancelPendingTodoDelete') && toastSource.includes("item?.action === 'DELETE_TODO'"), 'todo delete undo must cancel the queued hard-delete instead of recreating the todo');
+assert(syncSource.includes('undo_grace_until') && syncSource.includes('Date.now() < undoGraceUntil'), 'todo hard-delete sync must wait for the undo grace window');
+const todosFeatureSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
+assert(todosFeatureSource.includes("addToSyncQueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 })"), 'todo delete must enqueue a deferred hard-delete so undo can preserve subtasks, comments, and attachments');
 
-console.log('✅ Frontend-Security-Regressionen bestanden');
+console.log('✅ Frontend security regressions passed');

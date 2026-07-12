@@ -1,0 +1,238 @@
+/* Empty states and shared buttons */
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state .emoji { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 18px; color: var(--text-secondary); margin-bottom: 8px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sort-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: ui-monospace, 'Cascadia Mono', 'SF Mono', monospace;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.sort-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.toggle-done-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.toggle-done-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.toggle-done-btn.active {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+.toggle-done-btn.active:hover {
+  background: rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent-hover) 78%, var(--accent)));
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--accent-hover) 62%, var(--accent));
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  color: #fff;
+}
+
+.btn:disabled,
+.btn[disabled] {
+  cursor: default;
+  opacity: 0.48;
+  filter: grayscale(0.25) saturate(0.6);
+  box-shadow: none;
+  transform: none;
+  pointer-events: none;
+}
+
+.btn-primary:disabled,
+.btn-primary[disabled] {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, var(--accent));
+  border-color: color-mix(in srgb, var(--border) 78%, var(--accent));
+  color: var(--text-muted);
+}
+
+.btn:disabled:hover,
+.btn[disabled]:hover,
+.btn:disabled:active,
+.btn[disabled]:active,
+.btn-primary:disabled:hover,
+.btn-primary[disabled]:hover,
+.btn-primary:disabled:active,
+.btn-primary[disabled]:active {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, var(--accent));
+  box-shadow: none;
+  filter: grayscale(0.25) saturate(0.6);
+  transform: none;
+}
+
+/* Icons in primary buttons must stay visible on the accent background. */
+.btn-primary [data-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 1;
+  line-height: 1;
+}
+
+.btn-primary [data-icon] .ui-icon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
+.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+.btn-secondary:hover { background: var(--bg-hover); }
+.btn[aria-selected="true"],
+.btn.is-selected {
+  border-color: color-mix(in srgb, currentColor 55%, var(--border));
+  background: color-mix(in srgb, currentColor 12%, var(--bg-tertiary));
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 20%, transparent);
+}
+.btn-small {
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.btn-icon {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+.btn-icon .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Navigation pills */
+.ui-nav-pill {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.15;
+  cursor: pointer;
+  transition: color 0.15s, font-weight 0.15s;
+}
+
+.ui-nav-pill::before {
+  content: "";
+  position: absolute;
+  inset: 2px 0;
+  border-radius: inherit;
+  background: transparent;
+  z-index: -1;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.ui-nav-pill:hover {
+  color: var(--text-primary);
+}
+
+.ui-nav-pill:hover::before {
+  background: var(--bg-hover);
+}
+
+.ui-nav-pill.active,
+.ui-nav-pill.is-active,
+.ui-nav-pill[aria-current="page"] {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.ui-nav-pill.active::before,
+.ui-nav-pill.is-active::before,
+.ui-nav-pill[aria-current="page"]::before {
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22)), rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.09)));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
+}
+
+
+/* Sidebar nav density: make pill paint surfaces feel larger without increasing list spacing. */
+.sidebar .ui-nav-pill {
+  min-height: 34px;
+  padding: 7px 13px;
+}
+
+.sidebar .ui-nav-pill::before {
+  inset: 0 -3px;
+}
+
+.sidebar .nav-btn .badge {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 3px 8px;
+}

@@ -1,5 +1,5 @@
 import { t } from '../i18n/index.js';
-import { iconSvg } from '../icons/lucide-icons.js';
+import { hydrateIcons, iconSvg } from '../icons/lucide-icons.js';
 import { createNativeBridge } from './native-bridge.js';
 
 const ACCENT_STORAGE_KEY = 'nia-accent-preset';
@@ -171,7 +171,7 @@ export function renderAccentPresetOptions() {
   return ACCENT_PRESETS.map(preset => {
     const active = preset.id === current ? ' active' : '';
     const pressed = preset.id === current ? 'true' : 'false';
-    return `<button type="button" class="accent-preset-option${active}" data-accent="${preset.id}" aria-pressed="${pressed}" onclick="setAccentPreset('${preset.id}')" title="${preset.label}">
+    return `<button type="button" class="accent-preset-option${active}" data-accent="${preset.id}" aria-pressed="${pressed}" title="${preset.label}">
       ${renderAccentSwatch(preset)}
     </button>`;
   }).join('');
@@ -228,6 +228,19 @@ export function applyTheme(mode) {
     btn.classList.toggle('active', btn.dataset.theme === mode);
   });
 
+  document.querySelectorAll('[data-theme-cycle]').forEach(btn => {
+    const icons = { light: 'sun', dark: 'moon', system: 'monitor' };
+    const titles = { light: t('common.theme.light'), dark: t('common.theme.dark'), system: t('common.theme.system') };
+    const iconEl = btn.querySelector('[data-theme-cycle-icon]');
+    btn.dataset.themeMode = mode;
+    if (iconEl) {
+      iconEl.dataset.icon = icons[mode] || icons.system;
+      hydrateIcons(btn);
+    }
+    btn.title = t('menu.themeTitle', { theme: titles[mode] || titles.system });
+    btn.setAttribute('aria-label', btn.title);
+  });
+
   const toggleBtn = document.getElementById('theme-toggle-btn');
   if (toggleBtn) {
     const icons = { light: iconSvg('sun'), dark: iconSvg('moon'), system: iconSvg('monitor') };
@@ -251,7 +264,34 @@ export function cycleTheme() {
   setTheme(cycle[(idx + 1) % cycle.length]);
 }
 
+let themeOptionButtonsBound = false;
+export function bindThemeOptionButtons() {
+  if (themeOptionButtonsBound) return;
+  themeOptionButtonsBound = true;
+  document.addEventListener('click', (event) => {
+    const cycleButton = event.target?.closest?.('[data-theme-cycle]');
+    if (!cycleButton) return;
+    event.preventDefault();
+    cycleTheme();
+  });
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('.theme-option[data-theme]');
+    if (!button) return;
+    event.preventDefault();
+    setTheme(button.dataset.theme);
+  });
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('.accent-preset-option[data-accent]');
+    if (!button) return;
+    event.preventDefault();
+    setAccentPreset(button.dataset.accent);
+  });
+}
+
+let systemThemeListenerBound = false;
 export function bindSystemThemeListener() {
+  if (systemThemeListenerBound) return;
+  systemThemeListenerBound = true;
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     const stored = localStorage.getItem('theme');
     if (!stored || stored === 'system') applyTheme('system');

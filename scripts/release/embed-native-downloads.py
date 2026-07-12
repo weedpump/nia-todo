@@ -41,6 +41,7 @@ def main() -> int:
     parser.add_argument("--native-app-version", required=True)
     parser.add_argument("--windows-installer", type=Path)
     parser.add_argument("--android-apk", type=Path)
+    parser.add_argument("--debian-deb", type=Path)
     parser.add_argument("--allow-missing-apps", action="store_true")
     args = parser.parse_args()
 
@@ -55,8 +56,10 @@ def main() -> int:
 
     windows_name = f"nia-todo-v{native_version}-windows-x64-setup.exe"
     android_name = f"nia-todo-v{native_version}-android-arm64.apk"
+    debian_name = f"nia-todo-desktop-v{native_version}-debian-amd64.deb"
     windows_sha, windows_size = copy_artifact(args.windows_installer, args.download_dir, windows_name, required=required)
     android_sha, android_size = copy_artifact(args.android_apk, args.download_dir, android_name, required=required)
+    debian_sha, debian_size = copy_artifact(args.debian_deb, args.download_dir, debian_name, required=required)
 
     apps = []
     if windows_sha:
@@ -81,13 +84,28 @@ def main() -> int:
             "sha256": android_sha,
             "size_bytes": android_size,
         })
+    if debian_sha:
+        apps.append({
+            "platform": "debian",
+            "arch": "amd64",
+            "label": "Debian Package",
+            "version": f"v{native_version}",
+            "filename": debian_name,
+            "url": f"/downloads/{debian_name}",
+            "sha256": debian_sha,
+            "size_bytes": debian_size,
+        })
+
+    latest = {"version": f"v{native_version}"}
+    for app in apps:
+        latest[app["platform"]] = app
 
     manifest = {
         "version": f"v{native_version}",
         "web_version": f"v{web_version}",
         "native_app_version": f"v{native_version}",
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "latest": {"version": f"v{native_version}"},
+        "latest": latest,
         "apps": sorted(apps, key=lambda item: item["platform"]),
     }
     (args.download_dir / "app-downloads.json").write_text(

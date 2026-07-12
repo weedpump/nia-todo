@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """2FA service/security regression tests (serial, temp DB)."""
 
+import contextlib
+import io
 import json
 import sqlite3
 import tempfile
@@ -58,7 +60,8 @@ def with_temp_db():
     db_module.DB_PATH = path
     migrate.DB_PATH = path
     try:
-        migrate.run_migrations()
+        with contextlib.redirect_stdout(io.StringIO()):
+            migrate.run_migrations()
         yield path
     finally:
         db_module.DB_PATH = original_db
@@ -177,7 +180,9 @@ def main():
             two_factor_module.send_email = original_send_email
             two_factor_module.can_send_email_links = original_can_send
         assert email_challenge["methods"] == ["email"]
-        assert sent_messages and "Authenticator oder Passkey" in sent_messages[0]["text"]
+        assert sent_messages
+        email_text = sent_messages[0]["text"].lower()
+        assert "authenticator" in email_text and "passkey" in email_text
         email_row = get_valid_challenge(conn, email_challenge["challenge_token"])
         assert email_row is not None and email_row["email_code_hash"]
 
