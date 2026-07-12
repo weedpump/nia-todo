@@ -34,8 +34,27 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 - 🛡️ 2FA/MFA with TOTP, passkeys/WebAuthn, email-code fallback, recovery codes, trusted devices, and admin policy
 - 🔔 Native local reminders on Windows and Android, plus Debian desktop notifications; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, backed by configurable STT/LLM providers
-- 🎨 Theme toggle and English/German UI language support
+- 🎨 Theme toggle and 12 UI languages
 - 🗄️ Local SQLite database
+
+## 🌐 Supported languages
+
+nia-todo currently supports:
+
+- German (`de`)
+- English (`en`)
+- Czech (`cs`)
+- French (`fr`)
+- Italian (`it`)
+- Dutch (`nl`)
+- Polish (`pl`)
+- Brazilian Portuguese (`pt`)
+- Russian (`ru`)
+- Swedish (`sv`)
+- Spanish (`es`)
+- Simplified Chinese (`zh-CN`)
+
+Language support covers the web/native UI, system emails, and release-tour content.
 
 ## 🔁 Recurring todos
 

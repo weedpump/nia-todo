@@ -1,5 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
-import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
@@ -28,8 +28,7 @@ function formatLocaleDateTime(value) {
   if (!value) return '-';
   const raw = String(value);
   const normalized = raw.replace(' ', 'T') + (raw.includes('Z') ? '' : 'Z');
-  const language = getActiveLanguage() === 'de' ? 'de-DE' : 'en-US';
-  return new Date(normalized).toLocaleString(language);
+  return new Date(normalized).toLocaleString(getActiveLocale());
 }
 
 function formatBytes(bytes) {
