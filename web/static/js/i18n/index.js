@@ -1,5 +1,19 @@
 const LANGUAGE_STORAGE_KEY = 'nia-todo-language';
 const SUPPORTED_LANGUAGES = ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt', 'ru', 'sv', 'es', 'zh-CN'];
+const DATE_TIME_LOCALES = {
+  cs: 'cs-CZ',
+  de: 'de-DE',
+  en: 'en-US',
+  fr: 'fr-FR',
+  it: 'it-IT',
+  nl: 'nl-NL',
+  pl: 'pl-PL',
+  pt: 'pt-BR',
+  ru: 'ru-RU',
+  sv: 'sv-SE',
+  es: 'es-ES',
+  'zh-CN': 'zh-CN',
+};
 const DEFAULT_LANGUAGE = 'en';
 const dictionaries = new Map();
 let activeLanguage = DEFAULT_LANGUAGE;
@@ -64,6 +78,10 @@ export function getActiveLanguage() {
   return activeLanguage;
 }
 
+export function getActiveLocale() {
+  return DATE_TIME_LOCALES[getActiveLanguage()] || DATE_TIME_LOCALES[DEFAULT_LANGUAGE];
+}
+
 export async function setLanguagePreference(mode, { authApi = null, syncServer = false } = {}) {
   const normalized = normalizeLanguage(mode);
   if (normalized === 'auto') localStorage.removeItem(LANGUAGE_STORAGE_KEY);
@@ -124,4 +142,4 @@ export function translatePage(root = document) {
   });
 }
 
-export { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY };
+export { SUPPORTED_LANGUAGES, DATE_TIME_LOCALES, DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY };
