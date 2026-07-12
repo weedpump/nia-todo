@@ -1755,7 +1755,6 @@
   "calendar.empty.day": "No todos are planned for this day.",
   "whatsNew.progress": "What's new tour progress",
   "whatsNew.slideLabel": "Slide {current} of {total}",
-  "whatsNew.dismiss": "Don't show again",
   "whatsNew.done": "Get started",
   "whatsNew.versionBadge": "Version {version}"
 }

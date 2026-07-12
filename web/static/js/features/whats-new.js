@@ -138,9 +138,9 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
             </div>
           </article>
         </div>
-        <div class="whats-new-dots" role="tablist" aria-label="${escapeHtml(t('whatsNew.progress'))}">
+        <div class="whats-new-dots" aria-label="${escapeHtml(t('whatsNew.progress'))}">
           ${slides.map((item, index) => `
-            <button type="button" class="whats-new-dot ${index === activeSlide ? 'active' : ''}" data-whats-new-slide="${index}" aria-label="${escapeHtml(t('whatsNew.slideLabel', { current: index + 1, total: slides.length }))}" aria-selected="${index === activeSlide ? 'true' : 'false'}"></button>
+            <button type="button" class="whats-new-dot ${index === activeSlide ? 'active' : ''}" data-whats-new-slide="${index}" aria-label="${escapeHtml(t('whatsNew.slideLabel', { current: index + 1, total: slides.length }))}" aria-current="${index === activeSlide ? 'step' : 'false'}"></button>
           `).join('')}
         </div>
         <div class="entity-modal-actions whats-new-actions">
@@ -189,9 +189,7 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
   async function maybeShowWhatsNew({ force = false } = {}) {
     const release = await getCurrentRelease();
     if (!release) return false;
-    // Temporarily disabled for visual testing: keep writing the seen flag,
-    // but show the tour on every reload while this branch is in review.
-    // if (!force && hasSeenRelease(release)) return false;
+    if (!force && hasSeenRelease(release)) return false;
     return open(release);
   }
 
