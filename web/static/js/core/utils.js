@@ -88,13 +88,28 @@ export function renderMarkdown(text) {
   if (!text) return '';
   const lines = String(text).split('\n');
   const html = [];
-  let listItems = [];
+  const openListItems = [];
+  let listDepth = -1;
   let quoteLines = [];
 
-  const flushList = () => {
-    if (!listItems.length) return;
-    html.push(`<ul>${listItems.map(item => `<li>${item}</li>`).join('')}</ul>`);
-    listItems = [];
+  const flushList = (targetDepth = -1) => {
+    while (listDepth > targetDepth) {
+      if (openListItems[listDepth]) html.push('</li>');
+      html.push('</ul>');
+      openListItems.pop();
+      listDepth -= 1;
+    }
+  };
+  const pushListItem = (depth, content) => {
+    while (listDepth < depth) {
+      html.push('<ul>');
+      listDepth += 1;
+      openListItems[listDepth] = false;
+    }
+    flushList(depth);
+    if (openListItems[depth]) html.push('</li>');
+    html.push(`<li>${content}`);
+    openListItems[depth] = true;
   };
   const flushQuote = () => {
     if (!quoteLines.length) return;
@@ -107,9 +122,11 @@ export function renderMarkdown(text) {
   };
 
   for (const line of lines) {
-    if (line.startsWith('- ')) {
+    const listMatch = /^(\s*)-\s+(.*)$/.exec(line);
+    if (listMatch) {
       flushQuote();
-      listItems.push(renderInlineMarkdown(line.slice(2)));
+      const depth = Math.floor(listMatch[1].replace(/\t/g, '  ').length / 2);
+      pushListItem(depth, renderInlineMarkdown(listMatch[2]));
       continue;
     }
     if (line.startsWith('> ')) {
