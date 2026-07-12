@@ -95,9 +95,9 @@
                 "icon": "languages"
               },
               "title": "Mehr Sprachen für nia-todo",
-              "body": "nia-todo spricht nun 12 Sprachen — in der Oberfläche, den System-E-Mails und den „Was ist neu?“-Hinweisen.",
+              "body": "nia-todo spricht nun **12** Sprachen.",
               "bullets": [
-                "neu: Tschechisch, Französisch, Italienisch, Niederländisch, Polnisch, Portugiesisch (Brasilien), Russisch, Schwedisch und Spanisch",
+                "neu: Tschechisch, Französisch, Italienisch, Niederländisch, Polnisch, Portugiesisch (Brasilien), Russisch, Schwedisch, Spanisch und Chinesisch (vereinfacht)",
                 "Sprachauswahl für Nutzerprofil und Admin-Bereich erweitert",
                 "lokalisierte System-Mails für Einladungen, Passwort-Reset, E-Mail-Bestätigung und 2FA-Codes"
               ]
@@ -218,9 +218,9 @@
                 "icon": "languages"
               },
               "title": "More languages for nia-todo",
-              "body": "nia-todo now speaks 12 languages — across the interface, system emails, and the “What’s new?” notes.",
+              "body": "nia-todo now speaks **12** languages.",
               "bullets": [
-                "new: Czech, French, Italian, Dutch, Polish, Brazilian Portuguese, Russian, Swedish, and Spanish",
+                "new: Czech, French, Italian, Dutch, Polish, Brazilian Portuguese, Russian, Swedish, Spanish, and Chinese (Simplified)",
                 "expanded language selection for user profiles and the admin area",
                 "localized system emails for invites, password resets, email verification, and 2FA codes"
               ]
@@ -341,9 +341,9 @@
                 "icon": "languages"
               },
               "title": "Více jazyků pro nia-todo",
-              "body": "nia-todo nyní mluví 12 jazyky — v rozhraní, systémových e-mailech i poznámkách „Co je nového?“.",
+              "body": "nia-todo nyní mluví **12** jazyky.",
               "bullets": [
-                "nově: čeština, francouzština, italština, nizozemština, polština, brazilská portugalština, ruština, švédština a španělština",
+                "nově: čeština, francouzština, italština, nizozemština, polština, brazilská portugalština, ruština, švédština, španělština a zjednodušená čínština",
                 "rozšířená volba jazyka v uživatelském profilu i administraci",
                 "lokalizované systémové e-maily pro pozvánky, reset hesla, ověření e-mailu a 2FA kódy"
               ]
@@ -464,9 +464,9 @@
                 "icon": "languages"
               },
               "title": "Plus de langues pour nia-todo",
-              "body": "nia-todo parle désormais 12 langues — dans l’interface, les e-mails système et les notes « Quoi de neuf ? ».",
+              "body": "nia-todo parle désormais **12** langues.",
               "bullets": [
-                "nouveau : tchèque, français, italien, néerlandais, polonais, portugais brésilien, russe, suédois et espagnol",
+                "nouveau : tchèque, français, italien, néerlandais, polonais, portugais brésilien, russe, suédois, espagnol et chinois simplifié",
                 "sélection de langue étendue pour le profil utilisateur et l’espace admin",
                 "e-mails système localisés pour les invitations, réinitialisations de mot de passe, confirmations d’e-mail et codes 2FA"
               ]
@@ -587,9 +587,9 @@
                 "icon": "languages"
               },
               "title": "Più lingue per nia-todo",
-              "body": "nia-todo ora parla 12 lingue — nell’interfaccia, nelle e-mail di sistema e nelle note “Cosa c’è di nuovo?”.",
+              "body": "nia-todo ora parla **12** lingue.",
               "bullets": [
-                "nuove: ceco, francese, italiano, olandese, polacco, portoghese brasiliano, russo, svedese e spagnolo",
+                "nuove: ceco, francese, italiano, olandese, polacco, portoghese brasiliano, russo, svedese, spagnolo e cinese semplificato",
                 "selezione della lingua ampliata per profilo utente e area admin",
                 "e-mail di sistema localizzate per inviti, reset password, verifica e-mail e codici 2FA"
               ]
@@ -710,9 +710,9 @@
                 "icon": "languages"
               },
               "title": "Meer talen voor nia-todo",
-              "body": "nia-todo spreekt nu 12 talen — in de interface, systeemmails en de “Wat is er nieuw?”-meldingen.",
+              "body": "nia-todo spreekt nu **12** talen.",
               "bullets": [
-                "nieuw: Tsjechisch, Frans, Italiaans, Nederlands, Pools, Braziliaans Portugees, Russisch, Zweeds en Spaans",
+                "nieuw: Tsjechisch, Frans, Italiaans, Nederlands, Pools, Braziliaans Portugees, Russisch, Zweeds, Spaans en Vereenvoudigd Chinees",
                 "uitgebreide taalkeuze voor gebruikersprofiel en adminomgeving",
                 "gelokaliseerde systeemmails voor uitnodigingen, wachtwoordresets, e-mailbevestiging en 2FA-codes"
               ]
@@ -833,9 +833,9 @@
                 "icon": "languages"
               },
               "title": "Więcej języków w nia-todo",
-              "body": "nia-todo obsługuje teraz 12 języków — w interfejsie, e-mailach systemowych i informacjach „Co nowego?”.",
+              "body": "nia-todo obsługuje teraz **12** języków.",
               "bullets": [
-                "nowe: czeski, francuski, włoski, niderlandzki, polski, portugalski brazylijski, rosyjski, szwedzki i hiszpański",
+                "nowe: czeski, francuski, włoski, niderlandzki, polski, portugalski brazylijski, rosyjski, szwedzki, hiszpański i chiński uproszczony",
                 "rozszerzony wybór języka w profilu użytkownika i panelu administratora",
                 "zlokalizowane e-maile systemowe dla zaproszeń, resetu hasła, potwierdzania e-maila i kodów 2FA"
               ]
@@ -956,9 +956,9 @@
                 "icon": "languages"
               },
               "title": "Mais idiomas para o nia-todo",
-              "body": "O nia-todo agora fala 12 idiomas — na interface, nos e-mails do sistema e nas notas “O que há de novo?”.",
+              "body": "O nia-todo agora fala **12** idiomas.",
               "bullets": [
-                "novo: tcheco, francês, italiano, holandês, polonês, português brasileiro, russo, sueco e espanhol",
+                "novo: tcheco, francês, italiano, holandês, polonês, português brasileiro, russo, sueco, espanhol e chinês simplificado",
                 "seleção de idioma ampliada para perfil de usuário e área administrativa",
                 "e-mails do sistema localizados para convites, redefinição de senha, verificação de e-mail e códigos 2FA"
               ]
@@ -1079,9 +1079,9 @@
                 "icon": "languages"
               },
               "title": "Больше языков для nia-todo",
-              "body": "nia-todo теперь говорит на 12 языках — в интерфейсе, системных письмах и заметках «Что нового?».",
+              "body": "nia-todo теперь говорит на **12** языках.",
               "bullets": [
-                "новые языки: чешский, французский, итальянский, нидерландский, польский, бразильский португальский, русский, шведский и испанский",
+                "новые языки: чешский, французский, итальянский, нидерландский, польский, бразильский португальский, русский, шведский, испанский и китайский (упрощённый)",
                 "расширенный выбор языка для профиля пользователя и админ-раздела",
                 "локализованные системные письма для приглашений, сброса пароля, подтверждения e-mail и 2FA-кодов"
               ]
@@ -1202,9 +1202,9 @@
                 "icon": "languages"
               },
               "title": "Fler språk för nia-todo",
-              "body": "nia-todo talar nu 12 språk — i gränssnittet, systemmejl och “Vad är nytt?”-informationen.",
+              "body": "nia-todo talar nu **12** språk.",
               "bullets": [
-                "nytt: tjeckiska, franska, italienska, nederländska, polska, brasiliansk portugisiska, ryska, svenska och spanska",
+                "nytt: tjeckiska, franska, italienska, nederländska, polska, brasiliansk portugisiska, ryska, svenska, spanska och förenklad kinesiska",
                 "utökad språkval för användarprofil och adminområde",
                 "lokaliserade systemmejl för inbjudningar, lösenordsåterställning, e-postbekräftelse och 2FA-koder"
               ]
@@ -1325,9 +1325,9 @@
                 "icon": "languages"
               },
               "title": "Más idiomas para nia-todo",
-              "body": "nia-todo ahora habla 12 idiomas — en la interfaz, los e-mails del sistema y las notas “¿Qué hay de nuevo?”.",
+              "body": "nia-todo ahora habla **12** idiomas.",
               "bullets": [
-                "nuevo: checo, francés, italiano, neerlandés, polaco, portugués brasileño, ruso, sueco y español",
+                "nuevo: checo, francés, italiano, neerlandés, polaco, portugués brasileño, ruso, sueco, español y chino simplificado",
                 "selector de idioma ampliado para el perfil de usuario y el área de administración",
                 "e-mails del sistema localizados para invitaciones, restablecimiento de contraseña, verificación de e-mail y códigos 2FA"
               ]
@@ -1448,7 +1448,7 @@
                 "icon": "languages"
               },
               "title": "nia-todo 支持更多语言",
-              "body": "nia-todo 现在支持 12 种语言 — 覆盖界面、系统邮件和“有什么新功能？”说明。",
+              "body": "nia-todo 现在支持 **12** 种语言。",
               "bullets": [
                 "新增：捷克语、法语、意大利语、荷兰语、波兰语、巴西葡萄牙语、俄语、瑞典语、西班牙语和简体中文",
                 "用户资料和管理区域中的语言选择已扩展",
