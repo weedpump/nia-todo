@@ -559,6 +559,12 @@ export function createTodosFeature({
     }, 0);
   }
 
+  function cleanupRichEditors(root = document) {
+    root.querySelectorAll?.('[data-rich-editor-bound="1"]').forEach(editor => {
+      editor._richEditorCleanup?.();
+    });
+  }
+
   function updateRichToolbarState(editor, toolbar) {
     if (!editor || !toolbar) return;
     const element = getSelectionElementWithin(editor);
@@ -587,32 +593,45 @@ export function createTodosFeature({
   function bindRichEditor(editor, toolbar, syncFromEditor) {
     if (!editor || !toolbar || editor.dataset.richEditorBound === '1') return;
     editor.dataset.richEditorBound = '1';
+    const controller = new AbortController();
+    const { signal } = controller;
+    const listenerOptions = { signal };
+    const passiveListenerOptions = { passive: true, signal };
+    editor._richEditorCleanup = () => {
+      if (signal.aborted) return;
+      if (activeRichKeyboardToolbar === toolbar) clearRichKeyboardToolbar();
+      else releaseRichKeyboardToolbarFixed(toolbar);
+      toolbar.classList.remove('is-stuck');
+      controller.abort();
+    };
     toolbar.parentElement?.classList.add('todo-rich-keyboard-wrap');
     const updateStickyState = () => window.requestAnimationFrame?.(() => updateRichToolbarStickyState(toolbar)) || updateRichToolbarStickyState(toolbar);
-    getRichToolbarScrollPort(toolbar)?.addEventListener('scroll', updateStickyState, { passive: true });
-    window.addEventListener('resize', updateStickyState, { passive: true });
+    getRichToolbarScrollPort(toolbar)?.addEventListener('scroll', updateStickyState, passiveListenerOptions);
+    window.addEventListener('resize', updateStickyState, passiveListenerOptions);
     editor.addEventListener('input', () => {
       syncFromEditor();
       updateRichKeyboardToolbar();
       updateStickyState();
-    });
+    }, listenerOptions);
     editor.addEventListener('focus', () => {
       activateRichKeyboardToolbar(toolbar);
       updateStickyState();
-    });
+    }, listenerOptions);
     editor.addEventListener('keyup', () => window.setTimeout(() => {
+      if (signal.aborted) return;
       updateRichToolbarState(editor, toolbar);
       updateRichKeyboardToolbar();
       updateStickyState();
-    }, 0));
-    editor.addEventListener('mouseup', () => updateRichToolbarState(editor, toolbar));
+    }, 0), listenerOptions);
+    editor.addEventListener('mouseup', () => updateRichToolbarState(editor, toolbar), listenerOptions);
     editor.addEventListener('blur', () => {
       clearToolbarState(toolbar);
       window.setTimeout(() => {
+        if (signal.aborted) return;
         if (!document.activeElement?.closest?.('.todo-desc-rich-editor, .todo-comment-rich-editor')) clearRichKeyboardToolbar();
       }, 0);
-    });
-    document.addEventListener('selectionchange', () => updateRichToolbarState(editor, toolbar));
+    }, listenerOptions);
+    document.addEventListener('selectionchange', () => updateRichToolbarState(editor, toolbar), listenerOptions);
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -629,6 +648,7 @@ export function createTodosFeature({
       }
       if (event.key === ' ') {
         window.setTimeout(() => {
+          if (signal.aborted) return;
           const selection = window.getSelection?.();
           const node = selection?.anchorNode;
           const block = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
@@ -639,9 +659,9 @@ export function createTodosFeature({
           syncFromEditor();
         }, 0);
       }
-    });
+    }, listenerOptions);
     toolbar.querySelectorAll('button[data-rich-command], button[data-rich-block], button[data-rich-format]').forEach(button => {
-      button.addEventListener('mousedown', event => event.preventDefault());
+      button.addEventListener('mousedown', event => event.preventDefault(), listenerOptions);
       button.addEventListener('click', () => {
         editor.focus();
         if (button.dataset.richBlock) document.execCommand('formatBlock', false, button.dataset.richBlock);
@@ -649,7 +669,7 @@ export function createTodosFeature({
         else document.execCommand(button.dataset.richCommand, false, null);
         syncFromEditor();
         updateRichToolbarState(editor, toolbar);
-      });
+      }, listenerOptions);
     });
   }
 
@@ -1042,6 +1062,7 @@ export function createTodosFeature({
     if (!list) return;
     const normalized = Array.isArray(comments) ? comments : [];
     const count = document.getElementById('todo-comments-count');
+    cleanupRichEditors(list);
     list.innerHTML = '';
     if (count) count.textContent = String(normalized.length);
     setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
