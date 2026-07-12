@@ -414,6 +414,77 @@ export function createTodosFeature({
     toolbar?.querySelectorAll?.('button[aria-pressed]')?.forEach(button => setToolbarButtonActive(button, false));
   }
 
+  let activeRichKeyboardToolbar = null;
+  let richKeyboardViewportBound = false;
+
+  function isLikelyTouchKeyboardOpen() {
+    const viewport = window.visualViewport;
+    if (!viewport) return false;
+    const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
+    if (!coarsePointer) return false;
+    const layoutHeight = Math.max(window.innerHeight || 0, document.documentElement?.clientHeight || 0);
+    const screenHeight = window.screen?.height || layoutHeight;
+    const hiddenLayoutSpace = layoutHeight - viewport.height - viewport.offsetTop;
+    const hiddenScreenSpace = screenHeight - viewport.height;
+    return hiddenLayoutSpace > 80 || hiddenScreenSpace > Math.max(180, screenHeight * 0.22);
+  }
+
+  function releaseRichKeyboardToolbarFixed(toolbar = activeRichKeyboardToolbar) {
+    if (!toolbar) return;
+    toolbar.classList.remove('is-keyboard-fixed');
+    toolbar.style.removeProperty('--todo-rich-toolbar-left');
+    toolbar.style.removeProperty('--todo-rich-toolbar-width');
+    toolbar.style.removeProperty('--todo-rich-toolbar-top');
+    const wrap = toolbar.closest('.todo-rich-keyboard-wrap');
+    wrap?.classList.remove('is-keyboard-toolbar-fixed');
+    wrap?.style.removeProperty('--todo-rich-toolbar-height');
+  }
+
+  function clearRichKeyboardToolbar() {
+    releaseRichKeyboardToolbarFixed();
+    activeRichKeyboardToolbar = null;
+  }
+
+  function updateRichKeyboardToolbar() {
+    const toolbar = activeRichKeyboardToolbar;
+    if (!toolbar) return;
+    if (!document.activeElement?.closest?.('.todo-desc-rich-editor, .todo-comment-rich-editor')) {
+      clearRichKeyboardToolbar();
+      return;
+    }
+    if (!isLikelyTouchKeyboardOpen()) {
+      releaseRichKeyboardToolbarFixed(toolbar);
+      return;
+    }
+    const viewport = window.visualViewport;
+    const wrap = toolbar.closest('.todo-rich-keyboard-wrap') || toolbar.parentElement;
+    const rect = wrap.getBoundingClientRect();
+    toolbar.style.setProperty('--todo-rich-toolbar-left', `${Math.max(0, rect.left)}px`);
+    toolbar.style.setProperty('--todo-rich-toolbar-width', `${Math.max(0, rect.width)}px`);
+    toolbar.style.setProperty('--todo-rich-toolbar-top', `${Math.max(0, viewport?.offsetTop || 0)}px`);
+    wrap.style.setProperty('--todo-rich-toolbar-height', `${toolbar.getBoundingClientRect().height}px`);
+    wrap.classList.add('is-keyboard-toolbar-fixed');
+    toolbar.classList.add('is-keyboard-fixed');
+  }
+
+  function bindRichKeyboardViewportHandlers() {
+    if (richKeyboardViewportBound) return;
+    richKeyboardViewportBound = true;
+    const update = () => window.requestAnimationFrame?.(updateRichKeyboardToolbar) || updateRichKeyboardToolbar();
+    window.visualViewport?.addEventListener('resize', update, { passive: true });
+    window.visualViewport?.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    window.addEventListener('orientationchange', update, { passive: true });
+  }
+
+  function activateRichKeyboardToolbar(toolbar) {
+    if (!toolbar) return;
+    bindRichKeyboardViewportHandlers();
+    if (activeRichKeyboardToolbar && activeRichKeyboardToolbar !== toolbar) clearRichKeyboardToolbar();
+    activeRichKeyboardToolbar = toolbar;
+    window.setTimeout(updateRichKeyboardToolbar, 0);
+  }
+
   function placeCaret(element, atEnd = false) {
     const selection = window.getSelection?.();
     if (!selection) return;
@@ -493,10 +564,23 @@ export function createTodosFeature({
   function bindRichEditor(editor, toolbar, syncFromEditor) {
     if (!editor || !toolbar || editor.dataset.richEditorBound === '1') return;
     editor.dataset.richEditorBound = '1';
-    editor.addEventListener('input', syncFromEditor);
-    editor.addEventListener('keyup', () => window.setTimeout(() => updateRichToolbarState(editor, toolbar), 0));
+    toolbar.parentElement?.classList.add('todo-rich-keyboard-wrap');
+    editor.addEventListener('input', () => {
+      syncFromEditor();
+      updateRichKeyboardToolbar();
+    });
+    editor.addEventListener('focus', () => activateRichKeyboardToolbar(toolbar));
+    editor.addEventListener('keyup', () => window.setTimeout(() => {
+      updateRichToolbarState(editor, toolbar);
+      updateRichKeyboardToolbar();
+    }, 0));
     editor.addEventListener('mouseup', () => updateRichToolbarState(editor, toolbar));
-    editor.addEventListener('blur', () => clearToolbarState(toolbar));
+    editor.addEventListener('blur', () => {
+      clearToolbarState(toolbar);
+      window.setTimeout(() => {
+        if (!document.activeElement?.closest?.('.todo-desc-rich-editor, .todo-comment-rich-editor')) clearRichKeyboardToolbar();
+      }, 0);
+    });
     document.addEventListener('selectionchange', () => updateRichToolbarState(editor, toolbar));
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
