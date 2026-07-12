@@ -28,6 +28,7 @@ function normalizeBrowserLanguage(value) {
   if (!language) return null;
   if (language === 'zh-cn' || language === 'zh-hans' || language.startsWith('zh-hans-')) return 'zh-CN';
   if (language === 'pt-br' || language.startsWith('pt-br-')) return 'pt-BR';
+  if (language.split('-')[0] === 'pt') return 'pt-BR';
   return language.split('-')[0];
 }
 
