@@ -36,6 +36,7 @@ const DATE_TIME_LOCALES = {
   ru: 'ru-RU',
   sv: 'sv-SE',
   es: 'es-ES',
+  'zh-CN': 'zh-CN',
 };
 
 function formatLocaleDateTime(value) {

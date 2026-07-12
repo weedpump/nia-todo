@@ -530,12 +530,62 @@ EMAIL_COPY = {
         "smtp_test_detail": "Este e-mail de prueba fue enviado usando la configuración SMTP guardada actualmente.",
         "smtp_test_preheader": "La configuración SMTP de nia-todo funciona.",
     },
+    "zh-CN": {
+        "auto_sent": "此邮件由 nia-todo 自动发送。",
+        "button_fallback": "如果按钮无法使用，请复制此链接：",
+        "link_fallback": "如果链接无法使用，请复制此地址：",
+        "greeting": "你好，{name}，",
+        "greeting_default": "你好",
+        "tagline": "你的任务，清晰有序。",
+        "system_mail": "系统邮件",
+        "unexpected": "如果你没有预期收到这封邮件，可以忽略它。",
+        "project_share_subject": "项目共享：{project_name}",
+        "project_share_title": "有人与你共享了项目",
+        "project_share_paragraph": "{inviter_name} 与你共享了项目“{project_name}”。",
+        "project_share_action": "查看邀请",
+        "project_share_detail": "你可以在 nia-todo 中接受或拒绝该邀请。",
+        "project_share_preheader": "{inviter_name} 与你共享了一个项目。",
+        "email_verify_subject": "确认你的 nia-todo 邮箱",
+        "email_verify_title": "确认邮箱地址",
+        "email_verify_paragraph": "请确认此邮箱地址用于你的 nia-todo 账户。",
+        "email_verify_action": "确认邮箱",
+        "link_expires_hours": "此链接有效期为 {hours} 小时。",
+        "email_verify_unexpected": "如果你没有请求此更改，请忽略此邮件。",
+        "email_verify_preheader": "确认你的 nia-todo 邮箱地址。",
+        "password_invite_subject": "你的 nia-todo 访问权限",
+        "password_reset_subject": "重置你的 nia-todo 密码",
+        "password_invite_title": "欢迎使用 nia-todo",
+        "password_reset_title": "重置密码",
+        "password_invite_paragraph": "已为你的 nia-todo 访问权限创建设置链接。",
+        "password_reset_paragraph": "已为你的 nia-todo 账户创建密码链接。",
+        "password_invite_action": "设置密码",
+        "password_reset_action": "重置密码",
+        "password_unexpected": "如果你没有预期此操作，请忽略此邮件。",
+        "password_invite_preheader": "设置你的 nia-todo 访问权限。",
+        "password_reset_preheader": "重置你的 nia-todo 密码。",
+        "security_code": "安全代码",
+        "login_code": "登录代码",
+        "reauth_subject": "你的 nia-todo 重新认证代码",
+        "twofa_subject": "你的 nia-todo 2FA 代码",
+        "code_paragraph": "你的 {label} 是：",
+        "code_expires_minutes": "此代码有效期为 {minutes} 分钟。",
+        "code_tip": "提示：你也可以在设置中添加 authenticator 或 passkey。",
+        "code_preheader": "你的 nia-todo {label}：{code}",
+        "smtp_test_subject": "nia-todo SMTP 测试",
+        "smtp_test_title": "SMTP 正常工作",
+        "smtp_test_paragraph": "如果你能看到这封邮件，说明 nia-todo 的 SMTP 配置正常工作。",
+        "smtp_test_detail": "此测试邮件使用当前保存的 SMTP 配置发送。",
+        "smtp_test_preheader": "nia-todo 的 SMTP 配置正常工作。",
+    },
 
 }
 
 
 def _language(value: str | None) -> str:
-    language = str(value or "").lower()
+    language = str(value or "").strip()
+    if language == "zh-CN" or language.lower() in {"zh-cn", "zh-hans"}:
+        return "zh-CN"
+    language = language.lower()
     if language in EMAIL_COPY:
         return language
     return "en"
