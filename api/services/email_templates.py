@@ -109,7 +109,10 @@ EMAIL_COPY = {
 
 
 def _language(value: str | None) -> str:
-    return "en" if str(value or "").lower() == "en" else "de"
+    language = str(value or "").lower()
+    if language == "de":
+        return "de"
+    return "en"
 
 
 def _copy(language: str | None) -> dict[str, str]:
