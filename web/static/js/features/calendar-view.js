@@ -650,9 +650,8 @@ export function createCalendarViewFeature({
   function bindCalendarViewSwipeNavigation() {
     if (calendarViewSwipeBound) return;
     calendarViewSwipeBound = true;
-    const actionThreshold = 76;
-    const lockThreshold = 12;
-    const maxVerticalDrift = 80;
+    const actionThreshold = 36;
+    const lockThreshold = 8;
 
     document.addEventListener('click', (event) => {
       if (Date.now() > suppressCalendarViewClickUntil) return;
@@ -669,6 +668,11 @@ export function createCalendarViewFeature({
       if (!surface || calendarViewAnimating) return;
       cleanupCalendarViewSwipeVisual(surface);
       cleanupCalendarViewPreview(surface);
+      try {
+        surface.setPointerCapture?.(event.pointerId);
+      } catch (_error) {
+        // Pointer capture is best-effort; swipe still works without it.
+      }
       calendarViewSwipeActive = {
         surface,
         pointerId: event.pointerId,
@@ -690,7 +694,7 @@ export function createCalendarViewFeature({
         const absX = Math.abs(active.dx);
         const absY = Math.abs(active.dy);
         if (absX < lockThreshold && absY < lockThreshold) return;
-        active.locked = absX > absY * 1.35 ? 'horizontal' : 'vertical';
+        active.locked = absX > absY * 1.1 ? 'horizontal' : 'vertical';
         if (active.locked !== 'horizontal') return;
         active.surface.classList.add('is-dragging');
       }
@@ -707,9 +711,14 @@ export function createCalendarViewFeature({
       const active = calendarViewSwipeActive;
       if (!active || event.pointerId !== active.pointerId) return;
       calendarViewSwipeActive = null;
+      try {
+        active.surface.releasePointerCapture?.(event.pointerId);
+      } catch (_error) {
+        // Pointer capture may already be released after cancel/end.
+      }
+      const distanceThreshold = Math.min(actionThreshold, (active.surface.clientWidth || actionThreshold) * 0.12);
       const shouldNavigate = active.locked === 'horizontal'
-        && Math.abs(active.dx) >= actionThreshold
-        && Math.abs(active.dy) <= maxVerticalDrift;
+        && Math.abs(active.dx) >= distanceThreshold;
       if (active.swiped || shouldNavigate) suppressCalendarViewClickUntil = Date.now() + 450;
       if (active.locked === 'horizontal') event.preventDefault();
       if (active.locked !== 'horizontal') return;

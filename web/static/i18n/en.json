@@ -1752,5 +1752,9 @@
   "calendar.empty.title": "Nothing planned yet",
   "calendar.empty.month": "Todos with due dates appear in this month view.",
   "calendar.empty.week": "This week is clear. Due todos will appear here automatically.",
-  "calendar.empty.day": "No todos are planned for this day."
+  "calendar.empty.day": "No todos are planned for this day.",
+  "whatsNew.progress": "What's new tour progress",
+  "whatsNew.slideLabel": "Slide {current} of {total}",
+  "whatsNew.done": "Get started",
+  "whatsNew.versionBadge": "Version {version}"
 }
