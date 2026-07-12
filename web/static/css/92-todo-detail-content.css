@@ -149,12 +149,24 @@
   display: none;
 }
 
+#todo-modal.todo-detail-view .todo-comments-add-group:not(:focus-within) .todo-markdown-toolbar,
+#todo-modal.todo-detail-view .todo-comments-add-group:not(:focus-within) .btn {
+  display: none;
+}
+
 #todo-modal.todo-detail-view .todo-comments-add-group textarea {
   min-height: 48px;
   resize: vertical;
   border-radius: 16px;
   background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
   border-color: color-mix(in srgb, var(--border) 34%, transparent);
+  transition: min-height 160ms ease, border-radius 160ms ease, background-color 160ms ease;
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group:focus-within textarea {
+  min-height: 112px;
+  border-radius: 0 0 16px 16px;
+  background: color-mix(in srgb, var(--bg-secondary) 34%, transparent);
 }
 
 #todo-modal.todo-detail-view .todo-comments-add-group .btn {
