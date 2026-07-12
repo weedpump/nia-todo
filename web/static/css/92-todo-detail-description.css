@@ -84,6 +84,22 @@
   color: var(--text-muted);
 }
 
+#todo-modal.todo-detail-view .todo-desc-rich-editor::selection,
+#todo-modal.todo-detail-view .todo-desc-rich-editor *::selection,
+#todo-modal.todo-detail-view .todo-comments-add-group textarea::selection,
+#todo-modal.todo-detail-view .todo-comment-edit-input::selection {
+  color: #ffffff;
+  background: rgba(var(--accent-hover-rgb), 0.46);
+}
+
+[data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor::selection,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor *::selection,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comments-add-group textarea::selection,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-edit-input::selection {
+  color: var(--text-primary);
+  background: rgba(var(--accent-rgb), 0.22);
+}
+
 #todo-modal.todo-detail-view .todo-desc-rich-editor h1,
 #todo-modal.todo-detail-view .desc-live-preview h1 {
   margin: 0 0 12px;
