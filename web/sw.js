@@ -110,7 +110,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/view-preferences.js',
   '/static/js/features/websocket-client.js',
   '/static/js/features/whats-new.js',
-  '/static/js/content/whats-new.js',
+  '/static/content/whats-new.json',
   '/static/js/features/service-worker-updates.js',
   '/static/js/features/section-actions.js',
   '/static/js/features/sections.js',
