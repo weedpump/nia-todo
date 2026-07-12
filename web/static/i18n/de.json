@@ -1756,5 +1756,13 @@
   "whatsNew.progress": "Fortschritt der Was-ist-neu-Tour",
   "whatsNew.slideLabel": "Folie {current} von {total}",
   "whatsNew.done": "Loslegen",
-  "whatsNew.versionBadge": "Version {version}"
+  "whatsNew.versionBadge": "Version {version}",
+  "settings.language.cs": "Tschechisch",
+  "settings.language.fr": "Französisch",
+  "settings.language.it": "Italienisch",
+  "settings.language.nl": "Niederländisch",
+  "settings.language.pl": "Polnisch",
+  "settings.language.pt": "Brasilianisches Portugiesisch",
+  "settings.language.ru": "Russisch",
+  "settings.language.sv": "Schwedisch"
 }

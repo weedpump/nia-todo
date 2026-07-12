@@ -1756,5 +1756,13 @@
   "whatsNew.progress": "What's new tour progress",
   "whatsNew.slideLabel": "Slide {current} of {total}",
   "whatsNew.done": "Get started",
-  "whatsNew.versionBadge": "Version {version}"
+  "whatsNew.versionBadge": "Version {version}",
+  "settings.language.cs": "Czech",
+  "settings.language.fr": "French",
+  "settings.language.it": "Italian",
+  "settings.language.nl": "Dutch",
+  "settings.language.pl": "Polish",
+  "settings.language.pt": "Brazilian Portuguese",
+  "settings.language.ru": "Russian",
+  "settings.language.sv": "Swedish"
 }
