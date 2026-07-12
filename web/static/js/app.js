@@ -28,6 +28,7 @@ import { createDragDropFeature } from './features/drag-drop.js';
 import { createConfirmDialogFeature } from './features/confirm-dialog.js';
 import { createDesktopIntegration } from './features/desktop-integration.js';
 import { createAppDownloadsFeature } from './features/app-downloads.js';
+import { createWhatsNewFeature } from './features/whats-new.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
@@ -80,6 +81,10 @@ const confirmDanger = confirmDialogFeature.confirmDanger;
 const alertInfo = confirmDialogFeature.alertInfo;
 const appDownloadsFeature = createAppDownloadsFeature();
 const bindAppDownloadLaunchers = appDownloadsFeature.bindAppDownloadLaunchers;
+const whatsNewFeature = createWhatsNewFeature({
+  appVersion: APP_VERSION,
+  getCurrentUser: () => currentUser,
+});
 const brainDumpLiveFeature = createBrainDumpLiveFeature({
   getProjects: () => projects,
   getSections: () => sections,
@@ -612,6 +617,7 @@ const appLifecycle = createAppLifecycle({
 const initApp = async function() {
   await appLifecycle.initApp();
   brainDumpLiveFeature.init();
+  whatsNewFeature.maybeShowWhatsNew();
   if (sharingFeature?.loadInvites) {
     sharingFeature.loadInvites();
   }
@@ -640,6 +646,7 @@ export function startAppModule() {
   consumeOidcErrorNotice();
   bindServiceWorkerUpdateButtons();
   bindAppDownloadLaunchers();
+  whatsNewFeature.bindWhatsNewActions();
   appDownloadsFeature.initAppDownloads();
   brainDumpLiveFeature.init();
   bindStandardDragDrop();

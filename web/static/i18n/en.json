@@ -1752,5 +1752,18 @@
   "calendar.empty.title": "Nothing planned yet",
   "calendar.empty.month": "Todos with due dates appear in this month view.",
   "calendar.empty.week": "This week is clear. Due todos will appear here automatically.",
-  "calendar.empty.day": "No todos are planned for this day."
+  "calendar.empty.day": "No todos are planned for this day.",
+  "whatsNew.progress": "What's new tour progress",
+  "whatsNew.slideLabel": "Slide {current} of {total}",
+  "whatsNew.dismiss": "Don't show again",
+  "whatsNew.done": "Get started",
+  "whatsNew.v3.badge": "Version 3",
+  "whatsNew.v3.title": "What's new in nia-todo Next?",
+  "whatsNew.v3.intro": "This major update brings a refreshed interface, better workflows, and more comfort across web, desktop, and native apps.",
+  "whatsNew.v3.slide1.title": "A fresh interface, same familiar flow",
+  "whatsNew.v3.slide1.body": "nia-todo Next cleans up the interface, keeps important actions closer, and still stays intentionally close to your existing workflow.",
+  "whatsNew.v3.slide2.title": "Focus, calendar, and workspaces fit together",
+  "whatsNew.v3.slide2.body": "The core views feel more consistent: focus filters, calendar, projects, and workspaces now work together more cleanly.",
+  "whatsNew.v3.slide3.title": "More foundation for big features",
+  "whatsNew.v3.slide3.body": "A lot changed under the hood: more stable native flows, better attachments, and a release system that can introduce major updates intentionally."
 }
