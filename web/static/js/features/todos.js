@@ -329,7 +329,9 @@ export function createTodosFeature({
     if (tag === 'br') return '\n';
     if (tag === 'strong' || tag === 'b') return `**${children()}**`;
     if (tag === 'em' || tag === 'i') return `*${children()}*`;
+    if (tag === 'u') return `<u>${children()}</u>`;
     if (tag === 'code') return `\`${children()}\``;
+    if (tag === 'blockquote') return children().split('\n').map(line => line.trim() ? `> ${line.trim()}` : '').join('\n') + '\n\n';
     if (tag === 'h1') return `# ${children().trim()}\n\n`;
     if (tag === 'h2') return `## ${children().trim()}\n\n`;
     if (tag === 'h3') return `### ${children().trim()}\n\n`;
@@ -337,6 +339,15 @@ export function createTodosFeature({
     if (tag === 'ul' || tag === 'ol') return `${children()}\n`;
     if (tag === 'p' || tag === 'div') return `${children().trim()}\n\n`;
     return children();
+  }
+
+  function insertInlineCode(editor) {
+    const selection = window.getSelection?.();
+    if (!selection?.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+    const text = selection.toString() || 'code';
+    document.execCommand('insertHTML', false, `<code>${escapeHtml(text)}</code>`);
   }
 
   function richDescriptionToMarkdown(editor) {
@@ -357,8 +368,11 @@ export function createTodosFeature({
       <div class="todo-desc-rich-toolbar" aria-label="${escapeHtmlAttr(t('todo.description.formatToolbar'))}">
         <button type="button" data-rich-command="bold"><strong>B</strong></button>
         <button type="button" data-rich-command="italic"><em>I</em></button>
+        <button type="button" data-rich-command="underline"><u>U</u></button>
         <button type="button" data-rich-block="h1">H1</button>
         <button type="button" data-rich-block="h2">H2</button>
+        <button type="button" data-rich-block="blockquote">❝</button>
+        <button type="button" data-rich-format="code"><code>&#96;</code></button>
         <button type="button" data-rich-command="insertUnorderedList">${escapeHtmlAttr(t('todo.description.bulletList'))}</button>
       </div>
       <div id="todo-desc-rich-editor" class="todo-desc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>
@@ -390,16 +404,89 @@ export function createTodosFeature({
         }, 0);
       }
     });
-    wrap.querySelectorAll('button[data-rich-command], button[data-rich-block]').forEach(button => {
+    wrap.querySelectorAll('button[data-rich-command], button[data-rich-block], button[data-rich-format]').forEach(button => {
       button.addEventListener('mousedown', event => event.preventDefault());
       button.addEventListener('click', () => {
         editor.focus();
         if (button.dataset.richBlock) document.execCommand('formatBlock', false, button.dataset.richBlock);
+        else if (button.dataset.richFormat === 'code') insertInlineCode(editor);
         else document.execCommand(button.dataset.richCommand, false, null);
         syncFromEditor();
       });
     });
     return wrap;
+  }
+
+  function applyMarkdownFormatToTextarea(textarea, format) {
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? start;
+    const before = textarea.value.slice(0, start);
+    const selected = textarea.value.slice(start, end);
+    const after = textarea.value.slice(end);
+    const lineStart = before.lastIndexOf('\n') + 1;
+    const selectedOrPlaceholder = selected || (format === 'code' ? 'code' : 'Text');
+    let nextValue = textarea.value;
+    let nextStart = start;
+    let nextEnd = end;
+
+    const wrapInline = (prefix, suffix = prefix) => {
+      nextValue = `${before}${prefix}${selectedOrPlaceholder}${suffix}${after}`;
+      nextStart = start + prefix.length;
+      nextEnd = nextStart + selectedOrPlaceholder.length;
+    };
+    const prefixBlock = (prefix) => {
+      const block = textarea.value.slice(lineStart, end)
+        .split('\n')
+        .map(line => line.startsWith(prefix) ? line : `${prefix}${line || 'Text'}`)
+        .join('\n');
+      nextValue = `${textarea.value.slice(0, lineStart)}${block}${after}`;
+      nextStart = lineStart + prefix.length;
+      nextEnd = lineStart + block.length;
+    };
+
+    if (format === 'bold') wrapInline('**');
+    else if (format === 'italic') wrapInline('*');
+    else if (format === 'underline') wrapInline('<u>', '</u>');
+    else if (format === 'code') wrapInline('`');
+    else if (format === 'h1') prefixBlock('# ');
+    else if (format === 'h2') prefixBlock('## ');
+    else if (format === 'quote') prefixBlock('> ');
+    else if (format === 'list') prefixBlock('- ');
+
+    textarea.value = nextValue;
+    textarea.focus();
+    textarea.setSelectionRange(nextStart, nextEnd);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function createMarkdownTextareaToolbar() {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'todo-markdown-toolbar';
+    toolbar.innerHTML = `
+      <button type="button" data-markdown-format="bold"><strong>B</strong></button>
+      <button type="button" data-markdown-format="italic"><em>I</em></button>
+      <button type="button" data-markdown-format="underline"><u>U</u></button>
+      <button type="button" data-markdown-format="h1">H1</button>
+      <button type="button" data-markdown-format="h2">H2</button>
+      <button type="button" data-markdown-format="quote">❝</button>
+      <button type="button" data-markdown-format="code"><code>&#96;</code></button>
+      <button type="button" data-markdown-format="list">${escapeHtmlAttr(t('todo.description.bulletList'))}</button>
+    `;
+    return toolbar;
+  }
+
+  function bindMarkdownTextareaToolbar(toolbar, textarea) {
+    if (!toolbar || !textarea || toolbar.dataset.markdownToolbarBound === '1') return;
+    toolbar.dataset.markdownToolbarBound = '1';
+    toolbar.addEventListener('mousedown', event => {
+      if (event.target?.closest?.('button[data-markdown-format]')) event.preventDefault();
+    });
+    toolbar.addEventListener('click', event => {
+      const button = event.target?.closest?.('button[data-markdown-format]');
+      if (!button) return;
+      applyMarkdownFormatToTextarea(textarea, button.dataset.markdownFormat);
+    });
   }
 
   function bindTodoDescriptionInlineEditor() {
@@ -715,7 +802,7 @@ export function createTodosFeature({
 
   function collectTodoDraftCommentsFromEditor() {
     return Array.from(document.querySelectorAll('#todo-comments-list .todo-comment-item[data-draft-comment="1"] .todo-comment-body'))
-      .map(item => item.textContent?.trim() || '')
+      .map(item => item.dataset.rawBody?.trim() || item.textContent?.trim() || '')
       .filter(Boolean);
   }
 
@@ -762,6 +849,9 @@ export function createTodosFeature({
     if (input) {
       input.value = '';
       input.disabled = false;
+      document.getElementById('todo-comment-new-toolbar')?.querySelectorAll('button').forEach(button => {
+        button.disabled = false;
+      });
     }
     if (addButton) addButton.disabled = true;
     refreshTodoActionButtonState();
@@ -784,7 +874,8 @@ export function createTodosFeature({
 
       const body = document.createElement('div');
       body.className = 'todo-comment-body';
-      body.textContent = comment.body || '';
+      body.dataset.rawBody = comment.body || '';
+      body.innerHTML = renderMarkdown(comment.body || '');
 
       const actions = document.createElement('div');
       actions.className = 'todo-comment-actions';
@@ -825,12 +916,17 @@ export function createTodosFeature({
     if (!todoId || !comment?.id || item.dataset.editing === '1') return;
     item.dataset.editing = '1';
     const original = comment.body || '';
+    const editorWrap = document.createElement('div');
+    editorWrap.className = 'todo-comment-edit-wrap';
+    const toolbar = createMarkdownTextareaToolbar();
     const editor = document.createElement('textarea');
     editor.className = 'ui-field todo-comment-edit-input';
     editor.rows = Math.max(3, Math.min(8, original.split('\n').length + 1));
     editor.maxLength = 5000;
     editor.value = original;
-    bodyEl.replaceWith(editor);
+    editorWrap.append(toolbar, editor);
+    bodyEl.replaceWith(editorWrap);
+    bindMarkdownTextareaToolbar(toolbar, editor);
     actionsEl.innerHTML = '';
 
     const save = document.createElement('button');
@@ -888,6 +984,7 @@ export function createTodosFeature({
       if (input) {
         input.value = '';
         input.focus();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
       }
       refreshTodoSaveButtonState();
       return;
@@ -899,7 +996,10 @@ export function createTodosFeature({
     try {
       const response = await todosApi.createComment(id, { body });
       await applyCommentTodoResponse(response);
-      if (input) input.value = '';
+      if (input) {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     } catch (error) {
       console.error('Failed to add todo comment', error);
       showToast(t('todo.comments.saveFailed'));
@@ -954,6 +1054,13 @@ export function createTodosFeature({
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
     bindTodoAttachmentInputs();
+    const commentInput = document.getElementById('todo-comment-new-body');
+    if (commentInput && !document.getElementById('todo-comment-new-toolbar')) {
+      const toolbar = createMarkdownTextareaToolbar();
+      toolbar.id = 'todo-comment-new-toolbar';
+      commentInput.before(toolbar);
+      bindMarkdownTextareaToolbar(toolbar, commentInput);
+    }
     document.getElementById('todo-subtask-new-title')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
