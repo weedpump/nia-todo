@@ -5,98 +5,52 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.0] - 2026-07-12
 
 ### Added
-- Added full UI language support for 12 languages: German, English, Czech, French, Italian, Dutch, Polish, Brazilian Portuguese, Russian, Swedish, Spanish, and Simplified Chinese, including profile/admin language selection, localized system emails, localized “What’s new” release content, native/OIDC handoff screens, offline/PWA language precache coverage, and locale-aware date/time formatting.
-- Added a version-aware “What’s new” release tour that loads localized release content from `web/static/content/whats-new.json`, supports per-user seen state, carry-forward display across follow-up releases, responsive icon-based slides, and offline/PWA precache coverage.
-- Added a native Debian desktop app package alongside Windows and Android, including release/download manifest integration, Debian platform download UI, autostart support, tray/global-hotkey settings, OIDC URL handler registration, and volatile WebKitGTK cache cleanup after app version or executable changes.
-- Added Debian desktop release/package regression coverage for the native `.deb` package name, Debian desktop WebView cache migration behavior, native desktop settings UI, native passkey capability gating, and native artifact reuse.
-- Added Debian desktop hotkey activation support through the XDG Desktop Portal GlobalShortcuts API when available, including activation-token/timestamp handoff for compositor-sanctioned focus on newer Linux desktops and a clean legacy global-shortcut fallback when the portal backend is missing.
-- Added a global Calendar sidebar view for todos with due dates, including day, week, and month modes, timeline-style day/week layouts, mobile month day selection, localized labels, offline/PWA cache coverage, and calendar-specific todo interactions.
-- Expanded the project/workspace icon picker with more curated Lucide icons across everyday, work, organization, finance, people, health, places, nature, media, creative, status, and movement categories, including localized icon labels and search keywords.
-- Added desktop/tablet drag-and-drop for moving todos directly onto sidebar projects, placing them in the target project's unsectioned bucket while preserving offline sync behavior.
-- Added auto-hiding overlay scrollbars for the main app and admin panel, keeping content full-width while showing a right-aligned scroll indicator only during scrolling.
-- Added the `lucide` npm package as the single source for app icons, with a generated offline/PWA icon subset for browser use.
-- Added Service Worker precache validation for query-string app-shell references so cache-busted module URLs remain offline-safe.
-- Added checklist-style subtasks on todos, including progress chips on todo cards, modal-only checklist editing, independent create/update/delete actions for existing todos, realtime sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
-- Added draft subtask, comment, and attachment support while creating new todos, including post-create comment creation, attachment uploads, and online-only handling when drafts need a real server todo ID.
-- Added todo comments with author display, local timestamps, comment-count chips, dedicated add/edit/delete actions, shared-project permissions, and realtime comment updates.
-- Added todo attachments with authenticated server-local uploads/downloads, attachment-count chips, modal list/upload/delete actions, shared-project access checks, image/PDF preview, and realtime attachment updates.
-- Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
+- Added checklist subtasks for todos, including progress chips, independent subtask updates, realtime sync, recurring-todo carry-over, and confirmation before completing a parent todo with open subtasks.
+- Added todo comments with author display, edit/delete actions, shared-project permissions, comment-count chips, and realtime updates.
+- Added todo attachments with authenticated server-local uploads/downloads, attachment-count chips, image/PDF preview, native download handling, shared-project access checks, realtime updates, and backup/restore coverage.
+- Added admin controls for attachments, including global upload enablement, allowed file extensions, a default 5 GB quota, per-user quota overrides, and user-visible storage usage.
+- Added a global Calendar sidebar view for due todos with day, week, and month modes, timeline-style day/week layouts, mobile month day selection, localized labels, offline/PWA coverage, and normal todo interactions from calendar entries.
+- Added draft subtasks, comments, and attachments while creating new todos, with online-only handling when draft data needs a real server todo ID.
+- Added full UI language support for 12 languages: German, English, Czech, French, Italian, Dutch, Polish, Brazilian Portuguese, Russian, Swedish, Spanish, and Simplified Chinese.
+- Added localized app UI, system emails, release-tour content, native/OIDC handoff screens, offline/PWA language precache coverage, and locale-aware date/time formatting.
+- Added a version-aware “What’s new” release tour with per-user seen state, carry-forward display across follow-up releases, responsive icon-based slides, and offline/PWA precache coverage.
+- Added a native Debian desktop app package alongside Windows and Android, including release/download manifest integration, Debian platform download UI, autostart support, tray/global-hotkey settings, OIDC URL handler registration, desktop notifications, and WebKitGTK cache cleanup after app or executable changes.
+- Added Debian desktop global-hotkey activation through the XDG Desktop Portal GlobalShortcuts API when available, with a legacy global-shortcut fallback for desktops without portal support.
+- Added curated Lucide icon choices for projects and workspaces, with localized labels and searchable keywords.
+- Added desktop/tablet drag-and-drop for moving todos directly onto sidebar projects while preserving offline sync behavior.
+- Added auto-hiding overlay scrollbars for the main app and admin panel.
 
 ### Changed
-- Renamed the desktop `.deb` download target from Linux to Debian across manifest platform keys, artifact names, UI labels, and release metadata.
-- Release packaging now treats native Windows, Android, and Debian desktop artifacts as the bundled client set, embedding the Debian `.deb` into the server `.deb` and Docker image downloads with versioned SHA256 manifest metadata.
-- Debian desktop notifications now prefer `notify-send` with the Tauri notification path as fallback, and the desktop package recommends `libnotify-bin` for reliable desktop notification delivery.
-- Refined native desktop settings and first-run native server setup surfaces to use shared UI primitives, platform-neutral autostart wording, and native-scoped behavior without affecting browser/PWA login flows.
-- Refined the Calendar view with responsive toolbar controls, fixed desktop content scrolling, compact mobile month/week layouts, selected-day month lists, and shared swipe visuals while keeping calendar event handlers isolated from global todo-list behavior.
-- Refined the workspace dropdown menu with pill-shaped active, hover, edit, and add actions to match the shared menu language.
-- Refined section header count alignment so the unsorted section reserves the same action-space rhythm as deletable sections.
-- Refined remaining Next UI primitives by hydrating the admin OIDC auth-method select, aligning Todo row, section inline, invite, and add-project sidebar actions with shared button/navigation patterns, and documenting the current calm button weight contract.
-- Refined the admin panel shell, login screen, header actions, navigation, section cards, OIDC placement, light-theme surfaces, desktop action alignment, and mobile form/action layouts to match the shared Next UI primitives more closely.
-- Rounded shared dropdown and menu option hover surfaces into pill-style items so user menus, select menus, and related dropdowns align with the sidebar navigation language.
-- Merged todo status selection into the left todo control, using a compact icon-only dropdown on mobile and a full status pill with label on desktop while keeping the old right-side status dropdown hidden.
-- Refined the dashboard and project overview widgets to better match the rounded borderless Next UI direction, including rounder stat/project items, restored desktop project stat hints, compact mobile project stats, and fully round avatar/project icon tiles.
-- Refined app confirmation, danger, native OIDC return, and login surfaces with rounder borderless surfaces, softer icon treatment, a single theme cycle button, and consistent login action button styling to match the Next UI direction.
-- Unified section heading icon treatment across Settings, Todo, Project, and Workspace detail surfaces with shared round icon bubbles and consistent icon sizing.
-- Refined project and dashboard todo views with flatter borderless pill-style todo rows, rounded mobile swipe action backgrounds with cleaner spacing, stronger light-theme row contrast, softer section/project headers, cleaner pinned/in-progress accents, and mobile-safe wrapping for long descriptions and metadata chips.
-- Added shared detail-modal primitives for Todo/Project/Workspace-style editors so future modals can reuse the same surface, header, title field, section, action-row, hidden save state, and menu styling without copying modal-specific CSS, with matching offline/PWA cache coverage.
-- Refined the project and workspace modals to match the Todo detail modal surface and section language, including the large inline title field, flat drawer-style details/organization/sharing sections, header actions, shared field/button primitives, polished sharing member rows, and hidden save actions until changes are present.
-- Unified Todo detail modal sizing with Project and Workspace detail modals so existing and new todo flows share the same large editor shell.
-- Unified dropdown menu, color picker, and icon picker surfaces around the same borderless neutral surface treatment, while keeping dropdown triggers borderless.
-- Refined the sidebar visual language with shared navigation-pill primitives, tighter hover/active paint surfaces, rounded count badges, muted add actions that accent on hover, and a neutral topbar border that preserves the existing accent gradient.
-- Refined the Settings modal to follow the shared detail-modal shell with matching sizing, header treatment, flattened section surfaces, round section icons, quieter inner rows/cards, left/right action alignment, secondary API key and 2FA setup actions, inline saved-place entry, muted inactive password/place actions, modal-edge scrolling, and an aligned close action.
-- Refined the BrainDump modal toward the shared detail-modal visual language with a wider dynamic shell, quieter header, round icon chip, bounded waveform area, modal-edge scrolling, shared field/dropdown surfaces, flatter stage/results surfaces, softer candidate cards, aligned candidate title/edit rows, aligned footer actions, and mobile fullscreen sizing.
-- Refined Todo detail section headings with visible round icons across content, subtasks, comments, attachments, organization, schedule, recurring, and location subsections.
-- Replaced the main app's legacy inline event handlers with delegated `data-*` action bindings across todo cards, sections, settings, API keys, and drag-and-drop, and renamed the remaining global runtime adapter to `runtime-globals`.
-- Cleaned up the Todo detail modal CSS and internal modal state handling by consolidating redundant override layers, canonicalizing detail action/drop-hint styles, and centralizing modal lookup/state helpers without intended visual changes.
-- Refined the shared UI design primitives for buttons, form fields, dropdowns, and Todo detail actions, including compact pill buttons, visually balanced field/dropdown sizing, unified light/dark field and dropdown depth polish, mobile full-width action layouts, Login/Admin/Setup/Set Password/App Downloads rollout, Project/Workspace icon and color picker alignment, and removal of obsolete Todo modal footer actions.
-- Unified topbar search, workspace switching, the sidebar user card/menu, sidebar version/download actions, and project section action buttons with the shared field/dropdown/button primitives, including embedded borderless field surfaces, consistent light/dark contrast, mobile search layout behavior, shared workspace/user menu styling, muted version/download actions, centered button icons, and lighter dropdown item typography.
-- Switched packaged backups to snapshot generic runtime data under `NIA_TODO_DATA_DIR` alongside a consistent SQLite backup, covering current and future runtime files while excluding backup archives and SQLite temp/journal files.
-- Centralized icon rendering across the main app, setup/password pages, and admin panel so all UI icons resolve through the generated Lucide package subset instead of page-local SVG definitions.
-- Refined Todo, sidebar, filter, topbar, and admin status icons with the generated Lucide icon set; the sidebar Focus entry is now labeled as Filter.
-- Centered the attachment picker prompt while keeping selected attachment filenames left-aligned for readability.
-- Refined the Todo modal into compact collapsible sections for planning, organization, subtasks, comments, and attachments, with mobile-first collapsed metadata panels and muted disabled action buttons.
-- Refined mobile/tablet todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment/attachment visual styling for a cleaner compact UI; iPad-width layouts now keep quick actions collapsed behind the reveal control even when the sidebar uses the desktop shell.
-- Disabled touch pinch-zoom/two-finger page scaling and precision-touchpad pinch zoom for the web app while leaving normal browser zoom via keyboard/menu available.
-- Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
-- Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
+- Refreshed the app with the Next UI design system: calmer surfaces, rounded borderless cards, shared button/field/dropdown/menu primitives, unified light/dark polish, and more consistent responsive desktop/tablet/mobile layouts.
+- Refined Todo, Project, Workspace, Settings, BrainDump, login, setup, admin, confirmation, danger, native OIDC return, app download, and update dialogs to use shared detail-modal and action primitives.
+- Reworked the Todo detail experience into a larger editor shell with compact collapsible sections for content, planning, organization, subtasks, comments, attachments, recurring, and location-related details.
+- Unified project and workspace editors with the Todo detail modal language, including large inline title fields, drawer-style sections, header actions, polished sharing rows, and hidden save actions until changes are present.
+- Merged todo status selection into the left todo control, using a compact icon-only dropdown on mobile and a full status pill with label on desktop.
+- Refined dashboard, project views, todo rows/cards, sidebar navigation, workspace switching, user menu, topbar search, section actions, version/download actions, and mobile swipe actions to match the Next UI visual language.
+- Centralized icon rendering through the generated Lucide icon subset across the app, setup/password pages, and admin panel; the sidebar Focus entry is now labeled as Filter.
+- Renamed the native desktop `.deb` target from Linux to Debian across manifest platform keys, artifact names, UI labels, release metadata, and downloads.
+- Renamed the Debian desktop package/artifact to `nia-todo-desktop` / `nia-todo-desktop-vX.Y.Z-debian-amd64.deb` to avoid conflicts with the server package.
+- Updated release packaging so Windows, Android, and Debian desktop clients are bundled consistently into the server `.deb` and Docker image downloads with versioned SHA256 manifest metadata.
+- Switched packaged backups to snapshot runtime data under `NIA_TODO_DATA_DIR` alongside a consistent SQLite backup, covering database state, attachments, avatars, generated keys, and future runtime files while excluding backup archives and SQLite temp/journal files.
+- Disabled touch pinch-zoom/two-finger page scaling and precision-touchpad pinch zoom for the web app while keeping normal browser zoom via keyboard/menu available.
+- Replaced remaining legacy inline app event handlers with delegated `data-*` actions across todo cards, sections, settings, API keys, and drag-and-drop.
 
 ### Fixed
-- Fixed Android native attachment handling by allowing attachment upload CORS headers, permitting blob-based image/PDF previews in the bundled Tauri shell, and saving attachment downloads through the native Android Downloads provider under `Downloads/nia-todo`.
-- Fixed native Windows and Debian desktop attachment downloads by saving authenticated downloads through Tauri into `Downloads/nia-todo`, including same-origin redirect protection, timeout handling, and size guards.
-- Renamed the Debian desktop package to `nia-todo-desktop` and the artifact to `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`, avoiding conflicts with the server package `nia-todo`.
-- Allowed Tauri custom-scheme origins such as `tauri://localhost` and `tauri://tauri.localhost` in dynamic CORS handling so native Debian WebKit requests can reach the configured server.
-- Registered the Debian desktop `nia-todo://` OIDC return handler with `%u`, `x-scheme-handler/nia-todo`, and `StartupNotify=false` so Debian desktop sign-in can complete cleanly.
-- Restored Debian desktop window presentation to the clean Tauri/GTK show, unminimize, and focus path after rejecting unreliable retry/X11 helper approaches; portal hotkey window operations are marshalled back to the main thread before touching GTK/Tauri window APIs.
-- Isolated Calendar event click and swipe handling from global `.todo-item[data-id]` handlers, clamped month navigation around month-end dates, and cleaned up Calendar observer/sticky-header lifecycle handling.
-- Unified Todo, Settings, Project, and Workspace modal headers so title icons, titles, save/menu actions, and close controls share the Todo-style detail header alignment.
-- Show pinned todos in project views in a dedicated top group, matching the main dashboard while keeping search results inline.
-- Improved German wording for parent project fields from “Eltern-Projekt” to “Übergeordnetes Projekt”.
-- Fixed admin header/auth state handling, guarded password/logout actions while logged out, restored admin OIDC login button initialization, kept admin CSS scoped to the admin page, preserved the dynamic server-update status icon, normalized create-user field height, and made admin mobile buttons stack full-width instead of inheriting desktop sizing.
-- Prevented expanded mobile todo quick actions from being obscured by long titles or metadata chips by softly fading the todo content underneath while keeping action menus unclipped.
-- Replaced the browser confirmation prompt for removing project members with the app's danger confirmation modal, and kept hidden native color picker inputs from leaking disabled color bars into read-only project modals.
-- Improved Todo detail inline editing polish so the title becomes a visible input field only while focused, avoids desktop Edge glyph clipping, and aligns subtask/comment/meta action spacing and field borders.
-- Kept the new-todo modal open when draft attachment uploads fail validation or upload, preventing selected draft files from being silently lost after the todo is created.
-- Hid unavailable Settings navigation entries correctly when their matching section is disabled, including the BrainDump entry when BrainDump is globally off.
-- Restored proper Settings toggle-row alignment so switch controls stay right-aligned, vertically centered, and use the accent color.
-- Made the Settings modal truly fullscreen on mobile so the underlying app no longer peeks through on the right or bottom.
-- Removed the meaningless BrainDump candidate priority dot and rounded the candidate edit action.
-- Cleared stale sidebar edit-button focus after closing project/workspace modals so the edit action no longer remains visually outlined.
-- Hid custom overlay scrollbars immediately when modals close, preventing stale scroll indicators from lingering after a recently scrolled modal disappears.
-- Prevented long-press todo drag-and-drop from also triggering horizontal swipe status gestures.
-- Prevented aborted todo swipe gestures from showing the custom overlay scrollbar inside todo cards.
-- Deferred server-side todo hard-deletes until the undo toast grace window expires, so undoing a delete preserves subtasks, comments, and attachment files instead of recreating only the parent todo.
-- Restored packaged backup/restore coverage for todo attachments and hardened restore behavior for nested custom database paths, stale runtime files, backup-directory preservation, and restored file ownership.
-- Guarded authoritative REST refreshes while local offline queue sync is active or still pending, preventing cache replacement from clobbering queued offline changes.
-- Preserved attachment files during fresh-DB regression tests so restored development databases do not reference missing attachment files.
-- Treated zero attachment quota as a locked/full quota in user and admin storage displays and upload preflight.
 - Kept cache-busted app-shell modules available offline by matching Service Worker cache entries without query strings.
-- Corrected mobile stacking so quick-action reveal buttons stay below floating action buttons and both remain muted below the sidebar overlay.
-- Collapsed expanded todo quick actions immediately on the first outside tap/click instead of requiring a second tap after opening them.
-- Prevented iPadOS/other touch browsers from showing the native HTML5 drag preview/copy affordance or text-selection handles when reordering todos by routing touch devices through the app's pointer-based drag-and-drop path and disabling selection on touch drag surfaces.
-- Kept project dashboard stat card labels and hints constrained on iPad-sized layouts so text no longer spills outside narrow cards.
+- Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays focused on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
+- Guarded authoritative REST refreshes while local offline queue sync is active or pending, preventing cache replacement from clobbering queued offline changes.
+- Deferred server-side todo hard-deletes until the undo grace window expires, so undoing a delete preserves related todo data instead of recreating only the parent todo.
+- Show pinned todos in project views in a dedicated top group, matching the main dashboard behavior.
+- Improved German wording for parent project fields from “Eltern-Projekt” to “Übergeordnetes Projekt”.
+- Improved mobile/touch behavior for todo quick actions, drag-and-drop, swipe gestures, FAB layering, and iPad-sized layouts.
+- Fixed admin header/auth state handling, logged-out action guards, OIDC login button initialization, create-user field height, mobile action stacking, and admin CSS scoping.
+
+### Security
+- Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, file type, file size, and quota.
+- Hardened native attachment downloads with authenticated Tauri download handling, same-origin redirect protection, timeout handling, size guards, and platform download directories.
 
 ## [2.12.2] - 2026-06-16
 
