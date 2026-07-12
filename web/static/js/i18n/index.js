@@ -1,5 +1,5 @@
 const LANGUAGE_STORAGE_KEY = 'nia-todo-language';
-const SUPPORTED_LANGUAGES = ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt', 'ru', 'sv', 'es'];
+const SUPPORTED_LANGUAGES = ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt', 'ru', 'sv', 'es', 'zh-CN'];
 const DEFAULT_LANGUAGE = 'en';
 const dictionaries = new Map();
 let activeLanguage = DEFAULT_LANGUAGE;
@@ -9,10 +9,18 @@ function normalizeLanguage(value) {
   return SUPPORTED_LANGUAGES.includes(value) ? value : 'auto';
 }
 
+function normalizeBrowserLanguage(value) {
+  const language = String(value || '').toLowerCase();
+  if (!language) return null;
+  if (language === 'zh-cn' || language === 'zh-hans' || language.startsWith('zh-hans-')) return 'zh-CN';
+  return language.split('-')[0];
+}
+
 function detectBrowserLanguage() {
   const candidates = [navigator.language, ...(navigator.languages || [])]
     .filter(Boolean)
-    .map((value) => String(value).toLowerCase().split('-')[0]);
+    .map(normalizeBrowserLanguage)
+    .filter(Boolean);
   return candidates.find((value) => SUPPORTED_LANGUAGES.includes(value)) || DEFAULT_LANGUAGE;
 }
 
