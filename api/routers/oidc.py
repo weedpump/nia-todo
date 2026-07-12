@@ -270,6 +270,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
         if (lower === 'pt-br' || lower.startsWith('pt-br-')) return 'pt-BR';
         const base = lower.split('-')[0];
         if (base === 'zh') return 'zh-CN';
+        if (base === 'pt') return 'pt-BR';
         return base || fallbackLanguage;
       }}
       function languageCandidates() {{
@@ -382,6 +383,7 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
         if (lower === 'pt-br' || lower.startsWith('pt-br-')) return 'pt-BR';
         const base = lower.split('-')[0];
         if (base === 'zh') return 'zh-CN';
+        if (base === 'pt') return 'pt-BR';
         return base || fallbackLanguage;
       }}
       async function loadMessages() {{
