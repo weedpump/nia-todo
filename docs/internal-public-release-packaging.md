@@ -27,7 +27,7 @@ The Debian desktop `.deb` is repacked from Tauri's raw package to `Package: nia-
 
 ## Release entrypoint
 
-A real release is started through the top-level release script and includes GitHub/GHCR publishing plus local cleanup:
+A real release is started through the top-level release script and includes GitHub/GHCR/Docker Hub publishing plus local cleanup:
 
 ```bash
 ./release.sh X.Y.Z --github-repo OWNER/REPO
@@ -72,13 +72,13 @@ Excluded examples:
 
 ## Publishing
 
-`release.sh` calls `publish-github.sh --execute` after the public artifacts are built. `publish-github.sh` remains dry-run by default when invoked directly, so manual publish experiments do not accidentally update GitHub/GHCR.
+`release.sh` calls `publish-github.sh --execute` after the public artifacts are built. `publish-github.sh` remains dry-run by default when invoked directly, so manual publish experiments do not accidentally update GitHub/GHCR/Docker Hub.
 
 It publishes:
 
 - the clean public source snapshot and tag
 - the GitHub release with the full `.deb`, checksum and release manifest
-- the Docker image to GHCR
+- the Docker image to GHCR and Docker Hub (`docker.io/weedpump/nia-todo`)
 
 ## Notes
 
@@ -96,4 +96,4 @@ The Debian package also installs a daily backup timer (`nia-todo-backup.timer`) 
 - `nia-todo-backup`
 - `nia-todo-restore <backup.zip>`
 
-After a successful release, `release.sh` removes local `dist/native/vX.Y.Z`, `dist/release/vX.Y.Z`, `dist/build/public-release-vX.Y.Z`, and local Docker tags for `nia-todo:X.Y.Z` plus the GHCR publish tags. Use `--keep-release-artifacts` only for debugging.
+After a successful release, `release.sh` removes local `dist/native/vX.Y.Z`, `dist/release/vX.Y.Z`, `dist/build/public-release-vX.Y.Z`, and local Docker tags for `nia-todo:X.Y.Z` plus the GHCR/Docker Hub publish tags. Use `--keep-release-artifacts` only for debugging.

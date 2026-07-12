@@ -107,7 +107,7 @@ Public releases provide these main distribution targets:
   - installs/updates the server
   - includes the Web/PWA frontend
   - includes bundled native app downloads under `/downloads/`
-- **Docker image**: for container-based installations
+- **Docker images**: for container-based installations via Docker Hub or GHCR
 
 The Windows, Android, and Debian desktop clients are shipped inside the server bundle so your own instance can serve them locally from `/downloads/`.
 
@@ -182,7 +182,7 @@ sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 
 ## 🐳 Docker
 
-Docker installations are not self-updated from inside the nia-todo container. The admin panel can show that a newer release exists, but you update Docker by pulling the newest image and recreating the container/stack:
+Docker images are published to Docker Hub (`docker.io/weedpump/nia-todo`) and mirrored to GHCR (`ghcr.io/weedpump/nia-todo`). Docker installations are not self-updated from inside the nia-todo container. The admin panel can show that a newer release exists, but you update Docker by pulling the newest image and recreating the container/stack:
 
 ```bash
 docker compose pull && docker compose up -d
@@ -200,7 +200,7 @@ docker run -d \
   -e NIA_TODO_DATA_DIR=/data \
   -e NIA_TODO_DB=nia-todo.db \
   -v nia-todo-data:/data \
-  ghcr.io/weedpump/nia-todo:latest
+  docker.io/weedpump/nia-todo:latest
 ```
 
 Or create a local `compose.yml` without cloning the source repository:
@@ -208,7 +208,7 @@ Or create a local `compose.yml` without cloning the source repository:
 ```yaml
 services:
   nia-todo:
-    image: ghcr.io/weedpump/nia-todo:latest
+    image: docker.io/weedpump/nia-todo:latest
     ports:
       - "8753:8753"
     environment:
@@ -227,6 +227,12 @@ Then start it:
 
 ```bash
 docker compose up -d
+```
+
+GHCR is also available as a mirror if you prefer GitHub Container Registry:
+
+```text
+ghcr.io/weedpump/nia-todo:latest
 ```
 
 Default container data volume:
