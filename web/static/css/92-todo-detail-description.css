@@ -22,8 +22,7 @@
   display: block;
 }
 
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar,
-#todo-modal.todo-detail-view .todo-markdown-toolbar {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -33,14 +32,12 @@
   background: color-mix(in srgb, var(--bg-primary) 34%, transparent);
 }
 
-#todo-modal.todo-detail-view .todo-markdown-toolbar {
-  margin-bottom: -1px;
+#todo-modal.todo-detail-view .todo-comment-rich-toolbar {
   border: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
   border-radius: 14px 14px 0 0;
 }
 
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar button,
-#todo-modal.todo-detail-view .todo-markdown-toolbar button {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button {
   min-height: 30px;
   padding: 5px 9px;
   border: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
@@ -55,18 +52,14 @@
 
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar button:hover,
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar button:focus-visible,
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active,
-#todo-modal.todo-detail-view .todo-markdown-toolbar button:hover,
-#todo-modal.todo-detail-view .todo-markdown-toolbar button:focus-visible,
-#todo-modal.todo-detail-view .todo-markdown-toolbar button.is-active {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 44%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   outline: none;
 }
 
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active,
-#todo-modal.todo-detail-view .todo-markdown-toolbar button.is-active {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
@@ -86,16 +79,16 @@
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor::selection,
 #todo-modal.todo-detail-view .todo-desc-rich-editor *::selection,
-#todo-modal.todo-detail-view .todo-comments-add-group textarea::selection,
-#todo-modal.todo-detail-view .todo-comment-edit-input::selection {
+#todo-modal.todo-detail-view .todo-comment-rich-editor::selection,
+#todo-modal.todo-detail-view .todo-comment-rich-editor *::selection {
   color: #ffffff;
   background: rgba(var(--accent-hover-rgb), 0.46);
 }
 
 [data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor::selection,
 [data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor *::selection,
-[data-theme="light"] #todo-modal.todo-detail-view .todo-comments-add-group textarea::selection,
-[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-edit-input::selection {
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-rich-editor::selection,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-rich-editor *::selection {
   color: var(--text-primary);
   background: rgba(var(--accent-rgb), 0.22);
 }
