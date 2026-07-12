@@ -1106,6 +1106,116 @@
               ]
             }
           ]
+        },
+        "es": {
+          "title": "¿Qué hay de nuevo en nia-todo?",
+          "intro": "La versión 3 es la mayor actualización de nia-todo hasta ahora: una interfaz más tranquila, una nueva experiencia todo y muchas mejoras que hacen que el trabajo diario sea más fluido.",
+          "slides": [
+            {
+              "media": {
+                "type": "icon",
+                "icon": "palette"
+              },
+              "title": "Una interfaz más tranquila y moderna",
+              "body": "nia-todo ahora se siente más redondo, limpio y enfocado, con menos ruido visual alrededor de tus tareas.",
+              "bullets": [
+                "UI pills suaves, superficies más redondeadas y menús más tranquilos",
+                "botones, menús desplegables, tarjetas y cuadros de diálogo consistentes",
+                "un lenguaje visual en la web, el escritorio y el móvil"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "file-text"
+              },
+              "title": "Los todos ahora se leen como documentos",
+              "body": "El modal de todo fue rediseñado para que las tareas existentes ya no se sientan como un formulario interminable.",
+              "bullets": [
+                "una vista detallada más clara para todos los existentes",
+                "Secciones de contenido, planificación, organización y extras.",
+                "la edición permanece disponible sin estorbar constantemente"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "calendar-days"
+              },
+              "title": "Nueva vista de calendario",
+              "body": "Todos los que tienen fechas de vencimiento ahora tienen su propia vista de calendario, lo que facilita la planificación del tiempo.",
+              "bullets": [
+                "modos día, semana y mes",
+                "diseños de estilo de línea de tiempo en computadoras de escritorio y tabletas",
+                "selector de meses compacto con lista diaria en el móvil"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "list-todo"
+              },
+              "title": "Subtareas para listas de verificación reales",
+              "body": "Las tareas más grandes ahora se pueden dividir en pasos más pequeños directamente dentro del todo.",
+              "bullets": [
+                "indicadores de progreso directamente en tarjetas de tareas pendientes",
+                "sincronización en tiempo real y acciones independientes por subtarea",
+                "confirmación antes de completar una tarea pendiente con subtareas abiertas"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "message-circle"
+              },
+              "title": "Comentarios y mejor colaboración.",
+              "body": "El contexto, las decisiones y las notas rápidas ahora permanecen exactamente donde pertenecen: en la tarea.",
+              "bullets": [
+                "comentarios con autor, marca de tiempo y contadores",
+                "editar, eliminar y actualizaciones en tiempo real",
+                "integración limpia con proyectos compartidos"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "paperclip"
+              },
+              "title": "Adjuntos directamente en los todos",
+              "body": "Los archivos ahora pueden estar directamente en las tareas, con vistas previas y control de acceso adecuado.",
+              "bullets": [
+                "cargas, descargas y vistas previas de imágenes/PDF",
+                "contadores de archivos adjuntos y actualizaciones en tiempo real",
+                "controles administrativos para tipos de archivos y cuotas de almacenamiento"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "package"
+              },
+              "title": "Aplicaciones nativas: ahora incluye Debian",
+              "body": "Además de Windows y Android, nia-todo ahora se entrega como una aplicación de escritorio nativa de Debian.",
+              "bullets": [
+                "Paquete .deb con integración de lanzamiento y descarga",
+                "inicio automático, bandeja, teclas de acceso rápido globales y manejo de devolución OIDC",
+                "descargas de archivos adjuntos nativos en Descargas/nia-todo"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shield-check"
+              },
+              "title": "Más estabilidad bajo el capó",
+              "body": "Muchas mejoras son invisibles a primera vista, pero hacen que el uso diario sea más fluido.",
+              "bullets": [
+                "rutas offline, sync y service-worker más fiables",
+                "gestión de adjuntos más segura",
+                "una interfaz más limpia construida alrededor de primitivas de interfaz de usuario compartidas"
+              ]
+            }
+          ]
         }
       }
     }

@@ -35,6 +35,7 @@ const DATE_TIME_LOCALES = {
   pt: 'pt-BR',
   ru: 'ru-RU',
   sv: 'sv-SE',
+  es: 'es-ES',
 };
 
 function formatLocaleDateTime(value) {
