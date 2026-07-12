@@ -1755,7 +1755,6 @@
   "calendar.empty.day": "Für diesen Tag sind keine Todos geplant.",
   "whatsNew.progress": "Fortschritt der Was-ist-neu-Tour",
   "whatsNew.slideLabel": "Folie {current} von {total}",
-  "whatsNew.dismiss": "Nicht nochmal anzeigen",
   "whatsNew.done": "Loslegen",
   "whatsNew.versionBadge": "Version {version}"
 }
