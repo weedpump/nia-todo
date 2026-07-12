@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Os comentários serão criados quando você salvar.",
   "todo.comments.draftAuthor": "Rascunho",
   "todo.comments.newLabel": "Novo comentário",
+  "todo.comments.formatToolbar": "Formatar comentário",
   "todo.comments.placeholder": "Adicione um comentário…",
   "todo.comments.add": "Adicionar",
   "todo.comments.delete": "Excluir comentário",

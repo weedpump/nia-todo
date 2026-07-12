@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Komentarze zostaną utworzone po zapisaniu.",
   "todo.comments.draftAuthor": "Wersja robocza",
   "todo.comments.newLabel": "Nowy komentarz",
+  "todo.comments.formatToolbar": "Formatuj komentarz",
   "todo.comments.placeholder": "Dodaj komentarz…",
   "todo.comments.add": "Dodaj",
   "todo.comments.delete": "Usuń komentarz",

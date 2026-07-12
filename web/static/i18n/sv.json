@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Kommentarer skapas när du sparar.",
   "todo.comments.draftAuthor": "Utkast",
   "todo.comments.newLabel": "Ny kommentar",
+  "todo.comments.formatToolbar": "Formatera kommentar",
   "todo.comments.placeholder": "Lägg till en kommentar...",
   "todo.comments.add": "Lägg till",
   "todo.comments.delete": "Ta bort kommentar",

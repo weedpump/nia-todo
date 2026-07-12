@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Les commentaires seront créés lors de la sauvegarde.",
   "todo.comments.draftAuthor": "Brouillon",
   "todo.comments.newLabel": "Nouveau commentaire",
+  "todo.comments.formatToolbar": "Mettre en forme le commentaire",
   "todo.comments.placeholder": "Ajouter un commentaire…",
   "todo.comments.add": "Ajouter",
   "todo.comments.delete": "Supprimer le commentaire",
