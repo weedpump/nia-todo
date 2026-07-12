@@ -205,7 +205,7 @@ PY
       printf "%s\n" "- Docker images:"
       printf "%s\n" "  - ${GHCR_IMAGE}:${VERSION}"
       printf "%s\n" "  - ${DOCKERHUB_IMAGE}:${VERSION}"
-      printf "\nWindows, Android and Debian desktop apps are bundled into the server package/image and served via /downloads/.\n"
+      printf "\nNative client apps are bundled into the server package/image and served via /downloads/.\n"
     } > "${RELEASE_NOTES}"
   else
     echo "+ generate release notes from CHANGELOG.md section ${VERSION}"
