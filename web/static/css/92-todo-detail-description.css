@@ -134,11 +134,20 @@
 #todo-modal.todo-detail-view .desc-live-preview code,
 #todo-modal.todo-detail-view .todo-comment-body code {
   padding: 0.12em 0.36em;
+  border: 1px solid color-mix(in srgb, var(--accent-hover) 28%, transparent);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--bg-tertiary) 78%, transparent);
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-tertiary));
+  color: color-mix(in srgb, var(--text-primary) 88%, var(--accent-hover));
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.92em;
+}
+
+[data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor code,
+[data-theme="light"] #todo-modal.todo-detail-view .desc-live-preview code,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-body code {
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary));
+  color: var(--text-primary);
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor ul,
