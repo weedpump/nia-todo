@@ -267,6 +267,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
         const raw = String(value || '').trim();
         const lower = raw.toLowerCase();
         if (lower === 'zh-cn' || lower === 'zh-hans' || lower.startsWith('zh-hans-')) return 'zh-CN';
+        if (lower === 'pt-br' || lower.startsWith('pt-br-')) return 'pt-BR';
         const base = lower.split('-')[0];
         if (base === 'zh') return 'zh-CN';
         return base || fallbackLanguage;
@@ -378,6 +379,7 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
         const raw = String(value || '').trim();
         const lower = raw.toLowerCase();
         if (lower === 'zh-cn' || lower === 'zh-hans' || lower.startsWith('zh-hans-')) return 'zh-CN';
+        if (lower === 'pt-br' || lower.startsWith('pt-br-')) return 'pt-BR';
         const base = lower.split('-')[0];
         if (base === 'zh') return 'zh-CN';
         return base || fallbackLanguage;

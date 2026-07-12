@@ -45,7 +45,7 @@ nia-todo currently supports:
 - Italian (`it`)
 - Dutch (`nl`)
 - Polish (`pl`)
-- Brazilian Portuguese (`pt`)
+- Brazilian Portuguese (`pt-BR`)
 - Russian (`ru`)
 - Swedish (`sv`)
 - Spanish (`es`)
