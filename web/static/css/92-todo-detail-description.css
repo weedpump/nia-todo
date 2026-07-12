@@ -134,10 +134,10 @@
 #todo-modal.todo-detail-view .desc-live-preview code,
 #todo-modal.todo-detail-view .todo-comment-body code {
   padding: 0.12em 0.36em;
-  border: 1px solid color-mix(in srgb, var(--accent-hover) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--accent) 18%, var(--bg-tertiary));
-  color: color-mix(in srgb, var(--text-primary) 88%, var(--accent-hover));
+  background: color-mix(in srgb, var(--bg-hover) 70%, var(--bg-primary));
+  color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.92em;
 }
@@ -145,9 +145,8 @@
 [data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor code,
 [data-theme="light"] #todo-modal.todo-detail-view .desc-live-preview code,
 [data-theme="light"] #todo-modal.todo-detail-view .todo-comment-body code {
-  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary));
-  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-hover) 38%, var(--bg-secondary));
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor ul,
