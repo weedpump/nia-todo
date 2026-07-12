@@ -615,7 +615,9 @@ const appLifecycle = createAppLifecycle({
   refreshInvites: () => sharingFeature?.loadInvites?.(),
   onAppReady: () => {
     brainDumpLiveFeature.init();
-    whatsNewFeature.maybeShowWhatsNew();
+    whatsNewFeature.maybeShowWhatsNew().catch((error) => {
+      console.warn("What's new content unavailable:", error);
+    });
   },
 });
 const initApp = async function() {

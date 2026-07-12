@@ -1757,13 +1757,5 @@
   "whatsNew.slideLabel": "Folie {current} von {total}",
   "whatsNew.dismiss": "Nicht nochmal anzeigen",
   "whatsNew.done": "Loslegen",
-  "whatsNew.v3.title": "Was ist neu in nia-todo Next?",
-  "whatsNew.v3.intro": "Dieses große Update bringt eine modernisierte Oberfläche, bessere Workflows und mehr Komfort über Web, Desktop und Native App hinweg.",
-  "whatsNew.v3.slide1.title": "Frische Oberfläche, vertrauter Ablauf",
-  "whatsNew.v3.slide1.body": "nia-todo Next räumt die Oberfläche auf, macht wichtige Aktionen schneller erreichbar und bleibt dabei bewusst nah an deinem bisherigen Workflow.",
-  "whatsNew.v3.slide2.title": "Fokus, Kalender und Workspaces wachsen zusammen",
-  "whatsNew.v3.slide2.body": "Die wichtigsten Ansichten fühlen sich konsistenter an: Fokusfilter, Kalender, Projekte und Workspaces arbeiten sauberer zusammen.",
-  "whatsNew.v3.slide3.title": "Mehr Fundament für große Features",
-  "whatsNew.v3.slide3.body": "Unter der Haube ist viel passiert: stabilere Native-Flows, bessere Anhänge und ein Release-System, das große Updates gezielt vorstellen kann.",
   "whatsNew.versionBadge": "Version {version}"
 }

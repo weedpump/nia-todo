@@ -1,0 +1,53 @@
+{
+  "releases": [
+    {
+      "version": "3.0.0",
+      "appVersions": ["v2.12.3-dev"],
+      "carryForward": true,
+      "content": {
+        "de": {
+          "title": "Was ist neu in nia-todo Next?",
+          "intro": "Dieses große Update bringt eine modernisierte Oberfläche, bessere Workflows und mehr Komfort über Web, Desktop und Native App hinweg.",
+          "slides": [
+            {
+              "media": { "type": "icon", "icon": "sparkles" },
+              "title": "Frische Oberfläche, vertrauter Ablauf",
+              "body": "nia-todo Next räumt die Oberfläche auf, macht wichtige Aktionen schneller erreichbar und bleibt dabei bewusst nah an deinem bisherigen Workflow."
+            },
+            {
+              "media": { "type": "icon", "icon": "layout-dashboard" },
+              "title": "Fokus, Kalender und Workspaces wachsen zusammen",
+              "body": "Die wichtigsten Ansichten fühlen sich konsistenter an: Fokusfilter, Kalender, Projekte und Workspaces arbeiten sauberer zusammen."
+            },
+            {
+              "media": { "type": "icon", "icon": "package-check" },
+              "title": "Mehr Fundament für große Features",
+              "body": "Unter der Haube ist viel passiert: stabilere Native-Flows, bessere Anhänge und ein Release-System, das große Updates gezielt vorstellen kann."
+            }
+          ]
+        },
+        "en": {
+          "title": "What's new in nia-todo Next?",
+          "intro": "This major update brings a refreshed interface, better workflows, and more comfort across web, desktop, and native apps.",
+          "slides": [
+            {
+              "media": { "type": "icon", "icon": "sparkles" },
+              "title": "A fresh interface, same familiar flow",
+              "body": "nia-todo Next cleans up the interface, keeps important actions closer, and still stays intentionally close to your existing workflow."
+            },
+            {
+              "media": { "type": "icon", "icon": "layout-dashboard" },
+              "title": "Focus, calendar, and workspaces fit together",
+              "body": "The core views feel more consistent: focus filters, calendar, projects, and workspaces now work together more cleanly."
+            },
+            {
+              "media": { "type": "icon", "icon": "package-check" },
+              "title": "More foundation for big features",
+              "body": "A lot changed under the hood: more stable native flows, better attachments, and a release system that can introduce major updates intentionally."
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

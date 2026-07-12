@@ -1,6 +1,7 @@
-import { t } from '../i18n/index.js';
-import { WHATS_NEW_RELEASES } from '../content/whats-new.js';
+import { getCurrentLanguage, t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+
+const WHATS_NEW_CONTENT_URL = '/static/content/whats-new.json';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -19,7 +20,7 @@ function normalizeVersion(value) {
 }
 
 function releaseBadge(release) {
-  if (release?.badgeKey) return t(release.badgeKey);
+  if (release?.badge) return release.badge;
   return t('whatsNew.versionBadge', { version: String(release?.version || '').replace(/^v/i, '') });
 }
 
@@ -36,16 +37,46 @@ function storageKey(release, user) {
   return `nia-whats-new:${userId}:${version}`;
 }
 
+function localizedRelease(release, language) {
+  const content = release?.content?.[language] || release?.content?.en || release?.content?.de || {};
+  const slides = Array.isArray(content.slides) ? content.slides : [];
+  return {
+    ...release,
+    badge: content.badge || release.badge,
+    title: content.title || '',
+    intro: content.intro || '',
+    slides,
+  };
+}
+
 export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null } = {}) {
+  let releasesPromise = null;
+  let releases = [];
   let activeRelease = null;
   let activeSlide = 0;
   let modal = null;
   let bound = false;
 
-  function getCurrentRelease() {
-    const currentRelease = WHATS_NEW_RELEASES.find((release) => releaseMatchesAppVersion(release, appVersion));
-    if (currentRelease) return currentRelease;
-    return WHATS_NEW_RELEASES.find((release) => release.carryForward && !hasSeenRelease(release)) || null;
+  async function loadReleases() {
+    if (!releasesPromise) {
+      releasesPromise = fetch(WHATS_NEW_CONTENT_URL, { cache: 'force-cache' })
+        .then((response) => {
+          if (!response.ok) throw new Error(`Failed to load what's new content: ${response.status}`);
+          return response.json();
+        })
+        .then((data) => Array.isArray(data?.releases) ? data.releases : []);
+    }
+    releases = await releasesPromise;
+    return releases;
+  }
+
+  async function getCurrentRelease() {
+    const allReleases = await loadReleases();
+    const currentLanguage = getCurrentLanguage();
+    const currentRelease = allReleases.find((release) => releaseMatchesAppVersion(release, appVersion));
+    if (currentRelease) return localizedRelease(currentRelease, currentLanguage);
+    const carriedRelease = allReleases.find((release) => release.carryForward && !hasSeenRelease(release));
+    return carriedRelease ? localizedRelease(carriedRelease, currentLanguage) : null;
   }
 
   function hasSeenRelease(release) {
@@ -64,9 +95,9 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
   }
 
   function renderSlideMedia(slide) {
-    const media = slide?.media || (slide?.image ? { type: 'image', src: slide.image, altKey: slide.altKey } : { type: 'icon', icon: slide?.icon });
+    const media = slide?.media || (slide?.image ? { type: 'image', src: slide.image, alt: slide.alt } : { type: 'icon', icon: slide?.icon });
     if (media.type === 'image' && media.src) {
-      return `<figure class="whats-new-slide-media whats-new-slide-media-image"><img src="${escapeHtml(media.src)}" alt="${escapeHtml(media.altKey ? t(media.altKey) : '')}"></figure>`;
+      return `<figure class="whats-new-slide-media whats-new-slide-media-image"><img src="${escapeHtml(media.src)}" alt="${escapeHtml(media.alt || '')}"></figure>`;
     }
     return `<div class="whats-new-slide-media whats-new-slide-media-icon" aria-hidden="true">${iconSvg(media.icon || 'sparkles')}</div>`;
   }
@@ -84,8 +115,8 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
           <span class="entity-modal-title-icon ui-detail-title-icon whats-new-title-icon" aria-hidden="true">${iconSvg('newspaper')}</span>
           <div class="whats-new-title-wrap">
             <div class="whats-new-badge">${escapeHtml(releaseBadge(activeRelease))}</div>
-            <h3 id="whats-new-title">${escapeHtml(t(activeRelease.titleKey))}</h3>
-            <p>${escapeHtml(t(activeRelease.introKey))}</p>
+            <h3 id="whats-new-title">${escapeHtml(activeRelease.title)}</h3>
+            <p>${escapeHtml(activeRelease.intro)}</p>
           </div>
           <div class="ui-detail-header-actions whats-new-header-actions">
             <button type="button" class="modal-close-x" data-whats-new-action="dismiss" aria-label="${escapeHtml(t('common.close'))}">${iconSvg('x')}</button>
@@ -95,8 +126,8 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
           <article class="whats-new-slide">
             ${renderSlideMedia(slide)}
             <div class="whats-new-slide-copy">
-              <h4>${escapeHtml(t(slide?.titleKey || ''))}</h4>
-              <p>${escapeHtml(t(slide?.bodyKey || ''))}</p>
+              <h4>${escapeHtml(slide?.title || '')}</h4>
+              <p>${escapeHtml(slide?.body || '')}</p>
             </div>
           </article>
         </div>
@@ -148,8 +179,8 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     return modal;
   }
 
-  function maybeShowWhatsNew({ force = false } = {}) {
-    const release = getCurrentRelease();
+  async function maybeShowWhatsNew({ force = false } = {}) {
+    const release = await getCurrentRelease();
     if (!release) return false;
     // Temporarily disabled for visual testing: keep writing the seen flag,
     // but show the tour on every reload while this branch is in review.
@@ -186,8 +217,13 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
       if (!activeRelease || event.key !== 'Escape') return;
       close({ remember: false });
     });
-    window.addEventListener('nia-language-change', () => {
-      if (activeRelease) render();
+    window.addEventListener('nia-language-change', async () => {
+      if (!activeRelease) return;
+      const release = await getCurrentRelease();
+      if (!release) return;
+      activeRelease = release;
+      activeSlide = Math.min(activeSlide, Math.max(0, (activeRelease.slides || []).length - 1));
+      render();
     });
   }
 
