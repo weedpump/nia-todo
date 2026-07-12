@@ -1,5 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
-import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
@@ -24,27 +24,11 @@ function escapeHtmlAttr(value) {
     .replace(/>/g, '&gt;');
 }
 
-const DATE_TIME_LOCALES = {
-  cs: 'cs-CZ',
-  de: 'de-DE',
-  en: 'en-US',
-  fr: 'fr-FR',
-  it: 'it-IT',
-  nl: 'nl-NL',
-  pl: 'pl-PL',
-  pt: 'pt-BR',
-  ru: 'ru-RU',
-  sv: 'sv-SE',
-  es: 'es-ES',
-  'zh-CN': 'zh-CN',
-};
-
 function formatLocaleDateTime(value) {
   if (!value) return '-';
   const raw = String(value);
   const normalized = raw.replace(' ', 'T') + (raw.includes('Z') ? '' : 'Z');
-  const language = DATE_TIME_LOCALES[getActiveLanguage()] || 'en-US';
-  return new Date(normalized).toLocaleString(language);
+  return new Date(normalized).toLocaleString(getActiveLocale());
 }
 
 function formatBytes(bytes) {
