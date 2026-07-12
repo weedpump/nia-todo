@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [3.0.0] - 2026-07-12
+## [3.0.0] - 2026-07-13
 
 ### Added
 - Added checklist subtasks for todos, including progress chips, independent subtask updates, realtime sync, recurring-todo carry-over, and confirmation before completing a parent todo with open subtasks.
