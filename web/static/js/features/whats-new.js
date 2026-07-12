@@ -56,6 +56,8 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
   let activeSlide = 0;
   let modal = null;
   let bound = false;
+  let swipeActive = null;
+  let suppressClickUntil = 0;
 
   async function loadReleases() {
     if (!releasesPromise) {
@@ -106,6 +108,31 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
       return `<figure class="whats-new-slide-media whats-new-slide-media-image"><img src="${escapeHtml(media.src)}" alt="${escapeHtml(media.alt || '')}"></figure>`;
     }
     return `<div class="whats-new-slide-media whats-new-slide-media-icon" aria-hidden="true">${iconSvg(media.icon || 'sparkles')}</div>`;
+  }
+
+  function setSwipeVisual(dx, rawDx, actionThreshold) {
+    if (!modal) return;
+    const progress = Math.min(1, Math.abs(rawDx) / Math.max(1, actionThreshold));
+    modal.style.setProperty('--whats-new-swipe-x', `${dx}px`);
+    modal.style.setProperty('--whats-new-swipe-progress', progress.toFixed(3));
+    modal.classList.toggle('is-dragging', Math.abs(rawDx) > 0);
+  }
+
+  function cleanupSwipeVisual() {
+    if (!modal) return;
+    modal.classList.remove('is-dragging', 'is-settling', 'is-committing');
+    modal.style.removeProperty('--whats-new-swipe-x');
+    modal.style.removeProperty('--whats-new-swipe-progress');
+  }
+
+  function goToSlide(index) {
+    const slides = activeRelease?.slides || [];
+    if (!slides.length) return false;
+    const next = Math.max(0, Math.min(index, slides.length - 1));
+    if (next === activeSlide) return false;
+    activeSlide = next;
+    render();
+    return true;
   }
 
   function render() {
@@ -198,6 +225,11 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     bound = true;
     ensureModal();
     modal.addEventListener('click', (event) => {
+      if (Date.now() <= suppressClickUntil) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       const slideButton = event.target.closest('[data-whats-new-slide]');
       if (slideButton) {
         activeSlide = Number(slideButton.dataset.whatsNewSlide || 0);
@@ -214,10 +246,90 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
         close({ remember: true });
         return;
       }
-      if (action === 'prev') activeSlide = Math.max(0, activeSlide - 1);
-      if (action === 'next') activeSlide = Math.min((activeRelease?.slides?.length || 1) - 1, activeSlide + 1);
-      render();
+      if (action === 'prev') goToSlide(activeSlide - 1);
+      if (action === 'next') goToSlide(activeSlide + 1);
     });
+
+    const actionThreshold = 36;
+    const lockThreshold = 8;
+
+    modal.addEventListener('pointerdown', (event) => {
+      if (!activeRelease || !event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
+      if (!event.target?.closest?.('.whats-new-body')) return;
+      try {
+        modal.setPointerCapture?.(event.pointerId);
+      } catch (_error) {
+        // Pointer capture is best-effort; swipe still works without it.
+      }
+      swipeActive = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        dx: 0,
+        dy: 0,
+        locked: null,
+        swiped: false,
+      };
+    }, { passive: true });
+
+    modal.addEventListener('pointermove', (event) => {
+      const active = swipeActive;
+      if (!active || event.pointerId !== active.pointerId) return;
+      active.dx = event.clientX - active.startX;
+      active.dy = event.clientY - active.startY;
+      if (!active.locked) {
+        const absX = Math.abs(active.dx);
+        const absY = Math.abs(active.dy);
+        if (absX < lockThreshold && absY < lockThreshold) return;
+        active.locked = absX > absY * 1.1 ? 'horizontal' : 'vertical';
+        if (active.locked !== 'horizontal') return;
+      }
+      if (active.locked !== 'horizontal') return;
+      event.preventDefault();
+      const width = modal.clientWidth || Math.abs(active.dx);
+      const visualDx = Math.max(-width, Math.min(width, active.dx));
+      setSwipeVisual(visualDx, active.dx, actionThreshold);
+      active.swiped = true;
+    }, { passive: false });
+
+    const finishSwipe = (event) => {
+      const active = swipeActive;
+      if (!active || event.pointerId !== active.pointerId) return;
+      swipeActive = null;
+      try {
+        modal.releasePointerCapture?.(event.pointerId);
+      } catch (_error) {
+        // Pointer capture may already be released after cancel/end.
+      }
+      const slides = activeRelease?.slides || [];
+      const direction = active.dx < 0 ? 1 : -1;
+      const targetSlide = activeSlide + direction;
+      const canNavigate = targetSlide >= 0 && targetSlide < slides.length;
+      const width = modal.clientWidth || Math.abs(active.dx) || 1;
+      const distanceThreshold = Math.min(actionThreshold, width * 0.12);
+      const shouldNavigate = active.locked === 'horizontal'
+        && Math.abs(active.dx) >= distanceThreshold
+        && canNavigate;
+      if (active.swiped || shouldNavigate) suppressClickUntil = Date.now() + 450;
+      if (active.locked === 'horizontal') event.preventDefault();
+      if (active.locked !== 'horizontal') return;
+      if (!shouldNavigate) {
+        modal.classList.add('is-settling');
+        setSwipeVisual(0, 0, actionThreshold);
+        window.setTimeout(cleanupSwipeVisual, 180);
+        return;
+      }
+      modal.classList.add('is-committing');
+      setSwipeVisual(direction > 0 ? -width : width, active.dx, actionThreshold);
+      window.setTimeout(() => {
+        cleanupSwipeVisual();
+        goToSlide(targetSlide);
+      }, 160);
+    };
+
+    modal.addEventListener('pointerup', finishSwipe, { passive: false });
+    modal.addEventListener('pointercancel', finishSwipe, { passive: false });
+
     document.addEventListener('keydown', (event) => {
       if (!activeRelease || event.key !== 'Escape') return;
       close({ remember: false });

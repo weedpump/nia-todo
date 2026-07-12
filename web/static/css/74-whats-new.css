@@ -47,6 +47,23 @@
   display: grid;
   align-content: start;
   gap: 14px;
+  touch-action: pan-y;
+  transform: translate3d(var(--whats-new-swipe-x, 0), 0, 0);
+  will-change: transform, opacity;
+}
+
+.whats-new-modal.is-dragging .whats-new-body {
+  opacity: calc(1 - (var(--whats-new-swipe-progress, 0) * .16));
+  transition: none;
+}
+
+.whats-new-modal.is-settling .whats-new-body {
+  transition: transform 180ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease;
+}
+
+.whats-new-modal.is-committing .whats-new-body {
+  opacity: .08;
+  transition: transform 160ms cubic-bezier(.4, 0, .2, 1), opacity 160ms ease;
 }
 
 .whats-new-slide {
