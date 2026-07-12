@@ -15,7 +15,7 @@
   border: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
   border-radius: 18px;
   background: color-mix(in srgb, var(--bg-secondary) 22%, transparent);
-  overflow: hidden;
+  overflow: visible;
 }
 
 #todo-modal.todo-detail-view.todo-desc-editing .todo-desc-rich-wrap {
@@ -23,13 +23,18 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   padding: 8px;
+  border-radius: 18px 18px 0 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
-  background: color-mix(in srgb, var(--bg-primary) 34%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 92%, var(--bg-secondary));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--bg-primary) 34%, transparent);
 }
 
 #todo-modal.todo-detail-view .todo-comment-rich-toolbar {
