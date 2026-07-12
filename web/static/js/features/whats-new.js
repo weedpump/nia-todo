@@ -94,6 +94,12 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     return slides[Math.max(0, Math.min(activeSlide, slides.length - 1))] || null;
   }
 
+  function renderSlideBullets(slide) {
+    const bullets = Array.isArray(slide?.bullets) ? slide.bullets.filter(Boolean) : [];
+    if (!bullets.length) return '';
+    return `<ul class="whats-new-slide-bullets">${bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join('')}</ul>`;
+  }
+
   function renderSlideMedia(slide) {
     const media = slide?.media || (slide?.image ? { type: 'image', src: slide.image, alt: slide.alt } : { type: 'icon', icon: slide?.icon });
     if (media.type === 'image' && media.src) {
@@ -128,6 +134,7 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
             <div class="whats-new-slide-copy">
               <h4>${escapeHtml(slide?.title || '')}</h4>
               <p>${escapeHtml(slide?.body || '')}</p>
+              ${renderSlideBullets(slide)}
             </div>
           </article>
         </div>

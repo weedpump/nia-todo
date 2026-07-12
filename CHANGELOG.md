@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Added a version-aware “What’s new” release tour that loads localized release content from `web/static/content/whats-new.json`, supports per-user seen state, carry-forward display across follow-up releases, responsive icon-based slides, and offline/PWA precache coverage.
 - Added a native Debian desktop app package alongside Windows and Android, including release/download manifest integration, Debian platform download UI, autostart support, tray/global-hotkey settings, OIDC URL handler registration, and volatile WebKitGTK cache cleanup after app version or executable changes.
 - Added Debian desktop release/package regression coverage for the native `.deb` package name, Debian desktop WebView cache migration behavior, native desktop settings UI, native passkey capability gating, and native artifact reuse.
 - Added Debian desktop hotkey activation support through the XDG Desktop Portal GlobalShortcuts API when available, including activation-token/timestamp handoff for compositor-sanctioned focus on newer Linux desktops and a clean legacy global-shortcut fallback when the portal backend is missing.
