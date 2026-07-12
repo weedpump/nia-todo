@@ -21,21 +21,27 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 
 ## ✨ Features
 
-- 📝 Todos with description, priority, deadline, status, reminders, and recurring schedules
-- 🔁 Recurring todos with daily, weekly, monthly, or yearly intervals; completing one creates the next occurrence
-- 📁 Projects/categories with subprojects, sections, workspaces, and protected per-user inboxes
-- 🤝 Project sharing between users with invitations and undo
+- 📝 Todos with rich descriptions, status, priority, deadline, reminders, recurring schedules, checklist subtasks, comments, and attachments
+- ✅ Checklist-style subtasks with progress chips, parent-complete confirmation, realtime sync, and recurring-todo carry-over
+- 💬 Todo comments with author display, edit/delete actions, shared-project permissions, and realtime updates
+- 📎 Todo attachments with authenticated uploads/downloads, image/PDF preview, native download handling, quotas, file-type controls, and backup/restore coverage
+- 🔁 Recurring todos with daily, weekly, monthly, or yearly intervals; completing one creates the next occurrence and carries compatible reminders/subtasks forward
+- 📅 Calendar sidebar view with day, week, and month modes for due todos
+- 📁 Projects/categories with subprojects, sections, workspaces, protected per-user inboxes, curated icons/colors, and sidebar drag-and-drop todo moves
+- 🤝 Project sharing between users with invitations, undo, member management, and shared-project access checks
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
-- 📱 Offline-capable PWA with local IndexedDB sync queue
+- 📱 Offline-capable PWA with local IndexedDB sync queue and offline app-shell precache coverage
 - 🖥️ Native Windows app wrapper
 - 🤖 Native Android APK
-- 🐧 Native Debian desktop app wrapper
-- 🔐 Auth, admin panel, API keys, CSRF protection, and per-user data isolation
+- 🐧 Native Debian desktop app wrapper with autostart, tray/global-hotkey settings, OIDC return handling, desktop notifications, and cache cleanup
+- 🔐 Auth, admin panel, API keys, CSRF protection, OIDC/SSO, and per-user data isolation
 - 🛡️ 2FA/MFA with TOTP, passkeys/WebAuthn, email-code fallback, recovery codes, trusted devices, and admin policy
 - 🔔 Native local reminders on Windows and Android, plus Debian desktop notifications; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, backed by configurable STT/LLM providers
-- 🎨 Theme toggle and 12 UI languages
-- 🗄️ Local SQLite database
+- 🎨 Next UI refresh with polished light/dark themes, shared modal/form primitives, Lucide icons, and responsive mobile/desktop layouts
+- 🆕 Localized “What’s new” release tour with per-user seen state
+- 🌐 12 UI languages with localized app UI, system emails, release-tour content, native/OIDC handoff screens, and locale-aware dates/times
+- 🗄️ Local SQLite database with packaged runtime-data backups
 
 ## 🌐 Supported languages
 
@@ -60,6 +66,20 @@ Language support covers the web/native UI, system emails, and release-tour conte
 
 Todos can be configured to repeat daily, weekly, monthly, or yearly with a custom interval. A recurring todo requires a due date; when the current occurrence is completed, nia-todo keeps it done and creates the next pending occurrence automatically. Existing reminders move forward with the same recurrence rhythm when possible.
 
+## 📅 Calendar
+
+The Calendar sidebar view shows due todos in day, week, and month modes. Day and week views use a timeline-style layout, while mobile month mode focuses on a selected day list for compact screens. Calendar interactions reuse the normal todo actions, so opening, editing, completing, and navigating todos works consistently across list and calendar views.
+
+## ✅ Subtasks, comments, and attachments
+
+Todo detail now supports checklist subtasks, comments, and attachments in one reviewable workflow:
+
+- checklist subtasks can be created, reordered, completed independently, and carried into recurring follow-up todos
+- comments support author display, edit/delete permissions, shared-project access, and realtime updates
+- attachments are stored server-side with authenticated access, image/PDF previews, native download handling, quota/type enforcement, and backup/restore coverage
+
+Admins can enable uploads globally, restrict allowed extensions, set the default storage quota, and override quota per user.
+
 ## 🎙️ BrainDump
 
 BrainDump is an optional voice-capture workflow for turning natural spoken notes into todo candidates that the user reviews before creation. It is disabled by default and must be enabled by an admin.
@@ -72,6 +92,12 @@ Supported provider styles include:
 - OpenClaw's OpenAI-compatible gateway using an agent model such as `openclaw/braindump`
 
 Admins configure BrainDump in `/admin`, test provider connectivity there, enable the global feature, and then grant access per user. Native desktop apps, the Android app, and the desktop web app can use the microphone workflow when the underlying platform grants microphone permission.
+
+## 🆕 What's new tour and Next UI
+
+Releases can show a localized “What's new” tour after users sign in. The tour tracks seen state per user and is precached for offline/PWA use.
+
+The refreshed Next UI uses shared detail-modal, button, field, dropdown, icon, and navigation primitives across the app and admin panel. The result is a calmer, more consistent responsive interface across desktop, tablet, mobile, PWA, and native shells.
 
 ## 📦 Release artifacts
 
@@ -209,7 +235,7 @@ Default container data volume:
 /data
 ```
 
-This volume contains the SQLite database, generated keys, avatars, backups, and todo attachments (`/data/attachments`). Keep it persistent.
+This volume contains the SQLite database, generated keys, avatars, backups, todo attachments (`/data/attachments`), and local runtime data. Keep it persistent.
 
 ## 🧱 Default package layout
 
