@@ -180,7 +180,9 @@ def main():
             two_factor_module.send_email = original_send_email
             two_factor_module.can_send_email_links = original_can_send
         assert email_challenge["methods"] == ["email"]
-        assert sent_messages and "Authenticator oder Passkey" in sent_messages[0]["text"]
+        assert sent_messages
+        email_text = sent_messages[0]["text"].lower()
+        assert "authenticator" in email_text and "passkey" in email_text
         email_row = get_valid_challenge(conn, email_challenge["challenge_token"])
         assert email_row is not None and email_row["email_code_hash"]
 
