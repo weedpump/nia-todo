@@ -46,21 +46,32 @@
   padding-top: var(--todo-rich-toolbar-height, 44px);
 }
 
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed,
+.todo-desc-rich-toolbar.is-keyboard-fixed {
   position: fixed;
   top: var(--todo-rich-toolbar-top, 0px);
   left: var(--todo-rich-toolbar-left, 0px);
   width: var(--todo-rich-toolbar-width, 100vw);
   z-index: 1200;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
   background: color-mix(in srgb, var(--bg-primary) 96%, var(--bg-secondary));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--bg-primary) 34%, transparent);
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-stuck,
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed,
+.todo-desc-rich-toolbar.is-keyboard-fixed {
   border-radius: 0;
 }
 
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar button {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button,
+.todo-desc-rich-toolbar.is-keyboard-fixed button {
   min-height: 30px;
   padding: 5px 9px;
   border: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
@@ -75,14 +86,18 @@
 
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar button:hover,
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar button:focus-visible,
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active,
+.todo-desc-rich-toolbar.is-keyboard-fixed button:hover,
+.todo-desc-rich-toolbar.is-keyboard-fixed button:focus-visible,
+.todo-desc-rich-toolbar.is-keyboard-fixed button.is-active {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 44%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   outline: none;
 }
 
-#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active {
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button.is-active,
+.todo-desc-rich-toolbar.is-keyboard-fixed button.is-active {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
