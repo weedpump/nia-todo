@@ -157,6 +157,13 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor li,
-#todo-modal.todo-detail-view .desc-live-preview li {
+#todo-modal.todo-detail-view .desc-live-preview li,
+#todo-modal.todo-detail-view .todo-comment-body li {
   margin: 4px 0;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor li > ul,
+#todo-modal.todo-detail-view .desc-live-preview li > ul,
+#todo-modal.todo-detail-view .todo-comment-body li > ul {
+  margin: 4px 0 6px;
 }

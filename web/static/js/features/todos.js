@@ -321,11 +321,11 @@ export function createTodosFeature({
     renderTodoMetaSummary(todo);
   }
 
-  function htmlNodeToMarkdown(node) {
+  function htmlNodeToMarkdown(node, listDepth = 0) {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
     const tag = node.tagName.toLowerCase();
-    const children = () => Array.from(node.childNodes).map(htmlNodeToMarkdown).join('');
+    const children = (depth = listDepth) => Array.from(node.childNodes).map(child => htmlNodeToMarkdown(child, depth)).join('');
     if (tag === 'br') return '\n';
     if (tag === 'strong' || tag === 'b') return `**${children()}**`;
     if (tag === 'em' || tag === 'i') return `*${children()}*`;
@@ -335,8 +335,19 @@ export function createTodosFeature({
     if (tag === 'h1') return `# ${children().trim()}\n\n`;
     if (tag === 'h2') return `## ${children().trim()}\n\n`;
     if (tag === 'h3') return `### ${children().trim()}\n\n`;
-    if (tag === 'li') return `- ${children().trim()}\n`;
-    if (tag === 'ul' || tag === 'ol') return `${children()}\n`;
+    if (tag === 'li') {
+      const direct = Array.from(node.childNodes)
+        .filter(child => !(child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase())))
+        .map(child => htmlNodeToMarkdown(child, listDepth))
+        .join('')
+        .trim();
+      const nested = Array.from(node.childNodes)
+        .filter(child => child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase()))
+        .map(child => htmlNodeToMarkdown(child, listDepth + 1))
+        .join('');
+      return `${'  '.repeat(listDepth)}- ${direct}\n${nested}`;
+    }
+    if (tag === 'ul' || tag === 'ol') return `${children(listDepth)}\n`;
     if (tag === 'p' || tag === 'div') return `${children().trim()}\n\n`;
     return children();
   }
@@ -389,6 +400,15 @@ export function createTodosFeature({
     range.collapse(true);
     selection.removeAllRanges();
     selection.addRange(range);
+  }
+
+  function indentRichListItem(editor, outdent, syncFromEditor) {
+    const element = getSelectionElementWithin(editor);
+    const listItem = closestInside(element, 'li', editor);
+    if (!listItem) return false;
+    document.execCommand(outdent ? 'outdent' : 'indent', false, null);
+    window.setTimeout(syncFromEditor, 0);
+    return true;
   }
 
   function resetRichTypingStyleAfterLineBreak(editor, toolbar, syncFromEditor) {
@@ -483,6 +503,10 @@ export function createTodosFeature({
         resetRichTypingStyleAfterLineBreak(editor, toolbar, syncFromEditor);
         return;
       }
+      if (event.key === 'Tab' && indentRichListItem(editor, event.shiftKey, syncFromEditor)) {
+        event.preventDefault();
+        return;
+      }
       if (event.key === ' ') {
         window.setTimeout(() => {
           const selection = window.getSelection?.();
@@ -508,6 +532,31 @@ export function createTodosFeature({
       });
     });
     return wrap;
+  }
+
+  function adjustMarkdownListIndent(textarea, outdent) {
+    if (!textarea) return false;
+    const value = textarea.value || '';
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? start;
+    const lineStart = value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    const lineEndIndex = value.indexOf('\n', end);
+    const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+    const selectedBlock = value.slice(lineStart, lineEnd);
+    const lines = selectedBlock.split('\n');
+    if (!lines.some(line => /^\s*-\s+/.test(line))) return false;
+    const adjustedLines = lines.map(line => {
+      if (!/^\s*-\s+/.test(line)) return line;
+      if (!outdent) return `  ${line}`;
+      return line.startsWith('  ') ? line.slice(2) : line.replace(/^\s/, '');
+    });
+    const nextBlock = adjustedLines.join('\n');
+    textarea.value = `${value.slice(0, lineStart)}${nextBlock}${value.slice(lineEnd)}`;
+    const delta = nextBlock.length - selectedBlock.length;
+    textarea.focus();
+    textarea.setSelectionRange(Math.max(lineStart, start + (outdent ? Math.max(delta, -2) : 2)), Math.max(lineStart, end + delta));
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
   }
 
   function applyMarkdownFormatToTextarea(textarea, format) {
@@ -618,7 +667,7 @@ export function createTodosFeature({
       else if (format === 'h1') active = line.startsWith('# ') && !line.startsWith('## ');
       else if (format === 'h2') active = line.startsWith('## ');
       else if (format === 'quote') active = line.startsWith('> ');
-      else if (format === 'list') active = line.startsWith('- ');
+      else if (format === 'list') active = /^\s*-\s+/.test(line);
       setToolbarButtonActive(button, active);
     });
   }
@@ -634,6 +683,12 @@ export function createTodosFeature({
       const button = event.target?.closest?.('button[data-markdown-format]');
       if (!button) return;
       applyMarkdownFormatToTextarea(textarea, button.dataset.markdownFormat);
+      updateState();
+    });
+    textarea.addEventListener('keydown', event => {
+      if (event.key !== 'Tab') return;
+      if (!adjustMarkdownListIndent(textarea, event.shiftKey)) return;
+      event.preventDefault();
       updateState();
     });
     textarea.addEventListener('input', updateState);
