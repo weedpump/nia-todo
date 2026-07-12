@@ -21,7 +21,7 @@
 7. The script sets the same version for the web app, service worker, Tauri/Cargo, Windows installer, Android APK, Debian desktop `.deb`, and download manifest
 8. `scripts/check_release_versions.py VERSION` aborts the release if an automatically set version source drifts; `min_native_client_version` is validated and only raised with the explicit release flag
 9. The script always builds Windows, Android, and Debian desktop as well; separate app versions or optional native builds no longer exist
-10. The script merges `develop` into `main`, creates the tag, builds public `.deb`/Docker artifacts, publishes GitHub/GHCR, cleans local release artifacts, and bumps `develop` to the next shared `-dev` version
+10. The script merges `develop` into `main`, creates the tag, builds public `.deb`/Docker artifacts, publishes GitHub/GHCR/Docker Hub, cleans local release artifacts, and bumps `develop` to the next shared `-dev` version
 11. The script does **not** deploy to or restart production. Production runs on a separate LXC and is updated by installing the published package/image.
 
 Changelog requirement:

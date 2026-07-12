@@ -1,6 +1,6 @@
 services:
   nia-todo:
-    image: ghcr.io/weedpump/nia-todo:latest
+    image: docker.io/weedpump/nia-todo:latest
     ports:
       - "8753:8753"
     environment:
