@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.0.2] - 2026-07-13
+
+### Fixed
+- Mobile browser, PWA, and Android native todo swipes now continue after pointer capture is lost on todo content, restoring left/right status changes from title, metadata, and description areas.
+
 ## [3.0.1] - 2026-07-13
 
 ### Fixed
