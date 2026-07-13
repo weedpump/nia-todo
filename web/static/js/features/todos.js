@@ -1764,6 +1764,7 @@ export function createTodosFeature({
     let active = null;
     let suppressClickUntil = 0;
     let swipeVisualFrame = 0;
+    let swipeVisualFrameIsTimeout = false;
     let pendingSwipeVisual = null;
 
     document.addEventListener('click', (event) => {
@@ -1820,27 +1821,34 @@ export function createTodosFeature({
     }
 
     function cancelScheduledSwipeVisual() {
-      if (swipeVisualFrame) window.cancelAnimationFrame?.(swipeVisualFrame);
+      if (swipeVisualFrame) {
+        if (swipeVisualFrameIsTimeout) window.clearTimeout(swipeVisualFrame);
+        else window.cancelAnimationFrame?.(swipeVisualFrame);
+      }
       swipeVisualFrame = 0;
+      swipeVisualFrameIsTimeout = false;
       pendingSwipeVisual = null;
+    }
+
+    function flushScheduledSwipeVisual() {
+      swipeVisualFrame = 0;
+      swipeVisualFrameIsTimeout = false;
+      const pending = pendingSwipeVisual;
+      pendingSwipeVisual = null;
+      if (!pending?.item?.isConnected || !pending.item.classList.contains('swiping')) return;
+      setSwipeVisual(pending.item, pending.visualDx, pending.rawDx, pending.actionThreshold);
     }
 
     function scheduleSwipeVisual(item, visualDx, rawDx, actionThreshold) {
       pendingSwipeVisual = { item, visualDx, rawDx, actionThreshold };
       if (swipeVisualFrame) return;
-      swipeVisualFrame = window.requestAnimationFrame?.(() => {
-        swipeVisualFrame = 0;
-        const pending = pendingSwipeVisual;
-        pendingSwipeVisual = null;
-        if (!pending?.item?.isConnected || !pending.item.classList.contains('swiping')) return;
-        setSwipeVisual(pending.item, pending.visualDx, pending.rawDx, pending.actionThreshold);
-      }) || window.setTimeout(() => {
-        swipeVisualFrame = 0;
-        const pending = pendingSwipeVisual;
-        pendingSwipeVisual = null;
-        if (!pending?.item?.isConnected || !pending.item.classList.contains('swiping')) return;
-        setSwipeVisual(pending.item, pending.visualDx, pending.rawDx, pending.actionThreshold);
-      }, 16);
+      if (window.requestAnimationFrame) {
+        swipeVisualFrame = window.requestAnimationFrame(flushScheduledSwipeVisual);
+        swipeVisualFrameIsTimeout = false;
+      } else {
+        swipeVisualFrame = window.setTimeout(flushScheduledSwipeVisual, 16);
+        swipeVisualFrameIsTimeout = true;
+      }
     }
 
     function cleanupSwipeVisual(item) {
@@ -1943,8 +1951,13 @@ export function createTodosFeature({
       else await toggleTodoStatus(current.id, 'in_progress');
     };
 
+    const cancel = (event) => {
+      if (!active || event.pointerId !== active.pointerId) return;
+      cancelActiveSwipe();
+    };
+
     document.addEventListener('pointerup', finish, { passive: false });
-    document.addEventListener('pointercancel', finish, { passive: false });
+    document.addEventListener('pointercancel', cancel, { passive: true });
     document.addEventListener('lostpointercapture', (event) => {
       if (active && event.pointerId === active.pointerId) cancelActiveSwipe();
     }, { passive: true });
