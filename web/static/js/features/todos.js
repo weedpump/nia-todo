@@ -1779,7 +1779,8 @@ export function createTodosFeature({
       const item = event.target?.closest?.('.todo-item');
       if (!item) return;
       const startedInActionZone = Boolean(event.target.closest('.todo-actions'));
-      if (isTodoInteractiveTarget(event.target) && !startedInActionZone) return;
+      const startedInStatusZone = Boolean(event.target.closest('.todo-status-control, .todo-check'));
+      if (isTodoInteractiveTarget(event.target) && !startedInActionZone && !startedInStatusZone) return;
       active = {
         item,
         id: item.dataset.id,
@@ -1791,6 +1792,7 @@ export function createTodosFeature({
         locked: null,
         swiped: false,
         startedInActionZone,
+        startedInStatusZone,
         originalDraggable: item.getAttribute('draggable'),
       };
       try { item.setPointerCapture?.(event.pointerId); } catch (_) {}
@@ -1887,9 +1889,9 @@ export function createTodosFeature({
       if (!active.locked) {
         const absX = Math.abs(active.dx);
         const absY = Math.abs(active.dy);
-        const requiredLockThreshold = active.startedInActionZone ? actionZoneLockThreshold : lockThreshold;
+        const requiredLockThreshold = (active.startedInActionZone || active.startedInStatusZone) ? actionZoneLockThreshold : lockThreshold;
         if (absX < requiredLockThreshold && absY < lockThreshold) return;
-        const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx;
+        const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx && !active.startedInStatusZone;
         active.locked = absX >= requiredLockThreshold && absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
         if (active.locked === 'vertical') return;
         active.item.setAttribute('draggable', 'false');
