@@ -935,12 +935,33 @@
 .todo-body .todo-desc-preview,
 .todo-desc-preview {
   flex: 0 0 100%;
+  display: -webkit-box;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.todo-desc-preview > *,
+.todo-desc-preview a,
+.todo-desc-preview code,
+.todo-desc-preview strong,
+.todo-desc-preview em {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.todo-desc-preview > p {
+  display: inline;
+  margin: 0;
 }
 
 /* Local preview mobile fix: prevent chips/description from escaping pill rows. */

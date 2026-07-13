@@ -1970,7 +1970,9 @@ export function createTodosFeature({
     document.addEventListener('pointerup', finish, { passive: false });
     document.addEventListener('pointercancel', cancel, { passive: true });
     document.addEventListener('lostpointercapture', (event) => {
-      if (active && event.pointerId === active.pointerId) cancelActiveSwipe();
+      if (active && event.pointerId === active.pointerId) {
+        active.capturedPointer = false;
+      }
     }, { passive: true });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) cancelActiveSwipe();
