@@ -1763,6 +1763,8 @@ export function createTodosFeature({
     const actionZoneLockThreshold = 36;
     let active = null;
     let suppressClickUntil = 0;
+    let swipeVisualFrame = 0;
+    let pendingSwipeVisual = null;
 
     document.addEventListener('click', (event) => {
       if (Date.now() > suppressClickUntil) return;
@@ -1791,6 +1793,7 @@ export function createTodosFeature({
         startedInActionZone,
         originalDraggable: item.getAttribute('draggable'),
       };
+      try { item.setPointerCapture?.(event.pointerId); } catch (_) {}
     }, { passive: true });
 
     function elasticSwipeDistance(rawDx, width) {
@@ -1814,12 +1817,57 @@ export function createTodosFeature({
       item.classList.toggle('swipe-ready', progress >= 1);
     }
 
+    function cancelScheduledSwipeVisual() {
+      if (swipeVisualFrame) window.cancelAnimationFrame?.(swipeVisualFrame);
+      swipeVisualFrame = 0;
+      pendingSwipeVisual = null;
+    }
+
+    function scheduleSwipeVisual(item, visualDx, rawDx, actionThreshold) {
+      pendingSwipeVisual = { item, visualDx, rawDx, actionThreshold };
+      if (swipeVisualFrame) return;
+      swipeVisualFrame = window.requestAnimationFrame?.(() => {
+        swipeVisualFrame = 0;
+        const pending = pendingSwipeVisual;
+        pendingSwipeVisual = null;
+        if (!pending?.item?.isConnected || !pending.item.classList.contains('swiping')) return;
+        setSwipeVisual(pending.item, pending.visualDx, pending.rawDx, pending.actionThreshold);
+      }) || window.setTimeout(() => {
+        swipeVisualFrame = 0;
+        const pending = pendingSwipeVisual;
+        pendingSwipeVisual = null;
+        if (!pending?.item?.isConnected || !pending.item.classList.contains('swiping')) return;
+        setSwipeVisual(pending.item, pending.visualDx, pending.rawDx, pending.actionThreshold);
+      }, 16);
+    }
+
     function cleanupSwipeVisual(item) {
+      cancelScheduledSwipeVisual();
       item.classList.remove('swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
       item.style.removeProperty('--swipe-x');
       item.style.removeProperty('--swipe-progress');
       item.removeAttribute('data-swipe-right-label');
       item.removeAttribute('data-swipe-left-label');
+    }
+
+    function restoreSwipeDraggable(state) {
+      if (!state?.item) return;
+      if (state.originalDraggable === null) state.item.removeAttribute('draggable');
+      else state.item.setAttribute('draggable', state.originalDraggable);
+    }
+
+    function releaseSwipePointer(state) {
+      try { state?.item?.releasePointerCapture?.(state.pointerId); } catch (_) {}
+    }
+
+    function cancelActiveSwipe() {
+      if (!active) return;
+      const current = active;
+      active = null;
+      cleanupSwipeVisual(current.item);
+      restoreSwipeDraggable(current);
+      releaseSwipePointer(current);
+      suppressClickUntil = Date.now() + 450;
     }
 
     function wait(ms) {
@@ -1830,9 +1878,7 @@ export function createTodosFeature({
       if (!active || event.pointerId !== active.pointerId) return;
       const dragDropActive = document.body.classList.contains('native-pointer-dragging') || active.item.classList.contains('dragging');
       if (dragDropActive) {
-        cleanupSwipeVisual(active.item);
-        active = null;
-        suppressClickUntil = Date.now() + 450;
+        cancelActiveSwipe();
         return;
       }
       active.dx = event.clientX - active.startX;
@@ -1858,7 +1904,7 @@ export function createTodosFeature({
       event.preventDefault();
       const actionThreshold = Math.max(thresholdPx, active.item.clientWidth * thresholdRatio);
       const dx = elasticSwipeDistance(active.dx, active.item.clientWidth);
-      setSwipeVisual(active.item, dx, active.dx, actionThreshold);
+      scheduleSwipeVisual(active.item, dx, active.dx, actionThreshold);
       active.swiped = true;
     }, { passive: false });
 
@@ -1869,10 +1915,8 @@ export function createTodosFeature({
       const item = current.item;
       const actionThreshold = Math.max(thresholdPx, item.clientWidth * thresholdRatio);
       const shouldAct = current.locked === 'horizontal' && Math.abs(current.dx) >= actionThreshold;
-      const restoreDraggable = () => {
-        if (current.originalDraggable === null) item.removeAttribute('draggable');
-        else item.setAttribute('draggable', current.originalDraggable);
-      };
+      cancelScheduledSwipeVisual();
+      releaseSwipePointer(current);
 
       if (current.swiped || shouldAct) suppressClickUntil = Date.now() + 450;
       if (current.locked === 'horizontal') event.preventDefault();
@@ -1884,7 +1928,7 @@ export function createTodosFeature({
           await wait(180);
         }
         cleanupSwipeVisual(item);
-        restoreDraggable();
+        restoreSwipeDraggable(current);
         return;
       }
 
@@ -1892,13 +1936,21 @@ export function createTodosFeature({
       setSwipeVisual(item, current.dx < 0 ? -item.clientWidth : item.clientWidth, current.dx, actionThreshold);
       await wait(130);
       cleanupSwipeVisual(item);
-      restoreDraggable();
+      restoreSwipeDraggable(current);
       if (current.dx < 0) await toggleTodoStatus(current.id, 'done');
       else await toggleTodoStatus(current.id, 'in_progress');
     };
 
     document.addEventListener('pointerup', finish, { passive: false });
     document.addEventListener('pointercancel', finish, { passive: false });
+    document.addEventListener('lostpointercapture', (event) => {
+      if (active && event.pointerId === active.pointerId) cancelActiveSwipe();
+    }, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) cancelActiveSwipe();
+    }, { passive: true });
+    window.addEventListener('blur', cancelActiveSwipe, { passive: true });
+    window.addEventListener('pagehide', cancelActiveSwipe, { passive: true });
   }
 
   function isInteractiveTarget(element) {
