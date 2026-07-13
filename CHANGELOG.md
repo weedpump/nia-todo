@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - Mobile browser, PWA, and Android native todo swipes now continue after pointer capture is lost on todo content, restoring left/right status changes from title, metadata, and description areas.
+- Long unbroken todo descriptions now stay inside todo cards and the detail modal read/editor views, with card previews clamped instead of stretching the dashboard.
 
 ## [3.0.1] - 2026-07-13
 
