@@ -14,9 +14,12 @@
 .sidebar-scroll-region {
   min-height: 0;
   flex: 1 1 auto;
+  margin-inline: -3px;
+  padding-inline: 3px;
   overflow-y: auto;
-  overflow-x: visible;
+  overflow-x: hidden;
   overscroll-behavior: contain;
+  scrollbar-gutter: auto;
 }
 
 .logo {
