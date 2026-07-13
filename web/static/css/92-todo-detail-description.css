@@ -11,6 +11,8 @@
 
 #todo-modal.todo-detail-view .todo-desc-rich-wrap {
   display: none;
+  max-width: 100%;
+  min-width: 0;
   margin-top: 14px;
   border: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
   border-radius: 18px;
@@ -102,12 +104,26 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor {
+  max-width: 100%;
+  min-width: 0;
   min-height: 180px;
   padding: 16px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   color: var(--text-primary);
   font-size: 16px;
   line-height: 1.68;
   outline: none;
+}
+
+#todo-modal.todo-detail-view .desc-live-preview,
+#todo-modal.todo-detail-view .desc-live-preview *,
+#todo-modal.todo-detail-view .todo-desc-rich-editor,
+#todo-modal.todo-detail-view .todo-desc-rich-editor * {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor:empty::before,
