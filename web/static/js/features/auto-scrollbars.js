@@ -1,5 +1,3 @@
-import { RUNTIME_PLATFORM } from '../core/config.js';
-
 const SCROLLING_CLASS = 'is-scrolling';
 const INDICATOR_CLASS = 'scrollbar-overlay-indicator';
 const VISIBLE_CLASS = 'visible';
@@ -193,11 +191,6 @@ function updateVisibleIndicators() {
 export function initAutoScrollbars() {
   if (document.documentElement.dataset.autoScrollbars === 'ready') return;
   document.documentElement.dataset.autoScrollbars = 'ready';
-
-  if (RUNTIME_PLATFORM === 'ios' || RUNTIME_PLATFORM === 'ipados') {
-    document.documentElement.dataset.autoScrollbars = 'native-ios';
-    return;
-  }
 
   document.addEventListener('scroll', (event) => {
     markScrolling(getScrollTarget(event));
