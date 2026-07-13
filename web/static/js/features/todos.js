@@ -148,7 +148,7 @@ export function createTodosFeature({
     titleField.dataset.titleAutosizeBound = '1';
     titleField.addEventListener('input', resizeTodoTitleField);
     titleField.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key !== 'Enter' || event.shiftKey || (!event.ctrlKey && !event.metaKey) || event.altKey) return;
       event.preventDefault();
       titleField.form?.requestSubmit();
     });
