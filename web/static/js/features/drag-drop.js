@@ -392,17 +392,24 @@ export function createDragDropFeature({
   function createNativeGhost(source) {
     const rect = source.getBoundingClientRect();
     const ghost = source.cloneNode(true);
+    ghost.classList.remove('dragging', 'touch-feedback', 'todo-press-active', 'swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
     ghost.classList.add('native-drag-ghost');
+    ghost.removeAttribute('id');
+    ghost.removeAttribute('draggable');
     ghost.style.width = `${rect.width}px`;
     ghost.style.left = `${rect.left}px`;
     ghost.style.top = `${rect.top}px`;
+    ghost.style.removeProperty('transform');
+    ghost.style.removeProperty('--swipe-x');
+    ghost.style.removeProperty('--swipe-progress');
     document.body.appendChild(ghost);
     return ghost;
   }
 
   function moveNativeGhost(event) {
     if (!pointerDrag?.ghost) return;
-    pointerDrag.ghost.style.transform = `translate3d(${event.clientX - pointerDrag.startX}px, ${event.clientY - pointerDrag.startY}px, 0)`;
+    pointerDrag.ghost.style.left = `${event.clientX - pointerDrag.offsetX}px`;
+    pointerDrag.ghost.style.top = `${event.clientY - pointerDrag.offsetY}px`;
   }
 
   function nativeDragEventFromLastPosition() {
@@ -566,6 +573,8 @@ export function createDragDropFeature({
       id,
       startX: event.clientX,
       startY: event.clientY,
+      offsetX: 0,
+      offsetY: 0,
       lastX: event.clientX,
       lastY: event.clientY,
       isTouch,
@@ -611,8 +620,11 @@ export function createDragDropFeature({
     suppressNextNativeClick = true;
     try { window.getSelection?.()?.removeAllRanges?.(); } catch (_error) {}
     document.body.classList.add('native-pointer-dragging');
-    pointerDrag.source.classList.add('dragging');
+    const sourceRect = pointerDrag.source.getBoundingClientRect();
+    pointerDrag.offsetX = Math.max(0, Math.min(event.clientX - sourceRect.left, sourceRect.width));
+    pointerDrag.offsetY = Math.max(0, Math.min(event.clientY - sourceRect.top, sourceRect.height));
     pointerDrag.ghost = createNativeGhost(pointerDrag.source);
+    pointerDrag.source.classList.add('dragging');
     if (pointerDrag.type === 'todo') dragSrcTodoId = pointerDrag.id;
     if (pointerDrag.type === 'section') dragSrcSectionId = pointerDrag.id;
     moveNativeGhost(event);
