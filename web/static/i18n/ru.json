@@ -211,7 +211,7 @@
   "workspace.namePlaceholder": "например Частное, Работа",
   "workspace.icon": "Значок (необязательно)",
   "workspace.chooseIcon": "Выберите значок рабочей области",
-  "workspace.add": "＋ Добавить рабочее пространство",
+  "workspace.add": "Добавить рабочее пространство",
   "workspace.rename": "Переименовать рабочую область",
   "workspace.editAria": "Изменить рабочую область",
   "workspace.nameRequired": "Пожалуйста, введите имя.",

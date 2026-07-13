@@ -211,7 +211,7 @@
   "workspace.namePlaceholder": "t.ex. Privat, arbete",
   "workspace.icon": "Ikon (valfritt)",
   "workspace.chooseIcon": "Välj arbetsytaikon",
-  "workspace.add": "＋ Lägg till arbetsyta",
+  "workspace.add": "Lägg till arbetsyta",
   "workspace.rename": "Byt namn på arbetsytan",
   "workspace.editAria": "Redigera arbetsyta",
   "workspace.nameRequired": "Vänligen ange ett namn.",
