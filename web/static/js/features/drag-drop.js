@@ -20,6 +20,7 @@ export function createDragDropFeature({
   let currentSectionDropIndex = null;
   let pointerDrag = null;
   let nativeSummaryPointer = null;
+  let nativeSummaryClickSuppression = null;
   let standardDragAutoScroll = null;
   let suppressNextNativeClick = false;
   const TOUCH_LONG_PRESS_MS = 320;
@@ -687,13 +688,41 @@ export function createDragDropFeature({
     return target?.closest?.('.todo-status-menu > summary, .todo-snooze-menu > summary') || null;
   }
 
+  function resetNativeTodoDetailsPlacement(menu) {
+    menu?.classList?.remove('opens-up', 'placement-ready');
+  }
+
+  function updateNativeTodoDetailsPlacement(menu) {
+    if (!menu?.open) return;
+    const panel = menu.querySelector('.todo-action-menu');
+    const summary = menu.querySelector('summary');
+    if (!panel || !summary) return;
+    menu.classList.remove('opens-up', 'placement-ready');
+    const summaryRect = summary.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const safeGap = 8;
+    const spaceBelow = viewportHeight - summaryRect.bottom - safeGap;
+    const spaceAbove = summaryRect.top - safeGap;
+    if (panelRect.height > spaceBelow && spaceAbove > spaceBelow) {
+      menu.classList.add('opens-up');
+    }
+    menu.classList.add('placement-ready');
+  }
+
   function toggleNativeTodoDetailsSummary(summary) {
     const details = summary?.parentElement;
     if (!summary || !details) return false;
+    const nextOpen = !details.open;
     document.querySelectorAll('.todo-status-menu[open], .todo-snooze-menu[open]').forEach((menu) => {
-      if (menu !== details) menu.removeAttribute('open');
+      if (menu !== details) {
+        menu.removeAttribute('open');
+        resetNativeTodoDetailsPlacement(menu);
+      }
     });
-    details.open = !details.open;
+    details.open = nextOpen;
+    if (nextOpen) updateNativeTodoDetailsPlacement(details);
+    else resetNativeTodoDetailsPlacement(details);
     return true;
   }
 
@@ -803,6 +832,7 @@ export function createDragDropFeature({
       clearNativeSummaryPointer(event.pointerId);
       if (!pointerDrag && summaryPointer && !summaryPointer.canceled && nativeTodoDetailsSummaryFromTarget(event.target) === summaryPointer.summary) {
         toggleNativeTodoDetailsSummary(summaryPointer.summary);
+        nativeSummaryClickSuppression = { summary: summaryPointer.summary, until: Date.now() + 600 };
         event.preventDefault();
         event.stopImmediatePropagation();
         return;
@@ -868,6 +898,13 @@ export function createDragDropFeature({
     }, true);
 
     document.addEventListener('click', (event) => {
+      const summary = nativeTodoDetailsSummaryFromTarget(event.target);
+      if (summary && nativeSummaryClickSuppression?.summary === summary && Date.now() <= nativeSummaryClickSuppression.until) {
+        nativeSummaryClickSuppression = null;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (!suppressNextNativeClick) return;
       suppressNextNativeClick = false;
       if (isNativePointerDragInteractiveTarget(event.target)) return;

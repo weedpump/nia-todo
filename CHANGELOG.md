@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [3.0.1] - 2026-07-13
 
 ### Fixed
+- Native Windows and Debian todo card Status/Snooze dropdowns now open reliably by preserving placement state and suppressing the follow-up WebView summary click after the native pointer handler toggles the menu.
 - Long todo titles now wrap within todo cards instead of overflowing past the viewport and blocking mobile quick actions.
 - Todo title editing now uses an auto-growing multi-line field so long titles remain readable while creating, editing, and viewing todos.
 - Mobile title editing now keeps Enter available for line breaks, while desktop users can still save with Ctrl+Enter or Cmd+Enter.
