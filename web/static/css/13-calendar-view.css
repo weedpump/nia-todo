@@ -851,7 +851,6 @@
 
 @media (min-width: 901px) {
   .main:has(.calendar-view),
-  .main-scroll-region:has(.calendar-view),
   .todo-list:has(.calendar-view),
   .calendar-view,
   .calendar-day-view,
@@ -860,8 +859,7 @@
     min-height: 0;
   }
 
-  .main:has(.calendar-view),
-  .main-scroll-region:has(.calendar-view) {
+  .main:has(.calendar-view) {
     overflow-y: hidden;
   }
 
