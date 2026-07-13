@@ -15,10 +15,8 @@
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: visible;
   overscroll-behavior: contain;
-  padding-right: 2px;
-  scrollbar-gutter: stable;
 }
 
 .logo {
