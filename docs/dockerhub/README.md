@@ -1,6 +1,12 @@
-# nia-todo
+<p align="center">
+  <img src="https://raw.githubusercontent.com/weedpump/nia-todo/main/web/static/icons/icon-512.png" alt="nia-todo logo" width="96">
+</p>
 
-**Official Docker image:** `docker.io/weedpump/nia-todo`
+<h1 align="center">nia-todo</h1>
+
+<p align="center">
+  <strong>Official Docker image:</strong> <code>docker.io/weedpump/nia-todo</code>
+</p>
 
 nia-todo is a self-hosted todo system with SQLite, FastAPI, a polished Web UI, offline-capable PWA support, and bundled native client downloads for Windows, Android, and Debian desktop.
 
