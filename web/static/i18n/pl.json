@@ -211,7 +211,7 @@
   "workspace.namePlaceholder": "np. Prywatnie, praca",
   "workspace.icon": "Ikona (opcjonalnie)",
   "workspace.chooseIcon": "Wybierz ikonę obszaru roboczego",
-  "workspace.add": "+ Dodaj obszar roboczy",
+  "workspace.add": "Dodaj obszar roboczy",
   "workspace.rename": "Zmień nazwę obszaru roboczego",
   "workspace.editAria": "Edytuj obszar roboczy",
   "workspace.nameRequired": "Proszę wpisać nazwę.",
