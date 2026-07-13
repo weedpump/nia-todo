@@ -73,9 +73,15 @@
   margin-bottom: 0;
 }
 
-.todo-title-group input {
+.todo-title-group input,
+.todo-title-group textarea {
   font-size: 14px;
   font-weight: 500;
+}
+
+.todo-title-group textarea {
+  resize: none;
+  overflow: hidden;
 }
 
 .todo-pin-row {
