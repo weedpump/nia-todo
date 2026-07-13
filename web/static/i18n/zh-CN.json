@@ -211,7 +211,7 @@
   "workspace.namePlaceholder": "例如私人、工作",
   "workspace.icon": "图标（可选）",
   "workspace.chooseIcon": "选择工作区图标",
-  "workspace.add": "＋ 添加工作区",
+  "workspace.add": "添加工作区",
   "workspace.rename": "重命名工作区",
   "workspace.editAria": "编辑工作区",
   "workspace.nameRequired": "请输入姓名。",

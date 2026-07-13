@@ -345,46 +345,48 @@
         <span class="logo-text">nia-todo</span>
       </div>
 
-      <nav class="nav-section">
-        <div class="nav-title" data-i18n-key="nav.view">Ansicht</div>
-        <button class="nav-btn ui-nav-pill" data-filter="all">
-          <span data-icon="layout-dashboard"></span> <span data-i18n-key="nav.dashboard">Dashboard</span>
-          <span class="badge" id="count-all">0</span>
-        </button>
-        <button class="nav-btn ui-nav-pill" data-filter="focus">
-          <span data-icon="funnel"></span> <span data-i18n-key="nav.focus">Filter</span>
-          <span class="badge" id="count-focus">0</span>
-        </button>
-        <button class="nav-btn ui-nav-pill" data-filter="calendar">
-          <span data-icon="calendar-days"></span> <span data-i18n-key="nav.calendar">Kalender</span>
-          <span class="badge" id="count-calendar">0</span>
-        </button>
-        <button class="nav-btn ui-nav-pill" data-filter="in_progress">
-          <span data-icon="flame"></span> <span data-i18n-key="nav.inProgress">In progress</span>
-          <span class="badge" id="count-in_progress">0</span>
-        </button>
-        <button class="nav-btn ui-nav-pill" data-filter="done">
-          <span data-icon="check-circle"></span> <span data-i18n-key="nav.done">Erledigt</span>
-          <span class="badge" id="count-done">0</span>
-        </button>
-      </nav>
+      <div class="sidebar-scroll-region">
+        <nav class="nav-section">
+          <div class="nav-title" data-i18n-key="nav.view">Ansicht</div>
+          <button class="nav-btn ui-nav-pill" data-filter="all">
+            <span data-icon="layout-dashboard"></span> <span data-i18n-key="nav.dashboard">Dashboard</span>
+            <span class="badge" id="count-all">0</span>
+          </button>
+          <button class="nav-btn ui-nav-pill" data-filter="focus">
+            <span data-icon="funnel"></span> <span data-i18n-key="nav.focus">Filter</span>
+            <span class="badge" id="count-focus">0</span>
+          </button>
+          <button class="nav-btn ui-nav-pill" data-filter="calendar">
+            <span data-icon="calendar-days"></span> <span data-i18n-key="nav.calendar">Kalender</span>
+            <span class="badge" id="count-calendar">0</span>
+          </button>
+          <button class="nav-btn ui-nav-pill" data-filter="in_progress">
+            <span data-icon="flame"></span> <span data-i18n-key="nav.inProgress">In progress</span>
+            <span class="badge" id="count-in_progress">0</span>
+          </button>
+          <button class="nav-btn ui-nav-pill" data-filter="done">
+            <span data-icon="check-circle"></span> <span data-i18n-key="nav.done">Erledigt</span>
+            <span class="badge" id="count-done">0</span>
+          </button>
+        </nav>
 
-      <nav class="nav-section">
-        <div class="nav-title" data-i18n-key="nav.projects">Projects</div>
-        <div id="project-list"></div>
-        <div class="project-tree-item add-project-tree-item">
-          <div class="nav-item-with-action">
-            <button class="nav-btn ui-nav-pill add-btn" data-nav-action="new-project">
-              <span class="entity-icon add-project-icon" data-icon="plus"></span><span data-i18n-key="nav.addProject">Add project</span>
-            </button>
+        <nav class="nav-section">
+          <div class="nav-title" data-i18n-key="nav.projects">Projects</div>
+          <div id="project-list"></div>
+          <div class="project-tree-item add-project-tree-item">
+            <div class="nav-item-with-action">
+              <button class="nav-btn ui-nav-pill add-btn" data-nav-action="new-project">
+                <span class="entity-icon add-project-icon" data-icon="plus"></span><span data-i18n-key="nav.addProject">Add project</span>
+              </button>
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      <nav class="nav-section" id="invites-section" style="display:none;">
-        <div class="nav-title" data-i18n-key="nav.invitations">Einladungen</div>
-        <div id="invites-list"></div>
-      </nav>
+        <nav class="nav-section" id="invites-section" style="display:none;">
+          <div class="nav-title" data-i18n-key="nav.invitations">Einladungen</div>
+          <div id="invites-list"></div>
+        </nav>
+      </div>
 
       <div class="sidebar-footer">
         <div class="user-menu-wrap sidebar-user-menu-wrap">

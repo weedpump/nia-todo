@@ -211,7 +211,7 @@
   "workspace.namePlaceholder": "par ex. Privé, Travail",
   "workspace.icon": "Icône (facultatif)",
   "workspace.chooseIcon": "Choisir l'icône de l'espace de travail",
-  "workspace.add": "＋ Ajouter un espace de travail",
+  "workspace.add": "Ajouter un espace de travail",
   "workspace.rename": "Renommer l'espace de travail",
   "workspace.editAria": "Modifier l'espace de travail",
   "workspace.nameRequired": "Veuillez saisir un nom.",

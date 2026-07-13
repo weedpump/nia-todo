@@ -1,3 +1,10 @@
+import { hideAutoScrollbars } from './auto-scrollbars.js';
+
+function hideSidebarScrollbars() {
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) hideAutoScrollbars(sidebar);
+}
+
 export function createUiShell({ renderMarkdown, showTodoModal }) {
   function closeFloatingMenus() {
     const userMenu = document.getElementById('user-menu');
@@ -19,12 +26,16 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     const nextOpen = !sidebar?.classList.contains('open');
     sidebar?.classList.toggle('open', nextOpen);
     overlay?.classList.toggle('active', nextOpen);
+    if (!nextOpen) hideSidebarScrollbars();
     closeFloatingMenus();
   }
 
   function closeSidebar() {
-    document.getElementById('sidebar')?.classList.remove('open');
+    const sidebar = document.getElementById('sidebar');
+    const wasOpen = sidebar?.classList.contains('open');
+    sidebar?.classList.remove('open');
     document.getElementById('sidebar-overlay')?.classList.remove('active');
+    if (wasOpen) hideSidebarScrollbars();
     closeFloatingMenus();
   }
 
