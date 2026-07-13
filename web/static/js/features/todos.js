@@ -135,6 +135,25 @@ export function createTodosFeature({
     return getTodos().find(todo => String(todo.id) === String(id)) || null;
   }
 
+  function resizeTodoTitleField() {
+    const titleField = document.getElementById('todo-title');
+    if (!titleField || titleField.tagName !== 'TEXTAREA') return;
+    titleField.style.height = 'auto';
+    titleField.style.height = `${titleField.scrollHeight}px`;
+  }
+
+  function bindTodoTitleFieldAutosize() {
+    const titleField = document.getElementById('todo-title');
+    if (!titleField || titleField.dataset.titleAutosizeBound === '1') return;
+    titleField.dataset.titleAutosizeBound = '1';
+    titleField.addEventListener('input', resizeTodoTitleField);
+    titleField.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+      event.preventDefault();
+      titleField.form?.requestSubmit();
+    });
+  }
+
 
   function updateTodoMetaPanelsOpenState(todo = null) {
     const existingTodo = Boolean(todo?.id);
@@ -1306,6 +1325,7 @@ export function createTodosFeature({
     form.addEventListener('submit', saveTodo);
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
+    bindTodoTitleFieldAutosize();
     bindTodoAttachmentInputs();
     const commentInput = getTodoCommentEditor();
     const commentToolbar = commentInput?.closest('.todo-comment-rich-wrap')?.querySelector('.todo-comment-rich-toolbar');
@@ -2226,6 +2246,7 @@ export function createTodosFeature({
     if (todo) {
       document.getElementById('todo-id').value = todo.id;
       document.getElementById('todo-title').value = todo.title;
+      resizeTodoTitleField();
       document.getElementById('todo-desc').value = todo.description || '';
       document.getElementById('todo-priority').value = todo.priority;
       document.getElementById('todo-pinned').checked = Boolean(todo.is_pinned);
@@ -2261,6 +2282,7 @@ export function createTodosFeature({
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
+      resizeTodoTitleField();
       document.getElementById('todo-project').value = getCurrentProjectId() || inboxProject?.id || '';
       await onProjectChange(null);
       updateTodoMetaPanelsOpenState(null);
@@ -2280,6 +2302,8 @@ export function createTodosFeature({
     renderTodoMetaSummary(todo);
     document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
     getTodoModal()?.classList.add('active');
+    resizeTodoTitleField();
+    window.requestAnimationFrame?.(resizeTodoTitleField);
     if (!todo) focusTodoTitle();
   }
 
