@@ -1795,8 +1795,8 @@ export function createTodosFeature({
         startedInActionZone,
         startedInStatusZone,
         originalDraggable: item.getAttribute('draggable'),
+        capturedPointer: false,
       };
-      try { item.setPointerCapture?.(event.pointerId); } catch (_) {}
     }, { passive: true });
 
     function elasticSwipeDistance(rawDx, width) {
@@ -1866,8 +1866,18 @@ export function createTodosFeature({
       else state.item.setAttribute('draggable', state.originalDraggable);
     }
 
+    function captureSwipePointer(state) {
+      if (!state?.item || state.capturedPointer) return;
+      try {
+        state.item.setPointerCapture?.(state.pointerId);
+        state.capturedPointer = true;
+      } catch (_) {}
+    }
+
     function releaseSwipePointer(state) {
-      try { state?.item?.releasePointerCapture?.(state.pointerId); } catch (_) {}
+      if (!state?.capturedPointer) return;
+      try { state.item?.releasePointerCapture?.(state.pointerId); } catch (_) {}
+      state.capturedPointer = false;
     }
 
     function cancelActiveSwipe() {
@@ -1902,6 +1912,7 @@ export function createTodosFeature({
         const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx && !active.startedInStatusZone;
         active.locked = absX >= requiredLockThreshold && absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
         if (active.locked === 'vertical') return;
+        captureSwipePointer(active);
         active.item.setAttribute('draggable', 'false');
         active.item.setAttribute('data-swipe-right-label', `↗ ${t('todo.status.inProgress')}`);
         active.item.setAttribute('data-swipe-left-label', `✓ ${t('todo.status.done')}`);
