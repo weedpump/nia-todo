@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-07-13
+
+### Fixed
+- Long todo titles now wrap within todo cards instead of overflowing past the viewport and blocking mobile quick actions.
+- Todo title editing now uses an auto-growing multi-line field so long titles remain readable while creating, editing, and viewing todos.
+- Mobile title editing now keeps Enter available for line breaks, while desktop users can still save with Ctrl+Enter or Cmd+Enter.
+
 ## [3.0.0] - 2026-07-13
 
 ### Added
