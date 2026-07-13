@@ -911,9 +911,14 @@
 }
 
 .todo-title {
-  flex: 0 1 auto;
+  flex: 1 1 18rem;
   min-width: 0;
   max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .todo-meta-row {
@@ -954,7 +959,7 @@
   }
 
   .todo-title-wrap {
-    overflow: hidden;
+    overflow: visible;
   }
 
   .todo-meta-row {
