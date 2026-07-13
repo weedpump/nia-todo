@@ -213,11 +213,21 @@
   min-height: 36px;
   margin-top: 6px;
   padding: 8px 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-muted);
   text-align: left;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 400;
+}
+
+.workspace-menu-add-icon,
+.workspace-menu-add-icon .ui-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .workspace-menu-add:hover {
