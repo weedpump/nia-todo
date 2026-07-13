@@ -1,6 +1,7 @@
 import { API, RUNTIME_CAPABILITIES, RUNTIME_PLATFORM, verifyInstance } from '../core/config.js';
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { hideAutoScrollbars } from './auto-scrollbars.js';
 import { createNativeBridge } from './native-bridge.js';
 
 let deferredPwaInstallPrompt = null;
@@ -452,8 +453,11 @@ export function createAppDownloadsFeature() {
     if (!isBrowserDownloadEligible() && !isWebInstallEligible()) return;
     document.getElementById('user-menu')?.classList.remove('active');
     document.getElementById('user-menu-button')?.setAttribute('aria-expanded', 'false');
-    document.getElementById('sidebar')?.classList.remove('open');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarWasOpen = sidebar?.classList.contains('open');
+    sidebar?.classList.remove('open');
     document.getElementById('sidebar-overlay')?.classList.remove('active');
+    if (sidebarWasOpen && sidebar) hideAutoScrollbars(sidebar);
     const modal = document.getElementById('app-downloads-modal');
     modal?.classList.add('active');
     modal?.removeAttribute('aria-hidden');

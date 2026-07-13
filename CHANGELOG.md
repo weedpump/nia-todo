@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-07-13
+
+### Fixed
+- Native Windows and Debian todo card Status/Snooze dropdowns now open reliably by preserving placement state and suppressing the follow-up WebView summary click after the native pointer handler toggles the menu.
+- Long todo titles now wrap within todo cards instead of overflowing past the viewport and blocking mobile quick actions.
+- Todo title editing now uses an auto-growing multi-line field so long titles remain readable while creating, editing, and viewing todos.
+- Mobile title editing now keeps Enter available for line breaks, while desktop users can still save with Ctrl+Enter or Cmd+Enter.
+- Workspace menus now use the shared Lucide plus icon for the add-workspace action instead of a literal plus character.
+- Mobile todo swipe gestures now use pointer capture, animation-frame updates, and stricter cancel cleanup to avoid stuck or jittery swipe states.
+- Mobile todo swipes can now start from the checkbox/status control area while still respecting the left-edge navigation dead zone.
+- Mobile sidebars now keep the header and footer fixed while only the navigation/project region scrolls, with clipped pills fixed without horizontal overflow.
+- iOS/Safari now hides native WebKit scrollbars while keeping the app's custom overlay scrollbars visible, preventing duplicate scroll indicators in light and dark mode.
+- Android native todo drag-and-drop now keeps a visible drag ghost attached to the finger while moving todos between projects or sections.
+- Closing the mobile sidebar now immediately hides its custom scrollbar overlay instead of letting it float over the dashboard until the fade timeout.
+
 ## [3.0.0] - 2026-07-13
 
 ### Added

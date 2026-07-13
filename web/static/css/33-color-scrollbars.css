@@ -131,8 +131,16 @@ input[type="color"].color-picker-native {
 }
 
 ::-webkit-scrollbar {
+  display: none;
   width: 0;
   height: 0;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .scrollbar-overlay-indicator {

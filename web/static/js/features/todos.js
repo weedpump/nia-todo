@@ -135,6 +135,25 @@ export function createTodosFeature({
     return getTodos().find(todo => String(todo.id) === String(id)) || null;
   }
 
+  function resizeTodoTitleField() {
+    const titleField = document.getElementById('todo-title');
+    if (!titleField || titleField.tagName !== 'TEXTAREA') return;
+    titleField.style.height = 'auto';
+    titleField.style.height = `${titleField.scrollHeight}px`;
+  }
+
+  function bindTodoTitleFieldAutosize() {
+    const titleField = document.getElementById('todo-title');
+    if (!titleField || titleField.dataset.titleAutosizeBound === '1') return;
+    titleField.dataset.titleAutosizeBound = '1';
+    titleField.addEventListener('input', resizeTodoTitleField);
+    titleField.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || (!event.ctrlKey && !event.metaKey) || event.altKey) return;
+      event.preventDefault();
+      titleField.form?.requestSubmit();
+    });
+  }
+
 
   function updateTodoMetaPanelsOpenState(todo = null) {
     const existingTodo = Boolean(todo?.id);
@@ -1306,6 +1325,7 @@ export function createTodosFeature({
     form.addEventListener('submit', saveTodo);
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
+    bindTodoTitleFieldAutosize();
     bindTodoAttachmentInputs();
     const commentInput = getTodoCommentEditor();
     const commentToolbar = commentInput?.closest('.todo-comment-rich-wrap')?.querySelector('.todo-comment-rich-toolbar');
@@ -1743,6 +1763,9 @@ export function createTodosFeature({
     const actionZoneLockThreshold = 36;
     let active = null;
     let suppressClickUntil = 0;
+    let swipeVisualFrame = 0;
+    let swipeVisualFrameIsTimeout = false;
+    let pendingSwipeVisual = null;
 
     document.addEventListener('click', (event) => {
       if (Date.now() > suppressClickUntil) return;
@@ -1757,7 +1780,8 @@ export function createTodosFeature({
       const item = event.target?.closest?.('.todo-item');
       if (!item) return;
       const startedInActionZone = Boolean(event.target.closest('.todo-actions'));
-      if (isTodoInteractiveTarget(event.target) && !startedInActionZone) return;
+      const startedInStatusZone = Boolean(event.target.closest('.todo-status-control, .todo-check'));
+      if (isTodoInteractiveTarget(event.target) && !startedInActionZone && !startedInStatusZone) return;
       active = {
         item,
         id: item.dataset.id,
@@ -1769,7 +1793,9 @@ export function createTodosFeature({
         locked: null,
         swiped: false,
         startedInActionZone,
+        startedInStatusZone,
         originalDraggable: item.getAttribute('draggable'),
+        capturedPointer: false,
       };
     }, { passive: true });
 
@@ -1794,12 +1820,74 @@ export function createTodosFeature({
       item.classList.toggle('swipe-ready', progress >= 1);
     }
 
+    function cancelScheduledSwipeVisual() {
+      if (swipeVisualFrame) {
+        if (swipeVisualFrameIsTimeout) window.clearTimeout(swipeVisualFrame);
+        else window.cancelAnimationFrame?.(swipeVisualFrame);
+      }
+      swipeVisualFrame = 0;
+      swipeVisualFrameIsTimeout = false;
+      pendingSwipeVisual = null;
+    }
+
+    function flushScheduledSwipeVisual() {
+      swipeVisualFrame = 0;
+      swipeVisualFrameIsTimeout = false;
+      const pending = pendingSwipeVisual;
+      pendingSwipeVisual = null;
+      if (!pending?.item?.isConnected || !pending.item.classList.contains('swiping')) return;
+      setSwipeVisual(pending.item, pending.visualDx, pending.rawDx, pending.actionThreshold);
+    }
+
+    function scheduleSwipeVisual(item, visualDx, rawDx, actionThreshold) {
+      pendingSwipeVisual = { item, visualDx, rawDx, actionThreshold };
+      if (swipeVisualFrame) return;
+      if (window.requestAnimationFrame) {
+        swipeVisualFrame = window.requestAnimationFrame(flushScheduledSwipeVisual);
+        swipeVisualFrameIsTimeout = false;
+      } else {
+        swipeVisualFrame = window.setTimeout(flushScheduledSwipeVisual, 16);
+        swipeVisualFrameIsTimeout = true;
+      }
+    }
+
     function cleanupSwipeVisual(item) {
+      cancelScheduledSwipeVisual();
       item.classList.remove('swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
       item.style.removeProperty('--swipe-x');
       item.style.removeProperty('--swipe-progress');
       item.removeAttribute('data-swipe-right-label');
       item.removeAttribute('data-swipe-left-label');
+    }
+
+    function restoreSwipeDraggable(state) {
+      if (!state?.item) return;
+      if (state.originalDraggable === null) state.item.removeAttribute('draggable');
+      else state.item.setAttribute('draggable', state.originalDraggable);
+    }
+
+    function captureSwipePointer(state) {
+      if (!state?.item || state.capturedPointer) return;
+      try {
+        state.item.setPointerCapture?.(state.pointerId);
+        state.capturedPointer = true;
+      } catch (_) {}
+    }
+
+    function releaseSwipePointer(state) {
+      if (!state?.capturedPointer) return;
+      try { state.item?.releasePointerCapture?.(state.pointerId); } catch (_) {}
+      state.capturedPointer = false;
+    }
+
+    function cancelActiveSwipe() {
+      if (!active) return;
+      const current = active;
+      active = null;
+      cleanupSwipeVisual(current.item);
+      restoreSwipeDraggable(current);
+      releaseSwipePointer(current);
+      suppressClickUntil = Date.now() + 450;
     }
 
     function wait(ms) {
@@ -1810,9 +1898,7 @@ export function createTodosFeature({
       if (!active || event.pointerId !== active.pointerId) return;
       const dragDropActive = document.body.classList.contains('native-pointer-dragging') || active.item.classList.contains('dragging');
       if (dragDropActive) {
-        cleanupSwipeVisual(active.item);
-        active = null;
-        suppressClickUntil = Date.now() + 450;
+        cancelActiveSwipe();
         return;
       }
       active.dx = event.clientX - active.startX;
@@ -1821,11 +1907,12 @@ export function createTodosFeature({
       if (!active.locked) {
         const absX = Math.abs(active.dx);
         const absY = Math.abs(active.dy);
-        const requiredLockThreshold = active.startedInActionZone ? actionZoneLockThreshold : lockThreshold;
+        const requiredLockThreshold = (active.startedInActionZone || active.startedInStatusZone) ? actionZoneLockThreshold : lockThreshold;
         if (absX < requiredLockThreshold && absY < lockThreshold) return;
-        const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx;
+        const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx && !active.startedInStatusZone;
         active.locked = absX >= requiredLockThreshold && absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
         if (active.locked === 'vertical') return;
+        captureSwipePointer(active);
         active.item.setAttribute('draggable', 'false');
         active.item.setAttribute('data-swipe-right-label', `↗ ${t('todo.status.inProgress')}`);
         active.item.setAttribute('data-swipe-left-label', `✓ ${t('todo.status.done')}`);
@@ -1838,7 +1925,7 @@ export function createTodosFeature({
       event.preventDefault();
       const actionThreshold = Math.max(thresholdPx, active.item.clientWidth * thresholdRatio);
       const dx = elasticSwipeDistance(active.dx, active.item.clientWidth);
-      setSwipeVisual(active.item, dx, active.dx, actionThreshold);
+      scheduleSwipeVisual(active.item, dx, active.dx, actionThreshold);
       active.swiped = true;
     }, { passive: false });
 
@@ -1849,10 +1936,8 @@ export function createTodosFeature({
       const item = current.item;
       const actionThreshold = Math.max(thresholdPx, item.clientWidth * thresholdRatio);
       const shouldAct = current.locked === 'horizontal' && Math.abs(current.dx) >= actionThreshold;
-      const restoreDraggable = () => {
-        if (current.originalDraggable === null) item.removeAttribute('draggable');
-        else item.setAttribute('draggable', current.originalDraggable);
-      };
+      cancelScheduledSwipeVisual();
+      releaseSwipePointer(current);
 
       if (current.swiped || shouldAct) suppressClickUntil = Date.now() + 450;
       if (current.locked === 'horizontal') event.preventDefault();
@@ -1864,7 +1949,7 @@ export function createTodosFeature({
           await wait(180);
         }
         cleanupSwipeVisual(item);
-        restoreDraggable();
+        restoreSwipeDraggable(current);
         return;
       }
 
@@ -1872,13 +1957,26 @@ export function createTodosFeature({
       setSwipeVisual(item, current.dx < 0 ? -item.clientWidth : item.clientWidth, current.dx, actionThreshold);
       await wait(130);
       cleanupSwipeVisual(item);
-      restoreDraggable();
+      restoreSwipeDraggable(current);
       if (current.dx < 0) await toggleTodoStatus(current.id, 'done');
       else await toggleTodoStatus(current.id, 'in_progress');
     };
 
+    const cancel = (event) => {
+      if (!active || event.pointerId !== active.pointerId) return;
+      cancelActiveSwipe();
+    };
+
     document.addEventListener('pointerup', finish, { passive: false });
-    document.addEventListener('pointercancel', finish, { passive: false });
+    document.addEventListener('pointercancel', cancel, { passive: true });
+    document.addEventListener('lostpointercapture', (event) => {
+      if (active && event.pointerId === active.pointerId) cancelActiveSwipe();
+    }, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) cancelActiveSwipe();
+    }, { passive: true });
+    window.addEventListener('blur', cancelActiveSwipe, { passive: true });
+    window.addEventListener('pagehide', cancelActiveSwipe, { passive: true });
   }
 
   function isInteractiveTarget(element) {
@@ -2226,6 +2324,7 @@ export function createTodosFeature({
     if (todo) {
       document.getElementById('todo-id').value = todo.id;
       document.getElementById('todo-title').value = todo.title;
+      resizeTodoTitleField();
       document.getElementById('todo-desc').value = todo.description || '';
       document.getElementById('todo-priority').value = todo.priority;
       document.getElementById('todo-pinned').checked = Boolean(todo.is_pinned);
@@ -2261,6 +2360,7 @@ export function createTodosFeature({
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
+      resizeTodoTitleField();
       document.getElementById('todo-project').value = getCurrentProjectId() || inboxProject?.id || '';
       await onProjectChange(null);
       updateTodoMetaPanelsOpenState(null);
@@ -2280,6 +2380,8 @@ export function createTodosFeature({
     renderTodoMetaSummary(todo);
     document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
     getTodoModal()?.classList.add('active');
+    resizeTodoTitleField();
+    window.requestAnimationFrame?.(resizeTodoTitleField);
     if (!todo) focusTodoTitle();
   }
 

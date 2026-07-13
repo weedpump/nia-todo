@@ -7,8 +7,19 @@
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 20px 16px;
+}
+
+.sidebar-scroll-region {
+  min-height: 0;
+  flex: 1 1 auto;
+  margin-inline: -3px;
+  padding-inline: 3px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
 }
 
 .logo {
@@ -28,6 +39,7 @@
 }
 
 .nav-section { margin-bottom: 20px; }
+.sidebar-scroll-region .nav-section:last-child { margin-bottom: 0; }
 
 .nav-title {
   font-size: 11px;

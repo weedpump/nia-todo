@@ -20,6 +20,7 @@ export function createDragDropFeature({
   let currentSectionDropIndex = null;
   let pointerDrag = null;
   let nativeSummaryPointer = null;
+  let nativeSummaryClickSuppression = null;
   let standardDragAutoScroll = null;
   let suppressNextNativeClick = false;
   const TOUCH_LONG_PRESS_MS = 320;
@@ -392,17 +393,24 @@ export function createDragDropFeature({
   function createNativeGhost(source) {
     const rect = source.getBoundingClientRect();
     const ghost = source.cloneNode(true);
+    ghost.classList.remove('dragging', 'touch-feedback', 'todo-press-active', 'swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
     ghost.classList.add('native-drag-ghost');
+    ghost.removeAttribute('id');
+    ghost.removeAttribute('draggable');
     ghost.style.width = `${rect.width}px`;
     ghost.style.left = `${rect.left}px`;
     ghost.style.top = `${rect.top}px`;
+    ghost.style.removeProperty('transform');
+    ghost.style.removeProperty('--swipe-x');
+    ghost.style.removeProperty('--swipe-progress');
     document.body.appendChild(ghost);
     return ghost;
   }
 
   function moveNativeGhost(event) {
     if (!pointerDrag?.ghost) return;
-    pointerDrag.ghost.style.transform = `translate3d(${event.clientX - pointerDrag.startX}px, ${event.clientY - pointerDrag.startY}px, 0)`;
+    pointerDrag.ghost.style.left = `${event.clientX - pointerDrag.offsetX}px`;
+    pointerDrag.ghost.style.top = `${event.clientY - pointerDrag.offsetY}px`;
   }
 
   function nativeDragEventFromLastPosition() {
@@ -566,6 +574,8 @@ export function createDragDropFeature({
       id,
       startX: event.clientX,
       startY: event.clientY,
+      offsetX: 0,
+      offsetY: 0,
       lastX: event.clientX,
       lastY: event.clientY,
       isTouch,
@@ -611,8 +621,11 @@ export function createDragDropFeature({
     suppressNextNativeClick = true;
     try { window.getSelection?.()?.removeAllRanges?.(); } catch (_error) {}
     document.body.classList.add('native-pointer-dragging');
-    pointerDrag.source.classList.add('dragging');
+    const sourceRect = pointerDrag.source.getBoundingClientRect();
+    pointerDrag.offsetX = Math.max(0, Math.min(event.clientX - sourceRect.left, sourceRect.width));
+    pointerDrag.offsetY = Math.max(0, Math.min(event.clientY - sourceRect.top, sourceRect.height));
     pointerDrag.ghost = createNativeGhost(pointerDrag.source);
+    pointerDrag.source.classList.add('dragging');
     if (pointerDrag.type === 'todo') dragSrcTodoId = pointerDrag.id;
     if (pointerDrag.type === 'section') dragSrcSectionId = pointerDrag.id;
     moveNativeGhost(event);
@@ -675,13 +688,41 @@ export function createDragDropFeature({
     return target?.closest?.('.todo-status-menu > summary, .todo-snooze-menu > summary') || null;
   }
 
+  function resetNativeTodoDetailsPlacement(menu) {
+    menu?.classList?.remove('opens-up', 'placement-ready');
+  }
+
+  function updateNativeTodoDetailsPlacement(menu) {
+    if (!menu?.open) return;
+    const panel = menu.querySelector('.todo-action-menu');
+    const summary = menu.querySelector('summary');
+    if (!panel || !summary) return;
+    menu.classList.remove('opens-up', 'placement-ready');
+    const summaryRect = summary.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const safeGap = 8;
+    const spaceBelow = viewportHeight - summaryRect.bottom - safeGap;
+    const spaceAbove = summaryRect.top - safeGap;
+    if (panelRect.height > spaceBelow && spaceAbove > spaceBelow) {
+      menu.classList.add('opens-up');
+    }
+    menu.classList.add('placement-ready');
+  }
+
   function toggleNativeTodoDetailsSummary(summary) {
     const details = summary?.parentElement;
     if (!summary || !details) return false;
+    const nextOpen = !details.open;
     document.querySelectorAll('.todo-status-menu[open], .todo-snooze-menu[open]').forEach((menu) => {
-      if (menu !== details) menu.removeAttribute('open');
+      if (menu !== details) {
+        menu.removeAttribute('open');
+        resetNativeTodoDetailsPlacement(menu);
+      }
     });
-    details.open = !details.open;
+    details.open = nextOpen;
+    if (nextOpen) updateNativeTodoDetailsPlacement(details);
+    else resetNativeTodoDetailsPlacement(details);
     return true;
   }
 
@@ -791,6 +832,7 @@ export function createDragDropFeature({
       clearNativeSummaryPointer(event.pointerId);
       if (!pointerDrag && summaryPointer && !summaryPointer.canceled && nativeTodoDetailsSummaryFromTarget(event.target) === summaryPointer.summary) {
         toggleNativeTodoDetailsSummary(summaryPointer.summary);
+        nativeSummaryClickSuppression = { summary: summaryPointer.summary, until: Date.now() + 600 };
         event.preventDefault();
         event.stopImmediatePropagation();
         return;
@@ -856,6 +898,13 @@ export function createDragDropFeature({
     }, true);
 
     document.addEventListener('click', (event) => {
+      const summary = nativeTodoDetailsSummaryFromTarget(event.target);
+      if (summary && nativeSummaryClickSuppression?.summary === summary && Date.now() <= nativeSummaryClickSuppression.until) {
+        nativeSummaryClickSuppression = null;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (!suppressNextNativeClick) return;
       suppressNextNativeClick = false;
       if (isNativePointerDragInteractiveTarget(event.target)) return;

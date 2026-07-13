@@ -159,6 +159,15 @@
   line-height: 1.28;
   font-weight: 760;
   letter-spacing: -0.025em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ui-detail-modal.ui-detail-view textarea.ui-detail-title-field,
+.ui-detail-modal.todo-detail-view textarea.ui-detail-title-field {
+  resize: none;
+  overflow: hidden;
 }
 
 .ui-detail-modal.ui-detail-view .ui-detail-title-field:focus,

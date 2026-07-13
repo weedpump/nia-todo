@@ -1,5 +1,5 @@
 import { t } from '../i18n/index.js';
-import { iconSvg, markerHtml, renderIconPicker } from '../icons/lucide-icons.js';
+import { hydrateIcons, iconSvg, markerHtml, renderIconPicker } from '../icons/lucide-icons.js';
 import { renderColorPicker } from '../ui/color-picker.js';
 
 export function createWorkspacesFeature({
@@ -152,8 +152,9 @@ export function createWorkspacesFeature({
           </div>`;
         }).join('')}
       </div>
-      <button type="button" class="ui-menu-item workspace-menu-add" data-workspace-action="new">${escapeHtml(t('workspace.add'))}</button>
+      <button type="button" class="ui-menu-item workspace-menu-add" data-workspace-action="new"><span class="entity-icon add-project-icon workspace-menu-add-icon" data-icon="plus" aria-hidden="true"></span><span>${escapeHtml(t('workspace.add'))}</span></button>
     `;
+    hydrateIcons(menu);
   }
 
   function isShortcutTypingTarget(element) {
