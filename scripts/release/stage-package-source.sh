@@ -1,17 +1,18 @@
 #!/bin/bash
-# Export a clean public nia-todo source snapshot without private git history.
-# Uses tracked-file allowlists plus public packaging overlays. Does not copy
-# databases, build outputs, caches, node_modules, or the private .git history.
+# Stage the file tree that becomes the Docker image / server .deb payload:
+# tracked source plus the packaging/ overlay (Dockerfile, docker-compose.yml,
+# install.sh, backup scripts, production systemd units, self-hoster README),
+# excluding dev/test-only files, build outputs, and the git history.
 
 set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/release/export-public.sh VERSION [--output DIR] [--init-git] [--force]
+Usage: scripts/release/stage-package-source.sh VERSION [--output DIR] [--init-git] [--force]
 
 Options:
-  --output DIR   Export target directory (default: dist/public/nia-todo-VERSION)
-  --init-git     Initialize a fresh git repo and commit/tag the snapshot
+  --output DIR   Output target directory (default: dist/package/nia-todo-VERSION)
+  --init-git     Initialize a fresh git repo and commit/tag the staged tree
   --force        Remove an existing output directory first
 USAGE
 }
@@ -41,7 +42,7 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT_DIR}"
 
-OUTPUT="${OUTPUT:-dist/public/nia-todo-${VERSION}}"
+OUTPUT="${OUTPUT:-dist/package/nia-todo-${VERSION}}"
 OUTPUT_ABS="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "${OUTPUT}")"
 
 if [ -e "${OUTPUT_ABS}" ]; then
@@ -60,9 +61,7 @@ copy_tracked_prefix() {
       web/downloads/*) [ "${file}" = "web/downloads/.gitkeep" ] || continue ;;
       src-tauri/target/*|src-tauri/frontend-dist/*|src-tauri/gen/android/app/build/*) continue ;;
       scripts/test_*|scripts/frontend_test_lib.mjs|scripts/*_test_*.mjs) continue ;;
-      docs/workflow.md) continue ;;
       docs/native-apps-clean-architecture.md) continue ;;
-      systemd/nia-todo-dev.service|setup-dev.sh|release.sh) continue ;;
     esac
     mkdir -p "${OUTPUT_ABS}/$(dirname "${file}")"
     cp -p "${file}" "${OUTPUT_ABS}/${file}"
@@ -73,8 +72,9 @@ for prefix in api web src-tauri; do
   copy_tracked_prefix "${prefix}"
 done
 
-# Public documentation is allowlisted deliberately. Do not copy the private/dev
-# docs tree wholesale; add public docs here only when they are meant for GitHub.
+# Package documentation is allowlisted deliberately. Do not copy the whole
+# docs/ tree wholesale; add docs here only when they are meant to ship inside
+# the package.
 mkdir -p "${OUTPUT_ABS}/docs"
 cp -p docs/api.md "${OUTPUT_ABS}/docs/api.md"
 
@@ -84,9 +84,9 @@ for file in CHANGELOG.md LICENSE NOTICE package.json package-lock.json start.sh 
   fi
 done
 
-# Public overlays replace private/dev-local files.
+# packaging/ overlay: self-hoster README, Dockerfile, docker-compose.yml,
+# install/backup/restore scripts, and pinned requirements.
 cp -p packaging/README.md "${OUTPUT_ABS}/README.md"
-sed -i 's#../../web/static/icons/icon-512.png#web/static/icons/icon-512.png#g' "${OUTPUT_ABS}/README.md"
 if [ -d packaging/docs ]; then
   mkdir -p "${OUTPUT_ABS}/docs"
   cp -a packaging/docs/. "${OUTPUT_ABS}/docs/"
@@ -102,24 +102,16 @@ cp -p packaging/scripts/nia-todo-restore.sh "${OUTPUT_ABS}/scripts/nia-todo-rest
 cp -p packaging/scripts/nia-todo-admin-password-reset.sh "${OUTPUT_ABS}/scripts/nia-todo-admin-password-reset.sh"
 cp -p packaging/scripts/nia-todo-server-update.sh "${OUTPUT_ABS}/scripts/nia-todo-server-update.sh"
 mkdir -p "${OUTPUT_ABS}/packaging/systemd"
-cp -p packaging/systemd/nia-todo.service "${OUTPUT_ABS}/packaging/systemd/nia-todo.service"
-cp -p packaging/systemd/nia-todo-backup.service "${OUTPUT_ABS}/packaging/systemd/nia-todo-backup.service"
-cp -p packaging/systemd/nia-todo-backup.timer "${OUTPUT_ABS}/packaging/systemd/nia-todo-backup.timer"
+cp -p systemd/nia-todo.service "${OUTPUT_ABS}/packaging/systemd/nia-todo.service"
+cp -p systemd/nia-todo-backup.service "${OUTPUT_ABS}/packaging/systemd/nia-todo-backup.service"
+cp -p systemd/nia-todo-backup.timer "${OUTPUT_ABS}/packaging/systemd/nia-todo-backup.timer"
 
-
-# Normalize release/public branding in the exported tree. The private dev working
-# copy may be branded as Dev; public snapshots must be production-branded.
+# Stamp the version into the staged web files (source stays at whatever
+# version prepare-release-version.sh already set on the branch/tag).
 if [ -f "${OUTPUT_ABS}/web/static/js/core/config.js" ]; then
-  sed -i "s/export const DB_NAME = 'nia-todo-db';/export const DB_NAME = 'nia-todo-db';/" "${OUTPUT_ABS}/web/static/js/core/config.js"
   sed -i "s/export const APP_VERSION = 'v[^']*';/export const APP_VERSION = 'v${VERSION}';/" "${OUTPUT_ABS}/web/static/js/core/config.js"
 fi
-if [ -f "${OUTPUT_ABS}/web/manifest.json" ]; then
-  sed -i 's/"name": "nia-todo"/"name": "nia-todo"/' "${OUTPUT_ABS}/web/manifest.json"
-  sed -i 's/"short_name": "nia-todo"/"short_name": "nia-todo"/' "${OUTPUT_ABS}/web/manifest.json"
-fi
 if [ -f "${OUTPUT_ABS}/web/index.html" ]; then
-  sed -i 's/<title>nia-todo<\/title>/<title>nia-todo<\/title>/' "${OUTPUT_ABS}/web/index.html"
-  sed -i 's/>nia-todo<\/span>/>nia-todo<\/span>/' "${OUTPUT_ABS}/web/index.html"
   sed -i "s/<span class=\"version-text\">v[^<]*<\/span>/<span class=\"version-text\">v${VERSION}<\/span>/" "${OUTPUT_ABS}/web/index.html"
 fi
 if [ -f "${OUTPUT_ABS}/web/sw.js" ]; then
@@ -135,7 +127,7 @@ PRIVATE_HITS="$(grep -RInE '/root/\.openclaw|10\.0\.10\.35|nia-todo-dev|kneidl-h
   --exclude-dir='.git' \
   --exclude='package-lock.json' || true)"
 if [ -n "${PRIVATE_HITS}" ]; then
-  echo "Public export contains private/dev markers:" >&2
+  echo "Staged package contains private/dev markers:" >&2
   echo "${PRIVATE_HITS}" >&2
   exit 1
 fi
@@ -143,8 +135,8 @@ fi
 if [ "${INIT_GIT}" = "1" ]; then
   git -C "${OUTPUT_ABS}" init -q
   git -C "${OUTPUT_ABS}" add .
-  git -C "${OUTPUT_ABS}" commit -q -m "Release source snapshot ${VERSION}"
+  git -C "${OUTPUT_ABS}" commit -q -m "Package source snapshot ${VERSION}"
   git -C "${OUTPUT_ABS}" tag -a "v${VERSION}" -m "Release v${VERSION}"
 fi
 
-echo "✅ Public export created: ${OUTPUT_ABS}"
+echo "✅ Package source staged: ${OUTPUT_ABS}"
