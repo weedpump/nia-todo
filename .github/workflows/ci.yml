@@ -1,8 +1,8 @@
 name: CI
 
 # Automatic: tests only, on PRs and merges to main.
-# Builds (Docker/Windows/Android/Debian) are never automatic here -
-# only via manual dispatch, or via the tag-triggered release workflow.
+# Builds are never automatic - only via manual dispatch (this file), or via
+# the tag-triggered release workflow (release.yml).
 on:
   push:
     branches:
@@ -10,16 +10,28 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      build_windows:
+        description: "Build Windows installer"
+        type: boolean
+        default: false
+      build_android:
+        description: "Build Android APK"
+        type: boolean
+        default: false
+      build_debian_desktop:
+        description: "Build Debian desktop .deb"
+        type: boolean
+        default: false
       build_docker:
-        description: "Build the Docker image (health check; opt in push_docker to also push it)"
+        description: "Build Docker image (embeds native apps: freshly built ones above if selected, otherwise the latest published GitHub release's apps)"
+        type: boolean
+        default: false
+      build_server_deb:
+        description: "Build the full server .deb installer (same embedding rule as Docker)"
         type: boolean
         default: false
       push_docker:
         description: "Push the built Docker image to GHCR as :dev-<sha>"
-        type: boolean
-        default: false
-      build_native:
-        description: "Also build Windows/Android/Debian native apps (slow, uses a dev-signed Android key)"
         type: boolean
         default: false
 
@@ -51,32 +63,161 @@ jobs:
       - name: Run test suite
         run: ./scripts/test_all.sh
 
-  build:
-    if: github.event_name == 'workflow_dispatch' && (inputs.build_docker || inputs.build_native)
+  build-windows:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_windows
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: "npm" }
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: x86_64-pc-windows-msvc }
+      - run: |
+          rustup target add x86_64-pc-windows-msvc
+          cargo install cargo-xwin
+      - run: python3 scripts/prepare_tauri_frontend_dist.py
+      - run: npm run tauri -- build --target x86_64-pc-windows-msvc --runner cargo-xwin
+      - name: Rename to a fixed artifact name
+        run: |
+          mkdir -p dist/ci-windows
+          cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe dist/ci-windows/nia-todo-ci-windows-x64-setup.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows
+          retention-days: 7
+          path: dist/ci-windows/*.exe
+
+  build-android:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: "npm" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager --install "ndk;27.0.12077973" "build-tools;35.0.0"
+      - name: Restore Android release keystore
+        run: |
+          mkdir -p secrets
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > secrets/nia-todo-android-release.keystore
+          printf '%s' "${{ secrets.ANDROID_KEYSTORE_PASS }}" > secrets/nia-todo-android-release.pass
+      - run: python3 scripts/prepare_tauri_frontend_dist.py
+      - run: npm run tauri -- android build --target aarch64 --apk --ci
+      - name: Align and sign APK
+        env:
+          NIA_TODO_SECRETS_DIR: ${{ github.workspace }}/secrets
+        run: |
+          BUILT_APK="src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
+          ALIGNED_APK="/tmp/nia-todo-ci-android-arm64-aligned.apk"
+          "${ANDROID_HOME}/build-tools/35.0.0/zipalign" -p -f 4 "${BUILT_APK}" "${ALIGNED_APK}"
+          mkdir -p dist/ci-android
+          export ANDROID_KEYSTORE_PASS=$(tr -d '\r\n' < secrets/nia-todo-android-release.pass)
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" sign \
+            --ks secrets/nia-todo-android-release.keystore \
+            --ks-key-alias nia-todo-android-release \
+            --ks-pass env:ANDROID_KEYSTORE_PASS --key-pass env:ANDROID_KEYSTORE_PASS \
+            --out dist/ci-android/nia-todo-android-arm64.apk "${ALIGNED_APK}"
+          unset ANDROID_KEYSTORE_PASS
+      - if: always()
+        run: rm -rf secrets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-android
+          retention-days: 7
+          path: dist/ci-android/*.apk
+
+  build-debian-desktop:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_debian_desktop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: "npm" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: npm ci
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev \
+            build-essential curl wget file libssl-dev libgtk-3-dev librsvg2-dev dpkg-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python3 scripts/prepare_tauri_frontend_dist.py
+      - run: npm run tauri -- build --bundles deb
+      - name: Repack with the correct package name
+        run: |
+          mkdir -p dist/ci-debian-desktop
+          BUILT="$(scripts/release/repack-native-debian-deb.sh src-tauri/target/release/bundle/deb/nia-todo_*_amd64.deb)"
+          cp "${BUILT}" dist/ci-debian-desktop/nia-todo-desktop-amd64.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-debian-desktop
+          retention-days: 7
+          path: dist/ci-debian-desktop/*.deb
+
+  # Docker/server-.deb always embed native apps: freshly built ones from the
+  # jobs above if selected, otherwise the latest published GitHub release's
+  # apps (fetched automatically). There is no "no apps embedded" mode.
+  package:
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      always() &&
+      (inputs.build_docker || inputs.build_server_deb)
+    needs: [build-windows, build-android, build-debian-desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+
+      - name: Download freshly built native artifacts (if any were built)
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/ci-native
+          pattern: native-*
+        continue-on-error: true
+
+      - name: Collect native apps for embedding
+        id: apps
+        run: |
+          mkdir -p dist/native-embed
+          have_windows=0; have_android=0; have_debian=0
+          [ "${{ needs.build-windows.result }}" = "success" ] && cp dist/ci-native/native-windows/nia-todo-ci-windows-x64-setup.exe dist/native-embed/ && have_windows=1
+          [ "${{ needs.build-android.result }}" = "success" ] && cp dist/ci-native/native-android/nia-todo-android-arm64.apk dist/native-embed/nia-todo-ci-android-arm64.apk && have_android=1
+          [ "${{ needs.build-debian-desktop.result }}" = "success" ] && cp dist/ci-native/native-debian-desktop/nia-todo-desktop-amd64.deb dist/native-embed/nia-todo-ci-debian-amd64.deb && have_debian=1
+
+          if [ "${have_windows}" = "1" ] && [ "${have_android}" = "1" ] && [ "${have_debian}" = "1" ]; then
+            echo "source=fresh" >> "$GITHUB_OUTPUT"
+            echo "native_app_version=0.0.0-ci" >> "$GITHUB_OUTPUT"
+          else
+            echo "No (complete) fresh native builds selected; fetching the latest published release's apps instead."
+            scripts/release/fetch-latest-native-artifacts.sh \
+              --github-repo "${{ github.repository }}" \
+              --output-dir dist/native-embed
+            source dist/native-embed/native-app-version.env
+            echo "source=latest-release" >> "$GITHUB_OUTPUT"
+            echo "native_app_version=${native_app_version}" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install backend dependencies
-        run: pip install -r packaging/requirements.txt
-
-      - name: Install frontend/native toolchain dependencies
-        run: npm ci
+        with: { node-version: "22", cache: "npm" }
+      - run: npm ci
 
       - name: Build Docker image
         if: inputs.build_docker
         run: |
           scripts/release/build-docker.sh 0.0.0 \
-            --allow-missing-apps \
+            --windows-installer dist/native-embed/nia-todo-ci-windows-x64-setup.exe \
+            --android-apk dist/native-embed/nia-todo-ci-android-arm64.apk \
+            --debian-deb dist/native-embed/nia-todo-ci-debian-amd64.deb \
+            --native-app-version "${{ steps.apps.outputs.native_app_version }}" \
             --tag "nia-todo:ci-check" \
             --output "dist/docker/ci-${{ github.sha }}" \
             --force
@@ -88,60 +229,20 @@ jobs:
           docker tag "nia-todo:ci-check" "ghcr.io/${{ github.repository_owner }}/nia-todo:dev-${{ github.sha }}"
           docker push "ghcr.io/${{ github.repository_owner }}/nia-todo:dev-${{ github.sha }}"
 
-      - name: Install Tauri Linux build dependencies
-        if: inputs.build_native
+      - name: Build server .deb installer
+        if: inputs.build_server_deb
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev \
-            build-essential curl wget file libssl-dev libgtk-3-dev librsvg2-dev
+          scripts/release/build-full-bundle.sh 0.0.0 \
+            --windows-installer dist/native-embed/nia-todo-ci-windows-x64-setup.exe \
+            --android-apk dist/native-embed/nia-todo-ci-android-arm64.apk \
+            --debian-deb dist/native-embed/nia-todo-ci-debian-amd64.deb \
+            --native-app-version "${{ steps.apps.outputs.native_app_version }}" \
+            --output-dir "dist/release/ci-${{ github.sha }}" \
+            --force
 
-      - uses: dtolnay/rust-toolchain@stable
-        if: inputs.build_native
-
-      - name: Install cargo-xwin (Windows cross-compile)
-        if: inputs.build_native
-        run: |
-          rustup target add x86_64-pc-windows-msvc
-          cargo install cargo-xwin
-
-      - name: Build Windows installer (unsigned dev build)
-        if: inputs.build_native
-        run: |
-          python3 scripts/prepare_tauri_frontend_dist.py
-          npm run tauri -- build --target x86_64-pc-windows-msvc --runner cargo-xwin
-        continue-on-error: true
-
-      - name: Set up Android SDK/NDK
-        if: inputs.build_native
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK and build-tools
-        if: inputs.build_native
-        run: sdkmanager --install "ndk;27.0.12077973" "build-tools;35.0.0"
-
-      - name: Build Android APK (dev-signed, not the release key)
-        if: inputs.build_native
-        run: |
-          python3 scripts/prepare_tauri_frontend_dist.py
-          npm run tauri -- android build --target aarch64 --apk --ci
-        continue-on-error: true
-
-      - name: Build Debian desktop package
-        if: inputs.build_native
-        run: |
-          python3 scripts/prepare_tauri_frontend_dist.py
-          npm run tauri -- build --bundles deb
-        continue-on-error: true
-
-      - name: Upload native dev artifacts
-        if: inputs.build_native
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
+        if: inputs.build_server_deb
         with:
-          name: native-dev-${{ github.sha }}
+          name: server-deb
           retention-days: 7
-          path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
-            src-tauri/target/release/bundle/deb/*.deb
-          if-no-files-found: warn
+          path: dist/release/ci-${{ github.sha }}/*.deb
