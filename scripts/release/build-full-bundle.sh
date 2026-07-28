@@ -66,7 +66,7 @@ fi
 mkdir -p "${WORK_DIR}" "${OUTPUT_DIR}"
 
 EXPORT_DIR="${WORK_DIR}/source"
-scripts/release/export-public.sh "${VERSION}" --output "${EXPORT_DIR}" --force
+scripts/release/stage-package-source.sh "${VERSION}" --output "${EXPORT_DIR}" --force
 
 rm -rf "${EXPORT_DIR}/wheelhouse"
 mkdir -p "${EXPORT_DIR}/wheelhouse"

@@ -49,14 +49,6 @@ set_tauri_version() {
     sed -i "/name = \"nia-todo-desktop\"/{n;s/version = \"[^\"]*\"/version = \"${app_version}\"/;}" src-tauri/Cargo.lock
 }
 
-set_prod_branding() {
-    sed -i "s/const DB_NAME = 'nia-todo-db';/const DB_NAME = 'nia-todo-db';/" web/static/js/core/config.js
-    sed -i 's/"name": "nia-todo",/"name": "nia-todo",/' web/manifest.json
-    sed -i 's/"short_name": "nia-todo",/"short_name": "nia-todo",/' web/manifest.json
-    sed -i 's/<title>nia-todo<\/title>/<title>nia-todo<\/title>/' web/index.html
-    sed -i 's/>nia-todo<\/span>/>nia-todo<\/span>/' web/index.html
-}
-
 set_min_native_client_version_source() {
     local version_text="$1"
     python3 - "$version_text" <<'PY'
@@ -113,7 +105,6 @@ require_changelog_section() {
 validate_version "Release" "${VERSION}"
 require_changelog_section "CHANGELOG.md" "${VERSION}"
 
-set_prod_branding
 set_web_version "${VERSION}"
 set_tauri_version "${VERSION}"
 if [ "${SET_MIN_APP_VERSION}" = "1" ]; then

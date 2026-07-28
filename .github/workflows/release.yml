@@ -128,11 +128,6 @@ jobs:
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${NEXT_DEV_VERSION}\"/" src-tauri/tauri.conf.json
           sed -i "0,/^version = \"[^\"]*\"/s//version = \"${NEXT_DEV_VERSION}\"/" src-tauri/Cargo.toml
           sed -i "/name = \"nia-todo-desktop\"/{n;s/version = \"[^\"]*\"/version = \"${NEXT_DEV_VERSION}\"/;}" src-tauri/Cargo.lock
-          sed -i "s/const DB_NAME = 'nia-todo-db';/const DB_NAME = 'nia-todo-db';/" web/static/js/core/config.js
-          sed -i 's/"name": "nia-todo",/"name": "nia-todo",/' web/manifest.json
-          sed -i 's/"short_name": "nia-todo",/"short_name": "nia-todo",/' web/manifest.json
-          sed -i 's/<title>nia-todo<\/title>/<title>nia-todo<\/title>/' web/index.html
-          grep -q '>nia-todo</span>' web/index.html && sed -i 's/>nia-todo<\/span>/>nia-todo<\/span>/' web/index.html
           python3 scripts/check_release_versions.py "${NEXT_DEV_VERSION}"
           git add web/manifest.json web/index.html web/sw.js web/static/js/core/config.js \
             src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock

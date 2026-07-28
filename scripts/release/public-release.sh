@@ -146,7 +146,7 @@ if [ "${DOCKER_LATEST}" = "1" ]; then
   DOCKER_ARGS+=(--latest)
 fi
 
-run scripts/release/export-public.sh "${EXPORT_ARGS[@]}"
+run scripts/release/stage-package-source.sh "${EXPORT_ARGS[@]}"
 run scripts/release/build-full-bundle.sh "${BUNDLE_ARGS[@]}"
 if [ "${SKIP_DOCKER}" != "1" ]; then
   run scripts/release/build-docker.sh "${DOCKER_ARGS[@]}"

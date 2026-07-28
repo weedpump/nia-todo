@@ -65,11 +65,6 @@ Native build notes from `v1.6.0` onward:
 - Browser/PWA push remains browser/PWA-only; native apps should not depend on the server WebSocket for reminders.
 - Service worker remains active even in native wrappers so offline cold start works.
 
-## Dev Branding
-
-- Dev branding is maintained through `setup-dev.sh`
-- Do not manually touch `web/manifest.json` in the normal workflow
-
 ## Changes
 
 - commit meaningful changes

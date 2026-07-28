@@ -75,7 +75,7 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT_DIR}"
 
-scripts/release/export-public.sh "${VERSION}" --output "${OUTPUT}" ${FORCE:+--force}
+scripts/release/stage-package-source.sh "${VERSION}" --output "${OUTPUT}" ${FORCE:+--force}
 
 DOWNLOAD_DIR="${OUTPUT}/web/downloads"
 mkdir -p "${DOWNLOAD_DIR}"
