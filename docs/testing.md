@@ -18,7 +18,7 @@ nia-todo has many regression scripts. The default gate is intentionally release-
 ## Commands
 
 ```bash
-# Release gate, also called by release.sh
+# Release gate, also run by the CI/release GitHub Actions workflows
 ./scripts/test_all.sh
 npm test
 
@@ -32,7 +32,7 @@ npm run test:ui
 
 ## Release Gate: `./scripts/test_all.sh`
 
-`release.sh` calls `./scripts/test_all.sh` and aborts immediately on failure: no merge, no tag, no push.
+The `release.yml` GitHub Actions workflow calls `./scripts/test_all.sh` and aborts immediately on failure: no version bump, no build, no publish.
 
 ### Backend / API / domain
 
