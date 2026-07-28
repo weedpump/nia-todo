@@ -191,17 +191,29 @@ jobs:
           [ "${{ needs.build-android.result }}" = "success" ] && cp dist/ci-native/native-android/nia-todo-android-arm64.apk dist/native-embed/nia-todo-ci-android-arm64.apk && have_android=1
           [ "${{ needs.build-debian-desktop.result }}" = "success" ] && cp dist/ci-native/native-debian-desktop/nia-todo-desktop-amd64.deb dist/native-embed/nia-todo-ci-debian-amd64.deb && have_debian=1
 
+          # Fill only the apps that weren't freshly built this run - never
+          # discard a fresh build just because another one wasn't selected.
+          if [ "${have_windows}" = "0" ] || [ "${have_android}" = "0" ] || [ "${have_debian}" = "0" ]; then
+            echo "Fetching the latest published release's apps to fill in what wasn't freshly built..."
+            scripts/release/fetch-latest-native-artifacts.sh \
+              --github-repo "${{ github.repository }}" \
+              --output-dir dist/native-fallback
+            source dist/native-fallback/native-app-version.env
+            [ "${have_windows}" = "1" ] || cp dist/native-fallback/nia-todo-ci-windows-x64-setup.exe dist/native-embed/
+            [ "${have_android}" = "1" ] || cp dist/native-fallback/nia-todo-ci-android-arm64.apk dist/native-embed/
+            [ "${have_debian}" = "1" ] || cp dist/native-fallback/nia-todo-ci-debian-amd64.deb dist/native-embed/
+          fi
+
           if [ "${have_windows}" = "1" ] && [ "${have_android}" = "1" ] && [ "${have_debian}" = "1" ]; then
             echo "source=fresh" >> "$GITHUB_OUTPUT"
             echo "native_app_version=0.0.0-ci" >> "$GITHUB_OUTPUT"
-          else
-            echo "No (complete) fresh native builds selected; fetching the latest published release's apps instead."
-            scripts/release/fetch-latest-native-artifacts.sh \
-              --github-repo "${{ github.repository }}" \
-              --output-dir dist/native-embed
-            source dist/native-embed/native-app-version.env
+          elif [ "${have_windows}" = "0" ] && [ "${have_android}" = "0" ] && [ "${have_debian}" = "0" ]; then
             echo "source=latest-release" >> "$GITHUB_OUTPUT"
             echo "native_app_version=${native_app_version}" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=mixed" >> "$GITHUB_OUTPUT"
+            echo "native_app_version=0.0.0-ci" >> "$GITHUB_OUTPUT"
+            echo "::warning::Embedding a mix of freshly built and last-release native apps; the manifest version number does not reflect this precisely - fine for an ad-hoc test build, not for a real release."
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
