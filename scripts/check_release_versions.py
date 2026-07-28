@@ -89,7 +89,7 @@ def android_generated_warnings(expected_version: str) -> list[str]:
         raw = props_path.read_text(encoding="utf-8", errors="replace")
         version_name = first(r"^tauri\.android\.versionName=(.+)$", raw, "tauri.android.versionName").strip()
         if version_name != expected_version:
-            warnings.append(f"Android generated tauri.properties versionName is {version_name}, expected {expected_version}; release.sh rewrites it before Android build")
+            warnings.append(f"Android generated tauri.properties versionName is {version_name}, expected {expected_version}; the release workflow rewrites it before the Android build")
     return warnings
 
 

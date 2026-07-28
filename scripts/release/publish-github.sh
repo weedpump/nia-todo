@@ -24,7 +24,7 @@ Options:
   --execute                 Actually push/upload. Default is dry-run.
   -h, --help                Show this help
 
-Expected inputs are produced by ./release.sh VERSION or scripts/release/public-release.sh.
+Expected inputs are produced by scripts/release/public-release.sh, called from the release.yml GitHub Actions workflow.
 USAGE
 }
 

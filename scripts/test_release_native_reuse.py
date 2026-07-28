@@ -61,21 +61,10 @@ def test_embed_native_downloads_decouples_web_and_native_versions():
         assert not (downloads / "nia-todo-desktop-v2.12.0-debian-amd64.deb").exists()
 
 
-def test_release_scripts_expose_reuse_native_version_flow():
-    release_sh = (ROOT / "release.sh").read_text(encoding="utf-8")
+def test_release_scripts_expose_native_app_version_flow():
     public_release = (ROOT / "scripts/release/public-release.sh").read_text(encoding="utf-8")
     full_bundle = (ROOT / "scripts/release/build-full-bundle.sh").read_text(encoding="utf-8")
     docker_build = (ROOT / "scripts/release/build-docker.sh").read_text(encoding="utf-8")
-
-    assert "--reuse-native-app-version" in release_sh
-    assert "stage_reused_native_artifacts" in release_sh
-    assert "validate_reused_native_floor" in release_sh
-    assert "SOURCE_MIN_NATIVE_CLIENT_VERSION" in release_sh
-    assert "--reuse-native-app-version cannot be combined with --set-min-app-version" in release_sh
-    assert "gh release download \"${NATIVE_TAG}\"" in release_sh
-    assert "--native-app-version \"${NATIVE_APP_VERSION}\"" in release_sh
-    assert "DEBIAN_DEB_STAGING" in release_sh
-    assert "npm run tauri -- build --bundles deb" in release_sh
 
     assert "--native-app-version" in public_release
     assert "--debian-deb" in public_release
@@ -91,10 +80,12 @@ def test_release_shell_syntax():
     subprocess.run(
         [
             "bash", "-n",
-            "release.sh",
             "scripts/release/public-release.sh",
             "scripts/release/build-full-bundle.sh",
             "scripts/release/build-docker.sh",
+            "scripts/release/stage-package-source.sh",
+            "scripts/release/prepare-release-version.sh",
+            "scripts/release/fetch-latest-native-artifacts.sh",
         ],
         cwd=ROOT,
         check=True,
@@ -103,7 +94,7 @@ def test_release_shell_syntax():
 
 def main():
     test_embed_native_downloads_decouples_web_and_native_versions()
-    test_release_scripts_expose_reuse_native_version_flow()
+    test_release_scripts_expose_native_app_version_flow()
     test_release_shell_syntax()
     print("✅ release native reuse tests passed")
 

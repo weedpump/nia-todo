@@ -52,7 +52,7 @@ Release artifacts exposed by an installed server under `/downloads/`:
 
 Android is signed with the permanent release key:
 
-- Keystore: restored in CI from the `ANDROID_KEYSTORE_BASE64`/`ANDROID_KEYSTORE_PASS` secrets (see `release.yml`); locally via the `ANDROID_KEYSTORE`/`ANDROID_KEYSTORE_PASS_FILE` env vars (see `release.sh`, kept for manual/local releases if ever needed)
+- Keystore: restored in CI from the `ANDROID_KEYSTORE_BASE64`/`ANDROID_KEYSTORE_PASS` secrets (see `release.yml`/`build.yml`); there is no local/manual fallback anymore
 - Alias: `nia-todo-android-release`
 
 The release key must stay backed up; changing the key breaks Android over-installs and the Android passkey binding through Digital Asset Links. A signing-key rotation therefore also needs a planned server/docs migration path for `/.well-known/assetlinks.json` and the allowed Android app origin.
