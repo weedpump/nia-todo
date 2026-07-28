@@ -1,15 +1,14 @@
 name: Release
 
+# Triggered by pushing a tag from main, e.g.:
+#   git checkout main && git tag v2.7.0 && git push origin v2.7.0
+# The workflow bumps the shared version, moves the tag onto that commit,
+# builds Windows/Android/Debian/Docker, and publishes the GitHub release.
+
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Release version, e.g. 2.6.4"
-        required: true
-      set_min_app_version:
-        description: "Force native clients below this version to update"
-        type: boolean
-        default: false
+  push:
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: write
@@ -25,12 +24,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: develop
+
+      - name: Derive version and switch to main
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Tag ${TAG} is not a plain vMAJOR.MINOR.PATCH release tag"
+            exit 1
+          fi
+          git checkout main
+          if [ "$(git rev-parse main)" != "$(git rev-parse "${TAG}^{commit}")" ]; then
+            echo "❌ Tag ${TAG} does not point at the tip of main"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Configure git identity
         run: |
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - uses: actions/setup-node@v4
         with:
@@ -52,7 +67,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev \
-            build-essential curl wget file libssl-dev libgtk-3-dev librsvg2-dev
+            build-essential curl wget file libssl-dev libgtk-3-dev librsvg2-dev dpkg-dev
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -78,17 +93,113 @@ jobs:
       - name: Log in to Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Run release.sh
+      - name: Run test suite
+        run: ./scripts/test_all.sh
+
+      - name: Prepare release version and move tag
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NIA_TODO_SECRETS_DIR: ${{ github.workspace }}/secrets
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          scripts/release/prepare-release-version.sh "${VERSION}"
+          git tag -f "${TAG}" HEAD
+          git push origin main
+          git push origin "${TAG}" --force
+
+      - name: Build Windows installer
+        env:
           CARGO_XWIN: /home/runner/.cargo/bin/cargo-xwin
         run: |
-          ARGS=("${{ inputs.version }}" --github-repo "${{ github.repository }}")
-          if [ "${{ inputs.set_min_app_version }}" = "true" ]; then
-            ARGS+=(--set-min-app-version)
-          fi
-          ./release.sh "${ARGS[@]}"
+          python3 scripts/prepare_tauri_frontend_dist.py
+          npm run tauri -- build --target x86_64-pc-windows-msvc --runner "${CARGO_XWIN}"
+
+      - name: Build Android APK
+        env:
+          NIA_TODO_SECRETS_DIR: ${{ github.workspace }}/secrets
+        run: |
+          python3 scripts/prepare_tauri_frontend_dist.py
+          npm run tauri -- android build --target aarch64 --apk --ci
+
+      - name: Build Debian desktop package
+        run: |
+          python3 scripts/prepare_tauri_frontend_dist.py
+          npm run tauri -- build --bundles deb
+
+      - name: Stage native artifacts and build public release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          NIA_TODO_SECRETS_DIR: ${{ github.workspace }}/secrets
+        run: |
+          NATIVE_DIR="dist/native/v${VERSION}"
+          mkdir -p "${NATIVE_DIR}"
+          cp "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/nia-todo_${VERSION}_x64-setup.exe" \
+            "${NATIVE_DIR}/nia-todo-v${VERSION}-windows-x64-setup.exe"
+
+          BUILT_APK="src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
+          ALIGNED_APK="/tmp/nia-todo-v${VERSION}-android-arm64-aligned.apk"
+          "${ANDROID_HOME}/build-tools/35.0.0/zipalign" -p -f 4 "${BUILT_APK}" "${ALIGNED_APK}"
+          export ANDROID_KEYSTORE_PASS=$(tr -d '\r\n' < secrets/nia-todo-android-release.pass)
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" sign \
+            --ks secrets/nia-todo-android-release.keystore \
+            --ks-key-alias nia-todo-android-release \
+            --ks-pass env:ANDROID_KEYSTORE_PASS --key-pass env:ANDROID_KEYSTORE_PASS \
+            --out "${NATIVE_DIR}/nia-todo-v${VERSION}-android-arm64.apk" "${ALIGNED_APK}"
+          unset ANDROID_KEYSTORE_PASS
+
+          TAURI_DEBIAN_DEB="src-tauri/target/release/bundle/deb/nia-todo_${VERSION}_amd64.deb"
+          BUILT_DEBIAN_DEB="$(scripts/release/repack-native-debian-deb.sh "${TAURI_DEBIAN_DEB}")"
+          cp "${BUILT_DEBIAN_DEB}" "${NATIVE_DIR}/nia-todo-desktop-v${VERSION}-debian-amd64.deb"
+
+          scripts/release/public-release.sh "${VERSION}" \
+            --native-artifacts-dir "${NATIVE_DIR}" \
+            --native-app-version "${VERSION}" \
+            --output-dir "dist/release/v${VERSION}" \
+            --work-dir "dist/build/public-release-v${VERSION}" \
+            --docker-tag "nia-todo:${VERSION}" \
+            --docker-latest \
+            --force
+
+      - name: Publish to GitHub release, GHCR and Docker Hub
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          scripts/release/publish-github.sh "${VERSION}" \
+            --github-repo "${{ github.repository }}" \
+            --source-dir "dist/build/public-release-v${VERSION}/public-source" \
+            --artifact-dir "dist/release/v${VERSION}" \
+            --docker-image "nia-todo:${VERSION}" \
+            --ghcr-image "ghcr.io/${{ github.repository_owner }}/nia-todo" \
+            --dockerhub-image "docker.io/${{ secrets.DOCKERHUB_USERNAME }}/nia-todo" \
+            --no-source-push \
+            --latest \
+            --execute
+
+      - name: Bump develop to next dev version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git checkout develop
+          git pull origin develop
+          MAJOR=$(echo "${VERSION}" | cut -d. -f1)
+          MINOR=$(echo "${VERSION}" | cut -d. -f2)
+          PATCH=$(echo "${VERSION}" | cut -d. -f3)
+          NEXT_DEV_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))-dev"
+          sed -i "s/const APP_VERSION = 'v[^']*';/const APP_VERSION = 'v${NEXT_DEV_VERSION}';/" web/static/js/core/config.js
+          sed -i "s/const SW_VERSION = 'v[^']*';/const SW_VERSION = 'v${NEXT_DEV_VERSION}';/" web/sw.js
+          sed -i "s/<span class=\"version-text\">v[^<]*<\/span>/<span class=\"version-text\">v${NEXT_DEV_VERSION}<\/span>/" web/index.html
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${NEXT_DEV_VERSION}\"/" src-tauri/tauri.conf.json
+          sed -i "0,/^version = \"[^\"]*\"/s//version = \"${NEXT_DEV_VERSION}\"/" src-tauri/Cargo.toml
+          sed -i "/name = \"nia-todo-desktop\"/{n;s/version = \"[^\"]*\"/version = \"${NEXT_DEV_VERSION}\"/;}" src-tauri/Cargo.lock
+          sed -i "s/const DB_NAME = 'nia-todo-db';/const DB_NAME = 'nia-todo-db';/" web/static/js/core/config.js
+          sed -i 's/"name": "nia-todo",/"name": "nia-todo",/' web/manifest.json
+          sed -i 's/"short_name": "nia-todo",/"short_name": "nia-todo",/' web/manifest.json
+          sed -i 's/<title>nia-todo<\/title>/<title>nia-todo<\/title>/' web/index.html
+          grep -q '>nia-todo</span>' web/index.html && sed -i 's/>nia-todo<\/span>/>nia-todo<\/span>/' web/index.html
+          python3 scripts/check_release_versions.py "${NEXT_DEV_VERSION}"
+          git add web/manifest.json web/index.html web/sw.js web/static/js/core/config.js \
+            src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+          git commit -m "chore: bump develop version to ${NEXT_DEV_VERSION}"
+          git push origin develop
 
       - name: Clean up keystore
         if: always()
