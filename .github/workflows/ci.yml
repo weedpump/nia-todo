@@ -31,7 +31,7 @@ on:
         type: boolean
         default: false
       push_docker:
-        description: "Push the built Docker image to GHCR as :dev-<sha>"
+        description: "Push the built Docker image to GHCR and Docker Hub as :dev-<sha>"
         type: boolean
         default: false
 
@@ -234,12 +234,16 @@ jobs:
             --output "dist/docker/ci-${{ github.sha }}" \
             --force
 
-      - name: Push Docker image to GHCR
+      - name: Push Docker image to GHCR and Docker Hub
         if: inputs.build_docker && inputs.push_docker
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker tag "nia-todo:ci-check" "ghcr.io/${{ github.repository_owner }}/nia-todo:dev-${{ github.sha }}"
           docker push "ghcr.io/${{ github.repository_owner }}/nia-todo:dev-${{ github.sha }}"
+
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker tag "nia-todo:ci-check" "docker.io/${{ secrets.DOCKERHUB_USERNAME }}/nia-todo:dev-${{ github.sha }}"
+          docker push "docker.io/${{ secrets.DOCKERHUB_USERNAME }}/nia-todo:dev-${{ github.sha }}"
 
       - name: Build server .deb installer
         if: inputs.build_server_deb
