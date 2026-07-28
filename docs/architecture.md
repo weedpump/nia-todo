@@ -33,7 +33,7 @@ Native apps are shipped from the same Tauri codebase and share the web UI versio
 Current state:
 
 - Tauri bundles a clean `src-tauri/frontend-dist` generated from `web/`; `web/downloads/` is deliberately excluded from the native bundle.
-- Windows, Android, and Debian desktop releases use the same `X.Y.Z` version as web/server and are built by `release.sh`.
+- Windows, Android, and Debian desktop releases use the same `X.Y.Z` version as web/server and are built by the tag-triggered `release.yml` GitHub Actions workflow.
 - Debian desktop is distributed as a Debian package named `nia-todo-desktop`, with artifacts named `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`, so it does not conflict with the server package `nia-todo`.
 - Native local reminders are implemented: Windows uses the local scheduler/tray path, Android uses `AlarmManager` and rehydrates reminders after reboot/app restart.
 - Offline cold start is supported through the bundled UI shell plus service-worker cache.
@@ -47,7 +47,7 @@ Current state:
 Operational constraints:
 
 - Android is pinned to app ID `de.tobiaskneidl.nia_todo` and the permanent release key. Re-sign/custom package builds need an explicit migration strategy before they can be passkey-compatible.
-- Native app compatibility is controlled by `min_native_client_version` from `/api/instance`; normal releases do not raise it unless `release.sh --set-min-app-version` is used.
+- Native app compatibility is controlled by `min_native_client_version` from `/api/instance`; normal releases do not raise it unless the release workflow is run with `set_min_app_version: true`.
 
 ## Auth
 
