@@ -2,8 +2,6 @@
 
 ## Local development
 
-Set `NIA_TODO_DEV_DIR` to your checkout path (used by test scripts):
-
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
@@ -13,6 +11,8 @@ npm ci
 ```
 
 Frontend/native development uses the Node/Tauri tooling declared in `package.json` and `src-tauri/`.
+
+Test scripts read `NIA_TODO_DEV_DIR` for their working directory; it defaults to the repo root, so you only need to set it if you run them from elsewhere.
 
 ## Branches
 
