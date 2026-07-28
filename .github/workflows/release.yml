@@ -2,8 +2,10 @@ name: Release
 
 # Triggered by pushing a tag from main, e.g.:
 #   git checkout main && git tag v2.7.0 && git push origin v2.7.0
-# The workflow bumps the shared version, moves the tag onto that commit,
-# builds Windows/Android/Debian/Docker, and publishes the GitHub release.
+# Orchestrates the shared tests.yml and build.yml workflows instead of
+# duplicating their steps - this file only does what's release-specific:
+# bumping the version, moving the tag onto the bump commit, creating the
+# GitHub release, and bumping develop to the next -dev version.
 
 on:
   push:
@@ -18,8 +20,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  tests:
+    uses: ./.github/workflows/tests.yml
+    secrets: inherit
+
+  prepare-version:
+    needs: tests
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      bump_commit: ${{ steps.bump.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,139 +58,66 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Install backend dependencies
-        run: pip install -r packaging/requirements.txt
-
-      - name: Install frontend/native toolchain dependencies
-        run: npm ci
-
-      - name: Install Tauri Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev \
-            build-essential curl wget file libssl-dev libgtk-3-dev librsvg2-dev dpkg-dev
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - name: Install cargo-xwin
-        run: cargo install cargo-xwin
-
-      - uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK and build-tools
-        run: sdkmanager --install "ndk;27.0.12077973" "build-tools;35.0.0"
-
-      - name: Restore Android release keystore
-        run: |
-          mkdir -p secrets
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > secrets/nia-todo-android-release.keystore
-          printf '%s' "${{ secrets.ANDROID_KEYSTORE_PASS }}" > secrets/nia-todo-android-release.pass
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Log in to Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Run test suite
-        run: ./scripts/test_all.sh
-
       - name: Prepare release version and move tag
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          TAG: ${{ steps.version.outputs.tag }}
+        id: bump
         run: |
-          scripts/release/prepare-release-version.sh "${VERSION}"
-          git tag -f "${TAG}" HEAD
+          scripts/release/prepare-release-version.sh "${{ steps.version.outputs.version }}"
+          git tag -f "${{ steps.version.outputs.tag }}" HEAD
           git push origin main
-          git push origin "${TAG}" --force
+          git push origin "${{ steps.version.outputs.tag }}" --force
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Build Windows installer
+  build:
+    needs: prepare-version
+    uses: ./.github/workflows/build.yml
+    with:
+      build_windows: true
+      build_android: true
+      build_debian_desktop: true
+      build_docker: true
+      build_server_deb: true
+      version: ${{ needs.prepare-version.outputs.version }}
+      ref: ${{ needs.prepare-version.outputs.bump_commit }}
+    secrets: inherit
+
+  publish:
+    needs: [prepare-version, build]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.prepare-version.outputs.version }}
+      TAG: ${{ needs.prepare-version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.bump_commit }}
+
+      - name: Download server .deb installer
+        uses: actions/download-artifact@v4
+        with:
+          name: server-deb
+          path: dist/release/${{ env.TAG }}
+
+      - name: Create GitHub release
         env:
-          CARGO_XWIN: /home/runner/.cargo/bin/cargo-xwin
-        run: |
-          python3 scripts/prepare_tauri_frontend_dist.py
-          npm run tauri -- build --target x86_64-pc-windows-msvc --runner "${CARGO_XWIN}"
-
-      - name: Build Android APK
-        env:
-          NIA_TODO_SECRETS_DIR: ${{ github.workspace }}/secrets
-        run: |
-          python3 scripts/prepare_tauri_frontend_dist.py
-          npm run tauri -- android build --target aarch64 --apk --ci
-
-      - name: Build Debian desktop package
-        run: |
-          python3 scripts/prepare_tauri_frontend_dist.py
-          npm run tauri -- build --bundles deb
-
-      - name: Stage native artifacts and build public release
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          NIA_TODO_SECRETS_DIR: ${{ github.workspace }}/secrets
-        run: |
-          NATIVE_DIR="dist/native/v${VERSION}"
-          mkdir -p "${NATIVE_DIR}"
-          cp "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/nia-todo_${VERSION}_x64-setup.exe" \
-            "${NATIVE_DIR}/nia-todo-v${VERSION}-windows-x64-setup.exe"
-
-          BUILT_APK="src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
-          ALIGNED_APK="/tmp/nia-todo-v${VERSION}-android-arm64-aligned.apk"
-          "${ANDROID_HOME}/build-tools/35.0.0/zipalign" -p -f 4 "${BUILT_APK}" "${ALIGNED_APK}"
-          export ANDROID_KEYSTORE_PASS=$(tr -d '\r\n' < secrets/nia-todo-android-release.pass)
-          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" sign \
-            --ks secrets/nia-todo-android-release.keystore \
-            --ks-key-alias nia-todo-android-release \
-            --ks-pass env:ANDROID_KEYSTORE_PASS --key-pass env:ANDROID_KEYSTORE_PASS \
-            --out "${NATIVE_DIR}/nia-todo-v${VERSION}-android-arm64.apk" "${ALIGNED_APK}"
-          unset ANDROID_KEYSTORE_PASS
-
-          TAURI_DEBIAN_DEB="src-tauri/target/release/bundle/deb/nia-todo_${VERSION}_amd64.deb"
-          BUILT_DEBIAN_DEB="$(scripts/release/repack-native-debian-deb.sh "${TAURI_DEBIAN_DEB}")"
-          cp "${BUILT_DEBIAN_DEB}" "${NATIVE_DIR}/nia-todo-desktop-v${VERSION}-debian-amd64.deb"
-
-          scripts/release/public-release.sh "${VERSION}" \
-            --native-artifacts-dir "${NATIVE_DIR}" \
-            --native-app-version "${VERSION}" \
-            --output-dir "dist/release/v${VERSION}" \
-            --work-dir "dist/build/public-release-v${VERSION}" \
-            --docker-tag "nia-todo:${VERSION}" \
-            --docker-latest \
-            --force
-
-      - name: Publish to GitHub release, GHCR and Docker Hub
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           scripts/release/publish-github.sh "${VERSION}" \
             --github-repo "${{ github.repository }}" \
-            --source-dir "dist/build/public-release-v${VERSION}/public-source" \
-            --artifact-dir "dist/release/v${VERSION}" \
-            --docker-image "nia-todo:${VERSION}" \
-            --ghcr-image "ghcr.io/${{ github.repository_owner }}/nia-todo" \
-            --dockerhub-image "docker.io/${{ secrets.DOCKERHUB_USERNAME }}/nia-todo" \
+            --artifact-dir "dist/release/${TAG}" \
             --no-source-push \
-            --latest \
+            --no-docker-push \
             --execute
 
       - name: Bump develop to next dev version
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin develop
           git checkout develop
-          git pull origin develop
           MAJOR=$(echo "${VERSION}" | cut -d. -f1)
           MINOR=$(echo "${VERSION}" | cut -d. -f2)
           PATCH=$(echo "${VERSION}" | cut -d. -f3)
@@ -200,7 +138,3 @@ jobs:
             src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
           git commit -m "chore: bump develop version to ${NEXT_DEV_VERSION}"
           git push origin develop
-
-      - name: Clean up keystore
-        if: always()
-        run: rm -rf secrets
