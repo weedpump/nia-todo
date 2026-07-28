@@ -18,6 +18,7 @@ def main() -> None:
     parser.add_argument("--output", default=".local/update-test-release", help="output directory")
     parser.add_argument("--base-url", default="http://127.0.0.1:8765", help="URL used in latest.json asset links")
     parser.add_argument("--dev-app-root", default="", help="optional dev app root whose web/static/js/core/config.js is patched by package postinst")
+    parser.add_argument("--service-name", default="nia-todo-dev", help="local systemd service name whose drop-in is patched by package postinst (requires --dev-app-root)")
     args = parser.parse_args()
 
     if not __import__("re").fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version):
@@ -52,7 +53,7 @@ Description: nia-todo fake update package for local integration/manual tests
             "if [ -f \"$CONFIG\" ]; then\n"
             f"  python3 - <<'PY'\nfrom pathlib import Path\nimport re\npath = Path({str(app_root / 'web/static/js/core/config.js')!r})\ntext = path.read_text(encoding='utf-8')\ntext, count = re.subn(r\"APP_VERSION\\s*=\\s*['\\\"]v?[^'\\\"]+['\\\"]\", \"APP_VERSION = 'v{args.version}'\", text, count=1)\nif count != 1:\n    raise SystemExit('APP_VERSION replacement failed')\npath.write_text(text, encoding='utf-8')\nPY\n"
             "fi\n"
-            "DROPIN='/etc/systemd/system/nia-todo-dev.service.d/server-update-manual-test.conf'\n"
+            f"DROPIN='/etc/systemd/system/{args.service_name}.service.d/server-update-manual-test.conf'\n"
             "if [ -f \"$DROPIN\" ]; then\n"
             f"  sed -i 's/^Environment=NIA_TODO_UPDATE_CURRENT_VERSION=.*/Environment=NIA_TODO_UPDATE_CURRENT_VERSION={args.version}/' \"$DROPIN\"\n"
             "  systemctl daemon-reload || true\n"
