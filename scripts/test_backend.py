@@ -24,7 +24,7 @@ from typing import Optional, Tuple, Any
 
 # --- Configuration ------------------------------------------------------------
 
-BASE = Path("~/projects/nia-todo-dev")
+BASE = Path(os.environ.get("NIA_TODO_DEV_DIR", Path(__file__).resolve().parent.parent))
 DB_PATH = BASE / "api" / "data" / "nia-todo-dev.db"
 DB_BACKUP = BASE / "api" / "data" / "nia-todo-dev.db.backup"
 DB_WAL = Path(str(DB_PATH) + "-wal")

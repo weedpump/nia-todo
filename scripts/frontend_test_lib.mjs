@@ -2,16 +2,18 @@
 import { chromium } from 'playwright';
 import { existsSync, renameSync, unlinkSync, mkdirSync, rmSync, copyFileSync, cpSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 export const BASE_URL = process.env.NIA_TODO_URL || 'http://localhost:8754';
 export const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo-dev';
-export const DB_PATH = '~/projects/nia-todo-dev/api/data/nia-todo-dev.db';
-export const DB_BACKUP = '~/projects/nia-todo-dev/api/data/nia-todo-dev.db.frontend-test-backup';
-export const DB_SUITE_BACKUP = '~/projects/nia-todo-dev/api/data/nia-todo-dev.db.frontend-suite-backup';
-export const ATTACHMENT_DIR = '~/projects/nia-todo-dev/api/data/attachments';
-export const ATTACHMENT_BACKUP = '~/projects/nia-todo-dev/api/data/attachments.frontend-test-backup';
-export const ATTACHMENT_SUITE_BACKUP = '~/projects/nia-todo-dev/api/data/attachments.frontend-suite-backup';
+const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
+export const DB_PATH = `${DEV_DIR}/api/data/nia-todo-dev.db`;
+export const DB_BACKUP = `${DEV_DIR}/api/data/nia-todo-dev.db.frontend-test-backup`;
+export const DB_SUITE_BACKUP = `${DEV_DIR}/api/data/nia-todo-dev.db.frontend-suite-backup`;
+export const ATTACHMENT_DIR = `${DEV_DIR}/api/data/attachments`;
+export const ATTACHMENT_BACKUP = `${DEV_DIR}/api/data/attachments.frontend-test-backup`;
+export const ATTACHMENT_SUITE_BACKUP = `${DEV_DIR}/api/data/attachments.frontend-suite-backup`;
 export const ADMIN_PASSWORD = 'FrontendAdmin123!';
 export const USERNAME = 'frontenduser';
 export const USER_PASSWORD = 'FrontendPass123!';

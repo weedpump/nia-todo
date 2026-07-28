@@ -2,7 +2,11 @@
 import { spawn } from 'node:child_process';
 import http from 'node:http';
 import { createServer } from 'node:net';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD } from './frontend_test_lib.mjs';
+
+const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function getFreePort() {
   return await new Promise((resolve, reject) => {
@@ -32,7 +36,7 @@ function shouldSuppressNativeStaticServerLogLine(line) {
 
 function startStaticServer() {
   const server = spawn('python3', ['-m', 'http.server', String(LOCAL_PORT), '--bind', '127.0.0.1', '--directory', 'web'], {
-    cwd: '~/projects/nia-todo-dev',
+    cwd: DEV_DIR,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stderr.setEncoding('utf8');
