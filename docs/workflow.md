@@ -2,7 +2,7 @@
 
 ## Development
 
-- work in the dev folder: `~/projects/nia-todo-dev`
+- work in your local dev checkout; scripts read the path from `NIA_TODO_DEV_DIR` (defaults to the repo root)
 - do not expect or modify live data on this host; production runs on a separate LXC
 
 ## Branches
@@ -14,7 +14,7 @@
 
 1. Merge feature branches into `develop` only after review; `release.sh` releases `develop` exclusively
 2. Start the release script on `develop` with a clean working tree; feature branches are deliberately rejected
-3. Stay in the dev folder: `~/projects/nia-todo-dev`
+3. Stay in the dev folder (`$NIA_TODO_DEV_DIR`)
 4. Run targeted tests beforehand if needed; `release.sh` runs the complete suite itself
 5. Run `./release.sh VERSION --github-repo OWNER/REPO`, e.g. `./release.sh 2.6.4 --github-repo weedpump/nia-todo`; stable releases must use `MAJOR.MINOR.PATCH`
 6. Optional: add `--set-min-app-version` only when older native apps must be blocked; without the flag, older native apps remain compatible
@@ -42,7 +42,7 @@ Release artifacts exposed by an installed server under `/downloads/`:
 
 Android is signed with the permanent release key:
 
-- Keystore: `$NIA_TODO_SECRETS_DIR/nia-todo-android-release.keystore`
+- Keystore: path set via `ANDROID_KEYSTORE` env var (see `release.sh`)
 - Alias: `nia-todo-android-release`
 
 The release key must stay backed up; changing the key breaks Android over-installs and the Android passkey binding through Digital Asset Links. A signing-key rotation therefore also needs a planned server/docs migration path for `/.well-known/assetlinks.json` and the allowed Android app origin.

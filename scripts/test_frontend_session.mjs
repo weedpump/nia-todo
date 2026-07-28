@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { withFreshDb, launchPage, BASE_URL } from './frontend_test_lib.mjs';
+
+const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
 
 function createNearExpiryToken() {
   const output = execFileSync('python3', ['-'], {
-    cwd: '~/projects/nia-todo-dev/api',
+    cwd: `${DEV_DIR}/api`,
     env: { ...process.env, NIA_TODO_DB: 'nia-todo-dev.db' },
     encoding: 'utf8',
     input: `

@@ -5,13 +5,13 @@ Selfhosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Wind
 ## 🌍 Instances
 
 - **Production:** runs on a separate LXC managed by Tobi; this dev checkout does not contain live data or a live service.
-- **Dev:** `http://todo-dev.kneidl-home.de:8754` from `~/projects/nia-todo-dev`
+- **Dev:** `https://todo-dev.kneidl-home.de` from the dev checkout (path configurable via `NIA_TODO_DEV_DIR`)
 
 ## 🚀 Quick Start
 
 ### Dev
 ```bash
-cd ~/projects/nia-todo-dev
+cd "$NIA_TODO_DEV_DIR"   # your local dev checkout
 systemctl restart nia-todo-dev
 ```
 
@@ -67,7 +67,7 @@ Language support covers the web/native UI, system emails, and release-tour conte
 ## 🔧 Development
 
 - Dev branch: `nia-todo-next` for this release-readiness branch; `develop` remains the normal integration branch after release.
-- Dev folder: `~/projects/nia-todo-dev`
+- Dev folder: local checkout path, set via `NIA_TODO_DEV_DIR` (used by test scripts and the dev systemd unit)
 - Release only from `develop` through `./release.sh VERSION --github-repo OWNER/REPO`
 - UI changes must follow the [Design Concept](docs/design-concept.md) for desktop/mobile layout, modals, buttons, reusable patterns, and the Next UI primitives.
 
