@@ -1,0 +1,40 @@
+name: Tests
+
+# Runs automatically on PRs and pushes to main, on manual dispatch, and
+# reused (via workflow_call) by release.yml so the release path shares the
+# exact same test job instead of a second copy.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install backend dependencies
+        run: pip install -r packaging/requirements.txt
+
+      - name: Install frontend/native toolchain dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: ./scripts/test_all.sh

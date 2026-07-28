@@ -91,7 +91,7 @@ RELEASE_MANIFEST="${ARTIFACT_DIR}/release-manifest.json"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT_DIR}"
 
-[ -d "${SOURCE_DIR}" ] || { echo "Missing public source dir: ${SOURCE_DIR}" >&2; exit 1; }
+[ "${PUSH_SOURCE}" = "0" ] || [ -d "${SOURCE_DIR}" ] || { echo "Missing public source dir: ${SOURCE_DIR}" >&2; exit 1; }
 [ -f "${DEB}" ] || { echo "Missing Debian bundle: ${DEB}" >&2; exit 1; }
 [ -f "${DEB_SHA}" ] || { echo "Missing Debian checksum: ${DEB_SHA}" >&2; exit 1; }
 sha256sum -c "${DEB_SHA}"

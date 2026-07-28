@@ -11,12 +11,15 @@
 - `develop` -> active development / current-codebase fixes
 - `main` -> stable versions / tags
 
-## CI (`.github/workflows/ci.yml`)
+## Workflows
 
-- Runs the full test suite (`./scripts/test_all.sh`) automatically on pull requests and on every push to `main`. Plain pushes to `develop` do not trigger it.
-- Does **not** build anything automatically. Builds (Docker health-check, or Windows/Android/Debian native apps) only run via manual "Run workflow" with the corresponding checkbox, for ad-hoc test builds.
+Three files, no duplicated build logic:
 
-## Release (`.github/workflows/release.yml`)
+- **`tests.yml`**: runs `./scripts/test_all.sh` automatically on pull requests and on every push to `main`. Plain pushes to `develop` do not trigger it. Also runs standalone via manual dispatch, and is reused (`workflow_call`) by `release.yml` so releases don't run a second copy of the test job.
+- **`build.yml`**: the single source of truth for building Windows/Android/Debian-desktop/Docker/the full server `.deb`. Triggered manually for ad-hoc test builds (tick only the packages you want; Docker/server-.deb always embed native apps - freshly built ones if selected, otherwise auto-fetched from the latest published GitHub release) - and reused by `release.yml` with a real version and all five packages enabled.
+- **`release.yml`**: tag-triggered. Calls `tests.yml`, bumps the version and moves the tag, calls `build.yml` with the real version (which also pushes the Docker image directly to GHCR/Docker Hub), then creates the GitHub release from the built server `.deb` and bumps `develop` to the next `-dev` version.
+
+## Release
 
 Releases are entirely manual to trigger, then fully automatic:
 
