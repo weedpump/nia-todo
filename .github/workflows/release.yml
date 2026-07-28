@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, e.g. 2.6.4"
+        required: true
+      set_min_app_version:
+        description: "Force native clients below this version to update"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: develop
+
+      - name: Configure git identity
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install backend dependencies
+        run: pip install -r packaging/requirements.txt
+
+      - name: Install frontend/native toolchain dependencies
+        run: npm ci
+
+      - name: Install Tauri Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev \
+            build-essential curl wget file libssl-dev libgtk-3-dev librsvg2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install cargo-xwin
+        run: cargo install cargo-xwin
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK and build-tools
+        run: sdkmanager --install "ndk;27.0.12077973" "build-tools;35.0.0"
+
+      - name: Restore Android release keystore
+        run: |
+          mkdir -p secrets
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > secrets/nia-todo-android-release.keystore
+          printf '%s' "${{ secrets.ANDROID_KEYSTORE_PASS }}" > secrets/nia-todo-android-release.pass
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Run release.sh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NIA_TODO_SECRETS_DIR: ${{ github.workspace }}/secrets
+          CARGO_XWIN: /home/runner/.cargo/bin/cargo-xwin
+        run: |
+          ARGS=("${{ inputs.version }}" --github-repo "${{ github.repository }}")
+          if [ "${{ inputs.set_min_app_version }}" = "true" ]; then
+            ARGS+=(--set-min-app-version)
+          fi
+          ./release.sh "${ARGS[@]}"
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -rf secrets
