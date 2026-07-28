@@ -62,7 +62,6 @@ copy_tracked_prefix() {
       scripts/test_*|scripts/frontend_test_lib.mjs|scripts/*_test_*.mjs) continue ;;
       docs/workflow.md) continue ;;
       docs/native-apps-clean-architecture.md) continue ;;
-      docs/internal-public-release-packaging.md) continue ;;
       systemd/nia-todo-dev.service|setup-dev.sh|release.sh) continue ;;
     esac
     mkdir -p "${OUTPUT_ABS}/$(dirname "${file}")"
