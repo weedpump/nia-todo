@@ -86,7 +86,7 @@ done
 
 # packaging/ overlay: self-hoster README, Dockerfile, docker-compose.yml,
 # install/backup/restore scripts, and pinned requirements.
-cp -p packaging/README.md "${OUTPUT_ABS}/README.md"
+cp -p README.md "${OUTPUT_ABS}/README.md"
 if [ -d packaging/docs ]; then
   mkdir -p "${OUTPUT_ABS}/docs"
   cp -a packaging/docs/. "${OUTPUT_ABS}/docs/"
