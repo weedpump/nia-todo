@@ -78,6 +78,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: "npm" }
       - run: npm ci
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang llvm lld
       - uses: dtolnay/rust-toolchain@stable
         with: { targets: x86_64-pc-windows-msvc }
       - run: |
@@ -173,7 +176,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev \
-            build-essential curl wget file libssl-dev libgtk-3-dev librsvg2-dev dpkg-dev
+            build-essential curl wget file libssl-dev libgtk-3-dev librsvg2-dev dpkg-dev \
+            libayatana-appindicator3-dev
       - uses: dtolnay/rust-toolchain@stable
       - run: python3 scripts/prepare_tauri_frontend_dist.py
       - run: npm run tauri -- build --bundles deb
