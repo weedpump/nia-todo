@@ -80,7 +80,7 @@ jobs:
       - run: npm ci
       - run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang llvm lld
+          sudo apt-get install -y --no-install-recommends clang llvm lld libayatana-appindicator3-dev
       - uses: dtolnay/rust-toolchain@stable
         with: { targets: x86_64-pc-windows-msvc }
       - run: |
