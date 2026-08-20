@@ -245,13 +245,13 @@ jobs:
 
             if [ "${have_windows}" = "1" ] && [ "${have_android}" = "1" ] && [ "${have_debian}" = "1" ]; then
               echo "source=fresh" >> "$GITHUB_OUTPUT"
-              echo "native_app_version=0.0.0-ci" >> "$GITHUB_OUTPUT"
+              echo "native_app_version=0.0.0" >> "$GITHUB_OUTPUT"
             elif [ "${have_windows}" = "0" ] && [ "${have_android}" = "0" ] && [ "${have_debian}" = "0" ]; then
               echo "source=latest-release" >> "$GITHUB_OUTPUT"
               echo "native_app_version=${native_app_version}" >> "$GITHUB_OUTPUT"
             else
               echo "source=mixed" >> "$GITHUB_OUTPUT"
-              echo "native_app_version=0.0.0-ci" >> "$GITHUB_OUTPUT"
+              echo "native_app_version=0.0.0" >> "$GITHUB_OUTPUT"
               echo "::warning::Embedding a mix of freshly built and last-release native apps; the manifest version number does not reflect this precisely - fine for an ad-hoc test build, not for a real release."
             fi
           fi
