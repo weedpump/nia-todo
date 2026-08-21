@@ -102,7 +102,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install backend dependencies
-        run: pip install -r packaging/requirements.txt
+        run: pip install -r packaging/requirements.txt httpx
 
       - name: Install frontend/native toolchain dependencies
         run: npm ci
