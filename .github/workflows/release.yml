@@ -78,7 +78,10 @@ jobs:
       build_windows: true
       build_android: true
       build_debian_desktop: true
-      build_docker: true
+      # Disabled for this private CI test-mirror repo: pushes to
+      # ghcr.io/docker.io need real registry credentials this repo doesn't
+      # have, and would target the shared org/account image namespace anyway.
+      build_docker: false
       build_server_deb: true
       version: ${{ needs.prepare-version.outputs.version }}
       ref: ${{ needs.prepare-version.outputs.bump_commit }}
