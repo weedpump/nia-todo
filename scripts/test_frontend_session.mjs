@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { withFreshDb, launchPage, BASE_URL } from './frontend_test_lib.mjs';
+import { withFreshDb, launchPage, BASE_URL, APP_PYTHON } from './frontend_test_lib.mjs';
 
 const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
 const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo-dev.db';
@@ -15,7 +15,7 @@ function createNearExpiryToken() {
     NIA_TODO_DATA_DIR: process.env.NIA_TODO_DATA_DIR || `${DEV_DIR}/api/data`,
   };
   const useSudo = process.env.NIA_TODO_TEST_SUDO_FS === '1';
-  const output = execFileSync(useSudo ? 'sudo' : 'python3', useSudo ? ['-n', 'env', ...Object.entries(env).filter(([key]) => key.startsWith('NIA_TODO_')).map(([key, value]) => `${key}=${value}`), 'python3', '-'] : ['-'], {
+  const output = execFileSync(useSudo ? 'sudo' : APP_PYTHON, useSudo ? ['-n', 'env', ...Object.entries(env).filter(([key]) => key.startsWith('NIA_TODO_')).map(([key, value]) => `${key}=${value}`), APP_PYTHON, '-'] : ['-'], {
     cwd: `${DEV_DIR}/api`,
     env,
     encoding: 'utf8',
