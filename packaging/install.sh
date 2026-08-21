@@ -61,19 +61,17 @@ if [ "${SERVICE_NAME}" != "nia-todo" ]; then
   fi
 fi
 
-# Prefer python3.13 explicitly so the venv's ABI tag matches the wheelhouse
-# built by build-full-bundle.sh (python:3.13.5-slim), even if the system's
-# generic python3 points at a newer default. Falls back to python3 if a
-# versioned binary isn't installed.
-PYTHON_BIN="python3.13"
-command -v "${PYTHON_BIN}" >/dev/null 2>&1 || PYTHON_BIN="python3"
-"${PYTHON_BIN}" -m venv "${APP_DIR}/.venv"
-if [ -d "${APP_DIR}/wheelhouse" ]; then
-  "${APP_DIR}/.venv/bin/pip" install --no-index --find-links="${APP_DIR}/wheelhouse" -r "${APP_DIR}/requirements.txt"
-  rm -rf "${APP_DIR}/wheelhouse"
+python3 -m venv "${APP_DIR}/.venv"
+# The wheelhouse holds prebuilt wheels for one specific Python version (see
+# build-full-bundle.sh). Try the offline install first; if the host's
+# python3 is a different minor version, those wheels won't match, so fall
+# back to a normal online install from PyPI instead of failing outright.
+if [ -d "${APP_DIR}/wheelhouse" ] && "${APP_DIR}/.venv/bin/pip" install --no-index --find-links="${APP_DIR}/wheelhouse" -r "${APP_DIR}/requirements.txt"; then
+  :
 else
   "${APP_DIR}/.venv/bin/pip" install -r "${APP_DIR}/requirements.txt"
 fi
+rm -rf "${APP_DIR}/wheelhouse"
 
 # Ensure start.sh uses the venv Python without modifying application code.
 cat > "${APP_DIR}/run-service.sh" <<'RUN'
