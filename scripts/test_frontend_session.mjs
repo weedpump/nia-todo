@@ -5,11 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { withFreshDb, launchPage, BASE_URL } from './frontend_test_lib.mjs';
 
 const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
+const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo-dev.db';
+const WS_HOST = BASE_URL.replace(/^https?:\/\//, '');
 
 function createNearExpiryToken() {
   const output = execFileSync('python3', ['-'], {
     cwd: `${DEV_DIR}/api`,
-    env: { ...process.env, NIA_TODO_DB: 'nia-todo-dev.db' },
+    env: { ...process.env, NIA_TODO_DB: DB_NAME, NIA_TODO_DATA_DIR: process.env.NIA_TODO_DATA_DIR || `${DEV_DIR}/api/data` },
     encoding: 'utf8',
     input: `
 import json
@@ -118,7 +120,7 @@ async function run() {
     await page.context().setOffline(false);
     const offlinePageErrors = pageErrors.slice(offlinePageErrorStart);
     const unexpectedOfflineConsoleErrors = consoleErrors.slice(offlineConsoleStart).filter(msg => {
-      if (msg.includes("WebSocket connection to 'ws://localhost:8754/ws' failed")) return false;
+      if (msg.includes(`WebSocket connection to 'ws://${WS_HOST}/ws' failed`)) return false;
       if (msg.includes('[WS] Error: Event')) return false;
       if (msg.includes('Failed to load resource: net::ERR_INTERNET_DISCONNECTED')) return false;
       if (msg.includes('Failed to load resource: the server responded with a status of 404')) return false;

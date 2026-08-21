@@ -2,10 +2,15 @@ name: Release
 
 # Triggered by pushing a tag from main, e.g.:
 #   git checkout main && git tag v2.7.0 && git push origin v2.7.0
-# Orchestrates the shared tests.yml and build.yml workflows instead of
-# duplicating their steps - this file only does what's release-specific:
-# bumping the version, moving the tag onto the bump commit, creating the
-# GitHub release, and bumping develop to the next -dev version.
+# Orchestrates the shared build.yml workflow instead of duplicating its
+# steps - this file only does what's release-specific: bumping the version,
+# moving the tag onto the bump commit, building everything, running the test
+# suite against the real release .deb, creating the GitHub release, and
+# bumping develop to the next -dev version.
+#
+# Tests run after build (not before, unlike tests.yml's own fast PR/push
+# path) because they install and exercise the actual server .deb this
+# release ships, native apps and all - not a synthetic test-only package.
 
 on:
   push:
@@ -20,12 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  tests:
-    uses: ./.github/workflows/tests.yml
-    secrets: inherit
-
   prepare-version:
-    needs: tests
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -84,8 +84,43 @@ jobs:
       ref: ${{ needs.prepare-version.outputs.bump_commit }}
     secrets: inherit
 
-  publish:
+  test:
     needs: [prepare-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.bump_commit }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install backend dependencies
+        run: pip install -r packaging/requirements.txt
+
+      - name: Install frontend/native toolchain dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Download server .deb installer
+        uses: actions/download-artifact@v4
+        with:
+          name: server-deb
+          path: dist/release/build
+
+      - name: Install package and run test suite
+        run: scripts/release/install-and-test.sh "dist/release/build/nia-todo-server-v${{ needs.prepare-version.outputs.version }}-full.deb"
+
+  publish:
+    needs: [prepare-version, build, test]
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.prepare-version.outputs.version }}

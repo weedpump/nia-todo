@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { backupDb, restoreDb, service, waitForService, launchPage, ADMIN_PASSWORD } from './frontend_test_lib.mjs';
+import { backupDb, restoreDb, service, waitForService, launchPage, ADMIN_PASSWORD, BASE_URL } from './frontend_test_lib.mjs';
 
 async function run() {
   console.log('🌐 Running Playwright frontend setup test...');
@@ -15,7 +15,7 @@ async function run() {
     await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
 
     await page.setViewportSize({ width: 390, height: 640 });
-    await page.goto('http://localhost:8754/setup', { waitUntil: 'networkidle' });
+    await page.goto(`${BASE_URL}/setup`, { waitUntil: 'networkidle' });
     await visible('#step-1');
 
     await page.fill('#admin-password', 'short');

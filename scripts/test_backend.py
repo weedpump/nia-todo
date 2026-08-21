@@ -25,14 +25,17 @@ from typing import Optional, Tuple, Any
 # --- Configuration ------------------------------------------------------------
 
 BASE = Path(os.environ.get("NIA_TODO_DEV_DIR", Path(__file__).resolve().parent.parent))
-DB_PATH = BASE / "api" / "data" / "nia-todo-dev.db"
-DB_BACKUP = BASE / "api" / "data" / "nia-todo-dev.db.backup"
+SERVICE = os.environ.get("NIA_TODO_SERVICE", "nia-todo-dev")
+URL = os.environ.get("NIA_TODO_URL", "http://localhost:8754")
+DATA_DIR = Path(os.environ.get("NIA_TODO_DATA_DIR", str(BASE / "api" / "data")))
+DB_NAME = os.environ.get("NIA_TODO_DB_NAME", "nia-todo-dev.db")
+URL_HOST = urlparse(URL).netloc
+DB_PATH = DATA_DIR / DB_NAME
+DB_BACKUP = DATA_DIR / f"{DB_NAME}.backup"
 DB_WAL = Path(str(DB_PATH) + "-wal")
 DB_SHM = Path(str(DB_PATH) + "-shm")
-ATTACHMENT_DIR = BASE / "api" / "data" / "attachments"
-ATTACHMENT_BACKUP = BASE / "api" / "data" / "attachments.backend-test-backup"
-URL = "http://localhost:8754"
-SERVICE = "nia-todo-dev"
+ATTACHMENT_DIR = DATA_DIR / "attachments"
+ATTACHMENT_BACKUP = DATA_DIR / "attachments.backend-test-backup"
 
 # Test credentials
 ADMIN_PASSWORD = "TestAdmin123!"
@@ -43,15 +46,15 @@ NEW_PASSWORD = "NewPass123!"
 
 def service_stop():
     """Stop the dev service."""
-    subprocess.run(f"systemctl stop {SERVICE}", shell=True, capture_output=True, check=True)
+    subprocess.run(f"sudo -n systemctl stop {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_start():
     """Start the dev service."""
-    subprocess.run(f"systemctl start {SERVICE}", shell=True, capture_output=True, check=True)
+    subprocess.run(f"sudo -n systemctl start {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_restart():
     """Restart the dev service."""
-    subprocess.run(f"systemctl restart {SERVICE}", shell=True, capture_output=True, check=True)
+    subprocess.run(f"sudo -n systemctl restart {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_wait(timeout: int = 30) -> bool:
     """Wait for service to be ready. Returns True if successful."""
@@ -657,7 +660,7 @@ class TestSuite:
         })
         if ok(status) and data:
             self.created_ids["user"].append(data.get("id"))
-        passed = ok(status) and data and data.get("password_setup_url", "").startswith("https://localhost:8754/set-password?token=")
+        passed = ok(status) and data and data.get("password_setup_url", "").startswith(f"https://{URL_HOST}/set-password?token=")
         self.results["trusted_proxy_rejects_bad_forwarded_host"] = {"status": status, "passed": passed, "expected": "200 + fallback URL ignores bad forwarded host"}
         return passed
 
@@ -669,12 +672,12 @@ class TestSuite:
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt", headers={
             "X-Forwarded-Proto": "https",
             "X-Forwarded-Host": "untrusted.example.invalid",
-            "Host": "localhost:8754",
+            "Host": URL_HOST,
         })
         if ok(status) and data:
             self.created_ids["user"].append(data.get("id"))
         setup_url = data.get("password_setup_url", "") if data else ""
-        passed = ok(status) and data and "untrusted.example.invalid" not in setup_url and setup_url.startswith("http://localhost:8754/set-password?token=")
+        passed = ok(status) and data and "untrusted.example.invalid" not in setup_url and setup_url.startswith(f"http://{URL_HOST}/set-password?token=")
         self.results["untrusted_proxy_ignores_forwarded_host"] = {"status": status, "passed": passed, "expected": "200 + forwarded host/proto ignored", "url": setup_url}
         return passed
 
@@ -710,7 +713,7 @@ class TestSuite:
 
     def test_set_trusted_proxies_script(self):
         cmd = ["python3", str(BASE / "api" / "set_trusted_proxies.py"), "127.0.0.1", "10.0.10.0/24", "--json"]
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(BASE), env={**os.environ, "NIA_TODO_DB": "nia-todo-dev.db"})
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(BASE), env={**os.environ, "NIA_TODO_DB": DB_NAME, "NIA_TODO_DATA_DIR": str(DATA_DIR)})
         if r.returncode != 0:
             self.results["set_trusted_proxies_script"] = {"status": r.returncode, "passed": False, "expected": 0, "error": r.stderr.strip()}
             return False
