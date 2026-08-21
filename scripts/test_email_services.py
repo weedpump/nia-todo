@@ -13,6 +13,7 @@ API_DIR = BASE / "api"
 TEST_DB_NAME = f"nia-todo-email-test-{uuid.uuid4().hex}.db"
 TEST_DB_PATH = API_DIR / "data" / TEST_DB_NAME
 
+os.environ["NIA_TODO_DATA_DIR"] = str(API_DIR / "data")
 os.environ["NIA_TODO_DB"] = TEST_DB_NAME
 sys.path.insert(0, str(API_DIR))
 
