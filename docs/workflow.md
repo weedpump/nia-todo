@@ -13,11 +13,11 @@
 
 ## Workflows
 
-Three files, no duplicated build logic:
+Three files, no duplicated build logic. Test logic is intentionally duplicated between `tests.yml` and `release.yml`, not shared via `workflow_call`: `tests.yml` builds and tests a synthetic `v0.0.0` package for fast PR/push feedback, while `release.yml` downloads and tests the actual versioned release `.deb` built by `build.yml` — they can't share a single job.
 
-- **`tests.yml`**: runs `./scripts/test_all.sh` automatically on pull requests and on every push to `main`. Plain pushes to `develop` do not trigger it. Also runs standalone via manual dispatch, and is reused (`workflow_call`) by `release.yml` so releases don't run a second copy of the test job.
+- **`tests.yml`**: builds a synthetic test package and runs `scripts/release/install-and-test.sh` against it automatically on pull requests and on every push to `main`. Plain pushes to `develop` do not trigger it. Also runs standalone via manual dispatch.
 - **`build.yml`**: the single source of truth for building Windows/Android/Debian-desktop/Docker/the full server `.deb`. Triggered manually for ad-hoc test builds (tick only the packages you want; Docker/server-.deb always embed native apps - freshly built ones if selected, otherwise auto-fetched from the latest published GitHub release) - and reused by `release.yml` with a real version and all five packages enabled.
-- **`release.yml`**: tag-triggered. Calls `tests.yml`, bumps the version and moves the tag, calls `build.yml` with the real version (which also pushes the Docker image directly to GHCR/Docker Hub), then creates the GitHub release from the built server `.deb` and bumps `develop` to the next `-dev` version.
+- **`release.yml`**: tag-triggered. Bumps the version and moves the tag, calls `build.yml` with the real version (which also pushes the Docker image directly to GHCR/Docker Hub), runs `scripts/release/install-and-test.sh` against the built server `.deb`, then creates the GitHub release from it.
 
 ## Release
 
@@ -27,11 +27,12 @@ Releases are entirely manual to trigger, then fully automatic:
 2. Add a `CHANGELOG.md` section for the version first: `## [VERSION] - YYYY-MM-DD`.
 3. Tag `main` and push the tag: `git tag vX.Y.Z && git push origin main && git push origin vX.Y.Z`.
 4. Pushing the tag triggers the release workflow, which:
-   - runs the full test suite
    - bumps the shared version (web app, service worker, Tauri/Cargo, Android) from the tag name via `scripts/release/prepare-release-version.sh`, commits it on `main`, and **force-moves the tag** onto that commit so the tag always points at the exact code that was built
    - builds Windows, Android, and Debian desktop apps, plus the Docker image and full server `.deb`
+   - runs the full test suite against the built server `.deb`
    - publishes the GitHub release (assets + checksums), and pushes images to GHCR + Docker Hub
-   - bumps `develop` to the next `-dev` patch version
+
+`develop` is not touched automatically; bump it to the next `-dev` version yourself whenever you start the next round of work.
 
 Optional: re-run the workflow with `set_min_app_version: true` only when older native apps must be forced to update; without it, older native apps remain compatible.
 
