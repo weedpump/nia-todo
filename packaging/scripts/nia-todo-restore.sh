@@ -147,7 +147,11 @@ PY
 RESTORE_USER="${NIA_TODO_USER:-nia-todo}"
 RESTORE_GROUP="${NIA_TODO_GROUP:-nia-todo}"
 if getent passwd "${RESTORE_USER}" >/dev/null 2>&1 && getent group "${RESTORE_GROUP}" >/dev/null 2>&1; then
-  chown -R "${RESTORE_USER}:${RESTORE_GROUP}" "${DATA_DIR}"
+  # Best-effort: real installs run this as root and can always chown. When
+  # restoring into an unrelated/test data dir without that privilege (e.g.
+  # the service user happens to exist but DATA_DIR isn't its directory),
+  # don't abort the restore over an ownership normalization step.
+  chown -R "${RESTORE_USER}:${RESTORE_GROUP}" "${DATA_DIR}" || echo "Warning: could not chown ${DATA_DIR} to ${RESTORE_USER}:${RESTORE_GROUP} (insufficient privileges?)" >&2
 fi
 
 if [[ "${DB_PATH}" != "${DATA_DIR}"/* ]]; then
