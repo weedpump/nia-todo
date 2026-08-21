@@ -199,7 +199,7 @@ chmod 755 "${DEB_ROOT}/DEBIAN/prerm"
 find "${DEB_ROOT}" -type f -name '*.pyc' -delete
 PACKAGE="${OUTPUT_DIR}/nia-todo-server-v${VERSION}-full.deb"
 dpkg-deb --build "${DEB_ROOT}" "${PACKAGE}" >/dev/null
-sha256sum "${PACKAGE}" > "${PACKAGE}.sha256"
+(cd "${OUTPUT_DIR}" && sha256sum "$(basename "${PACKAGE}")") > "${PACKAGE}.sha256"
 
 echo "✅ Full bundle package: ${PACKAGE}"
 echo "✅ Checksum: ${PACKAGE}.sha256"
