@@ -14,6 +14,7 @@ Ablauf:
 
 import subprocess
 import json
+import sys
 import time
 import os
 import sqlite3
@@ -37,6 +38,10 @@ ATTACHMENT_DIR = DATA_DIR / "attachments"
 ATTACHMENT_BACKUP = DATA_DIR / "attachments.backend-test-backup"
 SUDO_FS = os.environ.get("NIA_TODO_TEST_SUDO_FS") == "1"
 SERVICE_USER = os.environ.get("NIA_TODO_TEST_SERVICE_USER", SERVICE)
+# sudo resets PATH to secure_path, so a bare "python3" would miss the app's
+# venv (and thus fastapi) when scripts need to import the app's own modules.
+_VENV_PYTHON = BASE / ".venv" / "bin" / "python3"
+APP_PYTHON = str(_VENV_PYTHON) if _VENV_PYTHON.exists() else sys.executable
 
 # Test credentials
 ADMIN_PASSWORD = "TestAdmin123!"
@@ -798,7 +803,7 @@ class TestSuite:
         return passed
 
     def test_set_trusted_proxies_script(self):
-        cmd = ["python3", str(BASE / "api" / "set_trusted_proxies.py"), "127.0.0.1", "10.0.10.0/24", "--json"]
+        cmd = [APP_PYTHON, str(BASE / "api" / "set_trusted_proxies.py"), "127.0.0.1", "10.0.10.0/24", "--json"]
         env = {**os.environ, "NIA_TODO_DB": DB_NAME, "NIA_TODO_DATA_DIR": str(DATA_DIR)}
         if SUDO_FS:
             cmd = ["sudo", "-n", "env", *[f"{key}={value}" for key, value in env.items() if key.startswith("NIA_TODO_")], *cmd]
