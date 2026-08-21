@@ -94,7 +94,7 @@ cd "${ROOT_DIR}"
 [ "${PUSH_SOURCE}" = "0" ] || [ -d "${SOURCE_DIR}" ] || { echo "Missing public source dir: ${SOURCE_DIR}" >&2; exit 1; }
 [ -f "${DEB}" ] || { echo "Missing Debian bundle: ${DEB}" >&2; exit 1; }
 [ -f "${DEB_SHA}" ] || { echo "Missing Debian checksum: ${DEB_SHA}" >&2; exit 1; }
-sha256sum -c "${DEB_SHA}"
+(cd "${ARTIFACT_DIR}" && sha256sum -c "$(basename "${DEB_SHA}")")
 if [ -f "${RELEASE_MANIFEST}" ]; then
   python3 -m json.tool "${RELEASE_MANIFEST}" >/dev/null
 fi
