@@ -1861,6 +1861,8 @@ def print_results(results: dict):
             passed += 1
         else:
             print(f"  ❌ {name}: {status} (expected {expected})")
+            if r.get("error"):
+                print(f"       error: {r['error']}")
             failed += 1
     
     print("\n" + "=" * 70)
@@ -1907,8 +1909,15 @@ def main():
         
         # Save results
         output_file = BASE / "test-results.json"
-        with open(output_file, "w") as f:
-            json.dump(results, f, indent=2)
+        payload = json.dumps(results, indent=2)
+        if SUDO_FS:
+            tmp_path = Path("/tmp/nia-todo-test-results.json")
+            tmp_path.write_text(payload)
+            sudo_run(["cp", tmp_path, output_file])
+            sudo_run(["chown", f"{SERVICE_USER}:{SERVICE_USER}", output_file])
+        else:
+            with open(output_file, "w") as f:
+                f.write(payload)
         print(f"\n📄 Results: {output_file}")
         
     finally:
