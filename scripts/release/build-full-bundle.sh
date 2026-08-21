@@ -134,7 +134,7 @@ Version: ${VERSION}
 Section: web
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.13), python3-venv, adduser, sudo
+Depends: python3 (>= 3.10), python3-venv, adduser, sudo
 Maintainer: nia-todo maintainers
 Description: Self-hosted todo system with bundled native app downloads
 EOF
