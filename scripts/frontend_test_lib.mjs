@@ -7,7 +7,10 @@ import { execFileSync } from 'node:child_process';
 
 export const BASE_URL = process.env.NIA_TODO_URL || 'http://localhost:8754';
 export const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo-dev';
-const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
+export const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
+// sudo resets PATH to secure_path, so a bare "python3" would miss the app's
+// venv (and thus fastapi) when scripts import the app's own modules.
+export const APP_PYTHON = nodeExistsSync(`${DEV_DIR}/.venv/bin/python3`) ? `${DEV_DIR}/.venv/bin/python3` : 'python3';
 const DATA_DIR = process.env.NIA_TODO_DATA_DIR || `${DEV_DIR}/api/data`;
 const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo-dev.db';
 export const DB_PATH = `${DATA_DIR}/${DB_NAME}`;
@@ -80,8 +83,8 @@ function fsMove(source, target) {
 }
 
 export function sqlitePython(script, options = {}) {
-  const command = SUDO_FS ? 'sudo' : 'python3';
-  const args = SUDO_FS ? ['-n', 'python3', '-c', script] : ['-c', script];
+  const command = SUDO_FS ? 'sudo' : APP_PYTHON;
+  const args = SUDO_FS ? ['-n', APP_PYTHON, '-c', script] : ['-c', script];
   return sh(command, args, options);
 }
 
