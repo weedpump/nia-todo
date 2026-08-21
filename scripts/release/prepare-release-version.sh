@@ -124,5 +124,9 @@ git add \
     src-tauri/Cargo.lock \
     api/services/instance_config.py \
     api/migrations/029_add_min_native_client_version_config.sql
-git commit -m "chore: prepare release v${VERSION}"
-echo "✅ Release version v${VERSION} prepared and committed"
+if git diff --cached --quiet; then
+    echo "ℹ️  Working tree already at v${VERSION}, nothing to commit"
+else
+    git commit -m "chore: prepare release v${VERSION}"
+    echo "✅ Release version v${VERSION} prepared and committed"
+fi
