@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD, DB_PATH, sqlitePython } from './frontend_test_lib.mjs';
+import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD, DB_PATH, sqlitePython, NEWER_TEST_APP_VERSION } from './frontend_test_lib.mjs';
 
 async function installTauriStub(page, settings, options = {}) {
   if (options.userAgent) {
@@ -30,7 +30,7 @@ async function installTauriStub(page, settings, options = {}) {
           }
           if (command === 'desktop_request_notification_permission') return 'granted';
           if (command === 'desktop_schedule_reminders') return 0;
-          if (command === 'desktop_get_app_version') return appVersion || '9.9.9-test';
+          if (command === 'desktop_get_app_version') return appVersion;
           if (command === 'desktop_open_url') {
             window.__nativeOpenedUrls = window.__nativeOpenedUrls || [];
             window.__nativeOpenedUrls.push(args.url);
@@ -41,7 +41,7 @@ async function installTauriStub(page, settings, options = {}) {
         },
       },
     };
-  }, { tauriSettings: settings, appVersion: options.appVersion });
+  }, { tauriSettings: settings, appVersion: options.appVersion || NEWER_TEST_APP_VERSION });
 }
 
 async function testNativeSetupWithoutServerUrl() {
@@ -95,7 +95,7 @@ async function testNativeChangelogOpensExternally() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
     await installTauriStub(page, { serverUrl: BASE_URL }, {
-      appVersion: '9.9.9-test',
+      appVersion: NEWER_TEST_APP_VERSION,
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     });
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });

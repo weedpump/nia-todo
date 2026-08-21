@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { chromium } from 'playwright';
-import { existsSync as nodeExistsSync, renameSync, unlinkSync, mkdirSync, rmSync, copyFileSync, cpSync } from 'node:fs';
+import { existsSync as nodeExistsSync, readFileSync, renameSync, unlinkSync, mkdirSync, rmSync, copyFileSync, cpSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -11,6 +11,13 @@ export const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLTo
 // sudo resets PATH to secure_path, so a bare "python3" would miss the app's
 // venv (and thus fastapi) when scripts import the app's own modules.
 export const APP_PYTHON = nodeExistsSync(`${DEV_DIR}/.venv/bin/python3`) ? `${DEV_DIR}/.venv/bin/python3` : 'python3';
+// Read the real current app version instead of hardcoding a "definitely
+// current enough" sentinel like '9.9.9' - that breaks the moment APP_VERSION
+// itself reaches or exceeds whatever number was hardcoded.
+const CONFIG_JS = readFileSync(`${DEV_DIR}/web/static/js/core/config.js`, 'utf8');
+export const CURRENT_APP_VERSION = CONFIG_JS.match(/APP_VERSION\s*=\s*'v?([^']+)'/)[1];
+const CURRENT_APP_MAJOR = Number.parseInt(CURRENT_APP_VERSION.split('.')[0], 10);
+export const NEWER_TEST_APP_VERSION = `${CURRENT_APP_MAJOR + 1}.0.0-test`;
 const DATA_DIR = process.env.NIA_TODO_DATA_DIR || `${DEV_DIR}/api/data`;
 const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo-dev.db';
 export const DB_PATH = `${DATA_DIR}/${DB_NAME}`;
