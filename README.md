@@ -1,5 +1,7 @@
 # <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="32" height="32"> nia-todo
 
+> **Note (2026-08-21):** Development has moved from a private Forgejo server to GitHub. The `main`/`develop` history was replaced accordingly, so commit count and history shape changed on this date. Existing releases and tags are unaffected.
+
 Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android/Debian clients.
 
 nia-todo is designed for private self-hosting: install the server, open the web app, then download the bundled native apps directly from your own instance.
