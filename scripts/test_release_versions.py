@@ -101,6 +101,8 @@ CURRENT_DEV_VERSION = check.first(
     (ROOT / "web/static/js/core/config.js").read_text(encoding="utf-8"),
     "current APP_VERSION",
 )
+_current_parsed = check.parse_version(CURRENT_DEV_VERSION)
+TOO_NEW_VERSION = f"{_current_parsed.major + 1}.0.0"
 
 
 def test_version_helpers() -> None:
@@ -124,7 +126,7 @@ def test_checker_rejects_bad_min_native_versions() -> None:
         ok = run_checker(tmp, CURRENT_DEV_VERSION)
         assert_true(ok.returncode == 0, ok.stderr or ok.stdout)
 
-        set_min_native(tmp, "9.9.9")
+        set_min_native(tmp, TOO_NEW_VERSION)
         too_new = run_checker(tmp, CURRENT_DEV_VERSION)
         assert_true(too_new.returncode != 0, "min_native_client_version above app version must fail")
         assert_true("must not exceed" in too_new.stderr, too_new.stderr)
