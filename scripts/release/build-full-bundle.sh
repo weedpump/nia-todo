@@ -163,7 +163,9 @@ rm -rf /opt/nia-todo/api/data
 mkdir -p /opt/nia-todo/api/data
 : > /opt/nia-todo/api/data/.gitkeep
 python3 -m venv /opt/nia-todo/.venv
-/opt/nia-todo/.venv/bin/pip install --no-index --find-links=/opt/nia-todo/wheelhouse -r /opt/nia-todo/requirements.txt
+if ! /opt/nia-todo/.venv/bin/pip install --no-index --find-links=/opt/nia-todo/wheelhouse -r /opt/nia-todo/requirements.txt; then
+  /opt/nia-todo/.venv/bin/pip install -r /opt/nia-todo/requirements.txt
+fi
 rm -rf /opt/nia-todo/wheelhouse
 install -m 755 /opt/nia-todo/scripts/nia-todo-backup.sh /usr/local/bin/nia-todo-backup
 install -m 755 /opt/nia-todo/scripts/nia-todo-restore.sh /usr/local/bin/nia-todo-restore
