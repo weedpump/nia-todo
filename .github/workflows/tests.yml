@@ -1,15 +1,17 @@
 name: Tests
 
-# Runs automatically on PRs and pushes to main, on manual dispatch, and
-# reused (via workflow_call) by release.yml so the release path shares the
-# exact same test job instead of a second copy.
+# Runs on PRs, pushes to main, and manual dispatch. Builds a real server .deb
+# (no native apps embedded - --allow-missing-apps keeps this fast) and
+# installs it exactly as a self-hoster would (systemd service, /opt/nia-todo,
+# /var/lib/nia-todo), so tests run against the real package instead of a
+# synthetic dev-only environment. release.yml runs the same test suite
+# separately against the actual release .deb via install-and-test.sh.
 on:
   push:
     branches:
       - main
   pull_request:
   workflow_dispatch:
-  workflow_call:
 
 concurrency:
   group: tests-${{ github.ref }}
@@ -36,5 +38,15 @@ jobs:
       - name: Install frontend/native toolchain dependencies
         run: npm ci
 
-      - name: Run test suite
-        run: ./scripts/test_all.sh
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Build test package (no native apps embedded)
+        run: |
+          scripts/release/build-full-bundle.sh 0.0.0 \
+            --allow-missing-apps \
+            --output-dir dist/release/ci \
+            --force
+
+      - name: Install package and run test suite
+        run: scripts/release/install-and-test.sh dist/release/ci/nia-todo-server-v0.0.0-full.deb

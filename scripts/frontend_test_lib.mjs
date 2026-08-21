@@ -8,12 +8,14 @@ import { execFileSync } from 'node:child_process';
 export const BASE_URL = process.env.NIA_TODO_URL || 'http://localhost:8754';
 export const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo-dev';
 const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
-export const DB_PATH = `${DEV_DIR}/api/data/nia-todo-dev.db`;
-export const DB_BACKUP = `${DEV_DIR}/api/data/nia-todo-dev.db.frontend-test-backup`;
-export const DB_SUITE_BACKUP = `${DEV_DIR}/api/data/nia-todo-dev.db.frontend-suite-backup`;
-export const ATTACHMENT_DIR = `${DEV_DIR}/api/data/attachments`;
-export const ATTACHMENT_BACKUP = `${DEV_DIR}/api/data/attachments.frontend-test-backup`;
-export const ATTACHMENT_SUITE_BACKUP = `${DEV_DIR}/api/data/attachments.frontend-suite-backup`;
+const DATA_DIR = process.env.NIA_TODO_DATA_DIR || `${DEV_DIR}/api/data`;
+const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo-dev.db';
+export const DB_PATH = `${DATA_DIR}/${DB_NAME}`;
+export const DB_BACKUP = `${DATA_DIR}/${DB_NAME}.frontend-test-backup`;
+export const DB_SUITE_BACKUP = `${DATA_DIR}/${DB_NAME}.frontend-suite-backup`;
+export const ATTACHMENT_DIR = `${DATA_DIR}/attachments`;
+export const ATTACHMENT_BACKUP = `${DATA_DIR}/attachments.frontend-test-backup`;
+export const ATTACHMENT_SUITE_BACKUP = `${DATA_DIR}/attachments.frontend-suite-backup`;
 export const ADMIN_PASSWORD = 'FrontendAdmin123!';
 export const USERNAME = 'frontenduser';
 export const USER_PASSWORD = 'FrontendPass123!';
@@ -25,10 +27,10 @@ function sh(command, args = [], options = {}) {
 export function service(action) {
   if (action === 'start') {
     try {
-      sh('systemctl', ['reset-failed', SERVICE]);
+      sh('sudo', ['-n', 'systemctl', 'reset-failed', SERVICE]);
     } catch {}
   }
-  sh('systemctl', [action, SERVICE]);
+  sh('sudo', ['-n', 'systemctl', action, SERVICE]);
 }
 
 export async function waitForService(timeoutMs = 60_000) {

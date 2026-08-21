@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+import { withFreshDb, launchPage, BASE_URL } from './frontend_test_lib.mjs';
+
+const WS_HOST = BASE_URL.replace(/^https?:\/\//, '');
 
 async function fillTodoDescription(page, value) {
   await page.click('#todo-desc-preview');
@@ -81,7 +83,7 @@ async function run() {
     const unexpectedConsoleErrors = errors.consoleErrors.filter(msg => {
       if (msg.includes('net::ERR_INTERNET_DISCONNECTED')) return false;
       if (msg.includes('[WS] 💥 Error: Event')) return false;
-      if (msg.includes("WebSocket connection to 'ws://localhost:8754/ws' failed")) return false;
+      if (msg.includes(`WebSocket connection to 'ws://${WS_HOST}/ws' failed`)) return false;
       if (msg.includes('Failed to load resource: the server responded with a status of 404')) return false;
       return true;
     });
