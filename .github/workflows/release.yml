@@ -5,8 +5,7 @@ name: Release
 # Orchestrates the shared build.yml workflow instead of duplicating its
 # steps - this file only does what's release-specific: bumping the version,
 # moving the tag onto the bump commit, building everything, running the test
-# suite against the real release .deb, creating the GitHub release, and
-# bumping develop to the next -dev version.
+# suite against the real release .deb, and creating the GitHub release.
 #
 # Tests run after build (not before, unlike tests.yml's own fast PR/push
 # path) because they install and exercise the actual server .deb this
@@ -149,25 +148,3 @@ jobs:
             --no-source-push \
             --no-docker-push \
             --execute
-
-      - name: Bump develop to next dev version
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin develop
-          git checkout develop
-          MAJOR=$(echo "${VERSION}" | cut -d. -f1)
-          MINOR=$(echo "${VERSION}" | cut -d. -f2)
-          PATCH=$(echo "${VERSION}" | cut -d. -f3)
-          NEXT_DEV_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))-dev"
-          sed -i "s/const APP_VERSION = 'v[^']*';/const APP_VERSION = 'v${NEXT_DEV_VERSION}';/" web/static/js/core/config.js
-          sed -i "s/const SW_VERSION = 'v[^']*';/const SW_VERSION = 'v${NEXT_DEV_VERSION}';/" web/sw.js
-          sed -i "s/<span class=\"version-text\">v[^<]*<\/span>/<span class=\"version-text\">v${NEXT_DEV_VERSION}<\/span>/" web/index.html
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${NEXT_DEV_VERSION}\"/" src-tauri/tauri.conf.json
-          sed -i "0,/^version = \"[^\"]*\"/s//version = \"${NEXT_DEV_VERSION}\"/" src-tauri/Cargo.toml
-          sed -i "/name = \"nia-todo-desktop\"/{n;s/version = \"[^\"]*\"/version = \"${NEXT_DEV_VERSION}\"/;}" src-tauri/Cargo.lock
-          python3 scripts/check_release_versions.py "${NEXT_DEV_VERSION}"
-          git add web/manifest.json web/index.html web/sw.js web/static/js/core/config.js \
-            src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-          git commit -m "chore: bump develop version to ${NEXT_DEV_VERSION}"
-          git push origin develop
