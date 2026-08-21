@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { chromium } from 'playwright';
-import { existsSync, renameSync, unlinkSync, mkdirSync, rmSync, copyFileSync, cpSync } from 'node:fs';
+import { existsSync as nodeExistsSync, renameSync, unlinkSync, mkdirSync, rmSync, copyFileSync, cpSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -19,9 +19,70 @@ export const ATTACHMENT_SUITE_BACKUP = `${DATA_DIR}/attachments.frontend-suite-b
 export const ADMIN_PASSWORD = 'FrontendAdmin123!';
 export const USERNAME = 'frontenduser';
 export const USER_PASSWORD = 'FrontendPass123!';
+const SUDO_FS = process.env.NIA_TODO_TEST_SUDO_FS === '1';
+const SERVICE_USER = process.env.NIA_TODO_TEST_SERVICE_USER || SERVICE;
 
 function sh(command, args = [], options = {}) {
   return execFileSync(command, args, { stdio: 'pipe', encoding: 'utf8', ...options });
+}
+
+function sudo(args, options = {}) {
+  return sh('sudo', ['-n', ...args.map(String)], options);
+}
+
+function fsExists(path) {
+  if (!SUDO_FS) return nodeExistsSync(path);
+  try {
+    sudo(['test', '-e', path]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function fsMkdir(path) {
+  if (SUDO_FS) sudo(['mkdir', '-p', path]);
+  else mkdirSync(path, { recursive: true });
+}
+
+function fsUnlink(path) {
+  if (!fsExists(path)) return;
+  if (SUDO_FS) sudo(['rm', '-f', path]);
+  else unlinkSync(path);
+}
+
+function fsRm(path) {
+  if (!fsExists(path)) return;
+  if (SUDO_FS) sudo(['rm', '-rf', path]);
+  else rmSync(path, { recursive: true, force: true });
+}
+
+function fsCopy(source, target, recursive = false) {
+  if (!fsExists(source)) return;
+  if (SUDO_FS) {
+    sudo(recursive ? ['cp', '-a', source, target] : ['cp', source, target]);
+    sudo(['chown', '-R', `${SERVICE_USER}:${SERVICE_USER}`, target]);
+  } else if (recursive) {
+    cpSync(source, target, { recursive: true });
+  } else {
+    copyFileSync(source, target);
+  }
+}
+
+function fsMove(source, target) {
+  if (!fsExists(source)) return;
+  if (SUDO_FS) {
+    sudo(['mv', source, target]);
+    sudo(['chown', '-R', `${SERVICE_USER}:${SERVICE_USER}`, target]);
+  } else {
+    renameSync(source, target);
+  }
+}
+
+export function sqlitePython(script, options = {}) {
+  const command = SUDO_FS ? 'sudo' : 'python3';
+  const args = SUDO_FS ? ['-n', 'python3', '-c', script] : ['-c', script];
+  return sh(command, args, options);
 }
 
 export function service(action) {
@@ -57,10 +118,10 @@ export async function api(method, path, body) {
 }
 
 function devDbUsers(path = DB_PATH) {
-  if (!existsSync(path)) return null;
+  if (!fsExists(path)) return null;
   const script = `
 import json, sqlite3, sys
-path = sys.argv[1]
+path = ${JSON.stringify(path)}
 con = sqlite3.connect(path)
 try:
     tables = {row[0] for row in con.execute("select name from sqlite_master where type='table'")}
@@ -74,7 +135,7 @@ try:
 finally:
     con.close()
 `;
-  return JSON.parse(sh('python3', ['-c', script, path]).trim());
+  return JSON.parse(sqlitePython(script).trim());
 }
 
 function assertRestorableDevDb(path = DB_PATH, context = 'backup') {
@@ -103,52 +164,52 @@ function sharedSuiteDbManaged() {
 }
 
 function removeTransientFrontendState() {
-  if (existsSync(DB_PATH)) unlinkSync(DB_PATH);
-  if (existsSync(ATTACHMENT_DIR)) rmSync(ATTACHMENT_DIR, { recursive: true, force: true });
+  fsUnlink(DB_PATH);
+  fsRm(ATTACHMENT_DIR);
 }
 
 export function beginFrontendDbSuite() {
-  mkdirSync(dirname(DB_PATH), { recursive: true });
+  fsMkdir(dirname(DB_PATH));
   try { service('stop'); } catch {}
   assertRestorableDevDb(DB_PATH, 'Frontend suite DB backup');
   assertNotFrontendTestOnlyDb(DB_PATH, 'Frontend suite DB backup');
-  if (existsSync(DB_SUITE_BACKUP)) {
+  if (fsExists(DB_SUITE_BACKUP)) {
     throw new Error(`${DB_SUITE_BACKUP} already exists. Refusing to overwrite a possible original DB backup.`);
   }
-  if (existsSync(ATTACHMENT_SUITE_BACKUP)) {
+  if (fsExists(ATTACHMENT_SUITE_BACKUP)) {
     throw new Error(`${ATTACHMENT_SUITE_BACKUP} already exists. Refusing to overwrite a possible original attachment backup.`);
   }
-  if (existsSync(DB_BACKUP)) unlinkSync(DB_BACKUP);
-  if (existsSync(ATTACHMENT_BACKUP)) rmSync(ATTACHMENT_BACKUP, { recursive: true, force: true });
-  if (existsSync(DB_PATH)) copyFileSync(DB_PATH, DB_SUITE_BACKUP);
-  if (existsSync(ATTACHMENT_DIR)) cpSync(ATTACHMENT_DIR, ATTACHMENT_SUITE_BACKUP, { recursive: true });
+  fsUnlink(DB_BACKUP);
+  fsRm(ATTACHMENT_BACKUP);
+  fsCopy(DB_PATH, DB_SUITE_BACKUP);
+  fsCopy(ATTACHMENT_DIR, ATTACHMENT_SUITE_BACKUP, true);
   removeTransientFrontendState();
 }
 
 export function restoreFrontendDbSuite() {
   try { service('stop'); } catch {}
   removeTransientFrontendState();
-  if (existsSync(DB_SUITE_BACKUP)) copyFileSync(DB_SUITE_BACKUP, DB_PATH);
-  if (existsSync(ATTACHMENT_SUITE_BACKUP)) cpSync(ATTACHMENT_SUITE_BACKUP, ATTACHMENT_DIR, { recursive: true });
+  fsCopy(DB_SUITE_BACKUP, DB_PATH);
+  fsCopy(ATTACHMENT_SUITE_BACKUP, ATTACHMENT_DIR, true);
   assertRestorableDevDb(DB_PATH, 'Frontend suite DB restore');
   assertNotFrontendTestOnlyDb(DB_PATH, 'Frontend suite DB restore');
-  if (existsSync(DB_SUITE_BACKUP)) unlinkSync(DB_SUITE_BACKUP);
-  if (existsSync(ATTACHMENT_SUITE_BACKUP)) rmSync(ATTACHMENT_SUITE_BACKUP, { recursive: true, force: true });
+  fsUnlink(DB_SUITE_BACKUP);
+  fsRm(ATTACHMENT_SUITE_BACKUP);
   service('start');
 }
 
 export function backupDb() {
-  mkdirSync(dirname(DB_PATH), { recursive: true });
+  fsMkdir(dirname(DB_PATH));
   if (suiteDbManaged()) {
     try { service('stop'); } catch {}
     removeTransientFrontendState();
     return;
   }
   assertRestorableDevDb(DB_PATH, 'Frontend test DB backup');
-  if (existsSync(DB_BACKUP)) unlinkSync(DB_BACKUP);
-  if (existsSync(DB_PATH)) renameSync(DB_PATH, DB_BACKUP);
-  if (existsSync(ATTACHMENT_BACKUP)) rmSync(ATTACHMENT_BACKUP, { recursive: true, force: true });
-  if (existsSync(ATTACHMENT_DIR)) renameSync(ATTACHMENT_DIR, ATTACHMENT_BACKUP);
+  fsUnlink(DB_BACKUP);
+  fsMove(DB_PATH, DB_BACKUP);
+  fsRm(ATTACHMENT_BACKUP);
+  fsMove(ATTACHMENT_DIR, ATTACHMENT_BACKUP);
 }
 
 export function restoreDb() {
@@ -158,10 +219,10 @@ export function restoreDb() {
     service('start');
     return;
   }
-  if (existsSync(DB_PATH)) unlinkSync(DB_PATH);
-  if (existsSync(DB_BACKUP)) renameSync(DB_BACKUP, DB_PATH);
-  if (existsSync(ATTACHMENT_DIR)) rmSync(ATTACHMENT_DIR, { recursive: true, force: true });
-  if (existsSync(ATTACHMENT_BACKUP)) renameSync(ATTACHMENT_BACKUP, ATTACHMENT_DIR);
+  fsUnlink(DB_PATH);
+  fsMove(DB_BACKUP, DB_PATH);
+  fsRm(ATTACHMENT_DIR);
+  fsMove(ATTACHMENT_BACKUP, ATTACHMENT_DIR);
   assertRestorableDevDb(DB_PATH, 'Frontend test DB restore');
   service('start');
 }

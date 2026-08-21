@@ -15,7 +15,6 @@ Ablauf:
 import subprocess
 import json
 import time
-import shutil
 import os
 import sqlite3
 from urllib.parse import urlparse, parse_qs
@@ -36,6 +35,8 @@ DB_WAL = Path(str(DB_PATH) + "-wal")
 DB_SHM = Path(str(DB_PATH) + "-shm")
 ATTACHMENT_DIR = DATA_DIR / "attachments"
 ATTACHMENT_BACKUP = DATA_DIR / "attachments.backend-test-backup"
+SUDO_FS = os.environ.get("NIA_TODO_TEST_SUDO_FS") == "1"
+SERVICE_USER = os.environ.get("NIA_TODO_TEST_SERVICE_USER", SERVICE)
 
 # Test credentials
 ADMIN_PASSWORD = "TestAdmin123!"
@@ -70,15 +71,132 @@ def service_wait(timeout: int = 30) -> bool:
 
 # --- Database Backup/Restore --------------------------------------------------
 
+def sudo_run(args, **kwargs):
+    return subprocess.run(["sudo", "-n", *map(str, args)], check=True, **kwargs)
+
+
+def fs_exists(path: Path) -> bool:
+    if not SUDO_FS:
+        return path.exists()
+    return subprocess.run(["sudo", "-n", "test", "-e", str(path)]).returncode == 0
+
+
+def fs_unlink(path: Path) -> None:
+    if not fs_exists(path):
+        return
+    if SUDO_FS:
+        sudo_run(["rm", "-f", path])
+    else:
+        path.unlink()
+
+
+def fs_rmtree(path: Path) -> None:
+    if not fs_exists(path):
+        return
+    if SUDO_FS:
+        sudo_run(["rm", "-rf", path])
+    else:
+        import shutil
+        shutil.rmtree(path)
+
+
+def fs_move(source: Path, target: Path) -> None:
+    if not fs_exists(source):
+        return
+    if SUDO_FS:
+        if fs_exists(target):
+            fs_rmtree(target) if target == ATTACHMENT_BACKUP or target == ATTACHMENT_DIR else fs_unlink(target)
+        sudo_run(["mv", source, target])
+        sudo_run(["chown", "-R", f"{SERVICE_USER}:{SERVICE_USER}", target])
+    else:
+        import shutil
+        shutil.move(str(source), str(target))
+
+
+def db_python(script: str, *, parse_json: bool = False):
+    cmd = ["python3", "-c", script, str(DB_PATH)]
+    if SUDO_FS:
+        cmd = ["sudo", "-n", *cmd]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    if parse_json:
+        return json.loads(result.stdout.strip() or "null")
+    return result
+
+
+def db_script(body: str):
+    return f"""
+import json, sqlite3, sys
+path = sys.argv[1]
+with sqlite3.connect(path) as db:
+    db.row_factory = sqlite3.Row
+{body}
+"""
+
+
+EMAIL_CONFIG_VALUES = {
+    "public_base_url": "https://todo.example.invalid",
+    "smtp_enabled": "true",
+    "smtp_host": "127.0.0.1",
+    "smtp_port": "9",
+    "smtp_security": "none",
+    "smtp_auth_enabled": "false",
+    "smtp_username": "",
+    "smtp_password_secret": "",
+    "mail_from_address": "todo@example.invalid",
+    "mail_from_name": "nia-todo",
+    "mail_reply_to": "",
+    "password_link_ttl_hours": "24",
+}
+EMAIL_CONFIG_KEYS = tuple(EMAIL_CONFIG_VALUES.keys())
+
+
+def db_upsert_config(values: dict[str, str]) -> None:
+    db_python(db_script(f"""
+    values = {json.dumps(values)}
+    for key, value in values.items():
+        db.execute(
+            '''INSERT INTO app_config (key, value, updated_at)
+               VALUES (?, ?, datetime('now'))
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')''',
+            (key, value),
+        )
+    db.commit()
+"""))
+
+
+def db_delete_config(keys: tuple[str, ...]) -> None:
+    db_python(db_script(f"""
+    for key in {json.dumps(list(keys))}:
+        db.execute("DELETE FROM app_config WHERE key = ?", (key,))
+    db.commit()
+"""))
+
+
+def db_scalar(sql: str):
+    return db_python(db_script(f"""
+    row = db.execute({json.dumps(sql)}).fetchone()
+    print(json.dumps(row[0] if row else None))
+"""), parse_json=True)
+
+
+def db_execute(sql: str) -> None:
+    db_python(db_script(f"""
+    db.execute({json.dumps(sql)})
+    db.commit()
+"""))
+
+
 def dev_db_user_count(path=DB_PATH):
     """Return current users count, -1 when schema has no users table, or None when DB is absent."""
-    if not path.exists():
+    if not fs_exists(path):
         return None
-    with sqlite3.connect(path) as db:
-        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if "users" not in tables:
-            return -1
-        return db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    return db_python(db_script("""
+    tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "users" not in tables:
+        print(json.dumps(-1))
+    else:
+        print(json.dumps(db.execute("SELECT COUNT(*) FROM users").fetchone()[0]))
+"""), parse_json=True)
 
 
 def assert_restorable_dev_db(path=DB_PATH, context="backup"):
@@ -95,43 +213,39 @@ def assert_restorable_dev_db(path=DB_PATH, context="backup"):
 def db_backup():
     """Backup existing database after stopping the service and checkpointing SQLite WAL."""
     service_stop()
-    if DB_PATH.exists():
-        with sqlite3.connect(DB_PATH) as db:
-            db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            check = db.execute("PRAGMA quick_check").fetchone()[0]
-            if check != "ok":
-                raise RuntimeError(f"DB quick_check failed before backup: {check}")
+    if fs_exists(DB_PATH):
+        check = db_python(db_script("""
+    db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    print(json.dumps(db.execute("PRAGMA quick_check").fetchone()[0]))
+"""), parse_json=True)
+        if check != "ok":
+            raise RuntimeError(f"DB quick_check failed before backup: {check}")
         assert_restorable_dev_db(DB_PATH, "Backend test DB backup")
         for sidecar in (DB_WAL, DB_SHM):
-            if sidecar.exists():
-                sidecar.unlink()
-        if DB_BACKUP.exists():
-            DB_BACKUP.unlink()
-        shutil.move(str(DB_PATH), str(DB_BACKUP))
+            fs_unlink(sidecar)
+        fs_unlink(DB_BACKUP)
+        fs_move(DB_PATH, DB_BACKUP)
         print(f"  💾 DB backed up: {DB_BACKUP}")
     else:
         print("  ℹ️  No existing DB to back up")
-    if ATTACHMENT_BACKUP.exists():
-        shutil.rmtree(ATTACHMENT_BACKUP)
-    if ATTACHMENT_DIR.exists():
-        shutil.move(str(ATTACHMENT_DIR), str(ATTACHMENT_BACKUP))
+    fs_rmtree(ATTACHMENT_BACKUP)
+    if fs_exists(ATTACHMENT_DIR):
+        fs_move(ATTACHMENT_DIR, ATTACHMENT_BACKUP)
         print(f"  💾 Attachments backed up: {ATTACHMENT_BACKUP}")
 
 def db_restore():
     """Restore original database from backup."""
     service_stop()
     for path in (DB_PATH, DB_WAL, DB_SHM):
-        if path.exists():
-            path.unlink()
-    if DB_BACKUP.exists():
-        shutil.move(str(DB_BACKUP), str(DB_PATH))
+        fs_unlink(path)
+    if fs_exists(DB_BACKUP):
+        fs_move(DB_BACKUP, DB_PATH)
         print(f"  🔄 DB restored: {DB_PATH}")
     else:
         print("  ⚠️  No backup to restore")
-    if ATTACHMENT_DIR.exists():
-        shutil.rmtree(ATTACHMENT_DIR)
-    if ATTACHMENT_BACKUP.exists():
-        shutil.move(str(ATTACHMENT_BACKUP), str(ATTACHMENT_DIR))
+    fs_rmtree(ATTACHMENT_DIR)
+    if fs_exists(ATTACHMENT_BACKUP):
+        fs_move(ATTACHMENT_BACKUP, ATTACHMENT_DIR)
         print(f"  🔄 Attachments restored: {ATTACHMENT_DIR}")
     assert_restorable_dev_db(DB_PATH, "Backend test DB restore")
     service_start()
@@ -140,8 +254,7 @@ def db_restore():
 def db_reset():
     """Remove any existing DB for fresh start."""
     for path in (DB_PATH, DB_WAL, DB_SHM):
-        if path.exists():
-            path.unlink()
+        fs_unlink(path)
     print("  🗑️  Old DB removed")
 
 # --- HTTP Helper --------------------------------------------------------------
@@ -510,41 +623,15 @@ class TestSuite:
 
 
     def test_password_reset_requires_verified_email(self):
-        with sqlite3.connect(DB_PATH) as db:
-            for key, value in {
-                "public_base_url": "https://todo.example.invalid",
-                "smtp_enabled": "true",
-                "smtp_host": "127.0.0.1",
-                "smtp_port": "9",
-                "smtp_security": "none",
-                "smtp_auth_enabled": "false",
-                "smtp_username": "",
-                "smtp_password_secret": "",
-                "mail_from_address": "todo@example.invalid",
-                "mail_from_name": "nia-todo",
-                "mail_reply_to": "",
-                "password_link_ttl_hours": "24",
-            }.items():
-                db.execute(
-                    """INSERT INTO app_config (key, value, updated_at)
-                       VALUES (?, ?, datetime('now'))
-                       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')""",
-                    (key, value),
-                )
-            db.commit()
+        db_upsert_config(EMAIL_CONFIG_VALUES)
         status, data = curl("POST", "/api/password-setup/request", {"identifier": "testuser"}, cookie_jar="/tmp/nia_reset_verified_cookies.txt")
-        with sqlite3.connect(DB_PATH) as db:
-            row = db.execute(
-                """SELECT COUNT(*) FROM password_setup_tokens pst
+        token_count = db_scalar("""SELECT COUNT(*) FROM password_setup_tokens pst
                    JOIN users u ON u.id = pst.user_id
-                   WHERE u.username = 'testuser' AND pst.purpose = 'reset'"""
-            ).fetchone()
-            for key in ("public_base_url", "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_auth_enabled", "smtp_username", "smtp_password_secret", "mail_from_address", "mail_from_name", "mail_reply_to", "password_link_ttl_hours"):
-                db.execute("DELETE FROM app_config WHERE key = ?", (key,))
-            db.commit()
+                   WHERE u.username = 'testuser' AND pst.purpose = 'reset'""")
+        db_delete_config(EMAIL_CONFIG_KEYS)
         message = data.get("message", "") if data else ""
         neutral_message = any(fragment in message for fragment in ("If an account matches", "Falls ein passendes Konto existiert"))
-        passed = ok(status) and neutral_message and row and row[0] == 0
+        passed = ok(status) and neutral_message and token_count == 0
         self.results["password_reset_requires_verified_email"] = {"status": status if not passed else 200, "passed": passed, "expected": "username reset does not create/send token for unverified email"}
         return passed
 
@@ -587,9 +674,8 @@ class TestSuite:
         return passed
 
     def test_instance_config_audit_written(self):
-        with sqlite3.connect(DB_PATH) as db:
-            row = db.execute("SELECT changed_keys FROM app_config_audit ORDER BY id DESC LIMIT 1").fetchone()
-        passed = bool(row and "allowed_origins" in row[0] and "trusted_proxies" in row[0])
+        changed_keys = db_scalar("SELECT changed_keys FROM app_config_audit ORDER BY id DESC LIMIT 1")
+        passed = bool(changed_keys and "allowed_origins" in changed_keys and "trusted_proxies" in changed_keys)
         self.results["instance_config_audit_written"] = {"status": 200 if passed else 500, "passed": passed, "expected": "audit row for config change"}
         return passed
 
@@ -713,7 +799,10 @@ class TestSuite:
 
     def test_set_trusted_proxies_script(self):
         cmd = ["python3", str(BASE / "api" / "set_trusted_proxies.py"), "127.0.0.1", "10.0.10.0/24", "--json"]
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(BASE), env={**os.environ, "NIA_TODO_DB": DB_NAME, "NIA_TODO_DATA_DIR": str(DATA_DIR)})
+        env = {**os.environ, "NIA_TODO_DB": DB_NAME, "NIA_TODO_DATA_DIR": str(DATA_DIR)}
+        if SUDO_FS:
+            cmd = ["sudo", "-n", "env", *[f"{key}={value}" for key, value in env.items() if key.startswith("NIA_TODO_")], *cmd]
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(BASE), env=env)
         if r.returncode != 0:
             self.results["set_trusted_proxies_script"] = {"status": r.returncode, "passed": False, "expected": 0, "error": r.stderr.strip()}
             return False
@@ -863,9 +952,7 @@ class TestSuite:
         user_id = data.get("id")
         self.created_ids["user"].append(user_id)
         old_token = parse_qs(urlparse(data.get("password_setup_url", "")).query).get("token", [None])[0]
-        with sqlite3.connect(DB_PATH) as db:
-            db.execute("UPDATE password_setup_tokens SET expires_at = datetime('now', '-1 hour') WHERE user_id = ? AND purpose = 'invite'", (user_id,))
-            db.commit()
+        db_execute(f"UPDATE password_setup_tokens SET expires_at = datetime('now', '-1 hour') WHERE user_id = {int(user_id)} AND purpose = 'invite'")
         validate_status, validate_data = curl("GET", f"/api/password-setup/validate?token={old_token}")
         resend_status, _ = curl("POST", "/api/password-setup/resend", {"token": old_token}, cookie_jar="/tmp/nia_resend_cookies.txt")
         passed = (
@@ -882,33 +969,9 @@ class TestSuite:
         if not user_id:
             self.results["admin_password_link_unverified_email_uses_manual_delivery"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
-        with sqlite3.connect(DB_PATH) as db:
-            for key, value in {
-                "public_base_url": "https://todo.example.invalid",
-                "smtp_enabled": "true",
-                "smtp_host": "127.0.0.1",
-                "smtp_port": "9",
-                "smtp_security": "none",
-                "smtp_auth_enabled": "false",
-                "smtp_username": "",
-                "smtp_password_secret": "",
-                "mail_from_address": "todo@example.invalid",
-                "mail_from_name": "nia-todo",
-                "mail_reply_to": "",
-                "password_link_ttl_hours": "24",
-            }.items():
-                db.execute(
-                    """INSERT INTO app_config (key, value, updated_at)
-                       VALUES (?, ?, datetime('now'))
-                       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')""",
-                    (key, value),
-                )
-            db.commit()
+        db_upsert_config(EMAIL_CONFIG_VALUES)
         link_status, link_data = curl("POST", f"/api/admin/users/{user_id}/password-link", {}, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt", headers={"X-Forwarded-For": "198.51.100.21"})
-        with sqlite3.connect(DB_PATH) as db:
-            for key in ("public_base_url", "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_auth_enabled", "smtp_username", "smtp_password_secret", "mail_from_address", "mail_from_name", "mail_reply_to", "password_link_ttl_hours"):
-                db.execute("DELETE FROM app_config WHERE key = ?", (key,))
-            db.commit()
+        db_delete_config(EMAIL_CONFIG_KEYS)
         passed = ok(link_status) and link_data and link_data.get("password_setup_delivery") == "manual" and bool(link_data.get("password_setup_url"))
         self.results["admin_password_link_unverified_email_uses_manual_delivery"] = {"status": link_status, "passed": passed, "expected": "admin reset link for unverified email returns manual delivery even when SMTP is enabled"}
         return passed

@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
-import { withFreshDb, launchPage, BASE_URL, DB_PATH, ADMIN_PASSWORD } from './frontend_test_lib.mjs';
+import { withFreshDb, launchPage, BASE_URL, DB_PATH, ADMIN_PASSWORD, sqlitePython } from './frontend_test_lib.mjs';
 
 function expireSetupTokenForUser(username) {
-  execFileSync('python3', ['-c', `
+  sqlitePython(`
 import sqlite3
 conn = sqlite3.connect(${JSON.stringify(DB_PATH)})
 conn.execute("""
@@ -15,7 +14,7 @@ WHERE user_id = (SELECT id FROM users WHERE username = ?)
 """, (${JSON.stringify(username)},))
 conn.commit()
 conn.close()
-`], { stdio: 'pipe' });
+`);
 }
 
 async function run() {

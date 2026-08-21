@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
-import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD, DB_PATH } from './frontend_test_lib.mjs';
+import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD, DB_PATH, sqlitePython } from './frontend_test_lib.mjs';
 
 async function installTauriStub(page, settings, options = {}) {
   if (options.userAgent) {
@@ -543,7 +542,7 @@ async function testNativeLoginChromeIsCompact() {
 }
 
 async function testNativeRuntimeUsesConfiguredServerUrl() {
-  execFileSync('python3', ['-c', `import sqlite3\ndb=sqlite3.connect(${JSON.stringify(DB_PATH)})\ndb.execute("UPDATE users SET avatar_url='/api/avatars/user-1.webp', avatar_updated_at='2026-05-24 15:45:00' WHERE username=?", (${JSON.stringify(USERNAME)},))\ndb.commit()\ndb.close()`]);
+  sqlitePython(`import sqlite3\ndb=sqlite3.connect(${JSON.stringify(DB_PATH)})\ndb.execute("UPDATE users SET avatar_url='/api/avatars/user-1.webp', avatar_updated_at='2026-05-24 15:45:00' WHERE username=?", (${JSON.stringify(USERNAME)},))\ndb.commit()\ndb.close()`);
   const { browser, page, dumpErrors } = await launchPage();
   try {
     await installTauriStub(page, { serverUrl: BASE_URL });
