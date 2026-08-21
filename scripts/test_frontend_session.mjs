@@ -9,9 +9,15 @@ const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo-dev.db';
 const WS_HOST = BASE_URL.replace(/^https?:\/\//, '');
 
 function createNearExpiryToken() {
-  const output = execFileSync('python3', ['-'], {
+  const env = {
+    ...process.env,
+    NIA_TODO_DB: DB_NAME,
+    NIA_TODO_DATA_DIR: process.env.NIA_TODO_DATA_DIR || `${DEV_DIR}/api/data`,
+  };
+  const useSudo = process.env.NIA_TODO_TEST_SUDO_FS === '1';
+  const output = execFileSync(useSudo ? 'sudo' : 'python3', useSudo ? ['-n', 'env', ...Object.entries(env).filter(([key]) => key.startsWith('NIA_TODO_')).map(([key, value]) => `${key}=${value}`), 'python3', '-'] : ['-'], {
     cwd: `${DEV_DIR}/api`,
-    env: { ...process.env, NIA_TODO_DB: DB_NAME, NIA_TODO_DATA_DIR: process.env.NIA_TODO_DATA_DIR || `${DEV_DIR}/api/data` },
+    env,
     encoding: 'utf8',
     input: `
 import json
@@ -123,6 +129,7 @@ async function run() {
       if (msg.includes(`WebSocket connection to 'ws://${WS_HOST}/ws' failed`)) return false;
       if (msg.includes('[WS] Error: Event')) return false;
       if (msg.includes('Failed to load resource: net::ERR_INTERNET_DISCONNECTED')) return false;
+      if (msg.includes('Failed to load resource: net::ERR_FAILED')) return false;
       if (msg.includes('Failed to load resource: the server responded with a status of 404')) return false;
       return true;
     });

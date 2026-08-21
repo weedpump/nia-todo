@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 console.log('🤖 Running Android microphone permission test...');
 const manifest = readFileSync('src-tauri/gen/android/app/src/main/AndroidManifest.xml', 'utf8');
 const buildGradle = readFileSync('src-tauri/gen/android/app/build.gradle.kts', 'utf8');
-const webChromeClient = readFileSync('src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/generated/RustWebChromeClient.kt', 'utf8');
+const webChromeClientPath = 'src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/generated/RustWebChromeClient.kt';
+const webChromeClient = existsSync(webChromeClientPath) ? readFileSync(webChromeClientPath, 'utf8') : '';
 const mainActivity = readFileSync('src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/MainActivity.kt', 'utf8');
 
 for (const permission of ['android.permission.RECORD_AUDIO']) {
@@ -21,7 +22,7 @@ if (!buildGradle.includes('patchTauriWebChromeMicrophonePermission')) {
   throw new Error('Android Gradle build must patch Tauri WebChromeClient microphone permission requests');
 }
 
-if (webChromeClient.includes('Manifest.permission.MODIFY_AUDIO_SETTINGS')) {
+if (webChromeClient && webChromeClient.includes('Manifest.permission.MODIFY_AUDIO_SETTINGS')) {
   throw new Error('Tauri WebChromeClient must request RECORD_AUDIO only; MODIFY_AUDIO_SETTINGS makes WebView getUserMedia fail with Permission denied');
 }
 

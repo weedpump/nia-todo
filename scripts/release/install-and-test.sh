@@ -29,6 +29,9 @@ export NIA_TODO_DATA_DIR="${DATA_DIR}"
 export NIA_TODO_DB_NAME="nia-todo.db"
 export NIA_TODO_SERVICE="${SERVICE}"
 export NIA_TODO_URL="http://localhost:${PORT}"
+export NIA_TODO_TEST_SUDO_FS=1
+export NIA_TODO_TEST_SERVICE_USER="${SERVICE}"
+export NIA_TODO_ALLOW_EMPTY_DEV_DB_BACKUP=1
 
 echo "⏳ Waiting for ${SERVICE} on port ${PORT}..."
 for _ in $(seq 1 60); do

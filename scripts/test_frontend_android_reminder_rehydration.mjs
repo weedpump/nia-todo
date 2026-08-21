@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
-import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD, DB_PATH } from './frontend_test_lib.mjs';
+import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD, DB_PATH, sqlitePython } from './frontend_test_lib.mjs';
 
 function createExistingReminderTodo(title) {
   const remindAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -22,7 +21,7 @@ conn.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?, ?, 
 conn.commit()
 print(json.dumps({"id": todo_id, "title": ${JSON.stringify(title)}, "remind_at": ${JSON.stringify(remindAt)}}))
 `;
-  return JSON.parse(execFileSync('python3', ['-c', script], { encoding: 'utf8' }));
+  return JSON.parse(sqlitePython(script, { encoding: 'utf8' }));
 }
 
 async function installAndroidNativeStub(page) {
