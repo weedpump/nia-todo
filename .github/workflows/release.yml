@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   prepare-version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -86,7 +86,7 @@ jobs:
 
   test:
     needs: [prepare-version, build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,7 +121,7 @@ jobs:
 
   publish:
     needs: [prepare-version, build, test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       VERSION: ${{ needs.prepare-version.outputs.version }}
       TAG: ${{ needs.prepare-version.outputs.tag }}
