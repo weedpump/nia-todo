@@ -92,7 +92,7 @@ jobs:
         run: |
           mkdir -p dist/ci-windows
           cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe dist/ci-windows/nia-todo-ci-windows-x64-setup.exe
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-windows
           retention-days: 7
@@ -156,7 +156,7 @@ jobs:
           unset ANDROID_KEYSTORE_PASS
       - if: always()
         run: rm -rf secrets
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-android
           retention-days: 7
@@ -188,7 +188,7 @@ jobs:
           mkdir -p dist/ci-debian-desktop
           BUILT="$(scripts/release/repack-native-debian-deb.sh src-tauri/target/release/bundle/deb/nia-todo_*_amd64.deb)"
           cp "${BUILT}" dist/ci-debian-desktop/nia-todo-desktop-amd64.deb
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-debian-desktop
           retention-days: 7
@@ -313,7 +313,7 @@ jobs:
             --output-dir "dist/release/build-${{ github.sha }}" \
             --force
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: inputs.build_server_deb
         with:
           name: server-deb
