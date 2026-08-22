@@ -62,13 +62,8 @@ def test_embed_native_downloads_decouples_web_and_native_versions():
 
 
 def test_release_scripts_expose_native_app_version_flow():
-    public_release = (ROOT / "scripts/release/public-release.sh").read_text(encoding="utf-8")
     full_bundle = (ROOT / "scripts/release/build-full-bundle.sh").read_text(encoding="utf-8")
     docker_build = (ROOT / "scripts/release/build-docker.sh").read_text(encoding="utf-8")
-
-    assert "--native-app-version" in public_release
-    assert "--debian-deb" in public_release
-    assert "BUNDLE_ARGS" in public_release and "DOCKER_ARGS" in public_release
 
     for label, text in (("full-bundle", full_bundle), ("docker", docker_build)):
         assert "--native-app-version" in text, f"{label} must accept native app version"
@@ -80,7 +75,6 @@ def test_release_shell_syntax():
     subprocess.run(
         [
             "bash", "-n",
-            "scripts/release/public-release.sh",
             "scripts/release/build-full-bundle.sh",
             "scripts/release/build-docker.sh",
             "scripts/release/stage-package-source.sh",
