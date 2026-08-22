@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release
@@ -91,7 +92,7 @@ jobs:
         with:
           ref: ${{ needs.prepare-version.outputs.bump_commit }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "npm"
