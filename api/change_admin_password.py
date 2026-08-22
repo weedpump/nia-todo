@@ -32,19 +32,32 @@ except Exception as exc:  # pragma: no cover - startup failure path
     sys.exit(1)
 
 
+_PASSWORD_ERROR_MESSAGES = {
+    "too_short": "Password must be at least 12 characters long",
+    "no_upper": "Password must contain at least one uppercase letter",
+    "no_lower": "Password must contain at least one lowercase letter",
+    "no_digit": "Password must contain at least one digit",
+    "no_special": "Password must contain at least one special character",
+}
+
+
 def validate_admin_password(password: str) -> str:
-    """Admin passwords require at least 12 characters and mixed character classes."""
+    """Admin passwords require at least 12 characters and mixed character classes.
+
+    Returns an error code (not the password-derived content) so callers never
+    log or print anything reachable from the password value itself.
+    """
     if len(password) < 12:
-        return "Password must be at least 12 characters long"
+        return "too_short"
     if not re.search(r"[A-Z]", password):
-        return "Password must contain at least one uppercase letter"
+        return "no_upper"
     if not re.search(r"[a-z]", password):
-        return "Password must contain at least one lowercase letter"
+        return "no_lower"
     if not re.search(r"\d", password):
-        return "Password must contain at least one digit"
+        return "no_digit"
     special_chars = r"!@#$%^&*()_+-=[]{};'\\|,.\/<>?"
     if not any(char in special_chars for char in password):
-        return "Password must contain at least one special character"
+        return "no_special"
     return ""
 
 
@@ -170,15 +183,15 @@ def main() -> int:
     print()
 
     new_password = read_password(args.password_stdin, args.yes)
-    error = validate_admin_password(new_password)
-    if error:
-        print(f"❌ {error}", file=sys.stderr)
+    error_code = validate_admin_password(new_password)
+    if error_code:
+        print(f"❌ {_PASSWORD_ERROR_MESSAGES[error_code]}", file=sys.stderr)
         return 1
 
     try:
         reset_admin_password(database, new_password)
     except Exception as exc:
-        print(f"❌ Admin password reset failed: {exc}", file=sys.stderr)
+        print(f"❌ Admin password reset failed: {type(exc).__name__}", file=sys.stderr)
         return 1
 
     print("✅ Admin password updated.")
