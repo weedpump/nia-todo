@@ -183,13 +183,7 @@ For Android passkey changes, verify that `/.well-known/assetlinks.json` still se
 
 ### BrainDump audio/STT
 
-For audio/STT work, use controlled fixture recordings instead of making Tobi trial-and-error test core flows. Prefer replay/probe scripts such as:
-
-- `python3 scripts/braindump_audio_fixture_probe.py`
-- `python3 scripts/braindump_audio_replay_probe.py`
-- `python3 scripts/braindump_llm_latency_probe.py`
-- `python3 scripts/braindump_semantic_extractor_probe.py`
-- `python3 scripts/braindump_audio_fixture_e2e_probe.py`
+For audio/STT work, use controlled fixture recordings instead of making Tobi trial-and-error test core flows.
 
 ## Notes
 
