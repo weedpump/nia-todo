@@ -32,33 +32,31 @@ except Exception as exc:  # pragma: no cover - startup failure path
     sys.exit(1)
 
 
-_PASSWORD_ERROR_MESSAGES = {
-    "too_short": "Password must be at least 12 characters long",
-    "no_upper": "Password must contain at least one uppercase letter",
-    "no_lower": "Password must contain at least one lowercase letter",
-    "no_digit": "Password must contain at least one digit",
-    "no_special": "Password must contain at least one special character",
-}
-
-
-def validate_admin_password(password: str) -> str:
+def print_admin_password_error(password: str) -> bool:
     """Admin passwords require at least 12 characters and mixed character classes.
 
-    Returns an error code (not the password-derived content) so callers never
-    log or print anything reachable from the password value itself.
+    Prints a fixed, literal error message directly. No value derived from the
+    password is ever returned, stored, or interpolated, so no downstream code
+    path can log or display anything reachable from the password's contents.
+    Returns True if the password is invalid.
     """
     if len(password) < 12:
-        return "too_short"
+        print("❌ Password must be at least 12 characters long", file=sys.stderr)
+        return True
     if not re.search(r"[A-Z]", password):
-        return "no_upper"
+        print("❌ Password must contain at least one uppercase letter", file=sys.stderr)
+        return True
     if not re.search(r"[a-z]", password):
-        return "no_lower"
+        print("❌ Password must contain at least one lowercase letter", file=sys.stderr)
+        return True
     if not re.search(r"\d", password):
-        return "no_digit"
+        print("❌ Password must contain at least one digit", file=sys.stderr)
+        return True
     special_chars = r"!@#$%^&*()_+-=[]{};'\\|,.\/<>?"
     if not any(char in special_chars for char in password):
-        return "no_special"
-    return ""
+        print("❌ Password must contain at least one special character", file=sys.stderr)
+        return True
+    return False
 
 
 def parse_args() -> argparse.Namespace:
@@ -183,9 +181,7 @@ def main() -> int:
     print()
 
     new_password = read_password(args.password_stdin, args.yes)
-    error_code = validate_admin_password(new_password)
-    if error_code:
-        print(f"❌ {_PASSWORD_ERROR_MESSAGES[error_code]}", file=sys.stderr)
+    if print_admin_password_error(new_password):
         return 1
 
     try:
