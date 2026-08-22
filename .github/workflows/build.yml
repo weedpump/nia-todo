@@ -113,7 +113,7 @@ jobs:
         with: { python-version: "3.13" }
       - run: npm ci
       - uses: dtolnay/rust-toolchain@stable
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - run: sdkmanager --install "ndk;27.0.12077973" "build-tools;35.0.0"
       - name: Restore Android release keystore
         run: |
