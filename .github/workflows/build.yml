@@ -204,6 +204,9 @@ jobs:
       (inputs.build_docker || inputs.build_server_deb)
     needs: [build-windows, build-android, build-debian-desktop]
     runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
