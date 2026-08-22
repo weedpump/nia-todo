@@ -109,7 +109,7 @@ jobs:
         with: { distribution: "temurin", java-version: "21" }
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: "npm" }
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.13" }
       - run: npm ci
       - uses: dtolnay/rust-toolchain@stable
@@ -171,7 +171,7 @@ jobs:
           ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: "npm" }
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.13" }
       - run: npm ci
       - run: |
@@ -208,7 +208,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.13" }
 
       - name: Download freshly built native artifacts (if any were built)
