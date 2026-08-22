@@ -5,8 +5,8 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
-export const BASE_URL = process.env.NIA_TODO_URL || 'http://localhost:8754';
-export const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo-dev';
+export const BASE_URL = process.env.NIA_TODO_URL || 'http://localhost:8753';
+export const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo';
 export const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
 // sudo resets PATH to secure_path, so a bare "python3" would miss the app's
 // venv (and thus fastapi) when scripts import the app's own modules.
@@ -19,7 +19,7 @@ export const CURRENT_APP_VERSION = CONFIG_JS.match(/APP_VERSION\s*=\s*'v?([^']+)
 const CURRENT_APP_MAJOR = Number.parseInt(CURRENT_APP_VERSION.split('.')[0], 10);
 export const NEWER_TEST_APP_VERSION = `${CURRENT_APP_MAJOR + 1}.0.0-test`;
 const DATA_DIR = process.env.NIA_TODO_DATA_DIR || `${DEV_DIR}/api/data`;
-const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo-dev.db';
+const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo.db';
 export const DB_PATH = `${DATA_DIR}/${DB_NAME}`;
 export const DB_BACKUP = `${DATA_DIR}/${DB_NAME}.frontend-test-backup`;
 export const DB_SUITE_BACKUP = `${DATA_DIR}/${DB_NAME}.frontend-suite-backup`;

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { withFreshDb, launchPage, BASE_URL, APP_PYTHON } from './frontend_test_lib.mjs';
 
 const DEV_DIR = process.env.NIA_TODO_DEV_DIR || dirname(dirname(fileURLToPath(import.meta.url)));
-const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo-dev.db';
+const DB_NAME = process.env.NIA_TODO_DB_NAME || 'nia-todo.db';
 const WS_HOST = BASE_URL.replace(/^https?:\/\//, '');
 
 function createNearExpiryToken() {

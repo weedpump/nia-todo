@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "python3 scripts/prepare_tauri_frontend_dist.py",
-    "devUrl": "http://localhost:8754",
+    "devUrl": "http://localhost:8753",
     "frontendDist": "frontend-dist"
   },
   "app": {

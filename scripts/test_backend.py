@@ -25,10 +25,10 @@ from typing import Optional, Tuple, Any
 # --- Configuration ------------------------------------------------------------
 
 BASE = Path(os.environ.get("NIA_TODO_DEV_DIR", Path(__file__).resolve().parent.parent))
-SERVICE = os.environ.get("NIA_TODO_SERVICE", "nia-todo-dev")
-URL = os.environ.get("NIA_TODO_URL", "http://localhost:8754")
+SERVICE = os.environ.get("NIA_TODO_SERVICE", "nia-todo")
+URL = os.environ.get("NIA_TODO_URL", "http://localhost:8753")
 DATA_DIR = Path(os.environ.get("NIA_TODO_DATA_DIR", str(BASE / "api" / "data")))
-DB_NAME = os.environ.get("NIA_TODO_DB_NAME", "nia-todo-dev.db")
+DB_NAME = os.environ.get("NIA_TODO_DB_NAME", "nia-todo.db")
 URL_HOST = urlparse(URL).netloc
 DB_PATH = DATA_DIR / DB_NAME
 DB_BACKUP = DATA_DIR / f"{DB_NAME}.backup"

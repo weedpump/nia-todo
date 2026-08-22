@@ -12,7 +12,7 @@ nia-todo has many regression scripts. The default gate is intentionally release-
   - no DB/static checks
   - one shared fresh frontend DB for representative core UI flows
   - isolated fresh DBs for setup/auth/offline/realtime/native-runtime flows
-- Before real frontend/backend test runs or builds in the dev project, back up `api/data/nia-todo-dev.db`; after long gates verify the dev DB still has users and was not left as the `frontenduser` test DB.
+- Before real frontend/backend test runs or builds, back up the installed DB (`/var/lib/nia-todo/nia-todo.db`); after long gates verify it still has users and was not left as the `frontenduser` test DB.
 - Probe/manual scripts that require external services, configured LLMs, real audio tooling, or operator judgment must not be named as `scripts/test_*` unless they are part of the maintained automated test surface.
 
 ## Commands
@@ -193,4 +193,4 @@ For audio/STT work, use controlled fixture recordings instead of making Tobi tri
 - `NIA_TODO_FRONTEND_DB_SHARED=1` tells `withFreshDb` to reuse the already prepared shared test DB instead of creating an isolated DB.
 - Review subagents should not run full gates by default. They may run static/syntax checks or a focused suite only when explicitly requested.
 - `web/manifest.json` and `src-tauri/frontend-dist/` are maintained by the dev/release flow; source tests generally target `web/` unless a native packaging test says otherwise.
-- In CI, `install-and-test.sh` runs the release gate against the real installed `.deb` service, owned by the `nia-todo`/`nia-todo-dev` system user rather than the CI runner user (`NIA_TODO_TEST_SUDO_FS=1`). Scripts touching that data use `sudo -n` for filesystem operations and must use the app's venv Python explicitly (`APP_PYTHON` in `frontend_test_lib.mjs`, similar constant in `test_backend.py`) - a bare `python3` under `sudo -n` loses the venv from `PATH` and misses `fastapi`. New DB-touching test scripts must set `NIA_TODO_DATA_DIR` themselves rather than relying on the ambient environment, or they'll target the real service data dir.
+- In CI, `install-and-test.sh` runs the release gate against the real installed `.deb` service, owned by the `nia-todo` system user rather than the CI runner user (`NIA_TODO_TEST_SUDO_FS=1`). Scripts touching that data use `sudo -n` for filesystem operations and must use the app's venv Python explicitly (`APP_PYTHON` in `frontend_test_lib.mjs`, similar constant in `test_backend.py`) - a bare `python3` under `sudo -n` loses the venv from `PATH` and misses `fastapi`. New DB-touching test scripts must set `NIA_TODO_DATA_DIR` themselves rather than relying on the ambient environment, or they'll target the real service data dir.
