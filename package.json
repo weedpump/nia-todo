@@ -17,7 +17,7 @@
     "test:ui": "node scripts/test_frontend_touch_zoom_lock.mjs"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.2",
+    "@tauri-apps/cli": "^2.11.4",
     "lucide": "^1.20.0",
     "playwright": "^1.62.1"
   },
