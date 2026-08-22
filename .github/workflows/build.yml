@@ -67,6 +67,10 @@ concurrency:
   group: build-${{ github.ref }}-${{ inputs.version }}
   cancel-in-progress: ${{ inputs.version == '' }}
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-windows:
     if: inputs.build_windows
