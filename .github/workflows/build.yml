@@ -79,7 +79,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "22", cache: "npm" }
       - run: npm ci
       - run: |
@@ -96,7 +96,7 @@ jobs:
         run: |
           mkdir -p dist/ci-windows
           cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe dist/ci-windows/nia-todo-ci-windows-x64-setup.exe
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-windows
           retention-days: 7
@@ -111,7 +111,7 @@ jobs:
           ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-java@v4
         with: { distribution: "temurin", java-version: "21" }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "22", cache: "npm" }
       - uses: actions/setup-python@v5
         with: { python-version: "3.13" }
@@ -160,7 +160,7 @@ jobs:
           unset ANDROID_KEYSTORE_PASS
       - if: always()
         run: rm -rf secrets
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-android
           retention-days: 7
@@ -173,7 +173,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "22", cache: "npm" }
       - uses: actions/setup-python@v5
         with: { python-version: "3.13" }
@@ -192,7 +192,7 @@ jobs:
           mkdir -p dist/ci-debian-desktop
           BUILT="$(scripts/release/repack-native-debian-deb.sh src-tauri/target/release/bundle/deb/nia-todo_*_amd64.deb)"
           cp "${BUILT}" dist/ci-debian-desktop/nia-todo-desktop-amd64.deb
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-debian-desktop
           retention-days: 7
@@ -208,6 +208,9 @@ jobs:
       (inputs.build_docker || inputs.build_server_deb)
     needs: [build-windows, build-android, build-debian-desktop]
     runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -264,7 +267,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "22", cache: "npm" }
       - run: npm ci
 
@@ -314,7 +317,7 @@ jobs:
             --output-dir "dist/release/build-${{ github.sha }}" \
             --force
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: inputs.build_server_deb
         with:
           name: server-deb
