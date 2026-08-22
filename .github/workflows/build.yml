@@ -72,7 +72,7 @@ jobs:
     if: inputs.build_windows
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-node@v4
@@ -102,7 +102,7 @@ jobs:
     if: inputs.build_android
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-java@v4
@@ -166,7 +166,7 @@ jobs:
     if: inputs.build_debian_desktop
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-node@v4
@@ -205,7 +205,7 @@ jobs:
     needs: [build-windows, build-android, build-debian-desktop]
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-python@v5

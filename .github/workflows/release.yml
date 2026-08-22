@@ -31,7 +31,7 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       bump_commit: ${{ steps.bump.outputs.commit }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -87,7 +87,7 @@ jobs:
     needs: [prepare-version, build]
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-version.outputs.bump_commit }}
 
@@ -125,7 +125,7 @@ jobs:
       VERSION: ${{ needs.prepare-version.outputs.version }}
       TAG: ${{ needs.prepare-version.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-version.outputs.bump_commit }}
 
