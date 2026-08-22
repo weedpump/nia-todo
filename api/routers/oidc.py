@@ -532,4 +532,4 @@ def oidc_callback(code: str = "", state: str = "", error: str = "", error_descri
         logger.exception("OIDC callback crashed")
         redirect_to = state_row.get("redirect_after") if state_row else "/"
         error_kind = "admin" if state_row and state_row.get("purpose") in {"admin_login", "admin_link"} else "user"
-        return _error_html(f"OIDC callback failed: {exc}", redirect_to=redirect_to or "/", kind=error_kind)
+        return _error_html("OIDC callback failed. Please try signing in again.", redirect_to=redirect_to or "/", kind=error_kind)
