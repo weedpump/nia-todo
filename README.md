@@ -6,6 +6,8 @@ Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Win
 
 nia-todo is designed for private self-hosting: install the server, open the web app, then download the bundled native apps directly from your own instance.
 
+🌐 **[nia-todo.homelabdiary.dev](https://nia-todo.homelabdiary.dev)** — website, screenshots, and full documentation.
+
 ## 📸 Screenshots
 
 <p align="center">
@@ -119,185 +121,35 @@ Bundled native client filenames use the shared release version:
 - `nia-todo-vX.Y.Z-android-arm64.apk`
 - `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`
 
-## 🚀 Debian/Ubuntu installation
+## 🚀 Getting started
 
-Download the full server bundle from the release page, then install it:
+Full installation, configuration, and operations instructions live on the website — this keeps one authoritative copy instead of duplicating steps that drift out of sync:
+
+- **[Docker](https://nia-todo.homelabdiary.dev/docs/install/docker)** — recommended for most self-hosters and container platforms
+- **[Debian/Ubuntu package](https://nia-todo.homelabdiary.dev/docs/install/debian)** — systemd service, backup timer, in-app updates
+- **[Get started](https://nia-todo.homelabdiary.dev/docs/get-started)** — compare both options and finish initial setup
+- **[HTTPS / reverse proxy](https://nia-todo.homelabdiary.dev/docs/configure/reverse-proxy)**, **[Administration](https://nia-todo.homelabdiary.dev/docs/configure/administration)**, **[Security, 2FA & OIDC](https://nia-todo.homelabdiary.dev/docs/configure/security)**
+- **[Backup & restore](https://nia-todo.homelabdiary.dev/docs/operations/backups)**, **[Updates](https://nia-todo.homelabdiary.dev/docs/operations/updates)**, **[Troubleshooting](https://nia-todo.homelabdiary.dev/docs/troubleshooting)**
+
+Quick start for the impatient:
 
 ```bash
+# Docker
+docker run -d --name nia-todo --restart unless-stopped \
+  -p 8753:8753 -e NIA_TODO_HOST=auto -e NIA_TODO_PORT=8753 \
+  -v nia-todo-data:/data docker.io/weedpump/nia-todo:latest
+
+# Debian/Ubuntu
 sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 ```
 
-The package enables and starts the server automatically. Check it with:
-
-```bash
-sudo systemctl status nia-todo
-sudo journalctl -u nia-todo -f
-```
-
-Then open the setup page in your browser and create the initial admin account:
-
-```text
-http://YOUR-SERVER:8753/setup
-```
-
-After setup, open the app at:
-
-```text
-http://YOUR-SERVER:8753/
-```
-
-The admin panel is available at:
-
-```text
-http://YOUR-SERVER:8753/admin
-```
-
-Native app downloads are served by your own instance under:
-
-```text
-http://YOUR-SERVER:8753/downloads/
-```
-
-For production use, put nia-todo behind HTTPS/reverse proxy and set the public base URL in the admin panel. Passkeys and native app integrations rely on the public URL being correct. Native passkeys are supported on Windows and Android; Debian desktop passkey support is intentionally deferred.
-
-## 🔄 Updates
-
-Debian/systemd installations can be updated from the admin panel when a newer GitHub release is available.
-The server downloads the `.deb`, verifies the published SHA256 checksum, creates a pre-upgrade SQLite backup, installs the package through a restricted root helper, and restarts the service.
-
-Manual update still works:
-
-```bash
-sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
-```
-
-The package keeps existing runtime data and creates a pre-upgrade SQLite backup when a database exists.
-It also installs a daily systemd backup timer by default.
-
-Recommended before major upgrades:
-
-```bash
-sudo systemctl stop nia-todo
-sudo cp -a /var/lib/nia-todo /var/lib/nia-todo.backup.$(date +%Y%m%d-%H%M%S)
-sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
-```
-
-## 🐳 Docker
-
-Docker images are published to Docker Hub (`docker.io/weedpump/nia-todo`) and mirrored to GHCR (`ghcr.io/weedpump/nia-todo`). Docker installations are not self-updated from inside the nia-todo container. The admin panel can show that a newer release exists, but you update Docker by pulling the newest image and recreating the container/stack:
-
-```bash
-docker compose pull && docker compose up -d
-```
-
-Run the published image directly:
-
-```bash
-docker run -d \
-  --name nia-todo \
-  --restart unless-stopped \
-  -p 8753:8753 \
-  -e NIA_TODO_HOST=auto \
-  -e NIA_TODO_PORT=8753 \
-  -e NIA_TODO_DATA_DIR=/data \
-  -e NIA_TODO_DB=nia-todo.db \
-  -v nia-todo-data:/data \
-  docker.io/weedpump/nia-todo:latest
-```
-
-Or create a local `compose.yml` without cloning the source repository:
-
-```yaml
-services:
-  nia-todo:
-    image: docker.io/weedpump/nia-todo:latest
-    ports:
-      - "8753:8753"
-    environment:
-      NIA_TODO_HOST: auto
-      NIA_TODO_PORT: 8753
-      NIA_TODO_DATA_DIR: /data
-      NIA_TODO_DB: nia-todo.db
-    volumes:
-      - nia-todo-data:/data
-
-volumes:
-  nia-todo-data:
-```
-
-Then start it:
-
-```bash
-docker compose up -d
-```
-
-GHCR is also available as a mirror if you prefer GitHub Container Registry:
-
-```text
-ghcr.io/weedpump/nia-todo:latest
-```
-
-Default container data volume:
-
-```text
-/data
-```
-
-This volume contains the SQLite database, generated keys, avatars, backups, todo attachments (`/data/attachments`), and local runtime data. Keep it persistent.
-
-## 🧱 Default package layout
-
-- App: `/opt/nia-todo`
-- Data: `/var/lib/nia-todo`
-- Config: `/etc/nia-todo/nia-todo.env`
-- Service: `nia-todo.service`
-
-Useful commands:
-
-```bash
-sudo systemctl status nia-todo
-sudo systemctl status nia-todo-backup.timer
-sudo systemctl start nia-todo-backup.service
-sudo systemctl restart nia-todo
-sudo journalctl -u nia-todo -f
-```
-
-## ⚙️ Setup / operations
-
-- Initial setup: `/setup`
-- Admin panel: `/admin`
-- Native app downloads: `/downloads/`
-- Runtime data: `/var/lib/nia-todo`
-- Configuration: `/etc/nia-todo/nia-todo.env`
-
-For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the bundled app signature through `/.well-known/assetlinks.json`; Debian desktop passkey support is intentionally deferred.
-
-## 🔑 Reset the admin password
-
-If you lose the admin password, reset it directly on the server. The tool reads the configured database location automatically.
-
-Debian/systemd installation:
-
-```bash
-sudo nia-todo-admin-password-reset
-sudo systemctl restart nia-todo
-```
-
-Docker Compose installation:
-
-```bash
-docker compose exec nia-todo nia-todo-admin-password-reset
-```
-
-Plain Docker installation:
-
-```bash
-docker exec -it nia-todo nia-todo-admin-password-reset
-```
-
-The password must follow the normal admin password rules. Existing admin sessions are invalidated after the reset.
+Then open `http://YOUR-SERVER:8753/setup` to create the initial admin account. For production use, put nia-todo behind HTTPS and set the public base URL in the admin panel — passkeys and native app integrations rely on it.
 
 ## 📚 Documentation
+
+**User documentation** (install, configure, operate, native apps) lives on the [website](https://nia-todo.homelabdiary.dev/docs) — see "Getting started" above.
+
+**Developer documentation** stays close to the source:
 
 - [API documentation](docs/api.md)
 - [Architecture](docs/architecture.md)
@@ -309,39 +161,6 @@ The password must follow the normal admin password rules. Existing admin session
 ## 🧪 Development / source builds
 
 For normal self-hosting, use the release package or Docker image above. To build from source or contribute, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## 🗄️ Backup
-
-The Debian package installs an automatic daily backup timer by default:
-
-```bash
-sudo systemctl status nia-todo-backup.timer
-sudo systemctl start nia-todo-backup.service
-```
-
-Manual backup:
-
-```bash
-sudo nia-todo-backup
-```
-
-Manual restore:
-
-```bash
-sudo systemctl stop nia-todo
-sudo nia-todo-restore /var/lib/nia-todo/backups/nia-todo-YYYYMMDD-HHMMSS.zip
-sudo systemctl start nia-todo
-```
-
-For migrating an existing install, the simplest path is:
-
-1. Create a backup on the old install.
-2. Install the new package or start the new Docker deployment.
-3. Restore the backup into the new data directory.
-
-Runtime data lives in `/var/lib/nia-todo`. It contains the SQLite database, generated keys, avatars, todo attachments, backups, and local runtime data.
-
-Keep custom runtime paths such as `NIA_TODO_AVATAR_DIR`, `NIA_TODO_ATTACHMENT_DIR`, and `NIA_TODO_VAPID_KEYS` inside `NIA_TODO_DATA_DIR`; the packaged backup helper snapshots `NIA_TODO_DATA_DIR` plus a consistent SQLite backup and intentionally excludes the backup directory itself.
 
 ## 📄 License
 
