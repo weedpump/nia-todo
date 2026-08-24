@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Reworked the GitHub Actions build and release pipelines into separate test, package, and release workflows with independent native-client builds, tag-based releases, and Docker publishing to both GHCR and Docker Hub.
+- Applied grouped Dependabot updates across Python, Rust/Tauri, Playwright, and GitHub Actions dependencies.
+- Simplified development and packaging defaults around the single `nia-todo` instance and removed obsolete two-repository release and development-branding remnants.
+
+### Fixed
+- Improved server `.deb` installation across supported Python versions by preferring Python 3.13 for bundled wheels and falling back to an online dependency install when wheel ABIs do not match.
+- Fixed server package staging, checksum verification, restore ownership handling, and native Windows, Android, and Debian build dependencies in the release pipelines.
+- Made package and frontend tests use the installed service environment and isolated test data, avoiding accidental access to real service data.
+- Removed stale references to deleted release, migration, and BrainDump debug scripts from tooling and documentation.
+
+### Security
+- Hardened OIDC and password-related error handling so exception details and password-derived values cannot leak through HTML responses, logs, or command-line output.
+- Added explicit least-privilege permissions to GitHub Actions workflows and updated security-sensitive runtime and native dependencies.
+
 ## [3.0.2] - 2026-07-13
 
 ### Fixed
