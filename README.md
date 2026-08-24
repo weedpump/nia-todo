@@ -14,13 +14,20 @@ A modern, self-hosted todo app with offline support, collaboration, native clien
 [![Docker pulls](https://img.shields.io/docker/pulls/weedpump/nia-todo)](https://hub.docker.com/r/weedpump/nia-todo)
 ![Platforms](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20Android%20%7C%20Debian-lightgrey)
 
-**[Documentation](https://nia-todo.homelabdiary.dev/docs) · [Install](https://nia-todo.homelabdiary.dev/docs/get-started) · [Releases](https://github.com/weedpump/nia-todo/releases/latest)**
+**[Website](https://nia-todo.homelabdiary.dev) · [Documentation](https://nia-todo.homelabdiary.dev/docs) · [Install](https://nia-todo.homelabdiary.dev/docs/get-started) · [Releases](https://github.com/weedpump/nia-todo/releases/latest)**
 
 </div>
 
 ---
 
 nia-todo keeps personal and shared work in one place while leaving you in control of the infrastructure. The FastAPI server stores its data in SQLite and serves the responsive web app, offline-capable PWA, and downloads for the bundled native clients from your own instance.
+
+## A quick look
+
+<p align="center">
+  <img src="packaging/docs/screenshots/desktop-light.png" alt="nia-todo desktop app in light mode" width="49%">
+  <img src="packaging/docs/screenshots/desktop-dark.png" alt="nia-todo desktop app in dark mode" width="49%">
+</p>
 
 ## Highlights
 
@@ -32,12 +39,11 @@ nia-todo keeps personal and shared work in one place while leaving you in contro
 - **Capture ideas by voice.** The optional BrainDump workflow turns spoken notes into todo candidates using configurable local or remote STT and LLM providers.
 - **Make it yours.** Choose a light or dark theme and use the interface in any of 12 supported languages.
 
-## A quick look
+## Languages
 
-<p align="center">
-  <img src="packaging/docs/screenshots/desktop-light.png" alt="nia-todo desktop app in light mode" width="49%">
-  <img src="packaging/docs/screenshots/desktop-dark.png" alt="nia-todo desktop app in dark mode" width="49%">
-</p>
+nia-todo is available in:
+
+🇩🇪 **German** (`de`) · 🇬🇧 **English** (`en`) · 🇨🇿 **Czech** (`cs`) · 🇫🇷 **French** (`fr`) · 🇮🇹 **Italian** (`it`) · 🇳🇱 **Dutch** (`nl`) · 🇵🇱 **Polish** (`pl`) · 🇧🇷 **Brazilian Portuguese** (`pt-BR`) · 🇷🇺 **Russian** (`ru`) · 🇸🇪 **Swedish** (`sv`) · 🇪🇸 **Spanish** (`es`) · 🇨🇳 **Simplified Chinese** (`zh-CN`)
 
 ## Install
 
