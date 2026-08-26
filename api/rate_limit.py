@@ -33,6 +33,9 @@ class RateLimiter:
         for key, count in list(self.ws_connections.items()):
             if count <= 0:
                 del self.ws_connections[key]
+        with get_db() as db:
+            db.execute("DELETE FROM login_rate_limit_attempts WHERE attempted_at < ?", (int(now) - 15 * 60,))
+            db.commit()
 
     def _login_counter_keys(self, ip: str, identity: Optional[str] = None):
         keys = [("ip", ip)]
@@ -43,11 +46,12 @@ class RateLimiter:
 
     def check_login(self, ip: str, identity: Optional[str] = None) -> bool:
         cutoff = int(time.time()) - 15 * 60
+        thresholds = {"ip": 100, "identity": 25, "ip_identity": 5}
         with get_db() as db:
-            db.execute("DELETE FROM login_rate_limit_attempts WHERE attempted_at < ?", (cutoff,))
             for bucket, key in self._login_counter_keys(ip, identity):
                 count = db.execute("SELECT COUNT(*) FROM login_rate_limit_attempts WHERE bucket = ? AND bucket_key = ? AND attempted_at >= ?", (bucket, key, cutoff)).fetchone()[0]
-                if count >= 5:
+                limit = 50 if bucket == "identity" and key == "admin" else thresholds[bucket]
+                if count >= limit:
                     db.commit()
                     return False
             db.commit()

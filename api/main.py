@@ -12,6 +12,7 @@ import re
 
 from db import init_db
 from migrate import run_migrations
+from rate_limit import rate_limiter
 from middleware.security import CSRFProtectionMiddleware, RateLimitMiddleware, RequestBodyLimitMiddleware, SecurityHeadersMiddleware
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
@@ -432,6 +433,12 @@ async def reminder_background_task():
             print(f"[PUSH] Background task error: {e}")
         await asyncio.sleep(30)
 
+async def rate_limit_cleanup_task():
+    while True:
+        await asyncio.sleep(300)
+        rate_limiter.prune_expired()
+
+
 async def subscription_cleanup_task():
     while True:
         await asyncio.sleep(14 * 24 * 60 * 60)
@@ -447,6 +454,7 @@ async def on_startup():
         await asyncio.sleep(2)
         asyncio.create_task(reminder_background_task())
         asyncio.create_task(subscription_cleanup_task())
+        asyncio.create_task(rate_limit_cleanup_task())
     asyncio.create_task(delayed_start())
 
 # ─── Static Frontend ─────────────────────────────────────────────────────────
