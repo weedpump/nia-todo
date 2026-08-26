@@ -220,7 +220,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
                 log_audit(db, "project_share_email_identifier_no_match", user_id=user_id, details=f"project_id={project_id}")
                 db.commit()
                 return _neutral_email_share_response()
-            raise HTTPException(404, "User not found")
+            return _neutral_email_share_response()
 
         # Cannot share with self
         if target['id'] == project['user_id']:
