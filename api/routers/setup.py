@@ -78,6 +78,9 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
     if error:
         raise validation_api_error(error)
     with get_db() as db:
+        config = db.execute("SELECT setup_complete, admin_token_hash FROM admin_config WHERE id = 1").fetchone()
+        if not config or not config["admin_token_hash"] or config["setup_complete"]:
+            raise HTTPException(409, "Admin password must be set before creating the first user")
         user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
         if user_count > 0:
             raise HTTPException(400, "Users already exist")
@@ -96,7 +99,11 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
         db.execute("UPDATE projects SET user_id = ?, workspace_id = ?, is_inbox = CASE WHEN id = 1 THEN 1 ELSE COALESCE(is_inbox, 0) END WHERE user_id IS NULL", (user_id, workspace_id))
         db.execute("UPDATE todos SET user_id = ? WHERE user_id IS NULL", (user_id,))
         db.execute("UPDATE sections SET user_id = ? WHERE user_id IS NULL", (user_id,))
-        db.execute("UPDATE admin_config SET setup_complete = 1 WHERE id = 1")
+        completed = db.execute(
+            "UPDATE admin_config SET setup_complete = 1 WHERE id = 1 AND admin_token_hash IS NOT NULL AND setup_complete = 0"
+        )
+        if completed.rowcount != 1:
+            raise HTTPException(409, "Setup state changed before completion")
         db.commit()
         consume_setup_token()
         return {

@@ -63,6 +63,7 @@ run_step "Security Request Body Limit" python3 scripts/test_request_body_limit.p
 run_step "Security Password Length" python3 scripts/test_password_length.py
 run_step "Security Trust Boundaries" python3 scripts/test_security_boundaries.py
 run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
+run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
 run_step "Security Runtime Code Ownership" python3 scripts/test_runtime_code_ownership.py
 run_step "Security Rate Limit Pruning" python3 scripts/test_rate_limit_pruning.py
