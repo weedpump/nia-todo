@@ -101,7 +101,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
         response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
         response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
-        if request.url.scheme == "https":
+        if secure_cookie_enabled():
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
 
