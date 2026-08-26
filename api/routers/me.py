@@ -166,7 +166,7 @@ async def upload_own_avatar(request: Request, user_id: int = Depends(require_aut
 
     try:
         image = _load_avatar_image(body, content_type)
-    except (UnidentifiedImageError, OSError, SyntaxError, subprocess.SubprocessError):
+    except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError, subprocess.SubprocessError):
         raise api_error(400, 'avatar.invalidImage', 'Please upload a valid image')
 
     width, height = image.size
