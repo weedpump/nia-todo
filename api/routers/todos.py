@@ -34,8 +34,8 @@ class TodoSubtaskInput(BaseModel):
     sort_order: Optional[int] = None
 
 class TodoCreate(BaseModel):
-    title: str
-    description: str = ""
+    title: str = Field(..., max_length=500)
+    description: str = Field(default="", max_length=50000)
     priority: int = Field(default=3, ge=1, le=4)
     is_pinned: bool = False
     status: str = "pending"
@@ -49,8 +49,8 @@ class TodoCreate(BaseModel):
     confirm_incomplete_subtasks_completion: bool = False
 
 class TodoUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: Optional[str] = Field(default=None, max_length=500)
+    description: Optional[str] = Field(default=None, max_length=50000)
     priority: Optional[int] = None
     is_pinned: Optional[bool] = None
     status: Optional[str] = None

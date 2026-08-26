@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from db import get_db
 from routers.auth import require_auth
@@ -420,7 +420,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
 
 
 class TextSegmentRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=50000)
     final: bool = True
 
 

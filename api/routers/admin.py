@@ -10,7 +10,7 @@ from io import BytesIO
 import urllib.request
 
 from fastapi import APIRouter, Request, Response, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import bcrypt
 import hashlib
 import secrets
@@ -81,7 +81,7 @@ def _validate_configured_llm_model(payload: str, model: str) -> str | None:
 # ─── Pydantic Models ─────────────────────────────────────────────────────────
 
 class CreateUserRequest(BaseModel):
-    username: str
+    username: str = Field(..., min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     display_name: str
     email: str
     language: str = "de"
