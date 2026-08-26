@@ -418,6 +418,15 @@ class TestSuite:
             self.user_csrf = data.get("csrf_token")
         
         return self.record("login", status)
+
+    def test_login_throttle_http_boundary(self):
+        statuses = []
+        for _ in range(6):
+            status, _ = curl("POST", "/api/login", {"username": "throttle-probe", "password": "WrongPassword1!"})
+            statuses.append(status)
+        passed = statuses[:5] == [401] * 5 and statuses[5] == 429
+        self.results["login_throttle_http_boundary"] = {"status": statuses[-1], "passed": passed, "expected": "five 401 responses followed by 429"}
+        return passed
     
     def test_login_with_verified_email(self):
         status, data = curl("POST", "/api/login", {
@@ -1705,6 +1714,7 @@ class TestSuite:
             
             # User Auth
             self.test_login,
+            self.test_login_throttle_http_boundary,
             self.test_login_with_verified_email,
             self.test_me,
             self.test_invalid_own_email_rejected,
