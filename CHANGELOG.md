@@ -19,8 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Removed stale references to deleted release, migration, and BrainDump debug scripts from tooling and documentation.
 
 ### Security
-- Hardened OIDC and password-related error handling so exception details and password-derived values cannot leak through HTML responses, logs, or command-line output.
-- Added explicit least-privilege permissions to GitHub Actions workflows and updated security-sensitive runtime and native dependencies.
+- Hardened login protection with persisted IP/account throttling, balanced lockout thresholds, durable failed-login audit records, scheduled cleanup, and HTTP-level regression coverage.
+- Added global streamed request-body limits, bcrypt password byte limits, bounded user-controlled text fields, safer avatar decoding, and timeouts for external BrainDump audio processes.
+- Protected avatar access, tightened account-enumeration responses, corrected secure-cookie and HSTS handling behind reverse proxies, and expanded browser isolation and PDF-preview CSP headers.
+- Reduced deployment blast radius with root-owned application code, read-only and capability-restricted containers, scoped systemd filesystem access, and hardened Docker documentation matching the shipped defaults.
+- Pinned all third-party GitHub Actions to immutable commits and wired the security regression checks into the normal backend and release gates.
+- Removed the implicit OpenClaw credential-file fallback and documented that OIDC/SSO delegates login MFA to the configured identity provider.
 
 ## [3.0.2] - 2026-07-13
 
