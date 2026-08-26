@@ -67,6 +67,7 @@ const PRECACHE_ASSETS = [
   '/static/js/pages/admin.js',
   '/static/js/pages/setup.js',
   '/static/js/pages/set-password.js',
+  '/static/js/pages/public-docs.js',
   '/static/vendor/tauri-api/core.js',
   '/static/vendor/tauri-api/event.js',
   '/static/vendor/tauri-api/app.js',

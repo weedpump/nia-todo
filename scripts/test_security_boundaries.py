@@ -13,6 +13,9 @@ for file in (ROOT/'web').rglob('*'):
     assert not handler.search(text), str(file)
     if file.suffix=='.html': assert not inline_script.search(text), str(file)
     assert 'window.__TAURI__' not in text, str(file)
+main_source=(ROOT/'api/main.py').read_text()
+assert not handler.search(main_source)
+assert not inline_script.search(main_source)
 security=(ROOT/'api/middleware/security.py').read_text()
 assert "script-src 'self' 'unsafe-inline'" not in security
 config=json.loads((ROOT/'src-tauri/tauri.conf.json').read_text())
