@@ -14,6 +14,7 @@ assert 'chown -R root:root "${APP_DIR}"' in installer
 assert 'chown -R "${USER_NAME}:${GROUP_NAME}" "${DATA_DIR}"' in installer
 assert 'chmod -R go-w "${APP_DIR}"' in installer
 assert "read_only: true" in compose
+assert "tmpfs:" in compose and "- /tmp" in compose
 assert "cap_drop:" in compose and "- ALL" in compose
 assert "no-new-privileges:true" in compose
 

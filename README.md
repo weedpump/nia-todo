@@ -56,6 +56,10 @@ docker run -d \
   -p 8753:8753 \
   -e NIA_TODO_HOST=auto \
   -e NIA_TODO_PORT=8753 \
+  --read-only \
+  --tmpfs /tmp \
+  --cap-drop ALL \
+  --security-opt no-new-privileges:true \
   -v nia-todo-data:/data \
   docker.io/weedpump/nia-todo:latest
 ```
