@@ -11,6 +11,10 @@ Restart=always
 RestartSec=5
 User=nia-todo
 Group=nia-todo
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/nia-todo /var/cache/nia-todo
 
 [Install]
 WantedBy=multi-user.target
