@@ -1,6 +1,6 @@
 """nia-todo: FastAPI backend - slim entry point"""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -452,9 +452,18 @@ async def on_startup():
 # ─── Static Frontend ─────────────────────────────────────────────────────────
 
 from paths import AVATAR_DIR
+from routers.auth import require_auth
 
 AVATAR_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/api/avatars", StaticFiles(directory=str(AVATAR_DIR)), name="avatars")
+@app.get("/api/avatars/{filename}")
+def avatar_file(filename: str, _: int = Depends(require_auth)):
+    if not re.fullmatch(r"user-[0-9]+\.webp", filename):
+        raise HTTPException(404, "Avatar not found")
+    path = AVATAR_DIR / filename
+    if not path.is_file():
+        raise HTTPException(404, "Avatar not found")
+    return FileResponse(path, media_type="image/webp")
+
 
 WEB_DIR = Path(__file__).parent / "../web"
 if WEB_DIR.exists():
