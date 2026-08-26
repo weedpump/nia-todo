@@ -58,15 +58,19 @@ def _avatar_url(user_id: int) -> str:
     return f"/api/avatars/user-{user_id}.webp"
 
 
+def _validate_avatar_dimensions(image: Image.Image) -> Image.Image:
+    width, height = image.size
+    if width * height > MAX_AVATAR_PIXELS:
+        raise Image.DecompressionBombError("Image dimensions exceed the avatar limit")
+    return image
+
+
 def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
     try:
         image = Image.open(io.BytesIO(body))
         image.verify()
         image = Image.open(io.BytesIO(body))
-        width, height = image.size
-        if width * height > MAX_AVATAR_PIXELS:
-            raise Image.DecompressionBombError("Image dimensions exceed the avatar limit")
-        return image.convert("RGB")
+        return _validate_avatar_dimensions(image).convert("RGB")
     except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError):
         if content_type not in {"image/heic", "image/heif"} or not HEIF_CONVERT_BIN:
             raise
@@ -84,7 +88,7 @@ def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
         )
         if result.returncode != 0 or not output_path.exists():
             raise UnidentifiedImageError("HEIC conversion failed")
-        return Image.open(output_path).convert("RGB")
+        return _validate_avatar_dimensions(Image.open(output_path)).convert("RGB")
 
 
 
