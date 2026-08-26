@@ -642,7 +642,7 @@ def passwordless_passkey_login_verify(data: PasswordlessPasskeyVerifyRequest, re
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "login_success", user_id=user["id"], ip_address=ip, details="method=passkey")
         from rate_limit import rate_limiter
-        rate_limiter.record_successful_login(ip, user["username"])
+        rate_limiter.record_successful_login(ip, user["username"], db=db)
         db.commit()
         return {"access_token": token, "token_type": "bearer", "csrf_token": csrf_token, "user": {"id": user["id"], "username": user["username"], "display_name": user["display_name"], "email": user["email"], "email_verified_at": user["email_verified_at"], "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "is_admin": bool(user["is_admin"])}}
 

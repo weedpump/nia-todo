@@ -74,7 +74,7 @@ def login(data: LoginRequest, request: Request, response: Response):
     with get_db() as db:
         user = verify_user_credentials(db, data.username, data.password)
         if not user:
-            rate_limiter.record_failed_login(ip, data.username)
+            rate_limiter.record_failed_login(ip, data.username, db=db)
             log_audit(db, "login_failed", ip_address=ip, details=f"username={data.username}")
             raise api_error(401, "auth.invalidCredentials", "Invalid credentials")
         mfa_required = mfa_required_for_user(db, user['id'])
@@ -116,7 +116,7 @@ def login(data: LoginRequest, request: Request, response: Response):
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "login_success", user_id=user['id'], ip_address=ip, details=f"mfa={'required' if mfa_required else 'not_required'}; remembered_device={remembered}")
-        rate_limiter.record_successful_login(ip, data.username)
+        rate_limiter.record_successful_login(ip, data.username, db=db)
         return {
             "access_token": token,
             "token_type": "bearer",

@@ -83,22 +83,30 @@ class RateLimiter:
         self.api_requests[ip].append(now)
         return True, 0
 
-    def record_failed_login(self, ip: str, identity: Optional[str] = None):
-        """Persist a failed login against the IP and, when known, the account."""
-        now = int(time.time())
-        with get_db() as db:
-            db.executemany("INSERT INTO login_rate_limit_attempts(bucket, bucket_key, attempted_at) VALUES (?, ?, ?)", [(bucket, key, now) for bucket, key in self._login_counter_keys(ip, identity)])
-            db.commit()
+    def record_failed_login(self, ip: str, identity: Optional[str] = None, db=None):
+        """Persist a failed login using the caller transaction when available."""
+        rows = [(bucket, key, int(time.time())) for bucket, key in self._login_counter_keys(ip, identity)]
+        if db is not None:
+            db.executemany("INSERT INTO login_rate_limit_attempts(bucket, bucket_key, attempted_at) VALUES (?, ?, ?)", rows)
+            return
+        with get_db() as own_db:
+            own_db.executemany("INSERT INTO login_rate_limit_attempts(bucket, bucket_key, attempted_at) VALUES (?, ?, ?)", rows)
+            own_db.commit()
 
-    def record_successful_login(self, ip: str, identity: Optional[str] = None):
-        """Clear only the successful account's counters, never the IP bucket."""
+    def record_successful_login(self, ip: str, identity: Optional[str] = None, db=None):
+        """Clear only the successful account's counters in the active transaction."""
         if not identity:
             return
         normalized = self._normalize_login_identity(identity)
-        with get_db() as db:
-            db.execute("DELETE FROM login_rate_limit_attempts WHERE bucket = 'identity' AND bucket_key = ?", (normalized,))
-            db.execute("DELETE FROM login_rate_limit_attempts WHERE bucket = 'ip_identity' AND bucket_key = ?", (f"{ip}|{normalized}",))
-            db.commit()
+        def clear(connection):
+            connection.execute("DELETE FROM login_rate_limit_attempts WHERE bucket = 'identity' AND bucket_key = ?", (normalized,))
+            connection.execute("DELETE FROM login_rate_limit_attempts WHERE bucket = 'ip_identity' AND bucket_key = ?", (f"{ip}|{normalized}",))
+        if db is not None:
+            clear(db)
+            return
+        with get_db() as own_db:
+            clear(own_db)
+            own_db.commit()
 
     def check_ws(self, ip: str) -> bool:
         max_ws = 10

@@ -232,12 +232,12 @@ def admin_login(data: AdminLoginRequest, request: Request, response: Response):
         if not config or not config["admin_token_hash"] or not config["setup_complete"]:
             raise api_error(400, "admin.setupRequired", "Setup required")
         if not password_within_bcrypt_limit(data.password) or not bcrypt.checkpw(data.password.encode(), config["admin_token_hash"].encode()):
-            rate_limiter.record_failed_login(ip, "admin")
+            rate_limiter.record_failed_login(ip, "admin", db=db)
             raise api_error(401, "admin.passwordInvalid", "Wrong admin password")
         token = create_admin_jwt_token(db)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
-        rate_limiter.record_successful_login(ip, "admin")
+        rate_limiter.record_successful_login(ip, "admin", db=db)
         return {"access_token": token, "token_type": "bearer", "admin": True, "csrf_token": csrf_token}
 
 @router.post("/logout")
