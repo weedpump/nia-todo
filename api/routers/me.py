@@ -33,6 +33,7 @@ from paths import AVATAR_DIR
 router = APIRouter(prefix="/api/me")
 AVATAR_SIZE = 256
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
+MAX_AVATAR_PIXELS = 16 * 1024 * 1024
 ALLOWED_AVATAR_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
 
 
@@ -61,8 +62,12 @@ def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
     try:
         image = Image.open(io.BytesIO(body))
         image.verify()
-        return Image.open(io.BytesIO(body)).convert("RGB")
-    except (UnidentifiedImageError, OSError, SyntaxError):
+        image = Image.open(io.BytesIO(body))
+        width, height = image.size
+        if width * height > MAX_AVATAR_PIXELS:
+            raise Image.DecompressionBombError("Image dimensions exceed the avatar limit")
+        return image.convert("RGB")
+    except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError):
         if content_type not in {"image/heic", "image/heif"} or not HEIF_CONVERT_BIN:
             raise
 
