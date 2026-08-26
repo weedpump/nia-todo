@@ -457,7 +457,7 @@ class BrainDumpExtractRequest(BaseModel):
 
 def _run(cmd: list[str]) -> tuple[float, subprocess.CompletedProcess[str]]:
     started = time.perf_counter()
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     elapsed_ms = (time.perf_counter() - started) * 1000
     return elapsed_ms, proc
 
