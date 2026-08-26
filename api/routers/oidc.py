@@ -65,7 +65,6 @@ def _native_marker_info(value: str | None) -> dict | None:
 def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HTMLResponse:
     params = urlencode({"code": code, "kind": kind, "redirect_after": redirect_after or "/"})
     callback_url = f"{NATIVE_OIDC_SCHEME}://oidc/callback?{params}"
-    safe_callback = _json_for_script(callback_url)
     safe_callback_href = html.escape(callback_url, quote=True)
     response = HTMLResponse(f"""<!doctype html>
 <html lang="en">
@@ -245,6 +244,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
 </head>
 <body>
   <div class="return-page">
+  <div id="oidc-native-return-data" data-callback-url="{safe_callback_href}" hidden></div>
   <main class="login-box" aria-labelledby="return-title">
     <div class="login-brand">
       <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
@@ -259,58 +259,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
     <p class="hint" data-i18n-key="auth.oidc.return.hint">…</p>
   </main>
   </div>
-  <script>
-    (function() {{
-      const callbackUrl = {safe_callback};
-      const fallbackLanguage = 'en';
-      function normalizeLanguage(value) {{
-        const raw = String(value || '').trim();
-        const lower = raw.toLowerCase();
-        if (lower === 'zh-cn' || lower === 'zh-hans' || lower.startsWith('zh-hans-')) return 'zh-CN';
-        if (lower === 'pt-br' || lower.startsWith('pt-br-')) return 'pt-BR';
-        const base = lower.split('-')[0];
-        if (base === 'zh') return 'zh-CN';
-        if (base === 'pt') return 'pt-BR';
-        return base || fallbackLanguage;
-      }}
-      function languageCandidates() {{
-        const seen = new Set();
-        const result = [];
-        for (const language of (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language])) {{
-          const normalized = normalizeLanguage(language);
-          if (!seen.has(normalized)) {{
-            seen.add(normalized);
-            result.push(normalized);
-          }}
-        }}
-        if (!seen.has(fallbackLanguage)) result.push(fallbackLanguage);
-        return result;
-      }}
-      async function loadMessages() {{
-        for (const language of languageCandidates()) {{
-          try {{
-            const response = await fetch('/static/i18n/' + encodeURIComponent(language) + '.json', {{ cache: 'no-store' }});
-            if (!response.ok) continue;
-            return {{ language, messages: await response.json() }};
-          }} catch (error) {{}}
-        }}
-        return {{ language: fallbackLanguage, messages: {{}} }};
-      }}
-      function applyMessages(language, messages) {{
-        document.documentElement.lang = language;
-        document.querySelectorAll('[data-i18n-key]').forEach((el) => {{
-          const key = el.getAttribute('data-i18n-key');
-          if (typeof messages[key] === 'string') el.textContent = messages[key];
-        }});
-        if (typeof messages['auth.oidc.return.title'] === 'string') document.title = messages['auth.oidc.return.title'];
-      }}
-      window.addEventListener('load', async () => {{
-        const {{ language, messages }} = await loadMessages();
-        applyMessages(language, messages);
-        setTimeout(() => {{ window.location.href = callbackUrl; }}, 900);
-      }});
-    }})();
-  </script>
+  <script src="/static/js/pages/oidc-native-return.js"></script>
 </body>
 </html>""")
     response.headers["Cache-Control"] = "no-store"
@@ -324,19 +273,10 @@ def _native_completion_or_html(kind: str, payload: dict, redirect_to: str = "/")
     return _completion_html(kind, payload, redirect_to)
 
 
-def _json_for_script(value) -> str:
-    return (
-        json.dumps(value, separators=(",", ":"), ensure_ascii=False)
-        .replace("</", "<\\/")
-        .replace("\u2028", "\\u2028")
-        .replace("\u2029", "\\u2029")
-    )
-
-
 def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLResponse:
-    safe_payload = _json_for_script(payload)
-    safe_redirect = _json_for_script(redirect_to or "/")
-    safe_kind = _json_for_script(kind)
+    safe_payload_attr = html.escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False), quote=True)
+    safe_kind_attr = html.escape(kind, quote=True)
+    safe_redirect_attr = html.escape(redirect_to or "/", quote=True)
     response = HTMLResponse(f"""<!doctype html>
 <html lang="en">
 <head>
@@ -344,74 +284,9 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
   <title>nia-todo</title>
 </head>
 <body>
+  <div id="oidc-completion-data" data-payload="{safe_payload_attr}" data-kind="{safe_kind_attr}" data-redirect-to="{safe_redirect_attr}" hidden></div>
   <p id="message" data-i18n-key="auth.oidc.completing">…</p>
-  <script>
-    (function() {{
-      const payload = {safe_payload};
-      const kind = {safe_kind};
-      if (kind === 'user') {{
-        localStorage.setItem('jwt_token', payload.access_token);
-        if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
-        if (payload.user) {{
-          localStorage.setItem('cached_user', JSON.stringify(payload.user));
-          localStorage.setItem('last_user_id', String(payload.user.id));
-        }}
-        location.replace({safe_redirect});
-        return;
-      }}
-      if (kind === 'admin') {{
-        localStorage.setItem('admin_jwt_token', payload.access_token);
-        if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
-        location.replace('/admin');
-        return;
-      }}
-      if (kind === 'admin_link') {{
-        sessionStorage.setItem('nia_admin_oidc_link_result', JSON.stringify(payload));
-        location.replace('/admin');
-        return;
-      }}
-      if (kind === 'error') {{
-        sessionStorage.setItem('nia_oidc_error', JSON.stringify({{ error_key: payload.error_key || 'auth.oidc.errorMessage', error: payload.error || '', kind: payload.kind || 'user' }}));
-        location.replace({safe_redirect});
-        return;
-      }}
-      const fallbackLanguage = 'en';
-      function normalizeLanguage(value) {{
-        const raw = String(value || '').trim();
-        const lower = raw.toLowerCase();
-        if (lower === 'zh-cn' || lower === 'zh-hans' || lower.startsWith('zh-hans-')) return 'zh-CN';
-        if (lower === 'pt-br' || lower.startsWith('pt-br-')) return 'pt-BR';
-        const base = lower.split('-')[0];
-        if (base === 'zh') return 'zh-CN';
-        if (base === 'pt') return 'pt-BR';
-        return base || fallbackLanguage;
-      }}
-      async function loadMessages() {{
-        const candidates = [];
-        const seen = new Set();
-        for (const language of (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language])) {{
-          const normalized = normalizeLanguage(language);
-          if (!seen.has(normalized)) {{ seen.add(normalized); candidates.push(normalized); }}
-        }}
-        if (!seen.has(fallbackLanguage)) candidates.push(fallbackLanguage);
-        for (const language of candidates) {{
-          try {{
-            const response = await fetch('/static/i18n/' + encodeURIComponent(language) + '.json', {{ cache: 'no-store' }});
-            if (!response.ok) continue;
-            return {{ language, messages: await response.json() }};
-          }} catch (error) {{}}
-        }}
-        return {{ language: fallbackLanguage, messages: {{}} }};
-      }}
-      loadMessages().then(({{ language, messages }}) => {{
-        document.documentElement.lang = language;
-        const message = document.getElementById('message');
-        const fallback = payload.error || messages['auth.oidc.failedFallback'] || 'OIDC failed';
-        message.textContent = fallback;
-        document.title = messages['auth.oidc.errorTitle'] || 'OIDC sign-in failed';
-      }});
-    }})();
-  </script>
+  <script src="/static/js/pages/oidc-completion.js"></script>
 </body>
 </html>""")
     response.headers["Cache-Control"] = "no-store"

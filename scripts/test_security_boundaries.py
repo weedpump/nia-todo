@@ -16,6 +16,9 @@ for file in (ROOT/'web').rglob('*'):
 main_source=(ROOT/'api/main.py').read_text()
 assert not handler.search(main_source)
 assert not inline_script.search(main_source)
+oidc_source=(ROOT/'api/routers/oidc.py').read_text()
+assert not handler.search(oidc_source)
+assert not inline_script.search(oidc_source)
 security=(ROOT/'api/middleware/security.py').read_text()
 assert "script-src 'self' 'unsafe-inline'" not in security
 config=json.loads((ROOT/'src-tauri/tauri.conf.json').read_text())
