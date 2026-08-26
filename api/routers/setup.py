@@ -2,7 +2,7 @@
 
 from typing import Optional
 from fastapi import APIRouter, Request, Header, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import bcrypt
 
 from db import get_db, now_iso
@@ -20,7 +20,7 @@ class AdminSetupRequest(BaseModel):
     admin_password: str
 
 class FirstUserRequest(BaseModel):
-    username: str
+    username: str = Field(..., min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     email: str
     password: str
     display_name: str

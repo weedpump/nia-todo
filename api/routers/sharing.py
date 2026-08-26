@@ -228,7 +228,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
                 log_audit(db, "project_share_email_identifier_self", user_id=user_id, details=f"project_id={project_id}")
                 db.commit()
                 return _neutral_email_share_response()
-            raise HTTPException(400, "Cannot share a project with yourself")
+            return _neutral_email_share_response()
 
         # Check if already shared
         existing = db.execute(
@@ -240,7 +240,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
                 log_audit(db, "project_share_email_identifier_existing", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
                 db.commit()
                 return _neutral_email_share_response()
-            raise HTTPException(400, "User already has access or a pending invite")
+            return _neutral_email_share_response()
 
         # Create invitation
         c = db.execute(
@@ -282,9 +282,8 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
         
         # For username identifiers, return member details to owner (they initiated the invite)
         # Broadcast only to invitee (no project_id = no owner/member auto-recipients) to avoid leaking pending invites
-        member = get_project_member(db, project_id, target['id'])
         await broadcast_change("member_invited", {"member": None}, target['id'])
-        return {"member": member, "notification_delivery": "email" if emailed else "in_app"}
+        return _neutral_email_share_response()
 
 
 @router.post("/{project_id}/members/{member_user_id}/restore")
