@@ -58,6 +58,16 @@ echo "Policy: release-critical domain/API/security/sync/native checks only. Frag
 
 run_step "Backend Core API" python3 scripts/test_backend.py
 run_step "API Validation Error Contracts" python3 scripts/test_api_validation_errors.py
+run_step "Security Rate Limit" python3 scripts/test_rate_limit.py
+run_step "Security Request Body Limit" python3 scripts/test_request_body_limit.py
+run_step "Security Password Length" python3 scripts/test_password_length.py
+run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
+run_step "Security Runtime Code Ownership" python3 scripts/test_runtime_code_ownership.py
+run_step "Security Rate Limit Pruning" python3 scripts/test_rate_limit_pruning.py
+run_step "Security Avatar Pixel Limit" python3 scripts/test_avatar_pixel_limit.py
+run_step "Security Admin Error Escape" python3 scripts/test_admin_error_escape.py
+run_step "Security Attachment Authorization Order" python3 scripts/test_attachment_authorization_order.py
+run_step "Security Braindump Process Timeout" python3 scripts/test_braindump_process_timeout.py
 run_step "BrainDump Services" python3 scripts/test_braindump_v2_services.py
 run_step "BrainDump Extractor Normalization" python3 scripts/test_braindump_v2_extractor_normalization.py
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
