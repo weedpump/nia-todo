@@ -1206,11 +1206,11 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
     suffix = Path(original_filename).suffix[:20]
     stored_filename = f"{secrets.token_hex(16)}{suffix}"
     target_path = _stored_attachment_path(todo_id, stored_filename)
-    target_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = target_path.with_suffix(target_path.suffix + f".{secrets.token_hex(6)}.tmp")
     try:
         with get_db() as db:
             todo = _require_attachment_writable_todo(db, todo_id, user_id)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
         size_bytes, sample = await _stream_attachment_to_temp(request, tmp_path)
         if size_bytes <= 0:
             raise HTTPException(400, "Attachment is required")
