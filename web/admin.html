@@ -392,6 +392,7 @@
       <div class="security-policy-main">
         <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
         <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
+        <div class="admin-help">This policy applies to local password logins. OIDC/SSO delegates login MFA to the identity provider and does not request an additional local factor.</div>
       </div>
     </div>
     <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
