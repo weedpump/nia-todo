@@ -10,7 +10,7 @@ import asyncio
 import html
 import re
 
-from db import init_db
+from db import get_db, init_db
 from migrate import run_migrations
 from rate_limit import rate_limiter
 from middleware.security import CSRFProtectionMiddleware, RateLimitMiddleware, RequestBodyLimitMiddleware, SecurityHeadersMiddleware
@@ -450,6 +450,15 @@ async def subscription_cleanup_task():
 @app.on_event("startup")
 async def on_startup():
     init_db()
+    from services.setup_token import ensure_setup_token, SETUP_TOKEN_PATH
+    with get_db() as db:
+        config = db.execute("SELECT setup_complete FROM admin_config WHERE id = 1").fetchone()
+        setup_complete = bool(config["setup_complete"]) if config else False
+    setup_token = ensure_setup_token(setup_complete=setup_complete)
+    if setup_token:
+        print("[SETUP] First-run setup is protected by a one-time token.", flush=True)
+        print(f"[SETUP] Token: {setup_token}", flush=True)
+        print(f"[SETUP] Token file: {SETUP_TOKEN_PATH}", flush=True)
     async def delayed_start():
         await asyncio.sleep(2)
         asyncio.create_task(reminder_background_task())

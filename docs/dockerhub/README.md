@@ -47,13 +47,17 @@ Start it:
 docker compose up -d
 ```
 
-Then open:
+Read the one-time setup token, then open the setup page:
+
+```bash
+docker compose logs nia-todo
+```
 
 ```text
 http://YOUR-SERVER:8753/setup
 ```
 
-Create the initial admin account, then use the app at:
+The token is deleted after the first user is created. Create the initial admin account, then use the app at:
 
 ```text
 http://YOUR-SERVER:8753/

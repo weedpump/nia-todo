@@ -388,12 +388,22 @@ class TestSuite:
     
     # --- Setup ----------------------------------------------------------------
     
+    def _setup_token(self):
+        token_path = DATA_DIR / "setup-token"
+        if SUDO_FS:
+            result = sudo_run(["python3", "-c", "import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text().strip())", token_path], capture_output=True, text=True)
+            return result.stdout.strip()
+        return token_path.read_text().strip()
+
     def test_setup_status(self):
-        status, _ = curl("GET", "/api/setup/status")
-        return self.record("setup_status", status)
+        status, data = curl("GET", "/api/setup/status")
+        rejected, _ = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD})
+        passed = status == 200 and data.get("setup_token_required") is True and "setup_token" not in data and rejected == 403
+        self.results["setup_status"] = {"status": status, "passed": passed, "expected": "token required without disclosure; missing token rejected"}
+        return passed
     
     def test_setup_admin(self):
-        status, data = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD})
+        status, data = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD}, headers={"X-Setup-Token": self._setup_token()})
         return self.record("setup_admin", status)
     
     def test_setup_first_user(self):
@@ -402,7 +412,7 @@ class TestSuite:
             "email": "testuser@example.invalid",
             "password": USER_PASSWORD,
             "display_name": "Test User"
-        })
+        }, headers={"X-Setup-Token": self._setup_token()})
         return self.record("setup_first_user", status)
     
     # --- User Auth ------------------------------------------------------------
