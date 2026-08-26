@@ -3,6 +3,13 @@
 import re
 
 
+MAX_BCRYPT_PASSWORD_BYTES = 72
+
+
+def password_within_bcrypt_limit(password: str) -> bool:
+    return len((password or "").encode("utf-8")) <= MAX_BCRYPT_PASSWORD_BYTES
+
+
 def sanitize_text(text: str) -> str:
     """Strip HTML tags, remove null bytes, and trim whitespace."""
     if text is None:
@@ -30,6 +37,8 @@ def validate_email(email: str) -> str:
 
 def validate_password(password: str, min_length: int = 8) -> str:
     """Validate password meets security requirements. Returns error or empty string."""
+    if not password_within_bcrypt_limit(password):
+        return "validation.password.tooLong"
     if len(password) < min_length:
         return f"validation.password.tooShort.{min_length}"
     if not re.search(r'[A-Z]', password):

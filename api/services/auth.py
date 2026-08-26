@@ -11,6 +11,7 @@ from datetime import datetime, timezone, timedelta
 
 from db import get_db
 from services.ops_stats import record_user_session_client_mix
+from services.utils import password_within_bcrypt_limit
 
 JWT_ALGORITHM = "HS256"
 USER_JWT_EXPIRY_DAYS = 30
@@ -222,6 +223,8 @@ def get_current_user_allow_mfa_enrollment(token: Optional[str] = None) -> Option
 
 
 def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
+    if not password_within_bcrypt_limit(password):
+        return None
     identifier = (username or "").strip()
     row = db.execute(
         """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, password_hash, is_admin, token_version,

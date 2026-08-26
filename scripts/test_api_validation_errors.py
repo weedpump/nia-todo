@@ -11,6 +11,7 @@ CASES = {
     "validation.email.required": ("validation.emailRequired", "Email is required", {}),
     "validation.email.tooLong": ("validation.emailTooLong", "Email address is too long", {}),
     "validation.email.invalid": ("validation.invalidEmail", "Please enter a valid email address", {}),
+    "validation.password.tooLong": ("validation.passwordTooLong", "Password must not exceed 72 bytes", {"max": 72}),
     "validation.password.tooShort.8": ("validation.passwordTooShort8", "Password must be at least 8 characters long", {"min": 8}),
     "validation.password.tooShort.12": ("validation.passwordTooShort12", "Password must be at least 12 characters long", {"min": 12}),
     "validation.password.uppercase": ("validation.passwordUppercase", "Password must contain at least one uppercase letter", {}),

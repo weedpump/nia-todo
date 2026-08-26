@@ -26,7 +26,7 @@ from routers.two_factor import require_recent_mfa
 from services.audit import log_audit
 from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
-from services.utils import normalize_email, sanitize_text, validate_email, validate_password
+from services.utils import normalize_email, password_within_bcrypt_limit, sanitize_text, validate_email, validate_password
 from errors import api_error, validation_api_error
 from paths import AVATAR_DIR
 
@@ -258,7 +258,7 @@ def change_own_password(data: ChangePasswordRequest, user_id: int = Depends(requ
         row = db.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
         if not row:
             raise HTTPException(404, "User not found")
-        if not bcrypt.checkpw(data.old_password.encode(), row['password_hash'].encode()):
+        if not password_within_bcrypt_limit(data.old_password) or not bcrypt.checkpw(data.old_password.encode(), row['password_hash'].encode()):
             raise api_error(401, 'password.oldInvalid', 'Wrong current password')
         new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
         db.execute(
