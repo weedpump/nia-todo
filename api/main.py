@@ -12,7 +12,7 @@ import re
 
 from db import init_db
 from migrate import run_migrations
-from middleware.security import SecurityHeadersMiddleware, RateLimitMiddleware, CSRFProtectionMiddleware
+from middleware.security import CSRFProtectionMiddleware, RateLimitMiddleware, RequestBodyLimitMiddleware, SecurityHeadersMiddleware
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
 from routers.websocket import websocket_endpoint
@@ -29,6 +29,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFProtectionMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(DynamicCORSMiddleware)
+app.add_middleware(RequestBodyLimitMiddleware)
 
 
 def add_app_shell_cache_headers(response, path: str):

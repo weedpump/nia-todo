@@ -11,7 +11,64 @@ from rate_limit import rate_limiter, get_client_ip
 
 CSRF_COOKIE_NAME = "csrf_token"
 CSRF_COOKIE_MAX_AGE_SECONDS = 86400 * 30
+MAX_REQUEST_BODY_BYTES = 25 * 1024 * 1024
 BUILT_IN_NATIVE_HOSTS = {"tauri.localhost"}
+
+
+class RequestBodyLimitMiddleware:
+    """Reject oversized HTTP request bodies before application handlers consume them."""
+
+    def __init__(self, app, max_body_bytes: int = MAX_REQUEST_BODY_BYTES):
+        self.app = app
+        self.max_body_bytes = max_body_bytes
+
+    async def _send_too_large(self, send) -> None:
+        body = b'{"detail":"Request body too large"}'
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode()),
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        content_length = headers.get(b"content-length")
+        if content_length:
+            try:
+                if int(content_length) > self.max_body_bytes:
+                    await self._send_too_large(send)
+                    return
+            except ValueError:
+                pass
+
+        received_bytes = 0
+        body_exceeded = False
+
+        async def limited_receive():
+            nonlocal received_bytes, body_exceeded
+            message = await receive()
+            if message["type"] == "http.request":
+                received_bytes += len(message.get("body", b""))
+                if received_bytes > self.max_body_bytes:
+                    body_exceeded = True
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def limited_send(message):
+            if not body_exceeded:
+                await send(message)
+
+        await self.app(scope, limited_receive, limited_send)
+        if body_exceeded:
+            await self._send_too_large(send)
 
 
 def is_built_in_native_origin(origin: Optional[str]) -> bool:
