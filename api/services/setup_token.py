@@ -20,11 +20,23 @@ def ensure_setup_token(*, setup_complete: bool) -> Optional[str]:
             return token
     SETUP_TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
     token = secrets.token_urlsafe(32)
-    temporary = SETUP_TOKEN_PATH.with_suffix(".tmp")
-    temporary.write_text(token + "\n", encoding="utf-8")
-    os.chmod(temporary, 0o600)
-    temporary.replace(SETUP_TOKEN_PATH)
-    os.chmod(SETUP_TOKEN_PATH, 0o600)
+    temporary = SETUP_TOKEN_PATH.with_name(f".{SETUP_TOKEN_PATH.name}.{secrets.token_hex(8)}.tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(temporary, flags, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(token + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(SETUP_TOKEN_PATH)
+        os.chmod(SETUP_TOKEN_PATH, 0o600)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
     return token
 
 
