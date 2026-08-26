@@ -58,17 +58,18 @@ assert(safeLink.includes('<a href="https://example.com/path?q=1"'), 'safe HTTPS 
 assert(safeLink.includes('rel="noopener noreferrer"'), 'external links must include noopener noreferrer');
 
 const indexSource = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+const bootSource = readFileSync(new URL('../web/static/js/core/boot.js', import.meta.url), 'utf8');
 const frontendMainSource = readFileSync(new URL('../web/static/js/main.js', import.meta.url), 'utf8');
 const runtimeConfigSource = readFileSync(new URL('../web/static/js/core/config.js', import.meta.url), 'utf8');
-assert(indexSource.includes('window.niaHardReloadApp = async function()'), 'boot retry must use an inline recovery function so it still works when app modules fail to load');
-assert(indexSource.includes('navigator.onLine === false'), 'boot retry must not clear offline PWA caches while the browser reports offline');
-assert(indexSource.includes('refreshActiveServiceWorkerAppCache') && indexSource.includes("postMessage({ action: 'refreshAppCache' }") && indexSource.includes('hasActiveNiaTodoWorker'), 'boot retry must preserve active nia-todo service workers and refresh their app cache in place for iOS PWA offline launch');
-assert(indexSource.includes("scriptURL.endsWith('/sw.js')") && indexSource.includes('registration.unregister().catch'), 'boot retry may unregister stale nia-todo service workers only when no active worker is available');
-assert(indexSource.includes('caches.keys()') && indexSource.includes("name.indexOf('nia-todo') === 0") && indexSource.includes('caches.delete(name).catch') && indexSource.includes('!hasActiveNiaTodoWorker'), 'boot retry must only clear nia-todo CacheStorage when no active service worker can be preserved');
-assert(indexSource.includes("url.searchParams.set('hardReload'"), 'boot retry must add a cache-busting hardReload query parameter');
+assert(bootSource.includes('window.niaHardReloadApp = async function()'), 'boot retry must use a dedicated same-origin recovery module');
+assert(bootSource.includes('navigator.onLine === false'), 'boot retry must not clear offline PWA caches while the browser reports offline');
+assert(bootSource.includes('refreshActiveServiceWorkerAppCache') && bootSource.includes("postMessage({ action: 'refreshAppCache' }") && bootSource.includes('hasActiveNiaTodoWorker'), 'boot retry must preserve active nia-todo service workers and refresh their app cache in place for iOS PWA offline launch');
+assert(bootSource.includes("scriptURL.endsWith('/sw.js')") && bootSource.includes('registration.unregister().catch'), 'boot retry may unregister stale nia-todo service workers only when no active worker is available');
+assert(bootSource.includes('caches.keys()') && bootSource.includes("name.indexOf('nia-todo') === 0") && bootSource.includes('caches.delete(name).catch') && bootSource.includes('!hasActiveNiaTodoWorker'), 'boot retry must only clear nia-todo CacheStorage when no active service worker can be preserved');
+assert(bootSource.includes("url.searchParams.set('hardReload'"), 'boot retry must add a cache-busting hardReload query parameter');
 assert(!indexSource.includes('id="boot-retry" style="display:none;" onclick="location.reload()"'), 'boot retry must not be a plain location.reload');
-assert(indexSource.includes('window.__niaMainModuleLoaded = false') && frontendMainSource.includes('window.__niaMainModuleLoaded = true'), 'boot watchdog must distinguish missing bundled JS from slow native/offline app initialization');
-assert(indexSource.includes('if (window.__niaMainModuleLoaded)') && indexSource.includes('App wird vorbereitet…') && indexSource.indexOf('if (window.__niaMainModuleLoaded)') < indexSource.indexOf('App files are missing. Please reload online.'), 'boot watchdog must not show missing-files recovery once the main module has loaded');
+assert(bootSource.includes('window.__niaMainModuleLoaded = false') && frontendMainSource.includes('window.__niaMainModuleLoaded = true'), 'boot watchdog must distinguish missing bundled JS from slow native/offline app initialization');
+assert(bootSource.includes('if (window.__niaMainModuleLoaded)') && bootSource.includes('App wird vorbereitet…') && bootSource.indexOf('if (window.__niaMainModuleLoaded)') < bootSource.indexOf('App files are missing. Please reload online.'), 'boot watchdog must not show missing-files recovery once the main module has loaded');
 assert(runtimeConfigSource.includes('AbortController') && runtimeConfigSource.includes('timeoutMs = 10000') && runtimeConfigSource.includes('verifyInstance(serverUrl, { timeoutMs: 3500 })'), 'native runtime instance probing must be timeout-bounded so offline cold-start is not blocked by network');
 
 const cssSource = readFileSync(new URL('../web/static/style.css', import.meta.url), 'utf8');
@@ -77,7 +78,7 @@ assert(cssSource.includes('@import url("/static/css/32-dropdowns-selects.css")')
 assert(dropdownCssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
 assert(dropdownCssSource.includes('@supports (-webkit-touch-callout: none)') && dropdownCssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');
 
-const adminSource = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8');
+const adminSource = readFileSync(new URL('../web/static/js/pages/admin.js', import.meta.url), 'utf8');
 assert(adminSource.includes('hardReloadAfterServerUpdate'), 'admin server update reload must use explicit hard reload cleanup');
 assert(adminSource.includes('refreshActiveServiceWorkerAppCache') && adminSource.includes("postMessage({ action: 'refreshAppCache' }") && adminSource.includes('hasActiveNiaTodoWorker'), 'admin server update reload must preserve active nia-todo service workers and refresh their app cache in place for iOS PWA offline launch');
 assert(adminSource.includes("scriptURL?.endsWith('/sw.js')") && adminSource.includes('registration.unregister()'), 'admin server update reload may unregister stale nia-todo service workers only when no active worker is available');
@@ -153,8 +154,8 @@ assert(serviceWorkerUpdatesSource.includes('caches.keys()') && serviceWorkerUpda
 assert(connectionStatusSource.includes('setForceRefreshButtonsEnabled') && connectionStatusSource.includes("className = 'status-offline'") && connectionStatusSource.includes('setForceRefreshButtonsEnabled(false)'), 'connection status must disable hard reload buttons from the same offline state that shows the red offline indicator');
 assert(serviceWorkerUpdatesSource.includes('fetchHardReloadAssets') && serviceWorkerUpdatesSource.includes("cache: 'reload'") && serviceWorkerUpdatesSource.includes('hardReloadAsset'), 'login/sidebar force reload must force app shell assets through the browser HTTP cache');
 assert(serviceWorkerUpdatesSource.includes('ensureOfflineServiceWorkerReadyAfterHardReload') && serviceWorkerUpdatesSource.includes("register('/sw.js', { updateViaCache: 'none' })") && serviceWorkerUpdatesSource.includes("postMessage({ action: 'skipWaiting' })") && serviceWorkerUpdatesSource.includes('resolveWithTimeout(ensureOfflineServiceWorkerReadyAfterHardReload(), 7000, false)'), 'login/sidebar hard reload must reinstall an active offline service worker before navigation without hanging indefinitely');
-assert(indexSource.includes('refreshAssetsFromNetwork') && indexSource.includes("cache: 'reload'") && indexSource.includes('hardReloadAsset'), 'boot recovery reload must also refresh current app shell assets from network');
-assert(indexSource.includes('restoreOfflineServiceWorker') && indexSource.includes("register('/sw.js', { updateViaCache: 'none' })") && indexSource.includes("postMessage({ action: 'skipWaiting' })"), 'boot recovery hard reload must reinstall an active offline service worker before navigation');
+assert(bootSource.includes('refreshAssetsFromNetwork') && bootSource.includes("cache: 'reload'") && bootSource.includes('hardReloadAsset'), 'boot recovery reload must also refresh current app shell assets from network');
+assert(bootSource.includes('restoreOfflineServiceWorker') && bootSource.includes("register('/sw.js', { updateViaCache: 'none' })") && bootSource.includes("postMessage({ action: 'skipWaiting' })"), 'boot recovery hard reload must reinstall an active offline service worker before navigation');
 assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('hardReload')"), 'login/sidebar force reload must add a cache-busting hardReload query parameter');
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');

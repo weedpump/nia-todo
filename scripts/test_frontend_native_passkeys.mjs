@@ -40,7 +40,7 @@ function runScenario(name, body) {
     globalThis.btoa = globalThis.btoa || ((value) => Buffer.from(value, 'binary').toString('base64'));
     globalThis.structuredClone = globalThis.structuredClone || ((value) => JSON.parse(JSON.stringify(value)));
     const installNavigator = (userAgent, credentials) => Object.defineProperty(globalThis, 'navigator', { value: { userAgent, credentials }, configurable: true });
-    const installWindow = (tauri = null) => Object.defineProperty(globalThis, 'window', { value: tauri ? { __TAURI__: tauri } : {}, configurable: true });
+    const installWindow = (tauri = null) => { globalThis.isTauri = Boolean(tauri); Object.defineProperty(globalThis, 'window', { value: tauri ? { __TAURI_INTERNALS__: { invoke: tauri.core.invoke } } : {}, configurable: true }); };
     const passkeyOptions = {
       publicKey: {
         challenge: 'AQID',
@@ -138,8 +138,9 @@ runScenario('android native passkeys use javascript interface callbacks', String
     create: async () => { throw new Error('browser create must not be used on native Android'); },
     get: async () => { throw new Error('browser get must not be used on native Android'); },
   });
+  globalThis.isTauri = true;
   Object.defineProperty(globalThis, 'window', { value: {
-    __TAURI__: { core: { invoke: async () => { throw new Error('Tauri passkey invoke must not be used on Android'); } } },
+    __TAURI_INTERNALS__: { invoke: async () => { throw new Error('Tauri passkey invoke must not be used on Android'); } },
     NiaAndroidNative: {
       setConfiguredServerUrl: (serverUrl) => {
         calls.push({ method: 'setConfiguredServerUrl', serverUrl });

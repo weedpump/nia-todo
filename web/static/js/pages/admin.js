@@ -1,0 +1,2081 @@
+import { initI18n, t as i18nT } from '../i18n/index.js';
+import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
+import { initAutoScrollbars } from '../features/auto-scrollbars.js';
+import { hydrateIcons, iconSvg } from '../icons/lucide-icons.js';
+const ADMIN_SELECT_IDS = [
+  'email-smtp-security',
+  'oidc-token-auth-method',
+  'braindump-llm-provider',
+  'braindump-system-prompt-mode',
+  'braindump-stt-provider',
+  'new-language',
+];
+window.hydrateAdminSelects = () => {
+  ADMIN_SELECT_IDS.forEach((id) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    hydrateSelect(select, { className: 'admin-ui-select', menuClassName: 'admin-ui-select-menu' });
+    refreshSelect(select);
+  });
+};
+window.refreshAdminSelects = () => {
+  ADMIN_SELECT_IDS.forEach((id) => {
+    const select = document.getElementById(id);
+    if (select) refreshSelect(select);
+  });
+};
+initAutoScrollbars();
+window.iconSvg = iconSvg;
+window.hydrateIcons = hydrateIcons;
+hydrateIcons(document);
+await initI18n();
+window.t = i18nT;
+window.hydrateAdminSelects();
+window.adminI18nReady = true;
+window.dispatchEvent(new CustomEvent('admin-i18n-ready'));
+
+const API = '';
+
+
+function getSectionSummary(card) {
+  const translate = window.t || ((key) => key);
+  if (card.id === 'braindump-config-card') return translate('admin.braindump.summary');
+  if (card.id === 'email-config-card') return translate('admin.email.summary');
+  if (card.id === 'oidc-config-card') return translate('admin.oidc.summary');
+  if (card.id === 'attachment-config-card') return translate('admin.attachments.summary');
+  if (card.id === 'security-card') return translate('admin.security.summary');
+  return '';
+}
+
+function buildSectionToggle(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return null;
+  const translate = window.t || ((key) => key);
+  const wrapper = document.createElement('span');
+  wrapper.className = 'admin-section-toggle admin-config-checkbox';
+  wrapper.title = translate('admin.section.enable');
+  wrapper.setAttribute('aria-label', translate('admin.section.enable'));
+  wrapper.addEventListener('click', (event) => event.stopPropagation());
+  input.classList.remove('admin-header-switch-source');
+  input.addEventListener('click', (event) => event.stopPropagation());
+  wrapper.appendChild(input);
+  return wrapper;
+}
+
+function setupAdminSections() {
+  const cards = document.querySelectorAll('#admin-content .admin-card[id]:not(.admin-status-card)');
+  cards.forEach((card) => {
+    if (card.dataset.sectionReady === '1') return;
+    const heading = card.querySelector(':scope > h2');
+    if (!heading) return;
+    const body = document.createElement('div');
+    body.className = 'admin-section-body';
+    let node = heading.nextSibling;
+    while (node) {
+      const next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+    const sourceIcon = heading.querySelector('[data-icon]');
+    const iconName = sourceIcon?.getAttribute('data-icon') || 'settings';
+    const iconId = sourceIcon?.id || '';
+    const iconIdAttr = iconId ? ` id="${iconId}"` : '';
+    const titleClone = heading.cloneNode(true);
+    titleClone.querySelector('[data-icon]')?.remove();
+    const titleHtml = titleClone.innerHTML.trim();
+    const summary = getSectionSummary(card);
+    const headerRow = document.createElement('div');
+    headerRow.className = `admin-section-header-row${summary ? '' : ' no-summary'}`;
+    headerRow.innerHTML = `
+      <div class="ui-section-heading admin-section-heading">
+        <div${iconIdAttr} class="ui-section-icon" data-icon="${iconName}"></div>
+        <div class="admin-section-heading-copy">
+          <h4>${titleHtml}</h4>
+          ${summary ? `<p>${summary}</p>` : ''}
+        </div>
+      </div>
+    `;
+    const headerToggle = card.id === 'braindump-config-card'
+      ? buildSectionToggle('braindump-enabled')
+      : card.id === 'email-config-card'
+        ? buildSectionToggle('email-smtp-enabled')
+        : card.id === 'oidc-config-card'
+          ? buildSectionToggle('oidc-enabled')
+          : card.id === 'attachment-config-card'
+            ? buildSectionToggle('attachments-enabled')
+            : card.id === 'security-card'
+          ? buildSectionToggle('twofa-policy-toggle')
+          : null;
+    if (headerToggle) headerRow.appendChild(headerToggle);
+    heading.replaceWith(headerRow);
+    card.appendChild(body);
+    card.classList.add('admin-section-card', 'ui-section-card');
+    card.dataset.sectionReady = '1';
+  });
+  window.hydrateIcons?.(document);
+  wireHeaderToggles();
+}
+
+function setupAdminPageNav() {
+  const buttons = document.querySelectorAll('.admin-page-nav-btn');
+  const panels = document.querySelectorAll('.admin-main-section');
+  const activate = (page) => {
+    buttons.forEach((button) => button.classList.toggle('active', button.dataset.adminPage === page));
+    panels.forEach((panel) => panel.classList.toggle('active', panel.dataset.adminPagePanel === page));
+  };
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => activate(button.dataset.adminPage));
+  });
+}
+
+setupAdminPasswordDialog();
+setupAdminPageNav();
+if (window.adminI18nReady) setupAdminSections();
+else window.addEventListener('admin-i18n-ready', setupAdminSections, { once: true });
+let adminToken = null;
+let serverUpdatePollTimer = null;
+let serverUpdateReloadPromptShown = false;
+let serverUpdateStartedInThisPage = false;
+let adminUsers = [];
+let currentAttachmentConfig = null;
+let currentStatsDays = 30;
+let twoFactorPolicyRequired = false;
+let brainDumpFeatureEnabled = false;
+let oidcFeatureEnabled = false;
+let oidcFeatureConfigured = false;
+let adminOidcIdentities = [];
+
+
+function focusAdminLoginPassword() {
+  window.setTimeout(() => {
+    document.getElementById('admin-login-password')?.focus({ preventScroll: true });
+  }, 0);
+}
+
+function setTheme(mode) {
+  const normalizedMode = ['light', 'dark', 'system'].includes(mode) ? mode : 'system';
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = normalizedMode === 'dark' || (normalizedMode === 'system' && prefersDark);
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  if (normalizedMode === 'system') localStorage.removeItem('theme');
+  else localStorage.setItem('theme', normalizedMode);
+  updateAdminThemeCycleButton(normalizedMode);
+}
+
+function updateAdminThemeCycleButton(mode) {
+  const button = document.querySelector('[data-theme-cycle]');
+  if (!button) return;
+  const iconEl = button.querySelector('[data-theme-cycle-icon]');
+  const icons = { light: 'sun', dark: 'moon', system: 'monitor' };
+  const titles = {
+    light: adminTr('common.theme.light'),
+    dark: adminTr('common.theme.dark'),
+    system: adminTr('common.theme.system'),
+  };
+  const title = adminTr('menu.themeTitle', { theme: titles[mode] || titles.system });
+  button.dataset.themeMode = mode;
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  if (iconEl) {
+    iconEl.dataset.icon = icons[mode] || icons.system;
+    window.hydrateIcons?.(button);
+  }
+}
+
+function cycleAdminTheme() {
+  const cycle = ['light', 'dark', 'system'];
+  const current = localStorage.getItem('theme') || 'system';
+  const idx = cycle.indexOf(current);
+  setTheme(cycle[(idx + 1) % cycle.length]);
+}
+
+// Init theme
+setTheme(localStorage.getItem('theme') || 'system');
+
+// Migrate old token storage: clear old plaintext admin_token
+function migrateOldAdminToken() {
+  const oldToken = localStorage.getItem('admin_token');
+  if (oldToken) {
+    localStorage.removeItem('admin_token');
+  }
+}
+migrateOldAdminToken();
+
+function adminTr(key, params = {}) {
+  return (window.t || ((fallbackKey) => fallbackKey))(key, params);
+}
+
+async function hydrateAdminOidcLogin() {
+  const button = document.getElementById('admin-oidc-login-btn');
+  if (!button) return;
+  try {
+    const r = await fetch(API + '/api/oidc/status', { credentials: 'include' });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.enabled) return;
+    button.textContent = adminTr('admin.oidc.signInWithProvider', { provider: data.provider_name || 'OIDC' });
+    button.classList.remove('hidden');
+  } catch (_) {}
+}
+
+function consumeAdminOidcLinkResult() {
+  const raw = sessionStorage.getItem('nia_admin_oidc_link_result');
+  if (!raw) return;
+  sessionStorage.removeItem('nia_admin_oidc_link_result');
+  try {
+    const data = JSON.parse(raw);
+    const msg = document.getElementById('oidc-config-success');
+    if (msg) msg.textContent = adminTr('admin.oidc.adminLinked', { identity: data.display_label || data.subject || adminTr('admin.oidc.identityFallback') });
+  } catch (_) {}
+}
+
+function consumeAdminOidcErrorNotice() {
+  const raw = sessionStorage.getItem('nia_oidc_error');
+  if (!raw) return;
+  sessionStorage.removeItem('nia_oidc_error');
+  let message = adminTr('auth.oidc.errorMessage');
+  let kind = 'admin';
+  try {
+    const data = JSON.parse(raw);
+    message = data?.error_key ? adminTr(data.error_key) : message;
+    kind = data?.kind || kind;
+  } catch (_) {}
+  if (kind !== 'admin') return;
+  const configError = document.getElementById('oidc-config-error');
+  const loginError = document.getElementById('admin-login-error');
+  if (configError) configError.textContent = message;
+  if (loginError) loginError.textContent = message;
+  adminNotice(adminTr('auth.oidc.errorTitle'), message).catch(() => {});
+}
+
+function getAdminToken() {
+  return localStorage.getItem('admin_jwt_token');
+}
+
+function setAdminAuthenticated(isAuthenticated) {
+  document.getElementById('admin-header-actions').hidden = !isAuthenticated;
+  document.getElementById('admin-content').style.display = isAuthenticated ? 'block' : 'none';
+  document.getElementById('admin-login-card').style.display = isAuthenticated ? 'none' : 'block';
+  if (!isAuthenticated) {
+    closeAdminPasswordDialog();
+    document.getElementById('admin-login-error').textContent = '';
+  }
+}
+
+function startAdminApp() {
+  hydrateAdminOidcLogin();
+  consumeAdminOidcErrorNotice();
+
+  adminToken = getAdminToken();
+
+  if (adminToken) {
+    // Try to use stored JWT, if invalid show login
+    loadAdminData().then(() => {
+      setAdminAuthenticated(true);
+      consumeAdminOidcLinkResult();
+    }).catch(() => {
+      localStorage.removeItem('admin_jwt_token');
+      adminToken = null;
+      setAdminAuthenticated(false);
+      focusAdminLoginPassword();
+    });
+  } else {
+    setAdminAuthenticated(false);
+    focusAdminLoginPassword();
+  }
+}
+
+if (window.adminI18nReady) startAdminApp();
+else window.addEventListener('admin-i18n-ready', startAdminApp, { once: true });
+
+function getAuthHeaders() {
+  const headers = {};
+  if (adminToken) {
+    headers['Authorization'] = 'Bearer ' + adminToken;
+  }
+  // Add CSRF token for state-changing requests
+  const csrf = localStorage.getItem('csrf_token');
+  if (csrf) {
+    headers['X-CSRF-Token'] = csrf;
+  }
+  return headers;
+}
+
+async function getApiError(response) {
+  const fallback = `Error ${response.status}: ${response.statusText || 'Request failed'}`;
+  const data = await response.json().catch(() => null);
+  if (!data) return fallback;
+
+  // Handle flat format: {detail, code, params}
+  let code = data.code;
+  let detail = data.detail;
+  let params = data.params || {};
+
+  // Handle nested format: {detail: {detail, code, params}}
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    code = detail.code || code;
+    params = detail.params || params;
+    detail = detail.detail || detail.message || fallback;
+  }
+
+  // Handle FastAPI/Pydantic validation arrays instead of leaking [object Object].
+  if (Array.isArray(detail)) {
+    detail = detail.map(item => item?.msg || item?.message || item?.detail).filter(Boolean).join(', ') || fallback;
+  }
+
+  // Try i18n lookup
+  if (code) {
+    const key = `api.error.${code}`;
+    const translated = t(key, params);
+    if (translated !== key) return translated;
+  }
+
+  // Fallback to detail string
+  if (typeof detail === 'string') return detail;
+  return fallback;
+}
+
+async function apiGet(path) {
+  const r = await fetch(API + path, {
+    headers: getAuthHeaders()
+  });
+  if (!r.ok) throw new Error(await getApiError(r));
+  return r.json();
+}
+
+async function apiPost(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await getApiError(r));
+  return r.json();
+}
+
+async function apiPatch(path, body) {
+  const r = await fetch(API + path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await getApiError(r));
+  return r.json();
+}
+
+async function apiDelete(path) {
+  const r = await fetch(API + path, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!r.ok) throw new Error(await getApiError(r));
+  return r.json();
+}
+
+async function doAdminLogin() {
+  const password = document.getElementById('admin-login-password').value;
+  document.getElementById('admin-login-error').textContent = '';
+
+  if (!password) {
+    document.getElementById('admin-login-error').textContent = t('admin.login.passwordRequired');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    if (!r.ok) {
+      if (r.status === 401) {
+        document.getElementById('admin-login-error').textContent = t('admin.login.invalidPassword');
+      } else {
+        document.getElementById('admin-login-error').textContent = await getApiError(r) || t('admin.login.failed');
+      }
+      return;
+    }
+    const data = await r.json();
+
+    adminToken = data.access_token;
+    localStorage.setItem('admin_jwt_token', data.access_token);
+    // Store CSRF token from cookie (Double-Submit Cookie pattern)
+    // The server sets it as a cookie; we also get it in the response body
+    if (data.csrf_token) {
+      localStorage.setItem('csrf_token', data.csrf_token);
+    }
+    setAdminAuthenticated(true);
+    await loadAdminData();
+    consumeAdminOidcLinkResult();
+  } catch(e) {
+    document.getElementById('admin-login-error').textContent = 'Error: ' + e.message;
+  }
+}
+
+async function loadAdminData() {
+  const [usersData, configData, attachmentConfigData, brainDumpConfigData, emailConfigData, oidcConfigData, oidcLinksData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
+    apiGet('/api/admin/users'),
+    apiGet('/api/admin/instance-config'),
+    apiGet('/api/admin/attachment-config'),
+    apiGet('/api/admin/braindump-config'),
+    apiGet('/api/admin/email-config'),
+    apiGet('/api/admin/oidc-config'),
+    apiGet('/api/oidc/admin/links'),
+    apiGet('/api/admin/2fa-policy'),
+    apiGet('/api/admin/server-update'),
+    apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`),
+  ]);
+  twoFactorPolicyRequired = !!twoFactorPolicy.required;
+  brainDumpFeatureEnabled = !!brainDumpConfigData.enabled;
+  renderTwoFactorPolicy(twoFactorPolicy);
+  renderInstanceConfig(configData);
+  renderAttachmentConfig(attachmentConfigData);
+  renderBrainDumpConfig(brainDumpConfigData);
+  renderUsers(usersData.users);
+  renderEmailConfig(emailConfigData);
+  renderOidcConfig(oidcConfigData);
+  renderAdminOidcLinks(oidcLinksData.identities || []);
+  renderServerUpdate(serverUpdate);
+  renderTechnicalStats(technicalStats);
+}
+
+function formatAdminNumber(value) {
+  return new Intl.NumberFormat(undefined).format(Number(value || 0));
+}
+
+function formatAdminBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let size = value / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) { size /= 1024; idx += 1; }
+  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[idx]}`;
+}
+
+function bytesToGb(bytes) {
+  const value = Number(bytes || 0) / (1024 ** 3);
+  return Number.isFinite(value) ? Number(value.toFixed(2)) : 0;
+}
+
+function gbToBytes(gb) {
+  const value = Number(gb);
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.round(value * (1024 ** 3));
+}
+
+function statTile(label, value, foot = '') {
+  return `<div class="admin-stat-tile"><div class="admin-stat-label">${escapeHtml(label)}</div><div class="admin-stat-value">${escapeHtml(value)}</div>${foot ? `<div class="admin-stat-foot">${escapeHtml(foot)}</div>` : ''}</div>`;
+}
+
+function formatTrend(value, current, previous) {
+  if (Number(previous || 0) === 0 && Number(current || 0) > 0) return 'neu';
+  const num = Number(value || 0);
+  if (!num) return '±0%';
+  return `${num > 0 ? '+' : ''}${num.toFixed(1)}%`;
+}
+
+function formatRate(value) {
+  return `${Number(value || 0).toFixed(1)}%`;
+}
+
+function formatDurationMs(value) {
+  if (value == null) return '-';
+  const ms = Number(value || 0);
+  if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 1 : 2)}s`;
+  return `${Math.round(ms)}ms`;
+}
+
+function metricValue(point) {
+  return Number(point?.value || 0);
+}
+
+function statsT(key, params = {}) {
+  const translate = window.t || ((fallbackKey) => fallbackKey);
+  return translate(key, params);
+}
+
+function renderLineChart(seriesDefs, options = {}) {
+  const width = 720;
+  const height = 210;
+  const pad = { left: 34, right: 12, top: 16, bottom: 24 };
+  const normalizedSeries = options.normalizeSeries
+    ? seriesDefs.map((item) => {
+        const max = Math.max(1, ...(item.values || []).map(metricValue));
+        return { ...item, values: (item.values || []).map((point) => ({ ...point, value: (metricValue(point) / max) * 100 })) };
+      })
+    : seriesDefs;
+  const allValues = normalizedSeries.flatMap((item) => (item.values || []).map(metricValue));
+  const maxValue = options.normalizeSeries ? 100 : Math.max(1, ...allValues);
+  const pointCount = Math.max(1, ...normalizedSeries.map((item) => (item.values || []).length));
+  const xFor = (idx) => pad.left + (pointCount <= 1 ? 0 : idx * ((width - pad.left - pad.right) / (pointCount - 1)));
+  const yFor = (value) => height - pad.bottom - (Number(value || 0) / maxValue) * (height - pad.top - pad.bottom);
+  const lines = normalizedSeries.map((item, seriesIdx) => {
+    const values = item.values || [];
+    if (!values.length) return '';
+    const d = values.map((point, idx) => `${idx === 0 ? 'M' : 'L'} ${xFor(idx).toFixed(1)} ${yFor(metricValue(point)).toFixed(1)}`).join(' ');
+    return `<path class="line-${['a','b','c'][seriesIdx] || 'a'}" d="${d}" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }).join('');
+  const grid = [0, .25, .5, .75, 1].map((ratio) => {
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    return `<line class="grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
+  }).join('');
+  const maxLabel = options.normalizeSeries ? '100%' : statsT('admin.stats.chart.max', { value: formatAdminNumber(maxValue) });
+  return `<svg class="admin-stat-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}${lines}<text x="${pad.left}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.[0]?.date || '')}</text><text x="${width - 120}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.at(-1)?.date || '')}</text><text x="${pad.left}" y="12">${escapeHtml(maxLabel)}</text></svg>`;
+}
+
+function renderBarRows(items) {
+  const max = Math.max(1, ...items.map((item) => Number(item.value || 0)));
+  return items.map((item) => {
+    const width = Number(item.value || 0) <= 0 ? 0 : Math.max(2, (Number(item.value || 0) / max) * 100);
+    return `<div class="admin-stat-bar-row"><div>${escapeHtml(item.label)}</div><div class="admin-stat-bar-track"><div class="admin-stat-bar-fill" style="width:${width}%"></div></div><div>${escapeHtml(item.display ?? formatAdminNumber(item.value))}</div></div>`;
+  }).join('');
+}
+
+function renderMetricRows(items) {
+  return `<div class="admin-stat-metric-grid">${items.map((item) => `<div class="admin-stat-metric"><div class="admin-stat-metric-label">${escapeHtml(item.label)}</div><div class="admin-stat-metric-value">${escapeHtml(item.display ?? formatAdminNumber(item.value))}</div><div class="admin-stat-metric-foot">${escapeHtml(item.foot || '')}</div></div>`).join('')}</div>`;
+}
+
+function formatStatsDate(value) {
+  if (!value) return statsT('admin.stats.noData');
+  const date = new Date(`${value}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+}
+
+function translateStatsLabel(prefix, label) {
+  const slug = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+  if (!slug) return label;
+  const key = `${prefix}.${slug}`;
+  const translated = statsT(key);
+  return translated === key ? label : translated;
+}
+
+function objectToBarItems(obj, prefix = '') {
+  return Object.entries(obj || {}).map(([label, value]) => ({ label: prefix ? translateStatsLabel(prefix, label) : label, value }));
+}
+
+function setStatsPeriod(days) {
+  currentStatsDays = Number(days || 30);
+  document.querySelectorAll('#stats-period-tabs .admin-stat-tab').forEach((button) => {
+    button.classList.toggle('active', Number(button.dataset.days) === currentStatsDays);
+  });
+  loadTechnicalStats();
+}
+
+function renderTechnicalStats(data) {
+  if (!data) return;
+  const inventory = data.inventory || {};
+  const counts = inventory.current || data.counts || {};
+  const created = inventory.created || {};
+  const workload = data.workload || {};
+  const selected = workload.selected || workload;
+  const stt = selected.stt || {};
+  const llm = selected.llm || {};
+  const tokens = llm.tokens || {};
+  const ai = selected.backend_ai_calls || {};
+  const audio = selected.audio_segments || {};
+  const platformAnalysis = data.platform_analysis || {};
+  const clientMix = platformAnalysis.historical || {};
+  const coverage = data.coverage || {};
+  document.getElementById('stats-data-coverage').textContent = statsT('admin.stats.coverage.summary', {
+    date: formatStatsDate(coverage.data_since),
+  });
+  document.getElementById('stats-inventory-subtitle').textContent = statsT('admin.stats.relativeDays', { days: formatAdminNumber(data.period_days) });
+  document.getElementById('stats-workload-subtitle').textContent = statsT('admin.stats.days', { days: formatAdminNumber(data.period_days) });
+  document.getElementById('stats-platform-subtitle').textContent = statsT('admin.stats.platformSubtitle', {
+    days: formatAdminNumber(data.period_days),
+    sessions: formatAdminNumber(platformAnalysis.total_active_sessions),
+  });
+  document.getElementById('technical-stats-kpis').innerHTML = [
+    statTile(statsT('admin.stats.kpi.activeSessions'), formatAdminNumber(counts.user_sessions), statsT('admin.stats.foot.current')),
+    statTile(statsT('admin.stats.kpi.todosTotal'), formatAdminNumber(counts.todos), statsT('admin.stats.foot.createdInPeriod', { count: formatAdminNumber(created.todos) })),
+    statTile(statsT('admin.stats.kpi.users'), formatAdminNumber(counts.users), statsT('admin.stats.foot.createdInPeriod', { count: formatAdminNumber(created.users) })),
+    statTile(statsT('admin.stats.kpi.llmCalls'), formatAdminNumber(llm.total), statsT('admin.stats.foot.perDay', { count: formatAdminNumber(llm.avg_per_day) })),
+    statTile(statsT('admin.stats.kpi.llmTokens'), tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-', tokens.avg_tokens_per_llm_call ? statsT('admin.stats.foot.perCall', { count: formatAdminNumber(tokens.avg_tokens_per_llm_call) }) : statsT('admin.stats.foot.providerReported')),
+    statTile(statsT('admin.stats.kpi.sttCalls'), formatAdminNumber(stt.total), statsT('admin.stats.foot.perDay', { count: formatAdminNumber(stt.avg_per_day) })),
+    statTile(statsT('admin.stats.kpi.peakPerHour'), formatAdminNumber(ai.peak_per_hour), statsT('admin.stats.foot.llmOrStt')),
+    statTile(statsT('admin.stats.kpi.errorRateLlmStt'), `${formatRate(llm.error_rate)} / ${formatRate(stt.error_rate)}`, statsT('admin.stats.foot.llmStt')),
+    statTile(statsT('admin.stats.kpi.dbSize'), formatAdminBytes(data.database?.bytes), statsT('admin.stats.foot.sqliteFiles')),
+  ].join('');
+  document.getElementById('stats-inventory-chart').innerHTML = renderLineChart([
+    { label: statsT('admin.stats.label.users'), values: inventory.series?.users || [] },
+    { label: statsT('admin.stats.label.projects'), values: inventory.series?.projects || [] },
+    { label: statsT('admin.stats.label.todos'), values: inventory.series?.todos || [] },
+  ], { normalizeSeries: true });
+  document.getElementById('stats-workload-chart').innerHTML = renderLineChart([
+    { label: statsT('admin.stats.label.llm'), values: workload.series?.llm || [] },
+    { label: statsT('admin.stats.label.stt'), values: workload.series?.stt || [] },
+    { label: statsT('admin.stats.label.audio'), values: workload.series?.audio_segments || [] },
+  ]);
+  document.getElementById('stats-inventory-bars').innerHTML = renderMetricRows([
+    { label: statsT('admin.stats.label.users'), value: counts.users },
+    { label: statsT('admin.stats.label.workspaces'), value: counts.workspaces },
+    { label: statsT('admin.stats.label.projects'), value: counts.projects },
+    { label: statsT('admin.stats.label.todos'), value: counts.todos },
+    { label: statsT('admin.stats.label.reminders'), value: counts.reminders },
+    { label: statsT('admin.stats.label.push'), value: counts.push_subscriptions },
+  ]);
+  document.getElementById('stats-capacity-bars').innerHTML = renderMetricRows([
+    { label: statsT('admin.stats.label.llmCalls'), value: llm.total, foot: statsT('admin.stats.foot.perDay', { count: formatAdminNumber(llm.avg_per_day) }) },
+    { label: statsT('admin.stats.label.sttCalls'), value: stt.total, foot: statsT('admin.stats.foot.perDay', { count: formatAdminNumber(stt.avg_per_day) }) },
+    { label: statsT('admin.stats.label.audio'), value: audio.total, foot: statsT('admin.stats.foot.perDay', { count: formatAdminNumber(audio.avg_per_day) }) },
+    { label: statsT('admin.stats.label.llmPeakHour'), value: llm.peak_per_hour, foot: statsT('admin.stats.foot.peak') },
+    { label: statsT('admin.stats.label.sttPeakHour'), value: stt.peak_per_hour, foot: statsT('admin.stats.foot.peak') },
+    { label: statsT('admin.stats.label.tokens'), value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-', foot: tokens.avg_tokens_per_llm_call ? statsT('admin.stats.foot.perCall', { count: formatAdminNumber(tokens.avg_tokens_per_llm_call) }) : statsT('admin.stats.foot.providerReported') },
+  ]);
+  const emptyPlatform = [{ label: statsT('admin.stats.emptyPeriod'), value: 0, display: '0' }];
+  const appTypeItems = objectToBarItems(clientMix.app_types, 'admin.stats.appType');
+  document.getElementById('stats-app-types').innerHTML = renderBarRows(appTypeItems.length ? appTypeItems : emptyPlatform);
+  const osItems = objectToBarItems(clientMix.operating_systems, 'admin.stats.os');
+  document.getElementById('stats-operating-systems').innerHTML = renderBarRows(osItems.length ? osItems : emptyPlatform);
+  const browserItems = objectToBarItems(clientMix.browsers, 'admin.stats.browser');
+  document.getElementById('stats-browsers').innerHTML = renderBarRows(browserItems.length ? browserItems : emptyPlatform);
+}
+
+async function loadTechnicalStats() {
+  document.getElementById('technical-stats-error').textContent = '';
+  document.getElementById('technical-stats-success').textContent = '';
+  try {
+    const data = await apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`);
+    renderTechnicalStats(data);
+  } catch(e) {
+    document.getElementById('technical-stats-error').textContent = statsT('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+
+async function loadUsers() {
+  try {
+    const data = await apiGet('/api/admin/users');
+    if (typeof data.two_factor_required === 'boolean') {
+      twoFactorPolicyRequired = data.two_factor_required;
+      renderTwoFactorPolicy({ required: twoFactorPolicyRequired });
+    }
+    renderUsers(data.users);
+  } catch(e) {
+    document.getElementById('user-list').innerHTML =
+      `<tr><td colspan="12" class="empty-state">Error: ${escapeHtml(e.message)}</td></tr>`;
+    if (e.message.includes('403')) {
+      localStorage.removeItem('admin_jwt_token');
+      setTimeout(() => location.reload(), 2000);
+    }
+  }
+}
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+function escapeHtmlAttr(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function jsStringAttr(value) {
+  return escapeHtmlAttr(JSON.stringify(String(value ?? '')));
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function parseServerTimestamp(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const date = new Date(hasTimezone ? normalized : `${normalized}Z`);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function formatServerTimestamp(value) {
+  const date = parseServerTimestamp(value);
+  if (!date) return '-';
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+const SESSION_CLIENT_MARKER_RE = /nia-todo-client\(([^)]{1,160})\)\s*/i;
+function sessionClientInfoFromUserAgent(userAgent) {
+  const marker = String(userAgent || '').match(SESSION_CLIENT_MARKER_RE);
+  if (!marker) return {};
+  return Object.fromEntries(marker[1].split(';').map(part => part.trim().split('=').map(value => value.trim())).filter(([key, value]) => key && value));
+}
+function cleanAdminSessionUserAgent(userAgent) {
+  return String(userAgent || '').replace(SESSION_CLIENT_MARKER_RE, '').trim();
+}
+function adminBrowserName(ua, fallback) {
+  if (/EdgA\//.test(ua) || /EdgiOS\//.test(ua) || /Edg\//.test(ua)) return 'Edge';
+  if (/OPR\//.test(ua)) return 'Opera';
+  if (/SamsungBrowser\//.test(ua)) return 'Samsung Internet';
+  if (/Firefox\//.test(ua) || /FxiOS\//.test(ua)) return 'Firefox';
+  if (/CriOS\//.test(ua) || /Chrome\//.test(ua)) return 'Chrome';
+  if (/Safari\//.test(ua)) return 'Safari';
+  return fallback;
+}
+function adminPlatformOsName(platform, fallback) {
+  switch (String(platform || '').toLowerCase()) {
+    case 'android': return 'Android';
+    case 'ios': return 'iOS';
+    case 'ipados': return 'iPadOS';
+    case 'windows': return 'Windows';
+    case 'macos': return 'macOS';
+    case 'linux': return 'Linux';
+    default: return fallback;
+  }
+}
+function adminOsName(ua, fallback, platform = '') {
+  const platformName = adminPlatformOsName(platform, '');
+  if (platformName) return platformName;
+  if (/Android/i.test(ua)) return 'Android';
+  if (/Windows/i.test(ua)) return 'Windows';
+  if (/iPhone|iPad/i.test(ua)) return 'iOS/iPadOS';
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'macOS';
+  if (/Linux/i.test(ua)) return 'Linux';
+  return fallback;
+}
+function adminNativePlatformName(platform, fallback) {
+  const os = adminPlatformOsName(platform, '');
+  return os ? `${os} App` : fallback;
+}
+function adminSessionDeviceName(session) {
+  const rawUa = String(session?.user_agent || '').trim();
+  if (!rawUa) return t('settings.2fa.trustedDeviceUnknown');
+  const client = sessionClientInfoFromUserAgent(rawUa);
+  if (client.app === 'nia-todo' && client.mode === 'native') return adminNativePlatformName(client.platform, 'nia-todo App');
+  const ua = cleanAdminSessionUserAgent(rawUa);
+  return `${adminBrowserName(ua, t('settings.2fa.trustedDeviceBrowser'))} · ${adminOsName(ua, t('settings.2fa.trustedDeviceDevice'), client.app === 'nia-todo' ? client.platform : '')}`;
+}
+function adminSessionIpLocation(session) {
+  const ip = String(session.ip_address || '').trim();
+  if (!ip) return '';
+  const lower = ip.toLowerCase();
+  const parts = ip.split('.').map(part => Number(part));
+  const isIpv4 = parts.length === 4 && parts.every(part => Number.isInteger(part) && part >= 0 && part <= 255);
+  let locationKey = 'settings.2fa.sessionLocationPublic';
+  if (ip === '127.0.0.1' || lower === '::1') locationKey = 'settings.2fa.sessionLocationLocal';
+  else if (isIpv4 && (parts[0] === 10 || (parts[0] === 192 && parts[1] === 168) || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31))) locationKey = 'settings.2fa.sessionLocationPrivate';
+  else if (isIpv4 && parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) locationKey = 'settings.2fa.sessionLocationCarrierNat';
+  else if (lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:')) locationKey = 'settings.2fa.sessionLocationPrivate';
+  return t('settings.2fa.sessionIpLocation', { ip, location: t(locationKey) });
+}
+
+function adminDialog({ title, message, confirmText = t('common.confirm'), danger = false, hideCancel = false }) {
+  const modal = document.getElementById('admin-action-dialog');
+  const form = document.getElementById('admin-dialog-form');
+  const cancel = document.getElementById('admin-dialog-cancel');
+  const confirmBtn = document.getElementById('admin-dialog-confirm');
+  const overlay = document.getElementById('admin-dialog-overlay');
+  document.getElementById('admin-dialog-title').textContent = title;
+  document.getElementById('admin-dialog-message').textContent = message;
+  confirmBtn.textContent = confirmText;
+  confirmBtn.classList.toggle('btn-danger', danger);
+  confirmBtn.classList.toggle('btn-primary', !danger);
+  cancel.style.display = hideCancel ? 'none' : '';
+  modal.classList.add('active');
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      cancel.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+      modal.classList.remove('active');
+      cancel.style.display = '';
+    };
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    const onSubmit = (event) => { event.preventDefault(); finish(true); };
+    const onCancel = () => finish(false);
+    const onKey = (event) => { if (event.key === 'Escape') finish(false); };
+    form.addEventListener('submit', onSubmit);
+    cancel.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+    confirmBtn.focus();
+  });
+}
+
+function adminConfirm(options) {
+  return adminDialog(options);
+}
+
+function adminNotice(title, message) {
+  return adminDialog({ title, message, confirmText: 'OK', hideCancel: true });
+}
+
+function closeAdminPasswordDialog() {
+  document.getElementById('admin-password-dialog')?.classList.remove('active');
+}
+
+function openAdminPasswordDialog() {
+  if (!adminToken) return;
+  const dialog = document.getElementById('admin-password-dialog');
+  if (!dialog) return;
+  document.getElementById('admin-old-password').value = '';
+  document.getElementById('admin-new-password').value = '';
+  document.getElementById('admin-confirm-password').value = '';
+  document.getElementById('admin-pw-error').textContent = '';
+  document.getElementById('admin-pw-success').textContent = '';
+  dialog.classList.add('active');
+  document.getElementById('admin-old-password')?.focus();
+}
+
+function setupAdminPasswordDialog() {
+  const dialog = document.getElementById('admin-password-dialog');
+  const form = document.getElementById('admin-password-dialog-form');
+  const cancel = document.getElementById('admin-password-dialog-cancel');
+  const overlay = document.getElementById('admin-password-dialog-overlay');
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    changeAdminPassword();
+  });
+  cancel?.addEventListener('click', closeAdminPasswordDialog);
+  overlay?.addEventListener('click', closeAdminPasswordDialog);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && dialog?.classList.contains('active')) closeAdminPasswordDialog();
+  });
+}
+
+function renderInstanceConfig(config) {
+  document.getElementById('instance-public-url').value = config.public_base_url || '';
+  document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
+  document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
+}
+
+function attachmentTypesToExtensionInput(types = []) {
+  const mapped = [];
+  const add = (value) => {
+    const normalized = String(value || '').trim().toLowerCase().replace(/^\.+/, '');
+    if (normalized && !mapped.includes(normalized)) mapped.push(normalized);
+  };
+  for (const raw of Array.isArray(types) ? types : []) {
+    const item = String(raw || '').trim().toLowerCase();
+    if (!item) continue;
+    if (item === 'image/*') ['png', 'jpg', 'jpeg', 'gif', 'webp'].forEach(add);
+    else if (item === 'application/pdf') add('pdf');
+    else if (item === 'text/plain') add('txt');
+    else if (item === 'text/markdown') ['md', 'markdown'].forEach(add);
+    else if (item === 'application/zip') add('zip');
+    else if (item === 'application/json') add('json');
+    else if (item.startsWith('.')) add(item);
+    else if (!item.includes('/')) add(item);
+  }
+  return mapped.join(', ');
+}
+
+function renderAttachmentConfig(config = {}) {
+  currentAttachmentConfig = { ...config };
+  document.getElementById('attachments-enabled').checked = config.enabled !== false;
+  document.getElementById('attachments-default-quota-gb').value = bytesToGb(config.default_quota_bytes ?? (5 * 1024 ** 3));
+  document.getElementById('attachments-allowed-types').value = attachmentTypesToExtensionInput(config.allowed_types || []);
+}
+
+function readAttachmentTypesInput(value) {
+  return String(value || '')
+    .split(/[\n,;\s]+/)
+    .map(item => item.trim().toLowerCase().replace(/^\*\./, '').replace(/^\.+/, ''))
+    .filter(Boolean);
+}
+
+function readAttachmentConfigForm() {
+  return {
+    enabled: document.getElementById('attachments-enabled').checked,
+    allowed_types: readAttachmentTypesInput(document.getElementById('attachments-allowed-types').value),
+    default_quota_bytes: gbToBytes(document.getElementById('attachments-default-quota-gb').value),
+  };
+}
+
+function updateAdminOidcActions() {
+  const linked = adminOidcIdentities.length > 0;
+  const canLink = oidcFeatureEnabled && oidcFeatureConfigured;
+  document.getElementById('admin-oidc-link-btn')?.classList.toggle('hidden', !(canLink && !linked));
+  document.getElementById('admin-oidc-unlink-btn')?.classList.toggle('hidden', !linked);
+}
+
+function renderOidcConfig(config = {}) {
+  oidcFeatureEnabled = !!config.enabled;
+  oidcFeatureConfigured = !!(config.issuer_url && config.client_id && (config.public_client || config.client_secret_configured));
+  document.getElementById('oidc-enabled').checked = oidcFeatureEnabled;
+  updateAdminOidcActions();
+  document.getElementById('oidc-provider-name').value = config.provider_name || 'OIDC';
+  document.getElementById('oidc-issuer-url').value = config.issuer_url || '';
+  document.getElementById('oidc-client-id').value = config.client_id || '';
+  document.getElementById('oidc-client-secret').value = '';
+  document.getElementById('oidc-public-client').checked = !!config.public_client;
+  document.getElementById('oidc-token-auth-method').value = config.token_auth_method || 'auto';
+  window.refreshAdminSelects?.();
+  document.getElementById('oidc-scopes').value = config.scopes || 'openid email profile';
+  document.getElementById('oidc-redirect-uri').textContent = config.redirect_uri || '/api/oidc/callback';
+  document.getElementById('oidc-client-secret-note').textContent = config.client_secret_configured ? adminTr('admin.oidc.secretStored') : adminTr('admin.oidc.secretMissing');
+}
+
+function renderAdminOidcLinks(identities = []) {
+  adminOidcIdentities = identities;
+  updateAdminOidcActions();
+  const container = document.getElementById('oidc-admin-links');
+  if (!container) return;
+  if (!identities.length) {
+    container.innerHTML = `<div class="admin-help">${escapeHtml(adminTr('admin.oidc.adminNotLinked'))}</div>`;
+    return;
+  }
+  container.innerHTML = identities.map(identity => `
+    <div class="admin-linked-item">
+      <div><strong>${escapeHtml(identity.display_label || identity.subject || adminTr('admin.oidc.identityFallback'))}</strong><br><span class="admin-muted">${escapeHtml(identity.issuer || '')}</span></div>
+    </div>
+  `).join('');
+}
+
+function readOidcConfigForm() {
+  const secret = document.getElementById('oidc-client-secret').value;
+  const data = {
+    enabled: document.getElementById('oidc-enabled').checked,
+    provider_name: document.getElementById('oidc-provider-name').value.trim() || 'OIDC',
+    issuer_url: document.getElementById('oidc-issuer-url').value.trim(),
+    client_id: document.getElementById('oidc-client-id').value.trim(),
+    public_client: document.getElementById('oidc-public-client').checked,
+    token_auth_method: document.getElementById('oidc-token-auth-method').value || 'auto',
+    scopes: document.getElementById('oidc-scopes').value.trim() || 'openid email profile',
+  };
+  if (secret) data.client_secret = secret;
+  return data;
+}
+
+async function saveOidcConfig() {
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
+    renderOidcConfig(data);
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.configSaved');
+  } catch (e) {
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveOidcToggle() {
+  const toggle = document.getElementById('oidc-enabled');
+  const previous = oidcFeatureEnabled;
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
+    renderOidcConfig(data);
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.configSaved');
+  } catch (e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function startAdminOidcLink() {
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    const data = await apiPost('/api/oidc/admin/link/start', {});
+    location.href = data.authorization_url;
+  } catch (e) {
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function unlinkAdminOidcIdentity(identityId) {
+  if (!identityId) return;
+  const confirmed = await adminConfirm({
+    title: adminTr('admin.oidc.unlinkConfirmTitle'),
+    message: adminTr('admin.oidc.unlinkConfirmMessage'),
+    confirmText: adminTr('admin.oidc.unlinkAction'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    await apiDelete(`/api/oidc/admin/links/${identityId}`);
+    const links = await apiGet('/api/oidc/admin/links');
+    renderAdminOidcLinks(links.identities || []);
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.adminUnlinked');
+  } catch (e) {
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function unlinkFirstAdminOidcIdentity() {
+  if (!adminOidcIdentities.length) return;
+  await unlinkAdminOidcIdentity(adminOidcIdentities[0].id);
+}
+
+function parseOriginsInput(value) {
+  return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+}
+
+function renderBrainDumpConfig(config) {
+  brainDumpFeatureEnabled = !!config.enabled;
+  document.getElementById('braindump-enabled').checked = brainDumpFeatureEnabled;
+  document.getElementById('braindump-llm-provider').value = config.llm_provider || 'openai_compatible';
+  document.getElementById('braindump-llm-base-url').value = config.llm_base_url || '';
+  document.getElementById('braindump-llm-model').value = config.llm_model || '';
+  document.getElementById('braindump-llm-extra-headers').value = config.llm_extra_headers_json || '';
+  document.getElementById('braindump-llm-timeout').value = config.llm_timeout_seconds || 180;
+  document.getElementById('braindump-llm-api-key').value = '';
+  document.getElementById('braindump-llm-api-key-clear').checked = false;
+  document.getElementById('braindump-llm-api-key-note').textContent = config.llm_api_key_configured
+    ? window.t('admin.braindump.llmApiKeyStoredNote')
+    : window.t('admin.braindump.llmApiKeyEmptyNote');
+  document.getElementById('braindump-system-prompt-mode').value = config.system_prompt_mode || 'default';
+  document.getElementById('braindump-default-system-prompt').value = config.default_system_prompt || '';
+  document.getElementById('braindump-system-prompt-custom').value = config.system_prompt_custom || '';
+  document.getElementById('braindump-stt-provider').value = config.stt_provider || 'whisper_cpp_remote';
+  document.getElementById('braindump-stt-url').value = config.stt_url || '';
+  document.getElementById('braindump-stt-language').value = config.stt_language || '';
+  document.getElementById('braindump-stt-timeout').value = config.stt_timeout_seconds || 60;
+  document.getElementById('braindump-stt-token').value = '';
+  window.refreshAdminSelects?.();
+  document.getElementById('braindump-stt-token-note').textContent = config.stt_token_configured ? window.t('admin.braindump.sttTokenStoredNote') : window.t('admin.braindump.sttTokenEmptyNote');
+  const heading = document.getElementById('user-braindump-heading');
+  if (heading) heading.style.display = brainDumpFeatureEnabled ? '' : 'none';
+  const createField = document.getElementById('new-braindump-field');
+  const createToggle = document.getElementById('new-braindump-enabled');
+  if (createField) createField.style.display = brainDumpFeatureEnabled ? '' : 'none';
+  if (!brainDumpFeatureEnabled && createToggle) createToggle.checked = false;
+}
+
+function readBrainDumpConfigForm() {
+  const data = {
+    enabled: document.getElementById('braindump-enabled').checked,
+    llm_provider: document.getElementById('braindump-llm-provider').value,
+    llm_base_url: document.getElementById('braindump-llm-base-url').value.trim(),
+    llm_model: document.getElementById('braindump-llm-model').value.trim(),
+    llm_extra_headers_json: document.getElementById('braindump-llm-extra-headers').value.trim(),
+    llm_timeout_seconds: Number(document.getElementById('braindump-llm-timeout').value || 180),
+    system_prompt_mode: document.getElementById('braindump-system-prompt-mode').value,
+    system_prompt_custom: document.getElementById('braindump-system-prompt-custom').value.trim(),
+    stt_provider: document.getElementById('braindump-stt-provider').value,
+    stt_url: document.getElementById('braindump-stt-url').value.trim(),
+    stt_language: document.getElementById('braindump-stt-language').value.trim(),
+    stt_timeout_seconds: Number(document.getElementById('braindump-stt-timeout').value || 60),
+  };
+  const llmApiKey = document.getElementById('braindump-llm-api-key').value;
+  const clearLlmApiKey = document.getElementById('braindump-llm-api-key-clear').checked;
+  const sttToken = document.getElementById('braindump-stt-token').value;
+  if (clearLlmApiKey) data.llm_api_key_secret = '';
+  else if (llmApiKey) data.llm_api_key_secret = llmApiKey;
+  if (sttToken) data.stt_token_secret = sttToken;
+  return data;
+}
+
+async function saveBrainDumpConfig() {
+  document.getElementById('braindump-config-error').textContent = '';
+  document.getElementById('braindump-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/braindump-config', readBrainDumpConfigForm());
+    renderBrainDumpConfig(data);
+    await loadUsers();
+    document.getElementById('braindump-config-success').textContent = window.t('admin.braindump.saved');
+  } catch(e) {
+    document.getElementById('braindump-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveBrainDumpToggle() {
+  const toggle = document.getElementById('braindump-enabled');
+  const previous = brainDumpFeatureEnabled;
+  document.getElementById('braindump-config-error').textContent = '';
+  document.getElementById('braindump-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/braindump-config', readBrainDumpConfigForm());
+    renderBrainDumpConfig(data);
+    await loadUsers();
+    document.getElementById('braindump-config-success').textContent = window.t('admin.braindump.saved');
+  } catch (e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('braindump-config-error').textContent = e.message;
+  }
+}
+
+async function testBrainDumpConfig() {
+  document.getElementById('braindump-config-error').textContent = '';
+  document.getElementById('braindump-config-success').textContent = '';
+  try {
+    const data = await apiPost('/api/admin/braindump-config/test', {});
+    const llm = data.llm?.ok ? window.t('admin.braindump.llmOk') : window.t('admin.braindump.llmFailed', { message: data.llm?.message || window.t('admin.unknown') });
+    const stt = data.stt?.ok ? window.t('admin.braindump.sttOk') : window.t('admin.braindump.sttFailed', { message: data.stt?.message || window.t('admin.unknown') });
+    const message = `${llm}; ${stt}`;
+    if (data.llm?.ok && data.stt?.ok) document.getElementById('braindump-config-success').textContent = message;
+    else document.getElementById('braindump-config-error').textContent = message;
+  } catch(e) {
+    document.getElementById('braindump-config-error').textContent = e.message;
+  }
+}
+
+function renderTwoFactorPolicy(policy) {
+  twoFactorPolicyRequired = !!policy.required;
+  const title = document.getElementById('twofa-policy-title');
+  const toggle = document.getElementById('twofa-policy-toggle');
+  if (title) title.textContent = twoFactorPolicyRequired ? t('admin.security.policyActive') : t('admin.security.policyInactive');
+  if (toggle) toggle.checked = twoFactorPolicyRequired;
+}
+
+async function setTwoFactorPolicy(required) {
+  const errorEl = document.getElementById('security-error');
+  const successEl = document.getElementById('security-success');
+  const toggle = document.getElementById('twofa-policy-toggle');
+  errorEl.textContent = '';
+  successEl.textContent = '';
+  const nextRequired = !!required;
+  if (!nextRequired && twoFactorPolicyRequired) {
+    const confirmed = await adminConfirm({
+      title: t('admin.security.disablePolicyTitle'),
+      message: t('admin.security.disablePolicyMessage'),
+      confirmText: t('admin.security.disablePolicy'),
+      danger: true,
+    });
+    if (!confirmed) {
+      if (toggle) toggle.checked = twoFactorPolicyRequired;
+      return;
+    }
+  }
+  try {
+    const data = await apiPatch('/api/admin/2fa-policy', { required: nextRequired });
+    renderTwoFactorPolicy(data);
+    successEl.textContent = data.required ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
+    await loadUsers();
+  } catch (e) {
+    if (toggle) toggle.checked = twoFactorPolicyRequired;
+    errorEl.textContent = e.message;
+  }
+}
+
+function renderServerUpdateProgress(progress) {
+  const success = document.getElementById('server-update-success');
+  const error = document.getElementById('server-update-error');
+  if (!progress || progress.state === 'idle') return;
+  const message = progress.message || 'Update status unknown.';
+  if (progress.state === 'success' && !serverUpdateStartedInThisPage) {
+    if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+    serverUpdatePollTimer = null;
+    return;
+  }
+  if (progress.state === 'failed') {
+    error.textContent = message;
+    if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+    serverUpdatePollTimer = null;
+    return;
+  }
+  success.textContent = progress.target_version
+    ? `${message} Target: v${progress.target_version}`
+    : message;
+  if (progress.state === 'success') {
+    if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+    serverUpdatePollTimer = null;
+    if (serverUpdateStartedInThisPage && !serverUpdateReloadPromptShown) {
+      serverUpdateReloadPromptShown = true;
+      showServerUpdateReloadNotice();
+    }
+  }
+}
+
+function renderServerUpdateStatusVisual(status) {
+  const card = document.getElementById('server-update-card');
+  const badge = document.getElementById('server-update-badge');
+  const icon = document.getElementById('server-update-icon');
+  const severity = status.update_severity || (status.update_available ? 'minor_patch' : 'none');
+  card.classList.remove('update-ok', 'update-warning', 'update-danger');
+  badge.classList.remove('ok', 'warning', 'danger');
+  if (icon) icon.innerHTML = iconSvg(status.update_available ? 'cloud-alert' : 'cloud-check');
+  if (severity === 'major') {
+    card.classList.add('update-danger');
+    badge.classList.add('danger');
+    badge.textContent = t('admin.serverUpdate.badge.major');
+  } else if (severity === 'minor_patch' || status.update_available) {
+    card.classList.add('update-warning');
+    badge.classList.add('warning');
+    badge.textContent = t('admin.serverUpdate.badge.available');
+  } else {
+    card.classList.add('update-ok');
+    badge.classList.add('ok');
+    badge.textContent = t('admin.serverUpdate.badge.current');
+  }
+}
+
+function renderServerUpdate(status) {
+  const latest = status.latest_release || {};
+  const latestVersion = latest.version ? `v${latest.version}` : 'unknown';
+  const currentVersion = status.current_version ? `v${status.current_version}` : 'unknown';
+  const installType = status.installation_type || 'unknown';
+  const title = document.getElementById('server-update-title');
+  const desc = document.getElementById('server-update-desc');
+  const help = document.getElementById('server-update-help');
+  const command = document.getElementById('server-update-command');
+  const button = document.getElementById('server-update-install');
+  renderServerUpdateStatusVisual(status);
+  title.textContent = status.update_available
+    ? t('admin.serverUpdate.updateAvailableTitle', { current: currentVersion, latest: latestVersion })
+    : t('admin.serverUpdate.currentTitle', { current: currentVersion });
+  desc.textContent = '';
+  desc.style.display = 'none';
+  button.disabled = !status.can_install;
+  command.style.display = 'none';
+  command.textContent = '';
+  renderServerUpdateProgress(status.progress);
+  if (installType === 'docker') {
+    help.textContent = t('admin.serverUpdate.dockerHelp');
+    command.style.display = 'block';
+    command.textContent = status.docker_update_hint || 'docker compose pull && docker compose up -d';
+  } else if (installType === 'deb') {
+    help.textContent = status.can_install
+      ? t('admin.serverUpdate.debHelpReady')
+      : t('admin.serverUpdate.debHelpUnavailable');
+  } else {
+    help.textContent = t('admin.serverUpdate.unsupportedHelp');
+  }
+}
+
+function isNiaTodoServiceWorkerRegistration(registration) {
+  const worker = registration?.active || registration?.waiting || registration?.installing;
+  return Boolean(worker?.scriptURL?.endsWith('/sw.js'));
+}
+
+async function refreshActiveServiceWorkerAppCache(registration) {
+  const worker = registration?.active || navigator.serviceWorker?.controller;
+  if (!worker || typeof worker.postMessage !== 'function' || typeof MessageChannel === 'undefined') return false;
+  const channel = new MessageChannel();
+  const response = new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve(false), 10000);
+    channel.port1.onmessage = (event) => {
+      clearTimeout(timeout);
+      resolve(Boolean(event.data?.ok));
+    };
+  });
+  worker.postMessage({ action: 'refreshAppCache' }, [channel.port2]);
+  return response;
+}
+
+async function hardReloadAfterServerUpdate() {
+  try {
+    let hasActiveNiaTodoWorker = false;
+    if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      const niaRegistrations = registrations.filter(isNiaTodoServiceWorkerRegistration);
+      hasActiveNiaTodoWorker = niaRegistrations.some(registration => registration.active || navigator.serviceWorker.controller);
+      if (hasActiveNiaTodoWorker) {
+        await Promise.all(niaRegistrations.map(registration => refreshActiveServiceWorkerAppCache(registration).catch(() => false)));
+      } else {
+        await Promise.all(niaRegistrations.map(registration => registration.unregister().catch(() => false)));
+      }
+    }
+    if (!hasActiveNiaTodoWorker && 'caches' in window && typeof caches.keys === 'function') {
+      const names = await caches.keys();
+      await Promise.all(names
+        .filter(name => String(name || '').startsWith('nia-todo'))
+        .map(name => caches.delete(name).catch(() => false)));
+    }
+  } catch (err) {
+    console.warn('Hard reload cache refresh after server update failed:', err);
+  }
+  window.location.replace(`/admin?server-updated=${Date.now()}`);
+}
+
+async function showServerUpdateReloadNotice() {
+  const confirmed = await adminDialog({
+    title: t('admin.serverUpdate.reloadTitle'),
+    message: t('admin.serverUpdate.reloadMessage'),
+    confirmText: t('admin.serverUpdate.reloadNow'),
+    hideCancel: true,
+  });
+  if (confirmed) await hardReloadAfterServerUpdate();
+}
+
+async function pollServerUpdateProgress() {
+  try {
+    const progress = await apiGet('/api/admin/server-update/progress');
+    renderServerUpdateProgress(progress);
+    if (progress.state === 'success' || progress.state === 'failed') {
+      await refreshServerUpdateStatus({ keepMessages: true });
+    }
+  } catch (e) {
+    document.getElementById('server-update-success').textContent = t('admin.serverUpdate.waitingRestart');
+  }
+}
+
+function startServerUpdatePolling() {
+  if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+  serverUpdatePollTimer = setInterval(pollServerUpdateProgress, 2500);
+}
+
+async function refreshServerUpdateStatus(options = {}) {
+  if (!options.keepMessages) {
+    document.getElementById('server-update-error').textContent = '';
+    document.getElementById('server-update-success').textContent = '';
+  }
+  try {
+    renderServerUpdate(await apiGet('/api/admin/server-update'));
+  } catch (e) {
+    document.getElementById('server-update-error').textContent = e.message;
+  }
+}
+
+async function installServerUpdate() {
+  document.getElementById('server-update-error').textContent = '';
+  document.getElementById('server-update-success').textContent = '';
+  const confirmed = await adminConfirm({
+    title: t('admin.serverUpdate.confirmTitle'),
+    message: t('admin.serverUpdate.confirmMessage'),
+    confirmText: t('admin.serverUpdate.install'),
+  });
+  if (!confirmed) return;
+  const button = document.getElementById('server-update-install');
+  button.disabled = true;
+  serverUpdateReloadPromptShown = false;
+  serverUpdateStartedInThisPage = true;
+  try {
+    const result = await apiPost('/api/admin/server-update/install', {});
+    document.getElementById('server-update-success').textContent = result.started
+      ? t('admin.serverUpdate.started', { version: `v${result.target_version}` })
+      : t('admin.serverUpdate.notStarted');
+    startServerUpdatePolling();
+    setTimeout(pollServerUpdateProgress, 1000);
+  } catch (e) {
+    document.getElementById('server-update-error').textContent = e.message;
+    await refreshServerUpdateStatus();
+  }
+}
+
+function renderEmailConfig(config) {
+  document.getElementById('email-smtp-enabled').checked = !!config.smtp_enabled;
+  document.getElementById('email-smtp-host').value = config.smtp_host || '';
+  document.getElementById('email-smtp-port').value = config.smtp_port || 587;
+  document.getElementById('email-smtp-security').value = config.smtp_security || 'starttls';
+  document.getElementById('email-smtp-auth-enabled').checked = !!config.smtp_auth_enabled;
+  document.getElementById('email-smtp-username').value = config.smtp_username || '';
+  document.getElementById('email-smtp-password').value = '';
+  document.getElementById('email-from-address').value = config.mail_from_address || '';
+  document.getElementById('email-from-name').value = config.mail_from_name || 'nia-todo';
+  document.getElementById('email-reply-to').value = config.mail_reply_to || '';
+  document.getElementById('email-link-ttl').value = config.password_link_ttl_hours || 24;
+  window.refreshAdminSelects?.();
+  document.getElementById('email-smtp-password-note').textContent = config.smtp_password_configured
+    ? t('admin.email.passwordStoredNote')
+    : t('admin.email.noPasswordStoredNote');
+}
+
+function readEmailConfigForm() {
+  const secret = document.getElementById('email-smtp-password').value;
+  const data = {
+    smtp_enabled: document.getElementById('email-smtp-enabled').checked,
+    smtp_host: document.getElementById('email-smtp-host').value.trim(),
+    smtp_port: Number(document.getElementById('email-smtp-port').value || 587),
+    smtp_security: document.getElementById('email-smtp-security').value,
+    smtp_auth_enabled: document.getElementById('email-smtp-auth-enabled').checked,
+    smtp_username: document.getElementById('email-smtp-username').value.trim(),
+    mail_from_address: document.getElementById('email-from-address').value.trim(),
+    mail_from_name: document.getElementById('email-from-name').value.trim() || 'nia-todo',
+    mail_reply_to: document.getElementById('email-reply-to').value.trim(),
+    password_link_ttl_hours: Number(document.getElementById('email-link-ttl').value || 24),
+  };
+  if (secret) data.smtp_password_secret = secret;
+  return data;
+}
+
+async function saveEmailConfig() {
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/email-config', readEmailConfigForm());
+    renderEmailConfig(data);
+    document.getElementById('email-config-success').textContent = t('admin.email.saved');
+  } catch(e) {
+    document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveEmailToggle() {
+  const toggle = document.getElementById('email-smtp-enabled');
+  const previous = !toggle?.checked;
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/email-config', readEmailConfigForm());
+    renderEmailConfig(data);
+    document.getElementById('email-config-success').textContent = t('admin.email.saved');
+  } catch(e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+function wireHeaderToggles() {
+  const brainDumpToggle = document.getElementById('braindump-enabled');
+  if (brainDumpToggle && brainDumpToggle.dataset.autosaveReady !== '1') {
+    brainDumpToggle.dataset.autosaveReady = '1';
+    brainDumpToggle.addEventListener('change', autoSaveBrainDumpToggle);
+  }
+  const emailToggle = document.getElementById('email-smtp-enabled');
+  if (emailToggle && emailToggle.dataset.autosaveReady !== '1') {
+    emailToggle.dataset.autosaveReady = '1';
+    emailToggle.addEventListener('change', autoSaveEmailToggle);
+  }
+  const oidcToggle = document.getElementById('oidc-enabled');
+  if (oidcToggle && oidcToggle.dataset.autosaveReady !== '1') {
+    oidcToggle.dataset.autosaveReady = '1';
+    oidcToggle.addEventListener('change', autoSaveOidcToggle);
+  }
+  const attachmentToggle = document.getElementById('attachments-enabled');
+  if (attachmentToggle && attachmentToggle.dataset.autosaveReady !== '1') {
+    attachmentToggle.dataset.autosaveReady = '1';
+    attachmentToggle.addEventListener('change', autoSaveAttachmentToggle);
+  }
+  const twofaToggle = document.getElementById('twofa-policy-toggle');
+  if (twofaToggle && twofaToggle.dataset.autosaveReady !== '1') {
+    twofaToggle.dataset.autosaveReady = '1';
+    twofaToggle.addEventListener('change', () => setTwoFactorPolicy(twofaToggle.checked));
+  }
+}
+
+async function sendTestEmail() {
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  const to = document.getElementById('email-test-to').value.trim();
+  if (!isValidEmail(to)) {
+    document.getElementById('email-config-error').textContent = t('admin.email.invalidTestAddress');
+    return;
+  }
+  try {
+    await apiPost('/api/admin/email-config/test', { to });
+    document.getElementById('email-config-success').textContent = t('admin.email.testSent');
+  } catch(e) {
+    document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+async function saveInstanceConfig() {
+  document.getElementById('instance-config-error').textContent = '';
+  document.getElementById('instance-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/instance-config', {
+      public_base_url: document.getElementById('instance-public-url').value.trim(),
+      allowed_origins: parseOriginsInput(document.getElementById('instance-allowed-origins').value),
+      trusted_proxies: parseOriginsInput(document.getElementById('instance-trusted-proxies').value),
+    });
+    renderInstanceConfig(data);
+    document.getElementById('instance-config-success').textContent = t('admin.instance.saved');
+  } catch(e) {
+    document.getElementById('instance-config-error').textContent = e.message;
+  }
+}
+
+async function saveAttachmentConfig() {
+  document.getElementById('attachment-config-error').textContent = '';
+  document.getElementById('attachment-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/attachment-config', readAttachmentConfigForm());
+    renderAttachmentConfig(data);
+    document.getElementById('attachment-config-success').textContent = t('admin.attachments.saved');
+  } catch(e) {
+    document.getElementById('attachment-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveAttachmentToggle() {
+  const toggle = document.getElementById('attachments-enabled');
+  const previous = currentAttachmentConfig?.enabled !== false;
+  document.getElementById('attachment-config-error').textContent = '';
+  document.getElementById('attachment-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/attachment-config', readAttachmentConfigForm());
+    renderAttachmentConfig(data);
+    document.getElementById('attachment-config-success').textContent = t('admin.attachments.saved');
+  } catch(e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('attachment-config-error').textContent = e.message;
+  }
+}
+
+function renderUserEmailCell(user) {
+  return renderUserEmailDisplay(user.id, user.email || '');
+}
+
+function renderUserUsernameCell(user) {
+  return renderUserUsernameDisplay(user.id, user.username || '');
+}
+
+function renderUserEmailStatus(user) {
+  if (user.pending_email) return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.pendingTitle'))}">${escapeHtml(t('admin.user.emailStatus.pending'))}</span>`;
+  if (!user.email) return `<span class="badge badge-muted">${escapeHtml(t('admin.none'))}</span>`;
+  if (user.email_verified_at) return `<span class="badge badge-success" title="${escapeHtmlAttr(t('admin.user.emailStatus.verifiedTitle'))}">${escapeHtml(t('admin.user.emailStatus.verified'))}</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.unverifiedTitle'))}">${escapeHtml(t('admin.user.emailStatus.unverified'))}</span>`;
+}
+
+function renderUserLoginStatus(user) {
+  return user.password_configured
+    ? `<span class="badge badge-success" title="${escapeHtmlAttr(t('admin.user.login.activeTitle'))}">${escapeHtml(t('admin.user.login.active'))}</span>`
+    : `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.login.inviteOpenTitle'))}">${escapeHtml(t('admin.user.login.inviteOpen'))}</span>`;
+}
+
+function renderUserTwoFactorStatus(user) {
+  const enabled = !!user.two_factor_enabled;
+  const factors = [];
+  if (user.has_totp) factors.push('1 TOTP');
+  if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
+  if (user.has_recovery_codes) factors.push('Recovery');
+  if (user.has_email_fallback) factors.push(t('admin.user.twofa.emailFallback'));
+  const badge = enabled
+    ? `<span class="badge badge-success">${escapeHtml(t('admin.user.twofa.active'))}</span>`
+    : (twoFactorPolicyRequired ? `<span class="badge badge-warning">${escapeHtml(t('admin.user.twofa.required'))}</span>` : `<span class="badge badge-muted">${escapeHtml(t('admin.user.twofa.off'))}</span>`);
+  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? t('admin.user.twofa.setupOnly') : '-');
+  return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>`;
+}
+
+function renderUserTwoFactorResetButton(user) {
+  if (!user.two_factor_enabled && Number(user.passkey_count || 0) <= 0) return '';
+  return `<button class="btn btn-danger admin-table-action" data-admin-action="resetUserTwoFactor" data-user-id="${user.id}" data-username="${escapeHtmlAttr(user.username)}">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`;
+}
+
+function renderUserApiKeys(user) {
+  const count = Number(user.api_key_count || 0);
+  if (!count) return `<span class="badge badge-muted">0</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.apiKeysMachineTokenHint'))}">${count} ${escapeHtml(t('admin.user.active'))}</span>`;
+}
+
+function renderUserBrainDump(user) {
+  const enabled = !!user.braindump_enabled;
+  const label = enabled ? t('admin.user.brainDumpEnabled') : t('admin.user.brainDumpDisabled');
+  return `<div class="user-card-braindump-control"><span class="badge ${enabled ? 'badge-success' : 'badge-muted'}">${escapeHtml(label)}</span><input class="user-card-switch" type="checkbox" ${enabled ? 'checked' : ''} aria-label="${escapeHtmlAttr(t('admin.user.brainDump'))}" data-admin-change="toggleUserBrainDump" data-user-id="${user.id}"></div>`;
+}
+
+function renderUserAttachmentQuota(user) {
+  const used = Number(user.attachment_usage_bytes || 0);
+  const effective = Number(user.attachment_quota_effective_bytes || 0);
+  const override = user.attachment_quota_bytes == null ? '' : bytesToGb(user.attachment_quota_bytes);
+  const pct = effective > 0 ? Math.min(100, Math.round((used / effective) * 100)) : 100;
+  return `<div class="user-attachment-quota-control">
+    <div class="admin-muted">${escapeHtml(formatAdminBytes(used))} / ${escapeHtml(formatAdminBytes(effective))} · ${pct}%</div>
+    <div class="user-attachment-quota-row">
+      <input class="ui-field" type="number" id="attachment-quota-${user.id}" min="0" max="1024" step="0.1" value="${escapeHtmlAttr(override)}" placeholder="${escapeHtmlAttr(t('admin.attachments.useDefault'))}">
+      <button class="btn btn-secondary" data-admin-action="saveUserAttachmentQuota" data-user-id="${user.id}">${escapeHtml(t('common.save'))}</button>
+    </div>
+  </div>`;
+}
+
+function renderUserLastActive(user) {
+  const formatted = formatServerTimestamp(user.last_active_at);
+  const label = user.last_active_at ? formatted : t('admin.user.neverActive');
+  return `<span class="admin-last-active ${user.last_active_at ? '' : 'muted'}">${escapeHtml(label)}</span>`;
+}
+
+function renderUserUsernameDisplay(userId, usernameValue) {
+  const username = usernameValue ? escapeHtml(usernameValue) : '<span class="email-missing">-</span>';
+  return `<span class="email-display" id="username-display-${userId}">
+    <span>${username}</span>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('admin.user.editUsername'))}" data-admin-action="editUserUsername" data-user-id="${userId}" data-current-value="${escapeHtmlAttr(usernameValue || '')}">${iconSvg('edit-3')}</button>
+  </span>`;
+}
+
+function renderUserEmailDisplay(userId, emailValue) {
+  const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
+  return `<span class="email-display" id="email-display-${userId}">
+    <span>${email}</span>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('admin.user.editEmail'))}" data-admin-action="editUserEmail" data-user-id="${userId}" data-current-value="${escapeHtmlAttr(emailValue || '')}">${iconSvg('edit-3')}</button>
+  </span>`;
+}
+
+function renderUserSessionsPanel(user) {
+  return `<div class="settings-2fa-devices-wrap settings-sessions-wrap">
+    <div class="settings-2fa-subtitle settings-2fa-trusted-header">
+      <button type="button" id="user-sessions-toggle-${user.id}" class="settings-sessions-toggle" data-admin-action="toggleAdminUserSessions" data-user-id="${user.id}" aria-expanded="false" aria-controls="user-sessions-panel-${user.id}">
+        <span class="settings-sessions-chevron">›</span>
+        <span>${escapeHtml(t('admin.user.sessionsTitle'))}</span>
+        <span id="user-sessions-count-${user.id}" class="settings-session-count"></span>
+      </button>
+      <button type="button" class="btn btn-danger btn-small" id="user-sessions-revoke-all-${user.id}" data-admin-action="revokeAllAdminUserSessions" data-user-id="${user.id}" data-username="${escapeHtmlAttr(user.username)}">${escapeHtml(t('admin.user.sessionsRevokeAll'))}</button>
+    </div>
+    <div id="user-sessions-panel-${user.id}" hidden>
+      <div id="user-sessions-list-${user.id}" class="settings-2fa-devices"><div class="settings-device-note">${escapeHtml(t('common.loading'))}</div></div>
+    </div>
+  </div>`;
+}
+
+function renderAdminSessionRows(userId, sessions) {
+  const list = document.getElementById(`user-sessions-list-${userId}`);
+  const count = document.getElementById(`user-sessions-count-${userId}`);
+  if (!list) return;
+  if (count) count.textContent = sessions.length ? `(${sessions.length})` : '';
+  if (!sessions.length) {
+    list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('admin.user.sessionsEmpty'))}</div>`;
+    return;
+  }
+  list.innerHTML = sessions.map((session) => {
+    const trusted = session.trusted ? ` · ${t('settings.2fa.trustedDeviceRemembered')}` : '';
+    const lastUsed = session.last_used_at ? formatServerTimestamp(session.last_used_at) : t('common.never');
+    const expires = session.expires_at ? formatServerTimestamp(session.expires_at) : '-';
+    const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
+    const ipLocation = adminSessionIpLocation(session);
+    const userAgent = cleanAdminSessionUserAgent(session.user_agent || '');
+    return `<div class="settings-device-row"><div><strong>${escapeHtml(adminSessionDeviceName(session))}</strong><span>${escapeHtml(details)}</span>${ipLocation ? `<span>${escapeHtml(ipLocation)}</span>` : ''}<span title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 160) || '-')}</span></div><button type="button" class="btn btn-danger" data-admin-action="revokeAdminUserSession" data-user-id="${userId}" data-session-id="${escapeHtmlAttr(session.id)}">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
+  }).join('');
+}
+
+async function toggleAdminUserSessions(userId) {
+  const panel = document.getElementById(`user-sessions-panel-${userId}`);
+  const toggle = document.getElementById(`user-sessions-toggle-${userId}`);
+  if (!panel || !toggle) return;
+  const open = panel.hidden;
+  panel.hidden = !open;
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (!open) return;
+  const list = document.getElementById(`user-sessions-list-${userId}`);
+  if (list) list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('common.loading'))}</div>`;
+  try {
+    const data = await apiGet(`/api/admin/users/${userId}/sessions`);
+    renderAdminSessionRows(userId, data.sessions || []);
+  } catch (e) {
+    if (list) list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('admin.user.sessionsLoadFailed', { error: e.message || e }))}</div>`;
+  }
+}
+
+async function revokeAdminUserSession(userId, sessionId) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.sessionRevokeTitle'),
+    message: t('admin.user.sessionRevokeMessage'),
+    confirmText: t('settings.2fa.revoke'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  await apiDelete(`/api/admin/users/${userId}/sessions/${encodeURIComponent(sessionId)}`);
+  const data = await apiGet(`/api/admin/users/${userId}/sessions`);
+  renderAdminSessionRows(userId, data.sessions || []);
+}
+
+async function revokeAllAdminUserSessions(userId, username) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.sessionsRevokeAllTitle'),
+    message: t('admin.user.sessionsRevokeAllMessage', { username }),
+    confirmText: t('admin.user.sessionsRevokeAll'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  await apiDelete(`/api/admin/users/${userId}/sessions`);
+  renderAdminSessionRows(userId, []);
+}
+
+function renderUsers(users) {
+  if (Array.isArray(users)) adminUsers = users;
+  const tbody = document.getElementById('user-list');
+  const searchInput = document.getElementById('user-search');
+  const searchCount = document.getElementById('user-search-count');
+  const query = (searchInput?.value || '').trim().toLowerCase();
+  const filteredUsers = query
+    ? adminUsers.filter((user) => [
+        user.id,
+        user.username,
+        user.display_name,
+        user.email,
+        user.email_status,
+        user.last_active_at,
+        user.is_admin ? t('admin.user.admin') : t('admin.user.active'),
+      ].some((value) => String(value ?? '').toLowerCase().includes(query)))
+    : adminUsers;
+  const brainDumpHeading = document.getElementById('user-braindump-heading');
+  if (brainDumpHeading) brainDumpHeading.style.display = brainDumpFeatureEnabled ? '' : 'none';
+  const colSpan = brainDumpFeatureEnabled ? 12 : 11;
+  if (searchCount) {
+    searchCount.textContent = query
+      ? t('admin.user.searchCount', { shown: filteredUsers.length, total: adminUsers.length })
+      : t('admin.user.totalCount', { total: adminUsers.length });
+  }
+  if (!adminUsers || adminUsers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
+    return;
+  }
+  if (filteredUsers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">${escapeHtml(t('admin.user.searchEmpty'))}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filteredUsers.map(u => {
+    const title = escapeHtml(u.display_name || u.username);
+    const subtitle = u.display_name && u.display_name !== u.username ? escapeHtml(u.username) : escapeHtml(t('setup.usernameLabel'));
+    const resetTwoFactorButton = renderUserTwoFactorResetButton(u);
+    const deleteButton = u.is_admin ? '' : `<button class="btn btn-danger admin-table-action" data-admin-action="deleteUser" data-user-id="${u.id}" data-username="${escapeHtmlAttr(u.username)}">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`;
+    const actionCount = 1 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
+    const actionsClass = actionCount === 1 ? 'user-card-actions single' : (actionCount === 2 ? 'user-card-actions two' : 'user-card-actions');
+    return `
+    <tr>
+      <td class="user-card-cell" colspan="${colSpan}">
+        <article class="user-card">
+          <header class="user-card-header">
+            <div class="user-card-title-wrap">
+              <div class="user-card-title-line"><div class="user-card-title">${title}</div><span class="user-card-id">ID ${u.id}</span></div>
+              <div class="user-card-subtitle">${subtitle}</div>
+            </div>
+            ${renderUserLoginStatus(u)}
+          </header>
+
+          <div class="user-card-section">
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('setup.usernameLabel'))}</span><div class="user-card-value">${renderUserUsernameCell(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.profile.email'))}</span><div class="user-card-value">${renderUserEmailCell(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.emailStatus'))}</span><div class="user-card-value">${renderUserEmailStatus(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span><div class="user-card-value">${renderUserLastActive(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">2FA</span><div class="user-card-value">${renderUserTwoFactorStatus(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span><div class="user-card-value">${renderUserApiKeys(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.attachments.quota'))}</span><div class="user-card-value">${renderUserAttachmentQuota(u)}</div></div>
+            ${brainDumpFeatureEnabled ? `<div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value">${renderUserBrainDump(u)}</div></div>` : ''}
+          </div>
+
+          ${renderUserSessionsPanel(u)}
+
+          <div class="${actionsClass}">
+            <button class="btn btn-primary admin-table-action" data-admin-action="generatePasswordLink" data-user-id="${u.id}" data-username="${escapeHtmlAttr(u.username)}">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
+            ${resetTwoFactorButton}
+            ${deleteButton}
+          </div>
+        </article>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function focusAdminCreateLanguage() {
+  const select = document.getElementById('new-language');
+  const trigger = document.querySelector('.ui-select[data-select-id="new-language"] .ui-select-trigger');
+  (trigger || select)?.focus();
+}
+
+async function createUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const displayName = document.getElementById('new-display-name').value.trim();
+  const email = document.getElementById('new-email').value.trim();
+  const language = document.getElementById('new-language').value;
+  const brainDumpEnabled = brainDumpFeatureEnabled && !!document.getElementById('new-braindump-enabled')?.checked;
+
+  document.getElementById('create-error').textContent = '';
+  document.getElementById('create-success').textContent = '';
+  document.getElementById('create-link-box').style.display = 'none';
+
+  if (!username || !email) {
+    document.getElementById('create-error').textContent = t('admin.user.usernameEmailRequired');
+    return;
+  }
+  if (!isValidEmail(email)) {
+    document.getElementById('create-error').textContent = t('setup.error.invalidEmail');
+    return;
+  }
+
+  try {
+    const data = await apiPost('/api/admin/users', {
+      username: username,
+      display_name: displayName || username,
+      email: email,
+      language: language,
+      braindump_enabled: brainDumpEnabled
+    });
+    if (data.password_setup_delivery === 'email') {
+      document.getElementById('create-success').textContent = t('admin.user.createdEmailSent', { username });
+    } else {
+      document.getElementById('create-success').textContent = t('admin.user.createdCopyLink', { username });
+      document.getElementById('create-link-input').value = data.password_setup_url || '';
+      document.getElementById('create-link-box').style.display = 'flex';
+    }
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-display-name').value = '';
+    document.getElementById('new-email').value = '';
+    const brainDumpCreateToggle = document.getElementById('new-braindump-enabled');
+    if (brainDumpCreateToggle) brainDumpCreateToggle.checked = false;
+    await loadUsers();
+  } catch(e) {
+    document.getElementById('create-error').textContent = e.message;
+  }
+}
+
+function editUserUsername(userId, currentUsername) {
+  const container = document.getElementById(`username-display-${userId}`);
+  if (!container) return;
+  container.outerHTML = `<span class="email-edit" id="username-edit-${userId}">
+    <input class="ui-field" id="username-input-${userId}" type="text" value="${escapeHtmlAttr(currentUsername || '')}" placeholder="${escapeHtmlAttr(t('setup.usernameLabel'))}" autocomplete="off" maxlength="80" data-admin-enter-action="saveUserUsername" data-admin-escape-action="cancelUserUsernameEdit" data-user-id="${userId}" data-current-value="${escapeHtmlAttr(currentUsername || '')}">
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.save'))}" data-admin-action="saveUserUsername" data-user-id="${userId}" data-current-value="${escapeHtmlAttr(currentUsername || '')}">${iconSvg('check')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.cancel'))}" data-admin-action="cancelUserUsernameEdit" data-user-id="${userId}" data-current-value="${escapeHtmlAttr(currentUsername || '')}">${iconSvg('x')}</button>
+  </span>`;
+  document.getElementById(`username-input-${userId}`)?.focus();
+}
+
+function cancelUserUsernameEdit(userId, currentUsername) {
+  const container = document.getElementById(`username-edit-${userId}`);
+  if (!container) return;
+  container.outerHTML = renderUserUsernameDisplay(userId, currentUsername || '');
+}
+
+async function saveUserUsername(userId, currentUsername) {
+  const input = document.getElementById(`username-input-${userId}`);
+  const username = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error');
+  if (errorEl) errorEl.textContent = '';
+  if (!username) {
+    if (errorEl) errorEl.textContent = t('admin.user.usernameRequired');
+    return;
+  }
+  if (username === currentUsername) {
+    cancelUserUsernameEdit(userId, currentUsername);
+    return;
+  }
+  const confirmed = await adminConfirm({
+    title: t('admin.user.changeUsernameTitle'),
+    message: t('admin.user.changeUsernameMessage', { oldUsername: currentUsername, newUsername: username }),
+    confirmText: t('admin.user.changeUsernameConfirm'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, { username });
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+function editUserEmail(userId, currentEmail) {
+  const container = document.getElementById(`email-display-${userId}`);
+  if (!container) return;
+  container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
+    <input class="ui-field" id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="${escapeHtmlAttr(t('admin.user.emailPlaceholder'))}" data-admin-enter-action="saveUserEmail" data-admin-escape-action="cancelUserEmailEdit" data-user-id="${userId}" data-current-value="${escapeHtmlAttr(currentEmail || '')}">
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.save'))}" data-admin-action="saveUserEmail" data-user-id="${userId}">${iconSvg('check')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.cancel'))}" data-admin-action="cancelUserEmailEdit" data-user-id="${userId}" data-current-value="${escapeHtmlAttr(currentEmail || '')}">${iconSvg('x')}</button>
+  </span>`;
+  document.getElementById(`email-input-${userId}`)?.focus();
+}
+
+function cancelUserEmailEdit(userId, currentEmail) {
+  const container = document.getElementById(`email-edit-${userId}`);
+  if (!container) return;
+  container.outerHTML = renderUserEmailDisplay(userId, currentEmail || '');
+}
+
+async function saveUserEmail(userId) {
+  const input = document.getElementById(`email-input-${userId}`);
+  const email = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error');
+  if (errorEl) errorEl.textContent = '';
+  if (!email) {
+    if (errorEl) errorEl.textContent = t('admin.user.emailRequired');
+    return;
+  }
+  if (!isValidEmail(email)) {
+    if (errorEl) errorEl.textContent = t('setup.error.invalidEmail');
+    return;
+  }
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, { email });
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function saveUserAttachmentQuota(userId) {
+  const input = document.getElementById(`attachment-quota-${userId}`);
+  const raw = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error') || document.getElementById('create-error');
+  const successEl = document.getElementById('security-success') || document.getElementById('create-success');
+  if (errorEl) errorEl.textContent = '';
+  if (successEl) successEl.textContent = '';
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, {
+      attachment_quota_bytes: raw === '' ? null : gbToBytes(raw),
+    });
+    if (successEl) successEl.textContent = t('admin.attachments.userQuotaSaved');
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function toggleUserBrainDump(userId, enabled) {
+  const errorEl = document.getElementById('security-error') || document.getElementById('create-error');
+  const successEl = document.getElementById('security-success') || document.getElementById('create-success');
+  if (errorEl) errorEl.textContent = '';
+  if (successEl) successEl.textContent = '';
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, { braindump_enabled: !!enabled });
+    if (successEl) successEl.textContent = enabled ? t('admin.user.brainDumpEnabledSaved') : t('admin.user.brainDumpDisabledSaved');
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function resetUserTwoFactor(userId, username) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.reset2faTitle'),
+    message: t('admin.user.reset2faMessage', { username }),
+    confirmText: t('admin.user.reset2faConfirm'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await apiPost(`/api/admin/users/${userId}/2fa/reset`, {});
+    document.getElementById('security-success').textContent = t('admin.user.reset2faSuccess', { username });
+    await loadUsers();
+  } catch(e) {
+    document.getElementById('security-error').textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function deleteUser(userId, username) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.deleteTitle'),
+    message: t('admin.user.deleteMessage', { username }),
+    confirmText: t('admin.user.deleteConfirm'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await apiDelete(`/api/admin/users/${userId}`);
+    await loadUsers();
+  } catch(e) {
+    await adminNotice(t('common.error'), t('admin.errorWithMessage', { error: e.message }));
+  }
+}
+
+async function changeAdminPassword() {
+  const oldPw = document.getElementById('admin-old-password').value;
+  const newPw = document.getElementById('admin-new-password').value;
+  const confirmPw = document.getElementById('admin-confirm-password').value;
+
+  document.getElementById('admin-pw-error').textContent = '';
+  document.getElementById('admin-pw-success').textContent = '';
+
+  if (!oldPw || !newPw || !confirmPw) {
+    document.getElementById('admin-pw-error').textContent = t('settings.password.allRequired');
+    return;
+  }
+  if (newPw !== confirmPw) {
+    document.getElementById('admin-pw-error').textContent = t('settings.password.mismatch');
+    return;
+  }
+
+  try {
+    await apiPost('/api/admin/change-password', { old_password: oldPw, new_password: newPw });
+    document.getElementById('admin-pw-success').textContent = t('admin.password.changed');
+    document.getElementById('admin-old-password').value = '';
+    document.getElementById('admin-new-password').value = '';
+    document.getElementById('admin-confirm-password').value = '';
+    setTimeout(() => adminLogout(), 2000);
+  } catch(e) {
+    document.getElementById('admin-pw-error').textContent = e.message;
+  }
+}
+
+// --- User Password Links ---
+async function copySetupLink(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input?.value) return;
+  await navigator.clipboard.writeText(input.value);
+}
+
+async function generatePasswordLink(userId, username) {
+  try {
+    const data = await apiPost(`/api/admin/users/${userId}/password-link`, {});
+    if (data.password_setup_delivery === 'email') {
+      await adminNotice(t('admin.user.passwordMailSentTitle'), t('admin.user.passwordMailSentMessage', { username }));
+      return;
+    }
+    const link = data.password_setup_url;
+    const copied = await navigator.clipboard.writeText(link).then(() => true).catch(() => false);
+    await adminNotice(
+      copied ? t('admin.user.passwordLinkCopiedTitle') : t('admin.user.passwordLinkCreatedTitle'),
+      t(copied ? 'admin.user.passwordLinkCopiedMessage' : 'admin.user.passwordLinkCreatedMessage', { username, link }),
+    );
+  } catch(e) {
+    await adminNotice(t('common.error'), t('admin.errorWithMessage', { error: e.message }));
+  }
+}
+
+async function adminLogout() {
+  if (!adminToken) {
+    setAdminAuthenticated(false);
+    focusAdminLoginPassword();
+    return;
+  }
+  try {
+    // Call backend logout to invalidate all admin JWTs
+    await fetch(API + '/api/admin/logout', {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+  } catch(e) {
+    // Ignore errors on logout
+  }
+  localStorage.removeItem('admin_jwt_token');
+  localStorage.removeItem('csrf_token');
+  adminToken = null;
+  setAdminAuthenticated(false);
+  document.getElementById('admin-login-password').value = '';
+  focusAdminLoginPassword();
+}
+
+const ADMIN_ACTIONS = {
+  cycleAdminTheme, openAdminPasswordDialog, adminLogout, changeAdminPassword,
+  doAdminLogin, installServerUpdate, refreshServerUpdateStatus, setStatsPeriod,
+  loadTechnicalStats, saveInstanceConfig, focusAdminCreateLanguage, createUser,
+  copySetupLink, renderUsers, sendTestEmail, saveEmailConfig, startAdminOidcLink,
+  unlinkFirstAdminOidcIdentity, saveOidcConfig, saveAttachmentConfig,
+  testBrainDumpConfig, saveBrainDumpConfig, resetUserTwoFactor, toggleUserBrainDump,
+  saveUserAttachmentQuota, editUserUsername, editUserEmail, toggleAdminUserSessions,
+  revokeAllAdminUserSessions, revokeAdminUserSession, deleteUser, generatePasswordLink,
+  saveUserUsername, cancelUserUsernameEdit, saveUserEmail, cancelUserEmailEdit,
+};
+function adminActionArgs(target, action) {
+  const id = Number(target.dataset.userId);
+  const current = target.dataset.currentValue || '';
+  if (action === 'setStatsPeriod') return [Number(target.dataset.adminValue)];
+  if (action === 'copySetupLink') return [target.dataset.targetId || ''];
+  if (['resetUserTwoFactor','revokeAllAdminUserSessions','deleteUser','generatePasswordLink'].includes(action)) return [id, target.dataset.username || ''];
+  if (action === 'toggleUserBrainDump') return [id, Boolean(target.checked)];
+  if (['saveUserAttachmentQuota','toggleAdminUserSessions','saveUserEmail'].includes(action)) return [id];
+  if (['editUserUsername','editUserEmail','saveUserUsername','cancelUserUsernameEdit','cancelUserEmailEdit'].includes(action)) return [id, current];
+  if (action === 'revokeAdminUserSession') return [id, target.dataset.sessionId || ''];
+  return [];
+}
+function runAdminAction(action, target) {
+  const handler = ADMIN_ACTIONS[action];
+  if (typeof handler === 'function') return handler(...adminActionArgs(target, action));
+}
+document.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-admin-action]');
+  if (target) runAdminAction(target.dataset.adminAction, target);
+});
+document.addEventListener('change', (event) => {
+  const target = event.target.closest('[data-admin-change]');
+  if (target) runAdminAction(target.dataset.adminChange, target);
+});
+document.addEventListener('input', (event) => {
+  const target = event.target.closest('[data-admin-input]');
+  if (target) runAdminAction(target.dataset.adminInput, target);
+});
+document.addEventListener('submit', (event) => {
+  const target = event.target.closest('[data-admin-submit]');
+  if (!target) return;
+  event.preventDefault();
+  runAdminAction(target.dataset.adminSubmit, target);
+});
+document.addEventListener('keydown', (event) => {
+  const target = event.target;
+  if (event.key === 'Enter') {
+    if (target.dataset.adminNextFocus) document.getElementById(target.dataset.adminNextFocus)?.focus();
+    if (target.dataset.adminEnterAction) runAdminAction(target.dataset.adminEnterAction, target);
+  }
+  if (event.key === 'Escape' && target.dataset.adminEscapeAction) runAdminAction(target.dataset.adminEscapeAction, target);
+});

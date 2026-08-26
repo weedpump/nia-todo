@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { backupDb, restoreDb, service, waitForService, launchPage, ADMIN_PASSWORD, BASE_URL } from './frontend_test_lib.mjs';
+import { backupDb, restoreDb, service, waitForService, launchPage, ADMIN_PASSWORD, BASE_URL, readSetupToken } from './frontend_test_lib.mjs';
 
 async function run() {
   console.log('🌐 Running Playwright frontend setup test...');
@@ -17,6 +17,7 @@ async function run() {
     await page.setViewportSize({ width: 390, height: 640 });
     await page.goto(`${BASE_URL}/setup`, { waitUntil: 'networkidle' });
     await visible('#step-1');
+    await page.fill('#setup-token', readSetupToken());
 
     await page.fill('#admin-password', 'short');
     await page.fill('#admin-password-confirm', 'short');

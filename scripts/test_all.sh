@@ -61,6 +61,8 @@ run_step "API Validation Error Contracts" python3 scripts/test_api_validation_er
 run_step "Security Rate Limit" python3 scripts/test_rate_limit.py
 run_step "Security Request Body Limit" python3 scripts/test_request_body_limit.py
 run_step "Security Password Length" python3 scripts/test_password_length.py
+run_step "Security Trust Boundaries" python3 scripts/test_security_boundaries.py
+run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
 run_step "Security Runtime Code Ownership" python3 scripts/test_runtime_code_ownership.py
 run_step "Security Rate Limit Pruning" python3 scripts/test_rate_limit_pruning.py
@@ -132,6 +134,7 @@ run_frontend_shared_step_retry "Frontend DragDrop" node scripts/test_frontend_dr
 
 step "Frontend Isolated DB"
 run_frontend_step_retry "Frontend Setup" node scripts/test_frontend_setup.mjs
+run_frontend_step_retry "Frontend Admin CSP" node scripts/test_frontend_admin_csp.mjs
 run_frontend_step_retry "Frontend Password Reset" node scripts/test_frontend_password_reset.mjs
 run_frontend_step_retry "Frontend MFA Login" node scripts/test_frontend_mfa_login.mjs
 run_frontend_step_retry "Frontend Sharing" node scripts/test_frontend_sharing.mjs

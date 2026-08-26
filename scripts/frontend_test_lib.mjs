@@ -29,6 +29,11 @@ export const ATTACHMENT_SUITE_BACKUP = `${DATA_DIR}/attachments.frontend-suite-b
 export const ADMIN_PASSWORD = 'FrontendAdmin123!';
 export const USERNAME = 'frontenduser';
 export const USER_PASSWORD = 'FrontendPass123!';
+export function readSetupToken() {
+  const path = `${DATA_DIR}/setup-token`;
+  if (SUDO_FS) return sudo(['python3', '-c', 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text().strip())', path]).trim();
+  return readFileSync(path, 'utf8').trim();
+}
 const SUDO_FS = process.env.NIA_TODO_TEST_SUDO_FS === '1';
 const SERVICE_USER = process.env.NIA_TODO_TEST_SERVICE_USER || SERVICE;
 
@@ -116,10 +121,10 @@ export async function waitForService(timeoutMs = 60_000) {
   throw new Error(`Service not ready: ${BASE_URL}`);
 }
 
-export async function api(method, path, body) {
+export async function api(method, path, body, extraHeaders = {}) {
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: body ? { 'Content-Type': 'application/json', ...extraHeaders } : extraHeaders,
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await response.json().catch(() => ({}));
@@ -246,13 +251,14 @@ export async function prepareFreshDb() {
   }
   service('start');
   await waitForService();
-  await api('POST', '/api/setup/admin', { admin_password: ADMIN_PASSWORD });
+  const setupHeaders = { 'X-Setup-Token': readSetupToken() };
+  await api('POST', '/api/setup/admin', { admin_password: ADMIN_PASSWORD }, setupHeaders);
   await api('POST', '/api/setup/first-user', {
     username: USERNAME,
     email: 'frontenduser@example.invalid',
     password: USER_PASSWORD,
     display_name: 'Frontend Test User',
-  });
+  }, setupHeaders);
 }
 
 export async function launchPage({ serviceWorkers = 'block' } = {}) {

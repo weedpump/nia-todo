@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v3.0.3-dev-security-1';
+const SW_VERSION = 'v3.0.3-dev-security-boundaries';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // Assets required for offline startup
@@ -63,6 +63,15 @@ const PRECACHE_ASSETS = [
   '/static/js/api/sharing.js',
   '/static/js/api/todos.js',
   '/static/js/core/config.js',
+  '/static/js/core/boot.js',
+  '/static/js/pages/admin.js',
+  '/static/js/pages/setup.js',
+  '/static/js/pages/set-password.js',
+  '/static/vendor/tauri-api/core.js',
+  '/static/vendor/tauri-api/event.js',
+  '/static/vendor/tauri-api/app.js',
+  '/static/vendor/tauri-api/image.js',
+  '/static/vendor/tauri-api/external/tslib/tslib.es6.js',
   '/static/js/core/authenticated-image.js',
   '/static/js/core/utils.js',
   '/static/js/core/state.js',

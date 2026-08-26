@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Reduced deployment blast radius with root-owned application code, read-only and capability-restricted containers, scoped systemd filesystem access, and hardened Docker documentation matching the shipped defaults.
 - Pinned all third-party GitHub Actions to immutable commits and wired the security regression checks into the normal backend and release gates.
 - Removed the implicit OpenClaw credential-file fallback and documented that OIDC/SSO delegates login MFA to the configured identity provider.
+- Removed inline script execution and the global Tauri bridge, and protected first-run setup with a one-time token available only from the service or container log.
 
 ## [3.0.2] - 2026-07-13
 
