@@ -12,6 +12,8 @@ with tempfile.TemporaryDirectory() as tmp:
 
     token = ensure_setup_token(setup_complete=False)
     assert token and len(token) >= 32
+    token_path = Path(tmp) / 'setup-token'
+    assert token_path.stat().st_mode & 0o777 == 0o600
     assert validate_setup_token(token)
     assert not validate_setup_token('wrong-token')
     assert ensure_setup_token(setup_complete=False) == token
