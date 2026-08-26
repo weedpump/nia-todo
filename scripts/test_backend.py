@@ -421,8 +421,9 @@ class TestSuite:
 
     def test_login_throttle_http_boundary(self):
         statuses = []
+        probe_username = f"throttle-probe-{time.time_ns()}"
         for _ in range(6):
-            status, _ = curl("POST", "/api/login", {"username": "throttle-probe", "password": "WrongPassword1!"})
+            status, _ = curl("POST", "/api/login", {"username": probe_username, "password": "WrongPassword1!"})
             statuses.append(status)
         passed = statuses[:5] == [401] * 5 and statuses[5] == 429
         self.results["login_throttle_http_boundary"] = {"status": statuses[-1], "passed": passed, "expected": "five 401 responses followed by 429"}
