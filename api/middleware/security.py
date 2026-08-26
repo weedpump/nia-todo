@@ -8,6 +8,7 @@ from starlette.responses import Response
 from fastapi import Request, Header, HTTPException
 
 from rate_limit import rate_limiter, get_client_ip
+from services.instance_config import get_instance_config
 
 CSRF_COOKIE_NAME = "csrf_token"
 CSRF_COOKIE_MAX_AGE_SECONDS = 86400 * 30
@@ -69,6 +70,11 @@ class RequestBodyLimitMiddleware:
         await self.app(scope, limited_receive, limited_send)
         if body_exceeded:
             await self._send_too_large(send)
+
+
+def secure_cookie_enabled() -> bool:
+    """Use the configured public HTTPS URL, not the internal proxy hop."""
+    return get_instance_config().get("public_base_url", "").startswith("https://")
 
 
 def is_built_in_native_origin(origin: Optional[str]) -> bool:

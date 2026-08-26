@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from db import get_db
 from errors import api_error
-from middleware.security import generate_csrf_token, set_csrf_cookie
+from middleware.security import generate_csrf_token, secure_cookie_enabled, set_csrf_cookie
 from rate_limit import get_client_ip, require_login_rate_limit
 from routers.auth import require_auth
 from services.auth import create_jwt_token, decode_jwt_token, invalidate_all_user_tokens, revoke_all_user_sessions, verify_user_credentials
@@ -259,7 +259,7 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
         trusted_device_id = None
         if data.remember_device:
             trusted_device_token, trusted_device_id = create_trusted_device(db, user["id"], session_user_agent(request), return_id=True)
-            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
+            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=secure_cookie_enabled(), samesite="lax")
         token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent=session_user_agent(request), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
@@ -712,7 +712,7 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
         trusted_device_id = None
         if data.remember_device:
             trusted_device_token, trusted_device_id = create_trusted_device(db, user["id"], session_user_agent(request), return_id=True)
-            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
+            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=secure_cookie_enabled(), samesite="lax")
         token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent=session_user_agent(request), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
