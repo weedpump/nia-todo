@@ -462,16 +462,6 @@ def _run(cmd: list[str]) -> tuple[float, subprocess.CompletedProcess[str]]:
     return elapsed_ms, proc
 
 
-def _load_local_openclaw_token() -> str | None:
-    path = Path.home() / ".openclaw" / "openclaw.json"
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text()).get("gateway", {}).get("auth", {}).get("token")
-    except Exception:
-        return None
-
-
 def _convert_audio_to_wav(source: Path, target: Path) -> float:
     elapsed_ms, proc = _run([
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
@@ -1175,8 +1165,6 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     config = config or get_braindump_config(include_secrets=True)
     base_url = str(config.get("llm_base_url") or "").strip()
     token = str(config.get("llm_api_key") or "").strip()
-    if not token and _is_local_openclaw_base_url(base_url):
-        token = _load_local_openclaw_token() or ""
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
