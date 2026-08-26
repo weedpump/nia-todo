@@ -1182,7 +1182,7 @@ async function loadUsers() {
     renderUsers(data.users);
   } catch(e) {
     document.getElementById('user-list').innerHTML =
-      `<tr><td colspan="12" class="empty-state">Error: ${e.message}</td></tr>`;
+      `<tr><td colspan="12" class="empty-state">Error: ${escapeHtml(e.message)}</td></tr>`;
     if (e.message.includes('403')) {
       localStorage.removeItem('admin_jwt_token');
       setTimeout(() => location.reload(), 2000);
