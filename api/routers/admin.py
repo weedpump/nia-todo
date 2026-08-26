@@ -233,6 +233,7 @@ def admin_login(data: AdminLoginRequest, request: Request, response: Response):
             raise api_error(400, "admin.setupRequired", "Setup required")
         if not password_within_bcrypt_limit(data.password) or not bcrypt.checkpw(data.password.encode(), config["admin_token_hash"].encode()):
             rate_limiter.record_failed_login(ip, "admin", db=db)
+            db.commit()
             raise api_error(401, "admin.passwordInvalid", "Wrong admin password")
         token = create_admin_jwt_token(db)
         csrf_token = generate_csrf_token()

@@ -76,6 +76,7 @@ def login(data: LoginRequest, request: Request, response: Response):
         if not user:
             rate_limiter.record_failed_login(ip, data.username, db=db)
             log_audit(db, "login_failed", ip_address=ip, details=f"username={data.username}")
+            db.commit()
             raise api_error(401, "auth.invalidCredentials", "Invalid credentials")
         mfa_required = mfa_required_for_user(db, user['id'])
         valid_trusted_device = get_valid_trusted_device_id(db, user['id'], request.cookies.get('nia_2fa_device')) if mfa_required else None
