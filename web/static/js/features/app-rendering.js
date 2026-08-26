@@ -1,4 +1,5 @@
 import { apiResourceUrl } from '../core/config.js';
+import { loadAuthenticatedImage } from '../core/authenticated-image.js';
 import { getActiveLanguage, t } from '../i18n/index.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
@@ -308,7 +309,7 @@ export function createAppRenderingFeature({
         <div class="overview-dashboard-header">
           <div class="overview-greeting">
             <div class="overview-avatar" aria-hidden="true">
-              ${avatarSrc ? `<img src="${escapeHtmlAttr(avatarSrc)}" alt="">` : escapeHtml(initial)}
+              ${avatarSrc ? `<img data-auth-avatar alt="">` : escapeHtml(initial)}
             </div>
             <div>
               <div class="overview-kicker">${escapeHtml(dateTime)}</div>
@@ -355,6 +356,7 @@ export function createAppRenderingFeature({
           </div>
         </div>
       </section>`;
+    if (avatarSrc) loadAuthenticatedImage(el.querySelector('[data-auth-avatar]'), avatarSrc);
   }
 
   function sortProjectSectionTodos(list) {
