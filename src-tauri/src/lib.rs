@@ -1335,7 +1335,10 @@ fn windows_webauthn_authenticate(hwnd: windows::Win32::Foundation::HWND, origin:
 #[cfg(windows)]
 #[tauri::command]
 fn desktop_passkey_register(app: AppHandle, window: tauri::WebviewWindow, origin: String, options: serde_json::Value) -> Result<serde_json::Value, String> {
-  let hwnd = window.hwnd().map_err(|err| format!("Windows-Fensterhandle konnte nicht gelesen werden: {err}"))?;
+  let tauri_hwnd = window.hwnd().map_err(|err| format!("Windows-Fensterhandle konnte nicht gelesen werden: {err}"))?;
+  // Tauri currently exposes HWND through windows 0.61 while WebAuthn uses
+  // windows 0.62. Re-wrap the identical raw Win32 handle at the crate boundary.
+  let hwnd = windows::Win32::Foundation::HWND(tauri_hwnd.0);
   let (allowed_origin, allowed_host) = passkey_allowed_origin(&app)?;
   let canonical_origin = validate_passkey_origin(&origin, &allowed_origin)?;
   validate_passkey_rp_id(options.pointer("/rp/id").and_then(|value| value.as_str()), &allowed_host)?;
@@ -1351,7 +1354,10 @@ fn desktop_passkey_register(_app: AppHandle, _origin: String, _options: serde_js
 #[cfg(windows)]
 #[tauri::command]
 fn desktop_passkey_authenticate(app: AppHandle, window: tauri::WebviewWindow, origin: String, options: serde_json::Value) -> Result<serde_json::Value, String> {
-  let hwnd = window.hwnd().map_err(|err| format!("Windows-Fensterhandle konnte nicht gelesen werden: {err}"))?;
+  let tauri_hwnd = window.hwnd().map_err(|err| format!("Windows-Fensterhandle konnte nicht gelesen werden: {err}"))?;
+  // Tauri currently exposes HWND through windows 0.61 while WebAuthn uses
+  // windows 0.62. Re-wrap the identical raw Win32 handle at the crate boundary.
+  let hwnd = windows::Win32::Foundation::HWND(tauri_hwnd.0);
   let (allowed_origin, allowed_host) = passkey_allowed_origin(&app)?;
   let canonical_origin = validate_passkey_origin(&origin, &allowed_origin)?;
   validate_passkey_rp_id(options.get("rpId").and_then(|value| value.as_str()), &allowed_host)?;
