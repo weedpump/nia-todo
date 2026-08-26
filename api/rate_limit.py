@@ -20,6 +20,19 @@ class RateLimiter:
     def _normalize_login_identity(identity: str) -> str:
         return identity.strip().casefold()
 
+    def prune_expired(self) -> None:
+        now = time.time()
+        for counter, window in ((self.login_attempts, 900), (self.login_identity_attempts, 900), (self.login_ip_identity_attempts, 900), (self.password_reset_attempts, 3600), (self.api_requests, 60)):
+            for key, timestamps in list(counter.items()):
+                active = [timestamp for timestamp in timestamps if now - timestamp < window]
+                if active:
+                    counter[key] = active
+                else:
+                    del counter[key]
+        for key, count in list(self.ws_connections.items()):
+            if count <= 0:
+                del self.ws_connections[key]
+
     def check_login(self, ip: str, identity: Optional[str] = None) -> bool:
         now = time.time()
         window = 15 * 60  # 15 minutes
