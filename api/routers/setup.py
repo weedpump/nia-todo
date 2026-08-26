@@ -37,6 +37,8 @@ def setup_status():
     with get_db() as db:
         config = db.execute("SELECT setup_complete, admin_token_hash FROM admin_config WHERE id = 1").fetchone()
         user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
+        # The unauthenticated wizard needs these booleans to resume after a
+        # restart. They disclose setup phase only; the token is never returned.
         return {
             "setup_complete": bool(config['setup_complete']) if config else False,
             "has_users": user_count > 0,

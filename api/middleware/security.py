@@ -90,6 +90,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
+        # Script execution is strict. Inline styles remain intentional because the
+        # current UI uses element.style and a small number of style attributes;
+        # removing them is a separate class-toggle refactor, not an XSS control.
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; "
             "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "

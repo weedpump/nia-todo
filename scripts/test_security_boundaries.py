@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
+assert not (ROOT/'src-tauri/desktop-shell').exists(), 'obsolete duplicate desktop shell must stay removed'
 handler=re.compile(r'\son(?:click|change|submit|input|keydown|keyup|blur|focus)=',re.I)
 inline_script=re.compile(r'<script(?:\s+type="module")?\s*>',re.I)
 for file in (ROOT/'web').rglob('*'):
