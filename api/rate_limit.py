@@ -1,6 +1,6 @@
 """In-memory rate limiting for login and API abuse prevention."""
 
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 import time
 from fastapi import Request, HTTPException, status, WebSocket
 
@@ -10,25 +10,35 @@ from services.instance_config import forwarded_client_ip, get_forwarded_client_i
 class RateLimiter:
     def __init__(self):
         self.login_attempts: Dict[str, list] = {}  # ip -> [timestamps]
+        self.login_identity_attempts: Dict[str, list] = {}  # identity -> [timestamps]
+        self.login_ip_identity_attempts: Dict[str, list] = {}  # ip|identity -> [timestamps]
         self.password_reset_attempts: Dict[str, list] = {}  # ip/identifier -> [timestamps]
         self.api_requests: Dict[str, list] = {}    # ip -> [timestamps]
         self.ws_connections: Dict[str, int] = {}   # ip -> count
 
-    def check_login(self, ip: str) -> bool:
+    @staticmethod
+    def _normalize_login_identity(identity: str) -> str:
+        return identity.strip().casefold()
+
+    def check_login(self, ip: str, identity: Optional[str] = None) -> bool:
         now = time.time()
         window = 15 * 60  # 15 minutes
         max_attempts = 5
 
-        if ip not in self.login_attempts:
-            self.login_attempts[ip] = []
+        counters = [(self.login_attempts, ip)]
+        normalized_identity = self._normalize_login_identity(identity) if identity else ""
+        if normalized_identity:
+            counters.extend([
+                (self.login_identity_attempts, normalized_identity),
+                (self.login_ip_identity_attempts, f"{ip}|{normalized_identity}"),
+            ])
 
-        # Remove old entries
-        self.login_attempts[ip] = [t for t in self.login_attempts[ip] if now - t < window]
+        for counter, key in counters:
+            attempts = [timestamp for timestamp in counter.get(key, []) if now - timestamp < window]
+            counter[key] = attempts
+            if len(attempts) >= max_attempts:
+                return False
 
-        if len(self.login_attempts[ip]) >= max_attempts:
-            return False
-
-        self.login_attempts[ip].append(now)
         return True
 
     def check_password_reset(self, key: str) -> bool:
@@ -61,10 +71,23 @@ class RateLimiter:
         self.api_requests[ip].append(now)
         return True, 0
 
-    def record_successful_login(self, ip: str):
-        """Reset login attempts after successful login"""
-        if ip in self.login_attempts:
-            del self.login_attempts[ip]
+    def record_failed_login(self, ip: str, identity: Optional[str] = None):
+        """Record a failed login against the IP and, when known, the account."""
+        now = time.time()
+        self.login_attempts.setdefault(ip, []).append(now)
+        if not identity:
+            return
+        normalized_identity = self._normalize_login_identity(identity)
+        self.login_identity_attempts.setdefault(normalized_identity, []).append(now)
+        self.login_ip_identity_attempts.setdefault(f"{ip}|{normalized_identity}", []).append(now)
+
+    def record_successful_login(self, ip: str, identity: Optional[str] = None):
+        """Clear only the successful account's counters, never the IP bucket."""
+        if not identity:
+            return
+        normalized_identity = self._normalize_login_identity(identity)
+        self.login_identity_attempts.pop(normalized_identity, None)
+        self.login_ip_identity_attempts.pop(f"{ip}|{normalized_identity}", None)
 
     def check_ws(self, ip: str) -> bool:
         max_ws = 10
@@ -105,9 +128,9 @@ def get_client_ip_ws(websocket: WebSocket) -> str:
     return client_host or "unknown"
 
 
-def require_login_rate_limit(request: Request):
+def require_login_rate_limit(request: Request, identity: Optional[str] = None):
     ip = get_client_ip(request)
-    if not rate_limiter.check_login(ip):
+    if not rate_limiter.check_login(ip, identity):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={"code": "rateLimit.login", "message": "Too many login attempts. Please try again in 15 minutes."}

@@ -37,7 +37,7 @@ from services.attachments import (
     update_attachment_config,
     user_attachment_quota_bytes,
 )
-from rate_limit import require_login_rate_limit, get_client_ip
+from rate_limit import get_client_ip, rate_limiter, require_login_rate_limit
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from errors import api_error, validation_api_error
 
@@ -224,19 +224,20 @@ def create_password_setup_token(db, user_id: int, purpose: str = "reset", reques
 # ─── Admin Auth ──────────────────────────────────────────────────────────────
 
 @router.post("/login")
-def admin_login(data: AdminLoginRequest, request: Request, response: Response, _: None = Depends(require_login_rate_limit)):
+def admin_login(data: AdminLoginRequest, request: Request, response: Response):
+    require_login_rate_limit(request, "admin")
     ip = get_client_ip(request)
     with get_db() as db:
         config = db.execute("SELECT admin_token_hash, setup_complete FROM admin_config WHERE id = 1").fetchone()
         if not config or not config["admin_token_hash"] or not config["setup_complete"]:
             raise api_error(400, "admin.setupRequired", "Setup required")
         if not bcrypt.checkpw(data.password.encode(), config["admin_token_hash"].encode()):
+            rate_limiter.record_failed_login(ip, "admin")
             raise api_error(401, "admin.passwordInvalid", "Wrong admin password")
         token = create_admin_jwt_token(db)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
-        from rate_limit import rate_limiter
-        rate_limiter.record_successful_login(ip)
+        rate_limiter.record_successful_login(ip, "admin")
         return {"access_token": token, "token_type": "bearer", "admin": True, "csrf_token": csrf_token}
 
 @router.post("/logout")

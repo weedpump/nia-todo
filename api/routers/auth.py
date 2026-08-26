@@ -11,7 +11,7 @@ from services.auth import (
     should_refresh_user_jwt, verify_user_credentials, sessions
 )
 from middleware.security import generate_csrf_token, set_csrf_cookie
-from rate_limit import require_login_rate_limit, get_client_ip
+from rate_limit import get_client_ip, rate_limiter, require_login_rate_limit
 from services.audit import log_audit
 from services.client_info import session_user_agent
 from services.two_factor import consume_mfa_action_grant, create_challenge, get_valid_trusted_device_id, mfa_required_for_user, user_mfa_state
@@ -68,11 +68,13 @@ def require_recent_mfa_for_account_security(request: Request, authorization: Opt
 # ─── Auth Endpoints ──────────────────────────────────────────────────────────
 
 @router.post("/login")
-def login(data: LoginRequest, request: Request, response: Response, _: None = Depends(require_login_rate_limit)):
+def login(data: LoginRequest, request: Request, response: Response):
+    require_login_rate_limit(request, data.username)
     ip = get_client_ip(request)
     with get_db() as db:
         user = verify_user_credentials(db, data.username, data.password)
         if not user:
+            rate_limiter.record_failed_login(ip, data.username)
             log_audit(db, "login_failed", ip_address=ip, details=f"username={data.username}")
             raise api_error(401, "auth.invalidCredentials", "Invalid credentials")
         mfa_required = mfa_required_for_user(db, user['id'])
@@ -114,8 +116,7 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "login_success", user_id=user['id'], ip_address=ip, details=f"mfa={'required' if mfa_required else 'not_required'}; remembered_device={remembered}")
-        from rate_limit import rate_limiter
-        rate_limiter.record_successful_login(ip)
+        rate_limiter.record_successful_login(ip, data.username)
         return {
             "access_token": token,
             "token_type": "bearer",
