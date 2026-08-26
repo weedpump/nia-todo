@@ -104,7 +104,9 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update ""
 SUDOERS
 chmod 440 "/etc/sudoers.d/nia-todo-server-update"
 
-chown -R "${USER_NAME}:${GROUP_NAME}" "${APP_DIR}" "${DATA_DIR}"
+chown -R root:root "${APP_DIR}"
+chmod -R go-w "${APP_DIR}"
+chown -R "${USER_NAME}:${GROUP_NAME}" "${DATA_DIR}"
 chmod 750 "${DATA_DIR}"
 [ ! -f "${DATA_DIR}/vapid_keys.json" ] || chmod 600 "${DATA_DIR}/vapid_keys.json"
 chown -R root:root "${ETC_DIR}"
