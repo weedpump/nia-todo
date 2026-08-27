@@ -48,15 +48,11 @@ async def websocket_endpoint(websocket: WebSocket):
             msg_type = data.get("type", "")
 
             if msg_type == "auth":
-                token = data.get("token")
-                user_id = get_current_user(token, client_ip=ip)
-                if user_id:
-                    ws_user_id = user_id
-                    ws_token = token
-                    manager.register_auth(websocket, user_id)
-                    await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
-                else:
-                    await manager.send_personal_message({"type": "auth_fail"}, websocket)
+                # Authentication is immutable for the lifetime of a socket.
+                # Reconnect to change accounts so in-flight broadcasts cannot
+                # cross an identity boundary.
+                await websocket.close(code=1008, reason="Already authenticated")
+                return
             elif msg_type == "ping":
                 await manager.send_personal_message({"type": "pong", "ts": now_iso()}, websocket)
             elif msg_type == "desktop_notify_ready":
