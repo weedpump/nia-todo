@@ -1322,11 +1322,11 @@ class TestSuite:
         if not proj_id:
             self.results["share_project"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
-        # Share by email identifier -> neutral response (no member details to avoid enumeration)
+        # Verified email identifiers behave like usernames and return a concrete pending invitation.
         status, data = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
-        # Neutral response for email: no member object, but status 200
-        passed = ok(status) and data and data.get("notification_delivery") in ("in_app", "email", "unknown") and not data.get("member")
-        self.results["share_project"] = {"status": status, "passed": passed, "expected": "200 + neutral email share response"}
+        member = data.get("member") if data else None
+        passed = ok(status) and member and member.get("status") == "pending" and data.get("notification_delivery") in ("in_app", "email")
+        self.results["share_project"] = {"status": status, "passed": passed, "expected": "200 + pending member invitation"}
         return passed
 
     def test_shared_invite_list(self):

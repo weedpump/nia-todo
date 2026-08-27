@@ -142,33 +142,23 @@ export function createProjectSharingFeature({
       const result = await projectsApi.shareProject(currentProject.id, username);
       input.value = '';
       const member = result?.member;
-      const isEmailIdentifier = username.includes('@');
-      
-      // For email identifiers, don't reveal user details in UI to avoid enumeration hints
-      if (isEmailIdentifier) {
-        // Neutral response: no undo button, no member details shown
-        // Reload members is safe now (only accepted members visible, no pending invites)
-        await loadMembers(currentProject.id);
-        showToast(t('project.share.inviteProcessed'));
-      } else if (member) {
-        // For username identifiers, show detailed success with undo
-        currentProject.has_sharing_activity = true;
-        const projectId = Number(currentProject.id);
-        const pending = localPendingMembersByProject.get(projectId) || [];
-        if (!pending.some(item => Number(item.user_id) === Number(member.user_id))) {
-          pending.push({ ...member, status: member.status || 'pending' });
-          localPendingMembersByProject.set(projectId, pending);
-        }
-        showToast(t('project.share.inviteSent'), {
-          type: 'member_invite',
-          data: {
-            projectId: currentProject.id,
-            userId: member.user_id,
-            username: username,
-          },
-        });
-        await loadMembers(currentProject.id);
+      if (!member) throw new Error('Invitation response did not include a member');
+      currentProject.has_sharing_activity = true;
+      const projectId = Number(currentProject.id);
+      const pending = localPendingMembersByProject.get(projectId) || [];
+      if (!pending.some(item => Number(item.user_id) === Number(member.user_id))) {
+        pending.push({ ...member, status: member.status || 'pending' });
+        localPendingMembersByProject.set(projectId, pending);
       }
+      showToast(t('project.share.inviteSent'), {
+        type: 'member_invite',
+        data: {
+          projectId: currentProject.id,
+          userId: member.user_id,
+          username: member.username || username,
+        },
+      });
+      await loadMembers(currentProject.id);
     } catch (err) {
       const msg = (err?.message || '').toLowerCase();
       if (msg.includes('404') || msg.includes('not found')) {

@@ -642,7 +642,6 @@
   "project.share.removeMember": "Удалить участника",
   "project.share.removeMemberConfirm": "Удалить участника {username}?",
   "project.share.identifierRequired": "Введите имя пользователя или адрес электронной почты",
-  "project.share.inviteProcessed": "Приглашение обработано",
   "project.share.inviteSent": "Приглашение отправлено",
   "project.share.notFound": "Пользователь или адрес электронной почты «{identifier}» не найден.",
   "project.share.forbidden": "Нет разрешения — только владелец может приглашать пользователей.",

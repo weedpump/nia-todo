@@ -62,18 +62,12 @@ async function run() {
     const inputVisible = await inviteRow.isVisible();
     if (!inputVisible) throw new Error('Input should appear after clicking Teilen');
 
-    // 5. Invite errors should be inline, not undo-toasts
+    // 5. Unknown usernames and email addresses must fail explicitly.
     await page.fill('#project-share-username', 'missing@example.invalid');
     await page.locator('#project-share-row button').click();
-    await page.waitForTimeout(2000);
-    // For email identifiers, neutral response without revealing existence
-    const shareError = await page.locator('#project-share-error').textContent();
-    if (shareError && shareError.trim() && !shareError.includes('verarbeitet')) {
-      throw new Error('Unexpected share error for unknown email: ' + shareError);
-    }
-    // Neutral email response shows toast, but no undo for validation errors
+    await page.getByText(/nicht gefunden|not found/i).waitFor({ state: 'visible', timeout: 10000 });
     const undoVisibleAfterError = await page.locator('#toast-undo').isVisible().catch(() => false);
-    if (undoVisibleAfterError) throw new Error('Invite validation must not show undo button');
+    if (undoVisibleAfterError) throw new Error('Failed invitation must not show undo');
 
     // 6. Create a target user, invite them, close/reopen modal: sharing section should be expanded automatically
     const adminLogin = await page.evaluate(async (password) => {
@@ -151,15 +145,17 @@ async function run() {
 
     await page.fill('#project-share-username', 'emailtarget@example.invalid');
     await page.locator('#project-share-row button').click();
-    await page.getByText(/Einladung verarbeitet|Invitation processed/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText(/Einladung gesendet|Invitation sent/).waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal('project-modal'));
     await page.reload({ waitUntil: 'networkidle' });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     await openProjectEdit('Sharing Test Project');
-    await page.waitForTimeout(500);
-    const leakedEmailInvite = await page.locator('.sharing-member-row').filter({ hasText: 'Email Target' }).isVisible().catch(() => false);
-    if (leakedEmailInvite) throw new Error('Neutral email invite must not reveal the matched user after reload');
-    await page.locator('#project-share-start-row button').click();
+    const emailPendingRow = page.locator('.sharing-member-row').filter({ hasText: 'Email Target' });
+    await emailPendingRow.waitFor({ state: 'visible', timeout: 10000 });
+    await emailPendingRow.locator('[data-remove-member]').click();
+    await page.locator('#confirm-modal').waitFor({ state: 'visible', timeout: 5000 });
+    await page.click('#confirm-confirm-btn');
+    await emailPendingRow.waitFor({ state: 'hidden', timeout: 10000 });
 
     await page.fill('#project-share-username', 'moni');
     await page.locator('#project-share-row button').click();

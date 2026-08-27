@@ -39,9 +39,6 @@ def is_email_identifier(identifier: str) -> bool:
     return "@" in (identifier or "")
 
 
-def _neutral_email_share_response() -> dict:
-    return {"member": None, "notification_delivery": "unknown", "message": "If a matching verified account exists, the invitation has been processed."}
-
 def get_user_by_verified_email(db, email: str) -> Optional[dict]:
     """Find user by verified email only. Does not match usernames."""
     row = db.execute(
@@ -98,7 +95,7 @@ def get_member_by_id(db, member_id: int) -> Optional[dict]:
 
 def get_project_members(db, project_id: int, include_inactive=False, owner_only=False) -> list:
     """Get all members for a project.
-    
+
     Args:
         include_inactive: If True, include declined/left/removed members
         owner_only: If True, only return accepted members (for non-owner view)
@@ -123,18 +120,12 @@ def get_project_members(db, project_id: int, include_inactive=False, owner_only=
             (project_id,)
         ).fetchall()
     else:
-        # Owner view without inactive: see accepted members and pending username invites.
-        # Pending email invites use a neutral owner response and must not reveal
-        # whether the email matched a real account after reload.
+        # Owners can manage all pending invitations and accepted members.
         rows = db.execute(
             """SELECT pm.*, u.username, u.display_name
                FROM project_members pm
                JOIN users u ON pm.user_id = u.id
-               WHERE pm.project_id = ?
-                 AND (
-                   pm.status = 'accepted'
-                   OR (pm.status = 'pending' AND pm.invite_identifier_type = 'username')
-                 )
+               WHERE pm.project_id = ? AND pm.status IN ('pending', 'accepted')
                ORDER BY pm.created_at""",
             (project_id,)
         ).fetchall()
@@ -216,19 +207,11 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
         else:
             target = get_user_by_identifier(db, identifier)
         if not target:
-            if email_identifier:
-                log_audit(db, "project_share_email_identifier_no_match", user_id=user_id, details=f"project_id={project_id}")
-                db.commit()
-                return _neutral_email_share_response()
-            return _neutral_email_share_response()
+            raise HTTPException(404, "User not found")
 
         # Cannot share with self
         if target['id'] == project['user_id']:
-            if email_identifier:
-                log_audit(db, "project_share_email_identifier_self", user_id=user_id, details=f"project_id={project_id}")
-                db.commit()
-                return _neutral_email_share_response()
-            return _neutral_email_share_response()
+            raise HTTPException(400, "Cannot share a project with yourself")
 
         # Check if already shared
         existing = db.execute(
@@ -236,11 +219,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
             (project_id, target['id'])
         ).fetchone()
         if existing and existing['status'] in ('pending', 'accepted'):
-            if email_identifier:
-                log_audit(db, "project_share_email_identifier_existing", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
-                db.commit()
-                return _neutral_email_share_response()
-            return _neutral_email_share_response()
+            raise HTTPException(400, "User already has access or a pending invite")
 
         # Create invitation
         c = db.execute(
@@ -272,18 +251,9 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
                 log_audit(db, "project_share_email_failed", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}; fallback=in_app")
         db.commit()
 
-        # For email identifiers, do NOT broadcast to owner (avoids enumeration via WebSocket)
-        # Only notify the invited user directly without project_id (prevents owner/accepted member recipients)
-        if email_identifier:
-            # Direct broadcast to invitee only (no project_id = no owner/member auto-recipients)
-            await broadcast_change("member_invited", {"member": None}, target['id'])
-            log_audit(db, "project_share_email_identifier_accepted", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
-            return _neutral_email_share_response()
-        
-        # For username identifiers, return member details to owner (they initiated the invite)
-        # Broadcast only to invitee (no project_id = no owner/member auto-recipients) to avoid leaking pending invites
+        member = get_project_member(db, project_id, target['id'])
         await broadcast_change("member_invited", {"member": None}, target['id'])
-        return _neutral_email_share_response()
+        return {"member": member, "notification_delivery": "email" if emailed else "in_app"}
 
 
 @router.post("/{project_id}/members/{member_user_id}/restore")
@@ -318,7 +288,7 @@ async def restore_member(project_id: int, member_user_id: int, data: RestoreMemb
         db.commit()
 
         restored = get_project_member(db, project_id, member_user_id)
-        
+
         # Do NOT broadcast pending invites to owner/members (privacy: pending invites are internal)
         if data.status == 'pending':
             # Notify only the invitee (no project_id = no owner/member auto-recipients)
@@ -329,6 +299,28 @@ async def restore_member(project_id: int, member_user_id: int, data: RestoreMemb
             if member_user_id != project['user_id']:
                 await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, member_user_id)
         return {"member": restored}
+
+
+def transition_member_status(db, member_id: int, expected_status: str, new_status: str) -> bool:
+    """Compare-and-swap one membership status."""
+    updated = db.execute(
+        """UPDATE project_members
+           SET status = ?, updated_at = datetime('now')
+           WHERE id = ? AND status = ?""",
+        (new_status, member_id, expected_status),
+    )
+    return updated.rowcount == 1
+
+
+def transition_pending_invite(db, invite_id: int, new_status: str, workspace_id) -> bool:
+    """Atomically transition an invitation only while it is still pending."""
+    updated = db.execute(
+        """UPDATE project_members
+           SET status = ?, workspace_id = COALESCE(?, workspace_id), updated_at = datetime('now')
+           WHERE id = ? AND status = 'pending'""",
+        (new_status, workspace_id, invite_id),
+    )
+    return updated.rowcount == 1
 
 
 @router.post("/{project_id}/invites/{invite_id}")
@@ -350,10 +342,9 @@ async def respond_to_invite(project_id: int, invite_id: int, data: AcceptInviteR
 
         new_status = 'accepted' if data.accept else 'declined'
         workspace_id = get_user_default_workspace_id(db, user_id) if data.accept else invite['workspace_id']
-        db.execute(
-            "UPDATE project_members SET status = ?, workspace_id = COALESCE(?, workspace_id), updated_at = datetime('now') WHERE id = ?",
-            (new_status, workspace_id, invite_id)
-        )
+        if not transition_pending_invite(db, invite_id, new_status, workspace_id):
+            db.rollback()
+            raise HTTPException(409, "Invite is no longer pending")
         db.commit()
 
         # Notify both users
@@ -390,10 +381,15 @@ async def remove_member(project_id: int, member_user_id: int, user_id: int = Dep
             raise HTTPException(400, "Member is not active")
 
         # Mark as removed instead of deleting for undo support
-        db.execute(
-            "UPDATE project_members SET status = 'removed', updated_at = datetime('now') WHERE id = ?",
-            (member['id'],)
+        removed = db.execute(
+            """UPDATE project_members
+               SET status = 'removed', updated_at = datetime('now')
+               WHERE id = ? AND status IN ('pending', 'accepted')""",
+            (member['id'],),
         )
+        if removed.rowcount != 1:
+            db.rollback()
+            raise HTTPException(409, "Membership state changed; reload and retry")
         db.commit()
 
         # Do NOT broadcast pending invites to owner/members (privacy: pending invites are internal)
@@ -438,11 +434,10 @@ async def leave_project(project_id: int, user_id: int = Depends(require_auth)):
         if not member or member['status'] != 'accepted':
             raise HTTPException(400, "You are not a member of this project")
 
-        # Mark as left instead of deleting for undo support
-        db.execute(
-            "UPDATE project_members SET status = 'left', updated_at = datetime('now') WHERE id = ?",
-            (member['id'],)
-        )
+        # Mark as left only if owner removal did not win the race.
+        if not transition_member_status(db, member['id'], 'accepted', 'left'):
+            db.rollback()
+            raise HTTPException(409, "Membership state changed; reload and retry")
         db.commit()
 
         # Notify owner
@@ -473,10 +468,9 @@ async def undo_leave_project(project_id: int, user_id: int = Depends(require_aut
         if not member or member['status'] != 'left':
             raise HTTPException(400, "No leave action to undo")
 
-        db.execute(
-            "UPDATE project_members SET status = 'accepted', updated_at = datetime('now') WHERE id = ?",
-            (member['id'],)
-        )
+        if not transition_member_status(db, member['id'], 'left', 'accepted'):
+            db.rollback()
+            raise HTTPException(409, "Membership state changed; reload and retry")
         db.commit()
 
         restored = get_project_member(db, project_id, user_id)

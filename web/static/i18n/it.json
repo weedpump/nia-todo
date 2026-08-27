@@ -642,7 +642,6 @@
   "project.share.removeMember": "Rimuovi membro",
   "project.share.removeMemberConfirm": "Rimuovere il membro {username}?",
   "project.share.identifierRequired": "Inserisci nome utente o email",
-  "project.share.inviteProcessed": "Invito elaborato",
   "project.share.inviteSent": "Invito inviato",
   "project.share.notFound": "Utente o email \"{identifier}\" non trovato",
   "project.share.forbidden": "Nessuna autorizzazione: solo il proprietario può invitare gli utenti",
