@@ -28,6 +28,9 @@ async function run() {
     await page.fill('#admin-password-confirm', ADMIN_PASSWORD);
     await page.click('button.setup-btn');
     await visible('#step-2');
+    await page.reload({ waitUntil: 'networkidle' });
+    await visible('#step-2');
+    await page.fill('#setup-token', readSetupToken());
     const canScrollSetup = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
     if (!canScrollSetup) throw new Error('Mobile setup page should be scrollable when first-user form exceeds viewport');
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
@@ -44,6 +47,8 @@ async function run() {
     await page.fill('#first-password', 'SetupUser123!');
     await page.click('text=Installation abschließen');
     await visible('#step-success', 10000);
+    const staleSetupTokenVisible = await page.locator('#setup-token').isVisible().catch(() => false);
+    if (staleSetupTokenVisible) throw new Error('Setup token must be hidden after setup completes');
 
     console.log('✅ Frontend setup test passed');
   } finally {

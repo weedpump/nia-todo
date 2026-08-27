@@ -42,6 +42,8 @@ function showStep(step) {
   document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
   document.getElementById('step-' + step).classList.add('active');
   document.querySelectorAll('.step-dot').forEach((d, i) => d.classList.toggle('active', i + 1 === step));
+  const tokenField = document.getElementById('setup-token-field');
+  if (tokenField) tokenField.style.display = step === 'success' ? 'none' : '';
 }
 
 function showError(step, msg) {
