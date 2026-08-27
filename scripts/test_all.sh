@@ -65,6 +65,7 @@ run_step "Security Trust Boundaries" python3 scripts/test_security_boundaries.py
 run_step "Security Tauri Vendor Sync" node scripts/test_tauri_vendor_sync.mjs
 run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
+run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py
 run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
 run_step "Security Runtime Code Ownership" python3 scripts/test_runtime_code_ownership.py
 run_step "Security Rate Limit Pruning" python3 scripts/test_rate_limit_pruning.py
@@ -82,6 +83,7 @@ run_step "Todo Comments API" python3 scripts/test_todo_comments.py
 run_step "Todo Attachments API" python3 scripts/test_todo_attachments.py
 run_step "Location Reminder Backend" python3 scripts/test_location_reminders.py
 run_step "Location Reminder WebSocket" python3 scripts/test_websocket_location_reminders.py
+run_step "WebSocket Auth Registration" python3 scripts/test_websocket_auth_registration.py
 run_step "Email Services" python3 scripts/test_email_services.py
 run_step "2FA Service/Security" python3 scripts/test_two_factor_services.py
 run_step "OIDC Services" python3 scripts/test_oidc_services.py
