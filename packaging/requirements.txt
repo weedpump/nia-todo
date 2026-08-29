@@ -24,7 +24,7 @@ propcache==0.5.2
 py-vapid==1.9.4
 pycparser==3.0
 pydantic==2.13.4
-pydantic_core==2.48.0
+pydantic_core==2.46.4
 PyJWT==2.13.0
 python-dotenv==1.2.3
 pywebpush==2.4.0
