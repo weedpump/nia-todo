@@ -642,7 +642,6 @@
   "project.share.removeMember": "Lid verwijderen",
   "project.share.removeMemberConfirm": "Lid {username} verwijderen?",
   "project.share.identifierRequired": "Voer gebruikersnaam of e-mailadres in",
-  "project.share.inviteProcessed": "Uitnodiging verwerkt",
   "project.share.inviteSent": "Uitnodiging verzonden",
   "project.share.notFound": "Gebruiker of e-mailadres \"{identifier}\" niet gevonden",
   "project.share.forbidden": "Geen toestemming: alleen de eigenaar kan gebruikers uitnodigen",

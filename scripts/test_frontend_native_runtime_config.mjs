@@ -10,11 +10,22 @@ async function installTauriStub(page, settings, options = {}) {
   await page.addInitScript((payload) => {
     const { tauriSettings, appVersion } = payload;
     const storedSettings = { ...tauriSettings };
-    window.__TAURI__ = {
-      core: {
-        invoke: async (command, args = {}) => {
+    globalThis.isTauri = true;
+    const callbacks = new Map();
+    let callbackId = 1;
+    window.__TAURI_INTERNALS__ = {
+      transformCallback(callback) {
+        const id = callbackId++;
+        callbacks.set(id, callback);
+        return id;
+      },
+      unregisterCallback(id) { callbacks.delete(id); },
+      invoke: async (command, args = {}) => {
           window.__nativeInvokeCalls = window.__nativeInvokeCalls || [];
           window.__nativeInvokeCalls.push({ command, args });
+          if (command === 'plugin:event|listen') return 1;
+          if (command === 'plugin:event|unlisten') return null;
+          if (command === 'plugin:app|version') return appVersion;
           if (command === 'desktop_get_settings') return { ...storedSettings };
           if (command === 'desktop_set_setting') {
             storedSettings[args.key] = args.value;
@@ -38,7 +49,6 @@ async function installTauriStub(page, settings, options = {}) {
             return null;
           }
           return null;
-        },
       },
     };
   }, { tauriSettings: settings, appVersion: options.appVersion || NEWER_TEST_APP_VERSION });
@@ -268,7 +278,7 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
     await assertNoWebServiceWorker(page);
-    await page.waitForFunction(() => window.__nativeInvokeCalls?.some(call => call.command === 'desktop_get_app_version'), null, { timeout: 10_000 });
+    await page.waitForFunction(() => window.__nativeInvokeCalls?.some(call => call.command === 'plugin:app|version'), null, { timeout: 10_000 });
     await page.waitForFunction(() => document.querySelector('#login-overlay:not(.hidden)'), null, { timeout: 10_000 });
     const deadline = Date.now() + 10_000;
     while ((manifestRequests < 1 || instanceRequests < 1) && Date.now() < deadline) {
@@ -545,6 +555,8 @@ async function testNativeRuntimeUsesConfiguredServerUrl() {
   sqlitePython(`import sqlite3\ndb=sqlite3.connect(${JSON.stringify(DB_PATH)})\ndb.execute("UPDATE users SET avatar_url='/api/avatars/user-1.webp', avatar_updated_at='2026-05-24 15:45:00' WHERE username=?", (${JSON.stringify(USERNAME)},))\ndb.commit()\ndb.close()`);
   const { browser, page, dumpErrors } = await launchPage();
   try {
+    const avatarRequests = [];
+    page.on('request', request => { if (request.url().includes('/api/avatars/')) avatarRequests.push({ url: request.url(), authorization: request.headers().authorization || '' }); });
     await installTauriStub(page, { serverUrl: BASE_URL });
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
@@ -558,8 +570,10 @@ async function testNativeRuntimeUsesConfiguredServerUrl() {
     await page.click('button.login-btn');
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10_000 });
-    const avatarSrc = await page.locator('#user-menu-button img').getAttribute('src');
-    if (!avatarSrc?.startsWith(`${BASE_URL}/api/avatars/user-1.webp`)) throw new Error(`Native avatar URL must use server base URL, got ${avatarSrc}`);
+    await page.waitForTimeout(500);
+    const avatarRequest = avatarRequests.find(item => item.url.startsWith(`${BASE_URL}/api/avatars/user-1.webp`));
+    if (!avatarRequest) throw new Error(`Native avatar request must use server base URL, got ${JSON.stringify(avatarRequests)}`);
+    if (!avatarRequest.authorization.startsWith('Bearer ')) throw new Error('Native avatar request must include bearer authentication');
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;

@@ -1,4 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
+import { loadAuthenticatedImage } from '../core/authenticated-image.js';
 import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
 import { iconSvg } from '../icons/lucide-icons.js';
@@ -85,7 +86,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const src = avatarSrc(user);
     initialEl.textContent = (name.trim()[0] || 'U').toUpperCase();
     if (src) {
-      imgEl.src = src;
+      loadAuthenticatedImage(imgEl, src);
       imgEl.style.display = '';
       initialEl.style.display = 'none';
       if (removeBtn) removeBtn.style.display = '';

@@ -11,12 +11,14 @@ from datetime import datetime, timezone, timedelta
 
 from db import get_db
 from services.ops_stats import record_user_session_client_mix
+from services.utils import password_within_bcrypt_limit
 
 JWT_ALGORITHM = "HS256"
 USER_JWT_EXPIRY_DAYS = 30
 USER_JWT_REFRESH_THRESHOLD_DAYS = 7
 ADMIN_JWT_EXPIRY_DAYS = 1
 sessions = {}  # Legacy in-memory session store
+DUMMY_PASSWORD_HASH = "$2b$12$X30rK/KChNNnHVuomHSn5eOMvVruojvW5czDhXaGmMrvUJ3yvRa8S"
 
 
 def get_jwt_secret(db) -> str:
@@ -222,6 +224,8 @@ def get_current_user_allow_mfa_enrollment(token: Optional[str] = None) -> Option
 
 
 def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
+    if not password_within_bcrypt_limit(password):
+        return None
     identifier = (username or "").strip()
     row = db.execute(
         """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, password_hash, is_admin, token_version,
@@ -234,6 +238,7 @@ def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
         (identifier, identifier, identifier)
     ).fetchone()
     if not row:
+        bcrypt.checkpw(password.encode(), DUMMY_PASSWORD_HASH.encode())
         return None
     if bcrypt.checkpw(password.encode(), row['password_hash'].encode()):
         return dict(row)

@@ -2,6 +2,7 @@
 import { withFreshDb, launchPage, BASE_URL } from './frontend_test_lib.mjs';
 
 const WS_HOST = BASE_URL.replace(/^https?:\/\//, '');
+const TODO_TITLE = `Offline Sync Todo ${process.pid}-${Date.now()}`;
 
 async function fillTodoDescription(page, value) {
   await page.click('#todo-desc-preview');
@@ -14,34 +15,39 @@ async function run() {
 
   try {
     await loginApp();
+    await page.evaluate(title => localStorage.setItem('__offline_sync_test_title', title), TODO_TITLE);
     await visible('#sidebar');
 
     await openTodoModal();
-    await page.fill('#todo-title', 'Offline Sync Todo');
+    await page.fill('#todo-title', TODO_TITLE);
     await fillTodoDescription(page, 'Created for offline sync regression');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await waitForText('Offline Sync Todo');
+    await waitForText(TODO_TITLE);
 
     await page.waitForFunction(async () => {
       if (typeof window.dbGetAll !== 'function') return false;
       const todos = await window.dbGetAll('todos');
-      return todos.some(todo => todo.title === 'Offline Sync Todo' && typeof todo.id === 'number');
+      return todos.some(todo => todo.title === localStorage.getItem('__offline_sync_test_title') && typeof todo.id === 'number');
     }, null, { timeout: 10000 });
 
     await page.context().setOffline(true);
     await page.waitForFunction(() => navigator.onLine === false, null, { timeout: 5000 });
 
-    await page.locator('.todo-item').filter({ hasText: 'Offline Sync Todo' }).first().click();
+    await page.locator('.todo-item').filter({ hasText: TODO_TITLE }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
     await fillTodoDescription(page, 'Edited while offline');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const queue = await window.dbGetAll('syncQueue');
+      return queue.some(item => item.action === 'UPDATE_TODO' && item.data?.changes?.description === 'Edited while offline');
+    }, null, { timeout: 10000 });
 
     const queuedOffline = await page.evaluate(async () => {
       const todos = await window.dbGetAll('todos');
       const queue = await window.dbGetAll('syncQueue');
-      const todo = todos.find(item => item.title === 'Offline Sync Todo');
+      const todo = todos.find(item => item.title === localStorage.getItem('__offline_sync_test_title'));
       return { description: todo?.description || '', queueLength: queue.length, queue };
     });
     if (queuedOffline.description !== 'Edited while offline' || queuedOffline.queueLength < 1 || !queuedOffline.queue.some(item => item.action === 'UPDATE_TODO' && item.data?.changes?.description === 'Edited while offline')) {
@@ -56,7 +62,7 @@ async function run() {
       if (typeof window.dbGetAll !== 'function') return false;
       const queue = await window.dbGetAll('syncQueue');
       const todos = await window.dbGetAll('todos');
-      const todo = todos.find(item => item.title === 'Offline Sync Todo');
+      const todo = todos.find(item => item.title === localStorage.getItem('__offline_sync_test_title'));
       return queue.length === 0 && todo?.description === 'Edited while offline';
     }, null, { timeout: 15000 });
 
@@ -66,7 +72,7 @@ async function run() {
       const response = await fetch('/api/todos', { cache: 'no-store', headers });
       const data = await response.json();
       const todos = data.todos || [];
-      const todo = todos.find(item => item.title === 'Offline Sync Todo');
+      const todo = todos.find(item => item.title === localStorage.getItem('__offline_sync_test_title'));
       return response.ok && todo?.description === 'Edited while offline';
     }, null, { timeout: 15000 });
 
@@ -75,7 +81,7 @@ async function run() {
     await page.waitForFunction(async () => {
       if (typeof window.dbGetAll !== 'function') return false;
       const todos = await window.dbGetAll('todos');
-      const todo = todos.find(item => item.title === 'Offline Sync Todo');
+      const todo = todos.find(item => item.title === localStorage.getItem('__offline_sync_test_title'));
       return todo?.description === 'Edited while offline';
     }, null, { timeout: 15000 });
 

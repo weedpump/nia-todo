@@ -19,7 +19,7 @@ class DynamicCORSMiddleware(BaseHTTPMiddleware):
     """
 
     allow_methods = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-    allow_headers = "Authorization, Content-Type, X-Session-Token, X-Admin-Token, X-Requested-With, X-CSRF-Token, X-Nia-Client, X-Nia-Filename, X-File-Name, X-Filename"
+    allow_headers = "Authorization, Content-Type, X-Session-Token, X-Admin-Token, X-Setup-Token, X-Requested-With, X-CSRF-Token, X-Nia-Client, X-Nia-Filename, X-File-Name, X-Filename"
     allow_header_names = {item.strip().lower() for item in allow_headers.split(",")}
     built_in_native_hosts = {"tauri.localhost"}
     built_in_native_custom_origins = {"tauri://localhost", "tauri://tauri.localhost"}

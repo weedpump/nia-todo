@@ -642,7 +642,6 @@
   "project.share.removeMember": "删除成员",
   "project.share.removeMemberConfirm": "删除成员{username}？",
   "project.share.identifierRequired": "输入用户名或电子邮件",
-  "project.share.inviteProcessed": "邀请已处理",
   "project.share.inviteSent": "邀请已发送",
   "project.share.notFound": "未找到用户或电子邮件“{identifier}”",
   "project.share.forbidden": "无权限 — 只有所有者才能邀请用户",

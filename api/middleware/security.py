@@ -8,10 +8,73 @@ from starlette.responses import Response
 from fastapi import Request, Header, HTTPException
 
 from rate_limit import rate_limiter, get_client_ip
+from services.instance_config import get_instance_config
 
 CSRF_COOKIE_NAME = "csrf_token"
 CSRF_COOKIE_MAX_AGE_SECONDS = 86400 * 30
+MAX_REQUEST_BODY_BYTES = 25 * 1024 * 1024
 BUILT_IN_NATIVE_HOSTS = {"tauri.localhost"}
+
+
+class RequestBodyLimitMiddleware:
+    """Reject oversized HTTP request bodies before application handlers consume them."""
+
+    def __init__(self, app, max_body_bytes: int = MAX_REQUEST_BODY_BYTES):
+        self.app = app
+        self.max_body_bytes = max_body_bytes
+
+    async def _send_too_large(self, send) -> None:
+        body = b'{"detail":"Request body too large"}'
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode()),
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        content_length = headers.get(b"content-length")
+        if content_length:
+            try:
+                if int(content_length) > self.max_body_bytes:
+                    await self._send_too_large(send)
+                    return
+            except ValueError:
+                pass
+
+        received_bytes = 0
+        body_exceeded = False
+
+        async def limited_receive():
+            nonlocal received_bytes, body_exceeded
+            message = await receive()
+            if message["type"] == "http.request":
+                received_bytes += len(message.get("body", b""))
+                if received_bytes > self.max_body_bytes:
+                    body_exceeded = True
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def limited_send(message):
+            if not body_exceeded:
+                await send(message)
+
+        await self.app(scope, limited_receive, limited_send)
+        if body_exceeded:
+            await self._send_too_large(send)
+
+
+def secure_cookie_enabled() -> bool:
+    """Use the configured public HTTPS URL, not the internal proxy hop."""
+    return get_instance_config().get("public_base_url", "").startswith("https://")
 
 
 def is_built_in_native_origin(origin: Optional[str]) -> bool:
@@ -27,15 +90,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
+        # Script execution is strict. Inline styles remain intentional because the
+        # current UI uses element.style and a small number of style attributes;
+        # removing them is a separate class-toggle refactor, not an XSS control.
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "default-src 'self'; script-src 'self'; "
             "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
-            "font-src 'self'; connect-src 'self' wss:;"
+            "font-src 'self'; connect-src 'self' wss:; frame-src 'self' blob:;"
         )
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        if secure_cookie_enabled():
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
 
 

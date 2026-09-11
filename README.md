@@ -56,11 +56,15 @@ docker run -d \
   -p 8753:8753 \
   -e NIA_TODO_HOST=auto \
   -e NIA_TODO_PORT=8753 \
+  --read-only \
+  --tmpfs /tmp \
+  --cap-drop ALL \
+  --security-opt no-new-privileges:true \
   -v nia-todo-data:/data \
   docker.io/weedpump/nia-todo:latest
 ```
 
-Open `http://YOUR-SERVER:8753/setup` and create the initial admin account. For production, place the app behind HTTPS and set its public base URL in the admin panel.
+Read the one-time setup token from `docker logs nia-todo` (or `journalctl -u nia-todo` for the Debian package), then open `http://YOUR-SERVER:8753/setup`. The token is required only for first-run setup and is deleted after the first user is created. For production, place the app behind HTTPS and set its public base URL in the admin panel.
 
 A full **Debian/Ubuntu package** with systemd integration and built-in updates is available from [Releases](https://github.com/weedpump/nia-todo/releases/latest). Detailed guides cover both installation methods:
 

@@ -10,14 +10,14 @@ from io import BytesIO
 import urllib.request
 
 from fastapi import APIRouter, Request, Response, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import bcrypt
 import hashlib
 import secrets
 
 from db import get_db, now_iso
 from services.auth import create_admin_jwt_token, invalidate_all_user_tokens, revoke_all_user_sessions, verify_admin_token
-from services.utils import normalize_email, sanitize_text, validate_email, validate_password, validate_admin_password
+from services.utils import normalize_email, password_within_bcrypt_limit, sanitize_text, validate_admin_password, validate_email, validate_password
 from services.audit import log_audit
 from services.braindump_config import get_braindump_config, llm_models_url, parse_extra_headers, update_braindump_config
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
@@ -37,7 +37,7 @@ from services.attachments import (
     update_attachment_config,
     user_attachment_quota_bytes,
 )
-from rate_limit import require_login_rate_limit, get_client_ip
+from rate_limit import get_client_ip, rate_limiter, require_login_rate_limit
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from errors import api_error, validation_api_error
 
@@ -81,7 +81,7 @@ def _validate_configured_llm_model(payload: str, model: str) -> str | None:
 # ─── Pydantic Models ─────────────────────────────────────────────────────────
 
 class CreateUserRequest(BaseModel):
-    username: str
+    username: str = Field(..., min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     display_name: str
     email: str
     language: str = "de"
@@ -224,19 +224,21 @@ def create_password_setup_token(db, user_id: int, purpose: str = "reset", reques
 # ─── Admin Auth ──────────────────────────────────────────────────────────────
 
 @router.post("/login")
-def admin_login(data: AdminLoginRequest, request: Request, response: Response, _: None = Depends(require_login_rate_limit)):
+def admin_login(data: AdminLoginRequest, request: Request, response: Response):
+    require_login_rate_limit(request, "admin")
     ip = get_client_ip(request)
     with get_db() as db:
         config = db.execute("SELECT admin_token_hash, setup_complete FROM admin_config WHERE id = 1").fetchone()
         if not config or not config["admin_token_hash"] or not config["setup_complete"]:
             raise api_error(400, "admin.setupRequired", "Setup required")
-        if not bcrypt.checkpw(data.password.encode(), config["admin_token_hash"].encode()):
+        if not password_within_bcrypt_limit(data.password) or not bcrypt.checkpw(data.password.encode(), config["admin_token_hash"].encode()):
+            rate_limiter.record_failed_login(ip, "admin", db=db)
+            db.commit()
             raise api_error(401, "admin.passwordInvalid", "Wrong admin password")
         token = create_admin_jwt_token(db)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
-        from rate_limit import rate_limiter
-        rate_limiter.record_successful_login(ip)
+        rate_limiter.record_successful_login(ip, "admin", db=db)
         return {"access_token": token, "token_type": "bearer", "admin": True, "csrf_token": csrf_token}
 
 @router.post("/logout")
@@ -767,7 +769,7 @@ def change_admin_password(data: ChangeAdminPasswordRequest, _: bool = Depends(re
         config = db.execute("SELECT admin_token_hash FROM admin_config WHERE id = 1").fetchone()
         if not config or not config['admin_token_hash']:
             raise api_error(500, "admin.configMissing", "Admin configuration not found")
-        if not bcrypt.checkpw(data.old_password.encode(), config['admin_token_hash'].encode()):
+        if not password_within_bcrypt_limit(data.old_password) or not bcrypt.checkpw(data.old_password.encode(), config['admin_token_hash'].encode()):
             raise api_error(401, "admin.oldPasswordInvalid", "Wrong current admin password")
         new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
         db.execute(
