@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Simplified development and packaging defaults around the single `nia-todo` instance and removed obsolete two-repository release and development-branding remnants.
 
 ### Fixed
+- Stopped logout from leaving REST and WebSocket background work active, preventing delayed synchronization from repopulating cleared local data or continuing authenticated requests after the session ends.
 - Made project invitations consistent for usernames and verified email addresses: unknown users return an error, while pending invitations remain visible and revocable until accepted.
 - Improved server `.deb` installation across supported Python versions by preferring Python 3.13 for bundled wheels and falling back to an online dependency install when wheel ABIs do not match.
 - Fixed server package staging, checksum verification, restore ownership handling, and native Windows, Android, and Debian build dependencies in the release pipelines.
