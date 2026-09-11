@@ -32,7 +32,7 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       bump_commit: ${{ steps.bump.outputs.commit }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
 
@@ -88,7 +88,7 @@ jobs:
     needs: [prepare-version, build]
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare-version.outputs.bump_commit }}
 
@@ -126,7 +126,7 @@ jobs:
       VERSION: ${{ needs.prepare-version.outputs.version }}
       TAG: ${{ needs.prepare-version.outputs.tag }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare-version.outputs.bump_commit }}
 
