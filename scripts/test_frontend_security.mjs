@@ -105,6 +105,11 @@ assert(authSessionSource.includes("methods.includes('recovery_code') ? 'recovery
 assert(authSessionSource.includes('nia_consumed_native_oidc_codes'), 'native OIDC must remember consumed handoff codes so logout/login-overlay re-entry does not show stale handoff errors');
 assert(authSessionSource.includes('nativeOidcCodesInFlight.has(code)'), 'native OIDC must dedupe simultaneous callback delivery before the one-time handoff is consumed twice');
 assert(authSessionSource.includes('rememberConsumedNativeOidcCode(code)'), 'native OIDC must mark handoff codes consumed after a successful exchange');
+const logoutSource = authSessionSource.slice(authSessionSource.indexOf('async function logout()'), authSessionSource.indexOf('function showLoginOverlay()'));
+assert(logoutSource.includes('setCurrentUser(null)') && logoutSource.indexOf('setCurrentUser(null)') < logoutSource.indexOf('authApi.logout()'), 'logout must clear the in-memory user before starting the server request so authenticated timers stop immediately');
+assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('disconnectRealtime?.()') < logoutSource.indexOf('authApi.logout()'), 'logout must disconnect realtime work before starting the server request');
+assert(logoutSource.indexOf('authApi.logout()') < logoutSource.indexOf("localStorage.removeItem('jwt_token')"), 'logout must start the authenticated server request before clearing its token');
+assert(logoutSource.indexOf("localStorage.removeItem('jwt_token')") < logoutSource.indexOf('await logoutRequest'), 'logout must clear local credentials before waiting for the server response');
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
 assert(userSettingsSource.includes('hasExistingSecondFactor') && userSettingsSource.includes("&& hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa(t('settings.2fa.purpose.addPasskey'))"), 'passkey enrollment-only setup must not require an existing 2FA code');
@@ -191,5 +196,149 @@ assert(toastSource.includes('cancelPendingTodoDelete') && toastSource.includes("
 assert(syncSource.includes('undo_grace_until') && syncSource.includes('Date.now() < undoGraceUntil'), 'todo hard-delete sync must wait for the undo grace window');
 const todosFeatureSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 assert(todosFeatureSource.includes("addToSyncQueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 })"), 'todo delete must enqueue a deferred hard-delete so undo can preserve subtasks, comments, and attachments');
+
+const originalGlobals = {
+  window: globalThis.window,
+  document: globalThis.document,
+  navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator'),
+  localStorage: Object.getOwnPropertyDescriptor(globalThis, 'localStorage'),
+  setTimeout: globalThis.setTimeout,
+  setInterval: globalThis.setInterval,
+};
+try {
+  const windowListeners = new Map();
+  const documentListeners = new Map();
+  const timers = [];
+  let periodic = null;
+  let authenticated = false;
+  let syncCalls = 0;
+  let inviteCalls = 0;
+  let connectCalls = 0;
+  let startupRefreshCalls = 0;
+  let blockOpenDb = false;
+  let resolveOpenDb = null;
+  const syncResolvers = [];
+  const startupRefreshResolvers = [];
+
+  globalThis.window = {
+    location: { search: '' },
+    history: { state: null },
+    addEventListener(name, listener) { windowListeners.set(name, listener); },
+  };
+  globalThis.document = {
+    hidden: false,
+    addEventListener(name, listener) { documentListeners.set(name, listener); },
+  };
+  globalThis.localStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { onLine: true, language: 'en', languages: ['en'] },
+  });
+  globalThis.setTimeout = (callback) => { timers.push(callback); return timers.length; };
+  globalThis.setInterval = (callback) => { periodic = callback; return 1; };
+
+  const { createAppLifecycle } = await import('../web/static/js/features/app-lifecycle.js');
+  const lifecycle = createAppLifecycle({
+    initServiceWorker: async () => {},
+    openDB: () => blockOpenDb ? new Promise(resolve => { resolveOpenDb = resolve; }) : Promise.resolve(),
+    dbGetAll: async () => [],
+    setTodos: () => {},
+    setProjects: () => {},
+    setSections: () => {},
+    setWorkspaces: () => {},
+    setCurrentFilter: () => {},
+    setCurrentProjectId: () => {},
+    setCurrentWorkspaceId: () => {},
+    ensureCurrentWorkspace: () => {},
+    setAppInitialized: () => {},
+    initTheme: () => {},
+    isAuthenticated: () => authenticated,
+    isOnlineForSync: () => true,
+    getWsState: () => 'connected',
+    connectWebSocket: () => { connectCalls += 1; },
+    syncWithServer: () => new Promise(resolve => {
+      syncCalls += 1;
+      syncResolvers.push(resolve);
+    }),
+    refreshFromServer: () => {
+      startupRefreshCalls += 1;
+      return new Promise(resolve => startupRefreshResolvers.push(resolve));
+    },
+    refreshInvites: async () => { inviteCalls += 1; },
+    updateConnectionStatus: () => {},
+    renderVersionInfo: () => {},
+    renderProjects: () => {},
+    renderStats: () => {},
+    renderTodos: () => {},
+    renderWorkspaces: () => {},
+    updateToggleDoneButton: () => {},
+    updateSortButton: () => {},
+  });
+  lifecycle.bindNetworkEvents();
+
+  windowListeners.get('pageshow')();
+  for (const callback of timers.splice(0)) callback();
+  await Promise.resolve();
+  assert.equal(syncCalls, 0, 'logged-out pages must not schedule authenticated sync requests');
+  assert.equal(inviteCalls, 0, 'logged-out pages must not request project invites');
+
+  authenticated = true;
+  periodic();
+  for (const callback of timers.splice(0)) callback();
+  for (const resolve of syncResolvers.splice(0)) resolve();
+  await Promise.resolve();
+  assert.equal(syncCalls, 3, 'authenticated pages must retain network retry scheduling');
+  assert.equal(inviteCalls, 3, 'authenticated retries must still refresh project invites');
+
+  periodic();
+  authenticated = false;
+  for (const callback of timers.splice(0)) callback();
+  assert.equal(syncCalls, 3, 'logout must cancel retries that were scheduled but have not started');
+
+  authenticated = true;
+  periodic();
+  for (const callback of timers.splice(0)) callback();
+  authenticated = false;
+  for (const resolve of syncResolvers.splice(0)) resolve();
+  await Promise.resolve();
+  assert.equal(syncCalls, 6, 'sync calls already in flight may finish after logout');
+  assert.equal(inviteCalls, 3, 'logout must suppress invite refreshes chained to in-flight syncs');
+
+  authenticated = true;
+  await lifecycle.initApp();
+  const invitesAfterInit = inviteCalls;
+  authenticated = false;
+  for (const resolve of startupRefreshResolvers.splice(0)) resolve();
+  await Promise.resolve();
+  assert.equal(inviteCalls, invitesAfterInit, 'logout must suppress invite refreshes chained to the startup refresh');
+
+  await lifecycle.initApp();
+  assert.equal(inviteCalls, invitesAfterInit, 'logout during app initialization must suppress its direct invite refresh');
+
+  const connectsBeforeInterruptedInit = connectCalls;
+  const refreshesBeforeInterruptedInit = startupRefreshCalls;
+  authenticated = true;
+  blockOpenDb = true;
+  const interruptedInit = lifecycle.initApp();
+  while (!resolveOpenDb) await Promise.resolve();
+  authenticated = false;
+  resolveOpenDb();
+  await interruptedInit;
+  assert.equal(connectCalls, connectsBeforeInterruptedInit, 'logout during app initialization must prevent a late WebSocket connection');
+  assert.equal(startupRefreshCalls, refreshesBeforeInterruptedInit, 'logout during app initialization must prevent a late server refresh');
+} finally {
+  globalThis.window = originalGlobals.window;
+  globalThis.document = originalGlobals.document;
+  if (originalGlobals.localStorage) Object.defineProperty(globalThis, 'localStorage', originalGlobals.localStorage);
+  else delete globalThis.localStorage;
+  if (originalGlobals.navigator) Object.defineProperty(globalThis, 'navigator', originalGlobals.navigator);
+  else delete globalThis.navigator;
+  globalThis.setTimeout = originalGlobals.setTimeout;
+  globalThis.setInterval = originalGlobals.setInterval;
+}
 
 console.log('✅ Frontend security regressions passed');

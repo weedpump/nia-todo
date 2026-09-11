@@ -260,6 +260,7 @@ const authSessionFeature = createAuthSessionFeature({
   initApp: () => initApp(),
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
+  disconnectRealtime: () => disconnectWebSocket(),
 });
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature();
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
@@ -598,6 +599,7 @@ const appLifecycle = createAppLifecycle({
   setAppInitialized: (next) => { appInitialized = next; },
   connectWebSocket,
   getWsState: () => wsClient.getWsState(),
+  isAuthenticated: () => Boolean(currentUser),
   isOnlineForSync,
   syncWithServer,
   refreshFromServer,

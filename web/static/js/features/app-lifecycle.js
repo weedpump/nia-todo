@@ -23,6 +23,7 @@ export function createAppLifecycle({
   setAppInitialized,
   connectWebSocket,
   getWsState,
+  isAuthenticated = () => false,
   isOnlineForSync,
   syncWithServer,
   refreshFromServer,
@@ -134,6 +135,7 @@ export function createAppLifecycle({
       console.error('Local load failed:', err);
     }
 
+    if (!isAuthenticated()) return;
     restoreSavedWorkspace();
     restoreSavedNavigation();
     ensureCurrentWorkspace?.();
@@ -146,7 +148,7 @@ export function createAppLifecycle({
     if (isOnlineForSync()) {
       console.log('Online at startup - syncing...');
       refreshFromServer()
-        .then(() => refreshInvites?.())
+        .then(() => isAuthenticated() ? refreshInvites?.() : undefined)
         .catch(err => {
           // A cached/offline cold start can race with browser network state: the
           // page may still report online while fetches already fail. Keep the
@@ -163,7 +165,7 @@ export function createAppLifecycle({
     updateTodayFocusButton?.();
     updateMinimalTodosButton?.();
     initTheme();
-    refreshInvites?.();
+    if (isAuthenticated()) refreshInvites?.();
     onAppReady?.();
 
     console.log('App initialized');
@@ -171,6 +173,7 @@ export function createAppLifecycle({
 
   function bindNetworkEvents() {
     const scheduleSyncAttempts = (reason) => {
+      if (!isAuthenticated()) return;
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
       if (getWsState() === 'disconnected') connectWebSocket();
 
@@ -178,9 +181,10 @@ export function createAppLifecycle({
       // short burst and also rely on WebSocket onopen/periodic retries.
       for (const delay of [1000, 3000, 8000]) {
         setTimeout(() => {
+          if (!isAuthenticated()) return;
           if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
           syncWithServer()
-            .then(() => refreshInvites?.())
+            .then(() => isAuthenticated() ? refreshInvites?.() : undefined)
             .catch(err => console.warn(`Sync attempt failed after ${reason}:`, err));
         }, delay);
       }
