@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.1.0] - 2026-09-12
 
 ### Changed
 - Reworked the GitHub Actions build and release pipelines into separate test, package, and release workflows with independent native-client builds, tag-based releases, and Docker publishing to both GHCR and Docker Hub.
