@@ -35,6 +35,7 @@ VALIDATION_ERROR_MESSAGES = {
     "validation.email.required": ("validation.emailRequired", "Email is required"),
     "validation.email.tooLong": ("validation.emailTooLong", "Email address is too long"),
     "validation.email.invalid": ("validation.invalidEmail", "Please enter a valid email address"),
+    "validation.password.tooLong": ("validation.passwordTooLong", "Password must not exceed 72 bytes"),
     "validation.password.uppercase": ("validation.passwordUppercase", "Password must contain at least one uppercase letter"),
     "validation.password.lowercase": ("validation.passwordLowercase", "Password must contain at least one lowercase letter"),
     "validation.password.digit": ("validation.passwordDigit", "Password must contain at least one digit"),
@@ -51,6 +52,8 @@ def validation_api_error(error: str, status_code: int = 400) -> APIError:
         return api_error(status_code, code, message, min=int(min_length))
 
     code, message = VALIDATION_ERROR_MESSAGES.get(error, ("validation.invalid", "Validation failed"))
+    if error == "validation.password.tooLong":
+        return api_error(status_code, code, message, max=72)
     return api_error(status_code, code, message)
 
 
