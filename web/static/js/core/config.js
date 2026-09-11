@@ -1,4 +1,7 @@
 import { t } from '../i18n/index.js';
+import { invoke, isTauri } from '../../vendor/tauri-api/core.js';
+import { listen } from '../../vendor/tauri-api/event.js';
+import { getVersion } from '../../vendor/tauri-api/app.js';
 
 export let API = '';
 export let WS_URL = websocketUrlFromBase(location.origin);
@@ -6,12 +9,18 @@ export const DB_NAME = 'nia-todo-db';
 export const DB_VERSION = 4;
 export const APP_VERSION = 'v3.0.3-dev';
 
+const TAURI_API = Object.freeze({
+  core: Object.freeze({ invoke }),
+  event: Object.freeze({ listen }),
+  app: Object.freeze({ getVersion }),
+});
+
 export function getTauri() {
-  return window.__TAURI__ || null;
+  return (hasNativeLaunchParam() || isTauri()) ? TAURI_API : null;
 }
 
 export function getTauriInvoke() {
-  return getTauri()?.core?.invoke || null;
+  return (hasNativeLaunchParam() || isTauri()) ? invoke : null;
 }
 
 export function hasNativeLaunchParam() {

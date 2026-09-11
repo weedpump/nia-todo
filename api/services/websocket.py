@@ -20,17 +20,23 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         self.desktop_notify_connections.discard(websocket)
         user_id = self.ws_users.pop(websocket, None)
-        if user_id and user_id in self.connections:
-            if websocket in self.connections[user_id]:
-                self.connections[user_id].remove(websocket)
+        if user_id is not None and user_id in self.connections:
+            self.connections[user_id] = [connection for connection in self.connections[user_id] if connection is not websocket]
             if not self.connections[user_id]:
                 del self.connections[user_id]
 
     def register_auth(self, websocket: WebSocket, user_id: int):
+        previous_user_id = self.ws_users.get(websocket)
+        if previous_user_id is not None and previous_user_id != user_id:
+            previous_connections = self.connections.get(previous_user_id, [])
+            self.connections[previous_user_id] = [connection for connection in previous_connections if connection is not websocket]
+            if not self.connections[previous_user_id]:
+                del self.connections[previous_user_id]
+
         self.ws_users[websocket] = user_id
-        if user_id not in self.connections:
-            self.connections[user_id] = []
-        self.connections[user_id].append(websocket)
+        connections = self.connections.setdefault(user_id, [])
+        if websocket not in connections:
+            connections.append(websocket)
 
     async def send_personal_message(self, message: dict, websocket: WebSocket):
         await websocket.send_json(message)

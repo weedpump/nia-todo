@@ -41,12 +41,11 @@ async function installAndroidNativeStub(page) {
       },
       setConfiguredServerUrl: () => true,
     };
-    window.__TAURI__ = {
-      core: {
-        invoke: async (command) => {
-          if (command === 'desktop_get_settings') return { serverUrl: baseUrl, notifications: true };
-          return null;
-        },
+    globalThis.isTauri = true;
+    window.__TAURI_INTERNALS__ = {
+      invoke: async (command) => {
+        if (command === 'desktop_get_settings') return { serverUrl: baseUrl, notifications: true };
+        return null;
       },
     };
   }, { baseUrl: BASE_URL });

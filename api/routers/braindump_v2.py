@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from db import get_db
 from routers.auth import require_auth
@@ -420,7 +420,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
 
 
 class TextSegmentRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=50000)
     final: bool = True
 
 
@@ -457,19 +457,9 @@ class BrainDumpExtractRequest(BaseModel):
 
 def _run(cmd: list[str]) -> tuple[float, subprocess.CompletedProcess[str]]:
     started = time.perf_counter()
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     elapsed_ms = (time.perf_counter() - started) * 1000
     return elapsed_ms, proc
-
-
-def _load_local_openclaw_token() -> str | None:
-    path = Path.home() / ".openclaw" / "openclaw.json"
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text()).get("gateway", {}).get("auth", {}).get("token")
-    except Exception:
-        return None
 
 
 def _convert_audio_to_wav(source: Path, target: Path) -> float:
@@ -1175,8 +1165,6 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     config = config or get_braindump_config(include_secrets=True)
     base_url = str(config.get("llm_base_url") or "").strip()
     token = str(config.get("llm_api_key") or "").strip()
-    if not token and _is_local_openclaw_base_url(base_url):
-        token = _load_local_openclaw_token() or ""
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"

@@ -13,14 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Simplified development and packaging defaults around the single `nia-todo` instance and removed obsolete two-repository release and development-branding remnants.
 
 ### Fixed
+- Made project invitations consistent for usernames and verified email addresses: unknown users return an error, while pending invitations remain visible and revocable until accepted.
 - Improved server `.deb` installation across supported Python versions by preferring Python 3.13 for bundled wheels and falling back to an online dependency install when wheel ABIs do not match.
 - Fixed server package staging, checksum verification, restore ownership handling, and native Windows, Android, and Debian build dependencies in the release pipelines.
 - Made package and frontend tests use the installed service environment and isolated test data, avoiding accidental access to real service data.
 - Removed stale references to deleted release, migration, and BrainDump debug scripts from tooling and documentation.
 
 ### Security
-- Hardened OIDC and password-related error handling so exception details and password-derived values cannot leak through HTML responses, logs, or command-line output.
-- Added explicit least-privilege permissions to GitHub Actions workflows and updated security-sensitive runtime and native dependencies.
+- Hardened login protection with persisted IP/account throttling, balanced lockout thresholds, durable failed-login audit records, scheduled cleanup, and HTTP-level regression coverage.
+- Added global streamed request-body limits, bcrypt password byte limits, bounded user-controlled text fields, safer avatar decoding, and timeouts for external BrainDump audio processes.
+- Protected avatar access, tightened account-enumeration responses, corrected secure-cookie and HSTS handling behind reverse proxies, and expanded browser isolation and PDF-preview CSP headers.
+- Reduced deployment blast radius with root-owned application code, read-only and capability-restricted containers, scoped systemd filesystem access, and hardened Docker documentation matching the shipped defaults.
+- Pinned all third-party GitHub Actions to immutable commits and wired the security regression checks into the normal backend and release gates.
+- Removed the implicit OpenClaw credential-file fallback and documented that OIDC/SSO delegates login MFA to the configured identity provider.
+- Removed inline script execution and the global Tauri bridge, and protected first-run setup with a one-time token available only from the service or container log.
 
 ## [3.0.2] - 2026-07-13
 

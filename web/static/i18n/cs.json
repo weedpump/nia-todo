@@ -642,7 +642,6 @@
   "project.share.removeMember": "Odebrat člena",
   "project.share.removeMemberConfirm": "Odebrat člena {username}?",
   "project.share.identifierRequired": "Zadejte uživatelské jméno nebo e-mail",
-  "project.share.inviteProcessed": "Pozvánka zpracována",
   "project.share.inviteSent": "Pozvánka odeslána",
   "project.share.notFound": "Uživatel nebo e-mail \"{identifier}\" nebyl nalezen",
   "project.share.forbidden": "Žádné oprávnění – uživatele může zvát pouze vlastník",

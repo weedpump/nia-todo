@@ -25,7 +25,7 @@ from services.oidc_config import get_oidc_config, normalize_oidc_config_update  
 from services import oidc as oidc_service  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
 from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after, validate_id_token, create_native_handoff, consume_native_handoff  # noqa: E402
-from routers.oidc import _completion_html, _json_for_script, _native_redirect_html, oidc_native_exchange, NativeOidcExchangeRequest  # noqa: E402
+from routers.oidc import _completion_html, _native_redirect_html, oidc_native_exchange, NativeOidcExchangeRequest  # noqa: E402
 
 
 def assert_true(value, message):
@@ -112,11 +112,6 @@ def main():
     assert_true(sanitize_oidc_redirect_after("https://evil.example/") == "/", "absolute redirect_after should be rejected")
     assert_true(sanitize_oidc_redirect_after("//evil.example/") == "/", "protocol-relative redirect_after should be rejected")
     assert_true(sanitize_oidc_redirect_after("/\\evil") == "/", "backslash redirect_after should be rejected")
-    script_json = _json_for_script({"value": "</script>\u2028\u2029"})
-    assert_true("<\\/script>" in script_json, "script JSON should escape closing script tags")
-    assert_true("\u2028" not in script_json and "\u2029" not in script_json, "script JSON should not contain raw JS line separators")
-    assert_true("\\u2028" in script_json and "\\u2029" in script_json, "script JSON should escape JS line separators")
-
     with get_db() as db:
         db.execute(
             """INSERT INTO oidc_login_states (state_hash, nonce, code_verifier, purpose, redirect_after, expires_at)
@@ -191,7 +186,8 @@ def main():
     assert_true("login-box" in native_redirect_html and "login-logo" in native_redirect_html and "/static/icons/icon-192.png" in native_redirect_html, "native OIDC return page should use nia-todo login branding and app icon")
     assert_true("btn btn-primary" in native_redirect_html and "--bg-primary" in native_redirect_html and "--accent" in native_redirect_html, "native OIDC return page should use nia-todo button classes and design tokens")
     assert_true("return-page" in native_redirect_html and "100dvh" in native_redirect_html and "overflow: hidden" in native_redirect_html and "place-items: center" in native_redirect_html, "native OIDC return page should be centered and non-scrollable on mobile")
-    assert_true("window.addEventListener('load'" in native_redirect_html and "900" in native_redirect_html, "native OIDC return page should render before launching the app callback")
+    native_return_script = (BASE / "web/static/js/pages/oidc-native-return.js").read_text()
+    assert_true("window.addEventListener('load'" in native_return_script and "900" in native_return_script and "/static/js/pages/oidc-native-return.js" in native_redirect_html, "native OIDC return page should render before launching the app callback via an external CSP-compatible script")
 
     calls = []
     original_post = oidc_service.requests.post
@@ -339,8 +335,12 @@ def main():
     assert_true("set-cookie" in html_response.headers, "OIDC completion response should set CSRF cookie")
     error_html = _completion_html("error", {"error": "No verified local user matches this OIDC email", "kind": "user"}, "/")
     error_body = error_html.body.decode()
-    assert_true("nia_oidc_error" in error_body and "location.replace" in error_body, "OIDC errors should redirect back to the app with a sessionStorage notice")
+    completion_script = (BASE / "web/static/js/pages/oidc-completion.js").read_text()
+    assert_true("nia_oidc_error" in completion_script and "location.replace" in completion_script, "OIDC errors should redirect back to the app with a sessionStorage notice")
     assert_true("No verified local user matches this OIDC email" in error_body, "OIDC error message should be carried to the app notice")
+    hostile = _completion_html("error", {"error": "</script><img src=x>", "kind": "user"}, "/").body.decode()
+    assert_true("</script><img" not in hostile and "&lt;/script&gt;&lt;img" in hostile, "OIDC completion data must be HTML-attribute escaped")
+    assert_true('/static/js/pages/oidc-completion.js' in error_body, "OIDC completion must use the external CSP-compatible module")
 
     with get_db() as db:
         db.execute(

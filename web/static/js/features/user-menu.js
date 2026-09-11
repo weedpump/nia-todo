@@ -1,4 +1,5 @@
 import { apiResourceUrl } from '../core/config.js';
+import { loadAuthenticatedImage } from '../core/authenticated-image.js';
 
 export function createUserMenuFeature({
   getCurrentUser,
@@ -39,7 +40,8 @@ export function createUserMenuFeature({
   function renderAvatar(target, initial, src) {
     if (!target) return;
     if (src) {
-      target.innerHTML = `<img src="${src}" alt="Avatar">`;
+      target.innerHTML = `<img alt="Avatar">`;
+      loadAuthenticatedImage(target.querySelector('img'), src);
     } else {
       target.textContent = initial;
     }
