@@ -642,7 +642,6 @@
   "project.share.removeMember": "Mitglied entfernen",
   "project.share.removeMemberConfirm": "Mitglied {username} entfernen?",
   "project.share.identifierRequired": "Benutzername oder E-Mail eingeben",
-  "project.share.inviteProcessed": "Einladung verarbeitet",
   "project.share.inviteSent": "Einladung gesendet",
   "project.share.notFound": "Benutzer oder E-Mail \"{identifier}\" nicht gefunden",
   "project.share.forbidden": "Keine Berechtigung — nur der Owner kann einladen",

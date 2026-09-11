@@ -58,17 +58,18 @@ assert(safeLink.includes('<a href="https://example.com/path?q=1"'), 'safe HTTPS 
 assert(safeLink.includes('rel="noopener noreferrer"'), 'external links must include noopener noreferrer');
 
 const indexSource = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+const bootSource = readFileSync(new URL('../web/static/js/core/boot.js', import.meta.url), 'utf8');
 const frontendMainSource = readFileSync(new URL('../web/static/js/main.js', import.meta.url), 'utf8');
 const runtimeConfigSource = readFileSync(new URL('../web/static/js/core/config.js', import.meta.url), 'utf8');
-assert(indexSource.includes('window.niaHardReloadApp = async function()'), 'boot retry must use an inline recovery function so it still works when app modules fail to load');
-assert(indexSource.includes('navigator.onLine === false'), 'boot retry must not clear offline PWA caches while the browser reports offline');
-assert(indexSource.includes('refreshActiveServiceWorkerAppCache') && indexSource.includes("postMessage({ action: 'refreshAppCache' }") && indexSource.includes('hasActiveNiaTodoWorker'), 'boot retry must preserve active nia-todo service workers and refresh their app cache in place for iOS PWA offline launch');
-assert(indexSource.includes("scriptURL.endsWith('/sw.js')") && indexSource.includes('registration.unregister().catch'), 'boot retry may unregister stale nia-todo service workers only when no active worker is available');
-assert(indexSource.includes('caches.keys()') && indexSource.includes("name.indexOf('nia-todo') === 0") && indexSource.includes('caches.delete(name).catch') && indexSource.includes('!hasActiveNiaTodoWorker'), 'boot retry must only clear nia-todo CacheStorage when no active service worker can be preserved');
-assert(indexSource.includes("url.searchParams.set('hardReload'"), 'boot retry must add a cache-busting hardReload query parameter');
+assert(bootSource.includes('window.niaHardReloadApp = async function()'), 'boot retry must use a dedicated same-origin recovery module');
+assert(bootSource.includes('navigator.onLine === false'), 'boot retry must not clear offline PWA caches while the browser reports offline');
+assert(bootSource.includes('refreshActiveServiceWorkerAppCache') && bootSource.includes("postMessage({ action: 'refreshAppCache' }") && bootSource.includes('hasActiveNiaTodoWorker'), 'boot retry must preserve active nia-todo service workers and refresh their app cache in place for iOS PWA offline launch');
+assert(bootSource.includes("scriptURL.endsWith('/sw.js')") && bootSource.includes('registration.unregister().catch'), 'boot retry may unregister stale nia-todo service workers only when no active worker is available');
+assert(bootSource.includes('caches.keys()') && bootSource.includes("name.indexOf('nia-todo') === 0") && bootSource.includes('caches.delete(name).catch') && bootSource.includes('!hasActiveNiaTodoWorker'), 'boot retry must only clear nia-todo CacheStorage when no active service worker can be preserved');
+assert(bootSource.includes("url.searchParams.set('hardReload'"), 'boot retry must add a cache-busting hardReload query parameter');
 assert(!indexSource.includes('id="boot-retry" style="display:none;" onclick="location.reload()"'), 'boot retry must not be a plain location.reload');
-assert(indexSource.includes('window.__niaMainModuleLoaded = false') && frontendMainSource.includes('window.__niaMainModuleLoaded = true'), 'boot watchdog must distinguish missing bundled JS from slow native/offline app initialization');
-assert(indexSource.includes('if (window.__niaMainModuleLoaded)') && indexSource.includes('App wird vorbereitet…') && indexSource.indexOf('if (window.__niaMainModuleLoaded)') < indexSource.indexOf('App files are missing. Please reload online.'), 'boot watchdog must not show missing-files recovery once the main module has loaded');
+assert(bootSource.includes('window.__niaMainModuleLoaded = false') && frontendMainSource.includes('window.__niaMainModuleLoaded = true'), 'boot watchdog must distinguish missing bundled JS from slow native/offline app initialization');
+assert(bootSource.includes('if (window.__niaMainModuleLoaded)') && bootSource.includes('App wird vorbereitet…') && bootSource.indexOf('if (window.__niaMainModuleLoaded)') < bootSource.indexOf('App files are missing. Please reload online.'), 'boot watchdog must not show missing-files recovery once the main module has loaded');
 assert(runtimeConfigSource.includes('AbortController') && runtimeConfigSource.includes('timeoutMs = 10000') && runtimeConfigSource.includes('verifyInstance(serverUrl, { timeoutMs: 3500 })'), 'native runtime instance probing must be timeout-bounded so offline cold-start is not blocked by network');
 
 const cssSource = readFileSync(new URL('../web/static/style.css', import.meta.url), 'utf8');
@@ -77,7 +78,7 @@ assert(cssSource.includes('@import url("/static/css/32-dropdowns-selects.css")')
 assert(dropdownCssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
 assert(dropdownCssSource.includes('@supports (-webkit-touch-callout: none)') && dropdownCssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');
 
-const adminSource = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8');
+const adminSource = readFileSync(new URL('../web/static/js/pages/admin.js', import.meta.url), 'utf8');
 assert(adminSource.includes('hardReloadAfterServerUpdate'), 'admin server update reload must use explicit hard reload cleanup');
 assert(adminSource.includes('refreshActiveServiceWorkerAppCache') && adminSource.includes("postMessage({ action: 'refreshAppCache' }") && adminSource.includes('hasActiveNiaTodoWorker'), 'admin server update reload must preserve active nia-todo service workers and refresh their app cache in place for iOS PWA offline launch');
 assert(adminSource.includes("scriptURL?.endsWith('/sw.js')") && adminSource.includes('registration.unregister()'), 'admin server update reload may unregister stale nia-todo service workers only when no active worker is available');
@@ -104,6 +105,11 @@ assert(authSessionSource.includes("methods.includes('recovery_code') ? 'recovery
 assert(authSessionSource.includes('nia_consumed_native_oidc_codes'), 'native OIDC must remember consumed handoff codes so logout/login-overlay re-entry does not show stale handoff errors');
 assert(authSessionSource.includes('nativeOidcCodesInFlight.has(code)'), 'native OIDC must dedupe simultaneous callback delivery before the one-time handoff is consumed twice');
 assert(authSessionSource.includes('rememberConsumedNativeOidcCode(code)'), 'native OIDC must mark handoff codes consumed after a successful exchange');
+const logoutSource = authSessionSource.slice(authSessionSource.indexOf('async function logout()'), authSessionSource.indexOf('function showLoginOverlay()'));
+assert(logoutSource.includes('setCurrentUser(null)') && logoutSource.indexOf('setCurrentUser(null)') < logoutSource.indexOf('authApi.logout()'), 'logout must clear the in-memory user before starting the server request so authenticated timers stop immediately');
+assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('disconnectRealtime?.()') < logoutSource.indexOf('authApi.logout()'), 'logout must disconnect realtime work before starting the server request');
+assert(logoutSource.indexOf('authApi.logout()') < logoutSource.indexOf("localStorage.removeItem('jwt_token')"), 'logout must start the authenticated server request before clearing its token');
+assert(logoutSource.indexOf("localStorage.removeItem('jwt_token')") < logoutSource.indexOf('await logoutRequest'), 'logout must clear local credentials before waiting for the server response');
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
 assert(userSettingsSource.includes('hasExistingSecondFactor') && userSettingsSource.includes("&& hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa(t('settings.2fa.purpose.addPasskey'))"), 'passkey enrollment-only setup must not require an existing 2FA code');
@@ -153,8 +159,8 @@ assert(serviceWorkerUpdatesSource.includes('caches.keys()') && serviceWorkerUpda
 assert(connectionStatusSource.includes('setForceRefreshButtonsEnabled') && connectionStatusSource.includes("className = 'status-offline'") && connectionStatusSource.includes('setForceRefreshButtonsEnabled(false)'), 'connection status must disable hard reload buttons from the same offline state that shows the red offline indicator');
 assert(serviceWorkerUpdatesSource.includes('fetchHardReloadAssets') && serviceWorkerUpdatesSource.includes("cache: 'reload'") && serviceWorkerUpdatesSource.includes('hardReloadAsset'), 'login/sidebar force reload must force app shell assets through the browser HTTP cache');
 assert(serviceWorkerUpdatesSource.includes('ensureOfflineServiceWorkerReadyAfterHardReload') && serviceWorkerUpdatesSource.includes("register('/sw.js', { updateViaCache: 'none' })") && serviceWorkerUpdatesSource.includes("postMessage({ action: 'skipWaiting' })") && serviceWorkerUpdatesSource.includes('resolveWithTimeout(ensureOfflineServiceWorkerReadyAfterHardReload(), 7000, false)'), 'login/sidebar hard reload must reinstall an active offline service worker before navigation without hanging indefinitely');
-assert(indexSource.includes('refreshAssetsFromNetwork') && indexSource.includes("cache: 'reload'") && indexSource.includes('hardReloadAsset'), 'boot recovery reload must also refresh current app shell assets from network');
-assert(indexSource.includes('restoreOfflineServiceWorker') && indexSource.includes("register('/sw.js', { updateViaCache: 'none' })") && indexSource.includes("postMessage({ action: 'skipWaiting' })"), 'boot recovery hard reload must reinstall an active offline service worker before navigation');
+assert(bootSource.includes('refreshAssetsFromNetwork') && bootSource.includes("cache: 'reload'") && bootSource.includes('hardReloadAsset'), 'boot recovery reload must also refresh current app shell assets from network');
+assert(bootSource.includes('restoreOfflineServiceWorker') && bootSource.includes("register('/sw.js', { updateViaCache: 'none' })") && bootSource.includes("postMessage({ action: 'skipWaiting' })"), 'boot recovery hard reload must reinstall an active offline service worker before navigation');
 assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('hardReload')"), 'login/sidebar force reload must add a cache-busting hardReload query parameter');
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
@@ -190,5 +196,149 @@ assert(toastSource.includes('cancelPendingTodoDelete') && toastSource.includes("
 assert(syncSource.includes('undo_grace_until') && syncSource.includes('Date.now() < undoGraceUntil'), 'todo hard-delete sync must wait for the undo grace window');
 const todosFeatureSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 assert(todosFeatureSource.includes("addToSyncQueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 })"), 'todo delete must enqueue a deferred hard-delete so undo can preserve subtasks, comments, and attachments');
+
+const originalGlobals = {
+  window: globalThis.window,
+  document: globalThis.document,
+  navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator'),
+  localStorage: Object.getOwnPropertyDescriptor(globalThis, 'localStorage'),
+  setTimeout: globalThis.setTimeout,
+  setInterval: globalThis.setInterval,
+};
+try {
+  const windowListeners = new Map();
+  const documentListeners = new Map();
+  const timers = [];
+  let periodic = null;
+  let authenticated = false;
+  let syncCalls = 0;
+  let inviteCalls = 0;
+  let connectCalls = 0;
+  let startupRefreshCalls = 0;
+  let blockOpenDb = false;
+  let resolveOpenDb = null;
+  const syncResolvers = [];
+  const startupRefreshResolvers = [];
+
+  globalThis.window = {
+    location: { search: '' },
+    history: { state: null },
+    addEventListener(name, listener) { windowListeners.set(name, listener); },
+  };
+  globalThis.document = {
+    hidden: false,
+    addEventListener(name, listener) { documentListeners.set(name, listener); },
+  };
+  globalThis.localStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { onLine: true, language: 'en', languages: ['en'] },
+  });
+  globalThis.setTimeout = (callback) => { timers.push(callback); return timers.length; };
+  globalThis.setInterval = (callback) => { periodic = callback; return 1; };
+
+  const { createAppLifecycle } = await import('../web/static/js/features/app-lifecycle.js');
+  const lifecycle = createAppLifecycle({
+    initServiceWorker: async () => {},
+    openDB: () => blockOpenDb ? new Promise(resolve => { resolveOpenDb = resolve; }) : Promise.resolve(),
+    dbGetAll: async () => [],
+    setTodos: () => {},
+    setProjects: () => {},
+    setSections: () => {},
+    setWorkspaces: () => {},
+    setCurrentFilter: () => {},
+    setCurrentProjectId: () => {},
+    setCurrentWorkspaceId: () => {},
+    ensureCurrentWorkspace: () => {},
+    setAppInitialized: () => {},
+    initTheme: () => {},
+    isAuthenticated: () => authenticated,
+    isOnlineForSync: () => true,
+    getWsState: () => 'connected',
+    connectWebSocket: () => { connectCalls += 1; },
+    syncWithServer: () => new Promise(resolve => {
+      syncCalls += 1;
+      syncResolvers.push(resolve);
+    }),
+    refreshFromServer: () => {
+      startupRefreshCalls += 1;
+      return new Promise(resolve => startupRefreshResolvers.push(resolve));
+    },
+    refreshInvites: async () => { inviteCalls += 1; },
+    updateConnectionStatus: () => {},
+    renderVersionInfo: () => {},
+    renderProjects: () => {},
+    renderStats: () => {},
+    renderTodos: () => {},
+    renderWorkspaces: () => {},
+    updateToggleDoneButton: () => {},
+    updateSortButton: () => {},
+  });
+  lifecycle.bindNetworkEvents();
+
+  windowListeners.get('pageshow')();
+  for (const callback of timers.splice(0)) callback();
+  await Promise.resolve();
+  assert.equal(syncCalls, 0, 'logged-out pages must not schedule authenticated sync requests');
+  assert.equal(inviteCalls, 0, 'logged-out pages must not request project invites');
+
+  authenticated = true;
+  periodic();
+  for (const callback of timers.splice(0)) callback();
+  for (const resolve of syncResolvers.splice(0)) resolve();
+  await Promise.resolve();
+  assert.equal(syncCalls, 3, 'authenticated pages must retain network retry scheduling');
+  assert.equal(inviteCalls, 3, 'authenticated retries must still refresh project invites');
+
+  periodic();
+  authenticated = false;
+  for (const callback of timers.splice(0)) callback();
+  assert.equal(syncCalls, 3, 'logout must cancel retries that were scheduled but have not started');
+
+  authenticated = true;
+  periodic();
+  for (const callback of timers.splice(0)) callback();
+  authenticated = false;
+  for (const resolve of syncResolvers.splice(0)) resolve();
+  await Promise.resolve();
+  assert.equal(syncCalls, 6, 'sync calls already in flight may finish after logout');
+  assert.equal(inviteCalls, 3, 'logout must suppress invite refreshes chained to in-flight syncs');
+
+  authenticated = true;
+  await lifecycle.initApp();
+  const invitesAfterInit = inviteCalls;
+  authenticated = false;
+  for (const resolve of startupRefreshResolvers.splice(0)) resolve();
+  await Promise.resolve();
+  assert.equal(inviteCalls, invitesAfterInit, 'logout must suppress invite refreshes chained to the startup refresh');
+
+  await lifecycle.initApp();
+  assert.equal(inviteCalls, invitesAfterInit, 'logout during app initialization must suppress its direct invite refresh');
+
+  const connectsBeforeInterruptedInit = connectCalls;
+  const refreshesBeforeInterruptedInit = startupRefreshCalls;
+  authenticated = true;
+  blockOpenDb = true;
+  const interruptedInit = lifecycle.initApp();
+  while (!resolveOpenDb) await Promise.resolve();
+  authenticated = false;
+  resolveOpenDb();
+  await interruptedInit;
+  assert.equal(connectCalls, connectsBeforeInterruptedInit, 'logout during app initialization must prevent a late WebSocket connection');
+  assert.equal(startupRefreshCalls, refreshesBeforeInterruptedInit, 'logout during app initialization must prevent a late server refresh');
+} finally {
+  globalThis.window = originalGlobals.window;
+  globalThis.document = originalGlobals.document;
+  if (originalGlobals.localStorage) Object.defineProperty(globalThis, 'localStorage', originalGlobals.localStorage);
+  else delete globalThis.localStorage;
+  if (originalGlobals.navigator) Object.defineProperty(globalThis, 'navigator', originalGlobals.navigator);
+  else delete globalThis.navigator;
+  globalThis.setTimeout = originalGlobals.setTimeout;
+  globalThis.setInterval = originalGlobals.setInterval;
+}
 
 console.log('✅ Frontend security regressions passed');

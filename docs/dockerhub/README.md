@@ -27,6 +27,13 @@ services:
       NIA_TODO_PORT: 8753
       NIA_TODO_DATA_DIR: /data
       NIA_TODO_DB: nia-todo.db
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - nia-todo-data:/data
 
@@ -40,13 +47,17 @@ Start it:
 docker compose up -d
 ```
 
-Then open:
+Read the one-time setup token, then open the setup page:
+
+```bash
+docker compose logs nia-todo
+```
 
 ```text
 http://YOUR-SERVER:8753/setup
 ```
 
-Create the initial admin account, then use the app at:
+The token is deleted after the first user is created. Create the initial admin account, then use the app at:
 
 ```text
 http://YOUR-SERVER:8753/
@@ -63,6 +74,10 @@ docker run -d \
   -e NIA_TODO_PORT=8753 \
   -e NIA_TODO_DATA_DIR=/data \
   -e NIA_TODO_DB=nia-todo.db \
+  --read-only \
+  --tmpfs /tmp \
+  --cap-drop ALL \
+  --security-opt no-new-privileges:true \
   -v nia-todo-data:/data \
   docker.io/weedpump/nia-todo:latest
 ```

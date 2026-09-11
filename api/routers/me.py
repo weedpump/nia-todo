@@ -26,13 +26,14 @@ from routers.two_factor import require_recent_mfa
 from services.audit import log_audit
 from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
-from services.utils import normalize_email, sanitize_text, validate_email, validate_password
+from services.utils import normalize_email, password_within_bcrypt_limit, sanitize_text, validate_email, validate_password
 from errors import api_error, validation_api_error
 from paths import AVATAR_DIR
 
 router = APIRouter(prefix="/api/me")
 AVATAR_SIZE = 256
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
+MAX_AVATAR_PIXELS = 16 * 1024 * 1024
 ALLOWED_AVATAR_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
 
 
@@ -57,12 +58,20 @@ def _avatar_url(user_id: int) -> str:
     return f"/api/avatars/user-{user_id}.webp"
 
 
+def _validate_avatar_dimensions(image: Image.Image) -> Image.Image:
+    width, height = image.size
+    if width * height > MAX_AVATAR_PIXELS:
+        raise Image.DecompressionBombError("Image dimensions exceed the avatar limit")
+    return image
+
+
 def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
     try:
         image = Image.open(io.BytesIO(body))
         image.verify()
-        return Image.open(io.BytesIO(body)).convert("RGB")
-    except (UnidentifiedImageError, OSError, SyntaxError):
+        image = Image.open(io.BytesIO(body))
+        return _validate_avatar_dimensions(image).convert("RGB")
+    except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError):
         if content_type not in {"image/heic", "image/heif"} or not HEIF_CONVERT_BIN:
             raise
 
@@ -79,7 +88,7 @@ def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
         )
         if result.returncode != 0 or not output_path.exists():
             raise UnidentifiedImageError("HEIC conversion failed")
-        return Image.open(output_path).convert("RGB")
+        return _validate_avatar_dimensions(Image.open(output_path)).convert("RGB")
 
 
 
@@ -157,7 +166,7 @@ async def upload_own_avatar(request: Request, user_id: int = Depends(require_aut
 
     try:
         image = _load_avatar_image(body, content_type)
-    except (UnidentifiedImageError, OSError, SyntaxError, subprocess.SubprocessError):
+    except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError, subprocess.SubprocessError):
         raise api_error(400, 'avatar.invalidImage', 'Please upload a valid image')
 
     width, height = image.size
@@ -258,7 +267,7 @@ def change_own_password(data: ChangePasswordRequest, user_id: int = Depends(requ
         row = db.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
         if not row:
             raise HTTPException(404, "User not found")
-        if not bcrypt.checkpw(data.old_password.encode(), row['password_hash'].encode()):
+        if not password_within_bcrypt_limit(data.old_password) or not bcrypt.checkpw(data.old_password.encode(), row['password_hash'].encode()):
             raise api_error(401, 'password.oldInvalid', 'Wrong current password')
         new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
         db.execute(

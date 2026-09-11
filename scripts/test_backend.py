@@ -388,12 +388,22 @@ class TestSuite:
     
     # --- Setup ----------------------------------------------------------------
     
+    def _setup_token(self):
+        token_path = DATA_DIR / "setup-token"
+        if SUDO_FS:
+            result = sudo_run(["python3", "-c", "import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text().strip())", token_path], capture_output=True, text=True)
+            return result.stdout.strip()
+        return token_path.read_text().strip()
+
     def test_setup_status(self):
-        status, _ = curl("GET", "/api/setup/status")
-        return self.record("setup_status", status)
+        status, data = curl("GET", "/api/setup/status")
+        rejected, _ = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD})
+        passed = status == 200 and data.get("setup_token_required") is True and "setup_token" not in data and rejected == 403
+        self.results["setup_status"] = {"status": status, "passed": passed, "expected": "token required without disclosure; missing token rejected"}
+        return passed
     
     def test_setup_admin(self):
-        status, data = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD})
+        status, data = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD}, headers={"X-Setup-Token": self._setup_token()})
         return self.record("setup_admin", status)
     
     def test_setup_first_user(self):
@@ -402,7 +412,7 @@ class TestSuite:
             "email": "testuser@example.invalid",
             "password": USER_PASSWORD,
             "display_name": "Test User"
-        })
+        }, headers={"X-Setup-Token": self._setup_token()})
         return self.record("setup_first_user", status)
     
     # --- User Auth ------------------------------------------------------------
@@ -418,6 +428,16 @@ class TestSuite:
             self.user_csrf = data.get("csrf_token")
         
         return self.record("login", status)
+
+    def test_login_throttle_http_boundary(self):
+        statuses = []
+        probe_username = f"throttle-probe-{time.time_ns()}"
+        for _ in range(6):
+            status, _ = curl("POST", "/api/login", {"username": probe_username, "password": "WrongPassword1!"})
+            statuses.append(status)
+        passed = statuses[:5] == [401] * 5 and statuses[5] == 429
+        self.results["login_throttle_http_boundary"] = {"status": statuses[-1], "passed": passed, "expected": "five 401 responses followed by 429"}
+        return passed
     
     def test_login_with_verified_email(self):
         status, data = curl("POST", "/api/login", {
@@ -1302,11 +1322,11 @@ class TestSuite:
         if not proj_id:
             self.results["share_project"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
-        # Share by email identifier -> neutral response (no member details to avoid enumeration)
+        # Verified email identifiers behave like usernames and return a concrete pending invitation.
         status, data = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
-        # Neutral response for email: no member object, but status 200
-        passed = ok(status) and data and data.get("notification_delivery") in ("in_app", "email", "unknown") and not data.get("member")
-        self.results["share_project"] = {"status": status, "passed": passed, "expected": "200 + neutral email share response"}
+        member = data.get("member") if data else None
+        passed = ok(status) and member and member.get("status") == "pending" and data.get("notification_delivery") in ("in_app", "email")
+        self.results["share_project"] = {"status": status, "passed": passed, "expected": "200 + pending member invitation"}
         return passed
 
     def test_shared_invite_list(self):
@@ -1705,6 +1725,7 @@ class TestSuite:
             
             # User Auth
             self.test_login,
+            self.test_login_throttle_http_boundary,
             self.test_login_with_verified_email,
             self.test_me,
             self.test_invalid_own_email_rejected,

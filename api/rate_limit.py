@@ -1,34 +1,60 @@
 """In-memory rate limiting for login and API abuse prevention."""
 
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 import time
 from fastapi import Request, HTTPException, status, WebSocket
 
+from db import get_db
 from services.instance_config import forwarded_client_ip, get_forwarded_client_ip
 
 
 class RateLimiter:
     def __init__(self):
         self.login_attempts: Dict[str, list] = {}  # ip -> [timestamps]
+        self.login_identity_attempts: Dict[str, list] = {}  # identity -> [timestamps]
+        self.login_ip_identity_attempts: Dict[str, list] = {}  # ip|identity -> [timestamps]
         self.password_reset_attempts: Dict[str, list] = {}  # ip/identifier -> [timestamps]
         self.api_requests: Dict[str, list] = {}    # ip -> [timestamps]
         self.ws_connections: Dict[str, int] = {}   # ip -> count
 
-    def check_login(self, ip: str) -> bool:
+    @staticmethod
+    def _normalize_login_identity(identity: str) -> str:
+        return identity.strip().casefold()
+
+    def prune_expired(self) -> None:
         now = time.time()
-        window = 15 * 60  # 15 minutes
-        max_attempts = 5
+        for counter, window in ((self.login_attempts, 900), (self.login_identity_attempts, 900), (self.login_ip_identity_attempts, 900), (self.password_reset_attempts, 3600), (self.api_requests, 60)):
+            for key, timestamps in list(counter.items()):
+                active = [timestamp for timestamp in timestamps if now - timestamp < window]
+                if active:
+                    counter[key] = active
+                else:
+                    del counter[key]
+        for key, count in list(self.ws_connections.items()):
+            if count <= 0:
+                del self.ws_connections[key]
+        with get_db() as db:
+            db.execute("DELETE FROM login_rate_limit_attempts WHERE attempted_at < ?", (int(now) - 15 * 60,))
+            db.commit()
 
-        if ip not in self.login_attempts:
-            self.login_attempts[ip] = []
+    def _login_counter_keys(self, ip: str, identity: Optional[str] = None):
+        keys = [("ip", ip)]
+        if identity:
+            normalized = self._normalize_login_identity(identity)
+            keys.extend([("identity", normalized), ("ip_identity", f"{ip}|{normalized}")])
+        return keys
 
-        # Remove old entries
-        self.login_attempts[ip] = [t for t in self.login_attempts[ip] if now - t < window]
-
-        if len(self.login_attempts[ip]) >= max_attempts:
-            return False
-
-        self.login_attempts[ip].append(now)
+    def check_login(self, ip: str, identity: Optional[str] = None) -> bool:
+        cutoff = int(time.time()) - 15 * 60
+        thresholds = {"ip": 100, "identity": 25, "ip_identity": 5}
+        with get_db() as db:
+            for bucket, key in self._login_counter_keys(ip, identity):
+                count = db.execute("SELECT COUNT(*) FROM login_rate_limit_attempts WHERE bucket = ? AND bucket_key = ? AND attempted_at >= ?", (bucket, key, cutoff)).fetchone()[0]
+                limit = 50 if bucket == "identity" and key == "admin" else thresholds[bucket]
+                if count >= limit:
+                    db.commit()
+                    return False
+            db.commit()
         return True
 
     def check_password_reset(self, key: str) -> bool:
@@ -61,10 +87,30 @@ class RateLimiter:
         self.api_requests[ip].append(now)
         return True, 0
 
-    def record_successful_login(self, ip: str):
-        """Reset login attempts after successful login"""
-        if ip in self.login_attempts:
-            del self.login_attempts[ip]
+    def record_failed_login(self, ip: str, identity: Optional[str] = None, db=None):
+        """Persist a failed login using the caller transaction when available."""
+        rows = [(bucket, key, int(time.time())) for bucket, key in self._login_counter_keys(ip, identity)]
+        if db is not None:
+            db.executemany("INSERT INTO login_rate_limit_attempts(bucket, bucket_key, attempted_at) VALUES (?, ?, ?)", rows)
+            return
+        with get_db() as own_db:
+            own_db.executemany("INSERT INTO login_rate_limit_attempts(bucket, bucket_key, attempted_at) VALUES (?, ?, ?)", rows)
+            own_db.commit()
+
+    def record_successful_login(self, ip: str, identity: Optional[str] = None, db=None):
+        """Clear only the successful account's counters in the active transaction."""
+        if not identity:
+            return
+        normalized = self._normalize_login_identity(identity)
+        def clear(connection):
+            connection.execute("DELETE FROM login_rate_limit_attempts WHERE bucket = 'identity' AND bucket_key = ?", (normalized,))
+            connection.execute("DELETE FROM login_rate_limit_attempts WHERE bucket = 'ip_identity' AND bucket_key = ?", (f"{ip}|{normalized}",))
+        if db is not None:
+            clear(db)
+            return
+        with get_db() as own_db:
+            clear(own_db)
+            own_db.commit()
 
     def check_ws(self, ip: str) -> bool:
         max_ws = 10
@@ -105,9 +151,9 @@ def get_client_ip_ws(websocket: WebSocket) -> str:
     return client_host or "unknown"
 
 
-def require_login_rate_limit(request: Request):
+def require_login_rate_limit(request: Request, identity: Optional[str] = None):
     ip = get_client_ip(request)
-    if not rate_limiter.check_login(ip):
+    if not rate_limiter.check_login(ip, identity):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={"code": "rateLimit.login", "message": "Too many login attempts. Please try again in 15 minutes."}

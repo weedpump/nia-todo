@@ -642,7 +642,6 @@
   "project.share.removeMember": "Ta bort medlem",
   "project.share.removeMemberConfirm": "Vill du ta bort medlemmen {username}?",
   "project.share.identifierRequired": "Ange användarnamn eller e-postadress",
-  "project.share.inviteProcessed": "Inbjudan behandlad",
   "project.share.inviteSent": "Inbjudan skickad",
   "project.share.notFound": "Användaren eller e-postadressen \"{identifier}\" hittades inte",
   "project.share.forbidden": "Ingen behörighet – endast ägaren kan bjuda in användare",

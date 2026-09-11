@@ -12,6 +12,7 @@ export function createAuthSessionFeature({
   initApp,
   refreshFromServer,
   renderUserInfo,
+  disconnectRealtime = null,
 }) {
   let loginInProgress = false;
   let loginFormBound = false;
@@ -364,13 +365,18 @@ export function createAuthSessionFeature({
   }
 
   async function logout() {
-    try {
-      if (getAuthToken()) await authApi.logout();
-    } catch (e) {
-      // Ignore logout errors; local session cleanup still needs to happen.
+    setCurrentUser(null);
+    disconnectRealtime?.();
+
+    let logoutRequest = null;
+    if (getAuthToken()) {
+      try {
+        logoutRequest = Promise.resolve(authApi.logout()).catch(() => {});
+      } catch (e) {
+        // Ignore logout errors; local session cleanup still needs to happen.
+      }
     }
 
-    setCurrentUser(null);
     localStorage.removeItem('jwt_token');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('last_user_id');
@@ -378,6 +384,7 @@ export function createAuthSessionFeature({
     localStorage.removeItem('cached_user');
     localStorage.removeItem('nia-mfa-enrollment-required');
 
+    if (logoutRequest) await logoutRequest;
     await clearBrowserAuthCaches();
     await clearCache();
     location.reload();
