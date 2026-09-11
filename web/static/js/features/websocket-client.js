@@ -32,6 +32,7 @@ const BASE_RECONNECT_DELAY = 1000;
 let pingInterval = null;
 let reconnectTimer = null;
 let wsIntentionalClose = false;
+const activeMessageHandlers = new Set();
 
 function mergeTodoPayloadWithLocalSubtasks(incoming, local = null) {
   if (!incoming || typeof incoming !== 'object') return incoming;
@@ -80,6 +81,7 @@ function connectWebSocket() {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = async () => {
+      if (wsIntentionalClose || !getAuthToken()) return;
       console.log('[WS] Connected');
       wsState = 'connected';
       reconnectAttempts = 0;
@@ -100,17 +102,28 @@ function connectWebSocket() {
         console.error('Pre-sync failed', e);
       }
 
+      if (wsIntentionalClose || !getAuthToken()) return;
       // Start ping interval
       startPingInterval();
     };
 
     ws.onmessage = (event) => {
+      let msg;
       try {
-        const msg = JSON.parse(event.data);
-        handleWsMessage(msg);
+        msg = JSON.parse(event.data);
       } catch (e) {
         console.error('WS: parse error', e);
+        return;
       }
+      const handler = Promise.resolve(handleWsMessage(msg));
+      activeMessageHandlers.add(handler);
+      handler.then(
+        () => activeMessageHandlers.delete(handler),
+        (error) => {
+          activeMessageHandlers.delete(handler);
+          console.error('WS: message handler failed', error);
+        },
+      );
     };
 
     ws.onclose = (event) => {
@@ -186,11 +199,16 @@ function disconnectWebSocket() {
     reconnectTimer = null;
   }
   if (ws) {
+    ws.onopen = null;
+    ws.onmessage = null;
+    ws.onerror = null;
+    ws.onclose = null;
     ws.close();
     ws = null;
   }
   wsState = 'disconnected';
   updateConnectionStatus();
+  return Promise.allSettled([...activeMessageHandlers]);
 }
 
 function updateConnectionStatus() {

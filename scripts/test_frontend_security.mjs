@@ -110,6 +110,7 @@ assert(logoutSource.includes('setCurrentUser(null)') && logoutSource.indexOf('se
 assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('disconnectRealtime?.()') < logoutSource.indexOf('authApi.logout()'), 'logout must disconnect realtime work before starting the server request');
 assert(logoutSource.indexOf('authApi.logout()') < logoutSource.indexOf("localStorage.removeItem('jwt_token')"), 'logout must start the authenticated server request before clearing its token');
 assert(logoutSource.indexOf("localStorage.removeItem('jwt_token')") < logoutSource.indexOf('await logoutRequest'), 'logout must clear local credentials before waiting for the server response');
+assert(logoutSource.includes('await realtimeShutdown'), 'logout must drain realtime work before clearing IndexedDB');
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
 assert(userSettingsSource.includes('hasExistingSecondFactor') && userSettingsSource.includes("&& hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa(t('settings.2fa.purpose.addPasskey'))"), 'passkey enrollment-only setup must not require an existing 2FA code');
@@ -135,6 +136,13 @@ assert(nativeBridgeSource.includes('window.NiaAndroidNative'), 'native bridge is
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 assert(!appSource.includes('window.NiaAndroidNative'), 'app core must consume notification actions through the native bridge, not Android globals');
 assert(!appSource.includes('markTodoDoneFromNative') && !appSource.includes('startNativeDoneActionPolling'), 'app core must not keep removed native notification done-action polling');
+assert(appSource.includes('activeBackgroundSyncOperations') && appSource.includes('waitForBackgroundSyncOperations'), 'logout must wait for in-flight REST sync work before clearing user data');
+const websocketClientSource = readFileSync(new URL('../web/static/js/features/websocket-client.js', import.meta.url), 'utf8');
+assert(websocketClientSource.includes('activeMessageHandlers') && websocketClientSource.includes('Promise.allSettled([...activeMessageHandlers])'), 'WebSocket disconnect must drain message handlers before logout clears IndexedDB');
+const websocketDisconnectSource = websocketClientSource.slice(websocketClientSource.indexOf('function disconnectWebSocket()'), websocketClientSource.indexOf('function updateConnectionStatus()'));
+assert(websocketDisconnectSource.includes('ws.onmessage = null'), 'WebSocket disconnect must reject queued message delivery before taking the handler-drain snapshot');
+const websocketOpenSource = websocketClientSource.slice(websocketClientSource.indexOf('ws.onopen = async'), websocketClientSource.indexOf('ws.onmessage ='));
+assert.equal((websocketOpenSource.match(/wsIntentionalClose \|\| !getAuthToken\(\)/g) || []).length, 2, 'WebSocket open must recheck logout state before and after its initial sync');
 const androidMainSource = readFileSync(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/MainActivity.kt', import.meta.url), 'utf8');
 assert(!androidMainSource.includes('indexedDB.open'), 'Android notification actions must not inject direct IndexedDB writes');
 assert(!androidMainSource.includes('ACTION_MARK_DONE') && !androidMainSource.includes('consumePendingDoneAction'), 'Android native notification done-action bridge must stay removed');
