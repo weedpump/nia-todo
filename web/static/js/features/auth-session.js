@@ -366,7 +366,7 @@ export function createAuthSessionFeature({
 
   async function logout() {
     setCurrentUser(null);
-    disconnectRealtime?.();
+    const realtimeShutdown = Promise.resolve(disconnectRealtime?.()).catch(() => {});
 
     let logoutRequest = null;
     if (getAuthToken()) {
@@ -385,6 +385,7 @@ export function createAuthSessionFeature({
     localStorage.removeItem('nia-mfa-enrollment-required');
 
     if (logoutRequest) await logoutRequest;
+    await realtimeShutdown;
     await clearBrowserAuthCaches();
     await clearCache();
     location.reload();

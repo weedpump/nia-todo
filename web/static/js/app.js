@@ -147,6 +147,25 @@ async function addToSyncQueue(action, data) {
   return result;
 }
 const syncInProgressRef = { value: syncInProgress };
+const activeBackgroundSyncOperations = new Set();
+
+function trackBackgroundSyncOperation(operation) {
+  if (!currentUser) return Promise.resolve();
+  const task = Promise.resolve().then(operation);
+  activeBackgroundSyncOperations.add(task);
+  task.then(
+    () => activeBackgroundSyncOperations.delete(task),
+    () => activeBackgroundSyncOperations.delete(task),
+  );
+  return task;
+}
+
+async function waitForBackgroundSyncOperations() {
+  while (activeBackgroundSyncOperations.size) {
+    await Promise.allSettled([...activeBackgroundSyncOperations]);
+  }
+}
+
 const syncFeature = createSyncFeature({
   getDb: () => db,
   dbGetAll,
@@ -260,7 +279,10 @@ const authSessionFeature = createAuthSessionFeature({
   initApp: () => initApp(),
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
-  disconnectRealtime: () => disconnectWebSocket(),
+  disconnectRealtime: async () => {
+    const websocketDrain = disconnectWebSocket();
+    await Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]);
+  },
 });
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature();
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
@@ -367,11 +389,11 @@ function isOnlineForSync() {
 }
 
 async function syncWithServer() {
-  await syncController.syncWithServer();
+  await trackBackgroundSyncOperation(() => syncController.syncWithServer());
 }
 
 async function refreshFromServer() {
-  await syncController.refreshFromServer();
+  await trackBackgroundSyncOperation(() => syncController.refreshFromServer());
 }
 
 const calendarViewFeature = createCalendarViewFeature({
