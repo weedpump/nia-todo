@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-09-13
+
+### Fixed
+- Restored protected user avatars in Android and Debian native clients by using the shared authentication headers for both JWT and persisted opaque sessions, including credentials for native cross-origin requests.
+
 ## [3.1.0] - 2026-09-12
 
 ### Changed
