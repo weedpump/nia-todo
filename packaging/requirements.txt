@@ -20,7 +20,7 @@ idna==3.19
 multidict==6.8.0
 pillow==12.3.0
 pillow_heif==1.7.0
-propcache==0.5.2
+propcache==0.5.4
 py-vapid==1.9.4
 pycparser==3.0
 pydantic==2.13.5
