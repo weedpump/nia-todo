@@ -17,7 +17,7 @@ h11==0.16.0
 httptools==0.8.0
 http_ece==1.2.1
 idna==3.19
-multidict==6.7.1
+multidict==6.8.0
 pillow==12.3.0
 pillow_heif==1.7.0
 propcache==0.5.2
