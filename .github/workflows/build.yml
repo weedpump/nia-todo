@@ -98,9 +98,10 @@ jobs:
           cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe dist/ci-windows/nia-todo-ci-windows-x64-setup.exe
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: native-windows
           retention-days: 7
-          path: dist/ci-windows/*.exe
+          if-no-files-found: error
+          path: dist/ci-windows/nia-todo-ci-windows-x64-setup.exe
+          archive: false
 
   build-android:
     if: inputs.build_android
@@ -162,9 +163,10 @@ jobs:
         run: rm -rf secrets
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: native-android
           retention-days: 7
-          path: dist/ci-android/*.apk
+          if-no-files-found: error
+          path: dist/ci-android/nia-todo-android-arm64.apk
+          archive: false
 
   build-debian-desktop:
     if: inputs.build_debian_desktop
@@ -194,9 +196,10 @@ jobs:
           cp "${BUILT}" dist/ci-debian-desktop/nia-todo-desktop-amd64.deb
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: native-debian-desktop
           retention-days: 7
-          path: dist/ci-debian-desktop/*.deb
+          if-no-files-found: error
+          path: dist/ci-debian-desktop/nia-todo-desktop-amd64.deb
+          archive: false
 
   # Docker/server-.deb always embed native apps: freshly built ones from the
   # jobs above if selected, otherwise (dev/test builds only) the latest
@@ -222,7 +225,8 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           path: dist/ci-native
-          pattern: native-*
+          pattern: nia-todo-*
+          merge-multiple: true
         continue-on-error: true
 
       - name: Collect native apps for embedding
@@ -230,9 +234,9 @@ jobs:
         run: |
           mkdir -p dist/native-embed
           have_windows=0; have_android=0; have_debian=0
-          [ "${{ needs.build-windows.result }}" = "success" ] && cp dist/ci-native/native-windows/nia-todo-ci-windows-x64-setup.exe dist/native-embed/ && have_windows=1
-          [ "${{ needs.build-android.result }}" = "success" ] && cp dist/ci-native/native-android/nia-todo-android-arm64.apk dist/native-embed/nia-todo-ci-android-arm64.apk && have_android=1
-          [ "${{ needs.build-debian-desktop.result }}" = "success" ] && cp dist/ci-native/native-debian-desktop/nia-todo-desktop-amd64.deb dist/native-embed/nia-todo-ci-debian-amd64.deb && have_debian=1
+          [ "${{ needs.build-windows.result }}" = "success" ] && cp dist/ci-native/nia-todo-ci-windows-x64-setup.exe dist/native-embed/ && have_windows=1
+          [ "${{ needs.build-android.result }}" = "success" ] && cp dist/ci-native/nia-todo-android-arm64.apk dist/native-embed/nia-todo-ci-android-arm64.apk && have_android=1
+          [ "${{ needs.build-debian-desktop.result }}" = "success" ] && cp dist/ci-native/nia-todo-desktop-amd64.deb dist/native-embed/nia-todo-ci-debian-amd64.deb && have_debian=1
 
           if [ -n "${{ inputs.version }}" ]; then
             # Release build: all three are always built fresh above, never fall back.
@@ -317,9 +321,20 @@ jobs:
             --output-dir "dist/release/build-${{ github.sha }}" \
             --force
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+      - name: Upload server .deb installer
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         if: inputs.build_server_deb
         with:
-          name: server-deb
           retention-days: 7
-          path: dist/release/build-${{ github.sha }}
+          if-no-files-found: error
+          path: dist/release/build-${{ github.sha }}/*.deb
+          archive: false
+
+      - name: Upload server .deb checksum
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        if: inputs.build_server_deb
+        with:
+          retention-days: 7
+          if-no-files-found: error
+          path: dist/release/build-${{ github.sha }}/*.deb.sha256
+          archive: false
