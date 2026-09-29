@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Kept the rich-text toolbar behind the open Todo details drawer, including the Android keyboard-fixed toolbar variant.
+
 ## [3.1.1] - 2026-09-13
 
 ### Fixed
