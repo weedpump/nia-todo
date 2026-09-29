@@ -5,7 +5,25 @@ import { Image } from './image.js';
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 /**
+ * Application metadata and lifecycle APIs: version and identifier, theme and dock
+ * visibility, data stores and exiting the app.
+ *
+ * This package is also accessible with `window.__TAURI__.app` when [`app.withGlobalTauri`](https://v2.tauri.app/reference/config/#withglobaltauri) in `tauri.conf.json` is set to `true`.
+ *
+ * @remarks Only the read-only commands are enabled by `core:app:default`
+ * (`allow-version`, `allow-name`, `allow-tauri-version`, `allow-identifier`,
+ * `allow-bundle-type`, `allow-supports-multiple-windows`, `allow-register-listener`
+ * and `allow-remove-listener`). Every other function in this module documents the
+ * permission it needs, which you must add to a capability yourself.
+ *
+ * @module
+ */
+/**
  * Bundle type of the current application.
+ *
+ * @see {@linkcode getBundleType}
+ *
+ * @since 2.7.0
  */
 var BundleType;
 (function (BundleType) {
@@ -22,11 +40,6 @@ var BundleType;
     /** macOS app bundle */
     BundleType["App"] = "app";
 })(BundleType || (BundleType = {}));
-/**
- * Application metadata and related APIs.
- *
- * @module
- */
 /**
  * Gets the application version.
  * @example
@@ -92,6 +105,8 @@ async function getIdentifier() {
  * await show();
  * ```
  *
+ * @remarks Requires the `core:app:allow-app-show` permission (not included in `core:app:default`).
+ *
  * @since 1.2.0
  */
 async function show() {
@@ -105,6 +120,8 @@ async function show() {
  * import { hide } from '@tauri-apps/api/app';
  * await hide();
  * ```
+ *
+ * @remarks Requires the `core:app:allow-app-hide` permission (not included in `core:app:default`).
  *
  * @since 1.2.0
  */
@@ -121,6 +138,9 @@ async function hide() {
  * import { fetchDataStoreIdentifiers } from '@tauri-apps/api/app';
  * const ids = await fetchDataStoreIdentifiers();
  * ```
+ *
+ * @remarks Requires the `core:app:allow-fetch-data-store-identifiers` permission
+ * (not included in `core:app:default`).
  *
  * @since 2.4.0
  */
@@ -142,6 +162,9 @@ async function fetchDataStoreIdentifiers() {
  * }
  * ```
  *
+ * @remarks Requires the `core:app:allow-remove-data-store` permission (not included
+ * in `core:app:default`).
+ *
  * @since 2.4.0
  */
 async function removeDataStore(uuid) {
@@ -155,6 +178,9 @@ async function removeDataStore(uuid) {
  * import { defaultWindowIcon } from '@tauri-apps/api/app';
  * const icon = await defaultWindowIcon();
  * ```
+ *
+ * @remarks Requires the `core:app:allow-default-window-icon` permission (not
+ * included in `core:app:default`).
  *
  * @since 2.0.0
  */
@@ -175,6 +201,9 @@ async function defaultWindowIcon() {
  *
  * - **iOS / Android:** Unsupported.
  *
+ * @remarks Requires the `core:app:allow-set-app-theme` permission (not included in
+ * `core:app:default`).
+ *
  * @since 2.0.0
  */
 async function setTheme(theme) {
@@ -190,6 +219,9 @@ async function setTheme(theme) {
  * import { setDockVisibility } from '@tauri-apps/api/app';
  * await setDockVisibility(false);
  * ```
+ *
+ * @remarks Requires the `core:app:allow-set-dock-visibility` permission (not
+ * included in `core:app:default`).
  *
  * @since 2.5.0
  */
@@ -211,14 +243,100 @@ async function getBundleType() {
     return invoke('plugin:app|bundle_type');
 }
 /**
- * Listens to the backButton event on Android.
- * @param handler
+ * Listens to the Android hardware/gesture back button.
+ *
+ * Registering a handler takes over the default behavior, so the app no longer
+ * navigates back or closes on its own: decide what to do inside the handler,
+ * using `payload.canGoBack` to know whether the webview has history to go back to.
+ *
+ * #### Platform-specific
+ *
+ * - **Android:** Supported.
+ * - **Windows / Linux / macOS / iOS:** Unsupported, the handler is never called.
+ *
+ * @example
+ * ```typescript
+ * import { onBackButtonPress } from '@tauri-apps/api/app';
+ * import { exit } from '@tauri-apps/api/app';
+ *
+ * const listener = await onBackButtonPress(({ canGoBack }) => {
+ *   if (canGoBack) {
+ *     window.history.back();
+ *   } else {
+ *     void exit(0);
+ *   }
+ * });
+ *
+ * // stop handling the back button
+ * await listener.unregister();
+ * ```
+ *
+ * @param handler Called on every back button press.
+ * @returns A listener handle, call `unregister()` on it to restore the default behavior.
+ *
+ * @since 2.9.0
  */
 async function onBackButtonPress(handler) {
     return addPluginListener('app', 'back-button', handler);
 }
+/**
+ * Whether the current platform can show more than one window at a time.
+ *
+ * Use it to hide or disable multi-window features on platforms where creating a
+ * second window is not possible.
+ *
+ * #### Platform-specific
+ *
+ * - **Windows / Linux / macOS:** Always `true`.
+ * - **Android:** `true` on API level 32 (Android 12L) and above.
+ * - **iOS:** Reflects [`UIApplication.supportsMultipleScenes`](https://developer.apple.com/documentation/uikit/uiapplication/supportsmultiplescenes),
+ *   so it is `true` on iPadOS and `false` on iPhone.
+ *
+ * See the [mobile multiwindow guide](https://tauri.app/learn/mobile-multiwindow/)
+ * for how windows behave on mobile.
+ *
+ * @example
+ * ```typescript
+ * import { supportsMultipleWindows } from '@tauri-apps/api/app';
+ * import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+ *
+ * if (await supportsMultipleWindows()) {
+ *   new WebviewWindow('settings', { url: '/settings' });
+ * }
+ * ```
+ *
+ * @since 2.11.0
+ */
 async function supportsMultipleWindows() {
     return invoke('plugin:app|supports_multiple_windows');
 }
+/**
+ * Exits the app with the given exit code.
+ *
+ * This is the same as the `exit` function of the `@tauri-apps/plugin-process` plugin,
+ * but does not require a plugin to be installed.
+ *
+ * #### Platform-specific
+ *
+ * - **Android**: The activity is finished instead of the process being killed,
+ *   so the app closes with the system transition; `code` is ignored.
+ *
+ * @example
+ * ```typescript
+ * import { exit } from '@tauri-apps/api/app';
+ * await exit(1);
+ * ```
+ *
+ * @param code The exit code to use. Defaults to `0`.
+ * @returns A promise indicating the success or failure of the operation.
+ *
+ * @remarks Requires the `core:app:allow-exit` permission (not included in
+ * `core:app:default`).
+ *
+ * @since 2.12.0
+ */
+async function exit(code = 0) {
+    return invoke('plugin:app|exit', { code });
+}
 
-export { BundleType, defaultWindowIcon, fetchDataStoreIdentifiers, getBundleType, getIdentifier, getName, getTauriVersion, getVersion, hide, onBackButtonPress, removeDataStore, setDockVisibility, setTheme, show, supportsMultipleWindows };
+export { BundleType, defaultWindowIcon, exit, fetchDataStoreIdentifiers, getBundleType, getIdentifier, getName, getTauriVersion, getVersion, hide, onBackButtonPress, removeDataStore, setDockVisibility, setTheme, show, supportsMultipleWindows };
