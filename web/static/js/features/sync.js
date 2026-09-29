@@ -68,21 +68,26 @@ export function createSyncFeature({
   }
 
   async function syncWithServer({ wsState, syncInProgressRef }) {
-    if (!isOnlineForSync(wsState) || !getDb() || syncInProgressRef.value) return;
+    if (!isOnlineForSync(wsState) || !getDb() || syncInProgressRef.value) {
+      return { successCount: 0, failCount: 0, skipped: true };
+    }
     syncInProgressRef.value = true;
-    const queue = await dbGetAll('syncQueue');
-    if (!queue.length) { syncInProgressRef.value = false; return; }
-
     let successCount = 0;
     let failCount = 0;
     let needsAuthoritativeRefresh = false;
-    for (const queuedItem of queue) {
-      const item = sanitizeQueueItem(queuedItem);
-      if (!item) {
-        await deleteFromDB('syncQueue', queuedItem.id);
-        continue;
+    try {
+      const queue = await dbGetAll('syncQueue');
+      if (!queue.length) {
+        return { successCount: 0, failCount: 0, skipped: false };
       }
+
+      for (const queuedItem of queue) {
+      const item = sanitizeQueueItem(queuedItem);
       try {
+        if (!item) {
+          await deleteFromDB('syncQueue', queuedItem.id);
+          continue;
+        }
         if (item.action === 'CREATE_TODO') {
           const undoGraceUntil = Number(item.data.undo_grace_until || 0);
           if (undoGraceUntil && Date.now() < undoGraceUntil) {
@@ -189,20 +194,23 @@ export function createSyncFeature({
         }
         await deleteFromDB('syncQueue', item.id);
       } catch (err) {
-        console.error('Sync failed for action', item.action, err);
-        if (item.action === 'CREATE_PROJECT' && item.data?._tempId && err?.status && err.status < 500) {
+        console.error('Sync failed for action', item?.action || 'INVALID_QUEUE_ITEM', err);
+        if (item?.action === 'CREATE_PROJECT' && item.data?._tempId && err?.status && err.status < 500) {
           await deleteFromDB('projects', item.data._tempId);
           setProjects(getProjects().filter(p => p.id !== item.data._tempId));
           await deleteFromDB('syncQueue', item.id);
         }
         failCount++;
       }
+      }
+    } finally {
+      syncInProgressRef.value = false;
     }
-    syncInProgressRef.value = false;
     if (needsAuthoritativeRefresh && !failCount) {
       await refreshFromServer({ wsState, syncInProgressRef });
     }
     console.log(`Sync complete: ${successCount} success, ${failCount} failed`);
+    return { successCount, failCount, skipped: false };
   }
 
   async function waitForActiveSync(syncInProgressRef, timeoutMs = 5000) {

@@ -389,7 +389,7 @@ function isOnlineForSync() {
 }
 
 async function syncWithServer() {
-  await trackBackgroundSyncOperation(() => syncController.syncWithServer());
+  return trackBackgroundSyncOperation(() => syncController.syncWithServer());
 }
 
 async function refreshFromServer() {
@@ -636,7 +636,7 @@ const appLifecycle = createAppLifecycle({
   updateTodayFocusButton,
   updateMinimalTodosButton,
   renderWorkspaces,
-  refreshInvites: () => sharingFeature?.loadInvites?.(),
+  refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.()),
   onAppReady: () => {
     brainDumpLiveFeature.init();
     whatsNewFeature.maybeShowWhatsNew().catch((error) => {

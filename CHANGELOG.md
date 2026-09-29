@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Made each sidebar project badge count only active todos assigned directly to that project, excluding todos from child and deeper descendant projects.
 - Restored Debian Wayland title-bar controls before the first maximization and preserved compositor-aware bring-to-front activation by updating the coordinated Tauri/Tao stack.
 - Kept the first cold-start todo swipe synchronized with touch across native Android, mobile browsers, installed PWAs, and iOS/WebKit by revealing persistent localized action underlays behind a transform-only foreground card.
+- Stopped healthy WebSocket-connected clients from polling project invitations every few seconds; REST recovery now runs only after network/resume events or while realtime is disconnected, with duplicate recovery attempts and startup invite loads suppressed.
 
 ## [3.1.1] - 2026-09-13
 

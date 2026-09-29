@@ -147,14 +147,13 @@ export function createAppLifecycle({
 
     if (isOnlineForSync()) {
       console.log('Online at startup - syncing...');
-      refreshFromServer()
-        .then(() => isAuthenticated() ? refreshInvites?.() : undefined)
-        .catch(err => {
-          // A cached/offline cold start can race with browser network state: the
-          // page may still report online while fetches already fail. Keep the
-          // cached session usable and avoid surfacing this as a frontend error.
-          console.warn('Server refresh failed:', err);
-        });
+      refreshFromServer().catch(err => {
+        // A cached/offline cold start can race with browser network state: the
+        // page may still report online while fetches already fail. Keep the
+        // cached session usable and avoid surfacing this as a frontend error.
+        console.warn('Server refresh failed:', err);
+      });
+      refreshInvites?.();
     }
 
     updateConnectionStatus();
@@ -165,29 +164,56 @@ export function createAppLifecycle({
     updateTodayFocusButton?.();
     updateMinimalTodosButton?.();
     initTheme();
-    if (isAuthenticated()) refreshInvites?.();
     onAppReady?.();
 
     console.log('App initialized');
   }
 
   function bindNetworkEvents() {
+    let recoveryActive = false;
+    const recoveryDelays = [1000, 3000, 8000];
+
     const scheduleSyncAttempts = (reason) => {
-      if (!isAuthenticated()) return;
+      if (recoveryActive || !isAuthenticated()) return;
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
       if (getWsState() === 'disconnected') connectWebSocket();
 
-      // Native/WebView can fire `online` before DNS/fetch is usable. Try a
-      // short burst and also rely on WebSocket onopen/periodic retries.
-      for (const delay of [1000, 3000, 8000]) {
-        setTimeout(() => {
-          if (!isAuthenticated()) return;
-          if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-          syncWithServer()
-            .then(() => isAuthenticated() ? refreshInvites?.() : undefined)
-            .catch(err => console.warn(`Sync attempt failed after ${reason}:`, err));
-        }, delay);
-      }
+      recoveryActive = true;
+      const runAttempt = (index) => {
+        setTimeout(async () => {
+          if (!isAuthenticated() || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+            recoveryActive = false;
+            return;
+          }
+          try {
+            const syncResult = await syncWithServer();
+            if (syncResult?.skipped) {
+              throw new Error('Sync recovery deferred while another sync is active');
+            }
+            if (Number(syncResult?.failCount || 0) > 0) {
+              throw new Error(`Sync completed with ${syncResult.failCount} failed operation(s)`);
+            }
+            if (!isAuthenticated()) {
+              recoveryActive = false;
+              return;
+            }
+            const inviteResult = await refreshInvites?.();
+            if (inviteResult?.ok === false) {
+              throw inviteResult.error || new Error('Invite refresh failed');
+            }
+            recoveryActive = false;
+          } catch (err) {
+            if (index + 1 < recoveryDelays.length && isAuthenticated()) {
+              runAttempt(index + 1);
+              return;
+            }
+            recoveryActive = false;
+            console.warn(`Sync attempt failed after ${reason}:`, err);
+          }
+        }, recoveryDelays[index]);
+      };
+
+      runAttempt(0);
     };
 
     window.addEventListener('online', () => {
@@ -201,12 +227,27 @@ export function createAppLifecycle({
       updateConnectionStatus();
     });
 
-    window.addEventListener('pageshow', () => scheduleSyncAttempts('pageshow'));
+    window.addEventListener('pageshow', (event) => {
+      if (event?.persisted) scheduleSyncAttempts('pageshow');
+    });
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) scheduleSyncAttempts('visibilitychange');
     });
 
-    setInterval(() => scheduleSyncAttempts('periodic'), 15000);
+    setInterval(() => {
+      if (!isAuthenticated()) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+      if (getWsState() === 'connected') {
+        if (recoveryActive) return;
+        syncWithServer().then((result) => {
+          if (Number(result?.failCount || 0) > 0) {
+            console.warn(`Periodic sync completed with ${result.failCount} failed operation(s)`);
+          }
+        }).catch(err => console.warn('Periodic sync failed:', err));
+        return;
+      }
+      scheduleSyncAttempts('periodic');
+    }, 60000);
   }
 
   function bindDomReady() {
