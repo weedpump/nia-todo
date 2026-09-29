@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Preserved native app identity for OIDC sessions by creating the user session during the one-time app exchange instead of attributing it to the external browser callback.
+
 ## [3.1.1] - 2026-09-13
 
 ### Fixed
