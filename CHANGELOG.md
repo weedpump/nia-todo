@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Made the rich-text Code and Quote toolbar actions toggle existing formatting off for both selections and caret-only editing contexts.
+
 ## [3.1.1] - 2026-09-13
 
 ### Fixed

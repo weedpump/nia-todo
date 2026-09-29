@@ -380,13 +380,26 @@ export function createTodosFeature({
     return children();
   }
 
-  function insertInlineCode(editor) {
+  function toggleInlineCode(editor) {
     const selection = window.getSelection?.();
     if (!selection?.rangeCount) return;
     const range = selection.getRangeAt(0);
     if (!editor.contains(range.commonAncestorContainer)) return;
+    const element = getSelectionElementWithin(editor);
+    const code = closestInside(element, 'code', editor);
+    if (code) {
+      code.replaceWith(...Array.from(code.childNodes));
+      return;
+    }
     const text = selection.toString() || 'code';
     document.execCommand('insertHTML', false, `<code>${escapeHtml(text)}</code>`);
+  }
+
+  function toggleRichBlock(editor, blockTag) {
+    const element = getSelectionElementWithin(editor);
+    const block = closestInside(element, 'h1,h2,blockquote,p,div', editor);
+    const currentTag = block?.tagName?.toLowerCase();
+    document.execCommand('formatBlock', false, currentTag === blockTag ? 'div' : blockTag);
   }
 
   function richEditorToolbarHtml() {
@@ -709,8 +722,8 @@ export function createTodosFeature({
       button.addEventListener('mousedown', event => event.preventDefault(), listenerOptions);
       button.addEventListener('click', () => {
         editor.focus();
-        if (button.dataset.richBlock) document.execCommand('formatBlock', false, button.dataset.richBlock);
-        else if (button.dataset.richFormat === 'code') insertInlineCode(editor);
+        if (button.dataset.richBlock) toggleRichBlock(editor, button.dataset.richBlock);
+        else if (button.dataset.richFormat === 'code') toggleInlineCode(editor);
         else document.execCommand(button.dataset.richCommand, false, null);
         syncFromEditor();
         updateRichToolbarState(editor, toolbar);
