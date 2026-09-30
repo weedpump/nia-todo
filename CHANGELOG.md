@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Fixed
+- Made the rich-text Code and Quote toolbar actions toggle existing formatting off for both selections and caret-only editing contexts.
 - Kept the rich-text toolbar behind the open Todo details drawer, including the Android keyboard-fixed toolbar variant.
 - Removed the duplicate Android dashboard scrollbar by disabling the native WebView scroll indicators while retaining the app's web-owned overlay scrollbar.
 
