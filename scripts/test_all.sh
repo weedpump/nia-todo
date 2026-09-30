@@ -155,6 +155,7 @@ run_frontend_step_retry "Frontend Android Reminder Rehydration" node scripts/tes
 
 restore_frontend_suite
 trap - EXIT
+run_step "Native Android Dashboard Scrollbars" node scripts/test_native_android_dashboard_scrollbars.mjs
 run_step "Native Android Location Reminder" node scripts/test_native_android_location_reminders.mjs
 run_step "Native Android WebView Cache Migration" node scripts/test_native_android_webview_cache_migration.mjs
 run_step "Native Debian WebView Cache Migration" node scripts/test_native_linux_webview_cache_migration.mjs

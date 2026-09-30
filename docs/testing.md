@@ -106,6 +106,7 @@ These tests get a fresh DB per script because they modify setup/auth/session/off
 These checks run after the frontend DB suite restore unless explicitly listed above.
 
 - `node scripts/test_native_android_location_reminders.mjs`
+- `node scripts/test_native_android_dashboard_scrollbars.mjs`
 - `node scripts/test_native_android_webview_cache_migration.mjs`
 - `node scripts/test_native_linux_webview_cache_migration.mjs`
 - `node scripts/test_native_debian_deb_package_name.mjs`
