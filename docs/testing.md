@@ -69,6 +69,7 @@ These checks run before the frontend DB suite because they do not need a browser
 - `node scripts/test_frontend_security.mjs`
 - `node scripts/test_frontend_native_passkeys.mjs`
 - `node scripts/test_frontend_android_todo_gestures.mjs`
+- `node scripts/test_frontend_todo_details_layout.mjs`
 - `node scripts/test_sync_feature_race.mjs`
 
 ### Frontend DB suite
@@ -146,7 +147,7 @@ Use before merging larger Todo UX/interaction changes. The suite keeps Todo API 
 npm run test:ui
 ```
 
-Currently runs the maintained touch-zoom contract. Historical one-off pixel/layout tests were removed from the automated gate instead of being kept forever as release baggage.
+Currently runs the maintained touch-zoom contract and the responsive Todo details stacking regression across Android widths and drawer breakpoints.
 
 ### Native
 
