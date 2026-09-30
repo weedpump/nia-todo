@@ -1797,6 +1797,7 @@ export function createTodosFeature({
       if (isTodoInteractiveTarget(event.target) && !startedInActionZone && !startedInStatusZone) return;
       active = {
         item,
+        shell: item.closest('.todo-swipe-shell'),
         id: item.dataset.id,
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -1831,6 +1832,10 @@ export function createTodosFeature({
       item.classList.toggle('swipe-right', visualDx > 0);
       item.classList.toggle('swipe-left', visualDx < 0);
       item.classList.toggle('swipe-ready', progress >= 1);
+      const shell = item.closest('.todo-swipe-shell');
+      shell?.classList.toggle('swipe-right', visualDx > 0);
+      shell?.classList.toggle('swipe-left', visualDx < 0);
+      shell?.classList.toggle('swipe-ready', progress >= 1);
     }
 
     function cancelScheduledSwipeVisual() {
@@ -1866,6 +1871,8 @@ export function createTodosFeature({
 
     function cleanupSwipeVisual(item) {
       cancelScheduledSwipeVisual();
+      const shell = item.closest('.todo-swipe-shell');
+      shell?.classList.remove('is-swiping', 'swipe-right', 'swipe-left', 'swipe-ready');
       item.classList.remove('swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
       item.style.removeProperty('--swipe-x');
       item.style.removeProperty('--swipe-progress');
@@ -1927,10 +1934,18 @@ export function createTodosFeature({
         if (active.locked === 'vertical') return;
         captureSwipePointer(active);
         active.item.setAttribute('draggable', 'false');
-        active.item.setAttribute('data-swipe-right-label', `↗ ${t('todo.status.inProgress')}`);
-        active.item.setAttribute('data-swipe-left-label', `✓ ${t('todo.status.done')}`);
+        if (!active.shell) {
+          active.item.setAttribute('data-swipe-right-label', `↗ ${t('todo.status.inProgress')}`);
+          active.item.setAttribute('data-swipe-left-label', `✓ ${t('todo.status.done')}`);
+        }
         active.item.classList.remove('touch-feedback');
         if (active.item.__niaTouchFeedbackTimer) window.clearTimeout(active.item.__niaTouchFeedbackTimer);
+        if (active.shell) {
+          setTodoActionsExpanded(active.item, false);
+          active.item.classList.remove('has-open-menu');
+          closeTodoActionMenus();
+          active.shell.classList.add('is-swiping');
+        }
         active.item.classList.add('swiping');
       }
 

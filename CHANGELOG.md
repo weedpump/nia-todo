@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Removed the duplicate Android dashboard scrollbar by disabling the native WebView scroll indicators while retaining the app's web-owned overlay scrollbar.
 - Made each sidebar project badge count only active todos assigned directly to that project, excluding todos from child and deeper descendant projects.
 - Restored Debian Wayland title-bar controls before the first maximization and preserved compositor-aware bring-to-front activation by updating the coordinated Tauri/Tao stack.
+- Kept the first cold-start todo swipe synchronized with touch across native Android, mobile browsers, installed PWAs, and iOS/WebKit by revealing persistent localized action underlays behind a transform-only foreground card.
 
 ## [3.1.1] - 2026-09-13
 
