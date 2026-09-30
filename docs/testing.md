@@ -66,6 +66,7 @@ These checks run before the frontend DB suite because they do not need a browser
 
 - `node scripts/test_sw_precache.mjs`
 - `node scripts/test_frontend_quick_add_inline.mjs`
+- `node scripts/test_frontend_project_counters.mjs`
 - `node scripts/test_frontend_security.mjs`
 - `node scripts/test_frontend_native_passkeys.mjs`
 - `node scripts/test_frontend_android_todo_gestures.mjs`
