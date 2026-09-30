@@ -226,8 +226,9 @@
 }
 
 .mobile-swipe-ui .todo-swipe-action-icon {
-  font-size: 15px;
-  line-height: 1;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
 }
 
 .native-android .btn-primary:active,

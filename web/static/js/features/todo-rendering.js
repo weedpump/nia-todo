@@ -123,11 +123,11 @@ export function renderTodoItem(t) {
     <div class="todo-swipe-shell" data-todo-swipe-id="${todoIdAttr}">
       <div class="todo-swipe-underlay" aria-hidden="true">
         <div class="todo-swipe-action todo-swipe-action-in-progress">
-          <span class="todo-swipe-action-icon" aria-hidden="true">↗</span>
+          ${iconSvg('flame', 'todo-swipe-action-icon', 'data-swipe-icon="in-progress"')}
           <span>${escapeHtml(i18nT('todo.status.inProgress'))}</span>
         </div>
         <div class="todo-swipe-action todo-swipe-action-done">
-          <span class="todo-swipe-action-icon" aria-hidden="true">✓</span>
+          ${iconSvg('check', 'todo-swipe-action-icon', 'data-swipe-icon="done"')}
           <span>${escapeHtml(i18nT('todo.status.done'))}</span>
         </div>
       </div>
