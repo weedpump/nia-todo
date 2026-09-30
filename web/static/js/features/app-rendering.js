@@ -93,25 +93,8 @@ export function createAppRenderingFeature({
     return getTodos().filter(todo => projectIds.has(todo.project_id));
   }
 
-  function countByProject(pid, includeSubprojects = false) {
-    const todos = getWorkspaceTodos();
-    const projects = getWorkspaceProjects();
-    if (!includeSubprojects) {
-      return todos.filter(t => t.project_id === pid && t.status !== 'done').length;
-    }
-
-    const projectIds = new Set([pid]);
-    function collectChildren(parentId) {
-      projects.forEach(p => {
-        if (p.parent_id === parentId) {
-          projectIds.add(p.id);
-          collectChildren(p.id);
-        }
-      });
-    }
-    collectChildren(pid);
-
-    return todos.filter(t => projectIds.has(t.project_id) && t.status !== 'done').length;
+  function countByProject(pid) {
+    return getWorkspaceTodos().filter(todo => todo.project_id === pid && todo.status !== 'done').length;
   }
 
   function renderProjects() {
@@ -153,7 +136,7 @@ export function createAppRenderingFeature({
       html += `<button class="nav-btn ui-nav-pill project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}">`;
       html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
       html += `${escapeHtml(project.name)}`;
-      html += `<span class="badge">${countByProject(project.id, true)}</span>`;
+      html += `<span class="badge">${countByProject(project.id)}</span>`;
       html += `</button>`;
       html += `<button class="nav-edit" data-project-action="edit" data-project-id="${escapeHtmlAttr(project.id)}" title="${escapeHtmlAttr(t('common.edit'))}">`;
       html += iconSvg('edit-3');
