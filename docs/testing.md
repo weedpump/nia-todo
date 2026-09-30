@@ -70,6 +70,8 @@ These checks run before the frontend DB suite because they do not need a browser
 - `node scripts/test_frontend_security.mjs`
 - `node scripts/test_frontend_native_passkeys.mjs`
 - `node scripts/test_frontend_android_todo_gestures.mjs`
+- `node scripts/test_mobile_swipe_runtime.mjs`
+- `node scripts/test_mobile_swipe_underlay.mjs`
 - `node scripts/test_frontend_todo_details_layout.mjs`
 - `node scripts/test_sync_feature_race.mjs`
 
@@ -190,7 +192,7 @@ For audio/STT work, use controlled fixture recordings instead of making Tobi tri
 
 ## Notes
 
-- Frontend tests run against headless Chromium.
+- Frontend tests run primarily against headless Chromium; mobile swipe rendering additionally runs against Playwright WebKit.
 - `withFreshDb` still protects single-test execution by backing up/restoring the dev DB for isolated runs.
 - Inside `test_all.sh`, `NIA_TODO_FRONTEND_DB_SUITE=1` switches frontend tests to the suite-managed DB lifecycle.
 - `NIA_TODO_FRONTEND_DB_SHARED=1` tells `withFreshDb` to reuse the already prepared shared test DB instead of creating an isolated DB.

@@ -104,22 +104,130 @@
   transform: none !important;
 }
 
-.native-android .todo-item.swiping {
-  transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012))) !important;
+.mobile-swipe-ui .todo-item.swiping {
+  transform: translate3d(var(--swipe-x, 0), 0, 0) !important;
 }
 
-.native-android .todo-item.swiping.swipe-right {
-  background:
-    linear-gradient(90deg, rgba(245, 158, 11, calc(.08 + (var(--swipe-progress, 0) * .12))), transparent 60%),
-    var(--bg-secondary) !important;
-  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--warning) 78%, white), 0 14px 30px rgba(217, 119, 6, calc(.13 + (var(--swipe-progress, 0) * .17))) !important;
+.mobile-swipe-ui .todo-item.swiping::before,
+.mobile-swipe-ui .todo-item.swiping::after {
+  display: none !important;
 }
 
-.native-android .todo-item.swiping.swipe-left {
-  background:
-    linear-gradient(270deg, rgba(22, 163, 74, calc(.08 + (var(--swipe-progress, 0) * .12))), transparent 60%),
-    var(--bg-secondary) !important;
-  box-shadow: inset -4px 0 0 color-mix(in srgb, var(--success) 78%, white), 0 14px 30px rgba(22, 163, 74, calc(.13 + (var(--swipe-progress, 0) * .17))) !important;
+.mobile-swipe-ui .todo-item.swiping.swipe-right,
+.mobile-swipe-ui .todo-item.swiping.swipe-left,
+.mobile-swipe-ui .todo-item.swiping.swipe-ready {
+  border-color: var(--border) !important;
+  background: var(--bg-secondary) !important;
+  box-shadow: none !important;
+}
+
+.mobile-swipe-ui .todo-swipe-shell {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border-radius: 999px;
+}
+
+.mobile-swipe-ui .todo-swipe-shell:has(.todo-item.has-open-menu),
+.mobile-swipe-ui .todo-swipe-shell:has(.todo-item.actions-expanded),
+.mobile-swipe-ui .todo-swipe-shell:has(.todo-status-menu[open]),
+.mobile-swipe-ui .todo-swipe-shell:has(.todo-snooze-menu[open]) {
+  z-index: 1001;
+  overflow: visible;
+}
+
+.mobile-swipe-ui .todo-swipe-shell.is-swiping {
+  overflow: hidden !important;
+}
+
+.mobile-swipe-ui .todo-swipe-shell:has(> .todo-item .todo-meta-row:not(:empty)),
+.mobile-swipe-ui .todo-swipe-shell:has(> .todo-item .todo-desc-preview) {
+  border-radius: 26px;
+}
+
+@media (max-width: 768px) {
+  .mobile-swipe-ui .todo-swipe-shell,
+  .mobile-swipe-ui .todo-swipe-shell:has(> .todo-item .todo-meta-row:not(:empty)),
+  .mobile-swipe-ui .todo-swipe-shell:has(> .todo-item .todo-desc-preview) {
+    border-radius: 24px;
+  }
+}
+
+.mobile-swipe-ui .project-group-todos > .todo-swipe-shell,
+.mobile-swipe-ui .section-todos > .todo-swipe-shell,
+.mobile-swipe-ui .todo-list > .todo-swipe-shell,
+.mobile-swipe-ui .pinned-todos > .todo-swipe-shell {
+  margin-bottom: 0;
+}
+
+.mobile-swipe-ui .pinned-todos > .todo-swipe-shell:last-child {
+  margin-bottom: 0;
+}
+
+.mobile-swipe-ui .todo-swipe-shell > .todo-item {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 0;
+}
+
+.mobile-swipe-ui .todo-swipe-shell > .todo-item.done.swiping {
+  opacity: 1;
+}
+
+.mobile-swipe-ui .todo-swipe-shell > .todo-item.done.swiping > * {
+  opacity: .58;
+}
+
+.mobile-swipe-ui .todo-swipe-underlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: inherit;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mobile-swipe-ui .todo-swipe-shell.swipe-left .todo-swipe-underlay,
+.mobile-swipe-ui .todo-swipe-shell.swipe-right .todo-swipe-underlay {
+  visibility: visible;
+  opacity: 1;
+}
+
+.mobile-swipe-ui .todo-swipe-action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 18px;
+  color: white;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .018em;
+  opacity: 0;
+}
+
+.mobile-swipe-ui .todo-swipe-action-in-progress {
+  justify-content: flex-start;
+  background: linear-gradient(90deg, rgb(217, 119, 6), rgb(245, 158, 11));
+}
+
+.mobile-swipe-ui .todo-swipe-action-done {
+  justify-content: flex-end;
+  background: linear-gradient(90deg, rgb(22, 163, 74), rgb(74, 222, 128));
+}
+
+.mobile-swipe-ui .todo-swipe-shell.swipe-right .todo-swipe-action-in-progress,
+.mobile-swipe-ui .todo-swipe-shell.swipe-left .todo-swipe-action-done {
+  opacity: 1;
+}
+
+.mobile-swipe-ui .todo-swipe-action-icon {
+  font-size: 15px;
+  line-height: 1;
 }
 
 .native-android .btn-primary:active,

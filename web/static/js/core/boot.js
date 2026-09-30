@@ -4,9 +4,14 @@ import { isTauri } from '../../vendor/tauri-api/core.js';
     const nativeLaunch = params.get('nativeApp') === 'tauri';
     const android = /Android/i.test(navigator.userAgent || '');
     const tauri = isTauri();
+    const standalone = navigator.standalone === true || window.matchMedia?.('(display-mode: standalone)')?.matches;
+    const coarseTouch = window.matchMedia?.('(hover: none) and (pointer: coarse)')?.matches;
     if (nativeLaunch) document.documentElement.classList.add('native-app');
     if (android && (nativeLaunch || tauri)) {
       document.documentElement.classList.add('native-android');
+    }
+    if ((android && (nativeLaunch || tauri)) || standalone || coarseTouch) {
+      document.documentElement.classList.add('mobile-swipe-ui');
     }
     // Native shells rely on the service worker cache for offline cold starts.
     // Do not unregister it here: Android WebView can report navigator.onLine=true
