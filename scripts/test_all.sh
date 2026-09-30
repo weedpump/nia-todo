@@ -102,6 +102,7 @@ run_step "Frontend Security" node scripts/test_frontend_security.mjs
 run_step "Frontend Rich Text Editor" node scripts/test_frontend_rich_text_editor.mjs
 run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.mjs
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
+run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
 
 frontend_suite_active=0
@@ -155,6 +156,7 @@ run_frontend_step_retry "Frontend Android Reminder Rehydration" node scripts/tes
 
 restore_frontend_suite
 trap - EXIT
+run_step "Native Android Dashboard Scrollbars" node scripts/test_native_android_dashboard_scrollbars.mjs
 run_step "Native Android Location Reminder" node scripts/test_native_android_location_reminders.mjs
 run_step "Native Android WebView Cache Migration" node scripts/test_native_android_webview_cache_migration.mjs
 run_step "Native Debian WebView Cache Migration" node scripts/test_native_linux_webview_cache_migration.mjs
