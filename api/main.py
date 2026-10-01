@@ -16,6 +16,7 @@ from rate_limit import rate_limiter
 from middleware.security import CSRFProtectionMiddleware, RateLimitMiddleware, RequestBodyLimitMiddleware, SecurityHeadersMiddleware
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
+from services.server_updates import update_check_background_task
 from routers.websocket import websocket_endpoint
 from errors import APIError, api_error_handler
 
@@ -52,7 +53,7 @@ async def app_shell_cache_control_middleware(request, call_next):
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2, oidc
+from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2, oidc, server_updates
 
 app.include_router(auth.router)
 app.include_router(oidc.router)
@@ -72,6 +73,7 @@ app.include_router(sharing.router)
 app.include_router(password_setup.router)
 app.include_router(two_factor.router)
 app.include_router(braindump_v2.router)
+app.include_router(server_updates.router)
 
 # ─── Exception Handlers ──────────────────────────────────────────────────────
 
@@ -338,6 +340,7 @@ async def on_startup():
         asyncio.create_task(reminder_background_task())
         asyncio.create_task(subscription_cleanup_task())
         asyncio.create_task(rate_limit_cleanup_task())
+    asyncio.create_task(update_check_background_task())
     asyncio.create_task(delayed_start())
 
 # ─── Static Frontend ─────────────────────────────────────────────────────────

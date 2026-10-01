@@ -8,6 +8,7 @@
   "common.reload": "Ladda om",
   "common.search": "Sök",
   "common.more": "Mer",
+  "update.server.available": "Serveruppdatering tillgänglig",
   "connection.sync.short": "Synkronisera",
   "connection.syncing": "Synkronisering pågår",
   "connection.pendingSync.one": "{count} lokal ändring väntar på synkronisering",

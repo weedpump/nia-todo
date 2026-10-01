@@ -1,6 +1,7 @@
 """nia-todo: Admin endpoints (users, setup, password management)"""
 
 from typing import Optional
+import asyncio
 import json
 import math
 import struct
@@ -28,7 +29,7 @@ from services.two_factor import clear_recovery_codes, get_two_factor_required, l
 from services.email_templates import password_setup_email
 from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
-from services.server_updates import get_update_progress, get_update_status, install_latest_deb_update
+from services.server_updates import get_update_progress, get_update_status, install_latest_deb_update, perform_update_check
 from services.ops_stats import technical_stats
 from services.attachments import (
     attachment_usage_bytes,
@@ -468,8 +469,9 @@ def admin_update_oidc_config(data: OidcConfigRequest, request: Request, _: bool 
 # ─── Server Updates ──────────────────────────────────────────────────────────
 
 @router.get("/server-update")
-def admin_get_server_update_status(_: bool = Depends(require_admin)):
-    return get_update_status()
+async def admin_get_server_update_status(_: bool = Depends(require_admin)):
+    await perform_update_check("admin")
+    return await asyncio.to_thread(get_update_status)
 
 
 @router.get("/server-update/progress")

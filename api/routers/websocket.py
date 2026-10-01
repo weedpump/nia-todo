@@ -6,6 +6,7 @@ from fastapi import WebSocket
 from db import get_db, row_to_dict, now_iso
 from services.auth import get_current_user
 from services.sharing import get_project_ids_for_user
+from services.server_updates import get_public_update_status
 from services.websocket import manager
 from rate_limit import rate_limiter, get_client_ip_ws
 
@@ -36,6 +37,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 ws_token = token
                 manager.register_auth(websocket, user_id)
                 await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
+                update_status = await asyncio.to_thread(get_public_update_status)
+                await manager.send_personal_message(
+                    {"type": "server_update_status", "payload": update_status},
+                    websocket,
+                )
             else:
                 await websocket.close(code=1008)
                 return

@@ -27,6 +27,7 @@ assert manager.ws_users == {}
 
 
 import asyncio
+import threading
 from types import SimpleNamespace
 import routers.websocket as websocket_router
 
@@ -57,17 +58,21 @@ class FakeWebSocket:
 
 fake = FakeWebSocket()
 auth_calls = []
+event_loop_thread = threading.get_ident()
+status_threads = []
 original_manager = websocket_router.manager
 original_get_current_user = websocket_router.get_current_user
 original_check_ws = websocket_router.rate_limiter.check_ws
 original_ws_connect = websocket_router.rate_limiter.ws_connect
 original_ws_disconnect = websocket_router.rate_limiter.ws_disconnect
+original_update_status = websocket_router.get_public_update_status
 try:
     websocket_router.manager = ConnectionManager()
     websocket_router.get_current_user = lambda token, client_ip=None: auth_calls.append(token) or {'one': 1, 'two': 2}.get(token)
     websocket_router.rate_limiter.check_ws = lambda _ip: True
     websocket_router.rate_limiter.ws_connect = lambda _ip: None
     websocket_router.rate_limiter.ws_disconnect = lambda _ip: None
+    websocket_router.get_public_update_status = lambda: status_threads.append(threading.get_ident()) or {'update_available': True, 'stale': False}
     asyncio.run(websocket_router.websocket_endpoint(fake))
 finally:
     websocket_router.manager = original_manager
@@ -75,8 +80,11 @@ finally:
     websocket_router.rate_limiter.check_ws = original_check_ws
     websocket_router.rate_limiter.ws_connect = original_ws_connect
     websocket_router.rate_limiter.ws_disconnect = original_ws_disconnect
+    websocket_router.get_public_update_status = original_update_status
 
 assert auth_calls == ['one']
 assert fake.closed and fake.closed[0] == 1008
+assert status_threads and status_threads[0] != event_loop_thread, "blocking WebSocket update status work must run outside the event loop"
+assert {'type': 'server_update_status', 'payload': {'update_available': True, 'stale': False}} in fake.sent
 
 print("✅ WebSocket auth registration is unique and re-auth is rejected")

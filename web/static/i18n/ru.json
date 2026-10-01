@@ -8,6 +8,7 @@
   "common.reload": "Перезагрузить",
   "common.search": "Поиск",
   "common.more": "Подробнее",
+  "update.server.available": "Доступно обновление сервера",
   "connection.sync.short": "Синхронизировать",
   "connection.syncing": "Выполняется синхронизация",
   "connection.pendingSync.one": "{count} локальное изменение ожидает синхронизации",

@@ -8,6 +8,7 @@
   "common.reload": "recargar",
   "common.search": "Buscar",
   "common.more": "Más",
+  "update.server.available": "Actualización del servidor disponible",
   "connection.sync.short": "Sincronizar",
   "connection.syncing": "Sincronización en progreso",
   "connection.pendingSync.one": "{count} cambio local en espera de sincronización",

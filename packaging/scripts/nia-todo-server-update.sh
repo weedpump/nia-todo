@@ -8,11 +8,12 @@ SERVICE_NAME="${SERVICE_NAME:-}"
 NIA_TODO_SERVICE_NAME="${NIA_TODO_SERVICE_NAME:-}"
 CACHE_DIR="/var/cache/nia-todo/updates"
 STATUS_FILE="${CACHE_DIR}/status.json"
-UPDATE_LOG_DIR="/var/lib/nia-todo/update-logs"
+UPDATE_LOG_DIR="/var/log/nia-todo"
 UPDATE_LOG_FILE="${UPDATE_LOG_DIR}/nia-todo-server-update.log"
 SOURCE_CONFIG="/etc/nia-todo/update-source.env"
 ENV_CONFIG="/etc/nia-todo/nia-todo.env"
-RELEASE_API_LATEST="${RELEASE_API_LATEST:-https://api.github.com/repos/weedpump/nia-todo/releases/latest}"
+UPDATE_PRIMARY_URL="${UPDATE_PRIMARY_URL:-}"
+UPDATE_RELEASE_API_URL="${UPDATE_RELEASE_API_URL:-${RELEASE_API_LATEST:-}}"
 UNIT_NAME="nia-todo-server-update"
 
 if [ -f "${ENV_CONFIG}" ]; then
@@ -43,7 +44,8 @@ if [ -f "${SOURCE_CONFIG}" ]; then
 fi
 
 SERVICE_NAME="${SERVICE_NAME:-${NIA_TODO_SERVICE_NAME:-nia-todo}}"
-RELEASE_API_LATEST="${RELEASE_API_LATEST:-https://api.github.com/repos/weedpump/nia-todo/releases/latest}"
+UPDATE_PRIMARY_URL="${NIA_TODO_UPDATE_PRIMARY_URL:-${UPDATE_PRIMARY_URL:-https://nia-todo.homelabdiary.dev/update/stable.json}}"
+UPDATE_RELEASE_API_URL="${NIA_TODO_UPDATE_RELEASE_API_URL:-${UPDATE_RELEASE_API_URL:-${RELEASE_API_LATEST:-https://api.github.com/repos/weedpump/nia-todo/releases/latest}}}"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "This helper must run as root." >&2
@@ -59,9 +61,41 @@ elif [ "$#" -ne 0 ]; then
 fi
 
 install -d -m 0755 -o root -g root "${CACHE_DIR}"
-install -d -m 0755 -o root -g root "${UPDATE_LOG_DIR}"
-touch "${UPDATE_LOG_FILE}"
-chmod 0644 "${UPDATE_LOG_FILE}" || true
+
+ensure_secure_update_log() {
+  local owner_uid mode perm
+  if [[ -L "${UPDATE_LOG_DIR}" ]]; then
+    echo "Refusing unsafe update log directory ${UPDATE_LOG_DIR}: symbolic links are not allowed." >&2
+    exit 2
+  fi
+  if [[ ! -e "${UPDATE_LOG_DIR}" ]]; then
+    install -d -m 0755 -o root -g root "${UPDATE_LOG_DIR}"
+  fi
+  owner_uid="$(stat -c '%u' "${UPDATE_LOG_DIR}")"
+  mode="$(stat -c '%a' "${UPDATE_LOG_DIR}")"
+  perm=$((8#${mode}))
+  if [[ "${owner_uid}" != "0" || ! -d "${UPDATE_LOG_DIR}" || $((perm & 022)) -ne 0 ]]; then
+    echo "Refusing unsafe update log directory ${UPDATE_LOG_DIR}; expected a root-owned directory not writable by group or other." >&2
+    exit 2
+  fi
+
+  if [[ -L "${UPDATE_LOG_FILE}" ]]; then
+    echo "Refusing unsafe update log file ${UPDATE_LOG_FILE}: symbolic links are not allowed." >&2
+    exit 2
+  fi
+  if [[ ! -e "${UPDATE_LOG_FILE}" ]]; then
+    install -m 0644 -o root -g root /dev/null "${UPDATE_LOG_FILE}"
+  fi
+  owner_uid="$(stat -c '%u' "${UPDATE_LOG_FILE}")"
+  mode="$(stat -c '%a' "${UPDATE_LOG_FILE}")"
+  perm=$((8#${mode}))
+  if [[ "${owner_uid}" != "0" || ! -f "${UPDATE_LOG_FILE}" || $((perm & 022)) -ne 0 ]]; then
+    echo "Refusing unsafe update log file ${UPDATE_LOG_FILE}; expected a root-owned regular file not writable by group or other." >&2
+    exit 2
+  fi
+}
+
+ensure_secure_update_log
 write_status() {
   local state="$1"
   local message="$2"
@@ -87,7 +121,7 @@ PY_STATUS
 }
 
 trap 'rc=$?; if [ "$rc" -ne 0 ]; then write_status "failed" "Server update failed. Check the update log." "" "${UNIT_NAME}.service"; fi' EXIT
-export RELEASE_API_LATEST SERVICE_NAME NIA_TODO_SERVICE_NAME="${SERVICE_NAME}"
+export UPDATE_PRIMARY_URL UPDATE_RELEASE_API_URL SERVICE_NAME NIA_TODO_SERVICE_NAME="${SERVICE_NAME}"
 write_status "running" "Starting server update…" "" "${UNIT_NAME}.service"
 
 exec 9>"${CACHE_DIR}/update.lock"
@@ -114,7 +148,8 @@ if [ "${RUN_IN_PLACE}" != "1" ]; then
         --property=KillMode=process \
         --property="StandardOutput=append:${UPDATE_LOG_FILE}" \
         --property="StandardError=append:${UPDATE_LOG_FILE}" \
-        --setenv="RELEASE_API_LATEST=${RELEASE_API_LATEST}" \
+        --setenv="UPDATE_PRIMARY_URL=${UPDATE_PRIMARY_URL}" \
+        --setenv="UPDATE_RELEASE_API_URL=${UPDATE_RELEASE_API_URL}" \
         --setenv="SERVICE_NAME=${SERVICE_NAME}" \
         --setenv="NIA_TODO_SERVICE_NAME=${SERVICE_NAME}" \
         --setenv="NIA_TODO_DATA_DIR=${NIA_TODO_DATA_DIR:-/var/lib/nia-todo}" \
@@ -144,16 +179,23 @@ import sys
 import tempfile
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit
 
-api_url = os.environ.get("RELEASE_API_LATEST", "https://api.github.com/repos/weedpump/nia-todo/releases/latest")
+primary_url = os.environ.get("UPDATE_PRIMARY_URL", "https://nia-todo.homelabdiary.dev/update/stable.json")
+github_api_url = os.environ.get("UPDATE_RELEASE_API_URL", "https://api.github.com/repos/weedpump/nia-todo/releases/latest")
 cache_dir = Path("/var/cache/nia-todo/updates")
+semver_re = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 asset_re = re.compile(r"^nia-todo-server-v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)-full\.deb$")
+semver_component_max = 2_147_483_647
 
 
 def fetch_json(url: str):
-    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "nia-todo-root-update-helper"})
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "nia-todo-root-update-helper"})
     with urllib.request.urlopen(req, timeout=30) as response:
-        return json.loads(response.read().decode("utf-8"))
+        data = json.loads(response.read().decode("utf-8"))
+    if not isinstance(data, dict):
+        raise RuntimeError("release response must be a JSON object")
+    return data
 
 
 def fetch_bytes(url: str, max_bytes: int):
@@ -167,31 +209,179 @@ def fetch_bytes(url: str, max_bytes: int):
         raise RuntimeError("download too large")
     return data
 
-print("phase=fetch_release", file=sys.stderr)
-release = fetch_json(api_url)
-tag = str(release.get("tag_name") or "")
-if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
-    raise RuntimeError(f"latest release tag is not stable SemVer: {tag!r}")
-tag_version = tag[1:]
-assets = release.get("assets") or []
-deb = None
-for asset in assets:
-    if isinstance(asset, dict) and asset_re.fullmatch(str(asset.get("name") or "")):
-        deb = asset
-        break
-if not deb:
-    raise RuntimeError("release does not contain a nia-todo full Debian package")
-deb_name = str(deb.get("name") or "")
-deb_version = asset_re.fullmatch(deb_name).group("version")
-if deb_version != tag_version:
-    raise RuntimeError(f"Debian package version {deb_version!r} does not match release tag {tag!r}")
-sha_name = deb_name + ".sha256"
-sha = next((asset for asset in assets if isinstance(asset, dict) and asset.get("name") == sha_name), None)
-if not sha:
-    raise RuntimeError(f"release does not contain matching checksum asset {sha_name}")
 
-print(f"phase=download_checksum version={tag_version}", file=sys.stderr)
-sha_text = fetch_bytes(str(sha["browser_download_url"]), 64 * 1024).decode("utf-8", errors="replace")
+def stable_version(value):
+    value = str(value or "").strip()
+    if value.startswith("v"):
+        value = value[1:]
+    match = semver_re.fullmatch(value)
+    if not match:
+        return None
+    components = tuple(int(match.group(index)) for index in (1, 2, 3))
+    return value if all(component <= semver_component_max for component in components) else None
+
+
+def asset_from_payload(value):
+    if not isinstance(value, dict):
+        return None
+    name = str(value.get("name") or "").strip()
+    url = str(value.get("browser_download_url") or value.get("url") or value.get("download_url") or "").strip()
+    return {"name": name, "browser_download_url": url} if name and url else None
+
+
+def assets_from_payload(data, version):
+    values = data.get("assets")
+    if isinstance(values, dict):
+        semantic_names = {
+            "server_deb": f"nia-todo-server-v{version}-full.deb",
+            "deb": f"nia-todo-server-v{version}-full.deb",
+            "server_deb_sha256": f"nia-todo-server-v{version}-full.deb.sha256",
+            "sha256": f"nia-todo-server-v{version}-full.deb.sha256",
+            "checksum": f"nia-todo-server-v{version}-full.deb.sha256",
+            "manifest": "release-manifest.json",
+            "release_manifest": "release-manifest.json",
+        }
+        named_values = []
+        for key, value in values.items():
+            name = semantic_names.get(str(key), str(key))
+            if isinstance(value, str):
+                named_values.append({"name": name, "url": value})
+            elif isinstance(value, dict):
+                named_values.append({"name": value.get("name") or name, **value})
+        values = named_values
+    assets = [asset_from_payload(value) for value in values or []]
+    for key in ("deb_asset", "sha256_asset", "manifest_asset"):
+        asset = asset_from_payload(data.get(key))
+        if asset:
+            assets.append(asset)
+    return [asset for asset in assets if asset is not None]
+
+
+def trusted_github_asset_url(url, version, filename):
+    try:
+        parsed = urlsplit(url)
+        port = parsed.port
+    except ValueError:
+        return False
+    expected_path = f"/weedpump/nia-todo/releases/download/v{version}/{filename}"
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname == "github.com"
+        and parsed.username is None
+        and parsed.password is None
+        and port is None
+        and parsed.path == expected_path
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def manifest_assets_from_payload(data, assets):
+    declared = []
+    if "manifest_asset" in data and data["manifest_asset"] is not None:
+        asset = asset_from_payload(data["manifest_asset"])
+        if not asset or asset["name"] != "release-manifest.json":
+            raise RuntimeError("release manifest asset must be named 'release-manifest.json'")
+        declared.append(asset)
+
+    values = data.get("assets")
+    if isinstance(values, dict):
+        for key in ("manifest", "release_manifest"):
+            if key not in values or values[key] is None:
+                continue
+            value = values[key]
+            if isinstance(value, str):
+                value = {"name": "release-manifest.json", "url": value}
+            elif isinstance(value, dict):
+                value = {"name": value.get("name") or "release-manifest.json", **value}
+            asset = asset_from_payload(value)
+            if not asset or asset["name"] != "release-manifest.json":
+                raise RuntimeError("release manifest asset must be named 'release-manifest.json'")
+            declared.append(asset)
+    elif isinstance(values, list):
+        for value in values:
+            if not isinstance(value, dict) or str(value.get("name") or "").strip() != "release-manifest.json":
+                continue
+            asset = asset_from_payload(value)
+            if not asset:
+                raise RuntimeError("release manifest asset must include a download URL")
+            declared.append(asset)
+
+    declared.extend(asset for asset in assets if asset["name"] == "release-manifest.json")
+    return declared
+
+
+def normalize_release(data, version_value):
+    if not isinstance(data, dict):
+        raise RuntimeError("release response must be a JSON object")
+    version = stable_version(version_value)
+    if not version:
+        raise RuntimeError("release version is not stable bounded SemVer")
+    assets = assets_from_payload(data, version)
+    deb_name = f"nia-todo-server-v{version}-full.deb"
+    deb = next((asset for asset in assets if asset["name"] == deb_name), None)
+    sha_name = f"{deb_name}.sha256"
+    sha = next((asset for asset in assets if asset["name"] == sha_name), None)
+    if not deb:
+        raise RuntimeError("release does not contain the exact nia-todo full Debian package")
+    if not sha:
+        raise RuntimeError(f"release does not contain matching checksum asset {sha_name}")
+    manifests = manifest_assets_from_payload(data, assets)
+    for asset in (deb, sha, *manifests):
+        if not trusted_github_asset_url(asset["browser_download_url"], version, asset["name"]):
+            raise RuntimeError(f"release asset {asset['name']!r} is not a trusted GitHub HTTPS URL")
+    return {"version": version, "deb": deb, "sha": sha, "manifest": manifests[0] if manifests else None}
+
+
+def normalize_primary_release(data):
+    if not isinstance(data, dict):
+        raise RuntimeError("primary manifest must be a JSON object")
+    for key in ("latest", "release"):
+        if key in data and data[key] is not None and not isinstance(data[key], dict):
+            raise RuntimeError(f"primary manifest {key} must be an object")
+    nested = data.get("latest") or data.get("release")
+    payload = {**data, **nested} if isinstance(nested, dict) else data
+    for level in (data, data.get("latest"), data.get("release"), payload):
+        if not isinstance(level, dict):
+            continue
+        channel = str(level.get("channel") or "stable").strip().lower()
+        if channel != "stable":
+            raise RuntimeError("primary manifest is not the stable channel")
+    release = normalize_release(payload, payload.get("version") or payload.get("tag_name"))
+    return {**release, "source": "primary"}
+
+
+def normalize_github_release(data):
+    if not isinstance(data, dict):
+        raise RuntimeError("GitHub release must be a JSON object")
+    if data.get("draft") or data.get("prerelease"):
+        raise RuntimeError("GitHub release is not stable")
+    release = normalize_release(data, data.get("tag_name"))
+    return {**release, "source": "github"}
+
+
+def get_latest_release():
+    errors = []
+    try:
+        return normalize_primary_release(fetch_json(primary_url))
+    except Exception as exc:
+        errors.append(f"primary: {type(exc).__name__}")
+    try:
+        return normalize_github_release(fetch_json(github_api_url))
+    except Exception as exc:
+        errors.append(f"github: {type(exc).__name__}")
+    raise RuntimeError("; ".join(errors))
+
+
+print("phase=fetch_release", file=sys.stderr)
+release = get_latest_release()
+tag_version = release["version"]
+deb = release["deb"]
+sha = release["sha"]
+deb_name = deb["name"]
+
+print(f"phase=download_checksum version={tag_version} source={release['source']}", file=sys.stderr)
+sha_text = fetch_bytes(sha["browser_download_url"], 64 * 1024).decode("utf-8", errors="replace")
 parts = sha_text.strip().split()
 if not parts or not re.fullmatch(r"[a-fA-F0-9]{64}", parts[0]):
     raise RuntimeError("checksum asset does not contain a valid SHA256")
@@ -200,7 +390,7 @@ if len(parts) > 1 and Path(parts[-1]).name != deb_name:
 expected_sha = parts[0].lower()
 
 print(f"phase=download_deb asset={deb_name}", file=sys.stderr)
-data = fetch_bytes(str(deb["browser_download_url"]), 350 * 1024 * 1024)
+data = fetch_bytes(deb["browser_download_url"], 350 * 1024 * 1024)
 print("phase=verify_sha256", file=sys.stderr)
 actual_sha = hashlib.sha256(data).hexdigest()
 if actual_sha != expected_sha:

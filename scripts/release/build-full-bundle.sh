@@ -153,6 +153,24 @@ if [ -f /etc/nia-todo/nia-todo.env ] && ! grep -q '^NIA_TODO_DATA_DIR=' /etc/nia
 fi
 mkdir -p /var/lib/nia-todo /var/lib/nia-todo/backups /var/lib/nia-todo/avatars /var/lib/nia-todo/attachments /opt/nia-todo/api/data
 install -d -m 0755 -o root -g root /var/cache/nia-todo/updates
+if [ -L /var/log/nia-todo ]; then
+  echo "Refusing symbolic-link update log directory /var/log/nia-todo." >&2
+  exit 2
+fi
+install -d -m 0755 -o root -g root /var/log/nia-todo
+if [ -L /var/log/nia-todo/nia-todo-server-update.log ]; then
+  echo "Refusing symbolic-link update log file /var/log/nia-todo/nia-todo-server-update.log." >&2
+  exit 2
+fi
+if [ ! -e /var/log/nia-todo/nia-todo-server-update.log ]; then
+  install -m 0644 -o root -g root /dev/null /var/log/nia-todo/nia-todo-server-update.log
+elif [ ! -f /var/log/nia-todo/nia-todo-server-update.log ]; then
+  echo "Refusing non-regular update log file /var/log/nia-todo/nia-todo-server-update.log." >&2
+  exit 2
+else
+  chown root:root /var/log/nia-todo/nia-todo-server-update.log
+  chmod 0644 /var/log/nia-todo/nia-todo-server-update.log
+fi
 if [ -f /var/lib/nia-todo/nia-todo.db ]; then
   cp /var/lib/nia-todo/nia-todo.db "/var/lib/nia-todo/backups/pre-upgrade-$(date +%Y%m%d-%H%M%S).db" || true
 fi
