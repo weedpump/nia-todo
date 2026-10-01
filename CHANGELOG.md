@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added lazy-loaded authenticated image thumbnails to the Todo details attachment list with clean file-icon fallbacks and object-URL cleanup.
 
 ### Changed
+- Moved API documentation fully to the versioned public website, removed the duplicate server-hosted copy and package source, and linked web and native clients to the always-current public API reference.
 - Updated the native application stack and supporting dependencies, including Tauri 2.12 across the Rust and JavaScript packages, the Windows bindings, HTTP client, desktop plugins, and Android Gradle toolchain.
 - Modernized the cross-platform build pipeline for Windows, Android, Debian desktop, Docker, and server packages with current SDK tooling, direct artifact uploads, reproducible packaging, and cleaned-up Android build output.
 

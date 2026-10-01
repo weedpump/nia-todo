@@ -444,8 +444,8 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
 
 export function createAppDownloadsFeature() {
   let listenersInstalled = false;
-  let nativeChangelogListenerInstalled = false;
-  let nativeChangelogOpenInFlight = false;
+  let nativeExternalResourceListenerInstalled = false;
+  let nativeExternalResourceOpenInFlight = false;
   let refreshInterval = null;
   let refreshInFlight = null;
 
@@ -465,19 +465,21 @@ export function createAppDownloadsFeature() {
     refreshAppDownloads();
   }
 
-  function nativeChangelogUrlForLink(link) {
+  function nativeExternalUrlForLink(link) {
     const rawHref = link?.getAttribute?.('href') || '';
     try {
       const parsed = new URL(rawHref || link.href || '', window.location.href);
       if (parsed.pathname === '/changelog') return changelogUrl();
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
     } catch (_error) {
-      // Fall back to the configured changelog URL below.
+      return '';
     }
-    return changelogUrl();
+    return '';
   }
 
-  function isChangelogLink(link) {
+  function isExternalResourceLink(link) {
     if (!link) return false;
+    if (link.matches?.('[data-external-resource]')) return true;
     if (link.classList?.contains('changelog-link')) return true;
     try {
       const parsed = new URL(link.getAttribute('href') || link.href || '', window.location.href);
@@ -487,23 +489,25 @@ export function createAppDownloadsFeature() {
     }
   }
 
-  function installNativeChangelogLinks(nativeBridge) {
-    if (!RUNTIME_CAPABILITIES.native || nativeChangelogListenerInstalled) return;
-    nativeChangelogListenerInstalled = true;
+  function installNativeExternalResourceLinks(nativeBridge) {
+    if (!RUNTIME_CAPABILITIES.native || nativeExternalResourceListenerInstalled) return;
+    nativeExternalResourceListenerInstalled = true;
     document.addEventListener('click', async (event) => {
       const link = event.target?.closest?.('a[href]');
-      if (!isChangelogLink(link)) return;
+      if (!isExternalResourceLink(link)) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      if (nativeChangelogOpenInFlight) return;
-      nativeChangelogOpenInFlight = true;
+      if (nativeExternalResourceOpenInFlight) return;
+      const targetUrl = nativeExternalUrlForLink(link);
+      if (!targetUrl) return;
+      nativeExternalResourceOpenInFlight = true;
       try {
-        await nativeBridge.openExternal(nativeChangelogUrlForLink(link));
+        await nativeBridge.openExternal(targetUrl);
       } catch (error) {
-        console.warn('[Downloads] Native changelog open failed', error);
+        console.warn('[Downloads] Native external resource open failed', error);
       } finally {
-        nativeChangelogOpenInFlight = false;
+        nativeExternalResourceOpenInFlight = false;
       }
     }, true);
   }
@@ -561,11 +565,12 @@ export function createAppDownloadsFeature() {
     const downloadTargets = Array.from(document.querySelectorAll('[data-app-downloads]'));
     const downloadLaunchers = Array.from(document.querySelectorAll('[data-app-download-launcher]'));
     const nativeVersionTargets = Array.from(document.querySelectorAll('[data-native-app-version]'));
+    const externalResourceLinks = Array.from(document.querySelectorAll('[data-external-resource], .changelog-link'));
     updateWebInstallUI();
-    if (!downloadTargets.length && !downloadLaunchers.length && !nativeVersionTargets.length && !document.getElementById('native-app-update-modal')) return;
+    if (!downloadTargets.length && !downloadLaunchers.length && !nativeVersionTargets.length && !externalResourceLinks.length && !document.getElementById('native-app-update-modal')) return;
 
     const nativeBridge = createNativeBridge();
-    installNativeChangelogLinks(nativeBridge);
+    installNativeExternalResourceLinks(nativeBridge);
     const nativePlatform = platformFromNativeRuntime();
     const currentVersion = await getNativeAppVersion(nativeBridge);
     const hasNativeVersion = Boolean(nativePlatform && currentVersion);

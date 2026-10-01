@@ -127,6 +127,14 @@ async function testNativeChangelogOpensExternally() {
     }, null, { timeout: 10_000 });
     const path = await page.evaluate(() => location.pathname);
     if (path !== '/') throw new Error(`Native changelog click must not navigate inside app, got ${path}`);
+
+    await page.locator('[data-external-resource]').dispatchEvent('click');
+    await page.waitForFunction(() => {
+      const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
+      return opened.length === 2 && opened[1] === 'https://nia-todo.homelabdiary.dev/docs/api/';
+    }, null, { timeout: 10_000 });
+    const apiDocsPath = await page.evaluate(() => location.pathname);
+    if (apiDocsPath !== '/') throw new Error(`Native API documentation click must not navigate inside app, got ${apiDocsPath}`);
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;

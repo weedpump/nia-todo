@@ -81,11 +81,6 @@ app.add_exception_handler(APIError, api_error_handler)
 
 app.add_api_websocket_route("/ws", websocket_endpoint)
 
-# ─── Public API Documentation ────────────────────────────────────────────────
-
-DOCS_DIR = Path(__file__).parent.parent / "docs"
-
-
 def _slugify_heading(value: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9äöüÄÖÜß -]", "", value).strip().lower()
     slug = slug.replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
@@ -274,17 +269,6 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
 </html>"""
 
 
-def _api_docs_html() -> str:
-    docs_path = DOCS_DIR / "api.md"
-    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nNo API documentation found."
-    return _document_html(
-        "nia-todo API",
-        "Public API documentation for this instance. Authentication uses JWT or API key depending on the endpoint.",
-        markdown,
-        "Search API docs… e.g. API key, passkey, /api/me",
-    )
-
-
 def _changelog_html() -> str:
     changelog_path = Path(__file__).parent.parent / "CHANGELOG.md"
     markdown = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "# Changelog\n\nNo changelog found."
@@ -305,12 +289,6 @@ def _no_store_html(content: str) -> HTMLResponse:
             "Expires": "0",
         },
     )
-
-
-@app.get("/api", response_class=HTMLResponse)
-@app.get("/api/", response_class=HTMLResponse)
-def public_api_docs():
-    return _no_store_html(_api_docs_html())
 
 
 @app.get("/changelog", response_class=HTMLResponse)

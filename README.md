@@ -76,10 +76,11 @@ Installation, configuration, native apps, backups, updates, security, and troubl
 
 **[nia-todo.homelabdiary.dev/docs](https://nia-todo.homelabdiary.dev/docs)**
 
+- [API documentation](https://nia-todo.homelabdiary.dev/docs/api/)
+
 Developer references stay with the source:
 
 - [Architecture](docs/architecture.md)
-- [API documentation](docs/api.md)
 - [Testing](docs/testing.md)
 - [Release workflow](docs/workflow.md)
 - [Changelog](CHANGELOG.md)
