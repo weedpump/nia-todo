@@ -41,8 +41,8 @@ jobs:
       - name: Install frontend/native toolchain dependencies
         run: npm ci
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Build test package (no native apps embedded)
         run: |
