@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Preserved the intended spacing between the native app version and Changelog action when no server update indicator is visible.
+
 ## [3.2.0] - 2026-10-02
 
 ### Added
