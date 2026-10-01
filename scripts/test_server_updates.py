@@ -630,6 +630,13 @@ def test_update_sudoers_allows_no_helper_args():
         assert '/usr/local/bin/nia-todo-server-update ""' in text
 
 
+def test_package_integration_disables_umami_before_starting_ci_service():
+    text = (ROOT / "scripts/release/install-and-test.sh").read_text(encoding="utf-8")
+    drop_in = "NIA_TODO_UPDATE_UMAMI_WEBSITE_ID="
+    assert drop_in in text, "package integration tests must not emit production Umami events"
+    assert text.index(drop_in) < text.index('apt-get install -y'), "CI telemetry override must exist before package postinst starts the service"
+
+
 def test_update_progress_status_file():
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "status.json"
@@ -684,6 +691,7 @@ def main():
     test_packaging_creates_root_controlled_update_log()
     test_public_installer_persists_custom_service_name_for_app_and_helper()
     test_update_sudoers_allows_no_helper_args()
+    test_package_integration_disables_umami_before_starting_ci_service()
     test_update_progress_status_file()
     test_update_progress_reconciles_stale_running_status()
     print("✅ server update tests passed")
