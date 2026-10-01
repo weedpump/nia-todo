@@ -8,6 +8,7 @@
   "common.reload": "重新加载",
   "common.search": "搜索",
   "common.more": "更多",
+  "update.server.available": "服务器更新可用",
   "connection.sync.short": "同步",
   "connection.syncing": "同步正在进行中",
   "connection.pendingSync.one": "{count} 个本地更改等待同步",

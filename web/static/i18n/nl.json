@@ -8,6 +8,7 @@
   "common.reload": "Herladen",
   "common.search": "Zoeken",
   "common.more": "Meer",
+  "update.server.available": "Serverupdate beschikbaar",
   "connection.sync.short": "Synchroniseren",
   "connection.syncing": "Synchronisatie wordt uitgevoerd",
   "connection.pendingSync.one": "{count} lokale wijziging wacht op synchronisatie",

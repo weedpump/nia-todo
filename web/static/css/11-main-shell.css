@@ -87,6 +87,31 @@
   margin-top: auto;
   flex-shrink: 0;
 }
+.server-update-indicator {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 8px 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+.server-update-indicator.hidden,
+.server-update-indicator[hidden] {
+  display: none;
+}
+.server-update-indicator-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+  flex: 0 0 14px;
+}
+@media (max-width: 900px) {
+  .server-update-indicator {
+    margin-inline: 10px;
+    font-size: 12px;
+  }
+}
 .sidebar-user-menu-wrap {
   height: auto;
   width: 100%;

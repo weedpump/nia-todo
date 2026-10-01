@@ -23,6 +23,7 @@ export function createWebSocketClient({
   onAuthOk = () => {},
   onReminderDue = () => {},
   onSessionInvalidated = () => {},
+  onServerUpdateStatus = () => {},
 }) {
 let ws = null;
 let wsState = 'disconnected'; // connected, connecting, reconnecting, disconnected
@@ -325,6 +326,9 @@ async function handleWsMessage(msg) {
       break;
     case 'session_invalidated':
       onSessionInvalidated(msg);
+      break;
+    case 'server_update_status':
+      onServerUpdateStatus(msg.payload || {});
       break;
     case 'pong':
       // keepalive response — nothing to do

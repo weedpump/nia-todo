@@ -8,6 +8,7 @@
   "common.reload": "Znovu načíst",
   "common.search": "Hledat",
   "common.more": "více",
+  "update.server.available": "Je k dispozici aktualizace serveru",
   "connection.sync.short": "Synchronizovat",
   "connection.syncing": "Probíhá synchronizace",
   "connection.pendingSync.one": "{count} místní změny čekající na synchronizaci",
