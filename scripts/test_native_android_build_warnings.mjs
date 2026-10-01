@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -109,8 +111,26 @@ assert.match(androidJob, /GIT_CONFIG_COUNT: 1/);
 assert.match(androidJob, /GIT_CONFIG_KEY_0: init\.defaultBranch/);
 assert.match(androidJob, /GIT_CONFIG_VALUE_0: main/);
 assert.match(androidJob, /npm run tauri -- android build --target aarch64 --apk --ci/);
+assert.match(androidJob, /python3 scripts\/patch_tauri_android_gradle\.py/);
 assert.doesNotMatch(androidJob, /filter_android_/);
 assert.equal(existsSync(join(ROOT, 'scripts/filter_android_sdkmanager_stderr.py')), false);
 assert.equal(existsSync(join(ROOT, 'scripts/filter_android_gradle_output.py')), false);
+
+const patchFixture = mkdtempSync(join(tmpdir(), 'nia-todo-tauri-gradle-'));
+try {
+  const tauriRoot = join(patchFixture, 'tauri-2.12.1');
+  const androidGradle = join(tauriRoot, 'mobile/android/build.gradle.kts');
+  mkdirSync(join(tauriRoot, 'mobile/android'), { recursive: true });
+  writeFileSync(androidGradle, 'plugins {\n    id("com.android.library")\n}\n');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const patched = spawnSync('python3', [join(ROOT, 'scripts/patch_tauri_android_gradle.py'), '--tauri-root', tauriRoot], { encoding: 'utf8' });
+    assert.equal(patched.status, 0, patched.stderr);
+  }
+  const patchedSource = readFileSync(androidGradle, 'utf8');
+  assert.match(patchedSource, /^@file:Suppress\("DEPRECATION"\)\n\n/);
+  assert.equal((patchedSource.match(/@file:Suppress/g) ?? []).length, 1);
+} finally {
+  rmSync(patchFixture, { recursive: true, force: true });
+}
 
 console.log('✅ Android native build warning guards passed');
