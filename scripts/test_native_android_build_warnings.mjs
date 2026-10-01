@@ -57,7 +57,7 @@ assert.match(appGradle, /onBackPressedDispatcher\.onBackPressed\(\)/);
 assert.doesNotMatch(appGradle, /println\("[^"\n]*deprecated/i);
 
 const rootGradle = read('src-tauri/gen/android/build.gradle.kts');
-assert.match(rootGradle, /com\.android\.tools\.build:gradle:8\.11\.2/);
+assert.match(rootGradle, /com\.android\.tools\.build:gradle:8\.13\.2/);
 assert.match(rootGradle, /kotlin-gradle-plugin:2\.2\.10/);
 assert.match(rootGradle, /path == ":tauri-android"/);
 assert.match(rootGradle, /compilerOptions\.suppressWarnings\.set\(true\)/);
