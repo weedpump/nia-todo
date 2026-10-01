@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -15,13 +17,13 @@ val tauriProperties = Properties().apply {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = 37
     namespace = "de.tobiaskneidl.nia_todo"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "de.tobiaskneidl.nia_todo"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
