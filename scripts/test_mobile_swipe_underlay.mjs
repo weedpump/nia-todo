@@ -131,6 +131,8 @@ try {
   assert.equal(await shells.count(), 5, 'every mobile touch todo must render a swipe shell');
   assert.equal(await shell.locator('.todo-swipe-action-in-progress').count(), 1, 'right swipe action must be persistent');
   assert.equal(await shell.locator('.todo-swipe-action-done').count(), 1, 'left swipe action must be persistent');
+  assert.equal(await shell.locator('svg.todo-swipe-action-icon[data-swipe-icon="in-progress"]').count(), 1, 'in-progress action must use the Lucide flame icon');
+  assert.equal(await shell.locator('svg.todo-swipe-action-icon[data-swipe-icon="done"]').count(), 1, 'done action must use the Lucide check icon');
   assert.ok((await shell.locator('.todo-swipe-action-in-progress').textContent()).trim(), 'in-progress action needs a label');
   assert.ok((await shell.locator('.todo-swipe-action-done').textContent()).trim(), 'done action needs a label');
 
