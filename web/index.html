@@ -135,10 +135,6 @@
       </div>
 
       <div class="sidebar-footer">
-        <div class="server-update-indicator hidden" id="server-update-indicator" hidden role="status" aria-live="polite">
-          <span class="server-update-indicator-icon" data-icon="server" aria-hidden="true"></span>
-          <span data-i18n-key="update.server.available">Server update available</span>
-        </div>
         <div class="user-menu-wrap sidebar-user-menu-wrap">
           <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">
             <span class="user-menu-button-avatar" id="user-menu-button-avatar">U</span>
@@ -172,6 +168,10 @@
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
             <span class="version-text">v3.1.0</span>
+          </div>
+          <div class="server-update-indicator hidden" id="server-update-indicator" hidden role="status" aria-live="polite">
+            <span class="server-update-indicator-dot" aria-hidden="true"></span>
+            <span class="server-update-indicator-text" data-i18n-key="update.server.available">Server update available</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
