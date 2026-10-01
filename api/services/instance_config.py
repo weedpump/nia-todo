@@ -336,9 +336,11 @@ def is_trusted_proxy(client_host: Optional[str]) -> bool:
         client_ip = ipaddress.ip_address(client_host)
     except ValueError:
         return False
+    mapped_ipv4 = client_ip.ipv4_mapped if isinstance(client_ip, ipaddress.IPv6Address) else None
     for proxy in get_trusted_proxies():
         try:
-            if client_ip in ipaddress.ip_network(proxy, strict=False):
+            network = ipaddress.ip_network(proxy, strict=False)
+            if client_ip in network or (mapped_ipv4 is not None and network.version == 4 and mapped_ipv4 in network):
                 return True
         except ValueError:
             continue
