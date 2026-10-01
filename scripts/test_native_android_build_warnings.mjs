@@ -57,6 +57,8 @@ assert.doesNotMatch(appGradle, /jvmTarget = "1\.8"/);
 assert.match(appGradle, /databaseEnabled = true/);
 assert.match(appGradle, /onBackPressedDispatcher\.onBackPressed\(\)/);
 assert.doesNotMatch(appGradle, /println\("[^"\n]*deprecated/i);
+assert.match(appGradle, /apply\(from = file\("tauri\.build\.gradle\.kts"\)\)/);
+assert.doesNotMatch(appGradle, /apply\(from = "tauri\.build\.gradle\.kts"\)/);
 
 const rootGradle = read('src-tauri/gen/android/build.gradle.kts');
 assert.match(rootGradle, /com\.android\.tools\.build:gradle:9\.3\.1/);
