@@ -118,6 +118,7 @@ def main():
     valid_tokens = {"ok", "revokable"}
     websocket_router.get_current_user = lambda token, client_ip=None: 1 if token in valid_tokens else None
     websocket_router.get_project_ids_for_user = lambda _db, user_id: [1]
+    websocket_router.get_public_update_status = lambda: {"update_available": False, "stale": False}
 
     app = FastAPI()
     app.add_api_websocket_route("/ws", websocket_router.websocket_endpoint)
@@ -127,6 +128,8 @@ def main():
         ws.send_json({"type": "auth", "token": "ok"})
         auth = ws.receive_json()
         assert_true(auth.get("type") == "auth_ok", auth)
+        update_status = ws.receive_json()
+        assert_true(update_status.get("type") == "server_update_status", update_status)
         ws.send_json({"type": "sync_request"})
         sync = ws.receive_json()
 
@@ -139,6 +142,8 @@ def main():
         ws.send_json({"type": "auth", "token": "revokable"})
         auth = ws.receive_json()
         assert_true(auth.get("type") == "auth_ok", auth)
+        update_status = ws.receive_json()
+        assert_true(update_status.get("type") == "server_update_status", update_status)
         valid_tokens.remove("revokable")
         ws.send_json({"type": "sync_request"})
         try:

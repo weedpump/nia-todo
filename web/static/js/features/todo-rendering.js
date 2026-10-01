@@ -69,7 +69,7 @@ export function renderTodoItem(t) {
           </div>
         </details>`;
 
-  return `
+  const cardMarkup = `
     <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" draggable="true">
       <div class="todo-status-control">
         <button type="button" class="todo-check" data-todo-action="toggle-status" data-todo-id="${todoIdAttr}" aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
@@ -114,6 +114,24 @@ export function renderTodoItem(t) {
         <button type="button" class="btn btn-danger btn-icon" data-todo-action="delete" data-todo-id="${todoIdAttr}" title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
         <button type="button" class="btn btn-secondary btn-icon todo-actions-reveal-btn" data-todo-actions-reveal="true" aria-expanded="false" aria-label="${escapeHtml(i18nT('common.more'))}" title="${escapeHtml(i18nT('common.more'))}">${iconSvg('chevron-left')}</button>
       </div>
+    </div>
+  `;
+
+  if (!document.documentElement.classList.contains('mobile-swipe-ui')) return cardMarkup;
+
+  return `
+    <div class="todo-swipe-shell" data-todo-swipe-id="${todoIdAttr}">
+      <div class="todo-swipe-underlay" aria-hidden="true">
+        <div class="todo-swipe-action todo-swipe-action-in-progress">
+          ${iconSvg('flame', 'todo-swipe-action-icon', 'data-swipe-icon="in-progress"')}
+          <span>${escapeHtml(i18nT('todo.status.inProgress'))}</span>
+        </div>
+        <div class="todo-swipe-action todo-swipe-action-done">
+          ${iconSvg('check', 'todo-swipe-action-icon', 'data-swipe-icon="done"')}
+          <span>${escapeHtml(i18nT('todo.status.done'))}</span>
+        </div>
+      </div>
+      ${cardMarkup}
     </div>
   `;
 }

@@ -24,6 +24,9 @@ export function createTodoAttachmentsFeature({
 }) {
   let attachmentPreviewObjectUrl = '';
   let attachmentPreviewDownload = null;
+  let attachmentThumbnailObserver = null;
+  let attachmentThumbnailRenderId = 0;
+  const attachmentThumbnailObjectUrls = new Set();
 
   function formatAttachmentSize(bytes) {
     const size = Number(bytes) || 0;
@@ -55,6 +58,82 @@ export function createTodoAttachmentsFeature({
 
   function attachmentCanPreview(attachment = {}) {
     return attachmentIsImagePreview(attachment) || attachmentIsPdfPreview(attachment);
+  }
+
+  function releaseAttachmentThumbnailObjectUrl(thumbnail) {
+    const objectUrl = thumbnail?.dataset?.objectUrl;
+    if (!objectUrl) return;
+    URL.revokeObjectURL(objectUrl);
+    attachmentThumbnailObjectUrls.delete(objectUrl);
+    delete thumbnail.dataset.objectUrl;
+  }
+
+  function showAttachmentThumbnailFallback(thumbnail, fallback) {
+    releaseAttachmentThumbnailObjectUrl(thumbnail);
+    thumbnail?.removeAttribute('src');
+    thumbnail?.classList.remove('is-loaded');
+    fallback?.classList.remove('is-hidden');
+  }
+
+  function resetAttachmentThumbnails() {
+    attachmentThumbnailRenderId += 1;
+    attachmentThumbnailObserver?.disconnect();
+    attachmentThumbnailObserver = null;
+    for (const objectUrl of attachmentThumbnailObjectUrls) URL.revokeObjectURL(objectUrl);
+    attachmentThumbnailObjectUrls.clear();
+  }
+
+  function observeAttachmentThumbnail(thumbnail, loadThumbnail) {
+    thumbnail.loadAttachmentThumbnail = loadThumbnail;
+    if (typeof globalThis.IntersectionObserver !== 'function') {
+      void loadThumbnail();
+      return;
+    }
+    if (!attachmentThumbnailObserver) {
+      attachmentThumbnailObserver = new globalThis.IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          attachmentThumbnailObserver?.unobserve(entry.target);
+          void entry.target.loadAttachmentThumbnail?.();
+        }
+      }, { rootMargin: '160px' });
+    }
+    attachmentThumbnailObserver.observe(thumbnail);
+  }
+
+  function createAttachmentThumbnail(todoId, attachment, fallback) {
+    const thumbnail = document.createElement('img');
+    thumbnail.className = 'todo-attachment-thumbnail';
+    thumbnail.alt = '';
+    thumbnail.loading = 'lazy';
+    thumbnail.decoding = 'async';
+    const renderId = attachmentThumbnailRenderId;
+    thumbnail.addEventListener('load', () => {
+      if (renderId !== attachmentThumbnailRenderId) return;
+      thumbnail.classList.add('is-loaded');
+      fallback.classList.add('is-hidden');
+    });
+    thumbnail.addEventListener('error', () => {
+      showAttachmentThumbnailFallback(thumbnail, fallback);
+    });
+    observeAttachmentThumbnail(thumbnail, async () => {
+      if (thumbnail.dataset.thumbnailState) return;
+      thumbnail.dataset.thumbnailState = 'loading';
+      try {
+        const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
+        if (renderId !== attachmentThumbnailRenderId) return;
+        if (!attachmentIsImagePreview(attachment, blob)) throw new Error('Attachment is not a supported image');
+        const objectUrl = URL.createObjectURL(blob);
+        attachmentThumbnailObjectUrls.add(objectUrl);
+        thumbnail.dataset.objectUrl = objectUrl;
+        thumbnail.src = objectUrl;
+      } catch (error) {
+        if (renderId !== attachmentThumbnailRenderId) return;
+        thumbnail.dataset.thumbnailState = 'failed';
+        showAttachmentThumbnailFallback(thumbnail, fallback);
+      }
+    });
+    return thumbnail;
   }
 
   function attachmentAllowedByClient(file, user = getCurrentUser?.()) {
@@ -113,6 +192,7 @@ export function createTodoAttachmentsFeature({
     const count = document.getElementById('todo-attachments-count');
     if (!list) return;
     const normalized = Array.isArray(attachments) ? attachments : [];
+    resetAttachmentThumbnails();
     list.innerHTML = '';
     if (count) count.textContent = String(normalized.length);
     setTodoCollapsibleOpen('todo-attachments-panel', Boolean(todoId));
@@ -135,10 +215,20 @@ export function createTodoAttachmentsFeature({
       const icon = document.createElement('button');
       icon.type = 'button';
       icon.className = 'todo-attachment-icon';
-      icon.innerHTML = iconSvg(attachmentIconName(attachment));
       icon.setAttribute('aria-label', t('todo.attachments.preview'));
       icon.setAttribute('title', t('todo.attachments.preview'));
       icon.addEventListener('click', () => previewTodoAttachment(todoId, attachment));
+      if (attachmentIsImagePreview(attachment)) {
+        icon.classList.add('todo-attachment-thumbnail-button');
+        const fallback = document.createElement('span');
+        fallback.className = 'todo-attachment-thumbnail-fallback';
+        fallback.innerHTML = iconSvg(attachmentIconName(attachment));
+        fallback.setAttribute('aria-hidden', 'true');
+        const thumbnail = createAttachmentThumbnail(todoId, attachment, fallback);
+        icon.append(thumbnail, fallback);
+      } else {
+        icon.innerHTML = iconSvg(attachmentIconName(attachment));
+      }
 
       const body = document.createElement('div');
       body.className = 'todo-attachment-body';

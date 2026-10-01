@@ -137,6 +137,8 @@ const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.ur
 assert(!appSource.includes('window.NiaAndroidNative'), 'app core must consume notification actions through the native bridge, not Android globals');
 assert(!appSource.includes('markTodoDoneFromNative') && !appSource.includes('startNativeDoneActionPolling'), 'app core must not keep removed native notification done-action polling');
 assert(appSource.includes('activeBackgroundSyncOperations') && appSource.includes('waitForBackgroundSyncOperations'), 'logout must wait for in-flight REST sync work before clearing user data');
+assert(appSource.includes('return trackBackgroundSyncOperation(() => syncController.syncWithServer())'), 'app sync wrapper must preserve sync results for lifecycle recovery decisions');
+assert(appSource.includes('refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.())'), 'invite refreshes must join the authenticated background-operation drain');
 const websocketClientSource = readFileSync(new URL('../web/static/js/features/websocket-client.js', import.meta.url), 'utf8');
 assert(websocketClientSource.includes('activeMessageHandlers') && websocketClientSource.includes('Promise.allSettled([...activeMessageHandlers])'), 'WebSocket disconnect must drain message handlers before logout clears IndexedDB');
 const websocketDisconnectSource = websocketClientSource.slice(websocketClientSource.indexOf('function disconnectWebSocket()'), websocketClientSource.indexOf('function updateConnectionStatus()'));
@@ -218,15 +220,29 @@ try {
   const documentListeners = new Map();
   const timers = [];
   let periodic = null;
+  let periodicMs = null;
   let authenticated = false;
+  let wsState = 'connected';
   let syncCalls = 0;
   let inviteCalls = 0;
   let connectCalls = 0;
   let startupRefreshCalls = 0;
+  let inviteFailuresRemaining = 0;
+  const autoSyncResults = [];
   let blockOpenDb = false;
   let resolveOpenDb = null;
   const syncResolvers = [];
+  const syncRejectors = [];
   const startupRefreshResolvers = [];
+  const startupRefreshRejectors = [];
+  const resolveNextSync = (value) => {
+    syncRejectors.shift();
+    syncResolvers.shift()?.(value);
+  };
+  const rejectNextStartupRefresh = (error) => {
+    startupRefreshResolvers.shift();
+    startupRefreshRejectors.shift()?.(error);
+  };
 
   globalThis.window = {
     location: { search: '' },
@@ -247,7 +263,11 @@ try {
     value: { onLine: true, language: 'en', languages: ['en'] },
   });
   globalThis.setTimeout = (callback) => { timers.push(callback); return timers.length; };
-  globalThis.setInterval = (callback) => { periodic = callback; return 1; };
+  globalThis.setInterval = (callback, delay) => {
+    periodic = callback;
+    periodicMs = delay;
+    return 1;
+  };
 
   const { createAppLifecycle } = await import('../web/static/js/features/app-lifecycle.js');
   const lifecycle = createAppLifecycle({
@@ -266,17 +286,31 @@ try {
     initTheme: () => {},
     isAuthenticated: () => authenticated,
     isOnlineForSync: () => true,
-    getWsState: () => 'connected',
+    getWsState: () => wsState,
     connectWebSocket: () => { connectCalls += 1; },
-    syncWithServer: () => new Promise(resolve => {
+    syncWithServer: () => {
       syncCalls += 1;
-      syncResolvers.push(resolve);
-    }),
+      if (autoSyncResults.length) return Promise.resolve(autoSyncResults.shift());
+      return new Promise((resolve, reject) => {
+        syncResolvers.push(resolve);
+        syncRejectors.push(reject);
+      });
+    },
     refreshFromServer: () => {
       startupRefreshCalls += 1;
-      return new Promise(resolve => startupRefreshResolvers.push(resolve));
+      return new Promise((resolve, reject) => {
+        startupRefreshResolvers.push(resolve);
+        startupRefreshRejectors.push(reject);
+      });
     },
-    refreshInvites: async () => { inviteCalls += 1; },
+    refreshInvites: async () => {
+      inviteCalls += 1;
+      if (inviteFailuresRemaining > 0) {
+        inviteFailuresRemaining -= 1;
+        return { ok: false, error: new Error('simulated invite outage') };
+      }
+      return { ok: true };
+    },
     updateConnectionStatus: () => {},
     renderVersionInfo: () => {},
     renderProjects: () => {},
@@ -288,44 +322,110 @@ try {
   });
   lifecycle.bindNetworkEvents();
 
-  windowListeners.get('pageshow')();
+  windowListeners.get('pageshow')({ persisted: true });
   for (const callback of timers.splice(0)) callback();
   await Promise.resolve();
   assert.equal(syncCalls, 0, 'logged-out pages must not schedule authenticated sync requests');
   assert.equal(inviteCalls, 0, 'logged-out pages must not request project invites');
 
   authenticated = true;
+  autoSyncResults.push({ failCount: 1, skipped: false });
   periodic();
-  for (const callback of timers.splice(0)) callback();
-  for (const resolve of syncResolvers.splice(0)) resolve();
   await Promise.resolve();
-  assert.equal(syncCalls, 3, 'authenticated pages must retain network retry scheduling');
-  assert.equal(inviteCalls, 3, 'authenticated retries must still refresh project invites');
-
+  assert.equal(periodicMs, 60000, 'background queue recovery must use a sparse one-minute interval');
+  assert.equal(timers.length, 0, 'connected clients must not schedule invite REST recovery requests');
+  assert.equal(syncCalls, 1, 'connected clients must periodically retry pending queue work without polling invites');
+  assert.equal(inviteCalls, 0, 'connected clients must not poll project invites while WebSocket realtime is healthy');
+  autoSyncResults.push({ failCount: 0, skipped: false });
   periodic();
+  await Promise.resolve();
+  assert.equal(syncCalls, 2, 'failed connected-client queue work must be retried on the next sparse interval');
+  assert.equal(inviteCalls, 0, 'connected-client queue retries must remain invite-free');
+
+  windowListeners.get('online')();
+  for (const callback of timers.splice(0)) callback();
+  assert.equal(syncCalls, 3, 'network recovery must start with one sync attempt');
+  documentListeners.get('visibilitychange')();
+  assert.equal(timers.length, 0, 'overlapping recovery events must not schedule duplicate attempts');
+  resolveNextSync({ failCount: 1 });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(timers.length, 1, 'reported queue failures must schedule the next bounded retry');
+  for (const callback of timers.splice(0)) callback();
+  assert.equal(syncCalls, 4, 'the bounded retry must execute after a reported queue failure');
+  inviteFailuresRemaining = 1;
+  resolveNextSync({ failCount: 0 });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(inviteCalls, 1, 'recovery must attempt to refresh invites after a successful sync');
+  assert.equal(timers.length, 1, 'failed invite refresh must schedule the final bounded retry');
+  for (const callback of timers.splice(0)) callback();
+  assert.equal(syncCalls, 5, 'the final bounded retry must execute after an invite outage');
+  resolveNextSync({ failCount: 0 });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(inviteCalls, 2, 'a successful network recovery must finish with one successful invite refresh');
+
+  windowListeners.get('online')();
   authenticated = false;
   for (const callback of timers.splice(0)) callback();
-  assert.equal(syncCalls, 3, 'logout must cancel retries that were scheduled but have not started');
+  assert.equal(syncCalls, 5, 'logout must cancel retries that were scheduled but have not started');
 
   authenticated = true;
-  periodic();
+  windowListeners.get('online')();
   for (const callback of timers.splice(0)) callback();
   authenticated = false;
-  for (const resolve of syncResolvers.splice(0)) resolve();
+  resolveNextSync({ failCount: 0 });
   await Promise.resolve();
-  assert.equal(syncCalls, 6, 'sync calls already in flight may finish after logout');
-  assert.equal(inviteCalls, 3, 'logout must suppress invite refreshes chained to in-flight syncs');
+  await Promise.resolve();
+  assert.equal(syncCalls, 6, 'a sync call already in flight may finish after logout');
+  assert.equal(inviteCalls, 2, 'logout must suppress invite refreshes chained to an in-flight sync');
 
   authenticated = true;
-  await lifecycle.initApp();
-  const invitesAfterInit = inviteCalls;
-  authenticated = false;
-  for (const resolve of startupRefreshResolvers.splice(0)) resolve();
+  wsState = 'disconnected';
+  const connectsBeforeFallback = connectCalls;
+  periodic();
+  assert.equal(connectCalls, connectsBeforeFallback + 1, 'disconnected clients must periodically retry the WebSocket connection');
+  wsState = 'connected';
+  for (const callback of timers.splice(0)) callback();
+  assert.equal(syncCalls, 7, 'a periodic recovery must still inspect sync state after WebSocket reconnect');
+  resolveNextSync({ failCount: 0, skipped: true });
   await Promise.resolve();
-  assert.equal(inviteCalls, invitesAfterInit, 'logout must suppress invite refreshes chained to the startup refresh');
+  await Promise.resolve();
+  assert.equal(inviteCalls, 2, 'an overlapping in-flight sync must not be treated as completed recovery');
+  assert.equal(timers.length, 1, 'an overlapping in-flight sync must schedule a bounded retry');
+  for (const callback of timers.splice(0)) callback();
+  assert.equal(syncCalls, 8, 'the bounded retry must run after the overlapping sync finishes');
+  resolveNextSync({ failCount: 0, skipped: false });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(inviteCalls, 3, 'the bounded retry must refresh invites after successful recovery');
 
+  for (const transientState of ['connecting', 'reconnecting']) {
+    wsState = transientState;
+    periodic();
+    assert.equal(timers.length, 1, `${transientState} clients must retain REST recovery while realtime is unavailable`);
+    for (const callback of timers.splice(0)) callback();
+    resolveNextSync({ failCount: 0 });
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+  assert.equal(syncCalls, 10, 'connecting and reconnecting states must each run bounded REST recovery');
+  assert.equal(inviteCalls, 5, 'connecting and reconnecting fallback must each refresh invites once');
+  wsState = 'connected';
+
+  authenticated = true;
+  const invitesBeforeInit = inviteCalls;
   await lifecycle.initApp();
-  assert.equal(inviteCalls, invitesAfterInit, 'logout during app initialization must suppress its direct invite refresh');
+  assert.equal(inviteCalls, invitesBeforeInit + 1, 'startup must load project invites independently of the full server refresh');
+  rejectNextStartupRefresh(new Error('simulated startup refresh outage'));
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(inviteCalls, invitesBeforeInit + 1, 'failed startup refresh must not duplicate or suppress the invite load');
+
+  authenticated = false;
+  await lifecycle.initApp();
+  assert.equal(inviteCalls, invitesBeforeInit + 1, 'logged-out app initialization must not refresh invites');
 
   const connectsBeforeInterruptedInit = connectCalls;
   const refreshesBeforeInterruptedInit = startupRefreshCalls;

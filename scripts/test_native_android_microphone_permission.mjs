@@ -18,7 +18,7 @@ if (manifest.includes('android.permission.MODIFY_AUDIO_SETTINGS')) {
   throw new Error('Android manifest must not request MODIFY_AUDIO_SETTINGS for microphone capture');
 }
 
-if (!buildGradle.includes('patchTauriWebChromeMicrophonePermission')) {
+if (!buildGradle.includes('patchTauriAndroidGeneratedSources')) {
   throw new Error('Android Gradle build must patch Tauri WebChromeClient microphone permission requests');
 }
 

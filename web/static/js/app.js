@@ -1,7 +1,7 @@
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
 import { APP_VERSION, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
-import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi } from './api/index.js';
+import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -37,6 +37,7 @@ import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { createOidcNoticeFeature } from './features/oidc-notice.js';
+import { createServerUpdateIndicator } from './features/server-update-indicator.js';
 import { exposeRuntimeGlobals } from './features/runtime-globals.js';
 import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
@@ -80,6 +81,7 @@ const confirmDialogFeature = createConfirmDialogFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
 const alertInfo = confirmDialogFeature.alertInfo;
 const appDownloadsFeature = createAppDownloadsFeature();
+const serverUpdateIndicator = createServerUpdateIndicator({ serverUpdatesApi });
 const bindAppDownloadLaunchers = appDownloadsFeature.bindAppDownloadLaunchers;
 const whatsNewFeature = createWhatsNewFeature({
   appVersion: APP_VERSION,
@@ -346,6 +348,7 @@ const wsClient = createWebSocketClient({
     localStorage.removeItem('nia-mfa-enrollment-required');
     location.reload();
   },
+  onServerUpdateStatus: (status) => serverUpdateIndicator.applyStatus(status),
 });
 const getReconnectDelay = wsClient.getReconnectDelay;
 const connectWebSocket = wsClient.connectWebSocket;
@@ -389,7 +392,7 @@ function isOnlineForSync() {
 }
 
 async function syncWithServer() {
-  await trackBackgroundSyncOperation(() => syncController.syncWithServer());
+  return trackBackgroundSyncOperation(() => syncController.syncWithServer());
 }
 
 async function refreshFromServer() {
@@ -636,8 +639,9 @@ const appLifecycle = createAppLifecycle({
   updateTodayFocusButton,
   updateMinimalTodosButton,
   renderWorkspaces,
-  refreshInvites: () => sharingFeature?.loadInvites?.(),
+  refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.()),
   onAppReady: () => {
+    serverUpdateIndicator.loadStatus();
     brainDumpLiveFeature.init();
     whatsNewFeature.maybeShowWhatsNew().catch((error) => {
       console.warn("What's new content unavailable:", error);

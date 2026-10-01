@@ -57,6 +57,19 @@ def main():
             project_members_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
             assert {"status", "user_color", "updated_at"}.issubset(project_members_columns), project_members_columns
 
+            update_state_columns = {row[1] for row in db.execute("PRAGMA table_info(server_update_check_state)")}
+            assert {
+                "release_json",
+                "source",
+                "last_success_at",
+                "last_check_at",
+                "stale",
+                "check_error",
+            }.issubset(update_state_columns), update_state_columns
+
+            analytics = db.execute("SELECT value FROM app_config WHERE key = 'update_analytics_enabled'").fetchone()
+            assert analytics == ("true",), analytics
+
     print("✅ Fresh migration test passed")
 
 

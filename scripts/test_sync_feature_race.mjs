@@ -73,6 +73,81 @@ async function run() {
     throw new Error(`Expected server refresh after sync completion, got ${JSON.stringify(stores.todos)}`);
   }
 
+  const failedSyncRef = { value: false };
+  const failingFeature = createSyncFeature({
+    getDb: () => ({}),
+    dbGetAll: async () => { throw new Error('simulated IndexedDB outage'); },
+    dbPut: async () => {},
+    dbClear: async () => {},
+    getFromDB: async () => null,
+    deleteFromDB: async () => {},
+    getTodos: () => [],
+    setTodos: () => {},
+    getProjects: () => [],
+    setProjects: () => {},
+    getSections: () => [],
+    setSections: () => {},
+    getWorkspaces: () => [],
+    setWorkspaces: () => {},
+    todosApi: {},
+    projectsApi: {},
+    sectionsApi: {},
+    workspacesApi: {},
+    renderStats: () => {},
+    renderTodos: () => {},
+  });
+  await failingFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: failedSyncRef })
+    .then(() => { throw new Error('Expected sync failure to propagate'); })
+    .catch(error => {
+      if (error.message === 'Expected sync failure to propagate') throw error;
+    });
+  if (failedSyncRef.value) {
+    throw new Error('syncWithServer must release syncInProgressRef after an unexpected failure');
+  }
+
+  const cleanupFailureRef = { value: false };
+  const cleanupFailureFeature = createSyncFeature({
+    getDb: () => ({}),
+    dbGetAll: async store => store === 'syncQueue'
+      ? [{ id: 2, action: 'CREATE_PROJECT', data: { name: 'Queued project', _tempId: 'temp-project' } }]
+      : [],
+    dbPut: async () => {},
+    dbClear: async () => {},
+    getFromDB: async () => null,
+    deleteFromDB: async store => {
+      if (store === 'projects') throw new Error('simulated cleanup IndexedDB outage');
+    },
+    getTodos: () => [],
+    setTodos: () => {},
+    getProjects: () => [{ id: 'temp-project', name: 'Queued project' }],
+    setProjects: () => {},
+    getSections: () => [],
+    setSections: () => {},
+    getWorkspaces: () => [],
+    setWorkspaces: () => {},
+    todosApi: {},
+    projectsApi: {
+      create: async () => {
+        const error = new Error('simulated rejected project');
+        error.status = 400;
+        throw error;
+      },
+    },
+    sectionsApi: {},
+    workspacesApi: {},
+    renderStats: () => {},
+    renderTodos: () => {},
+  });
+  await cleanupFailureFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: cleanupFailureRef })
+    .then(() => { throw new Error('Expected cleanup failure to propagate'); })
+    .catch(error => {
+      if (error.message === 'Expected cleanup failure to propagate') throw error;
+      if (error.message !== 'simulated cleanup IndexedDB outage') throw error;
+    });
+  if (cleanupFailureRef.value) {
+    throw new Error('syncWithServer must release syncInProgressRef after queue cleanup fails');
+  }
+
   console.log('✅ Sync feature race guard test passed');
 }
 

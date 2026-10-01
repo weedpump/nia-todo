@@ -16,6 +16,7 @@ from rate_limit import rate_limiter
 from middleware.security import CSRFProtectionMiddleware, RateLimitMiddleware, RequestBodyLimitMiddleware, SecurityHeadersMiddleware
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
+from services.server_updates import update_check_background_task
 from routers.websocket import websocket_endpoint
 from errors import APIError, api_error_handler
 
@@ -52,7 +53,7 @@ async def app_shell_cache_control_middleware(request, call_next):
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2, oidc
+from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2, oidc, server_updates
 
 app.include_router(auth.router)
 app.include_router(oidc.router)
@@ -72,6 +73,7 @@ app.include_router(sharing.router)
 app.include_router(password_setup.router)
 app.include_router(two_factor.router)
 app.include_router(braindump_v2.router)
+app.include_router(server_updates.router)
 
 # ─── Exception Handlers ──────────────────────────────────────────────────────
 
@@ -80,11 +82,6 @@ app.add_exception_handler(APIError, api_error_handler)
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 
 app.add_api_websocket_route("/ws", websocket_endpoint)
-
-# ─── Public API Documentation ────────────────────────────────────────────────
-
-DOCS_DIR = Path(__file__).parent.parent / "docs"
-
 
 def _slugify_heading(value: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9äöüÄÖÜß -]", "", value).strip().lower()
@@ -274,17 +271,6 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
 </html>"""
 
 
-def _api_docs_html() -> str:
-    docs_path = DOCS_DIR / "api.md"
-    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nNo API documentation found."
-    return _document_html(
-        "nia-todo API",
-        "Public API documentation for this instance. Authentication uses JWT or API key depending on the endpoint.",
-        markdown,
-        "Search API docs… e.g. API key, passkey, /api/me",
-    )
-
-
 def _changelog_html() -> str:
     changelog_path = Path(__file__).parent.parent / "CHANGELOG.md"
     markdown = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "# Changelog\n\nNo changelog found."
@@ -305,12 +291,6 @@ def _no_store_html(content: str) -> HTMLResponse:
             "Expires": "0",
         },
     )
-
-
-@app.get("/api", response_class=HTMLResponse)
-@app.get("/api/", response_class=HTMLResponse)
-def public_api_docs():
-    return _no_store_html(_api_docs_html())
 
 
 @app.get("/changelog", response_class=HTMLResponse)
@@ -360,6 +340,7 @@ async def on_startup():
         asyncio.create_task(reminder_background_task())
         asyncio.create_task(subscription_cleanup_task())
         asyncio.create_task(rate_limit_cleanup_task())
+    asyncio.create_task(update_check_background_task())
     asyncio.create_task(delayed_start())
 
 # ─── Static Frontend ─────────────────────────────────────────────────────────

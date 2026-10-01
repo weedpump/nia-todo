@@ -139,6 +139,7 @@ let serverUpdateStartedInThisPage = false;
 let adminUsers = [];
 let currentAttachmentConfig = null;
 let currentStatsDays = 30;
+let loadedInstanceUpdateAnalyticsEnabled = null;
 let twoFactorPolicyRequired = false;
 let brainDumpFeatureEnabled = false;
 let oidcFeatureEnabled = false;
@@ -404,8 +405,8 @@ async function doAdminLogin() {
     if (data.csrf_token) {
       localStorage.setItem('csrf_token', data.csrf_token);
     }
-    setAdminAuthenticated(true);
     await loadAdminData();
+    setAdminAuthenticated(true);
     consumeAdminOidcLinkResult();
   } catch(e) {
     document.getElementById('admin-login-error').textContent = 'Error: ' + e.message;
@@ -856,6 +857,9 @@ function renderInstanceConfig(config) {
   document.getElementById('instance-public-url').value = config.public_base_url || '';
   document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
   document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
+  const analyticsEnabled = config.update_analytics_enabled !== false;
+  document.getElementById('instance-update-analytics-enabled').checked = analyticsEnabled;
+  loadedInstanceUpdateAnalyticsEnabled = analyticsEnabled;
 }
 
 function attachmentTypesToExtensionInput(types = []) {
@@ -1467,11 +1471,16 @@ async function saveInstanceConfig() {
   document.getElementById('instance-config-error').textContent = '';
   document.getElementById('instance-config-success').textContent = '';
   try {
-    const data = await apiPatch('/api/admin/instance-config', {
+    const analyticsEnabled = document.getElementById('instance-update-analytics-enabled').checked;
+    const payload = {
       public_base_url: document.getElementById('instance-public-url').value.trim(),
       allowed_origins: parseOriginsInput(document.getElementById('instance-allowed-origins').value),
       trusted_proxies: parseOriginsInput(document.getElementById('instance-trusted-proxies').value),
-    });
+    };
+    if (loadedInstanceUpdateAnalyticsEnabled === null || analyticsEnabled !== loadedInstanceUpdateAnalyticsEnabled) {
+      payload.update_analytics_enabled = analyticsEnabled;
+    }
+    const data = await apiPatch('/api/admin/instance-config', payload);
     renderInstanceConfig(data);
     document.getElementById('instance-config-success').textContent = t('admin.instance.saved');
   } catch(e) {

@@ -71,12 +71,6 @@ for prefix in api web src-tauri; do
   copy_tracked_prefix "${prefix}"
 done
 
-# Package documentation is allowlisted deliberately. Do not copy the whole
-# docs/ tree wholesale; add docs here only when they are meant to ship inside
-# the package.
-mkdir -p "${OUTPUT_ABS}/docs"
-cp -p docs/api.md "${OUTPUT_ABS}/docs/api.md"
-
 for file in CHANGELOG.md LICENSE NOTICE package.json package-lock.json start.sh .gitignore; do
   if [ -f "${file}" ]; then
     cp -p "${file}" "${OUTPUT_ABS}/${file}"

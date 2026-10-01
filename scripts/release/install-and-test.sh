@@ -22,6 +22,13 @@ SERVICE="nia-todo"
 PORT="8753"
 
 echo "📦 Installing ${DEB_FILE}..."
+# Package integration tests start the real systemd service. Disable the
+# production Umami destination before postinst performs its first restart so
+# CI runners cannot pollute update-check analytics.
+sudo install -d -m 0755 /etc/systemd/system/nia-todo.service.d
+printf '%s\n' '[Service]' 'Environment=NIA_TODO_UPDATE_UMAMI_WEBSITE_ID=' \
+  | sudo tee /etc/systemd/system/nia-todo.service.d/90-ci-disable-update-umami.conf >/dev/null
+sudo systemctl daemon-reload
 sudo apt-get install -y "$(realpath "${DEB_FILE}")"
 
 export NIA_TODO_DEV_DIR="${APP_DIR}"

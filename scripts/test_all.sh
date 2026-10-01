@@ -93,14 +93,21 @@ run_step "Fresh Migrations" python3 scripts/test_fresh_migrations.py
 run_step "Release Version Checker" python3 scripts/test_release_versions.py
 run_step "Release Native Reuse" python3 scripts/test_release_native_reuse.py
 run_step "Server Updates" python3 scripts/test_server_updates.py
+run_step "Update Analytics Admin Static" python3 scripts/test_update_analytics_admin_static.py
 run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
+run_step "Todo Attachment Thumbnails" node scripts/test_todo_attachment_thumbnails.mjs
 run_step "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
+run_step "Frontend Project Counters" node scripts/test_frontend_project_counters.mjs
 run_step "Frontend Security" node scripts/test_frontend_security.mjs
+run_step "Frontend Rich Text Editor" node scripts/test_frontend_rich_text_editor.mjs
 run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.mjs
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
+run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
+run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
+run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
 
 frontend_suite_active=0
@@ -154,11 +161,13 @@ run_frontend_step_retry "Frontend Android Reminder Rehydration" node scripts/tes
 
 restore_frontend_suite
 trap - EXIT
+run_step "Native Android Dashboard Scrollbars" node scripts/test_native_android_dashboard_scrollbars.mjs
 run_step "Native Android Location Reminder" node scripts/test_native_android_location_reminders.mjs
 run_step "Native Android WebView Cache Migration" node scripts/test_native_android_webview_cache_migration.mjs
 run_step "Native Debian WebView Cache Migration" node scripts/test_native_linux_webview_cache_migration.mjs
 run_step "Native Debian Package Name" node scripts/test_native_debian_deb_package_name.mjs
 run_step "Native Desktop Settings Static" node scripts/test_native_desktop_settings_static.mjs
+run_step "Native Linux Window Integration" node scripts/test_native_linux_window_integration.mjs
 run_step "Native Android Reminder Alarm Policy" node scripts/test_native_android_reminder_alarm_policy.mjs
 run_step "Native Android Microphone Permission" node scripts/test_native_android_microphone_permission.mjs
 run_step "Native Windows Installer Cache Hook" node scripts/test_native_windows_installer_cache_hooks.mjs

@@ -28,6 +28,44 @@
   color: var(--accent);
 }
 
+.todo-attachment-icon.todo-attachment-thumbnail-button {
+  position: relative;
+  width: 4rem;
+  height: 4rem;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.todo-attachment-thumbnail,
+.todo-attachment-thumbnail-fallback {
+  width: 100%;
+  height: 100%;
+}
+
+.todo-attachment-thumbnail {
+  display: block;
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.todo-attachment-thumbnail.is-loaded {
+  opacity: 1;
+}
+
+.todo-attachment-thumbnail-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.todo-attachment-thumbnail-fallback.is-hidden {
+  display: none;
+}
+
 .todo-attachment-body {
   min-width: 0;
 }

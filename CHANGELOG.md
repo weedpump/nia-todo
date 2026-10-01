@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-10-02
+
+### Added
+- Added lazy-loaded authenticated image thumbnails to the Todo details attachment list with clean file-icon fallbacks and object-URL cleanup.
+- Added server-side stable update checks on startup and hourly at a randomized minute, using the official website manifest with GitHub fallback, persisted status, realtime updates and a visible update indicator for all users.
+- Added an Admin → Instance setting to disable the data-minimized Umami update-check event without disabling release checks, persisted status, WebSocket broadcasts, or update notifications.
+
+### Changed
+- Moved API documentation fully to the versioned public website, removed the duplicate server-hosted copy and package source, and linked web and native clients to the always-current public API reference.
+- Updated the native application stack and supporting dependencies, including Tauri 2.12 across the Rust and JavaScript packages, the Windows bindings, HTTP client, desktop plugins, and Android Gradle toolchain.
+- Modernized the cross-platform build pipeline for Windows, Android, Debian desktop, Docker, and server packages with current SDK tooling, direct artifact uploads, reproducible packaging, and cleaned-up Android build output.
+
+### Fixed
+- Preserved native app identity for OIDC sessions by creating the user session during the one-time app exchange instead of attributing it to the external browser callback.
+- Made the rich-text Code and Quote toolbar actions toggle existing formatting off for both selections and caret-only editing contexts.
+- Kept the rich-text toolbar behind the open Todo details drawer, including the Android keyboard-fixed toolbar variant.
+- Removed the duplicate Android dashboard scrollbar by disabling the native WebView scroll indicators while retaining the app's web-owned overlay scrollbar.
+- Made each sidebar project badge count only active todos assigned directly to that project, excluding todos from child and deeper descendant projects.
+- Restored Debian Wayland title-bar controls before the first maximization and preserved compositor-aware bring-to-front activation by updating the coordinated Tauri/Tao stack.
+- Kept the first cold-start todo swipe synchronized with touch across native Android, mobile browsers, installed PWAs, and iOS/WebKit by revealing persistent localized action underlays behind a transform-only foreground card.
+- Stopped healthy WebSocket-connected clients from polling project invitations every few seconds; REST recovery now runs only after network/resume events or while realtime is disconnected, with duplicate recovery attempts and startup invite loads suppressed.
+- Replaced the mobile swipe action text glyphs with the shared Lucide flame and check icons.
+
 ## [3.1.1] - 2026-09-13
 
 ### Fixed

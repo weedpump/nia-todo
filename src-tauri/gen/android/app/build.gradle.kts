@@ -1,4 +1,7 @@
+@file:Suppress("DEPRECATION")
+
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -14,13 +17,13 @@ val tauriProperties = Properties().apply {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = 37
     namespace = "de.tobiaskneidl.nia_todo"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "de.tobiaskneidl.nia_todo"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
@@ -45,11 +48,18 @@ android {
             )
         }
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures {
         buildConfig = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
@@ -57,24 +67,46 @@ rust {
     rootDirRel = "../../../"
 }
 
-tasks.register("patchTauriWebChromeMicrophonePermission") {
+tasks.register("patchTauriAndroidGeneratedSources") {
     val webChromeClient = file("src/main/java/de/tobiaskneidl/nia_todo/generated/RustWebChromeClient.kt")
+    val rustWebView = file("src/main/java/de/tobiaskneidl/nia_todo/generated/RustWebView.kt")
+    val wryActivity = file("src/main/java/de/tobiaskneidl/nia_todo/generated/WryActivity.kt")
     doLast {
-        if (!webChromeClient.exists()) return@doLast
-        val source = webChromeClient.readText()
-        val patched = source.replace(
-            "      permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)\n      permissionList.add(Manifest.permission.RECORD_AUDIO)",
-            "      permissionList.add(Manifest.permission.RECORD_AUDIO)"
-        )
-        if (patched != source) {
-            webChromeClient.writeText(patched)
-            println("Patched Tauri WebView microphone permission request to RECORD_AUDIO only")
+        if (webChromeClient.exists()) {
+            val source = webChromeClient.readText()
+            val patched = source.replace(
+                "      permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)\n      permissionList.add(Manifest.permission.RECORD_AUDIO)",
+                "      permissionList.add(Manifest.permission.RECORD_AUDIO)"
+            )
+            if (patched != source) {
+                webChromeClient.writeText(patched)
+                println("Patched Tauri WebView microphone permission request to RECORD_AUDIO only")
+            }
+        }
+        if (rustWebView.exists()) {
+            val source = rustWebView.readText()
+            val patched = source.replace("        settings.databaseEnabled = true\n", "")
+            if (patched != source) {
+                rustWebView.writeText(patched)
+                println("Removed legacy WebView databaseEnabled assignment")
+            }
+        }
+        if (wryActivity.exists()) {
+            val source = wryActivity.readText()
+            val patched = source.replace(
+                "this@WryActivity.onBackPressed()",
+                "this@WryActivity.onBackPressedDispatcher.onBackPressed()"
+            )
+            if (patched != source) {
+                wryActivity.writeText(patched)
+                println("Updated WryActivity back navigation")
+            }
         }
     }
 }
 
 tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.configureEach {
-    dependsOn("patchTauriWebChromeMicrophonePermission")
+    dependsOn("patchTauriAndroidGeneratedSources")
 }
 
 dependencies {
@@ -92,4 +124,4 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
 }
 
-apply(from = "tauri.build.gradle.kts")
+apply(from = file("tauri.build.gradle.kts"))

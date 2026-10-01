@@ -92,6 +92,24 @@ install -m 755 "${APP_DIR}/scripts/nia-todo-restore.sh" "/usr/local/bin/nia-todo
 install -m 755 "${APP_DIR}/scripts/nia-todo-admin-password-reset.sh" "/usr/local/bin/nia-todo-admin-password-reset"
 install -m 755 -o root -g root "${APP_DIR}/scripts/nia-todo-server-update.sh" "/usr/local/bin/nia-todo-server-update"
 install -d -m 0755 -o root -g root "/var/cache/nia-todo/updates"
+if [ -L /var/log/nia-todo ]; then
+  echo "Refusing symbolic-link update log directory /var/log/nia-todo." >&2
+  exit 2
+fi
+install -d -m 0755 -o root -g root /var/log/nia-todo
+if [ -L /var/log/nia-todo/nia-todo-server-update.log ]; then
+  echo "Refusing symbolic-link update log file /var/log/nia-todo/nia-todo-server-update.log." >&2
+  exit 2
+fi
+if [ ! -e /var/log/nia-todo/nia-todo-server-update.log ]; then
+  install -m 0644 -o root -g root /dev/null /var/log/nia-todo/nia-todo-server-update.log
+elif [ ! -f /var/log/nia-todo/nia-todo-server-update.log ]; then
+  echo "Refusing non-regular update log file /var/log/nia-todo/nia-todo-server-update.log." >&2
+  exit 2
+else
+  chown root:root /var/log/nia-todo/nia-todo-server-update.log
+  chmod 0644 /var/log/nia-todo/nia-todo-server-update.log
+fi
 if [ "${SERVICE_NAME}" != "nia-todo" ]; then
   cat > "${ETC_DIR}/update-source.env" <<ENV
 SERVICE_NAME=${SERVICE_NAME}
