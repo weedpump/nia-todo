@@ -93,6 +93,7 @@ run_step "Fresh Migrations" python3 scripts/test_fresh_migrations.py
 run_step "Release Version Checker" python3 scripts/test_release_versions.py
 run_step "Release Native Reuse" python3 scripts/test_release_native_reuse.py
 run_step "Server Updates" python3 scripts/test_server_updates.py
+run_step "Update Analytics Admin Static" python3 scripts/test_update_analytics_admin_static.py
 run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 

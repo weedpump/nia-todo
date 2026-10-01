@@ -19,6 +19,7 @@ DEFAULT_INSTANCE_CONFIG = {
     "public_base_url": "",
     "allowed_origins": DEFAULT_ALLOWED_ORIGINS,
     "trusted_proxies": DEFAULT_TRUSTED_PROXIES,
+    "update_analytics_enabled": True,
     "instance_id": "",
     "instance_display_name": "nia-todo",
     "min_native_client_version": "1.7.0",
@@ -156,6 +157,13 @@ def _parse_config_value(key: str, value: Optional[str]) -> Any:
         if key == "allowed_origins":
             return normalize_allowed_origins(parsed)
         return normalize_trusted_proxies(parsed)
+    if key == "update_analytics_enabled":
+        normalized = str(value).strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+        return DEFAULT_INSTANCE_CONFIG[key]
     if key == "public_base_url":
         return normalize_public_base_url(value)
     if key in {"instance_id", "instance_display_name"}:
@@ -178,20 +186,19 @@ def _read_config_keys(keys: tuple[str, ...]) -> dict[str, Any]:
 
 
 def get_instance_config() -> dict[str, Any]:
-    keys = ("public_base_url", "allowed_origins", "trusted_proxies")
-    values = {key: DEFAULT_INSTANCE_CONFIG[key] for key in keys}
+    return _read_config_keys(("public_base_url", "allowed_origins", "trusted_proxies", "update_analytics_enabled"))
+
+
+def get_update_analytics_enabled() -> bool:
+    """Read the privacy-sensitive analytics switch and fail closed on uncertainty."""
     try:
         with get_db() as db:
-            rows = db.execute(
-                "SELECT key, value FROM app_config WHERE key IN ('public_base_url', 'allowed_origins', 'trusted_proxies')"
-            ).fetchall()
+            row = db.execute("SELECT value FROM app_config WHERE key = 'update_analytics_enabled'").fetchone()
     except Exception:
-        return values
-
-    for row in rows:
-        key = row["key"]
-        values[key] = _safe_parse_config_value(key, row["value"])
-    return values
+        return False
+    if not row:
+        return False
+    return str(row["value"] or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _ensure_instance_id() -> str:
@@ -264,7 +271,7 @@ def get_public_instance_info(request: Request) -> dict[str, Any]:
     }
 
 
-def update_instance_config(*, public_base_url: str, allowed_origins: Any, trusted_proxies: Any, client_ip: Optional[str] = None) -> dict[str, Any]:
+def update_instance_config(*, public_base_url: str, allowed_origins: Any, trusted_proxies: Any, update_analytics_enabled: Optional[bool] = None, client_ip: Optional[str] = None) -> dict[str, Any]:
     normalized = {
         "public_base_url": normalize_public_base_url(public_base_url),
         "allowed_origins": normalize_allowed_origins(allowed_origins),
@@ -275,9 +282,12 @@ def update_instance_config(*, public_base_url: str, allowed_origins: Any, truste
         "allowed_origins": json.dumps(normalized["allowed_origins"], separators=(",", ":")),
         "trusted_proxies": json.dumps(normalized["trusted_proxies"], separators=(",", ":")),
     }
+    if update_analytics_enabled is not None:
+        normalized["update_analytics_enabled"] = bool(update_analytics_enabled)
+        serialized["update_analytics_enabled"] = "true" if normalized["update_analytics_enabled"] else "false"
     with get_db() as db:
         old_rows = db.execute(
-            "SELECT key, value FROM app_config WHERE key IN ('public_base_url', 'allowed_origins', 'trusted_proxies')"
+            "SELECT key, value FROM app_config WHERE key IN ('public_base_url', 'allowed_origins', 'trusted_proxies', 'update_analytics_enabled')"
         ).fetchall()
         old_values = {row["key"]: row["value"] for row in old_rows}
         changed_keys = [key for key, value in serialized.items() if old_values.get(key) != value]
@@ -294,7 +304,7 @@ def update_instance_config(*, public_base_url: str, allowed_origins: Any, truste
                 (json.dumps(changed_keys, separators=(",", ":")), client_ip),
             )
         db.commit()
-    return normalized
+    return get_instance_config()
 
 
 def set_trusted_proxies(trusted_proxies: Any) -> list[str]:

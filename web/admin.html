@@ -191,6 +191,7 @@
   <!-- Instance Configuration -->
   <div class="admin-card" id="instance-config-card">
     <h2><span data-icon="settings"></span> <span data-i18n-key="admin.instance.title">Instance configuration</span></h2>
+    <div class="admin-help instance-config-overview-help" data-i18n-key="admin.instance.help">The base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.</div>
     <div class="admin-config-grid">
       <div class="admin-config-field full">
         <label for="instance-public-url" data-i18n-key="admin.instance.publicUrl">Public base URL</label>
@@ -204,8 +205,17 @@
         <label for="instance-trusted-proxies">Trusted Proxies</label>
         <textarea id="instance-trusted-proxies" class="admin-config-textarea ui-field" placeholder="10.0.10.14&#10;172.18.0.0/16"></textarea>
       </div>
+      <div class="admin-config-field admin-config-checkbox switch-right full admin-config-privacy-panel">
+        <div>
+          <label for="instance-update-analytics-enabled" data-i18n-key="admin.instance.updateAnalytics">Share anonymous update-check analytics</label>
+          <div class="admin-help">
+            <span data-i18n-key="admin.instance.updateAnalyticsHelp">Send one data-minimized Umami event after each update check. Disabling this does not disable update checks or notifications.</span>
+            <a href="https://homelabdiary.dev/en/privacy/" target="_blank" rel="noopener noreferrer" data-i18n-key="admin.instance.updateAnalyticsPrivacy">Privacy policy</a>
+          </div>
+        </div>
+        <input type="checkbox" id="instance-update-analytics-enabled" data-i18n-aria-label-key="admin.instance.updateAnalytics" aria-label="Share anonymous update-check analytics">
+      </div>
     </div>
-    <div class="admin-help" data-i18n-key="admin.instance.help">The base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.</div>
     <div class="admin-action-row">
       <button class="btn btn-primary" data-admin-action="saveInstanceConfig" data-i18n-key="admin.instance.save">Save instance configuration</button>
     </div>

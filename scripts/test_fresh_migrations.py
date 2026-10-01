@@ -67,6 +67,9 @@ def main():
                 "check_error",
             }.issubset(update_state_columns), update_state_columns
 
+            analytics = db.execute("SELECT value FROM app_config WHERE key = 'update_analytics_enabled'").fetchone()
+            assert analytics == ("true",), analytics
+
     print("✅ Fresh migration test passed")
 
 
