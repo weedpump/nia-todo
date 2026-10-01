@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::{
   collections::HashMap,
   fs,
-  io::Read,
   path::{Path, PathBuf},
   sync::{
     atomic::{AtomicU64, Ordering},
@@ -11,6 +10,8 @@ use std::{
   thread,
   time::{Duration, SystemTime, UNIX_EPOCH},
 };
+#[cfg(desktop)]
+use std::io::Read;
 use tauri::{AppHandle, Manager, State};
 #[cfg(desktop)]
 use tauri::{Emitter, WindowEvent};
@@ -585,6 +586,7 @@ fn desktop_open_url(url: String) -> Result<(), String> {
     .and_then(|status| if status.success() { Ok(()) } else { Err(format!("URL öffnen fehlgeschlagen: {status}")) })
 }
 
+#[cfg(desktop)]
 fn safe_download_filename(raw: &str) -> String {
   let cleaned: String = raw
     .trim()
@@ -602,6 +604,7 @@ fn safe_download_filename(raw: &str) -> String {
   if cleaned.is_empty() { "attachment".into() } else { cleaned }
 }
 
+#[cfg(desktop)]
 fn unique_download_path(dir: &Path, filename: &str) -> PathBuf {
   let candidate = dir.join(filename);
   if !candidate.exists() {
@@ -628,13 +631,16 @@ fn unique_download_path(dir: &Path, filename: &str) -> PathBuf {
   }
 }
 
+#[cfg(desktop)]
 fn same_url_origin(left: &url::Url, right: &url::Url) -> bool {
   left.scheme() == right.scheme()
     && left.host_str().map(str::to_ascii_lowercase) == right.host_str().map(str::to_ascii_lowercase)
     && left.port_or_known_default() == right.port_or_known_default()
 }
 
+#[cfg(desktop)]
 const DESKTOP_ATTACHMENT_DOWNLOAD_TIMEOUT_SECS: u64 = 60;
+#[cfg(desktop)]
 const DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES: u64 = 5 * 1024 * 1024 * 1024;
 
 #[cfg(desktop)]
