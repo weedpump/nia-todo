@@ -107,8 +107,8 @@ jobs:
       - name: Install frontend/native toolchain dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
 
       - name: Download server .deb installer
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
@@ -118,10 +118,37 @@ jobs:
           path: dist/release/build
 
       - name: Install package and run test suite
+        env:
+          MOBILE_SWIPE_BROWSERS: chromium
         run: scripts/release/install-and-test.sh "dist/release/build/nia-todo-server-v${{ needs.prepare-version.outputs.version }}-full.deb"
 
+  webkit-swipe:
+    needs: prepare-version
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-resolute@sha256:b022639ae9197f864040f92eef7b57c6d4b47db2190f77c909d8a5d902dd4b7e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare-version.outputs.bump_commit }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run WebKit mobile swipe regression
+        env:
+          MOBILE_SWIPE_BROWSERS: webkit
+        run: node scripts/test_mobile_swipe_underlay.mjs
+
   publish:
-    needs: [prepare-version, build, test]
+    needs: [prepare-version, build, test, webkit-swipe]
     runs-on: ubuntu-26.04
     env:
       VERSION: ${{ needs.prepare-version.outputs.version }}

@@ -41,8 +41,8 @@ jobs:
       - name: Install frontend/native toolchain dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
 
       - name: Build test package (no native apps embedded)
         run: |
@@ -52,4 +52,26 @@ jobs:
             --force
 
       - name: Install package and run test suite
+        env:
+          MOBILE_SWIPE_BROWSERS: chromium
         run: scripts/release/install-and-test.sh dist/release/ci/nia-todo-server-v0.0.0-full.deb
+
+  webkit-swipe:
+    runs-on: ubuntu-26.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-resolute@sha256:b022639ae9197f864040f92eef7b57c6d4b47db2190f77c909d8a5d902dd4b7e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run WebKit mobile swipe regression
+        env:
+          MOBILE_SWIPE_BROWSERS: webkit
+        run: node scripts/test_mobile_swipe_underlay.mjs
