@@ -11,4 +11,4 @@ NULL_ATTRIBUTE_DEPRECATION = (
 
 for line in sys.stdin:
     if line.rstrip("\r\n") != NULL_ATTRIBUTE_DEPRECATION:
-        sys.stderr.write(line)
+        sys.stdout.write(line)

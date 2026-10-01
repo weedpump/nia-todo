@@ -86,7 +86,7 @@ assert.match(androidJob, /GIT_CONFIG_KEY_0: init\.defaultBranch/);
 assert.match(androidJob, /GIT_CONFIG_VALUE_0: main/);
 assert.match(
   androidJob,
-  /npm run tauri -- android build --target aarch64 --apk --ci 2> >\(python3 scripts\/filter_android_gradle_stderr\.py\)/,
+  /npm run tauri -- android build --target aarch64 --apk --ci 2>&1 \| python3 scripts\/filter_android_gradle_output\.py/,
 );
 
 const filtered = spawnSync('python3', [join(ROOT, 'scripts/filter_android_sdkmanager_stderr.py')], {
@@ -97,12 +97,12 @@ assert.equal(filtered.status, 0);
 assert.equal(filtered.stdout, '');
 assert.equal(filtered.stderr, 'keep me\n');
 
-const gradleFiltered = spawnSync('python3', [join(ROOT, 'scripts/filter_android_gradle_stderr.py')], {
+const gradleFiltered = spawnSync('python3', [join(ROOT, 'scripts/filter_android_gradle_output.py')], {
   input: "Retrieving attribute with a null key. This behavior has been deprecated. This will fail with an error in Gradle 10.0. Don't request attributes from attribute containers using null keys. Consult the upgrading guide for further information: https://docs.gradle.org/8.14.3/userguide/upgrading_version_8.html#null-attribute-lookup\nkeep me too\n",
   encoding: 'utf8',
 });
 assert.equal(gradleFiltered.status, 0);
-assert.equal(gradleFiltered.stdout, '');
-assert.equal(gradleFiltered.stderr, 'keep me too\n');
+assert.equal(gradleFiltered.stdout, 'keep me too\n');
+assert.equal(gradleFiltered.stderr, '');
 
 console.log('✅ Android native build warning guards passed');
