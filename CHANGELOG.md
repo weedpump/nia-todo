@@ -5,10 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.2.0] - 2026-10-02
 
 ### Added
 - Added lazy-loaded authenticated image thumbnails to the Todo details attachment list with clean file-icon fallbacks and object-URL cleanup.
+- Added server-side stable update checks on startup and hourly at a randomized minute, using the official website manifest with GitHub fallback, persisted status, realtime updates and a visible update indicator for all users.
 - Added an Admin → Instance setting to disable the data-minimized Umami update-check event without disabling release checks, persisted status, WebSocket broadcasts, or update notifications.
 
 ### Changed
