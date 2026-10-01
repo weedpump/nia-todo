@@ -38,6 +38,7 @@ router = APIRouter(prefix="/api/oidc")
 
 NATIVE_OIDC_MARKER = "/__native_oidc"
 NATIVE_OIDC_SCHEME = "nia-todo"
+NATIVE_OIDC_CLAIMS_KEY = "_oidc_claims"
 
 
 class NativeOidcExchangeRequest(BaseModel):
@@ -273,6 +274,24 @@ def _native_completion_or_html(kind: str, payload: dict, redirect_to: str = "/")
     return _completion_html(kind, payload, redirect_to)
 
 
+def _native_user_completion(claims: dict, redirect_to: str) -> HTMLResponse | None:
+    native = _native_marker_info(redirect_to)
+    if not native:
+        return None
+    pending_claims = {
+        "iss": claims.get("iss"),
+        "sub": claims.get("sub"),
+        "email": claims.get("email"),
+        "email_verified": claims.get("email_verified") is True,
+    }
+    code = create_native_handoff(
+        kind="user",
+        payload={NATIVE_OIDC_CLAIMS_KEY: pending_claims},
+        redirect_after=native["redirect_after"],
+    )
+    return _native_redirect_html(code, "user", native["redirect_after"])
+
+
 def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLResponse:
     safe_payload_attr = html.escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False), quote=True)
     safe_kind_attr = html.escape(kind, quote=True)
@@ -349,9 +368,12 @@ def oidc_admin_link_start(_: bool = Depends(require_admin)):
 
 
 @router.post("/native/exchange")
-def oidc_native_exchange(payload: NativeOidcExchangeRequest):
+def oidc_native_exchange(payload: NativeOidcExchangeRequest, request: Request):
     handoff = consume_native_handoff(payload.code)
     data = handoff.get("payload") or {}
+    pending_claims = data.get(NATIVE_OIDC_CLAIMS_KEY) if isinstance(data, dict) else None
+    if handoff.get("kind") == "user" and isinstance(pending_claims, dict):
+        data = complete_user_oidc_login(pending_claims, request, Response())
     exchange_response = Response(
         content=json.dumps({
             "kind": handoff.get("kind"),
@@ -395,9 +417,13 @@ def oidc_callback(code: str = "", state: str = "", error: str = "", error_descri
             payload = link_admin_oidc_identity(claims)
             logger.info("OIDC admin link completed: issuer=%s subject=%s", claims.get("iss"), claims.get("sub"))
             return _completion_html("admin_link", payload, "/admin")
+        native_response = _native_user_completion(claims, state_row.get("redirect_after") or "/")
+        if native_response:
+            logger.info("OIDC native user identity validated: issuer=%s subject=%s", claims.get("iss"), claims.get("sub"))
+            return native_response
         payload = complete_user_oidc_login(claims, request, response)
         logger.info("OIDC user login completed: issuer=%s subject=%s", claims.get("iss"), claims.get("sub"))
-        return _native_completion_or_html("user", payload, state_row.get("redirect_after") or "/")
+        return _completion_html("user", payload, state_row.get("redirect_after") or "/")
     except HTTPException as exc:
         logger.warning("OIDC callback failed: %s", exc.detail)
         redirect_to = state_row.get("redirect_after") if state_row else "/"

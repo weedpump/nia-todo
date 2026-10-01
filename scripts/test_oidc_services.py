@@ -6,9 +6,11 @@ import hashlib
 import io
 import json
 import os
+import re
 import sqlite3
 import tempfile
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 BASE = Path(__file__).resolve().parents[1]
 os.environ["NIA_TODO_DATA_DIR"] = tempfile.mkdtemp(prefix="nia-todo-oidc-test-")
@@ -23,6 +25,7 @@ from starlette.responses import Response  # noqa: E402
 from services.auth import decode_jwt_token  # noqa: E402
 from services.oidc_config import get_oidc_config, normalize_oidc_config_update  # noqa: E402
 from services import oidc as oidc_service  # noqa: E402
+from routers import oidc as oidc_router  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
 from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after, validate_id_token, create_native_handoff, consume_native_handoff  # noqa: E402
 from routers.oidc import _completion_html, _native_redirect_html, oidc_native_exchange, NativeOidcExchangeRequest  # noqa: E402
@@ -41,6 +44,15 @@ class FakeRequest:
     client = FakeClient()
     cookies = {}
     headers = {"user-agent": "OIDC Test"}
+
+
+class NativeFakeRequest:
+    client = FakeClient()
+    cookies = {}
+    headers = {
+        "user-agent": "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/125 Mobile Safari/537.36 EdgA/125.0.0.0",
+        "X-Nia-Client": "app=nia-todo;mode=native;platform=android;version=v3.0.0",
+    }
 
 
 def main():
@@ -172,7 +184,7 @@ def main():
     security_source = (BASE / "api/middleware/security.py").read_text()
     assert_true('"/api/oidc/native/exchange"' in security_source, "native OIDC exchange must be CSRF-exempt before a CSRF cookie exists")
     exchange_code = create_native_handoff(kind="user", payload={"csrf_token": "exchange-csrf"}, redirect_after="/inbox")
-    exchange_response = oidc_native_exchange(NativeOidcExchangeRequest(code=exchange_code))
+    exchange_response = oidc_native_exchange(NativeOidcExchangeRequest(code=exchange_code), FakeRequest())
     exchange_body = json.loads(exchange_response.body.decode())
     assert_true(exchange_body["redirect_after"] == "/inbox", "native exchange should return redirect target")
     assert_true("set-cookie" in exchange_response.headers, "native exchange should set CSRF cookie on the returned response")
@@ -188,6 +200,78 @@ def main():
     assert_true("return-page" in native_redirect_html and "100dvh" in native_redirect_html and "overflow: hidden" in native_redirect_html and "place-items: center" in native_redirect_html, "native OIDC return page should be centered and non-scrollable on mobile")
     native_return_script = (BASE / "web/static/js/pages/oidc-native-return.js").read_text()
     assert_true("window.addEventListener('load'" in native_return_script and "900" in native_return_script and "/static/js/pages/oidc-native-return.js" in native_redirect_html, "native OIDC return page should render before launching the app callback via an external CSP-compatible script")
+
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO users (username, display_name, email, email_verified_at, password_hash, token_version)
+               VALUES ('nativeoidcuser', 'Native OIDC User', 'native@example.org', datetime('now'), 'x', 1)"""
+        )
+        native_user_id = db.execute("SELECT id FROM users WHERE username = 'nativeoidcuser'").fetchone()["id"]
+        db.commit()
+
+    native_claims = {
+        "iss": "https://id.example.org",
+        "sub": "native-sub-1",
+        "email": "native@example.org",
+        "email_verified": True,
+    }
+    original_router_functions = {
+        "consume_state": oidc_router.consume_state,
+        "discover_provider": oidc_router.discover_provider,
+        "exchange_code": oidc_router.exchange_code,
+        "validate_id_token": oidc_router.validate_id_token,
+        "enrich_claims_from_userinfo": oidc_router.enrich_claims_from_userinfo,
+    }
+    try:
+        oidc_router.consume_state = lambda _state: {
+            "purpose": "user_login",
+            "redirect_after": "/__native_oidc/user?redirect_after=%2Finbox",
+            "nonce": "native-nonce",
+        }
+        oidc_router.discover_provider = lambda _config: {"token_endpoint": "https://id.example.org/token"}
+        oidc_router.exchange_code = lambda _code, _state, _metadata, _config: {"id_token": "native-id-token"}
+        oidc_router.validate_id_token = lambda _token, _metadata, _config, _nonce: dict(native_claims)
+        oidc_router.enrich_claims_from_userinfo = lambda claims, _tokens, _metadata: claims
+        native_callback_response = oidc_router.oidc_callback(
+            code="native-code",
+            state="native-state",
+            request=FakeRequest(),
+            response=Response(),
+        )
+    finally:
+        for name, function in original_router_functions.items():
+            setattr(oidc_router, name, function)
+
+    with get_db() as db:
+        sessions_before_exchange = db.execute("SELECT COUNT(*) AS count FROM user_sessions WHERE user_id = ?", (native_user_id,)).fetchone()["count"]
+    assert_true(sessions_before_exchange == 0, "native OIDC callback must not create a browser-attributed session before the app exchange")
+
+    callback_match = re.search(r"nia-todo://oidc/callback\?[^\"&<]+(?:&amp;[^\"<]+)*", native_callback_response.body.decode())
+    assert_true(callback_match, "native OIDC callback response should contain the app handoff URL")
+    callback_url = callback_match.group(0).replace("&amp;", "&")
+    handoff_code = parse_qs(urlsplit(callback_url).query)["code"][0]
+    native_exchange_response = oidc_router.oidc_native_exchange(
+        NativeOidcExchangeRequest(code=handoff_code),
+        NativeFakeRequest(),
+    )
+    native_exchange_body = json.loads(native_exchange_response.body.decode())
+    assert_true(native_exchange_body["kind"] == "user", "native OIDC exchange should complete the user login")
+    assert_true(native_exchange_body["payload"].get("access_token"), "native OIDC exchange should mint the user session token")
+    assert_true("_oidc_claims" not in native_exchange_body["payload"], "validated internal OIDC claims must not be exposed to the native client")
+    with get_db() as db:
+        native_session = db.execute("SELECT user_agent FROM user_sessions WHERE user_id = ?", (native_user_id,)).fetchone()
+        native_token_payload = decode_jwt_token(native_exchange_body["payload"]["access_token"], db)
+    assert_true(native_session and native_session["user_agent"].startswith("nia-todo-client(app=nia-todo;mode=native;platform=android;"), "native OIDC session should preserve Android app client metadata")
+    assert_true(native_token_payload.get("mfa_login_at"), "native OIDC login should preserve delegated app-access authentication assurance")
+    assert_true(not native_token_payload.get("mfa_grant"), "native OIDC login must not mint a sensitive-action reauth grant")
+    try:
+        oidc_router.oidc_native_exchange(NativeOidcExchangeRequest(code=handoff_code), NativeFakeRequest())
+        raise AssertionError("native OIDC exchange replay should be rejected")
+    except HTTPException as exc:
+        assert_true(exc.status_code == 400, "native OIDC exchange replay should return a bad request")
+    with get_db() as db:
+        native_session_count = db.execute("SELECT COUNT(*) AS count FROM user_sessions WHERE user_id = ?", (native_user_id,)).fetchone()["count"]
+    assert_true(native_session_count == 1, "native OIDC exchange replay must not create a second session")
 
     calls = []
     original_post = oidc_service.requests.post
