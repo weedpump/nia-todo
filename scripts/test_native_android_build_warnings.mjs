@@ -67,6 +67,7 @@ assert.doesNotMatch(rootGradle, /kotlinOptions\.jvmTarget = "17"/);
 const gradleProperties = read('src-tauri/gen/android/gradle.properties');
 assert.match(gradleProperties, /^android\.javaCompile\.suppressSourceTargetDeprecationWarning=true$/m);
 assert.match(gradleProperties, /^org\.gradle\.warning\.mode=all$/m);
+assert.match(gradleProperties, /^systemProp\.org\.gradle\.deprecation\.trace=true$/m);
 
 const buildWorkflow = read('.github/workflows/build.yml');
 const androidJob = buildWorkflow.match(/  build-android:\n([\s\S]*?)\n  build-debian-desktop:/)?.[1];
