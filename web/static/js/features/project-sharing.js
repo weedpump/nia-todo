@@ -259,8 +259,10 @@ export function createProjectSharingFeature({
       if (typeof window.renderInvites === 'function') {
         window.renderInvites(invites);
       }
-    } catch (e) {
-      console.warn('Failed to load invites:', e);
+      return { ok: true, invites };
+    } catch (error) {
+      console.warn('Failed to load invites:', error);
+      return { ok: false, error };
     }
   }
 

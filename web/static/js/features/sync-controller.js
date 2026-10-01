@@ -16,9 +16,10 @@ export function createSyncController({
 
   async function syncWithServer() {
     await updateConnectionStatusView(getWsState());
-    await syncFeature.syncWithServer({ wsState: getWsState(), syncInProgressRef });
+    const result = await syncFeature.syncWithServer({ wsState: getWsState(), syncInProgressRef });
     setSyncInProgress(syncInProgressRef.value);
     await updateConnectionStatusView(getWsState());
+    return result;
   }
 
   async function refreshFromServer() {
