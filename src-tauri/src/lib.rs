@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{
   collections::HashMap,
   fs,
-  path::{Path, PathBuf},
+  path::PathBuf,
   sync::{
     atomic::{AtomicU64, Ordering},
     Arc, Mutex,
@@ -12,6 +12,8 @@ use std::{
 };
 #[cfg(desktop)]
 use std::io::Read;
+#[cfg(desktop)]
+use std::path::Path;
 use tauri::{AppHandle, Manager, State};
 #[cfg(desktop)]
 use tauri::{Emitter, WindowEvent};

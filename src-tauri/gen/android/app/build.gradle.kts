@@ -86,7 +86,7 @@ tasks.register("patchTauriAndroidGeneratedSources") {
             val patched = source.replace("        settings.databaseEnabled = true\n", "")
             if (patched != source) {
                 rustWebView.writeText(patched)
-                println("Removed deprecated WebView databaseEnabled assignment")
+                println("Removed legacy WebView databaseEnabled assignment")
             }
         }
         if (wryActivity.exists()) {
@@ -97,7 +97,7 @@ tasks.register("patchTauriAndroidGeneratedSources") {
             )
             if (patched != source) {
                 wryActivity.writeText(patched)
-                println("Patched deprecated WryActivity back navigation")
+                println("Updated WryActivity back navigation")
             }
         }
     }

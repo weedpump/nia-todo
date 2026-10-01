@@ -129,7 +129,7 @@ jobs:
       - name: Install Android SDK packages
         run: |
           set -o pipefail
-          sdkmanager --install "platform-tools" "ndk;27.0.12077973" "build-tools;35.0.0" 2> >(grep -Fv "WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated. Use Android CLI instead." >&2)
+          sdkmanager --install "platform-tools" "ndk;27.0.12077973" "build-tools;35.0.0" 2> >(python3 scripts/filter_android_sdkmanager_stderr.py)
       - name: Restore Android release keystore
         run: |
           mkdir -p secrets

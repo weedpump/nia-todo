@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +9,7 @@ const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
 const rustSource = read('src-tauri/src/lib.rs');
 assert.match(rustSource, /#\[cfg\(desktop\)\]\nuse std::io::Read;/);
+assert.match(rustSource, /#\[cfg\(desktop\)\]\nuse std::path::Path;/);
 for (const symbol of [
   'safe_download_filename',
   'unique_download_path',
@@ -51,6 +53,7 @@ assert.match(appGradle, /jvmTarget\.set\(JvmTarget\.JVM_17\)/);
 assert.doesNotMatch(appGradle, /jvmTarget = "1\.8"/);
 assert.match(appGradle, /databaseEnabled = true/);
 assert.match(appGradle, /onBackPressedDispatcher\.onBackPressed\(\)/);
+assert.doesNotMatch(appGradle, /println\("[^"\n]*deprecated/i);
 
 const rootGradle = read('src-tauri/gen/android/build.gradle.kts');
 assert.match(rootGradle, /kotlin-gradle-plugin:2\.2\.10/);
@@ -62,6 +65,7 @@ assert.doesNotMatch(rootGradle, /kotlinOptions\.jvmTarget = "17"/);
 
 const gradleProperties = read('src-tauri/gen/android/gradle.properties');
 assert.match(gradleProperties, /^android\.javaCompile\.suppressSourceTargetDeprecationWarning=true$/m);
+assert.match(gradleProperties, /^org\.gradle\.warning\.mode=all$/m);
 
 const buildWorkflow = read('.github/workflows/build.yml');
 const androidJob = buildWorkflow.match(/  build-android:\n([\s\S]*?)\n  build-debian-desktop:/)?.[1];
@@ -71,11 +75,19 @@ assert.match(androidJob, /log-accepted-android-sdk-licenses: false/);
 assert.match(androidJob, /packages: ""/);
 assert.match(
   androidJob,
-  /sdkmanager --install "platform-tools" "ndk;27\.0\.12077973" "build-tools;35\.0\.0" 2> >\(grep -Fv "WARNING: The SDK Manager CLI tool \(sdkmanager\) is deprecated\. Use Android CLI instead\." >&2\)/,
+  /sdkmanager --install "platform-tools" "ndk;27\.0\.12077973" "build-tools;35\.0\.0" 2> >\(python3 scripts\/filter_android_sdkmanager_stderr\.py\)/,
 );
 assert.match(androidJob, /set -o pipefail/);
 assert.match(androidJob, /GIT_CONFIG_COUNT: 1/);
 assert.match(androidJob, /GIT_CONFIG_KEY_0: init\.defaultBranch/);
 assert.match(androidJob, /GIT_CONFIG_VALUE_0: main/);
+
+const filtered = spawnSync('python3', [join(ROOT, 'scripts/filter_android_sdkmanager_stderr.py')], {
+  input: 'WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated. Use Android CLI instead.\nkeep me\n',
+  encoding: 'utf8',
+});
+assert.equal(filtered.status, 0);
+assert.equal(filtered.stdout, '');
+assert.equal(filtered.stderr, 'keep me\n');
 
 console.log('✅ Android native build warning guards passed');
