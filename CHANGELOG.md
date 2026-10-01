@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Added
 - Added lazy-loaded authenticated image thumbnails to the Todo details attachment list with clean file-icon fallbacks and object-URL cleanup.
+- Added an Admin → Instance setting to disable the data-minimized Umami update-check event without disabling release checks, persisted status, WebSocket broadcasts, or update notifications.
 
 ### Changed
 - Moved API documentation fully to the versioned public website, removed the duplicate server-hosted copy and package source, and linked web and native clients to the always-current public API reference.

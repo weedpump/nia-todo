@@ -111,6 +111,7 @@ class InstanceConfigRequest(BaseModel):
     public_base_url: str = ""
     allowed_origins: list[str] = []
     trusted_proxies: list[str] = []
+    update_analytics_enabled: Optional[bool] = None
 
 class AttachmentConfigRequest(BaseModel):
     enabled: bool = True
@@ -263,6 +264,7 @@ def admin_update_instance_config(data: InstanceConfigRequest, request: Request, 
         public_base_url=data.public_base_url,
         allowed_origins=data.allowed_origins,
         trusted_proxies=data.trusted_proxies,
+        update_analytics_enabled=data.update_analytics_enabled,
         client_ip=get_client_ip(request),
     )
 

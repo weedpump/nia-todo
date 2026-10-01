@@ -14,12 +14,13 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
 from services import server_updates
+from services import instance_config
 
 
 def assert_equal(actual, expected, label):
@@ -264,8 +265,10 @@ def temporary_update_db():
                 conn.close()
 
         with db_factory() as db:
+            db.executescript((ROOT / "api/migrations/019_add_instance_config.sql").read_text(encoding="utf-8"))
+            db.executescript((ROOT / "api/migrations/053_add_update_analytics_config.sql").read_text(encoding="utf-8"))
             db.executescript((ROOT / "api/migrations/052_add_server_update_check_state.sql").read_text(encoding="utf-8"))
-        with patch.object(server_updates, "get_db", db_factory):
+        with patch.object(server_updates, "get_db", db_factory), patch.object(instance_config, "get_db", db_factory):
             yield db_factory
 
 
@@ -294,9 +297,10 @@ def test_umami_event_contains_only_safe_fixed_metadata():
     response = Mock()
     response.__enter__ = Mock(return_value=response)
     response.__exit__ = Mock(return_value=False)
-    with patch.object(server_updates, "UPDATE_UMAMI_WEBSITE_ID", "website-id"), \
-         patch.object(server_updates.urllib.request, "urlopen", return_value=response) as urlopen:
-        server_updates.send_update_check_event()
+    with temporary_update_db():
+        with patch.object(server_updates, "UPDATE_UMAMI_WEBSITE_ID", "website-id"), \
+             patch.object(server_updates.urllib.request, "urlopen", return_value=response) as urlopen:
+            server_updates.send_update_check_event()
     request = urlopen.call_args.args[0]
     body = json.loads(request.data.decode("utf-8"))
     assert_equal(request.full_url, "https://umami.homelabdiary.dev/api/send", "Umami endpoint")
@@ -327,10 +331,63 @@ def test_umami_event_is_skipped_when_website_id_is_empty():
         "e5caf353-0f3a-44a9-a104-0a879eebdcc4",
         "default Umami website ID",
     )
-    with patch.object(server_updates, "UPDATE_UMAMI_WEBSITE_ID", ""), \
-         patch.object(server_updates.urllib.request, "urlopen") as urlopen:
-        server_updates.send_update_check_event()
+    with temporary_update_db():
+        with patch.object(server_updates, "UPDATE_UMAMI_WEBSITE_ID", ""), \
+             patch.object(server_updates.urllib.request, "urlopen") as urlopen:
+            server_updates.send_update_check_event()
     urlopen.assert_not_called()
+
+
+def test_umami_event_is_skipped_when_db_setting_is_disabled():
+    with temporary_update_db() as db_factory:
+        with db_factory() as db:
+            db.execute("UPDATE app_config SET value = 'false' WHERE key = 'update_analytics_enabled'")
+        with patch.object(server_updates, "UPDATE_UMAMI_WEBSITE_ID", "website-id"), \
+             patch.object(server_updates.urllib.request, "urlopen") as urlopen:
+            server_updates.send_update_check_event()
+    urlopen.assert_not_called()
+
+
+def test_update_analytics_opt_out_keeps_checks_and_websocket_broadcasts_enabled():
+    release = {
+        "tag_name": "v2.5.5",
+        "version": "2.5.5",
+        "html_url": "https://github.com/weedpump/nia-todo/releases/tag/v2.5.5",
+        "deb_asset": None,
+        "sha256_asset": None,
+        "manifest_asset": None,
+        "source": "primary",
+    }
+
+    async def run():
+        from services.websocket import manager
+
+        with patch.object(server_updates, "get_latest_release", return_value=release) as latest, \
+             patch.object(server_updates, "record_successful_check") as record, \
+             patch.object(
+                 server_updates,
+                 "get_public_update_status",
+                 side_effect=[
+                     {"update_available": False, "stale": False},
+                     {"update_available": True, "stale": False},
+                 ],
+             ), \
+             patch.object(server_updates.urllib.request, "urlopen") as urlopen, \
+             patch.object(manager, "broadcast", new=AsyncMock()) as broadcast:
+            with temporary_update_db() as db_factory:
+                with db_factory() as db:
+                    db.execute("UPDATE app_config SET value = 'false' WHERE key = 'update_analytics_enabled'")
+                result = await server_updates.perform_update_check("scheduled")
+
+        latest.assert_called_once_with()
+        record.assert_called_once()
+        urlopen.assert_not_called()
+        broadcast.assert_awaited_once_with(
+            {"type": "server_update_status", "payload": {"update_available": True, "stale": False}}
+        )
+        assert_equal(result, {"update_available": True, "stale": False}, "opt-out update result")
+
+    asyncio.run(run())
 
 
 def test_umami_website_id_environment_override_allows_explicit_disable():
@@ -676,6 +733,8 @@ def main():
     test_public_status_is_minimal_and_uses_retained_release()
     test_umami_event_contains_only_safe_fixed_metadata()
     test_umami_event_is_skipped_when_website_id_is_empty()
+    test_umami_event_is_skipped_when_db_setting_is_disabled()
+    test_update_analytics_opt_out_keeps_checks_and_websocket_broadcasts_enabled()
     test_umami_website_id_environment_override_allows_explicit_disable()
     test_update_checks_are_serialized_in_process()
     test_hourly_schedule_targets_selected_minute()

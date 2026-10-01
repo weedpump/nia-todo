@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from db import get_db, now_iso
-from services.instance_config import _read_web_app_version
+from services.instance_config import _read_web_app_version, get_update_analytics_enabled
 
 DEFAULT_PRIMARY_URL = "https://nia-todo.homelabdiary.dev/update/stable.json"
 DEFAULT_RELEASE_API_LATEST = "https://api.github.com/repos/weedpump/nia-todo/releases/latest"
@@ -349,7 +349,7 @@ def get_public_update_status() -> dict[str, bool]:
 
 
 def send_update_check_event() -> None:
-    if not UPDATE_UMAMI_WEBSITE_ID:
+    if not UPDATE_UMAMI_WEBSITE_ID or not get_update_analytics_enabled():
         return
     body = json.dumps(
         {

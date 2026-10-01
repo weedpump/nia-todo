@@ -9,6 +9,25 @@ await withFreshDb(async () => {
     await page.locator('#admin-login-form button[type="submit"]').click();
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 15_000 });
 
+    await page.locator('[data-admin-page="instance"]').click();
+    const analyticsToggle = page.locator('#instance-update-analytics-enabled');
+    await analyticsToggle.waitFor({ state: 'visible' });
+    if (!(await analyticsToggle.isChecked())) throw new Error('Update analytics should default enabled');
+    await analyticsToggle.uncheck();
+    await page.locator('[data-admin-action="saveInstanceConfig"]').click();
+    await page.waitForFunction(() => document.getElementById('instance-config-success')?.textContent?.trim());
+    const savedConfig = await page.evaluate(async () => {
+      const token = localStorage.getItem('admin_jwt_token');
+      const response = await fetch('/api/admin/instance-config', {
+        credentials: 'same-origin',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error(`Instance config read failed: ${response.status}`);
+      return response.json();
+    });
+    if (savedConfig.update_analytics_enabled !== false) throw new Error('Update analytics toggle was not saved');
+    await page.locator('[data-admin-page="overview"]').click();
+
     await page.locator('[data-admin-action="openAdminPasswordDialog"]').click();
     await page.locator('#admin-password-dialog.active').waitFor({ state: 'visible' });
     await page.locator('#admin-password-dialog-cancel').click();

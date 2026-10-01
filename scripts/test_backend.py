@@ -536,7 +536,7 @@ class TestSuite:
 
     def test_instance_config_get(self):
         status, data = curl("GET", "/api/admin/instance-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data is not None and "public_base_url" in data and "allowed_origins" in data and "trusted_proxies" in data and "instance_id" not in data
+        passed = ok(status) and data is not None and data.get("update_analytics_enabled") is True and "public_base_url" in data and "allowed_origins" in data and "trusted_proxies" in data and "instance_id" not in data
         self.results["instance_config_get"] = {"status": status, "passed": passed, "expected": "200 + admin config fields without public identity"}
         return passed
 
@@ -693,14 +693,15 @@ class TestSuite:
             "public_base_url": "",
             "allowed_origins": ["https://allowed.example"],
             "trusted_proxies": ["127.0.0.1", "10.0.10.0/24"],
+            "update_analytics_enabled": False,
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data and data.get("allowed_origins") == ["https://allowed.example"] and data.get("trusted_proxies") == ["127.0.0.1/32", "10.0.10.0/24"]
+        passed = ok(status) and data and data.get("update_analytics_enabled") is False and data.get("allowed_origins") == ["https://allowed.example"] and data.get("trusted_proxies") == ["127.0.0.1/32", "10.0.10.0/24"]
         self.results["instance_config_update"] = {"status": status, "passed": passed, "expected": "200 + normalized config"}
         return passed
 
     def test_instance_config_audit_written(self):
         changed_keys = db_scalar("SELECT changed_keys FROM app_config_audit ORDER BY id DESC LIMIT 1")
-        passed = bool(changed_keys and "allowed_origins" in changed_keys and "trusted_proxies" in changed_keys)
+        passed = bool(changed_keys and "allowed_origins" in changed_keys and "trusted_proxies" in changed_keys and "update_analytics_enabled" in changed_keys)
         self.results["instance_config_audit_written"] = {"status": 200 if passed else 500, "passed": passed, "expected": "audit row for config change"}
         return passed
 
@@ -816,6 +817,7 @@ class TestSuite:
             "public_base_url": "",
             "allowed_origins": ["https://allowed.example"],
             "trusted_proxies": ["0.0.0.0/0"],
+            "update_analytics_enabled": False,
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
         detail = data.get("detail", "") if data else ""
         passed = status == 400 and any(fragment in detail for fragment in ("entire internet", "gesamte Internet"))
