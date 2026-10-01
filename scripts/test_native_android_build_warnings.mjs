@@ -42,8 +42,9 @@ assert.match(oidcCallback, /@Suppress\("DEPRECATION"\)/);
 
 const buildTask = read('src-tauri/gen/android/buildSrc/src/main/java/de/tobiaskneidl/nia_todo/kotlin/BuildTask.kt');
 assert.match(buildTask, /ExecOperations/);
+assert.match(buildTask, /ProjectLayout/);
 assert.match(buildTask, /@Inject/);
-assert.doesNotMatch(buildTask, /project\.exec\s*\{/);
+assert.doesNotMatch(buildTask, /\bproject\./);
 
 const appGradle = read('src-tauri/gen/android/app/build.gradle.kts');
 assert.match(appGradle, /sourceCompatibility = JavaVersion\.VERSION_17/);
