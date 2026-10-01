@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Added
 - Added lazy-loaded authenticated image thumbnails to the Todo details attachment list with clean file-icon fallbacks and object-URL cleanup.
 
+### Changed
+- Updated the native application stack and supporting dependencies, including Tauri 2.12 across the Rust and JavaScript packages, the Windows bindings, HTTP client, desktop plugins, and Android Gradle toolchain.
+- Modernized the cross-platform build pipeline for Windows, Android, Debian desktop, Docker, and server packages with current SDK tooling, direct artifact uploads, reproducible packaging, and cleaned-up Android build output.
+
 ### Fixed
 - Preserved native app identity for OIDC sessions by creating the user session during the one-time app exchange instead of attributing it to the external browser callback.
 - Made the rich-text Code and Quote toolbar actions toggle existing formatting off for both selections and caret-only editing contexts.
