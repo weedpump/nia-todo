@@ -3,6 +3,7 @@ package de.tobiaskneidl.nia_todo
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 
 class OidcCallbackActivity : Activity() {
@@ -38,6 +39,15 @@ class OidcCallbackActivity : Activity() {
       // Keep the callback trampoline crash-safe. The user can always reopen the app.
     } finally {
       finish()
+      disableExitTransition()
+    }
+  }
+
+  @Suppress("DEPRECATION")
+  private fun disableExitTransition() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
+    } else {
       overridePendingTransition(0, 0)
     }
   }

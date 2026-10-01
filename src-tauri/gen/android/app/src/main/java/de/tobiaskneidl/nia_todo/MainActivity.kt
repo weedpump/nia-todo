@@ -545,13 +545,14 @@ class MainActivity : TauriActivity() {
               put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/nia-todo")
               put(MediaStore.Downloads.IS_PENDING, 1)
             }
-            collectionUri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            val destinationUri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
               ?: throw IllegalStateException("Could not create download entry")
-            contentResolver.openOutputStream(collectionUri!!)?.use { output ->
+            collectionUri = destinationUri
+            contentResolver.openOutputStream(destinationUri)?.use { output ->
               connection.inputStream.use { input -> input.copyTo(output) }
             } ?: throw IllegalStateException("Could not open download entry")
             val done = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
-            contentResolver.update(collectionUri!!, done, null, null)
+            contentResolver.update(destinationUri, done, null, null)
             "Downloads/nia-todo/$targetName"
           } else {
             val dir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "nia-todo").apply { mkdirs() }
