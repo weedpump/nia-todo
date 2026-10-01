@@ -150,7 +150,9 @@ jobs:
           tauri.android.versionCode=${VERSION_CODE}
           EOF
           cp src-tauri/tauri.conf.json src-tauri/gen/android/app/src/main/assets/tauri.conf.json
-      - run: npm run tauri -- android build --target aarch64 --apk --ci
+      - name: Build Android APK
+        run: |
+          npm run tauri -- android build --target aarch64 --apk --ci 2> >(python3 scripts/filter_android_gradle_stderr.py)
       - name: Verify generated Android version (release builds only)
         if: inputs.version != ''
         run: grep -Fq "tauri.android.versionName=${{ inputs.version }}" src-tauri/gen/android/app/tauri.properties

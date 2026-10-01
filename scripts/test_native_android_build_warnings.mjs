@@ -68,7 +68,7 @@ assert.doesNotMatch(rootGradle, /kotlinOptions\.jvmTarget = "17"/);
 const gradleProperties = read('src-tauri/gen/android/gradle.properties');
 assert.match(gradleProperties, /^android\.javaCompile\.suppressSourceTargetDeprecationWarning=true$/m);
 assert.match(gradleProperties, /^org\.gradle\.warning\.mode=all$/m);
-assert.match(gradleProperties, /^systemProp\.org\.gradle\.deprecation\.trace=true$/m);
+assert.doesNotMatch(gradleProperties, /deprecation\.trace/);
 
 const buildWorkflow = read('.github/workflows/build.yml');
 const androidJob = buildWorkflow.match(/  build-android:\n([\s\S]*?)\n  build-debian-desktop:/)?.[1];
@@ -84,6 +84,10 @@ assert.match(androidJob, /set -o pipefail/);
 assert.match(androidJob, /GIT_CONFIG_COUNT: 1/);
 assert.match(androidJob, /GIT_CONFIG_KEY_0: init\.defaultBranch/);
 assert.match(androidJob, /GIT_CONFIG_VALUE_0: main/);
+assert.match(
+  androidJob,
+  /npm run tauri -- android build --target aarch64 --apk --ci 2> >\(python3 scripts\/filter_android_gradle_stderr\.py\)/,
+);
 
 const filtered = spawnSync('python3', [join(ROOT, 'scripts/filter_android_sdkmanager_stderr.py')], {
   input: 'WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated. Use Android CLI instead.\nkeep me\n',
@@ -92,5 +96,13 @@ const filtered = spawnSync('python3', [join(ROOT, 'scripts/filter_android_sdkman
 assert.equal(filtered.status, 0);
 assert.equal(filtered.stdout, '');
 assert.equal(filtered.stderr, 'keep me\n');
+
+const gradleFiltered = spawnSync('python3', [join(ROOT, 'scripts/filter_android_gradle_stderr.py')], {
+  input: "Retrieving attribute with a null key. This behavior has been deprecated. This will fail with an error in Gradle 10.0. Don't request attributes from attribute containers using null keys. Consult the upgrading guide for further information: https://docs.gradle.org/8.14.3/userguide/upgrading_version_8.html#null-attribute-lookup\nkeep me too\n",
+  encoding: 'utf8',
+});
+assert.equal(gradleFiltered.status, 0);
+assert.equal(gradleFiltered.stdout, '');
+assert.equal(gradleFiltered.stderr, 'keep me too\n');
 
 console.log('✅ Android native build warning guards passed');
