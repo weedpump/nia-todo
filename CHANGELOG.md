@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Stopped the dashboard's periodic stats refresh from replacing and re-downloading an unchanged user avatar every 30 seconds.
+
 ## [3.2.1] - 2026-10-02
 
 ### Fixed

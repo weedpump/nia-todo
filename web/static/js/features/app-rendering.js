@@ -1,5 +1,5 @@
 import { apiResourceUrl } from '../core/config.js';
-import { loadAuthenticatedImage } from '../core/authenticated-image.js';
+import { loadAuthenticatedImage, releaseAuthenticatedImage } from '../core/authenticated-image.js';
 import { getActiveLanguage, t } from '../i18n/index.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
@@ -216,6 +216,12 @@ export function createAppRenderingFeature({
     const avatarVersion = user?.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
     const avatarBaseSrc = user?.avatar_url ? apiResourceUrl(user.avatar_url) : '';
     const avatarSrc = avatarBaseSrc ? `${avatarBaseSrc}${avatarVersion ? `?v=${avatarVersion}` : ''}` : '';
+    const currentAvatar = el.querySelector('[data-auth-avatar]');
+    const reusableAvatar = currentAvatar
+      && (currentAvatar.dataset.authAvatarSrc === avatarSrc || currentAvatar.dataset.authAvatarPendingSrc === avatarSrc)
+      ? currentAvatar
+      : null;
+    if (currentAvatar && !reusableAvatar) releaseAuthenticatedImage(currentAvatar);
     const locale = getActiveLanguage() === 'en' ? 'en-US' : 'de-DE';
     const dateTime = new Intl.DateTimeFormat(locale, {
       weekday: 'long',
@@ -232,6 +238,7 @@ export function createAppRenderingFeature({
     const showDashboard = currentFilter === 'all' && !currentProjectId && !search;
     el.hidden = !showDashboard;
     if (!showDashboard) {
+      if (currentAvatar) releaseAuthenticatedImage(currentAvatar);
       el.innerHTML = '';
       return;
     }
@@ -339,7 +346,24 @@ export function createAppRenderingFeature({
           </div>
         </div>
       </section>`;
-    if (avatarSrc) loadAuthenticatedImage(el.querySelector('[data-auth-avatar]'), avatarSrc);
+    if (avatarSrc) {
+      const nextAvatar = el.querySelector('[data-auth-avatar]');
+      if (reusableAvatar) {
+        nextAvatar?.replaceWith(reusableAvatar);
+      } else if (nextAvatar) {
+        nextAvatar.dataset.authAvatarPendingSrc = avatarSrc;
+        loadAuthenticatedImage(nextAvatar, avatarSrc).then(loaded => {
+          const stillCurrent = el.querySelector('[data-auth-avatar]') === nextAvatar
+            && nextAvatar.dataset.authAvatarPendingSrc === avatarSrc;
+          if (!stillCurrent) {
+            if (loaded) releaseAuthenticatedImage(nextAvatar);
+            return;
+          }
+          delete nextAvatar.dataset.authAvatarPendingSrc;
+          if (loaded) nextAvatar.dataset.authAvatarSrc = avatarSrc;
+        });
+      }
+    }
   }
 
   function sortProjectSectionTodos(list) {

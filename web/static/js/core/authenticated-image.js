@@ -2,6 +2,13 @@ import { getAuthHeaders } from '../api/http.js';
 
 const objectUrls = new WeakMap();
 
+export function releaseAuthenticatedImage(img) {
+  const objectUrl = objectUrls.get(img);
+  if (!objectUrl) return;
+  URL.revokeObjectURL(objectUrl);
+  objectUrls.delete(img);
+}
+
 export async function loadAuthenticatedImage(img, url) {
   if (!img || !url) return false;
   const headers = getAuthHeaders();
@@ -10,8 +17,7 @@ export async function loadAuthenticatedImage(img, url) {
   try {
     response = await fetch(url, { headers, credentials: 'include' });
     if (!response.ok) return false;
-    const previous = objectUrls.get(img);
-    if (previous) URL.revokeObjectURL(previous);
+    releaseAuthenticatedImage(img);
     const objectUrl = URL.createObjectURL(await response.blob());
     objectUrls.set(img, objectUrl);
     img.src = objectUrl;
