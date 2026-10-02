@@ -1,13 +1,13 @@
 #!/bin/bash
-# Bump the working (develop) version to a "-dev" pre-release marker across
+# Bump the working version to a "-dev" pre-release marker across
 # source files and commit it on the current branch.
 #
 # Safe to merge into main at any point: the tag-triggered release workflow
 # (prepare-release-version.sh) always overwrites these exact same strings
 # unconditionally when a release is tagged, regardless of what was there
 # before (including a leftover "-dev" suffix). So there is no coupling
-# between this script and the release pipeline - bump develop whenever you
-# start working on a new version, independent of release cadence on main.
+# between this script and the release pipeline - bump the working version
+# whenever you start a new version, independent of the release cadence.
 #
 # Usage: scripts/release/bump-dev-version.sh VERSION   (e.g. 3.0.3)
 # Sets the working version to VERSION-dev, e.g. 3.0.3-dev.

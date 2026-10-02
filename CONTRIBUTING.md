@@ -16,8 +16,9 @@ Test scripts read `NIA_TODO_DEV_DIR` for their working directory; it defaults to
 
 ## Branches
 
-- `develop` -> active development
-- `main` -> stable versions / tags
+- create feature or fix branches from `main`
+- open pull requests directly against `main`
+- releases are tagged from `main`
 
 ## Tests
 
