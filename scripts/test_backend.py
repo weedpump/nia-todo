@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nia-todo Backend Test Suite - develop branch
+nia-todo Backend Test Suite
 Tests ALL API endpoints with automatic DB backup/restore.
 
 Ablauf:
@@ -1903,7 +1903,7 @@ def print_results(results: dict):
 
 def main():
     print("=" * 70)
-    print("🧪 nia-todo Backend Test Suite (develop)")
+    print("🧪 nia-todo Backend Test Suite")
     print("=" * 70)
     print(f"Service: {SERVICE}")
     print(f"URL: {URL}")

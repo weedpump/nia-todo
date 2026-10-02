@@ -4,18 +4,17 @@
 
 - work in your local dev checkout; scripts read the path from `NIA_TODO_DEV_DIR` (defaults to the repo root)
 - do not expect or modify live data on this host; production runs on a separate LXC
-- commit/push to `develop` as normal; this does **not** trigger CI
+- create feature or fix branches from `main` and open pull requests directly against `main`
 
 ## Branches
 
-- `develop` -> active development / current-codebase fixes
-- `main` -> stable versions / tags
+- `main` -> active development, releases, and tags
 
 ## Workflows
 
 Three files, no duplicated build logic. Test logic is intentionally duplicated between `tests.yml` and `release.yml`, not shared via `workflow_call`: `tests.yml` builds and tests a synthetic `v0.0.0` package for fast PR/push feedback, while `release.yml` downloads and tests the actual versioned release `.deb` built by `build.yml` — they can't share a single job.
 
-- **`tests.yml`**: builds a synthetic test package and runs `scripts/release/install-and-test.sh` against it automatically on pull requests and on every push to `main`. Plain pushes to `develop` do not trigger it. Also runs standalone via manual dispatch.
+- **`tests.yml`**: builds a synthetic test package and runs `scripts/release/install-and-test.sh` against it automatically on pull requests and on every push to `main`. Also runs standalone via manual dispatch.
 - **`build.yml`**: the single source of truth for building Windows/Android/Debian-desktop/Docker/the full server `.deb`. Triggered manually for ad-hoc test builds (tick only the packages you want; Docker/server-.deb always embed native apps - freshly built ones if selected, otherwise auto-fetched from the latest published GitHub release) - and reused by `release.yml` with a real version and all five packages enabled.
 - **`release.yml`**: tag-triggered. Bumps the version and moves the tag, calls `build.yml` with the real version (which also pushes the Docker image directly to GHCR/Docker Hub), runs `scripts/release/install-and-test.sh` against the built server `.deb`, then creates the GitHub release from it.
 
@@ -23,16 +22,13 @@ Three files, no duplicated build logic. Test logic is intentionally duplicated b
 
 Releases are entirely manual to trigger, then fully automatic:
 
-1. Merge `develop` into `main` yourself (`git checkout main && git merge develop`), whenever you consider it ready.
-2. Add a `CHANGELOG.md` section for the version first: `## [VERSION] - YYYY-MM-DD`.
-3. Tag `main` and push the tag: `git tag vX.Y.Z && git push origin main && git push origin vX.Y.Z`.
-4. Pushing the tag triggers the release workflow, which:
+1. Add a `CHANGELOG.md` section for the version first: `## [VERSION] - YYYY-MM-DD`.
+2. Tag `main` and push the tag: `git tag vX.Y.Z && git push origin main && git push origin vX.Y.Z`.
+3. Pushing the tag triggers the release workflow, which:
    - bumps the shared version (web app, service worker, Tauri/Cargo, Android) from the tag name via `scripts/release/prepare-release-version.sh`, commits it on `main`, and **force-moves the tag** onto that commit so the tag always points at the exact code that was built
    - builds Windows, Android, and Debian desktop apps, plus the Docker image and full server `.deb`
    - runs the full test suite against the built server `.deb`
    - publishes the GitHub release (assets + checksums), and pushes images to GHCR + Docker Hub
-
-`develop` is not touched automatically; bump it to the next `-dev` version yourself whenever you start the next round of work.
 
 Optional: re-run the workflow with `set_min_app_version: true` only when older native apps must be forced to update; without it, older native apps remain compatible.
 
@@ -74,7 +70,7 @@ Native build notes from `v1.6.0` onward:
 
 ## Auth/Admin/2FA Changes
 
-- develop password/onboarding/2FA changes on feature branches
+- develop password/onboarding/2FA changes on dedicated feature branches
 - validate email addresses client-side and server-side
 - admins create password setup/reset links instead of setting passwords directly
 - password links are single-use and valid for 24 hours
