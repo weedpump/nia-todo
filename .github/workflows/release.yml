@@ -123,7 +123,7 @@ jobs:
         run: scripts/release/install-and-test.sh "dist/release/build/nia-todo-server-v${{ needs.prepare-version.outputs.version }}-full.deb"
 
   webkit-swipe:
-    needs: prepare-version
+    needs: [prepare-version, build]
     runs-on: ubuntu-26.04
     permissions:
       contents: read
