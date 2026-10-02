@@ -107,6 +107,20 @@ def test_update_analytics_read_failure_fails_closed():
     assert_true(enabled is False, "analytics must stay disabled when its persisted state cannot be read")
 
 
+def test_ipv4_mapped_peer_matches_ipv4_trusted_proxy():
+    with patch.object(instance_config, "get_trusted_proxies", return_value=["10.100.10.12/32"]):
+        trusted = instance_config.is_trusted_proxy("::ffff:10.100.10.12")
+        forwarded = instance_config.forwarded_client_ip("::ffff:10.100.10.12", "198.51.100.42")
+    assert_true(trusted, "IPv4-mapped peer should match the equivalent IPv4 trusted proxy")
+    assert_true(forwarded == "198.51.100.42", "forwarded client IP should be accepted from an IPv4-mapped trusted proxy")
+
+
+def test_ipv4_mapped_peer_does_not_match_different_ipv4_proxy():
+    with patch.object(instance_config, "get_trusted_proxies", return_value=["10.100.10.12/32"]):
+        trusted = instance_config.is_trusted_proxy("::ffff:10.100.10.13")
+    assert_true(trusted is False, "IPv4-mapped peer must not match a different IPv4 trusted proxy")
+
+
 def main():
     tests = [
         test_source_floor_wins_over_older_db_value,
@@ -116,6 +130,8 @@ def main():
         test_update_analytics_update_is_persisted_and_audited,
         test_omitted_update_analytics_setting_preserves_existing_opt_out,
         test_update_analytics_read_failure_fails_closed,
+        test_ipv4_mapped_peer_matches_ipv4_trusted_proxy,
+        test_ipv4_mapped_peer_does_not_match_different_ipv4_proxy,
     ]
     for test in tests:
         test()

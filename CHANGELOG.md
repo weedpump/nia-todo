@@ -5,10 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.2.1] - 2026-10-02
 
 ### Fixed
 - Preserved the intended spacing between the native app version and Changelog action when no server update indicator is visible.
+- Accepted IPv4-mapped IPv6 peer addresses from configured IPv4 trusted proxies so forwarded client IPs are used for sessions and request handling.
 
 ## [3.2.0] - 2026-10-02
 
