@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Fixed
 - Kept expanded mobile Todo quick actions below confirmation dialogs and restored square fullscreen confirmation modals in mobile browsers.
 - Stopped the dashboard's periodic stats refresh from replacing and re-downloading an unchanged user avatar every 30 seconds.
+- Restored Debian GNOME/Wayland global hotkeys by using the XDG Desktop Portal exclusively on Wayland, keeping the native shortcut backend limited to X11, registering the packaged host application, accepting version 1 action delivery, applying version 2 activation tokens through GDK Wayland, recovering automatically from the in-memory hotkey snapshot after portal restarts, and making the toggle shortcut bring background windows forward before hiding focused ones.
 
 ## [3.2.1] - 2026-10-02
 

@@ -30,10 +30,105 @@ use std::process::Command;
 type LinuxPortalShortcutSession = ashpd::desktop::Session<ashpd::desktop::global_shortcuts::GlobalShortcuts>;
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-static LINUX_PORTAL_HOTKEY_GENERATION: AtomicU64 = AtomicU64::new(0);
+const LINUX_DESKTOP_APP_ID: &str = "de.tobiaskneidl.nia-todo";
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-static LINUX_PORTAL_SHORTCUT_SESSION: Mutex<Option<Arc<LinuxPortalShortcutSession>>> = Mutex::new(None);
+struct LinuxPortalActiveSession {
+  generation: u64,
+  handle: String,
+  session: Arc<LinuxPortalShortcutSession>,
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+struct LinuxPortalLifecycleState {
+  generation: u64,
+  recovery_generation: Option<u64>,
+  active_session: Option<LinuxPortalActiveSession>,
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+impl Default for LinuxPortalLifecycleState {
+  fn default() -> Self {
+    Self { generation: 0, recovery_generation: None, active_session: None }
+  }
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+impl LinuxPortalLifecycleState {
+  fn begin_generation(&mut self) -> (u64, Option<Arc<LinuxPortalShortcutSession>>) {
+    self.generation = self.generation.wrapping_add(1).max(1);
+    self.recovery_generation = None;
+    let previous = self.active_session.take().map(|active| active.session);
+    (self.generation, previous)
+  }
+
+  fn is_current(&self, generation: u64) -> bool {
+    self.generation == generation
+  }
+
+  fn schedule_recovery(&mut self, generation: u64) -> bool {
+    if self.generation != generation || self.recovery_generation.is_some() {
+      return false;
+    }
+    self.recovery_generation = Some(generation);
+    true
+  }
+
+  fn claim_recovery(&mut self, generation: u64) -> bool {
+    if self.generation != generation || self.recovery_generation != Some(generation) {
+      return false;
+    }
+    self.recovery_generation = None;
+    true
+  }
+
+  fn rearm_recovery(&mut self, generation: u64) -> bool {
+    self.schedule_recovery(generation)
+  }
+
+  fn is_active_session(&self, generation: u64, handle: &str) -> bool {
+    self.active_session
+      .as_ref()
+      .is_some_and(|active| active.generation == generation && active.handle == handle)
+  }
+
+  fn take_active_session(&mut self, generation: u64, handle: &str) -> Option<Arc<LinuxPortalShortcutSession>> {
+    if !self.is_active_session(generation, handle) {
+      return None;
+    }
+    self.active_session.take().map(|active| active.session)
+  }
+
+  fn listener_ended(&mut self, generation: u64, handle: &str) -> Option<Arc<LinuxPortalShortcutSession>> {
+    if !self.is_active_session(generation, handle) {
+      return None;
+    }
+    let session = self.active_session.take().map(|active| active.session)?;
+    self.schedule_recovery(generation);
+    Some(session)
+  }
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+static LINUX_PORTAL_STATE: Mutex<LinuxPortalLifecycleState> = Mutex::new(LinuxPortalLifecycleState {
+  generation: 0,
+  recovery_generation: None,
+  active_session: None,
+});
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+static LINUX_PORTAL_OPERATION_LOCK: Mutex<()> = Mutex::new(());
+
+#[cfg(desktop)]
+static DESKTOP_SETTINGS_TRANSACTION_LOCK: Mutex<()> = Mutex::new(());
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+enum PortalApplyOutcome {
+  Active,
+  NoShortcuts,
+  Retry,
+  Superseded,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -268,16 +363,33 @@ fn conceal_main_window(window: &tauri::WebviewWindow) {
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-fn present_main_window_with_activation(app: &AppHandle, activation_token: Option<&str>, timestamp_ms: Option<u32>) {
-  use gtk::prelude::GtkWindowExt;
+fn present_main_window_with_activation(app: &AppHandle, activation_token: Option<&str>) {
+  use gtk::glib::translate::ToGlibPtr;
+  use gtk::prelude::{GtkWindowExt, WidgetExt};
 
   if let Some(window) = app.get_webview_window("main") {
     if let Ok(gtk_window) = window.gtk_window() {
       if let Some(token) = activation_token.filter(|token| !token.is_empty()) {
-        gtk_window.set_startup_id(token);
-      }
-      if let Some(timestamp_ms) = timestamp_ms {
-        gtk_window.present_with_time(timestamp_ms);
+        let display = gtk_window.display();
+        let display_ptr: *mut gtk::gdk::ffi::GdkDisplay = display.to_glib_none().0;
+        let is_wayland = unsafe {
+          gtk::glib::gobject_ffi::g_type_check_instance_is_a(
+            display_ptr.cast::<gtk::glib::gobject_ffi::GTypeInstance>(),
+            gdk_wayland_sys::gdk_wayland_display_get_type(),
+          ) != 0
+        };
+        if is_wayland {
+          if let Ok(token) = std::ffi::CString::new(token) {
+            unsafe {
+              gdk_wayland_sys::gdk_wayland_display_set_startup_notification_id(
+                display_ptr as *mut gdk_wayland_sys::GdkWaylandDisplay,
+                token.as_ptr(),
+              );
+            }
+          }
+        } else {
+          gtk_window.set_startup_id(token);
+        }
       }
     }
     let _ = window.show();
@@ -291,7 +403,8 @@ fn toggle_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let is_visible = window.is_visible().unwrap_or(false);
     let is_minimized = window.is_minimized().unwrap_or(false);
-    if is_visible && !is_minimized {
+    let is_focused = window.is_focused().unwrap_or(false);
+    if is_visible && !is_minimized && is_focused {
       conceal_main_window(&window);
     } else {
       show_main_window(app);
@@ -387,26 +500,41 @@ fn activation_token_from_options(options: &std::collections::HashMap<String, ash
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-fn handle_portal_hotkey(app: &AppHandle, action: &str, activation_token: Option<&str>, timestamp_ms: Option<u32>) {
+fn handle_portal_hotkey(
+  app: &AppHandle,
+  action: &str,
+  activation_token: Option<&str>,
+  generation: u64,
+  session_handle: &str,
+) {
   let app = app.clone();
   let action = action.to_string();
   let activation_token = activation_token.map(ToOwned::to_owned);
+  let session_handle = session_handle.to_string();
   let app_for_main_thread = app.clone();
   let _ = app.run_on_main_thread(move || {
+    let remains_active = LINUX_PORTAL_STATE
+      .lock()
+      .map(|state| state.is_active_session(generation, &session_handle))
+      .unwrap_or(false);
+    if !remains_active {
+      return;
+    }
     match action.as_str() {
       "toggleApp" => {
         if let Some(window) = app_for_main_thread.get_webview_window("main") {
           let is_visible = window.is_visible().unwrap_or(false);
           let is_minimized = window.is_minimized().unwrap_or(false);
-          if is_visible && !is_minimized {
+          let is_focused = window.is_focused().unwrap_or(false);
+          if is_visible && !is_minimized && is_focused {
             conceal_main_window(&window);
           } else {
-            present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref(), timestamp_ms);
+            present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref());
           }
         }
       }
       "newTodo" | "search" => {
-        present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref(), timestamp_ms);
+        present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref());
         emit_desktop_hotkey(&app_for_main_thread, &action);
       }
       _ => {}
@@ -415,21 +543,163 @@ fn handle_portal_hotkey(app: &AppHandle, action: &str, activation_token: Option<
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-fn close_current_portal_hotkey_session() {
-  let session = LINUX_PORTAL_SHORTCUT_SESSION.lock().ok().and_then(|mut current| current.take());
+enum LinuxDisplayBackend {
+  Wayland,
+  X11,
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn linux_display_backend() -> Result<LinuxDisplayBackend, String> {
+  use gtk::glib::translate::ToGlibPtr;
+
+  let display = gtk::gdk::Display::default().ok_or_else(|| "GTK display is not available".to_string())?;
+  let display_ptr: *mut gtk::gdk::ffi::GdkDisplay = display.to_glib_none().0;
+  let is_wayland = unsafe {
+    gtk::glib::gobject_ffi::g_type_check_instance_is_a(
+      display_ptr.cast::<gtk::glib::gobject_ffi::GTypeInstance>(),
+      gdk_wayland_sys::gdk_wayland_display_get_type(),
+    ) != 0
+  };
+  if is_wayland {
+    return Ok(LinuxDisplayBackend::Wayland);
+  }
+  let is_x11 = unsafe {
+    gtk::glib::gobject_ffi::g_type_check_instance_is_a(
+      display_ptr.cast::<gtk::glib::gobject_ffi::GTypeInstance>(),
+      gdk_x11_sys::gdk_x11_display_get_type(),
+    ) != 0
+  };
+  if is_x11 {
+    return Ok(LinuxDisplayBackend::X11);
+  }
+  Err("Unsupported GTK display backend".to_string())
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn close_portal_hotkey_session(session: Arc<LinuxPortalShortcutSession>) -> Result<(), String> {
+  tauri::async_runtime::block_on(session.close()).map_err(|err| err.to_string())
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn spawn_portal_hotkey_recovery(app: AppHandle, generation: u64, settings: DesktopSettings) {
+  thread::spawn(move || {
+    let mut delay_secs = 1;
+    loop {
+      thread::sleep(Duration::from_secs(delay_secs));
+      let Ok(_operation_guard) = LINUX_PORTAL_OPERATION_LOCK.lock() else {
+        return;
+      };
+      let claimed = LINUX_PORTAL_STATE
+        .lock()
+        .map(|mut state| state.claim_recovery(generation))
+        .unwrap_or(false);
+      if !claimed {
+        return;
+      }
+
+      let result = tauri::async_runtime::block_on(try_apply_portal_hotkeys(app.clone(), settings.clone(), generation));
+      match result {
+        Ok(PortalApplyOutcome::Active) => {
+          eprintln!("[linux-hotkeys] GlobalShortcuts portal session restored");
+          return;
+        }
+        Ok(PortalApplyOutcome::NoShortcuts | PortalApplyOutcome::Superseded) => return,
+        Ok(PortalApplyOutcome::Retry) => {
+          eprintln!("[linux-hotkeys] GlobalShortcuts portal did not bind all shortcuts; retrying");
+        }
+        Err(err) => eprintln!("[linux-hotkeys] GlobalShortcuts portal recovery failed: {err}"),
+      }
+
+      let rearmed = LINUX_PORTAL_STATE
+        .lock()
+        .map(|mut state| state.rearm_recovery(generation))
+        .unwrap_or(false);
+      if !rearmed {
+        return;
+      }
+      delay_secs = (delay_secs * 2).min(30);
+    }
+  });
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn schedule_portal_hotkey_recovery(app: AppHandle, generation: u64, settings: DesktopSettings) {
+  let should_spawn = LINUX_PORTAL_STATE
+    .lock()
+    .map(|mut state| state.schedule_recovery(generation))
+    .unwrap_or(false);
+  if should_spawn {
+    spawn_portal_hotkey_recovery(app, generation, settings);
+  }
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn portal_listener_ended(app: AppHandle, generation: u64, session_handle: &str, settings: DesktopSettings) {
+  let session = LINUX_PORTAL_STATE
+    .lock()
+    .ok()
+    .and_then(|mut state| state.listener_ended(generation, session_handle));
   if let Some(session) = session {
-    tauri::async_runtime::spawn(async move {
-      let _ = session.close().await;
+    eprintln!("[linux-hotkeys] GlobalShortcuts session ended; closing it before recovery");
+    thread::spawn(move || {
+      let Ok(_operation_guard) = LINUX_PORTAL_OPERATION_LOCK.lock() else {
+        return;
+      };
+      if let Err(err) = close_portal_hotkey_session(session) {
+        eprintln!("[linux-hotkeys] Failed to close stale GlobalShortcuts session: {err}");
+      }
+      spawn_portal_hotkey_recovery(app, generation, settings);
     });
   }
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-async fn try_apply_portal_hotkeys(app: AppHandle, settings: DesktopSettings, generation: u64) -> Result<bool, String> {
-  use ashpd::desktop::global_shortcuts::{BindShortcutsOptions, GlobalShortcuts, NewShortcut};
+async fn prepare_portal_closed_monitor(
+  app: AppHandle,
+  generation: u64,
+  handle: String,
+  session: Arc<LinuxPortalShortcutSession>,
+  settings: DesktopSettings,
+) -> Result<futures_channel::oneshot::Sender<()>, String> {
+  use futures_channel::oneshot;
+  use futures_util::StreamExt;
+
+  let (subscribed_tx, subscribed_rx) = oneshot::channel();
+  let (published_tx, published_rx) = oneshot::channel();
+  tauri::async_runtime::spawn(async move {
+    match session.receive_closed().await {
+      Ok(mut closed) => {
+        let _ = subscribed_tx.send(Ok::<(), String>(()));
+        if published_rx.await.is_err() {
+          return;
+        }
+        if closed.next().await.is_some() {
+          portal_listener_ended(app, generation, &handle, settings);
+        }
+      }
+      Err(err) => {
+        let message = format!("Failed to monitor portal session closure: {err}");
+        let _ = subscribed_tx.send(Err(message));
+      }
+    }
+  });
+  subscribed_rx
+    .await
+    .map_err(|_| "Portal session closure monitor stopped before subscribing".to_string())??;
+  Ok(published_tx)
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+async fn try_apply_portal_hotkeys(
+  app: AppHandle,
+  settings: DesktopSettings,
+  generation: u64,
+) -> Result<PortalApplyOutcome, String> {
+  use ashpd::desktop::global_shortcuts::{BindShortcutsOptions, GlobalShortcuts, ListShortcutsOptions, NewShortcut};
   use ashpd::desktop::CreateSessionOptions;
   use futures_util::StreamExt;
 
+  let recovery_settings = settings.clone();
   let entries = [
     ("toggleApp", "nia-todo anzeigen/verstecken", settings.hotkeys.toggle_app),
     ("newTodo", "Neues nia-todo Todo", settings.hotkeys.new_todo),
@@ -446,13 +716,15 @@ async fn try_apply_portal_hotkeys(app: AppHandle, settings: DesktopSettings, gen
     })
     .collect::<Vec<_>>();
   if shortcuts.is_empty() {
-    return Ok(false);
+    return Ok(PortalApplyOutcome::NoShortcuts);
   }
 
-  let portal = GlobalShortcuts::new().await.map_err(|err| err.to_string())?;
-  if portal.version() < 2 {
-    return Ok(false);
+  let app_id = LINUX_DESKTOP_APP_ID.parse::<ashpd::AppID>().map_err(|err| err.to_string())?;
+  if let Err(err) = ashpd::register_host_app(app_id).await {
+    eprintln!("[linux-hotkeys] Host portal registration unavailable: {err}");
   }
+  let portal = Arc::new(GlobalShortcuts::new().await.map_err(|err| err.to_string())?);
+  eprintln!("[linux-hotkeys] GlobalShortcuts portal version {}", portal.version());
   let session = Arc::new(portal.create_session(CreateSessionOptions::default()).await.map_err(|err| err.to_string())?);
   let bind_request = match portal
     .bind_shortcuts(&session, &shortcuts, None, BindShortcutsOptions::default())
@@ -474,11 +746,7 @@ async fn try_apply_portal_hotkeys(app: AppHandle, settings: DesktopSettings, gen
   let bound_ids = bind_response.shortcuts().iter().map(|shortcut| shortcut.id()).collect::<std::collections::HashSet<_>>();
   if requested_ids.iter().any(|id| !bound_ids.contains(id)) {
     let _ = session.close().await;
-    return Ok(false);
-  }
-  if LINUX_PORTAL_HOTKEY_GENERATION.load(Ordering::SeqCst) != generation {
-    let _ = session.close().await;
-    return Ok(false);
+    return Ok(PortalApplyOutcome::Retry);
   }
 
   let mut activated = match portal.receive_activated().await {
@@ -488,50 +756,135 @@ async fn try_apply_portal_hotkeys(app: AppHandle, settings: DesktopSettings, gen
       return Err(err.to_string());
     }
   };
+  let session_handle = match serde_json::to_value(session.as_ref())
+    .ok()
+    .and_then(|value| value.as_str().map(ToOwned::to_owned))
+  {
+    Some(handle) => handle,
+    None => {
+      let _ = session.close().await;
+      return Err("GlobalShortcuts session handle is not an object path".to_string());
+    }
+  };
 
-  if let Ok(mut current) = LINUX_PORTAL_SHORTCUT_SESSION.lock() {
-    *current = Some(session.clone());
+  let closed_monitor_ready = match prepare_portal_closed_monitor(
+    app.clone(),
+    generation,
+    session_handle.clone(),
+    session.clone(),
+    recovery_settings.clone(),
+  )
+  .await
+  {
+    Ok(ready) => ready,
+    Err(err) => {
+      let _ = session.close().await;
+      return Err(err);
+    }
+  };
+
+  let publication = LINUX_PORTAL_STATE.lock().ok().and_then(|mut state| {
+    if !state.is_current(generation) {
+      return None;
+    }
+    let previous = state.active_session.replace(LinuxPortalActiveSession {
+      generation,
+      handle: session_handle.clone(),
+      session: session.clone(),
+    });
+    Some(previous.map(|active| active.session))
+  });
+  let Some(previous_session) = publication else {
+    let _ = session.close().await;
+    return Ok(PortalApplyOutcome::Superseded);
+  };
+  if closed_monitor_ready.send(()).is_err() {
+    let candidate = LINUX_PORTAL_STATE
+      .lock()
+      .ok()
+      .and_then(|mut state| state.take_active_session(generation, &session_handle));
+    if let Some(candidate) = candidate {
+      let _ = candidate.close().await;
+    }
+    return Err("Portal session closure monitor stopped before publication".to_string());
   }
+  if let Some(previous_session) = previous_session {
+    if let Err(err) = previous_session.close().await {
+      let candidate = LINUX_PORTAL_STATE
+        .lock()
+        .ok()
+        .and_then(|mut state| state.take_active_session(generation, &session_handle));
+      if let Some(candidate) = candidate {
+        let _ = candidate.close().await;
+      }
+      return Err(format!("Previous GlobalShortcuts session could not be closed: {err}"));
+    }
+  }
+
   let session_for_listener = session.clone();
+  let handle_for_listener = session_handle.clone();
+  let app_for_listener = app.clone();
+  let settings_for_listener = recovery_settings.clone();
   tauri::async_runtime::spawn(async move {
     while let Some(event) = activated.next().await {
-      if LINUX_PORTAL_HOTKEY_GENERATION.load(Ordering::SeqCst) != generation {
+      let remains_active = LINUX_PORTAL_STATE
+        .lock()
+        .map(|state| state.is_active_session(generation, &handle_for_listener))
+        .unwrap_or(false);
+      if !remains_active {
         let _ = session_for_listener.close().await;
         return;
       }
+      if event.session_handle().as_str() != handle_for_listener {
+        continue;
+      }
       let action = event.shortcut_id().to_string();
       let token = activation_token_from_options(event.options());
-      let timestamp_ms = Some(event.timestamp().as_millis().min(u32::MAX as u128) as u32);
-      handle_portal_hotkey(&app, &action, token.as_deref(), timestamp_ms);
+      handle_portal_hotkey(&app_for_listener, &action, token.as_deref(), generation, &handle_for_listener);
+    }
+    portal_listener_ended(app_for_listener, generation, &handle_for_listener, settings_for_listener);
+  });
+
+  let portal_for_probe = portal.clone();
+  let session_for_probe = session.clone();
+  let app_for_probe = app.clone();
+  let handle_for_probe = session_handle.clone();
+  let settings_for_probe = recovery_settings;
+  thread::spawn(move || loop {
+    thread::sleep(Duration::from_secs(5));
+    let remains_active = LINUX_PORTAL_STATE
+      .lock()
+      .map(|state| state.is_active_session(generation, &handle_for_probe))
+      .unwrap_or(false);
+    if !remains_active {
+      return;
+    }
+    let healthy = tauri::async_runtime::block_on(async {
+      match portal_for_probe
+        .list_shortcuts(&session_for_probe, ListShortcutsOptions::default())
+        .await
+      {
+        Ok(request) => request.response().is_ok(),
+        Err(_) => false,
+      }
+    });
+    if !healthy {
+      portal_listener_ended(app_for_probe, generation, &handle_for_probe, settings_for_probe);
+      return;
     }
   });
 
-  Ok(true)
+  Ok(PortalApplyOutcome::Active)
 }
 
 #[cfg(desktop)]
-fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
+fn register_legacy_hotkeys(app: &AppHandle, settings: &DesktopSettings) -> Result<(), String> {
   use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
-  let settings = load_settings(app);
-  ensure_unique_hotkeys(&settings.hotkeys)?;
-  app.global_shortcut().unregister_all().map_err(|err| err.to_string())?;
-
-  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-  {
-    let generation = LINUX_PORTAL_HOTKEY_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
-    close_current_portal_hotkey_session();
-    match tauri::async_runtime::block_on(try_apply_portal_hotkeys(app.clone(), settings.clone(), generation)) {
-      Ok(true) => return Ok(()),
-      Ok(false) => {}
-      Err(err) => eprintln!("Linux GlobalShortcuts portal is not supported by this desktop; using legacy hotkey fallback: {err}"),
-    }
-  }
-
   let entries = [
-    ("toggleApp", settings.hotkeys.toggle_app),
-    ("newTodo", settings.hotkeys.new_todo),
-    ("search", settings.hotkeys.search),
+    ("toggleApp", settings.hotkeys.toggle_app.clone()),
+    ("newTodo", settings.hotkeys.new_todo.clone()),
+    ("search", settings.hotkeys.search.clone()),
   ];
 
   for (action, shortcut) in entries {
@@ -557,6 +910,60 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
   }
 
   Ok(())
+}
+
+#[cfg(desktop)]
+fn apply_global_hotkeys_for_settings(app: &AppHandle, settings: &DesktopSettings) -> Result<(), String> {
+  use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  let _operation_guard = LINUX_PORTAL_OPERATION_LOCK
+    .lock()
+    .map_err(|_| "Linux hotkey operation lock is poisoned".to_string())?;
+
+  ensure_unique_hotkeys(&settings.hotkeys)?;
+
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  {
+    let (generation, previous_session) = LINUX_PORTAL_STATE
+      .lock()
+      .map_err(|_| "Linux hotkey lifecycle state is poisoned".to_string())?
+      .begin_generation();
+    if let Some(previous_session) = previous_session {
+      close_portal_hotkey_session(previous_session)?;
+    }
+
+    app.global_shortcut().unregister_all().map_err(|err| err.to_string())?;
+    match linux_display_backend()? {
+      LinuxDisplayBackend::Wayland => {
+        match tauri::async_runtime::block_on(try_apply_portal_hotkeys(app.clone(), settings.clone(), generation)) {
+          Ok(PortalApplyOutcome::Active | PortalApplyOutcome::NoShortcuts | PortalApplyOutcome::Superseded) => {}
+          Ok(PortalApplyOutcome::Retry) => {
+            eprintln!("Linux GlobalShortcuts portal did not bind all shortcuts; retrying");
+            schedule_portal_hotkey_recovery(app.clone(), generation, settings.clone());
+          }
+          Err(err) => {
+            eprintln!("Linux GlobalShortcuts portal is temporarily unavailable; retrying: {err}");
+            schedule_portal_hotkey_recovery(app.clone(), generation, settings.clone());
+          }
+        }
+        return Ok(());
+      }
+      LinuxDisplayBackend::X11 => return register_legacy_hotkeys(app, settings),
+    }
+  }
+
+  #[cfg(not(all(unix, not(target_os = "macos"), not(target_os = "android"))))]
+  {
+    app.global_shortcut().unregister_all().map_err(|err| err.to_string())?;
+    register_legacy_hotkeys(app, settings)
+  }
+}
+
+#[cfg(desktop)]
+fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
+  let settings = load_settings(app);
+  apply_global_hotkeys_for_settings(app, &settings)
 }
 
 #[cfg(not(desktop))]
@@ -739,6 +1146,9 @@ fn desktop_get_settings(app: AppHandle) -> DesktopSettings {
 
 #[tauri::command]
 fn desktop_set_setting(app: AppHandle, key: String, value: bool) -> Result<DesktopSettings, String> {
+  let _transaction_guard = DESKTOP_SETTINGS_TRANSACTION_LOCK
+    .lock()
+    .map_err(|_| "Desktop settings transaction lock is poisoned".to_string())?;
   let mut settings = load_settings(&app);
   match key.as_str() {
     "minimizeToTray" => settings.minimize_to_tray = value,
@@ -761,6 +1171,9 @@ fn desktop_set_setting(app: AppHandle, key: String, value: bool) -> Result<Deskt
 
 #[tauri::command]
 fn desktop_set_server_url(app: AppHandle, server_url: String) -> Result<DesktopSettings, String> {
+  let _transaction_guard = DESKTOP_SETTINGS_TRANSACTION_LOCK
+    .lock()
+    .map_err(|_| "Desktop settings transaction lock is poisoned".to_string())?;
   let mut settings = load_settings(&app);
   settings.server_url = Some(normalize_server_url(&server_url)?);
   save_settings(&app, &settings)?;
@@ -769,6 +1182,9 @@ fn desktop_set_server_url(app: AppHandle, server_url: String) -> Result<DesktopS
 
 #[tauri::command]
 fn desktop_clear_server_url(app: AppHandle) -> Result<DesktopSettings, String> {
+  let _transaction_guard = DESKTOP_SETTINGS_TRANSACTION_LOCK
+    .lock()
+    .map_err(|_| "Desktop settings transaction lock is poisoned".to_string())?;
   let mut settings = load_settings(&app);
   settings.server_url = None;
   save_settings(&app, &settings)?;
@@ -777,6 +1193,9 @@ fn desktop_clear_server_url(app: AppHandle) -> Result<DesktopSettings, String> {
 
 #[tauri::command]
 fn desktop_set_hotkey(app: AppHandle, action: String, shortcut: String) -> Result<DesktopSettings, String> {
+  let _transaction_guard = DESKTOP_SETTINGS_TRANSACTION_LOCK
+    .lock()
+    .map_err(|_| "Desktop settings transaction lock is poisoned".to_string())?;
   let previous = load_settings(&app);
   let mut settings = previous.clone();
   let value = clean_hotkey(shortcut);
@@ -788,10 +1207,18 @@ fn desktop_set_hotkey(app: AppHandle, action: String, shortcut: String) -> Resul
   }
   ensure_unique_hotkeys(&settings.hotkeys)?;
   save_settings(&app, &settings)?;
-  if let Err(err) = apply_global_hotkeys(&app) {
-    let _ = save_settings(&app, &previous);
-    let _ = apply_global_hotkeys(&app);
-    return Err(err);
+  if let Err(err) = apply_global_hotkeys_for_settings(&app, &settings) {
+    let mut rollback_errors = Vec::new();
+    if let Err(rollback_err) = save_settings(&app, &previous) {
+      rollback_errors.push(format!("settings restore failed: {rollback_err}"));
+    }
+    if let Err(rollback_err) = apply_global_hotkeys_for_settings(&app, &previous) {
+      rollback_errors.push(format!("hotkey restore failed: {rollback_err}"));
+    }
+    if rollback_errors.is_empty() {
+      return Err(err);
+    }
+    return Err(format!("{err}; rollback failed: {}", rollback_errors.join("; ")));
   }
   Ok(settings)
 }
@@ -1376,6 +1803,33 @@ fn desktop_passkey_authenticate(app: AppHandle, window: tauri::WebviewWindow, or
 #[tauri::command]
 fn desktop_passkey_authenticate(_app: AppHandle, _origin: String, _options: serde_json::Value) -> Result<serde_json::Value, String> {
   Err("Windows Passkeys werden auf dieser Plattform nicht unterstützt.".into())
+}
+
+#[cfg(all(test, unix, not(target_os = "macos"), not(target_os = "android")))]
+mod linux_portal_lifecycle_tests {
+  use super::LinuxPortalLifecycleState;
+
+  #[test]
+  fn stale_generation_cannot_replace_newer_recovery_owner() {
+    let mut state = LinuxPortalLifecycleState::default();
+    let first = state.begin_generation().0;
+    assert!(state.schedule_recovery(first));
+    let second = state.begin_generation().0;
+    assert!(state.schedule_recovery(second));
+    assert!(!state.schedule_recovery(first));
+    assert_eq!(state.recovery_generation, Some(second));
+  }
+
+  #[test]
+  fn claimed_recovery_can_be_rearmed_after_partial_binding() {
+    let mut state = LinuxPortalLifecycleState::default();
+    let generation = state.begin_generation().0;
+    assert!(state.schedule_recovery(generation));
+    assert!(state.claim_recovery(generation));
+    assert_eq!(state.recovery_generation, None);
+    assert!(state.rearm_recovery(generation));
+    assert_eq!(state.recovery_generation, Some(generation));
+  }
 }
 
 #[cfg(test)]

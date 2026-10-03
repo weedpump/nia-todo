@@ -22,8 +22,8 @@ assert.match(
 );
 assert.match(
   rustSource,
-  /let is_minimized = window\.is_minimized\(\)\.unwrap_or\(false\);[\s\S]*if is_visible && !is_minimized \{[\s\S]*conceal_main_window\(&window\)/,
-  'Desktop toggle hotkey must conceal any visible non-minimized main window, not only focused windows',
+  /let is_focused = window\.is_focused\(\)\.unwrap_or\(false\);[\s\S]*if is_visible && !is_minimized && is_focused \{[\s\S]*conceal_main_window\(&window\)/,
+  'Desktop toggle hotkey must conceal an active window and present a visible background window',
 );
 assert.match(
   rustSource,

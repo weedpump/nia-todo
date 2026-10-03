@@ -40,7 +40,7 @@ Current state:
 - The Debian desktop app uses Linux WebKitGTK/Tauri custom-scheme origins such as `tauri://localhost`; the backend allows those origins for native runtime requests after instance verification.
 - The Debian desktop app clears volatile WebView cache directories when the app version or executable path changes so stale bundled frontend assets do not survive desktop app updates.
 - Debian desktop notifications prefer `notify-send` when available, falling back to the Tauri notification API.
-- Debian desktop hotkeys use the XDG Desktop Portal GlobalShortcuts API when the desktop backend supports it, applying activation tokens/timestamps on the GTK main thread for clean focus transfer. Desktops without that portal, including some GNOME 46 stacks, fall back to the legacy Tauri global-shortcut path.
+- Debian desktop hotkeys use exactly one platform backend: GNOME/Wayland uses the XDG Desktop Portal GlobalShortcuts API exclusively, while X11 uses the legacy Tauri global-shortcut path. The installed desktop filename and registered host application ID are both `de.tobiaskneidl.nia-todo`; version 1 portals can deliver actions, while version 2 activation tokens are applied to the GDK Wayland display on the GTK main thread for compositor-approved foreground activation. Portal recovery reuses the current in-memory hotkey snapshot and never enables the X11 backend in parallel.
 - Native passkeys are supported: Windows uses the native WebAuthn bridge; Android uses AndroidX Credential Manager and the bundled app ID/signing-key binding exposed through `/.well-known/assetlinks.json`. Debian desktop passkeys are intentionally deferred.
 - Browser/PWA push remains browser/PWA-only; native reminders must not depend on browser push.
 

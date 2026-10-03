@@ -163,8 +163,11 @@ Use for native runtime, desktop settings, Android wrapper, passkey, reminder, mi
 The native suite includes static/package checks that protect platform-specific release contracts:
 
 - Debian desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
+- Debian desktop packages must install `de.tobiaskneidl.nia-todo.desktop`, matching the host application ID registered before GlobalShortcuts portal access.
 - Debian desktop WebView cache migration must only clear volatile cache directories when the app version or executable marker changes.
 - Native desktop settings must keep desktop-only options scoped correctly and avoid leaking Windows-only wording onto Debian desktop.
+
+For a local Debian desktop build and GNOME/Wayland hotkey smoke test, follow [`debian-desktop-build.md`](debian-desktop-build.md).
 
 ## Manual Smoke Paths
 
