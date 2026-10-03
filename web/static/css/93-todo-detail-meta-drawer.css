@@ -157,84 +157,8 @@
   padding-right: min(490px, 40vw);
 }
 
-/* Todo meta drawer: fix location reminder switch and full-width address. */
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  justify-content: start;
-  gap: 10px;
-  width: 100%;
-  margin: 4px 0 14px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row .settings-switch {
-  order: 0;
-  grid-column: 1;
-  width: 44px;
-  min-width: 44px;
-  height: 24px;
-  margin: 0;
-  padding: 0;
-  border-radius: 999px;
-  flex: 0 0 auto;
-}
-
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer #todo-location-address-group {
   grid-column: 1 / -1;
-}
-
-/* Todo meta drawer: location reminder switch shape */
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  box-sizing: border-box;
-  display: inline-block;
-  width: 46px !important;
-  min-width: 46px !important;
-  max-width: 46px !important;
-  height: 26px !important;
-  min-height: 26px !important;
-  padding: 0 !important;
-  border-radius: 999px !important;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)) !important;
-  background: var(--bg-tertiary) !important;
-  position: relative;
-  cursor: pointer;
-  flex: 0 0 46px !important;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch::after {
-  content: '';
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  top: 2px;
-  left: 2px;
-  border-radius: 999px;
-  background: var(--text-secondary);
-  box-shadow: 0 2px 5px rgba(0,0,0,.28);
-  transition: transform .16s, background .16s;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked::after {
-  transform: translateX(20px);
-  background: white;
-}
-
-/* Todo detail meta: accent switch + location/star meta tones. */
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked {
-  background: var(--accent) !important;
-  border-color: color-mix(in srgb, var(--accent) 86%, white) !important;
 }
 
 #todo-modal.todo-detail-view .todo-meta-tone-location,

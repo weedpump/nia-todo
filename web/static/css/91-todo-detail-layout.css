@@ -136,6 +136,7 @@
 }
 
 #todo-modal.todo-detail-view .todo-meta-summary-chip {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -143,8 +144,23 @@
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
+  font: inherit;
   font-size: 12px;
   line-height: 1.2;
+  text-align: left;
+}
+
+#todo-modal.todo-detail-view button.todo-meta-summary-chip {
+  cursor: pointer;
+}
+
+#todo-modal.todo-detail-view button.todo-meta-summary-chip:hover {
+  border-color: color-mix(in srgb, var(--meta-tone) 58%, transparent);
+}
+
+#todo-modal.todo-detail-view button.todo-meta-summary-chip:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--meta-tone) 72%, white);
+  outline-offset: 2px;
 }
 
 #todo-modal.todo-detail-view .todo-meta-summary-chip .ui-icon {
