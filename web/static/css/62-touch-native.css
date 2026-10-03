@@ -132,7 +132,7 @@
 .mobile-swipe-ui .todo-swipe-shell:has(.todo-item.actions-expanded),
 .mobile-swipe-ui .todo-swipe-shell:has(.todo-status-menu[open]),
 .mobile-swipe-ui .todo-swipe-shell:has(.todo-snooze-menu[open]) {
-  z-index: 1001;
+  z-index: 240;
   overflow: visible;
 }
 

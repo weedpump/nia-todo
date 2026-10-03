@@ -29,6 +29,10 @@ function harnessHtml() {
 </head>
 <body>
   <div id="fixture"></div>
+  <div class="modal confirm-modal" id="confirm-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content confirm-modal-content">Confirm deletion</div>
+  </div>
   <script type="module">
     import { renderTodoItem } from '/static/js/features/todo-rendering.js';
     import { createTodosFeature } from '/static/js/features/todos.js';
@@ -182,6 +186,25 @@ try {
   await revealButton.click();
   assert.equal(await item.evaluate(element => element.classList.contains('actions-expanded')), true, 'quick-action reveal must still expand the wrapped card');
   assert.equal(await shell.evaluate(element => getComputedStyle(element).overflow), 'visible', 'expanded quick actions must escape shell clipping');
+  const modalLayering = await page.evaluate(() => {
+    const shell = document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]');
+    const item = shell.querySelector('.todo-item');
+    const modal = document.getElementById('confirm-modal');
+    const rect = item.getBoundingClientRect();
+    modal.classList.add('active');
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    const result = {
+      shellZIndex: Number.parseInt(getComputedStyle(shell).zIndex, 10),
+      modalZIndex: Number.parseInt(getComputedStyle(modal).zIndex, 10),
+      modalContentRadius: getComputedStyle(modal.querySelector('.confirm-modal-content')).borderRadius,
+      hitModal: Boolean(hit?.closest?.('#confirm-modal')),
+    };
+    modal.classList.remove('active');
+    return result;
+  });
+  assert.ok(modalLayering.shellZIndex < modalLayering.modalZIndex, 'expanded quick actions must remain below confirmation modals');
+  assert.equal(modalLayering.modalContentRadius, '0px', 'mobile confirmation modals must remain fully fullscreen without rounded corners');
+  assert.equal(modalLayering.hitModal, true, 'confirmation modal must cover an expanded native quick-action card');
   await revealButton.click();
   assert.equal(await item.evaluate(element => element.classList.contains('actions-expanded')), false, 'quick-action reveal must still collapse the wrapped card');
 
@@ -211,7 +234,7 @@ try {
       return result;
     }, selector);
     assert.equal(menuState.overflow, 'visible', `${selector} must escape the swipe clipping shell`);
-    assert.equal(menuState.zIndex, '1001', `${selector} must elevate its shell above later cards`);
+    assert.equal(menuState.zIndex, '240', `${selector} must elevate its shell above later cards without overtaking modals`);
     assert.equal(menuState.panelVisible, 'visible', `${selector} panel must be visible`);
     assert.ok(menuState.panelHeight > 0, `${selector} panel must have layout`);
     assert.equal(menuState.hitShellId, '36', `${selector} panel must remain hit-testable above adjacent cards`);
