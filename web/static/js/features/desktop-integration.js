@@ -1,6 +1,10 @@
 import { RUNTIME_CAPABILITIES, normalizeServerUrl as normalizeRuntimeServerUrl } from '../core/config.js';
 import { t } from '../i18n/index.js';
 import { createNativeBridge } from './native-bridge.js';
+import {
+  bindDesktopHotkeyDescriptionSync,
+  syncDesktopHotkeyDescriptions,
+} from './desktop-hotkey-descriptions.js';
 
 const DEFAULT_SETTINGS = {
   minimizeToTray: true,
@@ -191,8 +195,14 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       renderSettings();
       return;
     }
-    if (isDesktopApp()) bindHotkeyCaptureInputs();
+    if (isDesktopApp()) {
+      bindHotkeyCaptureInputs();
+      bindDesktopHotkeyDescriptionSync();
+    }
     await loadSettings();
+    if (isDesktopApp()) {
+      await syncDesktopHotkeyDescriptions();
+    }
     renderSettings();
     if (isDesktopApp()) bindHotkeyEvents();
     syncLocalReminders(latestTodos, { immediate: true });

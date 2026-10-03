@@ -54,6 +54,11 @@ export function createNativeBridge() {
     return invokeTauri('desktop_clear_server_url');
   }
 
+  async function syncHotkeyDescriptions(descriptions) {
+    if (!RUNTIME_CAPABILITIES.nativeHotkeys) return null;
+    return invokeTauri('desktop_sync_hotkey_descriptions', { descriptions });
+  }
+
   async function setHotkey(action, shortcut) {
     if (!RUNTIME_CAPABILITIES.nativeHotkeys) return null;
     return invokeTauri('desktop_set_hotkey', { action, shortcut: shortcut || '' });
@@ -359,6 +364,7 @@ export function createNativeBridge() {
     setSetting,
     setServerUrl,
     clearServerUrl,
+    syncHotkeyDescriptions,
     setHotkey,
     requestNotificationPermission,
     notificationPermissionState,

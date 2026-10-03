@@ -148,6 +148,20 @@ impl Default for DesktopHotkeys {
   }
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct DesktopHotkeyDescriptions {
+  toggle_app: String,
+  new_todo: String,
+  search: String,
+}
+
+impl DesktopHotkeyDescriptions {
+  fn is_complete(&self) -> bool {
+    [&self.toggle_app, &self.new_todo, &self.search].iter().all(|value| !value.trim().is_empty())
+  }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 struct DesktopSettings {
@@ -157,6 +171,7 @@ struct DesktopSettings {
   notifications: bool,
   server_url: Option<String>,
   hotkeys: DesktopHotkeys,
+  hotkey_descriptions: Option<DesktopHotkeyDescriptions>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -185,6 +200,7 @@ impl Default for DesktopSettings {
       notifications: true,
       server_url: None,
       hotkeys: DesktopHotkeys::default(),
+      hotkey_descriptions: None,
     }
   }
 }
@@ -351,6 +367,10 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
 #[cfg(desktop)]
 fn show_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+    if let Err(err) = window.set_skip_taskbar(false) {
+      eprintln!("Failed to restore nia-todo taskbar visibility: {err}");
+    }
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
@@ -358,8 +378,26 @@ fn show_main_window(app: &AppHandle) {
 }
 
 #[cfg(desktop)]
-fn conceal_main_window(window: &tauri::WebviewWindow) {
-  let _ = window.hide();
+fn conceal_main_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  {
+    return match linux_display_backend_for_window(window) {
+      Ok(LinuxDisplayBackend::Wayland) => {
+        window.minimize().map_err(|err| err.to_string())?;
+        window.set_skip_taskbar(true).map_err(|err| err.to_string())
+      }
+      Ok(LinuxDisplayBackend::X11) => window.hide().map_err(|err| err.to_string()),
+      Err(err) => {
+        eprintln!("Could not identify the Linux display backend while concealing nia-todo; minimizing safely: {err}");
+        window.minimize().map_err(|minimize_err| minimize_err.to_string())
+      }
+    };
+  }
+
+  #[cfg(not(all(unix, not(target_os = "macos"), not(target_os = "android"))))]
+  {
+    window.hide().map_err(|err| err.to_string())
+  }
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
@@ -392,6 +430,9 @@ fn present_main_window_with_activation(app: &AppHandle, activation_token: Option
         }
       }
     }
+    if let Err(err) = window.set_skip_taskbar(false) {
+      eprintln!("Failed to restore nia-todo taskbar visibility: {err}");
+    }
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
@@ -405,7 +446,9 @@ fn toggle_main_window(app: &AppHandle) {
     let is_minimized = window.is_minimized().unwrap_or(false);
     let is_focused = window.is_focused().unwrap_or(false);
     if is_visible && !is_minimized && is_focused {
-      conceal_main_window(&window);
+      if let Err(err) = conceal_main_window(&window) {
+        eprintln!("Failed to conceal nia-todo window: {err}");
+      }
     } else {
       show_main_window(app);
     }
@@ -527,7 +570,9 @@ fn handle_portal_hotkey(
           let is_minimized = window.is_minimized().unwrap_or(false);
           let is_focused = window.is_focused().unwrap_or(false);
           if is_visible && !is_minimized && is_focused {
-            conceal_main_window(&window);
+            if let Err(err) = conceal_main_window(&window) {
+              eprintln!("Failed to conceal nia-todo window: {err}");
+            }
           } else {
             present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref());
           }
@@ -549,11 +594,12 @@ enum LinuxDisplayBackend {
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-fn linux_display_backend() -> Result<LinuxDisplayBackend, String> {
-  use gtk::glib::translate::ToGlibPtr;
-
-  let display = gtk::gdk::Display::default().ok_or_else(|| "GTK display is not available".to_string())?;
-  let display_ptr: *mut gtk::gdk::ffi::GdkDisplay = display.to_glib_none().0;
+fn linux_display_backend_from_ptr(
+  display_ptr: *mut gtk::gdk::ffi::GdkDisplay,
+) -> Result<LinuxDisplayBackend, String> {
+  if display_ptr.is_null() {
+    return Err("GTK display pointer is null".to_string());
+  }
   let is_wayland = unsafe {
     gtk::glib::gobject_ffi::g_type_check_instance_is_a(
       display_ptr.cast::<gtk::glib::gobject_ffi::GTypeInstance>(),
@@ -573,6 +619,26 @@ fn linux_display_backend() -> Result<LinuxDisplayBackend, String> {
     return Ok(LinuxDisplayBackend::X11);
   }
   Err("Unsupported GTK display backend".to_string())
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn linux_display_backend() -> Result<LinuxDisplayBackend, String> {
+  use gtk::glib::translate::ToGlibPtr;
+
+  let display = gtk::gdk::Display::default().ok_or_else(|| "GTK display is not available".to_string())?;
+  let display_ptr: *mut gtk::gdk::ffi::GdkDisplay = display.to_glib_none().0;
+  linux_display_backend_from_ptr(display_ptr)
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn linux_display_backend_for_window(window: &tauri::WebviewWindow) -> Result<LinuxDisplayBackend, String> {
+  use gtk::glib::translate::ToGlibPtr;
+  use gtk::prelude::WidgetExt;
+
+  let gtk_window = window.gtk_window().map_err(|err| err.to_string())?;
+  let display = gtk_window.display();
+  let display_ptr: *mut gtk::gdk::ffi::GdkDisplay = display.to_glib_none().0;
+  linux_display_backend_from_ptr(display_ptr)
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
@@ -699,11 +765,20 @@ async fn try_apply_portal_hotkeys(
   use ashpd::desktop::CreateSessionOptions;
   use futures_util::StreamExt;
 
+  if settings.hotkeys.toggle_app.is_none() && settings.hotkeys.new_todo.is_none() && settings.hotkeys.search.is_none() {
+    return Ok(PortalApplyOutcome::NoShortcuts);
+  }
+
   let recovery_settings = settings.clone();
+  let descriptions = settings
+    .hotkey_descriptions
+    .clone()
+    .filter(DesktopHotkeyDescriptions::is_complete)
+    .ok_or_else(|| "Localized portal shortcut descriptions are not available".to_string())?;
   let entries = [
-    ("toggleApp", "nia-todo anzeigen/verstecken", settings.hotkeys.toggle_app),
-    ("newTodo", "Neues nia-todo Todo", settings.hotkeys.new_todo),
-    ("search", "nia-todo Suche", settings.hotkeys.search),
+    ("toggleApp", descriptions.toggle_app, settings.hotkeys.toggle_app),
+    ("newTodo", descriptions.new_todo, settings.hotkeys.new_todo),
+    ("search", descriptions.search, settings.hotkeys.search),
   ];
   let requested_ids = entries
     .iter()
@@ -936,6 +1011,16 @@ fn apply_global_hotkeys_for_settings(app: &AppHandle, settings: &DesktopSettings
     app.global_shortcut().unregister_all().map_err(|err| err.to_string())?;
     match linux_display_backend()? {
       LinuxDisplayBackend::Wayland => {
+        if !settings.hotkeys.toggle_app.is_none() || !settings.hotkeys.new_todo.is_none() || !settings.hotkeys.search.is_none() {
+          let descriptions_ready = settings
+            .hotkey_descriptions
+            .as_ref()
+            .is_some_and(DesktopHotkeyDescriptions::is_complete);
+          if !descriptions_ready {
+            eprintln!("[linux-hotkeys] Waiting for localized nia-todo shortcut descriptions before portal registration");
+            return Ok(());
+          }
+        }
         match tauri::async_runtime::block_on(try_apply_portal_hotkeys(app.clone(), settings.clone(), generation)) {
           Ok(PortalApplyOutcome::Active | PortalApplyOutcome::NoShortcuts | PortalApplyOutcome::Superseded) => {}
           Ok(PortalApplyOutcome::Retry) => {
@@ -1188,6 +1273,67 @@ fn desktop_clear_server_url(app: AppHandle) -> Result<DesktopSettings, String> {
   let mut settings = load_settings(&app);
   settings.server_url = None;
   save_settings(&app, &settings)?;
+  Ok(settings)
+}
+
+#[cfg(desktop)]
+fn apply_portal_description_update(app: &AppHandle, settings: &DesktopSettings) -> Result<(), String> {
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  {
+    return match linux_display_backend()? {
+      LinuxDisplayBackend::Wayland => apply_global_hotkeys_for_settings(app, settings),
+      LinuxDisplayBackend::X11 => Ok(()),
+    };
+  }
+
+  #[cfg(not(all(unix, not(target_os = "macos"), not(target_os = "android"))))]
+  {
+    let _ = (app, settings);
+    Ok(())
+  }
+}
+
+#[tauri::command]
+fn desktop_sync_hotkey_descriptions(
+  app: AppHandle,
+  mut descriptions: DesktopHotkeyDescriptions,
+) -> Result<DesktopSettings, String> {
+  let _transaction_guard = DESKTOP_SETTINGS_TRANSACTION_LOCK
+    .lock()
+    .map_err(|_| "Desktop settings transaction lock is poisoned".to_string())?;
+  descriptions.toggle_app = descriptions.toggle_app.trim().to_string();
+  descriptions.new_todo = descriptions.new_todo.trim().to_string();
+  descriptions.search = descriptions.search.trim().to_string();
+  if !descriptions.is_complete() {
+    return Err("Localized desktop hotkey descriptions must not be empty".to_string());
+  }
+  if [&descriptions.toggle_app, &descriptions.new_todo, &descriptions.search]
+    .iter()
+    .any(|value| value.chars().count() > 200)
+  {
+    return Err("Localized desktop hotkey descriptions are too long".to_string());
+  }
+
+  let previous = load_settings(&app);
+  if previous.hotkey_descriptions.as_ref() == Some(&descriptions) {
+    return Ok(previous);
+  }
+  let mut settings = previous.clone();
+  settings.hotkey_descriptions = Some(descriptions);
+  save_settings(&app, &settings)?;
+  if let Err(err) = apply_portal_description_update(&app, &settings) {
+    let mut rollback_errors = Vec::new();
+    if let Err(rollback_err) = save_settings(&app, &previous) {
+      rollback_errors.push(format!("settings restore failed: {rollback_err}"));
+    }
+    if let Err(rollback_err) = apply_portal_description_update(&app, &previous) {
+      rollback_errors.push(format!("hotkey restore failed: {rollback_err}"));
+    }
+    if rollback_errors.is_empty() {
+      return Err(err);
+    }
+    return Err(format!("{err}; rollback failed: {}", rollback_errors.join("; ")));
+  }
   Ok(settings)
 }
 
@@ -1902,6 +2048,7 @@ pub fn run() {
       desktop_clear_server_url,
       desktop_open_url,
       desktop_download_attachment,
+      desktop_sync_hotkey_descriptions,
       desktop_set_hotkey,
       desktop_request_notification_permission,
       desktop_notify,
@@ -1937,7 +2084,9 @@ pub fn run() {
             if let WindowEvent::CloseRequested { api, .. } = event {
               if load_settings(&app_handle).minimize_to_tray {
                 api.prevent_close();
-                conceal_main_window(&window_for_close);
+                if let Err(err) = conceal_main_window(&window_for_close) {
+                  eprintln!("Failed to conceal nia-todo window: {err}");
+                }
               }
             }
           });

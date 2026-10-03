@@ -18,6 +18,7 @@ const DEFAULT_LANGUAGE = 'en';
 const dictionaries = new Map();
 let activeLanguage = DEFAULT_LANGUAGE;
 let activeDictionary = {};
+let i18nLoadGeneration = 0;
 
 function normalizeLanguage(value) {
   return SUPPORTED_LANGUAGES.includes(value) ? value : 'auto';
@@ -48,22 +49,24 @@ function interpolate(text, params = {}) {
 }
 
 async function loadDictionary(language) {
-  if (dictionaries.has(language)) return dictionaries.get(language);
+  if (dictionaries.has(language)) {
+    return { language, dictionary: dictionaries.get(language) };
+  }
   try {
     const response = await fetch(`/static/i18n/${language}.json`, { cache: 'force-cache' });
     if (!response.ok) throw new Error(`Failed to load i18n dictionary: ${language}`);
     const dictionary = await response.json();
     dictionaries.set(language, dictionary);
-    return dictionary;
+    return { language, dictionary };
   } catch (err) {
     console.warn(`i18n: Failed to load ${language}, falling back to ${DEFAULT_LANGUAGE}`, err);
     if (language !== DEFAULT_LANGUAGE) {
       return loadDictionary(DEFAULT_LANGUAGE);
     }
     // Last resort: return empty dictionary to avoid blocking the app
-    const empty = {};
-    dictionaries.set(DEFAULT_LANGUAGE, empty);
-    return empty;
+    const dictionary = {};
+    dictionaries.set(DEFAULT_LANGUAGE, dictionary);
+    return { language: DEFAULT_LANGUAGE, dictionary };
   }
 }
 
@@ -84,15 +87,19 @@ export function getActiveLocale() {
   return DATE_TIME_LOCALES[getActiveLanguage()] || DATE_TIME_LOCALES[DEFAULT_LANGUAGE];
 }
 
+function dispatchLanguageChange() {
+  window.dispatchEvent(new CustomEvent('nia-language-change', {
+    detail: { preference: getLanguagePreference(), language: getActiveLanguage() },
+  }));
+}
+
 export async function setLanguagePreference(mode, { authApi = null, syncServer = false } = {}) {
   const normalized = normalizeLanguage(mode);
   if (normalized === 'auto') localStorage.removeItem(LANGUAGE_STORAGE_KEY);
   else localStorage.setItem(LANGUAGE_STORAGE_KEY, normalized);
-  await initI18n();
+  const result = await initI18n();
+  if (result.applied) dispatchLanguageChange();
   if (syncServer && authApi?.updateLanguage) await syncLanguagePreference(authApi);
-  window.dispatchEvent(new CustomEvent('nia-language-change', {
-    detail: { preference: getLanguagePreference(), language: getActiveLanguage() },
-  }));
 }
 
 export async function syncLanguagePreference(authApi) {
@@ -102,17 +109,26 @@ export async function syncLanguagePreference(authApi) {
 
 export async function adoptServerLanguagePreference(language) {
   const normalized = normalizeLanguage(language);
-  if (normalized === 'auto') return initI18n();
-  if (getLanguagePreference() === 'auto') localStorage.setItem(LANGUAGE_STORAGE_KEY, normalized);
-  return initI18n();
+  if (normalized !== 'auto' && getLanguagePreference() === 'auto') {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, normalized);
+  }
+  const result = await initI18n();
+  if (result.applied) dispatchLanguageChange();
+  return result;
 }
 
 export async function initI18n() {
-  activeLanguage = getCurrentLanguage();
-  activeDictionary = await loadDictionary(activeLanguage);
+  const generation = ++i18nLoadGeneration;
+  const requestedLanguage = getCurrentLanguage();
+  const loaded = await loadDictionary(requestedLanguage);
+  if (generation !== i18nLoadGeneration) {
+    return { applied: false, preference: getLanguagePreference(), language: activeLanguage };
+  }
+  activeLanguage = loaded.language;
+  activeDictionary = loaded.dictionary;
   document.documentElement.lang = activeLanguage;
   translatePage(document);
-  return { preference: getLanguagePreference(), language: activeLanguage };
+  return { applied: true, preference: getLanguagePreference(), language: activeLanguage };
 }
 
 export function t(key, params = {}) {

@@ -32,6 +32,14 @@ assert.ok(
   `Linux desktop builds need tao >= 0.36.0 for the Wayland title-bar input fix; Cargo.lock resolves ${taoVersion}`,
 );
 
+const portalApplySource = rustSource.match(/async fn try_apply_portal_hotkeys[\s\S]*?\n\}/)?.[0] ?? '';
+const emptyHotkeysCheck = portalApplySource.indexOf('settings.hotkeys.toggle_app.is_none()');
+const localizedDescriptionsRead = portalApplySource.indexOf('hotkey_descriptions');
+assert(
+  emptyHotkeysCheck >= 0 && localizedDescriptionsRead >= 0 && emptyHotkeysCheck < localizedDescriptionsRead,
+  'Wayland must accept an empty hotkey configuration before requiring localized descriptions',
+);
+
 assert.match(
   rustSource,
   /register_host_app\([\s\S]*GlobalShortcuts::new\(\)/,
