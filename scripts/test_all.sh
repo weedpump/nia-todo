@@ -141,6 +141,7 @@ run_frontend_shared_step_retry "Frontend Smoke" node scripts/test_frontend_smoke
 run_frontend_shared_step_retry "Frontend App Core" node scripts/test_frontend_app.mjs
 run_frontend_shared_step_retry "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
 run_frontend_shared_step_retry "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
+run_frontend_shared_step_retry "Frontend Todo Metadata Badges" node scripts/test_frontend_todo_meta_badges.mjs
 run_frontend_shared_step_retry "Frontend DragDrop" node scripts/test_frontend_dragdrop.mjs
 
 step "Frontend Isolated DB"

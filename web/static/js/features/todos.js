@@ -216,10 +216,7 @@ export function createTodosFeature({
         </div>
         <div class="todo-meta-drawer-body"></div>
       `;
-      drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => {
-        getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
-        renderTodoMetaSummary(getTodoBeingEdited());
-      });
+      drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', closeTodoMetaEditor);
       form.appendChild(drawer);
     }
     const body = drawer.querySelector('.todo-meta-drawer-body') || drawer;
@@ -228,13 +225,68 @@ export function createTodosFeature({
     return drawer;
   }
 
-  function todoLocationReminderLabel(todo) {
-    const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
-    if (!reminder || reminder.enabled === 0 || reminder.enabled === false) return '';
-    const trigger = String(reminder.trigger_type || reminder.triggerType || '').toLowerCase();
+  function todoLocationReminderLabel() {
+    const form = document.getElementById('todo-form');
+    if (form?.dataset.locationReminderOriginalEnabled === 'false'
+      && form.dataset.locationReminderDirty !== '1') return '';
+    const placeSelect = document.getElementById('todo-location-place');
+    const placeId = placeSelect?.value || '';
+    const address = document.getElementById('todo-location-address')?.value?.trim() || '';
+    if (!placeId && !address) return '';
+    const trigger = String(document.getElementById('todo-location-trigger')?.value || 'arrival').toLowerCase();
     const triggerLabel = trigger === 'departure' ? t('todo.location.departureShort') : t('todo.location.arrivalShort');
-    const place = String(reminder.place_name || reminder.placeName || reminder.address || '').trim();
+    const place = placeId ? placeSelect?.selectedOptions?.[0]?.textContent?.trim() || '' : address;
     return place ? `${triggerLabel}: ${place}` : triggerLabel;
+  }
+
+  function syncTodoMetaToggleLabel() {
+    const toggle = document.getElementById('todo-meta-edit-toggle');
+    if (!toggle) return;
+    const active = getTodoModal()?.classList.contains(TODO_MODAL_CLASSES.editingMeta);
+    const label = active ? t('todo.meta.close') : t('todo.meta.edit');
+    toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
+  }
+
+  function closeTodoMetaEditor() {
+    getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
+    renderTodoMetaSummary(getTodoBeingEdited());
+  }
+
+  function openTodoMetaEditor(controlId) {
+    const modal = getTodoModal();
+    const control = document.getElementById(controlId);
+    if (!modal || !control) return;
+    modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
+    syncTodoMetaToggleLabel();
+    const drawerBody = document.querySelector('#todo-meta-drawer .todo-meta-drawer-body');
+    const fieldGroup = control.closest('.form-group, .settings-toggle-row') || control;
+    if (drawerBody && fieldGroup) {
+      const drawerRect = drawerBody.getBoundingClientRect();
+      const fieldRect = fieldGroup.getBoundingClientRect();
+      drawerBody.scrollTop += fieldRect.top - drawerRect.top - 24;
+    }
+
+    if (control instanceof HTMLSelectElement) {
+      const trigger = control.nextElementSibling?.querySelector?.('.ui-select-trigger');
+      if (trigger && !trigger.disabled) {
+        trigger.focus({ preventScroll: true });
+        trigger.click();
+      }
+      return;
+    }
+
+    control.focus({ preventScroll: true });
+    if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+      control.click();
+      return;
+    }
+    if (control.matches('input[type="date"], input[type="datetime-local"], input[type="time"]') && typeof control.showPicker === 'function') {
+      try {
+        control.showPicker();
+      } catch {
+        // Focus remains on the matching field when the browser rejects showPicker.
+      }
+    }
   }
 
   function renderTodoMetaSummary(todo = null) {
@@ -242,18 +294,26 @@ export function createTodosFeature({
     if (!summary) return;
     ensureTodoMetaDrawer();
     summary.hidden = false;
+    const isNewTodo = !todo?.id;
     const chips = [];
+    const edit = t('todo.meta.edit');
     const addChip = (icon, label, value, options = {}) => {
-      if (!value) return;
+      if (!value && !options.showEmpty) return;
       const tone = String(options.tone || icon || 'default').replace(/[^a-z0-9-]/gi, '').toLowerCase();
       const style = options.color ? ` style="--meta-tone: ${escapeHtmlAttr(options.color)}"` : '';
-      chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${options.muted ? ' is-muted' : ''}"${style}>${iconSvg(icon)}<span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
+      const target = String(options.editTarget || '').replace(/[^a-z0-9-]/gi, '');
+      const content = `${iconSvg(icon)}<span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span>${value ? `<strong>${escapeHtmlAttr(value)}</strong>` : ''}`;
+      if (target) {
+        chips.push(`<button type="button" class="todo-meta-summary-chip todo-meta-tone-${tone}${options.muted ? ' is-muted' : ''}" data-meta-edit-target="${target}" aria-label="${escapeHtmlAttr(`${edit}: ${label}`)}"${style}>${content}</button>`);
+      } else {
+        chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${options.muted ? ' is-muted' : ''}"${style}>${content}</span>`);
+      }
     };
     const selectedProject = getProjects().find(project => String(project.id) === String(document.getElementById('todo-project')?.value || ''));
     const priority = Number(document.getElementById('todo-priority')?.value || todo.priority || 3);
     const status = document.getElementById('todo-status')?.value || todo.status || 'pending';
-    const dueValue = todo?.due_date || document.getElementById('todo-due')?.value || '';
-    const remindValue = todo?.remind_at || todo?.reminders?.[0]?.remind_at || document.getElementById('todo-remind')?.value || '';
+    const dueValue = document.getElementById('todo-due')?.value || '';
+    const remindValue = document.getElementById('todo-remind')?.value || '';
     const dueDate = dueValue ? new Date(dueValue) : null;
     const isOverdue = dueDate && status !== 'done' && dueDate < new Date();
     const isSoon = dueDate && !isOverdue && status !== 'done' && dueDate <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
@@ -262,34 +322,40 @@ export function createTodosFeature({
     const statusIcon = status === 'done' ? 'check-circle' : status === 'in_progress' ? 'flame' : 'clock';
     const dueTone = isOverdue ? 'due-overdue' : isSoon ? 'due-soon' : 'due-neutral';
     const projectIcon = /^[a-z0-9-]+$/i.test(String(selectedProject?.icon || '')) ? selectedProject.icon : 'folder';
-    addChip(projectIcon, t('todo.project'), getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color });
-    addChip('layers', t('todo.section'), getSelectedOptionLabel('todo-section'), { tone: 'section' });
-    addChip('flag', t('todo.priority'), getSelectedOptionLabel('todo-priority'), { tone: priorityTone });
-    addChip(statusIcon, t('todo.status'), getSelectedOptionLabel('todo-status'), { tone: statusTone });
-    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', t('todo.deadline'), formatTodoMetaDate(dueValue), { tone: dueTone });
-    addChip('bell', t('todo.reminder'), formatTodoMetaDate(remindValue), { tone: 'reminder' });
-    addChip('map-pin', t('quickAdd.detected.location'), todoLocationReminderLabel(todo), { tone: 'location' });
+    addChip(projectIcon, t('todo.project'), getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color, editTarget: 'todo-project' });
+    const sectionSelect = document.getElementById('todo-section');
+    if (sectionSelect && !sectionSelect.disabled) {
+      addChip('layers', t('todo.section'), getSelectedOptionLabel('todo-section'), { tone: 'section', editTarget: 'todo-section' });
+    }
+    addChip('flag', t('todo.priority'), getSelectedOptionLabel('todo-priority'), { tone: priorityTone, editTarget: 'todo-priority' });
+    addChip(statusIcon, t('todo.status'), getSelectedOptionLabel('todo-status'), { tone: statusTone, editTarget: 'todo-status' });
+    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', t('todo.deadline'), formatTodoMetaDate(dueValue), { tone: dueTone, editTarget: 'todo-due', showEmpty: isNewTodo });
+    addChip('bell', t('todo.reminder'), formatTodoMetaDate(remindValue), { tone: 'reminder', editTarget: 'todo-remind', showEmpty: isNewTodo });
+    addChip('map-pin', t('quickAdd.detected.location'), todoLocationReminderLabel(), { tone: 'location', editTarget: 'todo-location-place', showEmpty: isNewTodo });
     const selectedFrequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
-    const recurringRule = todo?.recurring_rule ? normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null }) : { frequency: selectedFrequency };
-    if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', t('todo.recurring'), getSelectedOptionLabel('todo-recurring-frequency'));
-    if (todo?.is_pinned || document.getElementById('todo-pinned')?.checked) addChip('star', t('todo.pinned'), t('todo.meta.pinnedYes'));
+    const hasRecurrence = selectedFrequency !== 'none';
+    if (hasRecurrence || isNewTodo) addChip('repeat', t('todo.recurring'), hasRecurrence ? getSelectedOptionLabel('todo-recurring-frequency') : '', { editTarget: 'todo-recurring-frequency', showEmpty: isNewTodo });
+    const isPinned = Boolean(document.getElementById('todo-pinned')?.checked);
+    if (isPinned || isNewTodo) addChip('star', t('todo.pinned'), isPinned ? t('todo.meta.pinnedYes') : '', { editTarget: 'todo-pinned', showEmpty: isNewTodo });
     const empty = t('todo.meta.empty');
-    const edit = t('todo.meta.edit');
     summary.innerHTML = `
       <div class="todo-meta-summary-chips">${chips.length ? chips.join('') : `<span class="todo-meta-summary-empty">${empty}</span>`}</div>
       <button type="button" class="btn btn-secondary todo-detail-action-btn todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
     `;
     const toggle = summary.querySelector('#todo-meta-edit-toggle');
-    const syncToggleLabel = () => {
-      const active = getTodoModal()?.classList.contains(TODO_MODAL_CLASSES.editingMeta);
-      const label = active ? t('todo.meta.close') : edit;
-      toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
-    };
     toggle?.addEventListener('click', () => {
-      getTodoModal()?.classList.toggle(TODO_MODAL_CLASSES.editingMeta);
-      syncToggleLabel();
+      const modal = getTodoModal();
+      if (!modal) return;
+      if (modal.classList.contains(TODO_MODAL_CLASSES.editingMeta)) closeTodoMetaEditor();
+      else {
+        modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
+        syncTodoMetaToggleLabel();
+      }
     });
-    syncToggleLabel();
+    summary.querySelectorAll('[data-meta-edit-target]').forEach((chip) => {
+      chip.addEventListener('click', () => openTodoMetaEditor(chip.dataset.metaEditTarget));
+    });
+    syncTodoMetaToggleLabel();
     translatePage(summary);
   }
 
@@ -807,7 +873,6 @@ export function createTodosFeature({
       remind_at: document.getElementById('todo-remind')?.value || '',
       recurring_frequency: document.getElementById('todo-recurring-frequency')?.value || 'none',
       recurring_interval: document.getElementById('todo-recurring-interval')?.value || '1',
-      location_enabled: Boolean(document.getElementById('todo-location-enabled')?.checked),
       location_trigger: document.getElementById('todo-location-trigger')?.value || 'arrival',
       location_place: document.getElementById('todo-location-place')?.value || '',
       location_address: document.getElementById('todo-location-address')?.value || '',
@@ -1487,17 +1552,16 @@ export function createTodosFeature({
   }
 
   function updateLocationReminderControls() {
-    const enabled = document.getElementById('todo-location-enabled')?.checked || false;
     const fields = document.getElementById('todo-location-fields');
     if (fields) {
-      fields.classList.toggle('is-disabled', !enabled);
-      fields.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = !enabled; });
+      fields.classList.remove('is-disabled');
+      fields.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = false; });
     }
     const placeId = document.getElementById('todo-location-place')?.value || '';
     const addressGroup = document.getElementById('todo-location-address-group');
     if (addressGroup) addressGroup.hidden = Boolean(placeId);
     const error = document.getElementById('todo-location-error');
-    if (error && !enabled) error.textContent = '';
+    if (error) error.textContent = '';
   }
 
   async function loadSavedPlacesForTodoModal() {
@@ -1530,22 +1594,34 @@ export function createTodosFeature({
   }
 
   function bindLocationReminderControls() {
-    const enabled = document.getElementById('todo-location-enabled');
-    if (enabled && enabled.dataset.locationBound !== '1') {
-      enabled.dataset.locationBound = '1';
-      enabled.addEventListener('change', updateLocationReminderControls);
-    }
+    const form = document.getElementById('todo-form');
+    const markDirty = () => {
+      if (form) form.dataset.locationReminderDirty = '1';
+    };
     const place = document.getElementById('todo-location-place');
     if (place && place.dataset.locationBound !== '1') {
       place.dataset.locationBound = '1';
-      place.addEventListener('change', updateLocationReminderControls);
+      place.addEventListener('change', () => {
+        markDirty();
+        updateLocationReminderControls();
+      });
+    }
+    for (const id of ['todo-location-trigger', 'todo-location-address']) {
+      const control = document.getElementById(id);
+      if (control && control.dataset.locationDirtyBound !== '1') {
+        control.dataset.locationDirtyBound = '1';
+        control.addEventListener(control instanceof HTMLSelectElement ? 'change' : 'input', markDirty);
+      }
     }
     updateLocationReminderControls();
   }
 
   function clearLocationReminderForm() {
-    const enabled = document.getElementById('todo-location-enabled');
-    if (enabled) enabled.checked = false;
+    const form = document.getElementById('todo-form');
+    if (form) {
+      delete form.dataset.locationReminderOriginalEnabled;
+      form.dataset.locationReminderDirty = '0';
+    }
     const trigger = document.getElementById('todo-location-trigger');
     if (trigger) trigger.value = 'arrival';
     for (const id of ['todo-location-address']) {
@@ -1557,12 +1633,16 @@ export function createTodosFeature({
     updateLocationReminderControls();
   }
 
+  function isLocationReminderEnabled(locationReminder) {
+    return ![false, 0, '0', 'false'].includes(locationReminder?.enabled);
+  }
+
   function populateLocationReminderForm(todo) {
     clearLocationReminderForm();
     const locationReminder = todo?.location_reminder || todo?.location_reminders?.[0];
     if (!locationReminder) return;
-    const enabled = document.getElementById('todo-location-enabled');
-    if (enabled) enabled.checked = true;
+    const form = document.getElementById('todo-form');
+    if (form) form.dataset.locationReminderOriginalEnabled = String(isLocationReminderEnabled(locationReminder));
     const setValue = (id, value) => {
       const input = document.getElementById(id);
       if (input && value !== undefined && value !== null) input.value = String(value);
@@ -1570,24 +1650,22 @@ export function createTodosFeature({
     setValue('todo-location-trigger', locationReminder.trigger_type || locationReminder.triggerType || 'arrival');
     renderLocationPlaceSelect(locationReminder.place_id || '');
     if (!locationReminder.place_id) setValue('todo-location-address', locationReminder.address || '');
+    if (form) form.dataset.locationReminderDirty = '0';
     updateLocationReminderControls();
   }
 
   function locationReminderFromForm() {
-    const enabled = document.getElementById('todo-location-enabled')?.checked || false;
-    if (!enabled) return null;
     const error = document.getElementById('todo-location-error');
     if (error) error.textContent = '';
     const placeId = document.getElementById('todo-location-place')?.value || '';
     const address = document.getElementById('todo-location-address')?.value?.trim() || '';
-    if (!placeId && !address) {
-      if (error) error.textContent = t('todo.location.addressRequired');
-      document.getElementById('todo-location-address')?.focus();
-      throw new Error('Invalid location reminder address');
-    }
+    if (!placeId && !address) return null;
+    const form = document.getElementById('todo-form');
+    const preserveDisabled = form?.dataset.locationReminderOriginalEnabled === 'false'
+      && form.dataset.locationReminderDirty !== '1';
     const payload = {
       trigger_type: document.getElementById('todo-location-trigger')?.value || 'arrival',
-      enabled: true,
+      enabled: !preserveDisabled,
     };
     if (placeId) {
       payload.place_id = Number(placeId);
