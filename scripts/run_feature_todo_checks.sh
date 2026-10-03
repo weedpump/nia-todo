@@ -24,6 +24,7 @@ run "Frontend App Core" node scripts/test_frontend_app.mjs
 run "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
 run "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
 run "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
+run "Frontend Todo Metadata Badges" node scripts/test_frontend_todo_meta_badges.mjs
 run "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
