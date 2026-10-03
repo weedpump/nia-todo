@@ -298,7 +298,8 @@ def test_umami_event_contains_only_safe_fixed_metadata():
     response.__enter__ = Mock(return_value=response)
     response.__exit__ = Mock(return_value=False)
     with temporary_update_db():
-        with patch.object(server_updates, "UPDATE_UMAMI_WEBSITE_ID", "website-id"), \
+        with patch.object(server_updates, "UPDATE_UMAMI_URL", server_updates.DEFAULT_UMAMI_URL), \
+             patch.object(server_updates, "UPDATE_UMAMI_WEBSITE_ID", "website-id"), \
              patch.object(server_updates.urllib.request, "urlopen", return_value=response) as urlopen:
             server_updates.send_update_check_event()
     request = urlopen.call_args.args[0]
