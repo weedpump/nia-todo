@@ -11,7 +11,7 @@ cffi==2.1.1
 charset-normalizer==3.5.1
 click==8.5.0
 cryptography==50.0.1
-fastapi==0.141.1
+fastapi==0.142.2
 frozenlist==1.8.0
 h11==0.16.0
 httptools==0.8.0
