@@ -558,6 +558,12 @@
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
 }
 
+@media (max-width: 768px) {
+  .modal-content.confirm-modal-content {
+    border-radius: 0;
+  }
+}
+
 .confirm-icon {
   border-radius: 999px;
   box-shadow: none;
