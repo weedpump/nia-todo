@@ -701,6 +701,20 @@ def test_package_integration_isolates_update_network_before_starting_ci_service(
         assert text.index(override) < install_index, "CI update-network overrides must exist before package postinst starts the service"
 
 
+def test_direct_test_runner_isolates_update_network_before_loading_application_code():
+    text = (ROOT / "scripts/test_all.sh").read_text(encoding="utf-8")
+    first_test_index = text.index('run_step "Backend Core API"')
+    overrides = (
+        'export NIA_TODO_UPDATE_PRIMARY_URL="http://127.0.0.1:9/update/stable.json"',
+        'export NIA_TODO_UPDATE_RELEASE_API_URL="http://127.0.0.1:9/releases/latest"',
+        'export NIA_TODO_UPDATE_UMAMI_URL="http://127.0.0.1:9"',
+        'export NIA_TODO_UPDATE_UMAMI_WEBSITE_ID=""',
+    )
+    for override in overrides:
+        assert override in text, f"direct test processes must isolate update networking with: {override}"
+        assert text.index(override) < first_test_index, "test-process overrides must exist before application code is loaded"
+
+
 def test_update_progress_status_file():
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "status.json"
@@ -758,6 +772,7 @@ def main():
     test_public_installer_persists_custom_service_name_for_app_and_helper()
     test_update_sudoers_allows_no_helper_args()
     test_package_integration_isolates_update_network_before_starting_ci_service()
+    test_direct_test_runner_isolates_update_network_before_loading_application_code()
     test_update_progress_status_file()
     test_update_progress_reconciles_stale_running_status()
     print("✅ server update tests passed")

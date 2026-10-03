@@ -3,6 +3,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Direct test processes import the FastAPI application and execute its startup
+# hooks. Keep their update checks away from production endpoints just like the
+# installed package integration service.
+export NIA_TODO_UPDATE_PRIMARY_URL="http://127.0.0.1:9/update/stable.json"
+export NIA_TODO_UPDATE_RELEASE_API_URL="http://127.0.0.1:9/releases/latest"
+export NIA_TODO_UPDATE_UMAMI_URL="http://127.0.0.1:9"
+export NIA_TODO_UPDATE_UMAMI_WEBSITE_ID=""
+
 step() {
   echo
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
