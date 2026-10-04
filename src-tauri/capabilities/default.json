@@ -14,6 +14,7 @@
     "allow-desktop-clear-server-url",
     "allow-desktop-open-url",
     "allow-desktop-download-attachment",
+    "allow-desktop-sync-hotkey-descriptions",
     "allow-desktop-set-hotkey",
     "allow-desktop-request-notification-permission",
     "allow-desktop-notify",

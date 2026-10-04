@@ -176,6 +176,8 @@ run_step "Native Android WebView Cache Migration" node scripts/test_native_andro
 run_step "Native Debian WebView Cache Migration" node scripts/test_native_linux_webview_cache_migration.mjs
 run_step "Native Debian Package Name" node scripts/test_native_debian_deb_package_name.mjs
 run_step "Native Desktop Settings Static" node scripts/test_native_desktop_settings_static.mjs
+run_step "i18n Language Lifecycle" node scripts/test_i18n_language_lifecycle.mjs
+run_step "Desktop Hotkey Description Sync" node scripts/test_desktop_hotkey_description_sync.mjs
 run_step "Native Linux Window Integration" node scripts/test_native_linux_window_integration.mjs
 run_step "Native Android Reminder Alarm Policy" node scripts/test_native_android_reminder_alarm_policy.mjs
 run_step "Native Android Microphone Permission" node scripts/test_native_android_microphone_permission.mjs

@@ -73,6 +73,11 @@ const startImport = () => {
         }
       }
       if (runtime?.capabilities?.android) document.documentElement.classList.add('native-android');
+      if (runtime?.capabilities?.desktop && runtime?.capabilities?.nativeHotkeys) {
+        const hotkeyDescriptions = await import('./features/desktop-hotkey-descriptions.js');
+        hotkeyDescriptions.bindDesktopHotkeyDescriptionSync();
+        await hotkeyDescriptions.syncDesktopHotkeyDescriptions();
+      }
       if (config.isNativeRuntime() && config.getTauriInvoke() && !runtime.apiBaseUrl) {
         showNativeServerSetup(config);
         return;

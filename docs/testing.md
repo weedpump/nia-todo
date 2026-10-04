@@ -114,6 +114,8 @@ These checks run after the frontend DB suite restore unless explicitly listed ab
 - `node scripts/test_native_linux_webview_cache_migration.mjs`
 - `node scripts/test_native_debian_deb_package_name.mjs`
 - `node scripts/test_native_desktop_settings_static.mjs`
+- `node scripts/test_i18n_language_lifecycle.mjs`
+- `node scripts/test_desktop_hotkey_description_sync.mjs`
 - `node scripts/test_native_android_reminder_alarm_policy.mjs`
 - `node scripts/test_native_android_microphone_permission.mjs`
 - `node scripts/test_native_windows_installer_cache_hooks.mjs`
@@ -163,8 +165,13 @@ Use for native runtime, desktop settings, Android wrapper, passkey, reminder, mi
 The native suite includes static/package checks that protect platform-specific release contracts:
 
 - Debian desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
+- Debian desktop packages must install `de.tobiaskneidl.nia-todo.desktop`, matching the host application ID registered before GlobalShortcuts portal access.
+- Portal action descriptions must come from the active nia-todo language, serialize rapid language changes, retry transient persistence failures, and remain available in desktop settings. Description-only changes must not re-register any hotkey backend. Configured Wayland hotkeys must still register with safe fallback labels when localized descriptions are temporarily unavailable.
+- Wayland toggle/close-to-tray handling must fully hide the window so nia-todo remains tray-only. Because the surface is unmapped, GNOME may choose a different monitor when reopening it; the app must not attempt unsupported absolute positioning.
 - Debian desktop WebView cache migration must only clear volatile cache directories when the app version or executable marker changes.
 - Native desktop settings must keep desktop-only options scoped correctly and avoid leaking Windows-only wording onto Debian desktop.
+
+For a local Debian desktop build and GNOME/Wayland hotkey smoke test, follow [`debian-desktop-build.md`](debian-desktop-build.md).
 
 ## Manual Smoke Paths
 

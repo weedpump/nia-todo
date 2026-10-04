@@ -2208,7 +2208,10 @@ version = "3.2.1"
 dependencies = [
  "ashpd",
  "base64 0.22.1",
+ "futures-channel",
  "futures-util",
+ "gdkwayland-sys",
+ "gdkx11-sys",
  "gtk",
  "reqwest",
  "serde",
