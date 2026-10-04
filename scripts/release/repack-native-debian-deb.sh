@@ -47,6 +47,49 @@ if ! grep -q '^Package:' "${CONTROL}"; then
 fi
 sed -i "s/^Package:.*/Package: ${PACKAGE_NAME}/" "${CONTROL}"
 
+PREINST="${WORK_DIR}/root/DEBIAN/preinst"
+PREINST_HOOK="${WORK_DIR}/preinst-stop-desktop"
+cat > "${PREINST_HOOK}" <<'EOF'
+
+# Stop the desktop process before dpkg replaces its executable and resources.
+case "${1:-}" in
+  install|upgrade)
+    if [ -e /usr/bin/nia-todo-desktop ]; then
+      start-stop-daemon --stop --oknodo --retry=TERM/10/KILL/5 --exec /usr/bin/nia-todo-desktop || {
+        status=$?
+        echo "Could not stop the running nia-todo desktop app" >&2
+        exit "${status}"
+      }
+    fi
+    ;;
+esac
+EOF
+
+if [ -f "${PREINST}" ]; then
+  IFS= read -r shebang < "${PREINST}" || true
+  case "${shebang}" in
+    '#!/bin/sh'|'#!/bin/bash'|'#!/usr/bin/env sh'|'#!/usr/bin/env bash')
+      ;;
+    *)
+      echo "Unsupported existing preinst interpreter: ${shebang:-<missing shebang>}" >&2
+      exit 1
+      ;;
+  esac
+  {
+    printf '%s\n' "${shebang}" 'set -e'
+    cat "${PREINST_HOOK}"
+    sed '1d' "${PREINST}"
+  } > "${PREINST}.new"
+  mv "${PREINST}.new" "${PREINST}"
+else
+  {
+    printf '%s\n' '#!/bin/sh' 'set -e'
+    cat "${PREINST_HOOK}"
+    printf '%s\n' 'exit 0'
+  } > "${PREINST}"
+fi
+chmod 0755 "${PREINST}"
+
 DESKTOP_DIR="${WORK_DIR}/root/usr/share/applications"
 TAURI_DESKTOP_ENTRY="${DESKTOP_DIR}/nia-todo.desktop"
 PORTAL_DESKTOP_ENTRY="${DESKTOP_DIR}/${APPLICATION_ID}.desktop"

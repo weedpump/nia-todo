@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Made Todo detail metadata badges directly editable, including direct pin toggling and location reminders derived from actual location or address edits without a separate activation switch.
 
 ### Fixed
+- Stopped the Debian desktop app before package installation or upgrade replaces its executable and resources, with a bounded forced shutdown and fail-closed package handling.
 - Kept expanded mobile Todo quick actions below confirmation dialogs and restored square fullscreen confirmation modals in mobile browsers.
 - Stopped the dashboard's periodic stats refresh from replacing and re-downloading an unchanged user avatar every 30 seconds.
 - Restored global hotkeys in the Debian desktop app on GNOME/Wayland, including localized shortcut labels, automatic recovery after portal restarts, and tray-only window hiding. X11 and Windows keep their existing shortcut handling.
