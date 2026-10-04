@@ -434,6 +434,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     if (!isDesktopApp()) return;
     setDesktopStatus(t('settings.desktop.hotkeys.saving'));
     try {
+      await syncDesktopHotkeyDescriptions();
       settings = mergeSettings(await nativeBridge.setHotkey(action, shortcut));
       renderSettings();
       setDesktopStatus(t('settings.desktop.hotkeys.saved'));

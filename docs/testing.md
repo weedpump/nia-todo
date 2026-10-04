@@ -166,8 +166,8 @@ The native suite includes static/package checks that protect platform-specific r
 
 - Debian desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
 - Debian desktop packages must install `de.tobiaskneidl.nia-todo.desktop`, matching the host application ID registered before GlobalShortcuts portal access.
-- Portal action descriptions must come from the active nia-todo language, serialize rapid language changes, retry transient native synchronization failures, and remain available to automatic recovery without rereading frontend state. Description-only changes must not re-register X11 or Windows hotkeys.
-- Wayland toggle/close-to-tray handling must preserve GNOME-owned monitor, size, and maximized state by minimizing the mapped window before removing it from the taskbar rather than attempting unsupported absolute positioning or hiding on an unknown backend.
+- Portal action descriptions must come from the active nia-todo language, serialize rapid language changes, retry transient persistence failures, and remain available in desktop settings. Description-only changes must not re-register any hotkey backend. Configured Wayland hotkeys must still register with safe fallback labels when localized descriptions are temporarily unavailable.
+- Wayland toggle/close-to-tray handling must fully hide the window so nia-todo remains tray-only. Because the surface is unmapped, GNOME may choose a different monitor when reopening it; the app must not attempt unsupported absolute positioning.
 - Debian desktop WebView cache migration must only clear volatile cache directories when the app version or executable marker changes.
 - Native desktop settings must keep desktop-only options scoped correctly and avoid leaking Windows-only wording onto Debian desktop.
 
