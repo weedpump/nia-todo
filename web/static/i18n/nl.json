@@ -23,7 +23,6 @@
   "settings.language.auto": "Automatisch",
   "settings.language.de": "Duits",
   "settings.language.en": "Engels",
-  "settings.language.browser": "Gebruik browsertaal",
   "boot.title": "nia-todo wordt geladen",
   "boot.subtitle": "App starten…",
   "boot.loadError": "App kon niet worden geladen. Herlaad alstublieft.",

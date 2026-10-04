@@ -23,7 +23,6 @@
   "settings.language.auto": "Автоматический",
   "settings.language.de": "Немецкий",
   "settings.language.en": "Английский",
-  "settings.language.browser": "Использовать язык браузера",
   "boot.title": "nia-todo загружается",
   "boot.subtitle": "Запускаем приложение…",
   "boot.loadError": "Приложение не удалось загрузить. Пожалуйста, перезагрузите.",

@@ -23,7 +23,6 @@
   "settings.language.auto": "Automatic",
   "settings.language.de": "German",
   "settings.language.en": "English",
-  "settings.language.browser": "Use browser language",
   "boot.title": "nia-todo is loading",
   "boot.subtitle": "Starting app…",
   "boot.loadError": "App could not be loaded. Please reload.",

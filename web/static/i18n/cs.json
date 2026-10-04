@@ -23,7 +23,6 @@
   "settings.language.auto": "Automaticky",
   "settings.language.de": "Němčina",
   "settings.language.en": "Angličtina",
-  "settings.language.browser": "Použijte jazyk prohlížeče",
   "boot.title": "nia-todo se načítá",
   "boot.subtitle": "Spouštění aplikace…",
   "boot.loadError": "Aplikaci nelze načíst. Načtěte znovu.",

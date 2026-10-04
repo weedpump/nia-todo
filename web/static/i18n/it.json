@@ -23,7 +23,6 @@
   "settings.language.auto": "Automatico",
   "settings.language.de": "Tedesco",
   "settings.language.en": "Inglese",
-  "settings.language.browser": "Utilizza la lingua del browser",
   "boot.title": "nia-todo si sta caricando",
   "boot.subtitle": "Avvio dell'app…",
   "boot.loadError": "Impossibile caricare l'app. Per favore ricarica.",

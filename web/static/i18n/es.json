@@ -23,7 +23,6 @@
   "settings.language.auto": "Automático",
   "settings.language.de": "Alemán",
   "settings.language.en": "Inglés",
-  "settings.language.browser": "Usar el idioma del navegador",
   "boot.title": "nia-todo se está cargando",
   "boot.subtitle": "Iniciando aplicación…",
   "boot.loadError": "No se pudo cargar la aplicación. Por favor recarga.",
