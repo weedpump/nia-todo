@@ -23,7 +23,6 @@
   "settings.language.auto": "Automatisk",
   "settings.language.de": "Tyska",
   "settings.language.en": "Engelska",
-  "settings.language.browser": "Använd webbläsarens språk",
   "boot.title": "nia-todo laddar",
   "boot.subtitle": "Startar appen...",
   "boot.loadError": "Appen kunde inte laddas. Vänligen ladda om.",

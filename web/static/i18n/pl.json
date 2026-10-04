@@ -23,7 +23,6 @@
   "settings.language.auto": "Automatyczny",
   "settings.language.de": "Niemiecki",
   "settings.language.en": "Angielski",
-  "settings.language.browser": "Użyj języka przeglądarki",
   "boot.title": "ładuje się nia-todo",
   "boot.subtitle": "Uruchamiam aplikację…",
   "boot.loadError": "Nie można załadować aplikacji. Załaduj ponownie.",

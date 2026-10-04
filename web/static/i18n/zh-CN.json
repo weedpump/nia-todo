@@ -23,7 +23,6 @@
   "settings.language.auto": "自动",
   "settings.language.de": "德语",
   "settings.language.en": "英语",
-  "settings.language.browser": "使用浏览器语言",
   "boot.title": "nia-todo 正在加载",
   "boot.subtitle": "正在启动应用程序...",
   "boot.loadError": "无法加载应用程序。请重新加载。",

@@ -710,13 +710,12 @@
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="book-open"></div>
               <div>
-                <h4><span data-i18n-key="settings.language.label">Language</span></h4>
+                <h4 id="settings-language-heading"><span data-i18n-key="settings.language.label">Language</span></h4>
                 <p data-i18n-key="settings.section.languageHint">Sprache automatisch übernehmen oder fest setzen.</p>
               </div>
             </div>
             <div class="form-group">
-              <label for="settings-language" data-i18n-key="settings.language.browser">Use browser language</label>
-              <select class="ui-field" id="settings-language" data-user-settings-input="language">
+              <select class="ui-field" id="settings-language" data-user-settings-input="language" aria-labelledby="settings-language-heading">
                 <option value="auto" data-i18n-key="settings.language.auto">Automatic</option>
                 <option value="de" data-i18n-key="settings.language.de">German</option>
                 <option value="en" data-i18n-key="settings.language.en">English</option>

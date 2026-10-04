@@ -23,7 +23,6 @@
   "settings.language.auto": "Automatique",
   "settings.language.de": "Allemand",
   "settings.language.en": "Anglais",
-  "settings.language.browser": "Utiliser la langue du navigateur",
   "boot.title": "nia-todo est en cours de chargement",
   "boot.subtitle": "Démarrage de l'application…",
   "boot.loadError": "L'application n'a pas pu être chargée. Veuillez recharger.",
