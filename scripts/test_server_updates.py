@@ -21,6 +21,8 @@ sys.path.insert(0, str(ROOT / "api"))
 
 from services import server_updates
 from services import instance_config
+from routers import admin as admin_router
+from routers import server_updates as server_updates_router
 
 
 def assert_equal(actual, expected, label):
@@ -291,6 +293,38 @@ def test_public_status_is_minimal_and_uses_retained_release():
          patch.object(server_updates, "_read_web_app_version", return_value="2.5.4"):
         status = server_updates.get_public_update_status()
     assert_equal(status, {"update_available": True, "stale": True}, "minimal public update status")
+
+
+def test_authenticated_server_update_endpoint_exposes_minimal_status():
+    paths = {route.path: route for route in server_updates_router.router.routes}
+    assert "/api/server-update" in paths
+    route = paths["/api/server-update"]
+    assert "GET" in route.methods
+    assert route.dependant.dependencies, "server update endpoint must require authentication"
+
+    expected = {"update_available": True, "stale": False}
+    with patch.object(server_updates_router, "get_public_update_status", return_value=expected):
+        result = server_updates_router.get_server_update_status(user_id=123)
+    assert_equal(result, expected, "authenticated server update status")
+    assert_equal(set(result), {"update_available", "stale"}, "public status fields")
+
+
+def test_admin_status_offloads_blocking_status_work():
+    event_loop_thread = threading.get_ident()
+    worker_threads = []
+
+    def blocking_status():
+        worker_threads.append(threading.get_ident())
+        return {"update_available": False}
+
+    async def run():
+        with patch.object(admin_router, "perform_update_check", new=AsyncMock()), \
+             patch.object(admin_router, "get_update_status", side_effect=blocking_status):
+            return await admin_router.admin_get_server_update_status()
+
+    result = asyncio.run(run())
+    assert_equal(result, {"update_available": False}, "admin update status")
+    assert worker_threads and worker_threads[0] != event_loop_thread, "blocking admin status work must run outside the event loop"
 
 
 def test_umami_event_contains_only_safe_fixed_metadata():
@@ -753,6 +787,8 @@ def main():
     test_unstable_releases_are_rejected_by_both_sources()
     test_failed_check_retains_last_successful_release_and_marks_stale()
     test_public_status_is_minimal_and_uses_retained_release()
+    test_authenticated_server_update_endpoint_exposes_minimal_status()
+    test_admin_status_offloads_blocking_status_work()
     test_umami_event_contains_only_safe_fixed_metadata()
     test_umami_event_is_skipped_when_website_id_is_empty()
     test_umami_event_is_skipped_when_db_setting_is_disabled()
