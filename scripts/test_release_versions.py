@@ -38,6 +38,7 @@ def assert_compare(left: str, right: str, expected_sign: int) -> None:
 def copy_release_inputs(tmp: Path) -> None:
     for rel in [
         "web/static/js/core/config.js",
+        "web/manifest.json",
         "web/sw.js",
         "web/index.html",
         "web/static/js/features/about.js",
@@ -48,6 +49,8 @@ def copy_release_inputs(tmp: Path) -> None:
         "api/services/instance_config.py",
         "api/migrations/029_add_min_native_client_version_config.sql",
         "scripts/check_release_versions.py",
+        "scripts/release/prepare-release-version.sh",
+        "CHANGELOG.md",
     ]:
         src = ROOT / rel
         dst = tmp / rel
@@ -157,10 +160,42 @@ def test_android_generated_mismatch_is_warning_only() -> None:
         assert_true("tauri.properties versionName is 1.7.0" in result.stdout, result.stdout)
 
 
+def test_release_preparation_uses_dynamic_about_version() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        copy_release_inputs(tmp)
+        changelog_path = tmp / "CHANGELOG.md"
+        changelog_path.write_text(
+            changelog_path.read_text(encoding="utf-8")
+            + "\n## [9.8.7] - 2026-10-05\n\n### Fixed\n- Release preparation regression fixture.\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "init"], cwd=tmp, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Release Test"], cwd=tmp, check=True)
+        subprocess.run(["git", "config", "user.email", "release-test@example.invalid"], cwd=tmp, check=True)
+        subprocess.run(["git", "add", "."], cwd=tmp, check=True)
+        subprocess.run(["git", "commit", "-m", "fixture"], cwd=tmp, check=True, capture_output=True)
+
+        result = subprocess.run(
+            ["bash", "scripts/release/prepare-release-version.sh", "9.8.7"],
+            cwd=tmp,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        config = (tmp / "web/static/js/core/config.js").read_text(encoding="utf-8")
+        index = (tmp / "web/index.html").read_text(encoding="utf-8")
+        assert_true("export const APP_VERSION = 'v9.8.7';" in config, "APP_VERSION was not updated")
+        assert_true('id="about-client-version"' in index, "About version target is missing")
+
+
 def main() -> int:
     test_version_helpers()
     test_checker_rejects_bad_min_native_versions()
     test_android_generated_mismatch_is_warning_only()
+    test_release_preparation_uses_dynamic_about_version()
     print("✅ Release version checker tests passed")
     return 0
 

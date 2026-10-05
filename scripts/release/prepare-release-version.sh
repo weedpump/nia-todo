@@ -39,7 +39,6 @@ set_web_version() {
     local version_text="$1"
     sed -i "s/const APP_VERSION = 'v[^']*';/const APP_VERSION = 'v${version_text}';/" web/static/js/core/config.js
     sed -i "s/const SW_VERSION = 'v[^']*';/const SW_VERSION = 'v${version_text}';/" web/sw.js
-    sed -i "s/<span class=\"version-text\">v[^<]*<\/span>/<span class=\"version-text\">v${version_text}<\/span>/" web/index.html
 }
 
 set_tauri_version() {
@@ -88,7 +87,6 @@ require_source_version() {
     local tag="v${version_text}"
     grep -Fq "export const APP_VERSION = '${tag}';" web/static/js/core/config.js || { echo "❌ APP_VERSION ist nicht ${tag}"; exit 1; }
     grep -Fq "const SW_VERSION = '${tag}';" web/sw.js || { echo "❌ SW_VERSION ist nicht ${tag}"; exit 1; }
-    grep -Fq "<span class=\"version-text\">${tag}</span>" web/index.html || { echo "❌ sichtbare Web-Version ist nicht ${tag}"; exit 1; }
     grep -Fq "\"version\": \"${version_text}\"" src-tauri/tauri.conf.json || { echo "❌ Tauri-Version ist nicht ${version_text}"; exit 1; }
     grep -Eq "^version = \"${version_text}\"$" src-tauri/Cargo.toml || { echo "❌ Cargo.toml-Version ist nicht ${version_text}"; exit 1; }
 }
@@ -116,7 +114,6 @@ python3 scripts/check_release_versions.py "${VERSION}"
 
 git add \
     web/manifest.json \
-    web/index.html \
     web/sw.js \
     web/static/js/core/config.js \
     src-tauri/tauri.conf.json \
