@@ -119,7 +119,6 @@ static LINUX_PORTAL_STATE: Mutex<LinuxPortalLifecycleState> = Mutex::new(LinuxPo
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 static LINUX_PORTAL_OPERATION_LOCK: Mutex<()> = Mutex::new(());
 
-#[cfg(desktop)]
 static DESKTOP_SETTINGS_TRANSACTION_LOCK: Mutex<()> = Mutex::new(());
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
@@ -1006,6 +1005,11 @@ fn apply_global_hotkeys_for_settings(app: &AppHandle, settings: &DesktopSettings
     app.global_shortcut().unregister_all().map_err(|err| err.to_string())?;
     register_legacy_hotkeys(app, settings)
   }
+}
+
+#[cfg(not(desktop))]
+fn apply_global_hotkeys_for_settings(_app: &AppHandle, _settings: &DesktopSettings) -> Result<(), String> {
+  Ok(())
 }
 
 #[cfg(desktop)]

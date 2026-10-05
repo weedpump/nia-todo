@@ -112,6 +112,16 @@ assert.match(
   /struct DesktopHotkeyDescriptions[\s\S]*hotkey_descriptions: Option<DesktopHotkeyDescriptions>/,
   'Localized shortcut descriptions must be retained in the desktop settings snapshot for recovery',
 );
+assert.doesNotMatch(
+  rustSource,
+  /#\[cfg\(desktop\)\]\s*static DESKTOP_SETTINGS_TRANSACTION_LOCK/,
+  'The settings transaction lock must compile for Android because settings commands are cross-platform',
+);
+assert.match(
+  rustSource,
+  /#\[cfg\(not\(desktop\)\)\]\s*fn apply_global_hotkeys_for_settings\([\s\S]*?Ok\(\(\)\)[\s\S]*?\n\}/,
+  'Non-desktop targets must provide a no-op settings hotkey application path',
+);
 assert.match(
   tauriBuildSource,
   /"desktop_sync_hotkey_descriptions"/,
