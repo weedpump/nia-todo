@@ -110,6 +110,7 @@ const ICON_NAMES = [
   'house-plus',
   'image',
   'inbox',
+  'info',
   'key-round',
   'keyboard',
   'land-plot',

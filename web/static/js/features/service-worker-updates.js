@@ -1,6 +1,6 @@
 import { APP_VERSION, RUNTIME_CAPABILITIES } from '../core/config.js';
 
-export function createServiceWorkerUpdatesFeature() {
+export function createServiceWorkerUpdatesFeature({ appVersion = '' } = {}) {
   let swRegistration = null;
   let updateAvailable = false;
   let allowReloadOnControllerChange = false;
@@ -32,6 +32,7 @@ export function createServiceWorkerUpdatesFeature() {
     '/static/css/51-auth-downloads-install.css',
     '/static/css/52-auth-mobile.css',
     '/static/css/53-version-bar.css',
+    '/static/css/54-about.css',
     '/static/css/60-feedback-markdown.css',
     '/static/css/61-workspace-confirm-icons.css',
     '/static/css/62-touch-native.css',
@@ -74,6 +75,40 @@ export function createServiceWorkerUpdatesFeature() {
     return String(value || '').trim().replace(/^v/i, '');
   }
 
+  function compareVersions(leftValue, rightValue) {
+    const parse = (value) => {
+      const [core = '', prerelease = ''] = normalizeVersion(value).split('-', 2);
+      if (!/^\d+\.\d+\.\d+$/.test(core)) return null;
+      return {
+        core: core.split('.').map(part => Number.parseInt(part, 10)),
+        prerelease: prerelease ? prerelease.split('.') : [],
+      };
+    };
+    const left = parse(leftValue);
+    const right = parse(rightValue);
+    if (!left || !right) return null;
+    for (let index = 0; index < 3; index += 1) {
+      if (left.core[index] !== right.core[index]) return left.core[index] > right.core[index] ? 1 : -1;
+    }
+    if (!left.prerelease.length && !right.prerelease.length) return 0;
+    if (!left.prerelease.length) return 1;
+    if (!right.prerelease.length) return -1;
+    const length = Math.max(left.prerelease.length, right.prerelease.length);
+    for (let index = 0; index < length; index += 1) {
+      const leftPart = left.prerelease[index];
+      const rightPart = right.prerelease[index];
+      if (leftPart === undefined) return -1;
+      if (rightPart === undefined) return 1;
+      const leftNumber = /^\d+$/.test(leftPart) ? Number.parseInt(leftPart, 10) : null;
+      const rightNumber = /^\d+$/.test(rightPart) ? Number.parseInt(rightPart, 10) : null;
+      if (leftNumber !== null && rightNumber !== null && leftNumber !== rightNumber) return leftNumber > rightNumber ? 1 : -1;
+      if (leftNumber !== null && rightNumber === null) return -1;
+      if (leftNumber === null && rightNumber !== null) return 1;
+      if (leftPart !== rightPart) return leftPart > rightPart ? 1 : -1;
+    }
+    return 0;
+  }
+
   async function fetchCurrentServiceWorkerVersion() {
     try {
       const response = await fetch(`/sw.js?update-check=${Date.now()}`, { cache: 'reload' });
@@ -88,7 +123,7 @@ export function createServiceWorkerUpdatesFeature() {
 
   async function shouldPromptForFirstInstallUpdate() {
     const swVersion = await fetchCurrentServiceWorkerVersion();
-    return Boolean(swVersion && normalizeVersion(swVersion) !== normalizeVersion(APP_VERSION));
+    return compareVersions(swVersion, APP_VERSION) === 1;
   }
 
   function withTimeout(promise, timeoutMs, label) {
@@ -348,6 +383,17 @@ export function createServiceWorkerUpdatesFeature() {
     }
   }
 
+  async function refreshUpdateStatus() {
+    const latestVersion = await fetchCurrentServiceWorkerVersion();
+    const currentVersion = String(appVersion || '').trim().replace(/^v/i, '');
+    const normalizedLatestVersion = String(latestVersion || '').trim().replace(/^v/i, '');
+    const comparison = compareVersions(normalizedLatestVersion, currentVersion);
+    return {
+      known: updateAvailable || comparison !== null,
+      updateAvailable: updateAvailable || comparison === 1,
+    };
+  }
+
   function updateVersionLabel() {
     const current = document.querySelector('.version-text')?.textContent?.trim() || '';
     const modalCurrent = document.getElementById('web-update-current-version');
@@ -469,5 +515,6 @@ export function createServiceWorkerUpdatesFeature() {
     forceReloadApp,
     bindServiceWorkerUpdateButtons,
     isUpdateAvailable: () => updateAvailable,
+    refreshUpdateStatus,
   };
 }

@@ -5,7 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.2.2] - 2026-10-05
+
+### Added
+- Added an accessible About dialog for web, installed PWA, and native clients with runtime-specific version status, server details, changelog access, reload, and app download actions.
 
 ### Changed
 - Made Todo detail metadata badges directly editable, including direct pin toggling and location reminders derived from actual location or address edits without a separate activation switch.

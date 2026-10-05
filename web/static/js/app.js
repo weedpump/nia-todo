@@ -1,5 +1,5 @@
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
-import { APP_VERSION, WS_URL } from './core/config.js';
+import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
 import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
@@ -38,6 +38,7 @@ import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { createOidcNoticeFeature } from './features/oidc-notice.js';
 import { createServerUpdateIndicator } from './features/server-update-indicator.js';
+import { createAboutFeature } from './features/about.js';
 import { exposeRuntimeGlobals } from './features/runtime-globals.js';
 import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
@@ -82,6 +83,18 @@ const confirmDanger = confirmDialogFeature.confirmDanger;
 const alertInfo = confirmDialogFeature.alertInfo;
 const appDownloadsFeature = createAppDownloadsFeature();
 const serverUpdateIndicator = createServerUpdateIndicator({ serverUpdatesApi });
+const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ appVersion: APP_VERSION });
+const aboutFeature = createAboutFeature({
+  appVersion: APP_VERSION,
+  serverUpdatesApi,
+  openAppDownloadsModal: options => appDownloadsFeature.openAppDownloadsModal(options),
+  getClientUpdateStatus: async () => {
+    if (RUNTIME_CAPABILITIES.native) {
+      return appDownloadsFeature.readNativeAppUpdateStatus();
+    }
+    return serviceWorkerUpdates.refreshUpdateStatus();
+  },
+});
 const bindAppDownloadLaunchers = appDownloadsFeature.bindAppDownloadLaunchers;
 const whatsNewFeature = createWhatsNewFeature({
   appVersion: APP_VERSION,
@@ -256,6 +269,7 @@ let workspacesFeature = null;
 const userMenuFeature = createUserMenuFeature({
   getCurrentUser: () => currentUser,
   openSettingsModal: () => openSettingsModal(),
+  openAboutModal: options => aboutFeature.openAboutModal(options),
   cycleTheme: () => cycleTheme(),
   toggleAccentPresetMenu: (event) => toggleAccentPresetMenu(event),
   cycleSort: () => cycleSort(),
@@ -286,7 +300,6 @@ const authSessionFeature = createAuthSessionFeature({
     await Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]);
   },
 });
-const serviceWorkerUpdates = createServiceWorkerUpdatesFeature();
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
 const bindServiceWorkerUpdateButtons = serviceWorkerUpdates.bindServiceWorkerUpdateButtons;
 
@@ -675,6 +688,7 @@ export function startAppModule() {
   consumeOidcErrorNotice();
   bindServiceWorkerUpdateButtons();
   bindAppDownloadLaunchers();
+  aboutFeature.bindAboutActions();
   whatsNewFeature.bindWhatsNewActions();
   appDownloadsFeature.initAppDownloads();
   brainDumpLiveFeature.init();

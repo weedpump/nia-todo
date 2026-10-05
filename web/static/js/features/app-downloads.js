@@ -26,7 +26,7 @@ function isWebInstallEligible() {
 }
 
 function isBrowserDownloadEligible() {
-  return RUNTIME_CAPABILITIES.appDownloads && !isStandaloneDisplayMode();
+  return RUNTIME_CAPABILITIES.appDownloads;
 }
 
 function platformFromNativeRuntime() {
@@ -448,9 +448,12 @@ export function createAppDownloadsFeature() {
   let nativeExternalResourceOpenInFlight = false;
   let refreshInterval = null;
   let refreshInFlight = null;
+  let nativeAppUpdateStatus = { known: false, updateAvailable: false, latestVersion: '' };
+  let appDownloadsReturnFocusElement = null;
 
-  function openAppDownloadsModal() {
+  function openAppDownloadsModal({ returnFocusTo = null } = {}) {
     if (!isBrowserDownloadEligible() && !isWebInstallEligible()) return;
+    appDownloadsReturnFocusElement = returnFocusTo || document.activeElement;
     document.getElementById('user-menu')?.classList.remove('active');
     document.getElementById('user-menu-button')?.setAttribute('aria-expanded', 'false');
     const sidebar = document.getElementById('sidebar');
@@ -461,8 +464,17 @@ export function createAppDownloadsFeature() {
     const modal = document.getElementById('app-downloads-modal');
     modal?.classList.add('active');
     modal?.removeAttribute('aria-hidden');
+    modal?.querySelector('.modal-close-x, button:not([hidden]), a[href]:not([hidden])')?.focus();
     updateWebInstallUI();
     refreshAppDownloads();
+  }
+
+  function closeAppDownloadsModal() {
+    const modal = document.getElementById('app-downloads-modal');
+    modal?.classList.remove('active');
+    modal?.setAttribute('aria-hidden', 'true');
+    if (appDownloadsReturnFocusElement?.isConnected) appDownloadsReturnFocusElement.focus();
+    appDownloadsReturnFocusElement = null;
   }
 
   function nativeExternalUrlForLink(link) {
@@ -522,6 +534,28 @@ export function createAppDownloadsFeature() {
     return response.json();
   }
 
+  async function readNativeAppUpdateStatus() {
+    if (!RUNTIME_CAPABILITIES.native) return { known: false, updateAvailable: false, latestVersion: '' };
+    try {
+      const nativeBridge = createNativeBridge();
+      const nativePlatform = platformFromNativeRuntime();
+      const currentVersion = await getNativeAppVersion(nativeBridge);
+      if (!nativePlatform || !currentVersion) return { known: false, updateAvailable: false, latestVersion: '' };
+      const downloads = downloadsFromManifest(await loadDownloadManifest());
+      const nativeDownload = downloads.find(download => download.platform === nativePlatform);
+      const status = {
+        known: Boolean(nativeDownload?.version),
+        updateAvailable: Boolean(nativeDownload?.version && compareVersions(nativeDownload.version, currentVersion) > 0),
+        latestVersion: normalizeVersion(nativeDownload?.version),
+      };
+      nativeAppUpdateStatus = status;
+      return { ...status };
+    } catch (error) {
+      console.info('[Downloads] Native app update status unavailable', error);
+      return { known: false, updateAvailable: false, latestVersion: '' };
+    }
+  }
+
   async function refreshAppDownloads() {
     if (refreshInFlight) return refreshInFlight;
     refreshInFlight = initAppDownloads().finally(() => { refreshInFlight = null; });
@@ -554,10 +588,19 @@ export function createAppDownloadsFeature() {
     if (appDownloadLaunchersBound) return;
     appDownloadLaunchersBound = true;
     document.addEventListener('click', (event) => {
+      if (event.target?.closest?.('[data-close-modal="app-downloads-modal"]')) {
+        closeAppDownloadsModal();
+        return;
+      }
       const launcher = event.target?.closest?.('[data-app-download-launcher]');
       if (!launcher) return;
       event.preventDefault();
       openAppDownloadsModal();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !document.getElementById('app-downloads-modal')?.classList.contains('active')) return;
+      event.preventDefault();
+      closeAppDownloadsModal();
     });
   }
 
@@ -599,6 +642,11 @@ export function createAppDownloadsFeature() {
       const minNativeClientVersion = getMinimumNativeClientVersion(runtimeInstance);
       const updateAvailable = nativeDownload?.version && currentVersion && compareVersions(nativeDownload.version, currentVersion) > 0;
       const updateRequired = nativeDownload?.version && currentVersion && minNativeClientVersion && compareVersions(minNativeClientVersion, currentVersion) > 0;
+      nativeAppUpdateStatus = {
+        known: Boolean(hasNativeVersion && nativeDownload?.version),
+        updateAvailable: Boolean(updateAvailable),
+        latestVersion: normalizeVersion(nativeDownload?.version),
+      };
       const dismissedKey = nativeDownload ? nativeUpdateKey(nativeDownload.platform, currentVersion, nativeDownload.version) : '';
       if (updateRequired) {
         showNativeUpdateModal(nativeDownload, currentVersion, nativeBridge, { forced: true, minVersion: minNativeClientVersion });
@@ -610,6 +658,7 @@ export function createAppDownloadsFeature() {
       downloadTargets.forEach((target) => setDownloadTargetVisible(target, false));
       setDownloadLaunchersVisible(downloadLaunchers, false);
       if (!hasNativeVersion) nativeVersionTargets.forEach((target) => { target.style.display = 'none'; });
+      if (RUNTIME_CAPABILITIES.native) nativeAppUpdateStatus = { known: false, updateAvailable: false, latestVersion: '' };
     }
   }
 
@@ -623,5 +672,15 @@ export function createAppDownloadsFeature() {
     refreshInterval = null;
   }
 
-  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads, openAppDownloadsModal, bindAppDownloadLaunchers };
+  return {
+    initAppDownloads: startAppDownloads,
+    startAppDownloads,
+    stopAppDownloads,
+    openAppDownloadsModal,
+    closeAppDownloadsModal,
+    refreshAppDownloads,
+    bindAppDownloadLaunchers,
+    getNativeAppUpdateStatus: () => ({ ...nativeAppUpdateStatus }),
+    readNativeAppUpdateStatus,
+  };
 }

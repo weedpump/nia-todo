@@ -40,6 +40,8 @@ def copy_release_inputs(tmp: Path) -> None:
         "web/static/js/core/config.js",
         "web/sw.js",
         "web/index.html",
+        "web/static/js/features/about.js",
+        "web/static/js/app.js",
         "src-tauri/tauri.conf.json",
         "src-tauri/Cargo.toml",
         "src-tauri/Cargo.lock",

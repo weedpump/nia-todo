@@ -128,7 +128,7 @@ assert(!desktopSource.includes('getTauriInvoke'), 'desktop integration must use 
 assert(desktopSource.includes('userId,'), 'native reminder schedules must carry the current user id for action isolation');
 
 const downloadsSource = readFileSync(new URL('../web/static/js/features/app-downloads.js', import.meta.url), 'utf8');
-assert(downloadsSource.includes('RUNTIME_CAPABILITIES.appDownloads && !isStandaloneDisplayMode()'), 'app downloads must only render when browser download capability is enabled, not native/PWA');
+assert(downloadsSource.includes('return RUNTIME_CAPABILITIES.appDownloads;'), 'app downloads must remain available in browser and installed PWA runtimes while native shells stay excluded by capability');
 assert(!downloadsSource.includes('window.NiaAndroidNative'), 'app downloads must use the native bridge adapter for native app version lookup');
 const themeSource = readFileSync(new URL('../web/static/js/features/theme.js', import.meta.url), 'utf8');
 assert(!themeSource.includes('window.NiaAndroidNative') && !themeSource.includes('window.NiaAndroidSystemBars'), 'theme must use the native bridge adapter for Android system bars');

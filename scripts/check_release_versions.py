@@ -98,6 +98,8 @@ def main() -> int:
     config_js = read("web/static/js/core/config.js")
     sw_js = read("web/sw.js")
     index_html = read("web/index.html")
+    about_js = read("web/static/js/features/about.js")
+    app_js = read("web/static/js/app.js")
     instance_config = read("api/services/instance_config.py")
     min_native_migration = read("api/migrations/029_add_min_native_client_version_config.sql")
     tauri_conf = json.loads(read("src-tauri/tauri.conf.json"))
@@ -106,7 +108,6 @@ def main() -> int:
     versions = {
         "web APP_VERSION": first(r"APP_VERSION\s*=\s*['\"]v?([^'\"]+)['\"]", config_js, "APP_VERSION"),
         "service worker SW_VERSION": first(r"SW_VERSION\s*=\s*['\"]v?([^'\"]+)['\"]", sw_js, "SW_VERSION"),
-        "index visible version": first(r'<span class="version-text">v?([^<]+)</span>', index_html, "index visible version"),
         "tauri.conf version": str(tauri_conf.get("version", "")),
         "Cargo.toml app version": first(r'^version\s*=\s*"([^"]+)"', cargo_toml, "Cargo.toml package version"),
         "Cargo.lock app version": cargo_lock_app_version(),
@@ -125,6 +126,13 @@ def main() -> int:
     baseline = expected or versions["web APP_VERSION"]
     failures: list[str] = []
     warnings: list[str] = []
+    if 'id="about-client-version"' not in index_html:
+        failures.append("About dialog client version target is missing")
+    if "appVersion" not in about_js or not re.search(
+        r"createAboutFeature\(\{\s*appVersion:\s*APP_VERSION,",
+        app_js,
+    ):
+        failures.append("About dialog client version is not derived from APP_VERSION")
     if not (is_valid_stable_version(baseline) or is_valid_dev_version(baseline)):
         failures.append(f"baseline version is not valid stable/dev SemVer: {baseline}")
     for label, value in versions.items():
