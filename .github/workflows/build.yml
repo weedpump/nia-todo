@@ -130,10 +130,13 @@ jobs:
           packages: ""
       - name: Install Android CLI
         run: |
-          curl -fsSLo /tmp/android-cli.deb \
-            https://dl.google.com/android/cli/latest/debian/pool/main/a/android-cli/android-cli_1.0.16486076_amd64.deb
-          echo "6b3e936cf0d770ed39c9118c9cf541c01082fd36b3308749c21affb1f1bcf83d  /tmp/android-cli.deb" | sha256sum -c -
-          sudo apt-get install -y /tmp/android-cli.deb
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+            | sudo tee /etc/apt/keyrings/google.asc >/dev/null
+          echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google.asc] https://dl.google.com/android/cli/latest/debian/ stable main" \
+            | sudo tee /etc/apt/sources.list.d/android-cli.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y android-cli
       - name: Install Android SDK packages
         run: |
           android --no-metrics --sdk="${ANDROID_HOME}" sdk install platform-tools

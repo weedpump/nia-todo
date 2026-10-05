@@ -75,6 +75,7 @@ run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py
 run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
+run_step "Android CLI Workflow Contract" python3 scripts/test_android_cli_workflow.py
 run_step "Playwright Workflow Contract" python3 scripts/test_playwright_workflow.py
 run_step "Security Runtime Code Ownership" python3 scripts/test_runtime_code_ownership.py
 run_step "Security Avatar Pixel Limit" python3 scripts/test_avatar_pixel_limit.py
