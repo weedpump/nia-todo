@@ -32,7 +32,22 @@ npm run test:ui
 
 ## Release Gate: `./scripts/test_all.sh`
 
-The `release.yml` GitHub Actions workflow calls `./scripts/test_all.sh` and aborts immediately on failure: no version bump, no build, no publish.
+Both CI workflows build and install a real Debian package before invoking the gate through `scripts/release/install-and-test.sh`. The ordinary `tests.yml` workflow builds a test package first. A tagged `release.yml` run prepares the release version and builds the release artifacts before testing the resulting server package; publishing still depends on the package and browser gates succeeding.
+
+### Security / workflow contracts
+
+- `python3 scripts/test_rate_limit.py`
+- `python3 scripts/test_request_body_limit.py`
+- `python3 scripts/test_password_length.py`
+- `python3 scripts/test_security_boundaries.py`
+- `node scripts/test_tauri_vendor_sync.mjs`
+- `python3 scripts/test_setup_token.py`
+- `python3 scripts/test_setup_sequence.py`
+- `python3 scripts/test_project_sharing_semantics.py`
+- `python3 scripts/test_github_action_pins.py`
+- `python3 scripts/test_playwright_workflow.py`
+- `python3 scripts/test_runtime_code_ownership.py`
+- `python3 scripts/test_avatar_pixel_limit.py`
 
 ### Backend / API / domain
 
@@ -48,6 +63,7 @@ The `release.yml` GitHub Actions workflow calls `./scripts/test_all.sh` and abor
 - `python3 scripts/test_todo_attachments.py`
 - `python3 scripts/test_location_reminders.py`
 - `python3 scripts/test_websocket_location_reminders.py`
+- `python3 scripts/test_websocket_auth_registration.py`
 - `python3 scripts/test_email_services.py`
 - `python3 scripts/test_two_factor_services.py`
 - `python3 scripts/test_oidc_services.py`
@@ -57,6 +73,7 @@ The `release.yml` GitHub Actions workflow calls `./scripts/test_all.sh` and abor
 - `python3 scripts/test_release_versions.py`
 - `python3 scripts/test_release_native_reuse.py`
 - `python3 scripts/test_server_updates.py`
+- `python3 scripts/test_update_analytics_admin_static.py`
 - `python3 scripts/test_packaging_backup.py`
 - `python3 scripts/test_admin_password_reset.py`
 
@@ -65,9 +82,11 @@ The `release.yml` GitHub Actions workflow calls `./scripts/test_all.sh` and abor
 These checks run before the frontend DB suite because they do not need a browser-backed dev DB reset.
 
 - `node scripts/test_sw_precache.mjs`
+- `node scripts/test_todo_attachment_thumbnails.mjs`
 - `node scripts/test_frontend_quick_add_inline.mjs`
 - `node scripts/test_frontend_project_counters.mjs`
 - `node scripts/test_frontend_security.mjs`
+- `node scripts/test_frontend_rich_text_editor.mjs`
 - `node scripts/test_frontend_native_passkeys.mjs`
 - `node scripts/test_frontend_android_todo_gestures.mjs`
 - `node scripts/test_mobile_swipe_runtime.mjs`
@@ -87,6 +106,7 @@ One fresh frontend test DB is prepared for representative core UI flows. These t
 - `node scripts/test_frontend_app.mjs`
 - `node scripts/test_frontend_subtasks.mjs`
 - `node scripts/test_frontend_todo_interactive_clicks.mjs`
+- `node scripts/test_frontend_todo_meta_badges.mjs`
 - `node scripts/test_frontend_dragdrop.mjs`
 
 #### Isolated fresh frontend DB
@@ -94,6 +114,7 @@ One fresh frontend test DB is prepared for representative core UI flows. These t
 These tests get a fresh DB per script because they modify setup/auth/session/offline/realtime/native state or are otherwise order-sensitive.
 
 - `node scripts/test_frontend_setup.mjs`
+- `node scripts/test_frontend_admin_csp.mjs`
 - `node scripts/test_frontend_password_reset.mjs`
 - `node scripts/test_frontend_mfa_login.mjs`
 - `node scripts/test_frontend_sharing.mjs`
@@ -116,6 +137,7 @@ These checks run after the frontend DB suite restore unless explicitly listed ab
 - `node scripts/test_native_desktop_settings_static.mjs`
 - `node scripts/test_i18n_language_lifecycle.mjs`
 - `node scripts/test_desktop_hotkey_description_sync.mjs`
+- `node scripts/test_native_linux_window_integration.mjs`
 - `node scripts/test_native_android_reminder_alarm_policy.mjs`
 - `node scripts/test_native_android_microphone_permission.mjs`
 - `node scripts/test_native_windows_installer_cache_hooks.mjs`

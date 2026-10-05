@@ -4,6 +4,7 @@
 import sqlite3
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 BASE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE / "api"))
@@ -15,6 +16,7 @@ from services.braindump_v2 import (  # noqa: E402
     finalize_session,
     reset_sessions_for_tests,
 )
+from routers.braindump_v2 import _run  # noqa: E402
 
 
 def assert_true(condition, message):
@@ -76,11 +78,19 @@ def test_finalize_processes_only_unprocessed_tail():
     assert_true(any(event.get("source") == "tail_only_finalize" and event.get("segment_ids") == [2] for event in finalized["events"]), "finalize should record tail-only segment processing")
 
 
+def test_media_subprocesses_have_a_bounded_timeout():
+    with patch("routers.braindump_v2.subprocess.run") as run:
+        run.return_value.returncode = 0
+        _run(["ffmpeg", "--version"])
+    assert_true(run.call_args.kwargs["timeout"] == 60, "media subprocess timeout must remain bounded")
+
+
 def main():
     tests = [
         test_user_gate_defaults_to_disabled,
         test_incremental_candidates_are_newest_first_and_not_lost_on_finalize,
         test_finalize_processes_only_unprocessed_tail,
+        test_media_subprocesses_have_a_bounded_timeout,
     ]
     for test in tests:
         test()

@@ -2,12 +2,35 @@
 import { withFreshDb, launchPage, BASE_URL, ADMIN_PASSWORD } from './frontend_test_lib.mjs';
 
 await withFreshDb(async () => {
-  const { browser, page, dumpErrors } = await launchPage();
+  const { browser, page, dumpErrors, consoleErrors } = await launchPage();
   try {
+    const maliciousError = '<img src=x onerror="globalThis.__adminXss = true">';
     await page.goto(`${BASE_URL}/admin`, { waitUntil: 'networkidle' });
     await page.fill('#admin-login-password', ADMIN_PASSWORD);
     await page.locator('#admin-login-form button[type="submit"]').click();
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 15_000 });
+
+    await page.route('**/api/admin/users', async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: maliciousError }),
+      });
+    });
+    await page.locator('[data-admin-page="braindump"]').click();
+    await page.locator('[data-admin-action="saveBrainDumpConfig"]').click();
+    const userList = page.locator('#user-list');
+    await userList.getByText(maliciousError, { exact: false }).waitFor({ state: 'attached' });
+    if (await userList.locator('img').count()) throw new Error('Admin user-list error rendered executable HTML');
+    if (await page.evaluate(() => globalThis.__adminXss === true)) throw new Error('Admin user-list error executed injected JavaScript');
+    const unexpectedInjectedFailureErrors = consoleErrors.filter((message) => !message.includes('status of 500'));
+    if (unexpectedInjectedFailureErrors.length) {
+      throw new Error(`Unexpected browser errors during injected admin failure: ${JSON.stringify(unexpectedInjectedFailureErrors)}`);
+    }
+    consoleErrors.length = 0;
+    await page.unroute('**/api/admin/users');
+    await page.locator('[data-admin-action="saveBrainDumpConfig"]').click();
+    await page.waitForFunction(() => document.querySelector('[data-admin-action="editUserUsername"]'));
 
     await page.locator('[data-admin-page="instance"]').click();
     const analyticsToggle = page.locator('#instance-update-analytics-enabled');

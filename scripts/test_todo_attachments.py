@@ -225,13 +225,20 @@ def main():
         assert_true(owner_delete_member_attachment.json()["todo"]["attachments_count"] == 1, owner_delete_member_attachment.text)
         assert_true(broadcast_events[-1]["event_type"] == "todo_attachment_delete", broadcast_events[-1])
 
+        authorization_todo = owner.post("/api/todos", json={"title": "Authorization boundary", "project_id": 2})
+        assert_true(authorization_todo.status_code == 200, authorization_todo.text)
+        authorization_todo_id = authorization_todo.json()["id"]
+        authorization_dir = todos_router.ATTACHMENT_DIR / str(authorization_todo_id)
+        assert_true(not authorization_dir.exists(), f"Unexpected attachment directory before upload: {authorization_dir}")
+
         stranger = make_client(db, user_id=3, broadcast_events=broadcast_events)
         forbidden = stranger.post(
-            f"/api/todos/{todo_id}/attachments",
+            f"/api/todos/{authorization_todo_id}/attachments",
             content=b"nope",
             headers={"content-type": "text/plain", "x-nia-filename": "nope.txt"},
         )
         assert_true(forbidden.status_code == 404, forbidden.text)
+        assert_true(not authorization_dir.exists(), f"Unauthorized upload created attachment directory: {authorization_dir}")
 
         blocked_type = owner.post(
             f"/api/todos/{todo_id}/attachments",
