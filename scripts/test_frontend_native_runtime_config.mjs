@@ -76,7 +76,7 @@ async function testNativeSetupWithoutServerUrl() {
   }
 }
 
-async function testNativeChangelogPillOpensOnlyOnce() {
+async function testNativeAboutChangelogBadgeOpensWebsiteOnce() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
     await installTauriStub(page, { serverUrl: BASE_URL }, {
@@ -89,10 +89,24 @@ async function testNativeChangelogPillOpensOnlyOnce() {
     await page.click('button.login-btn');
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
 
-    await page.locator('#changelog-link').evaluate((el) => { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window })); });
-    await page.waitForFunction(() => (window.__nativeOpenedUrls || []).length === 1, null, { timeout: 10_000 });
+    await page.click('#user-menu-button');
+    await page.click('[data-user-menu-action="about"]');
+    await page.locator('#about-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+    const badge = page.locator('.about-changelog-badge');
+    await badge.waitFor({ state: 'visible', timeout: 10_000 });
+    const href = await badge.getAttribute('href');
+    if (href !== 'https://nia-todo.homelabdiary.dev/changelog/') {
+      throw new Error(`Expected public website changelog URL, got ${href}`);
+    }
+    await badge.dispatchEvent('click');
+    await page.waitForFunction(() => {
+      const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
+      return opened.length === 1 && opened[0] === 'https://nia-todo.homelabdiary.dev/changelog/';
+    }, null, { timeout: 10_000 });
     const opened = await page.evaluate(() => window.__nativeOpenedUrls || []);
     if (opened.length !== 1) throw new Error(`Expected exactly one native openExternal call, got ${opened.length}`);
+    const path = await page.evaluate(() => location.pathname);
+    if (path !== '/') throw new Error(`Native About changelog click must not navigate inside app, got ${path}`);
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
@@ -101,7 +115,7 @@ async function testNativeChangelogPillOpensOnlyOnce() {
   }
 }
 
-async function testNativeChangelogOpensExternally() {
+async function testNativeDocumentationOpensExternally() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
     await installTauriStub(page, { serverUrl: BASE_URL }, {
@@ -119,19 +133,10 @@ async function testNativeChangelogOpensExternally() {
     await page.click('#user-menu-button');
     await page.click('#menu-settings-btn');
     await page.locator('#settings-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
-    await page.locator('[data-native-app-version] a.changelog-link').waitFor({ state: 'visible', timeout: 10_000 });
-    await page.locator('[data-native-app-version] a.changelog-link').dispatchEvent('click');
+    await page.locator('#settings-modal [data-external-resource]').dispatchEvent('click');
     await page.waitForFunction(() => {
       const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
-      return opened.length === 1 && opened[0] === `${location.origin}/changelog`;
-    }, null, { timeout: 10_000 });
-    const path = await page.evaluate(() => location.pathname);
-    if (path !== '/') throw new Error(`Native changelog click must not navigate inside app, got ${path}`);
-
-    await page.locator('[data-external-resource]').dispatchEvent('click');
-    await page.waitForFunction(() => {
-      const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
-      return opened.length === 2 && opened[1] === 'https://nia-todo.homelabdiary.dev/docs/api/';
+      return opened.length === 1 && opened[0] === 'https://nia-todo.homelabdiary.dev/docs/api/';
     }, null, { timeout: 10_000 });
     const apiDocsPath = await page.evaluate(() => location.pathname);
     if (apiDocsPath !== '/') throw new Error(`Native API documentation click must not navigate inside app, got ${apiDocsPath}`);
@@ -595,8 +600,8 @@ async function run() {
   await testNativeSetupWithoutServerUrl();
   await testNativeLoginChromeIsCompact();
   await testNativeRuntimeUsesConfiguredServerUrl();
-  await testNativeChangelogPillOpensOnlyOnce();
-  await testNativeChangelogOpensExternally();
+  await testNativeAboutChangelogBadgeOpensWebsiteOnce();
+  await testNativeDocumentationOpensExternally();
   await testNativeDesktopSettingsPersistViaTauriCommand();
   await testNativeLanguageSettingPersistsThroughInlineChangeBridge();
   await testNativeUpdateUsesModalWithDownloadButton();
