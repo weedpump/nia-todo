@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Changed
 - Made Todo detail metadata badges directly editable, including direct pin toggling and location reminders derived from actual location or address edits without a separate activation switch.
+- Removed the instance-local changelog routes, renderer, static asset, and packaged changelog copy now that release history is published on the product website.
 
 ### Fixed
 - Stopped the Debian desktop app before package installation or upgrade replaces its executable and resources, with a bounded forced shutdown and fail-closed package handling.
