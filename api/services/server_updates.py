@@ -338,11 +338,13 @@ def get_persisted_check_state() -> dict[str, Any]:
     }
 
 
-def get_public_update_status() -> dict[str, bool]:
+def get_public_update_status() -> dict[str, bool | str | None]:
     state = get_persisted_check_state()
     current = normalize_version(CURRENT_VERSION_OVERRIDE or _read_web_app_version())
-    latest = (state.get("release") or {}).get("version")
+    latest = normalize_version((state.get("release") or {}).get("version")) or None
     return {
+        "current_version": current or None,
+        "latest_version": latest,
         "update_available": compare_versions(latest, current) == 1,
         "stale": bool(state.get("stale")),
     }
@@ -379,7 +381,7 @@ def send_update_check_event() -> None:
         pass
 
 
-async def perform_update_check(trigger: str, *, broadcast: bool = True) -> dict[str, bool]:
+async def perform_update_check(trigger: str, *, broadcast: bool = True) -> dict[str, bool | str | None]:
     del trigger  # Tracking is deliberately identical and data-free for every trigger.
     async with _UPDATE_CHECK_LOCK:
         before = await asyncio.to_thread(get_public_update_status)

@@ -151,39 +151,24 @@
                 <div class="user-menu-email" id="user-menu-email">–</div>
               </div>
             </div>
-            <button type="button" class="ui-menu-item user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
             <button type="button" class="ui-menu-item user-menu-item" id="theme-toggle-btn" data-user-menu-action="theme" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
             <button type="button" class="ui-menu-item user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
             <button type="button" class="ui-menu-item user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
             <button type="button" class="ui-menu-item user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
             <button type="button" class="ui-menu-item user-menu-item" id="project-widget-toggle-btn" data-user-menu-action="project-widget" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" data-user-menu-action="about" role="menuitem"><span data-icon="info"></span><span data-i18n-key="about.menu">Über nia-todo</span></button>
             <div class="user-menu-separator"></div>
             <button type="button" class="ui-menu-item user-menu-item danger" data-user-menu-action="logout" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
           </div>
         </div>
 
-
-        <!-- Version & Update -->
-        <div class="version-bar" id="version-bar">
-          <div class="version-info" id="version-info">
-            <span class="version-text">v3.2.1</span>
-          </div>
+        <div class="server-update-footer">
           <div class="server-update-indicator hidden" id="server-update-indicator" hidden role="status" aria-live="polite">
             <span class="server-update-indicator-dot" aria-hidden="true"></span>
             <span class="server-update-indicator-text" data-i18n-key="update.server.available">Server update available</span>
           </div>
-          <div class="version-actions web-version-actions" id="version-actions">
-            <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
-            <span class="version-action-separator" aria-hidden="true">|</span>
-            <button type="button" class="force-refresh-btn version-action-btn" id="force-refresh-btn" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache" data-i18n-key="version.reload">↻ Neu laden</button>
-          </div>
-          <div class="version-download-divider web-version-actions" aria-hidden="true"></div>
-          <button type="button" class="btn btn-secondary app-download-launcher" data-app-download-launcher style="display:none;">
-            <span data-icon="download"></span>
-            <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
-          </button>
-          <div class="native-version-info" data-native-app-version style="display:none;"></div>
         </div>
       </div>
     </aside>
@@ -211,6 +196,43 @@
         <div class="web-update-actions">
           <button type="button" class="btn btn-secondary" id="native-app-update-later-btn" data-i18n-key="update.native.later">Later</button>
           <a class="btn btn-primary" id="native-app-update-download-btn" href="#" download data-i18n-key="update.native.download">Update herunterladen</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal ui-detail-modal ui-detail-view" id="about-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="about-modal-title">
+      <div class="modal-overlay" data-close-modal="about-modal"></div>
+      <div class="modal-content ui-detail-modal-content">
+        <div class="ui-detail-modal-header">
+          <div class="ui-detail-title-icon" data-icon="info"></div>
+          <div><h3 id="about-modal-title" data-i18n-key="about.title">Über nia-todo</h3></div>
+          <div class="ui-detail-header-actions">
+            <button class="modal-close-x" data-close-modal="about-modal" aria-label="Close" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
+          </div>
+        </div>
+        <div class="modal-body ui-detail-modal-body">
+          <div class="about-shell ui-detail-shell">
+            <a class="about-logo" href="https://nia-todo.homelabdiary.dev/" target="_blank" rel="noopener noreferrer" data-external-resource aria-label="nia-todo" title="nia-todo Website"><img src="/static/icons/icon-192.png" alt=""></a>
+            <div class="about-details">
+              <div class="about-row about-server-row">
+                <div><span class="about-label" data-i18n-key="about.connectedServer">Verbundener Server</span><strong id="about-server-url">–</strong></div>
+                <button type="button" class="about-copy-btn" data-about-action="copy-server" data-i18n-title-key="about.copyServer" title="Server-URL kopieren"><span data-icon="copy"></span></button>
+              </div>
+              <div class="about-row" id="about-server-version-row">
+                <span class="about-label" data-i18n-key="about.serverVersion">Server-Version</span>
+                <span class="about-version-block">
+                  <span class="about-version-value"><strong id="about-server-version">–</strong><span class="about-version-update" id="about-server-version-update" hidden><span aria-hidden="true">→</span><strong id="about-latest-server-version">–</strong></span><span class="about-version-status" id="about-server-version-status" role="img" hidden></span></span>
+                  <a class="about-changelog-badge" href="https://nia-todo.homelabdiary.dev/changelog/" target="_blank" rel="noopener noreferrer" data-external-resource data-i18n-key="resource.changelog">Changelog</a>
+                </span>
+              </div>
+              <p class="about-update-note" id="about-update-note" hidden></p>
+              <div class="about-row"><span class="about-label" id="about-client-version-label">App-Version</span><span class="about-version-value"><strong id="about-client-version">–</strong><span class="about-version-status" id="about-client-version-status" role="img" hidden></span></span></div>
+            </div>
+            <div class="about-actions ui-detail-action-row">
+              <button type="button" class="btn btn-secondary" id="about-reload-btn" data-force-refresh-button><span data-icon="refresh-cw"></span><span data-i18n-key="about.reloadWebApp">Web-App neu laden</span></button>
+              <button type="button" class="btn btn-primary" id="about-downloads-btn" data-about-action="downloads"><span data-icon="download"></span><span data-i18n-key="appDownloads.title">Apps herunterladen</span></button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

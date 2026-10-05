@@ -292,7 +292,16 @@ def test_public_status_is_minimal_and_uses_retained_release():
     with patch.object(server_updates, "get_persisted_check_state", return_value={"release": release, "stale": True, "check_error": "offline", "last_success_at": "2026-01-01", "last_check_at": "2026-01-02"}), \
          patch.object(server_updates, "_read_web_app_version", return_value="2.5.4"):
         status = server_updates.get_public_update_status()
-    assert_equal(status, {"update_available": True, "stale": True}, "minimal public update status")
+    assert_equal(
+        status,
+        {
+            "current_version": "2.5.4",
+            "latest_version": "2.5.5",
+            "update_available": True,
+            "stale": True,
+        },
+        "public update status",
+    )
 
 
 def test_authenticated_server_update_endpoint_exposes_minimal_status():
@@ -302,11 +311,20 @@ def test_authenticated_server_update_endpoint_exposes_minimal_status():
     assert "GET" in route.methods
     assert route.dependant.dependencies, "server update endpoint must require authentication"
 
-    expected = {"update_available": True, "stale": False}
+    expected = {
+        "current_version": "2.5.4",
+        "latest_version": "3.0.0",
+        "update_available": True,
+        "stale": False,
+    }
     with patch.object(server_updates_router, "get_public_update_status", return_value=expected):
         result = server_updates_router.get_server_update_status(user_id=123)
     assert_equal(result, expected, "authenticated server update status")
-    assert_equal(set(result), {"update_available", "stale"}, "public status fields")
+    assert_equal(
+        set(result),
+        {"current_version", "latest_version", "update_available", "stale"},
+        "public status fields",
+    )
 
 
 def test_admin_status_offloads_blocking_status_work():

@@ -4,6 +4,7 @@ import { loadAuthenticatedImage } from '../core/authenticated-image.js';
 export function createUserMenuFeature({
   getCurrentUser,
   openSettingsModal = null,
+  openAboutModal = null,
   cycleTheme = null,
   toggleAccentPresetMenu = null,
   cycleSort = null,
@@ -74,6 +75,11 @@ export function createUserMenuFeature({
     if (action === 'settings') {
       closeUserMenu();
       openSettingsModal?.();
+      return;
+    }
+    if (action === 'about') {
+      closeUserMenu();
+      openAboutModal?.({ returnFocusTo: document.getElementById('user-menu-button') });
       return;
     }
     if (action === 'theme') cycleTheme?.();

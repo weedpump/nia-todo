@@ -101,6 +101,7 @@ const PRECACHE_ASSETS = [
   '/static/i18n/zh-CN.json',
   '/static/js/features/api-keys.js',
   '/static/js/features/app-downloads.js',
+  '/static/js/features/about.js',
   '/static/js/features/app-rendering.js',
   '/static/js/features/app-lifecycle.js',
   '/static/js/features/calendar-view.js',
