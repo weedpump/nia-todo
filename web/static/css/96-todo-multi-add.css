@@ -1,0 +1,345 @@
+/* Multi todo quick capture preview */
+
+#todo-create-mode-switch[hidden],
+#todo-multi-add-panel[hidden] {
+  display: none !important;
+}
+
+.todo-create-mode-switch {
+  grid-area: mode;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+}
+
+.todo-create-mode-btn {
+  min-height: 36px;
+  padding: 7px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.todo-create-mode-btn.active {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .14);
+}
+
+#todo-modal.todo-create-view:not(.todo-multi-add-mode) .todo-editor-shell {
+  grid-template-areas:
+    "mode"
+    "content"
+    "subtasks"
+    "attachments"
+    "comments"
+    "organize"
+    "schedule";
+}
+
+#todo-modal.todo-multi-add-mode .todo-editor-shell {
+  width: 100%;
+  max-width: 920px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "mode"
+    "multi";
+}
+
+#todo-modal.todo-multi-add-mode .todo-editor-section,
+#todo-modal.todo-multi-add-mode #todo-meta-summary,
+#todo-modal.todo-multi-add-mode #todo-meta-drawer {
+  display: none !important;
+}
+
+.todo-multi-add-panel {
+  grid-area: multi;
+  display: grid;
+  gap: 18px;
+}
+
+.todo-multi-add-intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.todo-multi-add-intro h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 17px;
+}
+
+.todo-multi-add-intro p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.todo-multi-add-counter {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.todo-multi-add-counter strong {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.todo-multi-add-counter span:last-child {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.todo-multi-add-editor {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 22px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 22%),
+    color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .03);
+}
+
+.todo-multi-add-rows {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px;
+}
+
+.todo-multi-add-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 34px;
+  align-items: start;
+  gap: 10px;
+  min-height: 58px;
+  padding: 9px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+}
+
+.todo-multi-add-row:last-child {
+  border-bottom: 0;
+}
+
+.todo-multi-add-bullet {
+  width: 7px;
+  height: 7px;
+  margin-top: 16px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-multi-add-field {
+  min-width: 0;
+}
+
+.todo-multi-add-input.ui-field {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--field-radius);
+  background: var(--bg-tertiary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 12%, transparent);
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.todo-multi-add-input.ui-field:focus {
+  outline: none;
+  background: var(--bg-hover);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
+}
+
+.todo-multi-add-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.todo-multi-add-preview:empty,
+.todo-multi-add-row-message:empty {
+  display: none;
+}
+
+.todo-multi-add-row-message {
+  margin-top: 5px;
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.todo-multi-add-row.is-invalid .todo-multi-add-input {
+  color: var(--danger);
+}
+
+.todo-multi-add-row.is-invalid .todo-multi-add-row-message {
+  color: var(--danger);
+}
+
+.todo-multi-add-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-top: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .16s ease, color .16s ease, background .16s ease;
+}
+
+.todo-multi-add-row:hover .todo-multi-add-remove,
+.todo-multi-add-row:focus-within .todo-multi-add-remove {
+  opacity: 1;
+}
+
+.todo-multi-add-remove:hover,
+.todo-multi-add-remove:focus-visible {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.todo-multi-add-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
+}
+
+.todo-multi-add-toolbar-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.todo-multi-add-defaults {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--bg-secondary) 75%, transparent);
+}
+
+.todo-multi-add-defaults-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.todo-multi-add-defaults-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-multi-add-defaults-head h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.todo-multi-add-defaults-head p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.todo-multi-add-defaults-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.todo-multi-add-defaults .form-group {
+  min-width: 0;
+}
+
+.todo-multi-add-defaults label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+@media (max-width: 768px) {
+  .todo-create-mode-switch {
+    width: 100%;
+  }
+
+  .todo-create-mode-btn {
+    flex: 1 1 0;
+  }
+
+  .todo-multi-add-intro {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .todo-multi-add-counter {
+    align-items: flex-start;
+  }
+
+  .todo-multi-add-rows {
+    padding: 6px 12px;
+  }
+
+  .todo-multi-add-row {
+    grid-template-columns: 12px minmax(0, 1fr) 32px;
+    gap: 8px;
+  }
+
+  .todo-multi-add-remove {
+    opacity: 1;
+  }
+
+  .todo-multi-add-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .todo-multi-add-toolbar .btn {
+    width: 100%;
+  }
+
+  .todo-multi-add-defaults-grid {
+    grid-template-columns: 1fr;
+  }
+}

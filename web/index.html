@@ -360,7 +360,7 @@
         <div class="todo-modal-title-icon ui-detail-title-icon" data-icon="check-circle"></div>
         <div>
           <h3 id="todo-modal-title" data-i18n-key="todo.new">New todo</h3>
-          <p data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
+          <p id="todo-modal-subtitle" data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
         </div>
         <div class="todo-detail-header-actions ui-detail-header-actions" id="todo-detail-header-actions">
           <button type="submit" form="todo-form" class="btn btn-primary" id="todo-save-btn" data-i18n-key="common.save">Save</button>
@@ -377,6 +377,59 @@
       <div class="modal-body todo-modal-body ui-detail-modal-body">
       <form id="todo-form" class="todo-modal-form todo-editor-shell ui-detail-shell">
         <input type="hidden" id="todo-id">
+        <div class="todo-create-mode-switch" id="todo-create-mode-switch" role="group" aria-label="Capture mode" data-i18n-aria-label-key="todo.multiAdd.modeLabel" hidden>
+          <button type="button" class="todo-create-mode-btn active" data-todo-create-mode="single" aria-pressed="true" data-i18n-key="todo.multiAdd.modeSingle">One todo</button>
+          <button type="button" class="todo-create-mode-btn" data-todo-create-mode="multi" aria-pressed="false" data-i18n-key="todo.multiAdd.modeMultiple">Multiple todos</button>
+        </div>
+        <section class="todo-multi-add-panel" id="todo-multi-add-panel" hidden>
+          <div class="todo-multi-add-intro">
+            <div>
+              <h4 data-i18n-key="todo.multiAdd.introTitle">Capture thoughts quickly</h4>
+              <p data-i18n-key="todo.multiAdd.introDescription">Press Enter to start the next todo. Pasted bullet lists are split automatically.</p>
+            </div>
+            <div class="todo-multi-add-counter" aria-live="polite">
+              <strong id="todo-multi-add-count">0 todos</strong>
+              <span id="todo-multi-add-limit">50 lines available</span>
+            </div>
+          </div>
+          <div class="todo-multi-add-editor">
+            <div class="todo-multi-add-rows" id="todo-multi-add-rows"></div>
+            <div class="todo-multi-add-toolbar">
+              <span class="todo-multi-add-toolbar-hint" data-i18n-key="todo.multiAdd.quickAddHint">Quick Add works per line: tomorrow, #Project, /Section, !high …</span>
+              <button type="button" class="btn btn-secondary" id="todo-multi-add-more"><span data-icon="plus"></span> <span data-i18n-key="todo.multiAdd.addRow">Add another line</span></button>
+            </div>
+          </div>
+          <section class="todo-multi-add-defaults">
+            <div class="todo-multi-add-defaults-head">
+              <div class="todo-multi-add-defaults-icon" data-icon="sliders-horizontal"></div>
+              <div>
+                <h4 data-i18n-key="todo.multiAdd.defaultsTitle">Apply to all todos</h4>
+                <p data-i18n-key="todo.multiAdd.defaultsDescription">Values entered directly in a line override these defaults.</p>
+              </div>
+            </div>
+            <div class="todo-multi-add-defaults-grid">
+              <div class="form-group">
+                <label for="todo-multi-project" data-i18n-key="todo.project">Project</label>
+                <select class="ui-field" id="todo-multi-project"></select>
+              </div>
+              <div class="form-group">
+                <label for="todo-multi-section" data-i18n-key="todo.section">Section</label>
+                <select class="ui-field" id="todo-multi-section" disabled>
+                  <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="todo-multi-priority" data-i18n-key="todo.priority">Priority</label>
+                <select class="ui-field" id="todo-multi-priority">
+                  <option value="1" data-option-color="#ef4444" data-i18n-key="todo.priority.veryHigh">Very high</option>
+                  <option value="2" data-option-color="#f59e0b" data-i18n-key="todo.priority.high">High</option>
+                  <option value="3" data-option-color="#10b981" selected data-i18n-key="todo.priority.medium">Medium</option>
+                  <option value="4" data-option-color="#94a3b8" data-i18n-key="todo.priority.low">Low</option>
+                </select>
+              </div>
+            </div>
+          </section>
+        </section>
         <section class="ui-section-card ui-detail-section ui-detail-title-section todo-section-card todo-editor-section todo-editor-main todo-main-section">
           <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
