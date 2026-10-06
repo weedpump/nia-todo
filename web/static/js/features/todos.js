@@ -5,6 +5,7 @@ import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 import { createTodoAttachmentsFeature } from './todo-attachments.js';
 import { createTodoQuickAddFeature } from './todo-quick-add.js';
+import { createTodoMultiAddFeature } from './todo-multi-add.js';
 
 export function createTodosFeature({
   getTodos,
@@ -92,6 +93,28 @@ export function createTodosFeature({
     getCurrentProjectId,
     getSavedPlaces: () => savedPlaces,
     dbGetAll,
+  });
+
+  const multiAddFeature = createTodoMultiAddFeature({
+    t,
+    getTodos,
+    setTodos,
+    getCurrentProjectId,
+    getAppInitialized,
+    getDb,
+    dbPut,
+    addToSyncQueue,
+    isOnlineForSync,
+    syncWithServer,
+    parseQuickAddTitle,
+    loadSectionsForQuickAdd,
+    hydrateSelect,
+    refreshSelect,
+    renderProjects,
+    renderStats,
+    renderTodos,
+    closeModal,
+    showToast,
   });
 
   function escapeHtmlAttr(value) {
@@ -913,6 +936,10 @@ export function createTodosFeature({
   function refreshTodoSaveButtonState() {
     const saveButton = document.getElementById('todo-save-btn');
     if (!saveButton) return;
+    if (multiAddFeature.isActive()) {
+      saveButton.hidden = false;
+      return;
+    }
     const current = JSON.stringify(getTodoSaveRelevantState());
     const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
     saveButton.hidden = unchanged;
@@ -1403,6 +1430,7 @@ export function createTodosFeature({
     form.addEventListener('submit', saveTodo);
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
+    multiAddFeature.bind();
     bindTodoTitleFieldAutosize();
     bindTodoAttachmentInputs();
     const commentInput = getTodoCommentEditor();
@@ -2474,6 +2502,8 @@ export function createTodosFeature({
       updateTodoMetaPanelsOpenState(null);
     }
 
+    multiAddFeature.reset({ editing: Boolean(todo) });
+
     hydrateTodoSelects();
     updateRecurringControls();
     setupDescPreview();
@@ -2545,6 +2575,10 @@ export function createTodosFeature({
 
   async function saveTodo(event) {
     event.preventDefault();
+    if (multiAddFeature.isActive()) {
+      await multiAddFeature.save();
+      return;
+    }
     if (!getAppInitialized() || !getDb()) return;
     if (!validateTodoDateTimes()) return;
     const id = document.getElementById('todo-id').value;

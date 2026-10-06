@@ -23,6 +23,7 @@ run "Frontend Smoke" node scripts/test_frontend_smoke.mjs
 run "Frontend App Core" node scripts/test_frontend_app.mjs
 run "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
 run "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
+run "Frontend Multi Todo Add" node scripts/test_frontend_multi_todo_add.mjs
 run "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
 run "Frontend Todo Metadata Badges" node scripts/test_frontend_todo_meta_badges.mjs
 run "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
