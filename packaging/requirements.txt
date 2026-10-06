@@ -25,7 +25,7 @@ py-vapid==1.9.4
 pycparser==3.0
 pydantic==2.13.5
 PyJWT==2.15.1
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 pywebpush==2.5.0
 PyYAML==6.0.3
 requests==2.34.2
