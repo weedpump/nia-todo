@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-10-06
+
+### Added
+- Added a line-based multi-Todo creation mode with per-row Quick Add parsing, shared project, section, and priority defaults, offline queue support, localized validation, and a 50-Todo batch limit.
+
 ## [3.2.2] - 2026-10-05
 
 ### Added
