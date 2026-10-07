@@ -238,4 +238,42 @@ assert.equal(terminalStorage.getItem('nia-dashboard-preferences-sync-pending:use
 assert.equal(terminalGets, 1, 'terminal validation failures must continue with an authoritative server reload');
 assert.equal(terminalSync.isEnabled(), true, 'the authoritative server state must remain usable after dropping an invalid payload');
 
+const staleGetStorageMap = new Map([['nia-dashboard-preferences-sync-enabled:user:1', 'true']]);
+const staleGetStorage = {
+  getItem: key => staleGetStorageMap.get(key) ?? null,
+  setItem: (key, value) => staleGetStorageMap.set(key, String(value)),
+  removeItem: key => staleGetStorageMap.delete(key),
+};
+const staleGet = deferred();
+let staleGetCalls = 0;
+const staleGetWrites = [];
+const staleGetSync = createDashboardPreferencesSync({
+  api: {
+    async getDashboardPreferences() {
+      staleGetCalls += 1;
+      if (staleGetCalls === 1) return { enabled: true, preferences: {} };
+      return staleGet.promise;
+    },
+    async updateDashboardPreferences(payload) {
+      staleGetWrites.push(payload);
+      return payload.enabled ? { enabled: true, preferences: payload.preferences || {} } : { enabled: false, preferences: {} };
+    },
+  },
+  storage: staleGetStorage,
+  getUserId: () => 1,
+  getWorkspaces: () => [{ id: 10 }],
+  getPreferences: () => ({ version: 3, compactDisplay: true }),
+  setPreferences() {},
+});
+await staleGetSync.initialize();
+const oldRefresh = staleGetSync.refresh();
+while (staleGetCalls < 2) await Promise.resolve();
+await staleGetSync.setEnabled(false);
+staleGet.resolve({ enabled: true, preferences: { '10': { version: 3, marker: 'stale-get' } } });
+await oldRefresh;
+assert.equal(staleGetSync.isEnabled(), false, 'a GET started before a newer disable intent must not reactivate sync');
+assert.equal(staleGetStorage.getItem('nia-dashboard-preferences-sync-enabled:user:1'), null, 'a stale GET must not restore the local enabled key');
+await staleGetSync.saveWorkspace(10, { version: 3, marker: 'must-stay-disabled' });
+assert.deepEqual(staleGetWrites, [{ enabled: false }], 'a stale GET must not cause later dashboard saves to reactivate the server copy');
+
 console.log('✅ Dashboard preference account sync tests passed');

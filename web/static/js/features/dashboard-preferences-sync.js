@@ -13,6 +13,7 @@ export function createDashboardPreferencesSync({
 }) {
   let enabled = false;
   let flushPromise = null;
+  let intentGeneration = 0;
 
   function scopedKey(key) {
     const userId = getUserId?.();
@@ -34,6 +35,7 @@ export function createDashboardPreferencesSync({
   }
 
   function writePending(payload) {
+    intentGeneration += 1;
     storage?.setItem?.(scopedKey(PENDING_KEY), JSON.stringify(payload));
   }
 
@@ -101,8 +103,11 @@ export function createDashboardPreferencesSync({
   async function refresh() {
     const flushed = await flushPending();
     if (!flushed) return false;
+    const generation = intentGeneration;
     try {
-      applyRemote(await api.getDashboardPreferences());
+      const payload = await api.getDashboardPreferences();
+      if (generation !== intentGeneration) return false;
+      applyRemote(payload);
       return true;
     } catch {
       return false;
