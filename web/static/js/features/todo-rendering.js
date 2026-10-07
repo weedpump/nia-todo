@@ -1,4 +1,4 @@
-import { escapeHtml, escapeHtmlAttr, formatDate, renderMarkdown, truncateWords } from '../core/utils.js';
+import { escapeHtml, escapeHtmlAttr, formatDate, parseDateValue, renderMarkdown, truncateWords } from '../core/utils.js';
 import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
@@ -22,9 +22,12 @@ function recurringLabel(rule) {
 }
 
 export function renderTodoItem(t) {
-  const dueDate = t.due_date ? new Date(t.due_date) : null;
+  const dueDate = parseDateValue(t.due_date, { dateOnlyEndOfDay: true }).date;
   const now = new Date();
   const isOverdue = dueDate && t.status !== 'done' && dueDate < now;
+  const todayEnd = new Date(now);
+  todayEnd.setHours(23, 59, 59, 999);
+  const isDueToday = Boolean(dueDate && !isOverdue && t.status !== 'done' && dueDate <= todayEnd);
   let dueTone = '';
   if (dueDate && !isOverdue && t.status !== 'done') {
     const todayStart = new Date(now);
@@ -70,7 +73,7 @@ export function renderTodoItem(t) {
         </details>`;
 
   const cardMarkup = `
-    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" draggable="true">
+    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" data-priority="${escapeHtmlAttr(String(t.priority || ''))}" draggable="true">
       <div class="todo-status-control">
         <button type="button" class="todo-check" data-todo-action="toggle-status" data-todo-id="${todoIdAttr}" aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
           ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}
@@ -84,7 +87,7 @@ export function renderTodoItem(t) {
             <span class="todo-title">${escapeHtml(t.title)}</span>
             ${hasMeta ? `
             <div class="todo-meta-row">
-              ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
+              ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone} ${isOverdue || isDueToday ? 'minimal-attention' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
               ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
               ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
               ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}

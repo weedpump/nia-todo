@@ -74,11 +74,17 @@
     background: var(--bg-secondary);
     color: var(--text-secondary);
   }
-  .search-box > .search-toggle-btn:hover,
   .search-box.open > .search-toggle-btn {
     border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
     background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
     color: var(--accent);
+  }
+  @media (hover: hover) {
+    .search-box > .search-toggle-btn:hover {
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+      color: var(--accent);
+    }
   }
   .search-toggle-btn .ui-icon {
     display: block;

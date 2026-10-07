@@ -93,6 +93,64 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
+.dashboard-drilldown-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+  color: var(--text-primary);
+}
+.dashboard-drilldown-banner > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 700;
+}
+.dashboard-drilldown-banner svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+.dashboard-drilldown-banner .btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+  border-radius: 999px;
+}
+
+.overview-dashboard[data-dashboard-compact="true"] {
+  padding: 14px;
+}
+.overview-dashboard[data-dashboard-compact="true"] .overview-dashboard-header {
+  margin-bottom: 10px;
+}
+.overview-dashboard[data-dashboard-compact="true"] .overview-avatar {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+  font-size: 16px;
+}
+.overview-dashboard[data-dashboard-compact="true"] .overview-dashboard-header h2 {
+  font-size: 18px;
+}
+.overview-dashboard[data-dashboard-compact="true"] .overview-subtitle,
+.overview-dashboard[data-dashboard-compact="true"] .overview-stat-hint {
+  display: none;
+}
+.overview-dashboard[data-dashboard-compact="true"] .overview-stat-card {
+  gap: 8px;
+  padding: 10px 12px;
+}
+.overview-dashboard[data-dashboard-compact="true"] .overview-stat-num {
+  min-width: 36px;
+  font-size: 24px;
+}
+
 .overview-stat-card {
   display: flex;
   align-items: center;
@@ -103,6 +161,21 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--bg-primary) 48%, transparent);
   box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.overview-stat-card:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary));
+  transform: translateY(-1px);
+}
+.overview-stat-card:focus-visible,
+.overview-focus-item:focus-visible,
+.overview-project-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+  outline-offset: 2px;
 }
 .overview-stat-num {
   min-width: 44px;
@@ -110,9 +183,13 @@
   line-height: 1;
   font-weight: 850;
 }
-.overview-stat-card > div:last-child {
+.overview-stat-card > :last-child {
   min-width: 0;
   flex: 1 1 auto;
+}
+.overview-stat-label,
+.overview-stat-hint {
+  display: block;
 }
 .overview-stat-label {
   color: var(--text-primary);
@@ -134,13 +211,18 @@
 .overview-stat-card.pending .overview-stat-num { color: var(--warning); }
 .overview-stat-card.progress .overview-stat-num { color: #fb923c; }
 .overview-stat-card.due .overview-stat-num { color: var(--danger); }
+.overview-stat-card.today .overview-stat-num { color: var(--accent-hover); }
+.overview-stat-card.done .overview-stat-num { color: var(--success); }
 
 .overview-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
+  align-items: start;
   gap: 10px;
   margin-top: 10px;
+}
+.overview-detail-grid.single-panel {
+  grid-template-columns: minmax(0, 1fr);
 }
 .overview-panel {
   display: flex;
@@ -162,8 +244,7 @@
 .overview-focus-list,
 .overview-project-list {
   display: grid;
-  grid-template-rows: repeat(4, minmax(36px, 1fr));
-  flex: 1;
+  grid-auto-rows: minmax(36px, auto);
   gap: 6px;
 }
 .overview-focus-item,
@@ -176,11 +257,24 @@
   min-width: 0;
   min-height: 36px;
   padding: 8px 10px;
+  border: 0;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.08)), rgba(148,163,184,0.06));
   color: var(--text-secondary);
+  font: inherit;
   font-size: 13px;
+  text-align: left;
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary));
+}
+.overview-focus-item,
+.overview-project-item {
+  cursor: pointer;
+}
+.overview-focus-item:hover,
+.overview-project-item:hover {
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), var(--bg-hover));
+  color: var(--text-primary);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent-hover) 58%, var(--text-primary));
 }
 .overview-focus-item > span:first-child,
 .overview-project-item > span:first-child {
@@ -194,14 +288,6 @@
 }
 .overview-project-item {
   width: 100%;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-}
-.overview-project-item:hover {
-  background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), var(--bg-hover));
-  color: var(--text-primary);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent-hover) 58%, var(--text-primary));
 }
 .overview-focus-item strong,
 .overview-project-item strong {
@@ -217,4 +303,162 @@
 .overview-avatar,
 .project-dashboard-avatar {
   border-radius: 999px;
+}
+
+
+.dashboard-preferences-modal-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.dashboard-preferences-shell {
+  display: grid;
+}
+
+.dashboard-preferences-grid {
+  align-items: start;
+}
+
+.dashboard-preferences-layout-controls {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-preferences-layout-controls > .form-group {
+  margin-bottom: 0;
+}
+
+.dashboard-preferences-layout-controls .dashboard-preferences-toggle-list {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.dashboard-preferences-toggle-list,
+.dashboard-preferences-choice-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-preferences-toggle,
+.dashboard-preferences-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 2px 8px 2px 12px;
+  border-radius: var(--field-radius);
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+
+.dashboard-preferences-modal .ui-checkbox-label {
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 10px;
+}
+
+.dashboard-preferences-modal .ui-checkbox-box {
+  width: 18px;
+  height: 18px;
+  border-width: 1.5px;
+  border-radius: 6px;
+}
+
+.dashboard-preferences-modal .ui-checkbox-box .ui-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.dashboard-preferences-choice {
+  justify-content: flex-start;
+  padding-left: 6px;
+}
+
+.dashboard-preferences-project-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.dashboard-preferences-project-controls .form-group {
+  min-width: 0;
+}
+
+.dashboard-preferences-modal .dashboard-preferences-project-dropdown {
+  width: 100%;
+  max-width: none;
+}
+
+.dashboard-preferences-modal .dashboard-preferences-project-trigger {
+  min-height: 36px;
+}
+
+.dashboard-preferences-modal .dashboard-preferences-project-menu.ui-select-menu {
+  width: 100%;
+  max-width: none;
+}
+
+.dashboard-preferences-projects.is-disabled {
+  opacity: .45;
+}
+
+.dashboard-preferences-project-choice {
+  display: grid;
+  grid-template-columns: auto 12px minmax(0, 1fr);
+}
+
+.dashboard-preferences-project-marker {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--project-color, var(--accent));
+}
+
+.dashboard-preferences-project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-preferences-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard-preferences-stat-grid .form-group {
+  margin-bottom: 0;
+}
+
+.dashboard-preferences-choice-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-preferences-empty-focus {
+  margin-top: 12px;
+}
+
+.dashboard-preferences-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-preferences-project-controls,
+  .dashboard-preferences-stat-grid,
+  .dashboard-preferences-choice-grid,
+  .dashboard-preferences-grid.ui-field-grid.two-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-preferences-layout-controls .dashboard-preferences-toggle-list {
+    grid-template-columns: 1fr;
+  }
+
 }

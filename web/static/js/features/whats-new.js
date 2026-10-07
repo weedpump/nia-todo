@@ -119,6 +119,10 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     if (media.type === 'image' && media.src) {
       return `<figure class="whats-new-slide-media whats-new-slide-media-image"><img src="${escapeHtml(media.src)}" alt="${escapeHtml(media.alt || '')}"></figure>`;
     }
+    if (media.type === 'icons' && Array.isArray(media.icons)) {
+      const icons = media.icons.filter(Boolean).map((icon) => `<span>${iconSvg(icon)}</span>`).join('');
+      return `<div class="whats-new-slide-media whats-new-slide-media-icon whats-new-slide-media-icons" aria-hidden="true">${icons}</div>`;
+    }
     return `<div class="whats-new-slide-media whats-new-slide-media-icon" aria-hidden="true">${iconSvg(media.icon || 'sparkles')}</div>`;
   }
 

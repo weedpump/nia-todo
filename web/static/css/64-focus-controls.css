@@ -21,10 +21,12 @@
   transition: all 0.18s ease;
 }
 
-.today-focus-btn:hover,
-.minimal-todos-btn:hover {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+@media (hover: hover) {
+  .today-focus-btn:hover,
+  .minimal-todos-btn:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+  }
 }
 
 .today-focus-btn.active,

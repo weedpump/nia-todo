@@ -99,6 +99,22 @@
   stroke-width: 1.8;
 }
 
+.whats-new-slide-media-icons {
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  justify-content: center;
+  gap: 34px;
+}
+
+.whats-new-slide-media-icons > span {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .whats-new-slide-media-image {
   aspect-ratio: 16 / 9;
   min-height: 0;

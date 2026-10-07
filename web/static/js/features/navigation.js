@@ -3,6 +3,7 @@ export function createNavigationFeature({
   getCurrentProjectId,
   setCurrentProjectId,
   setCurrentFilter,
+  clearDashboardDrilldown = () => {},
   setSections,
   isOnlineForSync,
   dbGetAll,
@@ -42,6 +43,7 @@ export function createNavigationFeature({
   }
 
   function setFilter(filter, options = {}) {
+    if (!options.preserveDashboardDrilldown) clearDashboardDrilldown();
     setCurrentFilter(filter);
     const nextProjectId = baseFilters.includes(filter) ? null : parseInt(filter, 10);
     setCurrentProjectId(nextProjectId);
@@ -58,7 +60,7 @@ export function createNavigationFeature({
     });
     closeSidebar();
 
-    loadSectionsForCurrentProject().then(() => {
+    return loadSectionsForCurrentProject().then(() => {
       renderProjects();
       renderStats();
       renderTodos();

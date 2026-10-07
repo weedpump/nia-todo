@@ -156,7 +156,7 @@
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
             <button type="button" class="ui-menu-item user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
             <button type="button" class="ui-menu-item user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
-            <button type="button" class="ui-menu-item user-menu-item" id="project-widget-toggle-btn" data-user-menu-action="project-widget" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="dashboard-preferences-menu-btn" data-dashboard-preferences-action="open" role="menuitem"><span class="menu-item-icon" data-icon="sliders-horizontal"></span><span class="menu-item-label" data-i18n-key="dashboard.preferences.open">Dashboard anpassen</span></button>
             <button type="button" class="ui-menu-item user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
             <button type="button" class="ui-menu-item user-menu-item" data-user-menu-action="about" role="menuitem"><span data-icon="info"></span><span data-i18n-key="about.menu">Über nia-todo</span></button>
             <div class="user-menu-separator"></div>
@@ -321,8 +321,8 @@
       <!-- Top bar -->
       <div class="topbar">
         <button class="hamburger" data-sidebar-toggle aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
-        <button type="button" class="today-focus-btn" id="today-focus-btn" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
-        <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="brush-cleaning"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
+        <button type="button" class="today-focus-btn" id="today-focus-btn" title="Heute-Ansicht" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="calendar-days"></span><span data-i18n-key="todayFocus.short">Heute</span></button>
+        <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" title="Ruhige Ansicht" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="leaf"></span><span data-i18n-key="minimalTodos.short">Ruhe</span></button>
         <div class="search-box" id="search-box">
           <button type="button" class="btn btn-secondary btn-icon search-toggle-btn" id="search-toggle-btn" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
           <input type="search" class="ui-field" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo">
@@ -350,6 +350,143 @@
       <!-- Todos -->
       <div class="todo-list" id="todo-list"></div>
     </main>
+  </div>
+
+  <!-- Dashboard Preferences Modal -->
+  <div class="modal ui-detail-modal ui-detail-view dashboard-preferences-modal" id="dashboard-preferences-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dashboard-preferences-modal-title">
+    <div class="modal-overlay" data-dashboard-preferences-action="cancel"></div>
+    <div class="modal-content entity-modal-content ui-detail-modal-content dashboard-preferences-modal-content">
+      <div class="entity-modal-header dashboard-preferences-modal-header ui-detail-modal-header">
+        <div class="entity-modal-title-icon ui-detail-title-icon" data-icon="sliders-horizontal"></div>
+        <div>
+          <h3 id="dashboard-preferences-modal-title" data-i18n-key="dashboard.preferences.title">Dashboard anpassen</h3>
+          <p data-i18n-key="dashboard.preferences.subtitle">Blende Unwichtiges aus und richte das Dashboard auf deinen Alltag aus.</p>
+        </div>
+        <div class="ui-detail-header-actions">
+          <button type="submit" form="dashboard-preferences-form" class="btn btn-primary" id="dashboard-preferences-save" data-i18n-key="common.save">Speichern</button>
+          <button type="button" class="btn btn-secondary btn-icon" id="dashboard-preferences-reset" data-dashboard-preferences-action="reset" title="Zurücksetzen" aria-label="Zurücksetzen" data-i18n-title-key="focus.reset" data-i18n-aria-label-key="focus.reset"><span data-icon="rotate-ccw"></span></button>
+          <button type="button" class="modal-close-x" data-dashboard-preferences-action="cancel" aria-label="Dashboard-Anpassung schließen" data-i18n-aria-label-key="dashboard.preferences.close"><span data-icon="x"></span></button>
+        </div>
+      </div>
+      <div class="modal-body entity-modal-body ui-detail-modal-body">
+        <form id="dashboard-preferences-form" class="entity-modal-form dashboard-preferences-shell ui-detail-shell">
+          <section class="ui-section-card ui-detail-section ui-detail-title-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
+              <div>
+                <h4 data-i18n-key="dashboard.preferences.layout.title">Darstellung</h4>
+                <p data-i18n-key="dashboard.preferences.layout.hint">Bestimme, wie ausführlich dein Dashboard sein soll.</p>
+              </div>
+            </div>
+            <div class="dashboard-preferences-layout-controls">
+              <div class="dashboard-preferences-toggle-list" aria-label="Dashboard-Inhalte" data-i18n-aria-label-key="dashboard.preferences.content.title">
+                <label class="dashboard-preferences-toggle">
+                  <span data-i18n-key="dashboard.preferences.layout.compact">Kompakte Darstellung</span>
+                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-compact-display"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
+                </label>
+                <label class="dashboard-preferences-toggle">
+                  <span data-i18n-key="dashboard.preferences.content.focus">„Jetzt relevant“ anzeigen</span>
+                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-show-focus"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
+                </label>
+                <label class="dashboard-preferences-toggle">
+                  <span data-i18n-key="dashboard.preferences.content.projects">Aktive Projekte anzeigen</span>
+                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-show-active-projects"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
+                </label>
+                <label class="dashboard-preferences-toggle">
+                  <span data-i18n-key="dashboard.preferences.content.projectWidgets">Projekt-Widgets anzeigen</span>
+                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-show-project-widgets"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="folder-tree"></div>
+              <div>
+                <h4 data-i18n-key="dashboard.preferences.projects.title">Berücksichtigte Projekte</h4>
+                <p data-i18n-key="dashboard.preferences.projects.hint">Diese Auswahl gilt nur für das Dashboard.</p>
+              </div>
+            </div>
+            <div class="dashboard-preferences-project-controls">
+              <div class="form-group">
+                <label for="dashboard-preferences-project-scope" data-i18n-key="dashboard.preferences.projects.mode">Auswahl</label>
+                <select class="ui-field" id="dashboard-preferences-project-scope" data-ui-select>
+                  <option value="all" data-i18n-key="dashboard.preferences.projects.all">Alle Projekte</option>
+                  <option value="include" data-i18n-key="dashboard.preferences.projects.include">Nur ausgewählte Projekte</option>
+                  <option value="exclude" data-i18n-key="dashboard.preferences.projects.exclude">Ausgewählte Projekte ausschließen</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <span class="form-label" id="dashboard-preferences-projects-label" data-i18n-key="focus.projects">Projekte</span>
+                <div class="dashboard-preferences-projects" id="dashboard-preferences-projects" aria-labelledby="dashboard-preferences-projects-label"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="chart-no-axes-column"></div>
+              <div>
+                <h4 data-i18n-key="dashboard.preferences.stats.title">Kennzahlen</h4>
+                <p data-i18n-key="dashboard.preferences.stats.hint">Wähle vier unterschiedliche Kacheln und ihre Reihenfolge.</p>
+              </div>
+            </div>
+            <div class="dashboard-preferences-stat-grid" id="dashboard-preferences-stats">
+              <div class="form-group"><label for="dashboard-preferences-stat-1" data-i18n-key="dashboard.preferences.stats.slot1">Kachel 1</label><select class="ui-field" id="dashboard-preferences-stat-1" data-ui-select data-dashboard-stat-slot="0"></select></div>
+              <div class="form-group"><label for="dashboard-preferences-stat-2" data-i18n-key="dashboard.preferences.stats.slot2">Kachel 2</label><select class="ui-field" id="dashboard-preferences-stat-2" data-ui-select data-dashboard-stat-slot="1"></select></div>
+              <div class="form-group"><label for="dashboard-preferences-stat-3" data-i18n-key="dashboard.preferences.stats.slot3">Kachel 3</label><select class="ui-field" id="dashboard-preferences-stat-3" data-ui-select data-dashboard-stat-slot="2"></select></div>
+              <div class="form-group"><label for="dashboard-preferences-stat-4" data-i18n-key="dashboard.preferences.stats.slot4">Kachel 4</label><select class="ui-field" id="dashboard-preferences-stat-4" data-ui-select data-dashboard-stat-slot="3"></select></div>
+            </div>
+            <div class="settings-field-error" id="dashboard-preferences-error" role="alert"></div>
+          </section>
+
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="target"></div>
+              <div>
+                <h4 data-i18n-key="dashboard.preferences.focus.title">Jetzt relevant</h4>
+                <p data-i18n-key="dashboard.preferences.focus.hint">Lege fest, welche handlungsrelevanten Gruppen erscheinen.</p>
+              </div>
+            </div>
+            <div class="dashboard-preferences-choice-grid" id="dashboard-preferences-focus-items">
+              <label class="dashboard-preferences-choice"><span class="ui-checkbox-label"><input type="checkbox" value="overdue" data-dashboard-focus-item><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span><span data-i18n-key="dashboard.preferences.focus.overdue">Überfällig</span></label>
+              <label class="dashboard-preferences-choice"><span class="ui-checkbox-label"><input type="checkbox" value="due_today" data-dashboard-focus-item><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span><span data-i18n-key="dashboard.preferences.focus.today">Heute fällig</span></label>
+              <label class="dashboard-preferences-choice"><span class="ui-checkbox-label"><input type="checkbox" value="due_week" data-dashboard-focus-item><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span><span data-i18n-key="dashboard.preferences.focus.week">Nächste 7 Tage</span></label>
+              <label class="dashboard-preferences-choice"><span class="ui-checkbox-label"><input type="checkbox" value="high_priority" data-dashboard-focus-item><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span><span data-i18n-key="dashboard.preferences.focus.priority">Hohe Priorität</span></label>
+            </div>
+            <label class="dashboard-preferences-toggle dashboard-preferences-empty-focus">
+              <span data-i18n-key="dashboard.preferences.focus.hideEmpty">Leere Gruppen ausblenden</span>
+              <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-hide-empty-focus"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
+            </label>
+          </section>
+
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="folders"></div>
+              <div>
+                <h4 data-i18n-key="dashboard.preferences.activeProjects.title">Aktive Projekte</h4>
+                <p data-i18n-key="dashboard.preferences.activeProjects.hint">Bestimme Anzahl und Sortierung der Projektliste.</p>
+              </div>
+            </div>
+            <div class="ui-field-grid two-columns dashboard-preferences-grid">
+              <div class="form-group">
+                <label for="dashboard-preferences-project-limit" data-i18n-key="dashboard.preferences.activeProjects.limit">Anzahl</label>
+                <select class="ui-field" id="dashboard-preferences-project-limit" data-ui-select><option value="2">2</option><option value="4">4</option><option value="6">6</option></select>
+              </div>
+              <div class="form-group">
+                <label for="dashboard-preferences-project-sort" data-i18n-key="dashboard.preferences.activeProjects.sort">Sortierung</label>
+                <select class="ui-field" id="dashboard-preferences-project-sort" data-ui-select>
+                  <option value="recent" data-i18n-key="dashboard.preferences.activeProjects.recent">Zuletzt verwendet</option>
+                  <option value="alphabetical" data-i18n-key="dashboard.preferences.activeProjects.alphabetical">Alphabetisch</option>
+                  <option value="open_count" data-i18n-key="dashboard.preferences.activeProjects.openCount">Meiste offene Todos</option>
+                </select>
+              </div>
+            </div>
+          </section>
+        </form>
+      </div>
+    </div>
   </div>
 
   <!-- Todo Modal -->

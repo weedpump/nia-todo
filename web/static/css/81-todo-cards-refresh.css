@@ -784,6 +784,10 @@
   box-shadow: none;
 }
 
+.project-dashboard .overview-stat-card:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary));
+}
+
 .project-dashboard .overview-stat-num {
   min-width: 34px;
   font-size: 22px;

@@ -1,8 +1,9 @@
 import { apiResourceUrl } from '../core/config.js';
 import { loadAuthenticatedImage, releaseAuthenticatedImage } from '../core/authenticated-image.js';
-import { getActiveLanguage, t } from '../i18n/index.js';
+import { getActiveLocale, t } from '../i18n/index.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
+import { calculateDashboardMetrics, filterTodosForDashboard, filterTodosForDashboardDrilldown, filterTodosForTodayFocus, getEffectiveDashboardPreferences, selectDashboardWorkspaceTodos } from './dashboard-preferences.js';
 
 export function createAppRenderingFeature({
   appVersion,
@@ -17,6 +18,9 @@ export function createAppRenderingFeature({
   getHideDone,
   getTodayFocus,
   getShowProjectWidget,
+  getDashboardPreferences,
+  getDashboardDrilldown = () => null,
+  getMinimalTodos,
   getCurrentUser,
   getFocusFilters,
   getFocusFiltersExpanded,
@@ -89,8 +93,8 @@ export function createAppRenderingFeature({
 
   function getWorkspaceTodos() {
     const workspaceProjects = getWorkspaceProjects();
-    const projectIds = new Set(workspaceProjects.map(project => project.id));
-    return getTodos().filter(todo => projectIds.has(todo.project_id));
+    const projectIds = new Set(workspaceProjects.map(project => Number(project.id)));
+    return selectDashboardWorkspaceTodos(getTodos(), projectIds, getCurrentWorkspaceId?.());
   }
 
   function countByProject(pid) {
@@ -174,41 +178,30 @@ export function createAppRenderingFeature({
     const currentProjectId = getCurrentProjectId();
     const search = document.getElementById('search-input')?.value?.trim() || '';
     const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(now);
-    todayEnd.setHours(23, 59, 59, 999);
-    const weekEnd = new Date(now);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    weekEnd.setHours(23, 59, 59, 999);
-
-    const activeTodos = todos.filter(t => t.status !== 'done');
-    const total = todos.length;
-    const pending = todos.filter(t => t.status === 'pending').length;
-    const inprog = todos.filter(t => t.status === 'in_progress').length;
-    const done = todos.filter(t => t.status === 'done').length;
     const validProjectIds = new Set(projects.map(project => Number(project.id)));
+    const navigationMetrics = calculateDashboardMetrics(todos, now);
+    const activeTodos = todos.filter(t => t.status !== 'done');
     const focusCount = applyFocusFilters(todos, validProjectIds).length;
     const calendarCount = activeTodos.filter(t => t.due_date).length;
-    const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < now).length;
-    const dueToday = activeTodos.filter(t => {
-      if (!t.due_date) return false;
-      const due = new Date(t.due_date);
-      return due >= todayStart && due <= todayEnd;
-    }).length;
-    const dueWeek = activeTodos.filter(t => t.due_date && new Date(t.due_date) > todayEnd && new Date(t.due_date) <= weekEnd).length;
-    const completionRate = total ? Math.round((done / total) * 100) : 0;
+    const dashboardPreferences = getEffectiveDashboardPreferences(getDashboardPreferences?.(), {
+      minimal: Boolean(getMinimalTodos?.()),
+    });
+    const dashboardTodos = filterTodosForDashboard(todos, dashboardPreferences, validProjectIds);
+    const visibleDashboardTodos = getTodayFocus?.()
+      ? filterTodosForTodayFocus(dashboardTodos, now)
+      : dashboardTodos;
+    const dashboardMetrics = calculateDashboardMetrics(visibleDashboardTodos, now);
 
     const setCount = (id, value) => {
       const node = document.getElementById(id);
       if (node) node.textContent = value;
     };
-    setCount('count-all', total);
+    setCount('count-all', navigationMetrics.total);
     setCount('count-focus', focusCount);
     setCount('count-calendar', calendarCount);
-    setCount('count-pending', pending);
-    setCount('count-in_progress', inprog);
-    setCount('count-done', done);
+    setCount('count-pending', navigationMetrics.pending);
+    setCount('count-in_progress', navigationMetrics.in_progress);
+    setCount('count-done', navigationMetrics.done);
 
     const user = getCurrentUser?.();
     const displayName = user?.display_name || user?.username || t('overview.defaultUser');
@@ -222,7 +215,7 @@ export function createAppRenderingFeature({
       ? currentAvatar
       : null;
     if (currentAvatar && !reusableAvatar) releaseAuthenticatedImage(currentAvatar);
-    const locale = getActiveLanguage() === 'en' ? 'en-US' : 'de-DE';
+    const locale = getActiveLocale();
     const dateTime = new Intl.DateTimeFormat(locale, {
       weekday: 'long',
       day: '2-digit',
@@ -263,39 +256,59 @@ export function createAppRenderingFeature({
       return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit' }).format(date);
     }
 
-    const projectsByRecentTodo = projects
+    const activeProjects = projects
       .map(project => {
-        const projectTodos = todos.filter(t => t.project_id === project.id);
+        const projectTodos = visibleDashboardTodos.filter(todo => Number(todo.project_id) === Number(project.id));
         const latestDate = projectTodos
-          .map(t => parseTodoTimestamp(t.updated_at || t.created_at))
+          .map(todo => parseTodoTimestamp(todo.updated_at || todo.created_at))
           .filter(Boolean)
           .sort((a, b) => b.getTime() - a.getTime())[0] || null;
         return {
           ...project,
           latestTodoAt: latestDate,
           latestTodoLabel: formatRelativeTime(latestDate),
+          openCount: projectTodos.filter(todo => todo.status !== 'done').length,
+          dashboardTodoCount: projectTodos.length,
         };
       })
-      .filter(project => project.latestTodoAt)
-      .sort((a, b) => b.latestTodoAt.getTime() - a.latestTodoAt.getTime() || a.name.localeCompare(b.name))
-      .slice(0, 4);
+      .filter(project => project.dashboardTodoCount > 0)
+      .sort((a, b) => {
+        if (dashboardPreferences.activeProjects.sort === 'alphabetical') return a.name.localeCompare(b.name);
+        if (dashboardPreferences.activeProjects.sort === 'open_count') {
+          return b.openCount - a.openCount || a.name.localeCompare(b.name);
+        }
+        return (b.latestTodoAt?.getTime() || 0) - (a.latestTodoAt?.getTime() || 0) || a.name.localeCompare(b.name);
+      })
+      .slice(0, dashboardPreferences.activeProjects.limit);
 
-    const cards = [
-      { cls: 'total', num: total, label: t('overview.stats.total'), hint: t('overview.stats.totalHint') },
-      { cls: 'pending', num: pending, label: t('todo.status.pending'), hint: t('overview.stats.pendingHint') },
-      { cls: 'progress', num: inprog, label: t('todo.status.inProgress'), hint: t('overview.stats.inProgressHint') },
-      { cls: 'due', num: overdue, label: t('overview.stats.overdue'), hint: overdue ? t('overview.stats.overdueNeedsCare') : t('overview.stats.overdueRelaxed') },
-    ];
+    const cardDefinitions = {
+      total: { cls: 'total', label: t('overview.stats.total'), hint: t('overview.stats.totalHint') },
+      pending: { cls: 'pending', label: t('todo.status.pending'), hint: t('overview.stats.pendingHint') },
+      in_progress: { cls: 'progress', label: t('todo.status.inProgress'), hint: t('overview.stats.inProgressHint') },
+      overdue: { cls: 'due', label: t('overview.stats.overdue'), hint: dashboardMetrics.overdue ? t('overview.stats.overdueNeedsCare') : t('overview.stats.overdueRelaxed') },
+      due_today: { cls: 'today', label: t('dashboard.preferences.stats.dueToday'), hint: '' },
+      done: { cls: 'done', label: t('dashboard.preferences.stats.done'), hint: '' },
+    };
+    const cards = dashboardPreferences.stats.map(metric => ({
+      metric,
+      num: dashboardMetrics[metric] || 0,
+      ...cardDefinitions[metric],
+    })).filter(card => card.cls);
 
-    const focusItems = [
-      { icon: iconSvg('calendar'), label: t('overview.focus.dueToday'), value: dueToday },
-      { icon: iconSvg('calendar-days'), label: t('overview.focus.nextSevenDays'), value: dueWeek },
-      { icon: iconSvg('check-circle'), label: t('todo.status.done'), value: done },
-      { icon: iconSvg('chart-line'), label: t('overview.focus.completionRate'), value: `${completionRate}%` },
-    ];
+    const focusDefinitions = {
+      overdue: { icon: iconSvg('triangle-alert'), label: t('dashboard.preferences.focus.overdue') },
+      due_today: { icon: iconSvg('calendar'), label: t('dashboard.preferences.focus.today') },
+      due_week: { icon: iconSvg('calendar-days'), label: t('dashboard.preferences.focus.week') },
+      high_priority: { icon: iconSvg('flag'), label: t('dashboard.preferences.focus.priority') },
+    };
+    const focusItems = dashboardPreferences.focusItems
+      .map(metric => ({ metric, value: dashboardMetrics[metric] || 0, ...focusDefinitions[metric] }))
+      .filter(item => item.label && (!dashboardPreferences.hideEmptyFocusItems || item.value > 0));
+    const showFocusPanel = dashboardPreferences.showFocus && focusItems.length > 0;
+    const showProjectsPanel = dashboardPreferences.showActiveProjects;
 
     el.innerHTML = `
-      <section class="overview-dashboard" aria-label="${escapeHtmlAttr(t('overview.aria'))}">
+      <section class="overview-dashboard" data-dashboard-compact="${dashboardPreferences.compactDisplay ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t('overview.aria'))}">
         <div class="overview-dashboard-header">
           <div class="overview-greeting">
             <div class="overview-avatar" aria-hidden="true">
@@ -304,47 +317,47 @@ export function createAppRenderingFeature({
             <div>
               <div class="overview-kicker">${escapeHtml(dateTime)}</div>
               <h2>${escapeHtml(t('overview.greeting', { name: displayName }))}</h2>
-              <div class="overview-subtitle">${escapeHtml(t('overview.subtitle'))}</div>
+              ${dashboardPreferences.compactDisplay ? '' : `<div class="overview-subtitle">${escapeHtml(t('overview.subtitle'))}</div>`}
             </div>
           </div>
         </div>
         <div class="overview-stat-grid">
           ${cards.map(card => `
-            <div class="overview-stat-card ${card.cls}">
-              <div class="overview-stat-num">${card.num}</div>
-              <div>
-                <div class="overview-stat-label">${escapeHtml(card.label)}</div>
-                <div class="overview-stat-hint">${escapeHtml(card.hint)}</div>
-              </div>
-            </div>
+            <button type="button" class="overview-stat-card ${card.cls}" data-dashboard-metric="${escapeHtmlAttr(card.metric)}">
+              <span class="overview-stat-num">${card.num}</span>
+              <span>
+                <span class="overview-stat-label">${escapeHtml(card.label)}</span>
+                ${card.hint ? `<span class="overview-stat-hint">${escapeHtml(card.hint)}</span>` : ''}
+              </span>
+            </button>
           `).join('')}
         </div>
-        <div class="overview-detail-grid">
-          <div class="overview-panel">
-            <div class="overview-panel-title">${escapeHtml(t('overview.focus.title'))}</div>
+        ${showFocusPanel || showProjectsPanel ? `<div class="overview-detail-grid ${showFocusPanel && showProjectsPanel ? '' : 'single-panel'}">
+          ${showFocusPanel ? `<div class="overview-panel">
+            <div class="overview-panel-title">${escapeHtml(t('dashboard.preferences.focus.title'))}</div>
             <div class="overview-focus-list">
               ${focusItems.map(item => `
-                <div class="overview-focus-item">
+                <button type="button" class="overview-focus-item" data-dashboard-metric="${escapeHtmlAttr(item.metric)}">
                   <span>${item.icon}</span>
                   <span>${escapeHtml(item.label)}</span>
                   <strong>${item.value}</strong>
-                </div>
+                </button>
               `).join('')}
             </div>
-          </div>
-          <div class="overview-panel">
+          </div>` : ''}
+          ${showProjectsPanel ? `<div class="overview-panel">
             <div class="overview-panel-title">${escapeHtml(t('overview.activeProjects'))}</div>
             <div class="overview-project-list">
-              ${projectsByRecentTodo.length ? projectsByRecentTodo.map(project => `
+              ${activeProjects.length ? activeProjects.map(project => `
                 <button type="button" class="overview-project-item" data-nav-filter="${escapeHtmlAttr(project.id)}">
                   ${markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon })}
                   <span>${escapeHtml(project.name)}</span>
-                  <strong>${escapeHtml(project.latestTodoLabel)}</strong>
+                  <strong>${dashboardPreferences.activeProjects.sort === 'open_count' ? project.openCount : escapeHtml(project.latestTodoLabel)}</strong>
                 </button>
               `).join('') : `<div class="overview-empty-mini">${escapeHtml(t('overview.noTodoChanges'))}</div>`}
             </div>
-          </div>
-        </div>
+          </div>` : ''}
+        </div>` : ''}
       </section>`;
     if (avatarSrc) {
       const nextAvatar = el.querySelector('[data-auth-avatar]');
@@ -380,18 +393,40 @@ export function createAppRenderingFeature({
   }
 
   function renderProjectDashboard(project, projectTodos) {
-    if (!project || !getShowProjectWidget?.()) return '';
-    const activeTodos = projectTodos.filter(t => t.status !== 'done');
-    const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < new Date()).length;
-    const stats = [
-      { cls: 'total', icon: iconSvg('layout-dashboard'), num: projectTodos.length, label: t('overview.stats.total'), hint: t('project.dashboard.totalHint') },
-      { cls: 'pending', icon: iconSvg('clock'), num: projectTodos.filter(t => t.status === 'pending').length, label: t('todo.status.pending'), hint: t('project.dashboard.pendingHint') },
-      { cls: 'progress', icon: iconSvg('flame'), num: projectTodos.filter(t => t.status === 'in_progress').length, label: t('todo.status.inProgress'), hint: t('project.dashboard.inProgressHint') },
-      { cls: 'due', icon: iconSvg('triangle-alert'), num: overdue, label: t('overview.stats.overdue'), hint: t('project.dashboard.overdueHint') },
-    ];
+    if (!project) return '';
+    const dashboardDrilldown = getDashboardDrilldown?.();
+    const drilldownBanner = dashboardDrilldown ? `<div class="dashboard-drilldown-banner project-dashboard-drilldown" role="status">
+        <span>${iconSvg('list-filter')} ${escapeHtml(t('dashboard.drilldown.label', { filter: ({
+          total: t('overview.stats.total'),
+          pending: t('todo.status.pending'),
+          in_progress: t('todo.status.inProgress'),
+          done: t('dashboard.preferences.stats.done'),
+          overdue: t('overview.stats.overdue'),
+          due_today: t('dashboard.preferences.stats.dueToday'),
+        })[dashboardDrilldown] || dashboardDrilldown }))}</span>
+        <button type="button" class="btn btn-secondary btn-small" data-dashboard-drilldown-action="clear" data-dashboard-return-filter="${escapeHtmlAttr(project.id)}">${iconSvg('x')} ${escapeHtml(t('dashboard.drilldown.clear'))}</button>
+      </div>` : '';
+    if (!getShowProjectWidget?.()) return drilldownBanner;
+    const now = new Date();
+    const dashboardPreferences = getEffectiveDashboardPreferences(getDashboardPreferences?.(), {
+      minimal: Boolean(getMinimalTodos?.()),
+    });
+    const visibleProjectTodos = getTodayFocus?.() ? filterTodosForTodayFocus(projectTodos, now) : projectTodos;
+    const projectMetrics = calculateDashboardMetrics(visibleProjectTodos, now);
+    const statDefinitions = {
+      total: { cls: 'total', label: t('overview.stats.total'), hint: t('project.dashboard.totalHint') },
+      pending: { cls: 'pending', label: t('todo.status.pending'), hint: t('project.dashboard.pendingHint') },
+      in_progress: { cls: 'progress', label: t('todo.status.inProgress'), hint: t('project.dashboard.inProgressHint') },
+      overdue: { cls: 'due', label: t('overview.stats.overdue'), hint: t('project.dashboard.overdueHint') },
+      due_today: { cls: 'today', label: t('dashboard.preferences.stats.dueToday'), hint: '' },
+      done: { cls: 'done', label: t('dashboard.preferences.stats.done'), hint: '' },
+    };
+    const stats = dashboardPreferences.stats
+      .map(metric => ({ metric, num: projectMetrics[metric] || 0, ...statDefinitions[metric] }))
+      .filter(stat => stat.cls);
     const color = safeColor(project.color);
     const subtitle = project.is_shared ? t('project.dashboard.shared') : t('project.dashboard.subtitle');
-    return `<section class="overview-dashboard project-dashboard" aria-label="${escapeHtmlAttr(t('project.dashboard.aria'))}">
+    return `<section class="overview-dashboard project-dashboard" data-dashboard-compact="${dashboardPreferences.compactDisplay ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t('project.dashboard.aria'))}">
       <div class="overview-dashboard-header project-dashboard-header">
         <div class="overview-greeting">
           <span class="project-dashboard-avatar" style="--project-color:${escapeHtmlAttr(color)}">${safeIconName(project.icon) ? iconSvg(project.icon) : '<span class="project-dashboard-dot"></span>'}</span>
@@ -404,16 +439,16 @@ export function createAppRenderingFeature({
       </div>
       <div class="overview-stat-grid">
         ${stats.map(stat => `
-          <div class="overview-stat-card ${stat.cls}">
-            <div class="overview-stat-num">${stat.num}</div>
-            <div>
-              <div class="overview-stat-label">${stat.label}</div>
-              <div class="overview-stat-hint">${stat.hint}</div>
-            </div>
-          </div>
+          <button type="button" class="overview-stat-card ${stat.cls}" data-dashboard-metric="${escapeHtmlAttr(stat.metric)}" data-dashboard-project-id="${escapeHtmlAttr(project.id)}">
+            <span class="overview-stat-num">${stat.num}</span>
+            <span>
+              <span class="overview-stat-label">${stat.label}</span>
+              ${stat.hint ? `<span class="overview-stat-hint">${stat.hint}</span>` : ''}
+            </span>
+          </button>
         `).join('')}
       </div>
-    </section>`;
+    </section>${drilldownBanner}`;
   }
 
   function parseTodoDate(value) {
@@ -628,6 +663,9 @@ export function createAppRenderingFeature({
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
     const hideDone = getHideDone();
+    const minimalTodos = Boolean(getMinimalTodos?.());
+    const effectiveHideDone = hideDone || minimalTodos;
+    const dashboardDrilldown = getDashboardDrilldown?.() || null;
     const search = document.getElementById('search-input')?.value?.trim().toLowerCase() || '';
 
     let filtered = getWorkspaceTodos();
@@ -638,17 +676,18 @@ export function createAppRenderingFeature({
         (t.description || '').toLowerCase().includes(search)
       );
     }
+    const applyDashboardScope = !currentProjectId
+      && (dashboardDrilldown || (getTodayFocus?.() && currentFilter === 'all'));
+    if (applyDashboardScope) {
+      const preferences = getEffectiveDashboardPreferences(getDashboardPreferences?.(), { minimal: minimalTodos });
+      const validProjectIds = new Set(projects.map(project => Number(project.id)));
+      filtered = filterTodosForDashboard(filtered, preferences, validProjectIds);
+    }
+    if (dashboardDrilldown) {
+      filtered = filterTodosForDashboardDrilldown(filtered, dashboardDrilldown, new Date());
+    }
     if (getTodayFocus?.() && currentFilter !== 'done' && currentFilter !== 'calendar') {
-      const now = new Date();
-      const todayEnd = new Date(now);
-      todayEnd.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(todo => {
-        if (todo.status === 'done') return false;
-        if (todo.is_pinned) return true;
-        const focusDate = effectiveFocusDate(todo);
-        if (!focusDate) return Number(todo.priority) === 1;
-        return focusDate <= todayEnd;
-      });
+      filtered = filterTodosForTodayFocus(filtered);
     }
     if (currentFilter === 'focus' && !currentProjectId) {
       filtered = applyFocusFilters(filtered, new Set(projects.map(project => Number(project.id))));
@@ -657,7 +696,7 @@ export function createAppRenderingFeature({
 
     if (currentFilter === 'calendar' && !currentProjectId) {
       el.innerHTML = renderCalendarView
-        ? renderCalendarView({ todos: filtered, projects, hideDone, search })
+        ? renderCalendarView({ todos: filtered, projects, hideDone: effectiveHideDone, search })
         : '';
       return;
     }
@@ -674,7 +713,7 @@ export function createAppRenderingFeature({
       if (currentFilter !== 'all' && ['pending','in_progress','done'].includes(currentFilter)) {
         filtered = filtered.filter(t => t.status === currentFilter);
       }
-      if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
+      if (!dashboardDrilldown && (minimalTodos || (hideDone && currentFilter !== 'done'))) filtered = filtered.filter(t => t.status !== 'done');
 
       const showPinnedGroup = !search;
       const pinnedProjectTodos = showPinnedGroup ? filtered.filter(t => t.is_pinned) : [];
@@ -731,9 +770,23 @@ export function createAppRenderingFeature({
 
     const isAggregateFilter = currentFilter === 'all' || currentFilter === 'focus';
     if (!isAggregateFilter && groups[currentFilter]) filtered = filtered.filter(t => t.status === currentFilter);
-    if (hideDone && currentFilter !== 'done' && currentFilter !== 'focus') filtered = filtered.filter(t => t.status !== 'done');
+    if (!dashboardDrilldown && (minimalTodos || (hideDone && currentFilter !== 'done' && currentFilter !== 'focus'))) filtered = filtered.filter(t => t.status !== 'done');
 
-    let html = currentFilter === 'focus' ? renderFocusControls(projects) : '';
+    const dashboardDrilldownLabels = {
+      total: t('overview.stats.total'),
+      pending: t('todo.status.pending'),
+      in_progress: t('todo.status.inProgress'),
+      done: t('dashboard.preferences.stats.done'),
+      overdue: t('overview.stats.overdue'),
+      due_today: t('dashboard.preferences.stats.dueToday'),
+      due_week: t('dashboard.preferences.focus.week'),
+      high_priority: t('dashboard.preferences.focus.priority'),
+    };
+    let html = dashboardDrilldown && !currentProjectId ? `
+      <div class="dashboard-drilldown-banner" role="status">
+        <span>${iconSvg('list-filter')} ${escapeHtml(t('dashboard.drilldown.label', { filter: dashboardDrilldownLabels[dashboardDrilldown] || dashboardDrilldown }))}</span>
+        <button type="button" class="btn btn-secondary btn-small" data-dashboard-drilldown-action="clear" data-dashboard-return-filter="all">${iconSvg('x')} ${escapeHtml(t('dashboard.drilldown.clear'))}</button>
+      </div>` : (currentFilter === 'focus' ? renderFocusControls(projects) : '');
     if (isAggregateFilter && !search) {
       const pinnedItems = filtered.filter(t => t.is_pinned);
       if (pinnedItems.length) {
@@ -821,7 +874,7 @@ export function createAppRenderingFeature({
     }
 
     if (!filtered.length) {
-      html = `${currentFilter === 'focus' ? renderFocusControls(projects) : ''}<div class="empty-state">
+      html += `<div class="empty-state">
         <div class="emoji">${iconSvg('check-circle')}</div>
         <h3>${escapeHtml(t('empty.allDone'))}</h3>
         <p>${escapeHtml(t('empty.noTodosInView'))}</p>

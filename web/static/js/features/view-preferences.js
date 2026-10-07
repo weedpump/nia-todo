@@ -1,7 +1,7 @@
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
-export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos }) {
+export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos, renderStats = () => {} }) {
   function toggleHideDone() {
     const next = !getHideDone();
     setHideDone(next);
@@ -60,6 +60,7 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     setTodayFocus(next);
     localStorage.setItem('nia-today-focus', next ? 'true' : 'false');
     updateTodayFocusButton();
+    renderStats();
     renderTodos();
   }
 
@@ -81,6 +82,7 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     setMinimalTodos(next);
     localStorage.setItem('nia-minimal-todos', next ? 'true' : 'false');
     updateMinimalTodosButton();
+    renderStats();
     renderTodos();
   }
 

@@ -303,6 +303,10 @@ function openDropdown(instance) {
   }
 }
 
+export function isDropdownOpen() {
+  return Boolean(openState);
+}
+
 export function closeOpenDropdown(reason = 'programmatic') {
   if (!openState) return;
   const { instance } = openState;
