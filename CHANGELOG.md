@@ -5,10 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [3.3.0] - 2026-10-06
+## [3.3.0] - 2026-10-07
 
 ### Added
-- Added a line-based multi-Todo creation mode with per-row Quick Add parsing, shared project, section, and priority defaults, offline queue support, localized validation, and a 50-Todo batch limit.
+- 🧭 Added a fully personalizable dashboard with independently configurable relevant groups, active projects, project widgets, compact density, four selectable metrics, and include/exclude project scopes stored locally per app installation.
+- 📊 Added clickable dashboard and project-widget metrics with contextual drilldowns, persistent applied-filter controls, empty-result explanations, and consistent return navigation.
+- ✨ Added focused dashboard calculations that keep the main metrics, relevant groups, active projects, project widgets, and Todo list on the same filtered dataset.
+- 📝 Added a line-based multi-Todo creation mode with per-row Quick Add parsing, shared project, section, and priority defaults, offline queue support, localized validation, and a 50-Todo batch limit.
+- 🆕 Added a localized 3.3.0 “What’s new” tour across all twelve supported languages.
+
+### Changed
+- 🌿 Renamed the top-bar focus and minimal controls to the clearer **Today** and **Calm** views, with matching calendar and leaf icons.
+- 🎛️ Made project widgets inherit the selected dashboard metrics, metric order, compact presentation, focus scope, hover feedback, and project-aware drilldown behavior.
+- 🧘 Refined Calm view to reduce secondary dashboard areas, completed Todos, and nonessential metadata without replacing the user’s selected metrics or stored dashboard preferences.
+- 📱 Improved dashboard responsiveness so relevant and project panels size to their actual content instead of reserving empty rows.
+
+### Fixed
+- Fixed applied dashboard filters disappearing when a drilldown returns no Todos.
+- Fixed project-widget filter controls rendering inside or above the widget instead of consistently below it.
+- Fixed touch devices retaining the hover color on Today, Calm, and Search controls after they were deactivated.
+- Fixed high-priority Todos being absent from the default relevant-dashboard selection and migrated the previous canonical default without overwriting custom selections.
 
 ## [3.2.2] - 2026-10-05
 

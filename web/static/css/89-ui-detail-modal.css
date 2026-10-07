@@ -416,3 +416,19 @@
     min-height: 42px;
   }
 }
+
+@media (max-width: 480px) {
+  .ui-detail-modal.ui-detail-view .dashboard-preferences-modal-header {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: center;
+    row-gap: 8px;
+    padding: 12px 0;
+  }
+
+  .ui-detail-modal .dashboard-preferences-modal-header .ui-detail-header-actions {
+    position: static;
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}

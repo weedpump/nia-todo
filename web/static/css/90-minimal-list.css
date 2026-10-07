@@ -49,6 +49,26 @@ body.is-minimal-todos .todo-item:not(.calendar-event) .todo-title {
 }
 
 body.is-minimal-todos .todo-item:not(.calendar-event) .todo-badges,
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-desc-preview,
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-actions,
 body.is-minimal-todos .todo-item:not(.calendar-event) .todo-meta-row,
-body.is-minimal-todos .todo-item:not(.calendar-event) .todo-desc-preview {
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-prio,
+body.is-minimal-todos .todo-item.done:not(.calendar-event),
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-meta-chip:not(.minimal-attention) {
   display: none !important;
+}
+
+body.is-minimal-todos .todo-item:not(.calendar-event) .todo-meta-row:has(.minimal-attention) {
+  display: flex !important;
+  margin-top: 5px;
+}
+
+body.is-minimal-todos .todo-item:not(.calendar-event)[data-priority="1"] .todo-prio,
+body.is-minimal-todos .todo-item:not(.calendar-event)[data-priority="2"] .todo-prio {
+  display: inline-block !important;
+}
+
+body.is-minimal-todos .todo-item:not(.calendar-event).pinned {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-secondary));
+}

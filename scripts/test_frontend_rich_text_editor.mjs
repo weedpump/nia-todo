@@ -50,25 +50,20 @@ async function api(baseUrl, method, path, body, headers = {}) {
   return data;
 }
 
-async function selectContents(locator) {
-  await locator.evaluate((element) => {
+async function activateToolbarForSelection(locator, buttonSelector, { caretAtEnd = false } = {}) {
+  await locator.evaluate((element, { buttonSelector, caretAtEnd }) => {
+    const editor = element.closest('#todo-desc-rich-editor') || element;
+    editor.focus();
     const selection = window.getSelection();
     const range = document.createRange();
     range.selectNodeContents(element);
+    if (caretAtEnd) range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
-  });
-}
-
-async function placeCaretAtEnd(locator) {
-  await locator.evaluate((element) => {
-    const selection = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    range.collapse(false);
-    selection.removeAllRanges();
-    selection.addRange(range);
-  });
+    const button = editor.closest('.todo-desc-rich-wrap')?.querySelector(buttonSelector);
+    if (!button) throw new Error(`Missing rich text toolbar button: ${buttonSelector}`);
+    button.click();
+  }, { buttonSelector, caretAtEnd });
 }
 
 async function exerciseToggle(page, {
@@ -80,9 +75,16 @@ async function exerciseToggle(page, {
   resetWithCaret = false,
 }) {
   const editor = page.locator('#todo-desc-rich-editor');
-  await editor.fill(text);
-  await selectContents(editor);
-  await page.click(buttonSelector);
+  await editor.evaluate((element, nextText) => {
+    element.replaceChildren(document.createTextNode(nextText));
+    element.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      inputType: 'insertText',
+      data: nextText,
+    }));
+  }, text);
+  await page.waitForFunction(expected => document.getElementById('todo-desc')?.value === expected, text);
+  await activateToolbarForSelection(editor, buttonSelector);
 
   const applied = await page.evaluate(({ formattedSelector }) => ({
     hasFormatting: Boolean(document.querySelector(`#todo-desc-rich-editor ${formattedSelector}`)),
@@ -93,9 +95,7 @@ async function exerciseToggle(page, {
   }
 
   const formatted = page.locator(`#todo-desc-rich-editor ${formattedSelector}`);
-  if (resetWithCaret) await placeCaretAtEnd(formatted);
-  else await selectContents(formatted);
-  await page.click(buttonSelector);
+  await activateToolbarForSelection(formatted, buttonSelector, { caretAtEnd: resetWithCaret });
 
   return page.evaluate(({ formattedSelector }) => ({
     hasFormatting: Boolean(document.querySelector(`#todo-desc-rich-editor ${formattedSelector}`)),

@@ -20,7 +20,7 @@ async function run() {
       await page.locator('.todo-item .todo-title').filter({ hasText: title }).first().waitFor({ state: 'visible', timeout: 10000 });
     };
 
-    const initialDueTodayCount = await page.evaluate(() => Number(document.querySelector('.overview-focus-item strong')?.textContent || 0));
+    const initialDueTodayCount = await page.evaluate(() => Number(document.querySelector('.overview-focus-item[data-dashboard-metric="due_today"] strong')?.textContent || 0));
     await page.evaluate(async () => {
       const jwt = localStorage.getItem('jwt_token');
       const csrf = localStorage.getItem('csrf_token');
@@ -57,7 +57,7 @@ async function run() {
       }
       await window.refreshFromServer?.();
     });
-    await page.waitForFunction((expected) => Number(document.querySelector('.overview-focus-item strong')?.textContent || 0) === expected, initialDueTodayCount + 2, { timeout: 10000 });
+    await page.waitForFunction((expected) => Number(document.querySelector('.overview-focus-item[data-dashboard-metric="due_today"] strong')?.textContent || 0) === expected, initialDueTodayCount + 2, { timeout: 10000 });
 
     await page.locator('.nav-btn[data-filter="focus"]').click();
     await expandFocusFilters();

@@ -20,6 +20,9 @@ import { createSyncFeature } from './features/sync.js';
 import { createSyncController } from './features/sync-controller.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
+import { getEffectiveDashboardPreferences, loadDashboardPreferences, saveDashboardPreferences } from './features/dashboard-preferences.js';
+import { createDashboardPreferencesFeature } from './features/dashboard-preferences-dialog.js';
+import { createDashboardDrilldownFeature } from './features/dashboard-drilldown.js';
 import { createMobileSearchFeature } from './features/mobile-search.js';
 import { createFocusFiltersFeature } from './features/focus-filters.js';
 import { createWebSocketClient } from './features/websocket-client.js';
@@ -54,7 +57,9 @@ let appInitialized = false;
 let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') !== 'false';
 let sortMode = localStorage.getItem('nia-sort') || 'priority';
-let showProjectWidget = localStorage.getItem('nia-project-widget') !== 'false';
+let dashboardPreferences = loadDashboardPreferences(localStorage);
+let dashboardDrilldown = null;
+let showProjectWidget = dashboardPreferences.showProjectWidgets;
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let minimalTodos = localStorage.getItem('nia-minimal-todos') === 'true';
 let desktopIntegration = null;
@@ -118,6 +123,7 @@ const viewPreferences = createViewPreferencesFeature({
   getMinimalTodos: () => minimalTodos,
   setMinimalTodos: (value) => { minimalTodos = value; },
   renderTodos: () => renderTodos(),
+  renderStats: () => renderStats(),
 });
 const toggleHideDone = viewPreferences.toggleHideDone;
 const updateToggleDoneButton = viewPreferences.updateToggleDoneButton;
@@ -449,7 +455,11 @@ const appRendering = createAppRenderingFeature({
   getCurrentWorkspaceId: () => currentWorkspaceId,
   getHideDone: () => hideDone,
   getTodayFocus: () => todayFocus,
-  getShowProjectWidget: () => showProjectWidget,
+  getShowProjectWidget: () => showProjectWidget
+    && getEffectiveDashboardPreferences(dashboardPreferences, { minimal: minimalTodos }).showProjectWidgets,
+  getDashboardPreferences: () => dashboardPreferences,
+  getDashboardDrilldown: () => dashboardDrilldown,
+  getMinimalTodos: () => minimalTodos,
   getCurrentUser: () => currentUser,
   getFocusFilters,
   getFocusFiltersExpanded,
@@ -508,6 +518,7 @@ const navigationFeature = createNavigationFeature({
   getCurrentProjectId: () => currentProjectId,
   setCurrentProjectId: (next) => { currentProjectId = next; },
   setCurrentFilter: (next) => { currentFilter = next; },
+  clearDashboardDrilldown: () => { dashboardDrilldown = null; },
   setSections: (next) => { sections = next; },
   isOnlineForSync,
   dbGetAll,
@@ -523,6 +534,11 @@ const setFilter = navigationFeature.setFilter;
 const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
 const bindNavigationActions = navigationFeature.bindNavigationActions;
 const bindNavigationHistory = navigationFeature.bindNavigationHistory;
+const dashboardDrilldownFeature = createDashboardDrilldownFeature({
+  setDashboardDrilldown: value => { dashboardDrilldown = value; },
+  setFilter,
+});
+const bindDashboardDrilldownActions = dashboardDrilldownFeature.bindDashboardDrilldownActions;
 
 const showProjectModal = projectsFeature.showProjectModal;
 const deleteProject = projectsFeature.deleteProject;
@@ -607,6 +623,21 @@ const showBatchToast = toastUndoFeature.showBatchToast;
 const bindToastControls = toastUndoFeature.bindToastControls;
 const restoreBatchTodos = toastUndoFeature.restoreBatchTodos;
 const restoreTodo = toastUndoFeature.restoreTodo;
+const dashboardPreferencesFeature = createDashboardPreferencesFeature({
+  getPreferences: () => dashboardPreferences,
+  setPreferences: next => {
+    dashboardPreferences = saveDashboardPreferences(localStorage, next);
+    showProjectWidget = dashboardPreferences.showProjectWidgets;
+    updateProjectWidgetButton();
+  },
+  getProjects: () => projects,
+  renderDashboard: () => {
+    renderStats();
+    renderTodos();
+  },
+  showToast,
+});
+const bindDashboardPreferencesActions = dashboardPreferencesFeature.bindDashboardPreferencesActions;
 
 // ─── Push Notifications ────────────────────────────────────────────────────
 
@@ -696,6 +727,7 @@ export function startAppModule() {
   bindNativePointerDragDrop();
   bindMobileSearchEvents();
   bindTopbarPreferenceButtons();
+  bindDashboardPreferencesActions();
   bindTodayFocusHotkey();
   bindSidebarControls();
   bindModalCloseControls();
@@ -706,6 +738,7 @@ export function startAppModule() {
   bindProjectActions();
   bindSectionActions();
   bindNavigationActions();
+  bindDashboardDrilldownActions();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
   document.addEventListener('click', (event) => {

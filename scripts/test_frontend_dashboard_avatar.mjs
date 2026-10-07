@@ -81,6 +81,17 @@ globalThis.document = {
 try {
   const { createAppRenderingFeature } = await import('../web/static/js/features/app-rendering.js');
   let currentFilter = 'all';
+  let dashboardPreferences = {
+    compactDisplay: false,
+    showFocus: true,
+    showActiveProjects: true,
+    showProjectWidgets: true,
+    projectScope: { mode: 'all', projectIds: [], includeUnassigned: true },
+    stats: ['total', 'pending', 'in_progress', 'overdue'],
+    focusItems: ['overdue', 'due_today', 'due_week'],
+    hideEmptyFocusItems: true,
+    activeProjects: { limit: 4, sort: 'recent' },
+  };
   const currentUser = {
     display_name: 'Tobi',
     avatar_url: '/api/me/avatar',
@@ -97,6 +108,8 @@ try {
     getCurrentProjectId: () => null,
     getCurrentWorkspaceId: () => null,
     getCurrentUser: () => currentUser,
+    getDashboardPreferences: () => dashboardPreferences,
+    getMinimalTodos: () => false,
     getFocusFilters: () => ({}),
     sortTodoList: items => items,
     renderTodoItem: () => '',
@@ -114,6 +127,19 @@ try {
   assert.equal(requests.length, 1, 'unchanged dashboard avatars must not be fetched again during periodic stats rendering');
   assert.equal(statsBar.avatar, firstAvatar, 'periodic stats rendering must preserve the existing avatar element');
   assert.equal(statsBar.avatar.src, 'blob:dashboard-avatar-1');
+
+  dashboardPreferences = {
+    ...dashboardPreferences,
+    compactDisplay: true,
+    stats: ['done', 'due_today', 'pending', 'overdue'],
+  };
+  renderStats();
+  assert.match(statsBar.innerHTML, /data-dashboard-compact="true"/);
+  assert.doesNotMatch(statsBar.innerHTML, /overview-subtitle/);
+  assert.match(statsBar.innerHTML, /overview-detail-grid/, 'compact display must not override independently enabled dashboard sections');
+  const metricOrder = [...statsBar.innerHTML.matchAll(/data-dashboard-metric="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(metricOrder, ['done', 'due_today', 'pending', 'overdue']);
+  dashboardPreferences = { ...dashboardPreferences, compactDisplay: false };
 
   currentUser.avatar_updated_at = '2026-10-02T09:00:00Z';
   renderStats();
