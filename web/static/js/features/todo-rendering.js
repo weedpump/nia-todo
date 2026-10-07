@@ -1,4 +1,4 @@
-import { escapeHtml, escapeHtmlAttr, formatDate, renderMarkdown, truncateWords } from '../core/utils.js';
+import { escapeHtml, escapeHtmlAttr, formatDate, parseDateValue, renderMarkdown, truncateWords } from '../core/utils.js';
 import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
@@ -22,7 +22,7 @@ function recurringLabel(rule) {
 }
 
 export function renderTodoItem(t) {
-  const dueDate = t.due_date ? new Date(t.due_date) : null;
+  const dueDate = parseDateValue(t.due_date, { dateOnlyEndOfDay: true }).date;
   const now = new Date();
   const isOverdue = dueDate && t.status !== 'done' && dueDate < now;
   const todayEnd = new Date(now);

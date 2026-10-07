@@ -21,16 +21,40 @@ export function jsArg(value) {
   return JSON.stringify(value);
 }
 
+export function parseDateValue(value, { dateOnlyEndOfDay = false } = {}) {
+  if (!value) return { date: null, dateOnly: false };
+  const raw = String(value).trim();
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (dateOnlyMatch) {
+    const [, yearText, monthText, dayText] = dateOnlyMatch;
+    const year = Number(yearText);
+    const month = Number(monthText) - 1;
+    const day = Number(dayText);
+    const date = new Date(year, month, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+      return { date: null, dateOnly: true };
+    }
+    if (dateOnlyEndOfDay) date.setHours(23, 59, 59, 999);
+    return { date, dateOnly: true };
+  }
+  const date = new Date(raw);
+  return { date: Number.isFinite(date.getTime()) ? date : null, dateOnly: false };
+}
+
 export function formatDate(isoString) {
   if (!isoString) return '';
-  const date = new Date(isoString);
+  const { date, dateOnly } = parseDateValue(isoString);
+  if (!date) return '';
+  const locale = getActiveLocale();
+  if (dateOnly) {
+    return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   const isToday = date.toDateString() === today.toDateString();
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
-  const locale = getActiveLocale();
   const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
   if (isToday) return i18nT('date.todayAt', { time });
