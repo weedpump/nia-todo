@@ -1,5 +1,6 @@
 const ENABLED_KEY = 'nia-dashboard-preferences-sync-enabled';
 const PENDING_KEY = 'nia-dashboard-preferences-sync-pending';
+const TERMINAL_PENDING_STATUSES = new Set([400, 404, 422]);
 
 export function createDashboardPreferencesSync({
   api,
@@ -50,6 +51,7 @@ export function createDashboardPreferencesSync({
 
   function applyRemote(payload) {
     if (!payload || typeof payload !== 'object') return;
+    if (storage?.getItem?.(scopedKey(PENDING_KEY))) return;
     persistEnabled(Boolean(payload.enabled));
     if (payload.enabled && payload.preferences && typeof payload.preferences === 'object') {
       Object.entries(payload.preferences).forEach(([workspaceId, preferences]) => {
@@ -79,7 +81,14 @@ export function createDashboardPreferencesSync({
             storage?.removeItem?.(key);
             applyRemote(response);
           }
-        } catch {
+        } catch (error) {
+          if (TERMINAL_PENDING_STATUSES.has(Number(error?.status))) {
+            if (storage?.getItem?.(key) === pendingRaw) {
+              storage?.removeItem?.(key);
+              return true;
+            }
+            continue;
+          }
           return false;
         }
       }

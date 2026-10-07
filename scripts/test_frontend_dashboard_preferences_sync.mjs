@@ -167,4 +167,75 @@ reconnectOnline = true;
 await reconnectSync.refresh();
 assert.equal(reconnectSync.isEnabled(), true, 'reconnect must reload the authoritative server state');
 
+const disableStorageMap = new Map([['nia-dashboard-preferences-sync-enabled:user:1', 'true']]);
+const disableStorage = {
+  getItem: key => disableStorageMap.get(key) ?? null,
+  setItem: (key, value) => disableStorageMap.set(key, String(value)),
+  removeItem: key => disableStorageMap.delete(key),
+};
+let disableOnline = true;
+const disableSync = createDashboardPreferencesSync({
+  api: {
+    async getDashboardPreferences() { return { enabled: true, preferences: {} }; },
+    async updateDashboardPreferences(payload) {
+      if (!disableOnline) throw new Error('offline');
+      return payload;
+    },
+  },
+  storage: disableStorage,
+  getUserId: () => 1,
+  getWorkspaces: () => [{ id: 10 }],
+  getPreferences: () => ({ version: 3 }),
+  setPreferences() {},
+});
+await disableSync.initialize();
+disableOnline = false;
+await disableSync.setEnabled(false);
+disableSync.applyRemote({ enabled: true, preferences: { '10': { version: 3, marker: 'stale-websocket' } } });
+assert.equal(disableSync.isEnabled(), false, 'a pending local disable must outrank stale realtime updates');
+assert.deepEqual(
+  JSON.parse(disableStorage.getItem('nia-dashboard-preferences-sync-pending:user:1')),
+  { enabled: false },
+  'a stale realtime update must not replace the pending disable intent',
+);
+await disableSync.saveWorkspace(10, { version: 3, marker: 'must-not-reactivate' });
+assert.deepEqual(
+  JSON.parse(disableStorage.getItem('nia-dashboard-preferences-sync-pending:user:1')),
+  { enabled: false },
+  'dashboard saves after a stale realtime event must not reactivate sync',
+);
+
+const terminalStorageMap = new Map([
+  ['nia-dashboard-preferences-sync-enabled:user:1', 'true'],
+  ['nia-dashboard-preferences-sync-pending:user:1', JSON.stringify({ enabled: true, preferences: { '99': { version: 3 } } })],
+]);
+const terminalStorage = {
+  getItem: key => terminalStorageMap.get(key) ?? null,
+  setItem: (key, value) => terminalStorageMap.set(key, String(value)),
+  removeItem: key => terminalStorageMap.delete(key),
+};
+let terminalGets = 0;
+const terminalSync = createDashboardPreferencesSync({
+  api: {
+    async getDashboardPreferences() {
+      terminalGets += 1;
+      return { enabled: true, preferences: { '10': { version: 3, marker: 'authoritative' } } };
+    },
+    async updateDashboardPreferences() {
+      const error = new Error('workspace no longer exists');
+      error.status = 404;
+      throw error;
+    },
+  },
+  storage: terminalStorage,
+  getUserId: () => 1,
+  getWorkspaces: () => [{ id: 10 }],
+  getPreferences: () => ({ version: 3 }),
+  setPreferences() {},
+});
+await terminalSync.initialize();
+assert.equal(terminalStorage.getItem('nia-dashboard-preferences-sync-pending:user:1'), null, 'terminal validation failures must discard the unrecoverable pending payload');
+assert.equal(terminalGets, 1, 'terminal validation failures must continue with an authoritative server reload');
+assert.equal(terminalSync.isEnabled(), true, 'the authoritative server state must remain usable after dropping an invalid payload');
+
 console.log('✅ Dashboard preference account sync tests passed');
