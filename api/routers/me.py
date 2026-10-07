@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from PIL import Image, UnidentifiedImageError
 import bcrypt
 import io
+import json
 import shutil
 import subprocess
 import tempfile
@@ -27,6 +28,7 @@ from services.audit import log_audit
 from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
 from services.utils import normalize_email, password_within_bcrypt_limit, sanitize_text, validate_email, validate_password
+from services.websocket import broadcast_change
 from errors import api_error, validation_api_error
 from paths import AVATAR_DIR
 
@@ -52,6 +54,102 @@ class UpdateLanguageRequest(BaseModel):
 
 class UpdateDefaultReminderRequest(BaseModel):
     default_reminder_offset_minutes: int | None = None
+
+
+class DashboardPreferencesSyncRequest(BaseModel):
+    enabled: bool
+    preferences: dict[str, dict] | None = None
+
+
+_DASHBOARD_STATS = {"total", "pending", "in_progress", "overdue", "due_today", "done"}
+_DASHBOARD_FOCUS_ITEMS = {"overdue", "due_today", "due_week", "high_priority"}
+_PROJECT_SCOPE_MODES = {"all", "include", "exclude"}
+_ACTIVE_PROJECT_LIMITS = {2, 4, 6}
+_ACTIVE_PROJECT_SORTS = {"recent", "alphabetical", "open_count"}
+
+
+def _dashboard_preferences_payload(db, user_id: int) -> dict:
+    user = db.execute(
+        "SELECT COALESCE(dashboard_preferences_sync_enabled, 0) AS enabled FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    if not user:
+        raise api_error(404, "user.notFound", "User not found")
+    if not bool(user["enabled"]):
+        return {"enabled": False, "preferences": {}}
+    rows = db.execute(
+        "SELECT workspace_id, preferences_json FROM dashboard_preferences WHERE user_id = ? ORDER BY workspace_id",
+        (user_id,),
+    ).fetchall()
+    preferences = {}
+    for row in rows:
+        try:
+            preferences[str(row["workspace_id"])] = json.loads(row["preferences_json"])
+        except (TypeError, ValueError):
+            continue
+    return {"enabled": True, "preferences": preferences}
+
+
+def _visible_project_ids_for_workspace(db, user_id: int, workspace_id: int) -> set[int]:
+    default = db.execute(
+        "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    default_workspace_id = default["id"] if default else None
+    rows = db.execute(
+        """
+        SELECT id FROM projects WHERE user_id = ? AND workspace_id = ?
+        UNION
+        SELECT p.id
+        FROM projects p
+        JOIN project_members pm ON pm.project_id = p.id
+        WHERE pm.user_id = ? AND pm.status = 'accepted' AND COALESCE(pm.workspace_id, ?) = ?
+        """,
+        (user_id, workspace_id, user_id, default_workspace_id, workspace_id),
+    ).fetchall()
+    return {int(row["id"]) for row in rows}
+
+
+def _validate_dashboard_preferences(db, user_id: int, workspace_id: int, value: dict) -> dict:
+    workspace = db.execute(
+        "SELECT id FROM workspaces WHERE id = ? AND user_id = ?",
+        (workspace_id, user_id),
+    ).fetchone()
+    if not workspace:
+        raise api_error(404, "workspace.notFound", "Workspace not found")
+    if not isinstance(value, dict) or value.get("version") != 3:
+        raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
+
+    booleans = ["compactDisplay", "groupByStatus", "showFocus", "showActiveProjects", "showProjectWidgets", "hideEmptyFocusItems"]
+    if any(type(value.get(field)) is not bool for field in booleans):
+        raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
+    stats = value.get("stats")
+    focus_items = value.get("focusItems")
+    scope = value.get("projectScope")
+    active = value.get("activeProjects")
+    if not isinstance(stats, list) or len(stats) != 4 or any(not isinstance(item, str) for item in stats) or len(set(stats)) != 4 or not set(stats) <= _DASHBOARD_STATS:
+        raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
+    if not isinstance(focus_items, list) or len(focus_items) > len(_DASHBOARD_FOCUS_ITEMS) or any(not isinstance(item, str) for item in focus_items) or len(set(focus_items)) != len(focus_items) or not set(focus_items) <= _DASHBOARD_FOCUS_ITEMS:
+        raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
+    if not isinstance(scope, dict) or scope.get("mode") not in _PROJECT_SCOPE_MODES or not isinstance(scope.get("projectIds"), list):
+        raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
+    project_ids = scope["projectIds"]
+    if any(type(project_id) is not int or project_id <= 0 for project_id in project_ids) or len(set(project_ids)) != len(project_ids):
+        raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
+    if not set(project_ids) <= _visible_project_ids_for_workspace(db, user_id, workspace_id):
+        raise api_error(400, "dashboardPreferences.projectWorkspaceMismatch", "Project does not belong to this workspace")
+    if not isinstance(active, dict) or active.get("limit") not in _ACTIVE_PROJECT_LIMITS or active.get("sort") not in _ACTIVE_PROJECT_SORTS:
+        raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
+
+    return {
+        "version": 3,
+        **{field: value[field] for field in booleans[:5]},
+        "projectScope": {"mode": scope["mode"], "projectIds": project_ids},
+        "stats": stats,
+        "focusItems": focus_items,
+        "hideEmptyFocusItems": value["hideEmptyFocusItems"],
+        "activeProjects": {"limit": active["limit"], "sort": active["sort"]},
+    }
 
 
 def _avatar_url(user_id: int) -> str:
@@ -89,6 +187,49 @@ def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
         if result.returncode != 0 or not output_path.exists():
             raise UnidentifiedImageError("HEIC conversion failed")
         return _validate_avatar_dimensions(Image.open(output_path)).convert("RGB")
+
+
+@router.get('/dashboard-preferences')
+def get_dashboard_preferences(user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        return _dashboard_preferences_payload(db, user_id)
+
+
+@router.put('/dashboard-preferences')
+async def update_dashboard_preferences(data: DashboardPreferencesSyncRequest, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise api_error(404, "user.notFound", "User not found")
+        if not data.enabled:
+            db.execute("DELETE FROM dashboard_preferences WHERE user_id = ?", (user_id,))
+            db.execute("UPDATE users SET dashboard_preferences_sync_enabled = 0 WHERE id = ?", (user_id,))
+            db.commit()
+            payload = {"enabled": False, "preferences": {}}
+        else:
+            validated = {}
+            for raw_workspace_id, preferences in (data.preferences or {}).items():
+                try:
+                    workspace_id = int(raw_workspace_id)
+                except (TypeError, ValueError):
+                    raise api_error(422, "dashboardPreferences.invalidWorkspace", "Invalid workspace")
+                validated[workspace_id] = _validate_dashboard_preferences(db, user_id, workspace_id, preferences)
+            db.execute("UPDATE users SET dashboard_preferences_sync_enabled = 1 WHERE id = ?", (user_id,))
+            for workspace_id, preferences in validated.items():
+                db.execute(
+                    """
+                    INSERT INTO dashboard_preferences (user_id, workspace_id, preferences_json, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id, workspace_id) DO UPDATE SET
+                        preferences_json = excluded.preferences_json,
+                        updated_at = excluded.updated_at
+                    """,
+                    (user_id, workspace_id, json.dumps(preferences, separators=(",", ":")), now_iso()),
+                )
+            db.commit()
+            payload = _dashboard_preferences_payload(db, user_id)
+    await broadcast_change("dashboard_preferences_update", payload, user_id)
+    return payload
 
 
 

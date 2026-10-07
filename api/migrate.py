@@ -428,10 +428,30 @@ def repair_todo_attachments_migration(conn):
     conn.commit()
 
 
+def repair_dashboard_preferences_sync_migration(conn):
+    """Make migration 054 idempotent for partially-created sync schema."""
+    add_column_if_missing(conn, "users", "dashboard_preferences_sync_enabled", "INTEGER NOT NULL DEFAULT 0")
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS dashboard_preferences (
+        user_id INTEGER NOT NULL,
+        workspace_id INTEGER NOT NULL,
+        preferences_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (user_id, workspace_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_dashboard_preferences_user
+        ON dashboard_preferences(user_id);
+    """)
+    conn.commit()
+
+
 POST_APPLY_REPAIRS = {
     48: repair_todo_subtasks_migration,
     49: repair_todo_comments_migration,
     50: repair_todo_attachments_migration,
+    54: repair_dashboard_preferences_sync_migration,
 }
 
 def get_migration_files():
@@ -544,6 +564,11 @@ def run_migrations():
                 elif version == 42 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: reminders" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - default reminder settings partially exist, repairing remaining schema")
                     repair_default_reminder_settings_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 54 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - dashboard preference sync schema partially exists, repairing remaining schema")
+                    repair_dashboard_preferences_sync_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif version in POST_APPLY_REPAIRS and ("duplicate column" in error_msg or "already exists" in error_msg):
