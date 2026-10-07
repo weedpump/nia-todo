@@ -173,8 +173,10 @@ export function createDashboardPreferencesFeature({
     trigger.dataset.dashboardProjectAction = 'toggle';
     trigger.setAttribute('aria-haspopup', 'menu');
     trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-labelledby', 'dashboard-preferences-projects-label dashboard-preferences-projects-value');
     const value = document.createElement('span');
     value.className = 'ui-select-value';
+    value.id = 'dashboard-preferences-projects-value';
     const chevron = document.createElement('span');
     chevron.className = 'ui-select-chevron';
     chevron.setAttribute('aria-hidden', 'true');

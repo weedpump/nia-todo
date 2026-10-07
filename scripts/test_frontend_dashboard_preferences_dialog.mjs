@@ -191,6 +191,18 @@ try {
     sort: document.querySelector('#dashboard-preferences-project-sort').value,
   }));
 
+  const projectTrigger = page.locator('#dashboard-preferences-projects .dashboard-preferences-project-trigger');
+  assert.match(
+    await projectTrigger.getAttribute('aria-labelledby') || '',
+    /dashboard-preferences-projects-label\s+dashboard-preferences-projects-value/,
+    'the project picker trigger must be named by both its visible label and current value',
+  );
+  assert.equal(
+    await page.locator('#dashboard-preferences-projects').getByRole('button', { name: 'Projects Alpha', exact: true }).count(),
+    1,
+    'Chromium must expose the project picker with its visible label and current selection',
+  );
+
   const sharedSelectTriggers = page.locator('#dashboard-preferences-modal .ui-select > .ui-select-trigger');
   assert.equal(await sharedSelectTriggers.count(), 7, 'the composed-DOM regression must exercise all seven shared select controls');
   for (let index = 0; index < 7; index += 1) {
