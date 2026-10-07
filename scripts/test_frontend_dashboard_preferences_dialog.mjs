@@ -212,6 +212,16 @@ try {
     assert.equal(await page.locator('#dashboard-preferences-modal').evaluate(modal => modal.classList.contains('active')), true, `Escape on shared select ${index + 1} must keep the modal open`);
   }
 
+  await page.locator('#dashboard-preferences-reset').click();
+  const resetPreferences = await page.evaluate(() => window.__savedDashboardPreferences);
+  assert.equal(resetPreferences.compactDisplay, false, 'Reset must persist the default density immediately');
+  assert.deepEqual(resetPreferences.stats, ['total', 'pending', 'in_progress', 'overdue'], 'Reset must persist the default metrics immediately');
+  assert.deepEqual(resetPreferences.focusItems, ['overdue', 'due_today', 'due_week', 'high_priority'], 'Reset must persist the default focus groups immediately');
+  await page.locator('.modal-close-x[data-dashboard-preferences-action="cancel"]').click();
+  assert.equal(await page.locator('#dashboard-preferences-modal').evaluate(modal => modal.classList.contains('active')), false, 'Close must dismiss the modal after an immediate Reset');
+  assert.deepEqual(await page.evaluate(() => window.__savedDashboardPreferences), resetPreferences, 'Closing after Reset must not roll back the explicitly persisted defaults');
+  await page.evaluate(() => window.__dashboardPreferencesFeature.openDashboardPreferences(document.getElementById('user-menu-button')));
+
   const validDraft = {
     compactDisplay: true,
     showFocus: false,

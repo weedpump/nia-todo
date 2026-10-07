@@ -357,6 +357,7 @@ export function createDashboardPreferencesFeature({
       } else if (action === 'reset') {
         event.preventDefault();
         const defaults = normalizeDashboardPreferences(DEFAULT_DASHBOARD_PREFERENCES);
+        // Reset is an explicit immediate action; closing the modal does not roll it back.
         setPreferences?.(defaults);
         hydrateForm(defaults);
         renderDashboard?.();
