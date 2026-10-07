@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.3.1] - 2026-10-07
+
+### Added
+- 🗂️ Added an optional dashboard status grouping control; when disabled, Todos are grouped only by project while in-progress items are promoted without overriding the configured Todo sort order.
+- 🧭 Added a workspace selector to dashboard customization so multiple workspace configurations can be edited and saved in one session.
+
+### Changed
+- Stored the complete dashboard configuration independently per workspace and automatically loaded the matching preferences when switching workspaces.
+- Limited the dashboard project picker and project scope to projects from the selected workspace.
+
+### Fixed
+- Applied dashboard project include/exclude scopes to the complete main Dashboard Todo list, including when Today view is disabled.
+- Prevented projects from different workspaces from being mixed in dashboard customization.
+
 ## [3.3.0] - 2026-10-07
 
 ### Added

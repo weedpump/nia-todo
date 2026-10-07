@@ -370,6 +370,20 @@
       </div>
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="dashboard-preferences-form" class="entity-modal-form dashboard-preferences-shell ui-detail-shell">
+          <section class="ui-section-card ui-detail-section dashboard-preferences-workspace-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="briefcase"></div>
+              <div>
+                <h4 data-i18n-key="dashboard.preferences.workspace.label">Workspace</h4>
+                <p data-i18n-key="dashboard.preferences.workspace.hint">Jeder Workspace verwendet seine eigene Dashboard-Konfiguration.</p>
+              </div>
+            </div>
+            <div class="form-group dashboard-preferences-workspace-field">
+              <label for="dashboard-preferences-workspace" data-i18n-key="dashboard.preferences.workspace.select">Workspace auswählen</label>
+              <select class="ui-field" id="dashboard-preferences-workspace" data-ui-select></select>
+            </div>
+          </section>
+
           <section class="ui-section-card ui-detail-section ui-detail-title-section">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
@@ -383,6 +397,10 @@
                 <label class="dashboard-preferences-toggle">
                   <span data-i18n-key="dashboard.preferences.layout.compact">Kompakte Darstellung</span>
                   <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-compact-display"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
+                </label>
+                <label class="dashboard-preferences-toggle">
+                  <span data-i18n-key="dashboard.preferences.layout.groupByStatus">Nach Status gruppieren</span>
+                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-group-by-status"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
                 </label>
                 <label class="dashboard-preferences-toggle">
                   <span data-i18n-key="dashboard.preferences.content.focus">„Jetzt relevant“ anzeigen</span>

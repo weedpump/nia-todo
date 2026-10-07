@@ -53,6 +53,11 @@ assert.match(dashboardCss, /\.overview-focus-list,[\s\S]*?\.overview-project-lis
 }
 
 {
+  assert.equal(DEFAULT_DASHBOARD_PREFERENCES.groupByStatus, true, 'status grouping must remain enabled by default');
+  assert.equal(normalizeDashboardPreferences({ groupByStatus: false }).groupByStatus, false, 'status grouping must be independently configurable');
+}
+
+{
   const preferences = normalizeDashboardPreferences({
     version: 99,
     mode: 'compact',
@@ -75,6 +80,7 @@ assert.match(dashboardCss, /\.overview-focus-list,[\s\S]*?\.overview-project-lis
   assert.deepEqual(preferences, {
     version: 3,
     compactDisplay: true,
+    groupByStatus: true,
     showFocus: false,
     showActiveProjects: false,
     showProjectWidgets: false,
@@ -116,6 +122,35 @@ assert.match(dashboardCss, /\.overview-focus-list,[\s\S]*?\.overview-project-lis
 
   assert.deepEqual(saved.focusItems, [], 'saving must preserve an explicitly empty focus selection');
   assert.deepEqual(loadDashboardPreferences(storage).focusItems, [], 'reloading must preserve an explicitly empty focus selection');
+}
+
+{
+  const storage = createStorage();
+  const workspaceOne = saveDashboardPreferences(storage, {
+    compactDisplay: true,
+    projectScope: { mode: 'exclude', projectIds: [11] },
+  }, 1);
+  const workspaceTwo = saveDashboardPreferences(storage, {
+    showFocus: false,
+    projectScope: { mode: 'include', projectIds: [22] },
+  }, 2);
+
+  assert.deepEqual(loadDashboardPreferences(storage, 1), workspaceOne, 'the complete dashboard configuration must be isolated for workspace one');
+  assert.deepEqual(loadDashboardPreferences(storage, 2), workspaceTwo, 'the complete dashboard configuration must be isolated for workspace two');
+  assert.deepEqual(loadDashboardPreferences(storage, 3), DEFAULT_DASHBOARD_PREFERENCES, 'a workspace without saved preferences must start from defaults');
+}
+
+{
+  const legacyPreferences = normalizeDashboardPreferences({
+    compactDisplay: true,
+    showFocus: false,
+    projectScope: { mode: 'exclude', projectIds: [7] },
+  });
+  const storage = createStorage([[DASHBOARD_PREFERENCES_KEY, JSON.stringify(legacyPreferences)]]);
+
+  assert.deepEqual(loadDashboardPreferences(storage, 10), legacyPreferences, 'the existing global configuration must migrate to the active workspace');
+  assert.equal(storage.getItem(DASHBOARD_PREFERENCES_KEY), null, 'the migrated global key must be removed so other workspaces start independently');
+  assert.deepEqual(loadDashboardPreferences(storage, 20), DEFAULT_DASHBOARD_PREFERENCES, 'a second workspace must not inherit the migrated global configuration');
 }
 
 {
@@ -167,6 +202,86 @@ assert.match(dashboardCss, /\.overview-focus-list,[\s\S]*?\.overview-project-lis
 
   assert.equal(preferences.showProjectWidgets, false);
   assert.equal(storage.getItem(DASHBOARD_PREFERENCES_KEY), null, 'legacy migration is returned without writing during load');
+}
+
+{
+  const workspaceKey = `${DASHBOARD_PREFERENCES_KEY}:workspace:10`;
+  const storage = createStorage([['nia-project-widget', 'false']]);
+  const migrated = loadDashboardPreferences(storage, 10);
+
+  assert.deepEqual(
+    migrated,
+    normalizeDashboardPreferences({ showProjectWidgets: false }),
+    'the legacy project-widget preference must migrate into the active workspace configuration',
+  );
+  assert.deepEqual(
+    JSON.parse(storage.getItem(workspaceKey)),
+    migrated,
+    'workspace migration must persist the complete normalized dashboard preferences',
+  );
+  assert.equal(storage.getItem('nia-project-widget'), null, 'workspace migration must consume the global legacy project-widget key');
+  assert.deepEqual(
+    loadDashboardPreferences(storage, 20),
+    DEFAULT_DASHBOARD_PREFERENCES,
+    'later workspaces must start from defaults after the legacy project-widget preference was migrated',
+  );
+}
+
+{
+  const globalPreferences = normalizeDashboardPreferences({
+    compactDisplay: true,
+    showProjectWidgets: true,
+  });
+  const storage = createStorage([
+    [DASHBOARD_PREFERENCES_KEY, JSON.stringify(globalPreferences)],
+    ['nia-project-widget', 'false'],
+  ]);
+  const migrated = loadDashboardPreferences(storage, 10);
+
+  assert.equal(migrated.compactDisplay, true, 'the complete global dashboard configuration must migrate to the first workspace');
+  assert.equal(migrated.showProjectWidgets, false, 'the legacy project-widget override must be applied during the same workspace migration');
+  assert.equal(storage.getItem(DASHBOARD_PREFERENCES_KEY), null, 'the global dashboard key must be consumed by the first workspace migration');
+  assert.equal(storage.getItem('nia-project-widget'), null, 'the legacy project-widget key must be consumed by the first workspace migration');
+  assert.deepEqual(loadDashboardPreferences(storage, 20), DEFAULT_DASHBOARD_PREFERENCES, 'a second workspace must start from defaults after the combined migration');
+}
+
+{
+  const workspaceKey = `${DASHBOARD_PREFERENCES_KEY}:workspace:10`;
+  const concretePreferences = normalizeDashboardPreferences({
+    compactDisplay: true,
+    showFocus: false,
+    showProjectWidgets: true,
+    projectScope: { mode: 'exclude', projectIds: [17] },
+  });
+  const storage = createStorage([
+    [workspaceKey, JSON.stringify(concretePreferences)],
+    [DASHBOARD_PREFERENCES_KEY, JSON.stringify({ compactDisplay: false, showFocus: true, showProjectWidgets: true })],
+    ['nia-dashboard-preferences-v2', JSON.stringify({ mode: 'focused', showProjectWidgets: true })],
+    ['nia-dashboard-preferences-v1', JSON.stringify({ mode: 'compact' })],
+    ['nia-project-widget', 'false'],
+  ]);
+  const reconciled = loadDashboardPreferences(storage, 10);
+
+  assert.equal(reconciled.compactDisplay, true, 'the existing concrete workspace configuration must remain the migration base');
+  assert.equal(reconciled.showFocus, false, 'newer concrete workspace fields must win over pending global preferences');
+  assert.deepEqual(reconciled.projectScope, { mode: 'exclude', projectIds: [17] }, 'reconciliation must preserve unrelated concrete workspace fields');
+  assert.equal(reconciled.showProjectWidgets, false, 'the explicit historical project-widget field must override the concrete workspace field exactly once');
+  assert.deepEqual(JSON.parse(storage.getItem(workspaceKey)), reconciled, 'the reconciled concrete workspace configuration must be persisted');
+  assert.equal(storage.getItem(DASHBOARD_PREFERENCES_KEY), null, 'the pending global v3 key must be consumed even when concrete workspace preferences exist');
+  assert.equal(storage.getItem('nia-dashboard-preferences-v2'), null, 'the pending global v2 key must be consumed during reconciliation');
+  assert.equal(storage.getItem('nia-dashboard-preferences-v1'), null, 'the pending global v1 key must be consumed during reconciliation');
+  assert.equal(storage.getItem('nia-project-widget'), null, 'the explicit legacy project-widget key must be consumed during reconciliation');
+  assert.deepEqual(loadDashboardPreferences(storage, 20), DEFAULT_DASHBOARD_PREFERENCES, 'consumed migration data must not leak into a later workspace');
+}
+
+{
+  const workspaceKey = `${DASHBOARD_PREFERENCES_KEY}:workspace:10`;
+  const storage = createStorage([['nia-project-widget', 'true']]);
+  const migrated = loadDashboardPreferences(storage, 10);
+
+  assert.deepEqual(migrated, DEFAULT_DASHBOARD_PREFERENCES, 'an enabled legacy project-widget preference must migrate as the workspace default');
+  assert.deepEqual(JSON.parse(storage.getItem(workspaceKey)), migrated, 'the enabled legacy preference must still create the concrete workspace configuration');
+  assert.equal(storage.getItem('nia-project-widget'), null, 'every migrated legacy project-widget key must be removed');
 }
 
 {

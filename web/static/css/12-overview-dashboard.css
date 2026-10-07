@@ -315,6 +315,11 @@
   display: grid;
 }
 
+.dashboard-preferences-workspace-field {
+  width: min(100%, 28rem);
+  margin-bottom: 0;
+}
+
 .dashboard-preferences-grid {
   align-items: start;
 }

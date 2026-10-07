@@ -25,8 +25,10 @@ assert.doesNotMatch(renderingSource, /overview-dashboard-customize|data-dashboar
 assert.match(indexHtml, /class="modal ui-detail-modal ui-detail-view dashboard-preferences-modal"/);
 assert.match(indexHtml, /class="modal-content entity-modal-content ui-detail-modal-content dashboard-preferences-modal-content"/);
 assert.match(indexHtml, /id="dashboard-preferences-form"/);
+assert.match(indexHtml, /id="dashboard-preferences-workspace"[^>]*data-ui-select/, 'dashboard preferences need a shared workspace selector');
 assert.doesNotMatch(indexHtml, /id="dashboard-preferences-mode"/);
 assert.match(indexHtml, /id="dashboard-preferences-compact-display"/);
+assert.match(indexHtml, /id="dashboard-preferences-group-by-status"/);
 assert.doesNotMatch(indexHtml, /id="dashboard-preferences-show-subtitle"/);
 assert.match(indexHtml, /id="dashboard-preferences-project-scope"/);
 assert.doesNotMatch(indexHtml, /id="dashboard-preferences-include-unassigned"/);
@@ -48,7 +50,7 @@ const modalHtml = indexHtml.slice(
   indexHtml.indexOf('<!-- Todo Modal -->'),
 );
 const modalSelects = [...modalHtml.matchAll(/<select\b([^>]*)>/g)];
-assert.equal(modalSelects.length, 7, 'dashboard preferences must expose seven select fields');
+assert.equal(modalSelects.length, 8, 'dashboard preferences must expose the workspace selector plus seven configuration selects');
 for (const [, attrs] of modalSelects) {
   assert.match(attrs, /\bdata-ui-select\b/, 'dashboard select fields must use the shared nia-todo select component');
 }
@@ -140,23 +142,48 @@ try {
     const { createDashboardPreferencesFeature } = await import('/static/js/features/dashboard-preferences-dialog.js');
     await setLanguagePreference('en');
     const persistedPreferences = {
-      compactDisplay: false,
-      showFocus: true,
-      showActiveProjects: true,
-      showProjectWidgets: false,
-      projectScope: { mode: 'include', projectIds: [1] },
-      stats: ['total', 'pending', 'in_progress', 'overdue'],
-      focusItems: ['overdue', 'due_today'],
-      hideEmptyFocusItems: false,
-      activeProjects: { limit: 5, sort: 'activity' },
+      10: {
+        compactDisplay: false,
+        groupByStatus: true,
+        showFocus: true,
+        showActiveProjects: true,
+        showProjectWidgets: false,
+        projectScope: { mode: 'include', projectIds: [1] },
+        stats: ['total', 'pending', 'in_progress', 'overdue'],
+        focusItems: ['overdue', 'due_today'],
+        hideEmptyFocusItems: false,
+        activeProjects: { limit: 5, sort: 'activity' },
+      },
+      20: {
+        compactDisplay: true,
+        groupByStatus: false,
+        showFocus: false,
+        showActiveProjects: false,
+        showProjectWidgets: true,
+        projectScope: { mode: 'exclude', projectIds: [4] },
+        stats: ['done', 'total', 'overdue', 'pending'],
+        focusItems: ['high_priority'],
+        hideEmptyFocusItems: true,
+        activeProjects: { limit: 3, sort: 'name' },
+      },
     };
     const feature = createDashboardPreferencesFeature({
-      getPreferences: () => persistedPreferences,
-      setPreferences(preferences) { window.__savedDashboardPreferences = preferences; },
+      getPreferences: workspaceId => persistedPreferences[workspaceId],
+      setPreferences(workspaceId, preferences) {
+        persistedPreferences[workspaceId] = preferences;
+        window.__savedDashboardPreferences = preferences;
+        window.__savedDashboardWorkspaceId = workspaceId;
+      },
+      getWorkspaces: () => [
+        { id: 10, name: 'Personal' },
+        { id: 20, name: 'Shared' },
+      ],
+      getCurrentWorkspaceId: () => 10,
       getProjects: () => [
-        { id: 1, name: 'Alpha', parent_id: null },
-        { id: 2, name: 'Beta', parent_id: null },
-        { id: 3, name: 'Gamma', parent_id: null },
+        { id: 1, name: 'Alpha', parent_id: null, workspace_id: 10 },
+        { id: 2, name: 'Beta', parent_id: null, workspace_id: 10 },
+        { id: 3, name: 'Gamma', parent_id: null, workspace_id: 10 },
+        { id: 4, name: 'Delta', parent_id: null, workspace_id: 20 },
       ],
       renderDashboard() {},
     });
@@ -168,6 +195,7 @@ try {
   const setDraft = async draft => page.evaluate(nextDraft => {
     const setChecked = (selector, checked) => { document.querySelector(selector).checked = checked; };
     setChecked('#dashboard-preferences-compact-display', nextDraft.compactDisplay);
+    setChecked('#dashboard-preferences-group-by-status', nextDraft.groupByStatus);
     setChecked('#dashboard-preferences-show-focus', nextDraft.showFocus);
     setChecked('#dashboard-preferences-show-active-projects', nextDraft.showActiveProjects);
     setChecked('#dashboard-preferences-show-project-widgets', nextDraft.showProjectWidgets);
@@ -186,6 +214,7 @@ try {
 
   const readDraft = async () => page.evaluate(() => ({
     compactDisplay: document.querySelector('#dashboard-preferences-compact-display').checked,
+    groupByStatus: document.querySelector('#dashboard-preferences-group-by-status').checked,
     showFocus: document.querySelector('#dashboard-preferences-show-focus').checked,
     showActiveProjects: document.querySelector('#dashboard-preferences-show-active-projects').checked,
     showProjectWidgets: document.querySelector('#dashboard-preferences-show-project-widgets').checked,
@@ -197,6 +226,29 @@ try {
     limit: Number(document.querySelector('#dashboard-preferences-project-limit').value),
     sort: document.querySelector('#dashboard-preferences-project-sort').value,
   }));
+
+  const workspaceSelect = page.locator('#dashboard-preferences-workspace');
+  assert.equal(await workspaceSelect.inputValue(), '10', 'the active workspace must be selected when the dialog opens');
+  assert.deepEqual(await workspaceSelect.locator('option').allTextContents(), ['Personal', 'Shared'], 'the workspace selector must list every available workspace');
+  assert.deepEqual(
+    await page.locator('[data-dashboard-preference-project-id]').allTextContents(),
+    ['Alpha', 'Beta', 'Gamma'],
+    'the project picker must only list projects from the selected workspace',
+  );
+
+  await workspaceSelect.selectOption('20');
+  assert.deepEqual(
+    await page.locator('[data-dashboard-preference-project-id]').allTextContents(),
+    ['Delta'],
+    'switching workspaces must replace the project list instead of mixing projects',
+  );
+  assert.equal(await page.locator('#dashboard-preferences-compact-display').isChecked(), true, 'the selected workspace must load its own complete dashboard configuration');
+  await page.locator('#dashboard-preferences-compact-display').uncheck();
+  await workspaceSelect.selectOption('10');
+  assert.equal(await page.locator('#dashboard-preferences-compact-display').isChecked(), false, 'switching back must restore the first workspace draft');
+  await workspaceSelect.selectOption('20');
+  assert.equal(await page.locator('#dashboard-preferences-compact-display').isChecked(), false, 'unsaved edits must survive workspace switches until the dialog is saved or closed');
+  await workspaceSelect.selectOption('10');
 
   const projectTrigger = page.locator('#dashboard-preferences-projects .dashboard-preferences-project-trigger');
   assert.match(
@@ -211,8 +263,8 @@ try {
   );
 
   const sharedSelectTriggers = page.locator('#dashboard-preferences-modal .ui-select > .ui-select-trigger');
-  assert.equal(await sharedSelectTriggers.count(), 7, 'the composed-DOM regression must exercise all seven shared select controls');
-  for (let index = 0; index < 7; index += 1) {
+  assert.equal(await sharedSelectTriggers.count(), 8, 'the composed-DOM regression must exercise all eight shared select controls');
+  for (let index = 0; index < 8; index += 1) {
     const trigger = sharedSelectTriggers.nth(index);
     await trigger.click();
     const menuId = await trigger.getAttribute('aria-controls');
@@ -243,6 +295,7 @@ try {
 
   const validDraft = {
     compactDisplay: true,
+    groupByStatus: false,
     showFocus: false,
     showActiveProjects: false,
     showProjectWidgets: true,
@@ -264,6 +317,7 @@ try {
 
   const invalidDraft = {
     compactDisplay: false,
+    groupByStatus: true,
     showFocus: true,
     showActiveProjects: false,
     showProjectWidgets: true,
@@ -344,7 +398,7 @@ try {
   await browser.close();
 }
 
-for (const icon of ['sliders-horizontal', 'folder-tree', 'folders', 'chart-no-axes-column', 'rotate-ccw']) {
+for (const icon of ['sliders-horizontal', 'briefcase', 'folder-tree', 'folders', 'chart-no-axes-column', 'rotate-ccw']) {
   assert.match(iconsSource, new RegExp(`"${icon}":`), `${icon} must be available in the local Lucide cache`);
 }
 
@@ -356,9 +410,14 @@ const requiredKeys = [
   'dashboard.preferences.title',
   'dashboard.preferences.subtitle',
   'dashboard.preferences.close',
+  'dashboard.preferences.workspace.label',
+  'dashboard.preferences.workspace.hint',
+  'dashboard.preferences.workspace.select',
+  'dashboard.preferences.workspace.fallback',
   'dashboard.preferences.layout.title',
   'dashboard.preferences.layout.hint',
   'dashboard.preferences.layout.compact',
+  'dashboard.preferences.layout.groupByStatus',
   'dashboard.preferences.content.title',
   'dashboard.preferences.projects.title',
   'dashboard.preferences.stats.title',
@@ -368,9 +427,10 @@ const requiredKeys = [
   'dashboard.preferences.saved',
 ];
 
-for (const key of requiredKeys) {
-  assert.equal(typeof de[key], 'string', `German locale must contain ${key}`);
-  assert.equal(typeof en[key], 'string', `English locale must contain ${key}`);
+for (const [localeFile, dictionary] of localeDictionaries) {
+  for (const key of requiredKeys) {
+    assert.equal(typeof dictionary[key], 'string', `${localeFile} must contain ${key}`);
+  }
 }
 
 assert.equal(de['dashboard.preferences.content.projectWidgets'], 'Projekt-Widgets anzeigen');

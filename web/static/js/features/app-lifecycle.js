@@ -82,11 +82,6 @@ export function createAppLifecycle({
     ]);
   }
 
-  function restoreSavedWorkspace() {
-    const savedWorkspace = localStorage.getItem('nia-current-workspace');
-    if (savedWorkspace) setCurrentWorkspaceId(parseInt(savedWorkspace, 10));
-  }
-
   function restoreSavedNavigation() {
     const baseFilters = ['all','focus','calendar','pending','in_progress','done'];
     const params = new URLSearchParams(window.location.search || '');
@@ -100,7 +95,6 @@ export function createAppLifecycle({
   }
 
   async function loadFromLocalDB() {
-    restoreSavedWorkspace();
     restoreSavedNavigation();
     setTodos(await dbGetAll('todos'));
     setProjects(await dbGetAll('projects'));
@@ -136,7 +130,6 @@ export function createAppLifecycle({
     }
 
     if (!isAuthenticated()) return;
-    restoreSavedWorkspace();
     restoreSavedNavigation();
     ensureCurrentWorkspace?.();
     renderWorkspaces?.();
