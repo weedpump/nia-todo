@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [3.3.1] - 2026-10-07
+## [3.3.1] - 2026-10-08
 
 ### Added
 - ☁️ Added optional account-wide dashboard preference synchronization across web, PWA, and native clients, with local offline caching and realtime updates between active sessions.
