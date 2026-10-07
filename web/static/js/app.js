@@ -65,6 +65,12 @@ let minimalTodos = localStorage.getItem('nia-minimal-todos') === 'true';
 let desktopIntegration = null;
 let syncController = null;
 
+function setCurrentWorkspaceState(next) {
+  currentWorkspaceId = next;
+  dashboardPreferences = loadDashboardPreferences(localStorage, currentWorkspaceId);
+  showProjectWidget = dashboardPreferences.showProjectWidgets;
+}
+
 const {
   getFocusFilters,
   getFocusFiltersExpanded,
@@ -117,7 +123,13 @@ const viewPreferences = createViewPreferencesFeature({
   getSortMode: () => sortMode,
   setSortMode: (value) => { sortMode = value; },
   getShowProjectWidget: () => showProjectWidget,
-  setShowProjectWidget: (value) => { showProjectWidget = value; },
+  saveShowProjectWidget: (value) => {
+    dashboardPreferences = saveDashboardPreferences(localStorage, {
+      ...dashboardPreferences,
+      showProjectWidgets: value,
+    }, currentWorkspaceId);
+    showProjectWidget = dashboardPreferences.showProjectWidgets;
+  },
   getTodayFocus: () => todayFocus,
   setTodayFocus: (value) => { todayFocus = value; },
   getMinimalTodos: () => minimalTodos,
@@ -483,7 +495,7 @@ workspacesFeature = createWorkspacesFeature({
   getWorkspaces: () => workspaces,
   setWorkspaces: (next) => { workspaces = next; },
   getCurrentWorkspaceId: () => currentWorkspaceId,
-  setCurrentWorkspaceId: (next) => { currentWorkspaceId = next; },
+  setCurrentWorkspaceId: setCurrentWorkspaceState,
   dbPut,
   dbClear,
   isOnlineForSync,
@@ -624,13 +636,18 @@ const bindToastControls = toastUndoFeature.bindToastControls;
 const restoreBatchTodos = toastUndoFeature.restoreBatchTodos;
 const restoreTodo = toastUndoFeature.restoreTodo;
 const dashboardPreferencesFeature = createDashboardPreferencesFeature({
-  getPreferences: () => dashboardPreferences,
-  setPreferences: next => {
-    dashboardPreferences = saveDashboardPreferences(localStorage, next);
-    showProjectWidget = dashboardPreferences.showProjectWidgets;
-    updateProjectWidgetButton();
+  getPreferences: workspaceId => loadDashboardPreferences(localStorage, workspaceId),
+  setPreferences: (workspaceId, next) => {
+    const saved = saveDashboardPreferences(localStorage, next, workspaceId);
+    if (String(workspaceId) === String(currentWorkspaceId)) {
+      dashboardPreferences = saved;
+      showProjectWidget = dashboardPreferences.showProjectWidgets;
+      updateProjectWidgetButton();
+    }
   },
   getProjects: () => projects,
+  getWorkspaces: () => workspaces,
+  getCurrentWorkspaceId: () => currentWorkspaceId,
   renderDashboard: () => {
     renderStats();
     renderTodos();
@@ -663,7 +680,7 @@ const appLifecycle = createAppLifecycle({
   setWorkspaces: (next) => { workspaces = next; },
   setCurrentFilter: (next) => { currentFilter = next; },
   setCurrentProjectId: (next) => { currentProjectId = next; },
-  setCurrentWorkspaceId: (next) => { currentWorkspaceId = next; },
+  setCurrentWorkspaceId: setCurrentWorkspaceState,
   ensureCurrentWorkspace: () => ensureCurrentWorkspace(),
   setAppInitialized: (next) => { appInitialized = next; },
   connectWebSocket,

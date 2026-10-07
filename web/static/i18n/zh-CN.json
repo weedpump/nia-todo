@@ -826,6 +826,10 @@
   "dashboard.preferences.title": "自定义仪表板",
   "dashboard.preferences.subtitle": "隐藏干扰内容，让仪表板更贴合你的日常安排。",
   "dashboard.preferences.close": "关闭仪表板自定义设置",
+  "dashboard.preferences.workspace.label": "工作区",
+  "dashboard.preferences.workspace.hint": "每个工作区使用各自的仪表板配置。",
+  "dashboard.preferences.workspace.select": "选择工作区",
+  "dashboard.preferences.workspace.fallback": "工作区",
   "dashboard.preferences.layout.title": "布局",
   "dashboard.preferences.layout.hint": "选择仪表板要显示的详细程度。",
   "dashboard.preferences.content.title": "仪表板内容",
@@ -1876,5 +1880,6 @@
   "todo.multiAdd.recurringNeedsDue": "重复待办事项需要截止日期。",
   "todo.multiAdd.pasteOmitted.one": "一次最多可添加 {max} 个待办事项。未添加粘贴内容中的 {count} 行。",
   "todo.multiAdd.pasteOmitted.many": "一次最多可添加 {max} 个待办事项。未添加粘贴内容中的 {count} 行。",
-  "dashboard.preferences.layout.compact": "紧凑显示"
+  "dashboard.preferences.layout.compact": "紧凑显示",
+  "dashboard.preferences.layout.groupByStatus": "按状态分组"
 }

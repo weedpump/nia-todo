@@ -676,12 +676,12 @@ export function createAppRenderingFeature({
         (t.description || '').toLowerCase().includes(search)
       );
     }
+    const dashboardPreferences = getEffectiveDashboardPreferences(getDashboardPreferences?.(), { minimal: minimalTodos });
     const applyDashboardScope = !currentProjectId
-      && (dashboardDrilldown || (getTodayFocus?.() && currentFilter === 'all'));
+      && ((dashboardDrilldown && !search) || (currentFilter === 'all' && !search));
     if (applyDashboardScope) {
-      const preferences = getEffectiveDashboardPreferences(getDashboardPreferences?.(), { minimal: minimalTodos });
       const validProjectIds = new Set(projects.map(project => Number(project.id)));
-      filtered = filterTodosForDashboard(filtered, preferences, validProjectIds);
+      filtered = filterTodosForDashboard(filtered, dashboardPreferences, validProjectIds);
     }
     if (dashboardDrilldown) {
       filtered = filterTodosForDashboardDrilldown(filtered, dashboardDrilldown, new Date());
@@ -788,7 +788,10 @@ export function createAppRenderingFeature({
         <button type="button" class="btn btn-secondary btn-small" data-dashboard-drilldown-action="clear" data-dashboard-return-filter="all">${iconSvg('x')} ${escapeHtml(t('dashboard.drilldown.clear'))}</button>
       </div>` : (currentFilter === 'focus' ? renderFocusControls(projects) : '');
     if (isAggregateFilter && !search) {
-      const pinnedItems = filtered.filter(t => t.is_pinned);
+      const pinnedItems = [
+        ...filtered.filter(todo => todo.is_pinned && todo.status === 'in_progress'),
+        ...filtered.filter(todo => todo.is_pinned && todo.status !== 'in_progress'),
+      ];
       if (pinnedItems.length) {
         html += `<div class="todo-group pinned-todos-group">
           <div class="todo-group-title pinned-title">${iconSvg('star')} ${escapeHtml(t('todo.pinnedGroup'))} (${pinnedItems.length})</div>
@@ -797,60 +800,63 @@ export function createAppRenderingFeature({
       }
     }
     const groupedSource = isAggregateFilter && !search ? filtered.filter(t => !t.is_pinned) : filtered;
-    for (const [status, title] of Object.entries(groups)) {
-      if (!isAggregateFilter && currentFilter !== status) continue;
-      const statusItems = groupedSource.filter(t => t.status === status);
-      if (!statusItems.length) continue;
 
-      html += `<div class="todo-group"><div class="todo-group-title">${title} (${statusItems.length})</div>`;
-
+    const renderProjectGroups = (source, { prioritizeInProgress = false } = {}) => {
       const byProject = new Map();
-      for (const t of statusItems) {
-        const pid = t.project_id || 0;
-        if (!byProject.has(pid)) byProject.set(pid, []);
-        byProject.get(pid).push(t);
+      for (const todo of source) {
+        const projectId = todo.project_id || 0;
+        if (!byProject.has(projectId)) byProject.set(projectId, []);
+        byProject.get(projectId).push(todo);
       }
 
       const projectOrder = Array.from(byProject.keys()).sort((a, b) => {
-        const pa = projects.find(p => p.id === a);
-        const pb = projects.find(p => p.id === b);
-        if (!!pa?.is_inbox !== !!pb?.is_inbox) return pa?.is_inbox ? -1 : 1;
-        const na = pa ? pa.name.toLowerCase() : '';
-        const nb = pb ? pb.name.toLowerCase() : '';
-        return na.localeCompare(nb);
+        const projectA = projects.find(project => project.id === a);
+        const projectB = projects.find(project => project.id === b);
+        if (!!projectA?.is_inbox !== !!projectB?.is_inbox) return projectA?.is_inbox ? -1 : 1;
+        const nameA = projectA ? projectA.name.toLowerCase() : '';
+        const nameB = projectB ? projectB.name.toLowerCase() : '';
+        return nameA.localeCompare(nameB);
       });
 
-      for (const pid of projectOrder) {
-        const items = byProject.get(pid);
-        const project = projects.find(p => p.id === pid);
-        const renderSearchSectionGroups = (projectItems, projectId) => {
-          const projectSections = allSections
-            .filter(section => String(section.project_id) === String(projectId))
-            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(a.name || '').localeCompare(String(b.name || '')));
-          const validSectionIds = new Set(projectSections.map(section => String(section.id)));
-          let sectionsHtml = '';
-          for (const section of projectSections) {
-            const sectionItems = projectItems.filter(item => String(item.section_id || '') === String(section.id));
-            if (!sectionItems.length) continue;
-            sectionsHtml += `<div class="section-header section-search-header" data-section-id="${escapeHtmlAttr(section.id)}">
-              <span class="section-name">${escapeHtml(section.name)}</span>
-              <span class="section-count">${sectionItems.length}</span>
-            </div>
-            <div class="section-todos">${sectionItems.map(item => renderTodoItem(item)).join('')}</div>`;
-          }
-          const unsortedItems = projectItems.filter(item => !item.section_id || !validSectionIds.has(String(item.section_id)));
-          if (unsortedItems.length) {
-            sectionsHtml += `<div class="section-header section-unsorted section-search-header" data-section-id="null">
-              <span class="section-name">${escapeHtml(t('section.unsorted'))}</span>
-              <span class="section-count">${unsortedItems.length}</span>
-            </div>
-            <div class="section-todos">${unsortedItems.map(item => renderTodoItem(item)).join('')}</div>`;
-          }
-          return sectionsHtml || projectItems.map(item => renderTodoItem(item)).join('');
-        };
-        const itemsHtml = search ? renderSearchSectionGroups(items, pid) : items.map(t => renderTodoItem(t)).join('');
+      const renderSearchSectionGroups = (projectItems, projectId) => {
+        const projectSections = allSections
+          .filter(section => String(section.project_id) === String(projectId))
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(a.name || '').localeCompare(String(b.name || '')));
+        const validSectionIds = new Set(projectSections.map(section => String(section.id)));
+        let sectionsHtml = '';
+        for (const section of projectSections) {
+          const sectionItems = projectItems.filter(item => String(item.section_id || '') === String(section.id));
+          if (!sectionItems.length) continue;
+          sectionsHtml += `<div class="section-header section-search-header" data-section-id="${escapeHtmlAttr(section.id)}">
+            <span class="section-name">${escapeHtml(section.name)}</span>
+            <span class="section-count">${sectionItems.length}</span>
+          </div>
+          <div class="section-todos">${sectionItems.map(item => renderTodoItem(item)).join('')}</div>`;
+        }
+        const unsortedItems = projectItems.filter(item => !item.section_id || !validSectionIds.has(String(item.section_id)));
+        if (unsortedItems.length) {
+          sectionsHtml += `<div class="section-header section-unsorted section-search-header" data-section-id="null">
+            <span class="section-name">${escapeHtml(t('section.unsorted'))}</span>
+            <span class="section-count">${unsortedItems.length}</span>
+          </div>
+          <div class="section-todos">${unsortedItems.map(item => renderTodoItem(item)).join('')}</div>`;
+        }
+        return sectionsHtml || projectItems.map(item => renderTodoItem(item)).join('');
+      };
+
+      let projectGroupsHtml = '';
+      for (const projectId of projectOrder) {
+        const sortedItems = byProject.get(projectId);
+        const items = prioritizeInProgress
+          ? [
+              ...sortedItems.filter(item => item.status === 'in_progress'),
+              ...sortedItems.filter(item => item.status !== 'in_progress'),
+            ]
+          : sortedItems;
+        const project = projects.find(candidate => candidate.id === projectId);
+        const itemsHtml = search ? renderSearchSectionGroups(items, projectId) : items.map(todo => renderTodoItem(todo)).join('');
         if (project) {
-          html += `<div class="project-group">
+          projectGroupsHtml += `<div class="project-group">
             <div class="project-group-header">
               ${markerHtml(project)}
               <span class="project-group-name">${escapeHtml(project.name)}</span>
@@ -859,7 +865,7 @@ export function createAppRenderingFeature({
             <div class="project-group-todos">${itemsHtml}</div>
           </div>`;
         } else {
-          html += `<div class="project-group">
+          projectGroupsHtml += `<div class="project-group">
             <div class="project-group-header">
               <span class="project-dot" style="background:var(--text-muted)"></span>
               <span class="project-group-name">${escapeHtml(t('project.unsorted'))}</span>
@@ -869,8 +875,21 @@ export function createAppRenderingFeature({
           </div>`;
         }
       }
+      return projectGroupsHtml;
+    };
 
-      html += `</div>`;
+    const groupByStatus = !isAggregateFilter || Boolean(search) || dashboardPreferences.groupByStatus;
+    if (groupByStatus) {
+      for (const [status, title] of Object.entries(groups)) {
+        if (!isAggregateFilter && currentFilter !== status) continue;
+        const statusItems = groupedSource.filter(t => t.status === status);
+        if (!statusItems.length) continue;
+        html += `<div class="todo-group"><div class="todo-group-title">${title} (${statusItems.length})</div>`;
+        html += renderProjectGroups(statusItems);
+        html += `</div>`;
+      }
+    } else if (groupedSource.length) {
+      html += `<div class="todo-group dashboard-project-groups">${renderProjectGroups(groupedSource, { prioritizeInProgress: true })}</div>`;
     }
 
     if (!filtered.length) {

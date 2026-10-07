@@ -1,7 +1,7 @@
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
-export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos, renderStats = () => {} }) {
+export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, saveShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos, renderStats = () => {} }) {
   function toggleHideDone() {
     const next = !getHideDone();
     setHideDone(next);
@@ -29,10 +29,10 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
   }
 
   function toggleProjectWidget() {
-    if (!getShowProjectWidget || !setShowProjectWidget) return;
+    if (!getShowProjectWidget || (!saveShowProjectWidget && !setShowProjectWidget)) return;
     const next = !getShowProjectWidget();
-    setShowProjectWidget(next);
-    localStorage.setItem('nia-project-widget', next ? 'true' : 'false');
+    if (saveShowProjectWidget) saveShowProjectWidget(next);
+    else setShowProjectWidget(next);
     updateProjectWidgetButton();
     renderTodos();
   }

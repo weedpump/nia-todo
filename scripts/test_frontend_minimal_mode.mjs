@@ -64,9 +64,12 @@ assert.equal(classes.has('is-minimal-todos'), true);
 
 const { createAppRenderingFeature } = await import('../web/static/js/features/app-rendering.js');
 const renderingTodos = [
-  { id: 1, title: 'Open', status: 'pending', project_id: 10, priority: 3, is_pinned: true },
-  { id: 2, title: 'Done', status: 'done', project_id: 10, priority: 3 },
-  { id: 3, title: 'Excluded pinned', status: 'pending', project_id: 20, priority: 3, is_pinned: true },
+  { id: 1, title: 'Match open', status: 'pending', project_id: 10, priority: 3, is_pinned: true },
+  { id: 2, title: 'Match done', status: 'done', project_id: 10, priority: 3 },
+  { id: 3, title: 'Match excluded pinned', status: 'pending', project_id: 20, priority: 3, is_pinned: true },
+  { id: 4, title: 'Sorted pending', status: 'pending', project_id: 10, priority: 3 },
+  { id: 5, title: 'Sorted in progress', status: 'in_progress', project_id: 10, priority: 3 },
+  { id: 6, title: 'Pinned in progress', status: 'in_progress', project_id: 10, priority: 3, is_pinned: true },
 ];
 let renderingProjectId = null;
 let renderingDrilldown = null;
@@ -121,6 +124,36 @@ assert.match(todoList.innerHTML, /data-dashboard-drilldown-action="clear"/, 'act
 renderingDrilldown = null;
 renderingProjectId = null;
 renderingMinimal = false;
+renderingTodayFocus = false;
+renderingPreferences = {
+  stats: ['total', 'done', 'pending', 'overdue'],
+  groupByStatus: false,
+  projectScope: { mode: 'exclude', projectIds: [20] },
+};
+rendering.renderTodos();
+assert.match(todoList.innerHTML, /data-test-todo="1"/, 'the normal dashboard list must retain todos inside the configured dashboard project scope');
+assert.doesNotMatch(todoList.innerHTML, /data-test-todo="3"/, 'the normal dashboard list must exclude todos from excluded projects');
+assert.equal((todoList.innerHTML.match(/project-group-name/g) || []).length, 1, 'disabled status grouping must render each project only once');
+const ungroupedProjectTodos = todoList.innerHTML.match(/<div class="project-group-todos">([\s\S]*?)<\/div>/)?.[1] || '';
+const pinnedTodos = todoList.innerHTML.match(/<div class="project-group-todos pinned-todos">([\s\S]*?)<\/div>/)?.[1] || '';
+assert.deepEqual({
+  standalonePinnedGroups: (todoList.innerHTML.match(/pinned-todos-group/g) || []).length,
+  pinnedTodoIds: [...pinnedTodos.matchAll(/data-test-todo="(\d+)"/g)].map(match => Number(match[1])),
+  projectCount: Number(todoList.innerHTML.match(/project-group-count">(\d+)</)?.[1]),
+  projectTodoIds: [...ungroupedProjectTodos.matchAll(/data-test-todo="(\d+)"/g)].map(match => Number(match[1])),
+}, {
+  standalonePinnedGroups: 1,
+  pinnedTodoIds: [6, 1],
+  projectCount: 3,
+  projectTodoIds: [5, 2, 4],
+}, 'pinned todos must retain their standalone group and use the same stable in-progress-first status ordering internally');
+assert.ok(todoList.innerHTML.indexOf('data-test-todo="5"') < todoList.innerHTML.indexOf('data-test-todo="2"'), 'in-progress todos must move ahead of other statuses');
+assert.ok(todoList.innerHTML.indexOf('data-test-todo="2"') < todoList.innerHTML.indexOf('data-test-todo="4"'), 'the configured sort order must remain stable inside the non-in-progress block');
+
+renderingPreferences.groupByStatus = true;
+rendering.renderTodos();
+assert.equal((todoList.innerHTML.match(/project-group-name/g) || []).length, 3, 'enabled status grouping must retain separate project blocks per visible status');
+
 renderingTodayFocus = true;
 renderingPreferences = {
   stats: ['total', 'done', 'pending', 'overdue'],
@@ -129,6 +162,16 @@ renderingPreferences = {
 rendering.renderTodos();
 assert.match(todoList.innerHTML, /data-test-todo="1"/, 'Today aggregate list must retain todos inside the configured dashboard project scope');
 assert.doesNotMatch(todoList.innerHTML, /data-test-todo="3"/, 'Today aggregate list must exclude todos outside the configured dashboard project scope');
+
+renderingTodayFocus = false;
+renderingDrilldown = 'pending';
+searchInput.value = 'match';
+rendering.renderTodos();
+assert.match(todoList.innerHTML, /data-test-todo="1"/, 'search with a drilldown must retain matching todos inside the configured dashboard project scope');
+assert.match(todoList.innerHTML, /data-test-todo="3"/, 'search with a drilldown must ignore the dashboard project scope');
+assert.doesNotMatch(todoList.innerHTML, /data-test-todo="2"/, 'search with a drilldown must still apply the drilldown metric filter');
+searchInput.value = '';
+renderingDrilldown = null;
 
 const todoRendering = fs.readFileSync(new URL('../web/static/js/features/todo-rendering.js', import.meta.url), 'utf8');
 assert.match(todoRendering, /data-priority=/, 'todo cards must expose priority for minimal-mode attention styling');

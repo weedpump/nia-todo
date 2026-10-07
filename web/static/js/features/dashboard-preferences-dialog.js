@@ -28,13 +28,30 @@ export function createDashboardPreferencesFeature({
   getPreferences,
   setPreferences,
   getProjects,
+  getWorkspaces,
+  getCurrentWorkspaceId,
   renderDashboard,
   showToast,
 }) {
   let lastFocusedElement = null;
+  let selectedWorkspaceId = null;
+  const workspaceDrafts = new Map();
 
   function getModal() {
     return document.getElementById('dashboard-preferences-modal');
+  }
+
+  function workspaceKey(workspaceId) {
+    return String(workspaceId ?? '');
+  }
+
+  function availableWorkspaces() {
+    return (getWorkspaces?.() || []).filter(workspace => workspace?.id !== null && workspace?.id !== undefined);
+  }
+
+  function getWorkspaceProjects() {
+    if (selectedWorkspaceId === null || selectedWorkspaceId === undefined || selectedWorkspaceId === '') return [];
+    return (getProjects?.() || []).filter(project => String(project.workspace_id || '') === String(selectedWorkspaceId));
   }
 
   function selectedProjectIds() {
@@ -74,7 +91,7 @@ export function createDashboardPreferencesFeature({
   function updateProjectSummary() {
     const triggerValue = document.querySelector('.dashboard-preferences-project-trigger .ui-select-value');
     if (!triggerValue) return;
-    const projects = getProjects?.() || [];
+    const projects = getWorkspaceProjects();
     const selected = new Set(selectedProjectIds());
     const names = projects.filter(project => selected.has(Number(project.id))).map(project => String(project.name || ''));
     const scope = document.getElementById('dashboard-preferences-project-scope')?.value || 'all';
@@ -146,7 +163,7 @@ export function createDashboardPreferencesFeature({
     const container = document.getElementById('dashboard-preferences-projects');
     if (!container) return;
     container.innerHTML = '';
-    const projects = [...(getProjects?.() || [])];
+    const projects = [...getWorkspaceProjects()];
     if (!projects.length) {
       const empty = document.createElement('p');
       empty.className = 'dashboard-preferences-empty';
@@ -242,8 +259,24 @@ export function createDashboardPreferencesFeature({
     updateProjectSummary();
   }
 
+  function renderWorkspaceOptions(workspaceId = selectedWorkspaceId) {
+    const select = document.getElementById('dashboard-preferences-workspace');
+    if (!select) return;
+    select.innerHTML = '';
+    for (const workspace of availableWorkspaces()) {
+      const option = document.createElement('option');
+      option.value = String(workspace.id);
+      option.textContent = workspace.name || t('dashboard.preferences.workspace.fallback');
+      select.append(option);
+    }
+    select.value = workspaceId === null || workspaceId === undefined ? '' : String(workspaceId);
+    hydrateSelect(select);
+    refreshSelect(select);
+  }
+
   function hydrateDraft(draft, { clearError = true } = {}) {
     setChecked('dashboard-preferences-compact-display', draft.compactDisplay);
+    setChecked('dashboard-preferences-group-by-status', draft.groupByStatus);
     setChecked('dashboard-preferences-show-focus', draft.showFocus);
     setChecked('dashboard-preferences-show-active-projects', draft.showActiveProjects);
     setChecked('dashboard-preferences-show-project-widgets', draft.showProjectWidgets);
@@ -261,14 +294,34 @@ export function createDashboardPreferencesFeature({
     updateProjectSelectionState();
   }
 
-  function hydrateForm(preferences = getPreferences?.()) {
+  function currentWorkspaceDraft() {
+    const key = workspaceKey(selectedWorkspaceId);
+    return workspaceDrafts.has(key)
+      ? workspaceDrafts.get(key)
+      : getPreferences?.(selectedWorkspaceId);
+  }
+
+  function hydrateForm(preferences = currentWorkspaceDraft()) {
     hydrateDraft(normalizeDashboardPreferences(preferences));
+  }
+
+  function stashCurrentDraft() {
+    if (selectedWorkspaceId === null || selectedWorkspaceId === undefined || selectedWorkspaceId === '') return;
+    workspaceDrafts.set(workspaceKey(selectedWorkspaceId), readDraft());
+  }
+
+  function switchDashboardWorkspace(workspaceId) {
+    stashCurrentDraft();
+    selectedWorkspaceId = workspaceId;
+    setProjectMenuOpen(false);
+    hydrateForm();
   }
 
   function readDraft() {
     const stats = [...document.querySelectorAll('[data-dashboard-stat-slot]')].map(select => select.value);
     return {
-      compactDisplay: document.getElementById('dashboard-preferences-compact-display')?.checked,
+      compactDisplay: Boolean(document.getElementById('dashboard-preferences-compact-display')?.checked),
+      groupByStatus: Boolean(document.getElementById('dashboard-preferences-group-by-status')?.checked),
       showFocus: document.getElementById('dashboard-preferences-show-focus')?.checked,
       showActiveProjects: document.getElementById('dashboard-preferences-show-active-projects')?.checked,
       showProjectWidgets: document.getElementById('dashboard-preferences-show-project-widgets')?.checked,
@@ -301,6 +354,13 @@ export function createDashboardPreferencesFeature({
     const modal = getModal();
     lastFocusedElement = returnFocusTo
       || (!modal?.contains?.(document.activeElement) ? document.activeElement : lastFocusedElement);
+    workspaceDrafts.clear();
+    const workspaces = availableWorkspaces();
+    const currentWorkspaceId = getCurrentWorkspaceId?.();
+    selectedWorkspaceId = workspaces.some(workspace => String(workspace.id) === String(currentWorkspaceId))
+      ? currentWorkspaceId
+      : workspaces[0]?.id ?? null;
+    renderWorkspaceOptions();
     hydrateForm();
     hydratePreferenceSelects();
     document.getElementById('user-menu')?.classList.remove('active');
@@ -338,9 +398,20 @@ export function createDashboardPreferencesFeature({
 
   function saveDashboardPreferencesFromForm(event) {
     event?.preventDefault?.();
-    const preferences = readForm();
-    if (!preferences) return;
-    setPreferences?.(preferences);
+    stashCurrentDraft();
+    const normalizedDrafts = [];
+    for (const [workspaceId, draft] of workspaceDrafts) {
+      if (draft.stats.length !== 4 || new Set(draft.stats).size !== 4) {
+        selectedWorkspaceId = workspaceId;
+        renderWorkspaceOptions(selectedWorkspaceId);
+        hydrateDraft(draft);
+        const error = document.getElementById('dashboard-preferences-error');
+        if (error) error.textContent = t('dashboard.preferences.validation.stats');
+        return;
+      }
+      normalizedDrafts.push([workspaceId, normalizeDashboardPreferences(draft)]);
+    }
+    normalizedDrafts.forEach(([workspaceId, preferences]) => setPreferences?.(workspaceId, preferences));
     closeDashboardPreferences();
     renderDashboard?.();
     showToast?.(t('dashboard.preferences.saved'));
@@ -360,7 +431,8 @@ export function createDashboardPreferencesFeature({
         event.preventDefault();
         const defaults = normalizeDashboardPreferences(DEFAULT_DASHBOARD_PREFERENCES);
         // Reset is an explicit immediate action; closing the modal does not roll it back.
-        setPreferences?.(defaults);
+        workspaceDrafts.set(workspaceKey(selectedWorkspaceId), defaults);
+        setPreferences?.(selectedWorkspaceId, defaults);
         hydrateForm(defaults);
         renderDashboard?.();
       } else if (action === 'cancel') {
@@ -430,13 +502,17 @@ export function createDashboardPreferencesFeature({
       trapDashboardPreferencesFocus(event);
     });
     document.getElementById('dashboard-preferences-form')?.addEventListener('submit', saveDashboardPreferencesFromForm);
+    document.getElementById('dashboard-preferences-workspace')?.addEventListener('change', event => {
+      switchDashboardWorkspace(event.target.value);
+    });
     document.getElementById('dashboard-preferences-project-scope')?.addEventListener('change', updateProjectSelectionState);
     window.addEventListener('nia-language-change', () => {
       if (!getModal()?.classList.contains('active')) return;
-      const draft = readDraft();
+      stashCurrentDraft();
       const error = document.getElementById('dashboard-preferences-error');
       const showStatsError = Boolean(error?.textContent);
-      hydrateDraft(draft, { clearError: false });
+      renderWorkspaceOptions(selectedWorkspaceId);
+      hydrateDraft(currentWorkspaceDraft(), { clearError: false });
       if (error) error.textContent = showStatsError ? t('dashboard.preferences.validation.stats') : '';
     });
   }

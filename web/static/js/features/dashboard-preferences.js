@@ -1,9 +1,15 @@
 export const DASHBOARD_PREFERENCES_KEY = 'nia-dashboard-preferences-v3';
 const LEGACY_DASHBOARD_PREFERENCES_KEYS = ['nia-dashboard-preferences-v2', 'nia-dashboard-preferences-v1'];
 
+function workspacePreferencesKey(workspaceId) {
+  if (workspaceId === null || workspaceId === undefined || workspaceId === '') return DASHBOARD_PREFERENCES_KEY;
+  return `${DASHBOARD_PREFERENCES_KEY}:workspace:${String(workspaceId)}`;
+}
+
 export const DEFAULT_DASHBOARD_PREFERENCES = Object.freeze({
   version: 3,
   compactDisplay: false,
+  groupByStatus: true,
   showFocus: true,
   showActiveProjects: true,
   showProjectWidgets: true,
@@ -65,6 +71,21 @@ function normalizeBoolean(value, fallback) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function parseStoredDashboardPreferences(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    const legacyDefaultFocusItems = Number(parsed?.version || 1) < 3
+      && Array.isArray(parsed?.focusItems)
+      && parsed.focusItems.length === 3
+      && ['overdue', 'due_today', 'due_week'].every(item => parsed.focusItems.includes(item));
+    if (legacyDefaultFocusItems) parsed.focusItems = [...parsed.focusItems, 'high_priority'];
+    return normalizeDashboardPreferences(parsed);
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeDashboardPreferences(value) {
   const defaults = cloneDefaults();
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -92,6 +113,7 @@ export function normalizeDashboardPreferences(value) {
   return {
     version: 3,
     compactDisplay,
+    groupByStatus: normalizeBoolean(source.groupByStatus, defaults.groupByStatus),
     showFocus: legacyMode === 'compact' ? false : showFocus,
     showActiveProjects: legacyMode && legacyMode !== 'full' ? false : showActiveProjects,
     showProjectWidgets: legacyMode === 'compact' ? false : showProjectWidgets,
@@ -109,31 +131,40 @@ export function normalizeDashboardPreferences(value) {
   };
 }
 
-export function loadDashboardPreferences(storage = globalThis.localStorage) {
-  const raw = storage?.getItem?.(DASHBOARD_PREFERENCES_KEY)
-    || LEGACY_DASHBOARD_PREFERENCES_KEYS.map(key => storage?.getItem?.(key)).find(Boolean);
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      const legacyDefaultFocusItems = Number(parsed?.version || 1) < 3
-        && Array.isArray(parsed?.focusItems)
-        && parsed.focusItems.length === 3
-        && ['overdue', 'due_today', 'due_week'].every(item => parsed.focusItems.includes(item));
-      if (legacyDefaultFocusItems) parsed.focusItems = [...parsed.focusItems, 'high_priority'];
-      return normalizeDashboardPreferences(parsed);
-    } catch {
-      return cloneDefaults();
-    }
+export function loadDashboardPreferences(storage = globalThis.localStorage, workspaceId = null) {
+  const key = workspacePreferencesKey(workspaceId);
+  const workspaceScoped = key !== DASHBOARD_PREFERENCES_KEY;
+  const workspaceRaw = storage?.getItem?.(key);
+  const globalEntries = [
+    [DASHBOARD_PREFERENCES_KEY, storage?.getItem?.(DASHBOARD_PREFERENCES_KEY)],
+    ...LEGACY_DASHBOARD_PREFERENCES_KEYS.map(legacyKey => [legacyKey, storage?.getItem?.(legacyKey)]),
+  ];
+  const legacyProjectWidgetRaw = storage?.getItem?.('nia-project-widget');
+  const hasLegacyProjectWidget = legacyProjectWidgetRaw !== null && legacyProjectWidgetRaw !== undefined;
+  const concrete = parseStoredDashboardPreferences(workspaceRaw);
+  const global = globalEntries.map(([, raw]) => parseStoredDashboardPreferences(raw)).find(Boolean) || null;
+  const normalized = concrete || global || cloneDefaults();
+
+  if (!workspaceScoped) {
+    if (hasLegacyProjectWidget) normalized.showProjectWidgets = legacyProjectWidgetRaw !== 'false';
+    return normalized;
   }
 
-  const migrated = cloneDefaults();
-  if (storage?.getItem?.('nia-project-widget') === 'false') migrated.showProjectWidgets = false;
-  return migrated;
+  const hasPendingGlobal = globalEntries.some(([, raw]) => raw !== null && raw !== undefined);
+  if (hasLegacyProjectWidget) normalized.showProjectWidgets = legacyProjectWidgetRaw !== 'false';
+  if ((!concrete && (global || hasLegacyProjectWidget)) || (concrete && (hasPendingGlobal || hasLegacyProjectWidget))) {
+    storage?.setItem?.(key, JSON.stringify(normalized));
+    globalEntries.forEach(([globalKey]) => storage?.removeItem?.(globalKey));
+    if (hasLegacyProjectWidget) storage?.removeItem?.('nia-project-widget');
+  }
+  return normalized;
 }
 
-export function saveDashboardPreferences(storage = globalThis.localStorage, preferences) {
+export function saveDashboardPreferences(storage = globalThis.localStorage, preferences, workspaceId = null) {
   const normalized = normalizeDashboardPreferences(preferences);
-  storage?.setItem?.(DASHBOARD_PREFERENCES_KEY, JSON.stringify(normalized));
+  const key = workspacePreferencesKey(workspaceId);
+  storage?.setItem?.(key, JSON.stringify(normalized));
+  if (key !== DASHBOARD_PREFERENCES_KEY) storage?.removeItem?.(DASHBOARD_PREFERENCES_KEY);
   LEGACY_DASHBOARD_PREFERENCES_KEYS.forEach(key => storage?.removeItem?.(key));
   return normalized;
 }
