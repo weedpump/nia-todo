@@ -200,6 +200,19 @@ export function filterTodosForDashboard(todos, preferences, validProjectIds = ne
 
 function parseDashboardDate(value) {
   if (!value) return null;
+  if (typeof value === 'string') {
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+    if (dateOnly) {
+      const [, yearText, monthText, dayText] = dateOnly;
+      const year = Number(yearText);
+      const month = Number(monthText) - 1;
+      const day = Number(dayText);
+      const parsed = new Date(year, month, day, 23, 59, 59, 999);
+      return parsed.getFullYear() === year && parsed.getMonth() === month && parsed.getDate() === day
+        ? parsed
+        : null;
+    }
+  }
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
 }

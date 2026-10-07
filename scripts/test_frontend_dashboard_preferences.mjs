@@ -300,4 +300,18 @@ assert.match(dashboardCss, /\.overview-focus-list,[\s\S]*?\.overview-project-lis
   assert.deepEqual(filterTodosForDashboardDrilldown(todos, 'invalid', now), []);
 }
 
+{
+  const now = new Date(2026, 9, 7, 12, 0, 0);
+  const todos = [
+    { id: 1, status: 'pending', due_date: '2026-10-06' },
+    { id: 2, status: 'pending', due_date: '2026-10-07' },
+    { id: 3, status: 'pending', due_date: '2026-10-08' },
+  ];
+
+  assert.deepEqual(filterTodosForDashboardDrilldown(todos, 'overdue', now).map(todo => todo.id), [1], 'date-only deadlines before the local calendar day must be overdue');
+  assert.deepEqual(filterTodosForDashboardDrilldown(todos, 'due_today', now).map(todo => todo.id), [2], 'date-only deadlines must use the local calendar day');
+  assert.deepEqual(filterTodosForDashboardDrilldown(todos, 'due_week', now).map(todo => todo.id), [3], 'a next-day date-only deadline must not appear one day early');
+  assert.deepEqual(filterTodosForTodayFocus(todos, now).map(todo => todo.id), [1, 2], 'Today must include local date-only deadlines through the current day only');
+}
+
 console.log('✅ Dashboard preferences tests passed');
