@@ -370,6 +370,20 @@
       </div>
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="dashboard-preferences-form" class="entity-modal-form dashboard-preferences-shell ui-detail-shell">
+          <section class="ui-section-card ui-detail-section dashboard-preferences-sync-section">
+            <div class="ui-section-heading ui-detail-section-heading dashboard-preferences-sync-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="cloud"></div>
+              <div>
+                <h4 id="dashboard-preferences-sync-label" data-i18n-key="dashboard.preferences.sync.label">Über meinen Account synchronisieren</h4>
+                <p data-i18n-key="dashboard.preferences.sync.hint">Gleicht diese Einstellungen zwischen allen angemeldeten Apps und Browsern ab.</p>
+              </div>
+              <label class="dashboard-preferences-switch-control" for="dashboard-preferences-sync-enabled">
+                <input type="checkbox" id="dashboard-preferences-sync-enabled" role="switch" aria-labelledby="dashboard-preferences-sync-label">
+                <span class="dashboard-preferences-switch-track" aria-hidden="true"><span></span></span>
+              </label>
+            </div>
+          </section>
+
           <section class="ui-section-card ui-detail-section dashboard-preferences-workspace-section">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="briefcase"></div>
@@ -382,13 +396,6 @@
               <label for="dashboard-preferences-workspace" data-i18n-key="dashboard.preferences.workspace.select">Workspace auswählen</label>
               <select class="ui-field" id="dashboard-preferences-workspace" data-ui-select></select>
             </div>
-            <label class="dashboard-preferences-toggle dashboard-preferences-sync-toggle">
-              <span>
-                <strong data-i18n-key="dashboard.preferences.sync.label">Über meinen Account synchronisieren</strong>
-                <small data-i18n-key="dashboard.preferences.sync.hint">Gleicht diese Einstellungen zwischen allen angemeldeten Apps und Browsern ab.</small>
-              </span>
-              <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-sync-enabled"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
-            </label>
           </section>
 
           <section class="ui-section-card ui-detail-section ui-detail-title-section">
