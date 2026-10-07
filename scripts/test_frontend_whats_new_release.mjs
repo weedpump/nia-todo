@@ -13,6 +13,8 @@ const expectedLanguages = ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'r
 assert.equal(releases.length, 1, 'only the current 3.3.0 tour should be shipped');
 const release = releases[0];
 assert.equal(release.version, '3.3.0');
+assert.equal(release.appVersions, undefined, 'the release tour must use only the canonical release version');
+assert.equal(JSON.stringify(release).includes(['-', 'dev'].join('')), false, 'the pushed release-tour content must not contain development-version suffixes');
 assert.equal(release.carryForward, true, 'the current release tour should remain available until completed');
 assert.deepEqual(Object.keys(release.content).sort(), [...expectedLanguages].sort(), 'all twelve supported languages must be present');
 
