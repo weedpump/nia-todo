@@ -417,7 +417,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .ui-detail-modal.ui-detail-view .dashboard-preferences-modal-header {
     display: grid;
     grid-template-columns: 42px minmax(0, 1fr);

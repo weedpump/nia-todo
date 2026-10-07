@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -13,6 +13,9 @@ const iconsSource = readFileSync(new URL('../web/static/js/icons/lucide-generate
 const dashboardCss = readFileSync(new URL('../web/static/css/12-overview-dashboard.css', import.meta.url), 'utf8');
 const de = JSON.parse(readFileSync(new URL('../web/static/i18n/de.json', import.meta.url), 'utf8'));
 const en = JSON.parse(readFileSync(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8'));
+const localeDictionaries = readdirSync(new URL('../web/static/i18n/', import.meta.url))
+  .filter(file => file.endsWith('.json'))
+  .map(file => [file, JSON.parse(readFileSync(new URL(`../web/static/i18n/${file}`, import.meta.url), 'utf8'))]);
 
 console.log('🎛️ Running dashboard preferences dialog contract test...');
 
@@ -82,20 +85,24 @@ try {
   const page = await browser.newPage();
   await page.setContent(`<style>${layoutCss}</style>${modalFixture}`);
   await page.locator('#dashboard-preferences-modal').evaluate(modal => modal.classList.add('active'));
-  for (const width of [320, 360, 390]) {
-    await page.setViewportSize({ width, height: 800 });
-    const geometry = await page.evaluate(() => {
-      const header = document.querySelector('.dashboard-preferences-modal-header');
-      const icon = header.children[0].getBoundingClientRect();
-      const title = header.children[1].getBoundingClientRect();
-      const actions = header.querySelector('.ui-detail-header-actions').getBoundingClientRect();
-      return { icon, title, actions };
-    });
-    const overlaps = (a, b) => Math.max(a.left, b.left) < Math.min(a.right, b.right)
-      && Math.max(a.top, b.top) < Math.min(a.bottom, b.bottom);
-    assert.equal(overlaps(geometry.icon, geometry.title), false, `${width}px header icon and title must remain aligned without overlap`);
-    assert.equal(overlaps(geometry.title, geometry.actions), false, `${width}px title must not overlap Save, Reset, or Close actions`);
-    assert.equal(overlaps(geometry.icon, geometry.actions), false, `${width}px icon must not overlap Save, Reset, or Close actions`);
+  for (const [localeFile, dictionary] of localeDictionaries) {
+    await page.locator('#dashboard-preferences-modal-title').evaluate((title, text) => { title.textContent = text; }, dictionary['dashboard.preferences.title']);
+    await page.locator('#dashboard-preferences-save').evaluate((button, text) => { button.textContent = text; }, dictionary['common.save']);
+    for (const width of [320, 360, 390, 480, 481, 500, 600, 768]) {
+      await page.setViewportSize({ width, height: 800 });
+      const geometry = await page.evaluate(() => {
+        const header = document.querySelector('.dashboard-preferences-modal-header');
+        const icon = header.children[0].getBoundingClientRect();
+        const title = header.children[1].getBoundingClientRect();
+        const actions = header.querySelector('.ui-detail-header-actions').getBoundingClientRect();
+        return { icon, title, actions };
+      });
+      const overlaps = (a, b) => Math.max(a.left, b.left) < Math.min(a.right, b.right)
+        && Math.max(a.top, b.top) < Math.min(a.bottom, b.bottom);
+      assert.equal(overlaps(geometry.icon, geometry.title), false, `${localeFile} ${width}px header icon and title must remain aligned without overlap`);
+      assert.equal(overlaps(geometry.title, geometry.actions), false, `${localeFile} ${width}px title must not overlap Save, Reset, or Close actions`);
+      assert.equal(overlaps(geometry.icon, geometry.actions), false, `${localeFile} ${width}px icon must not overlap Save, Reset, or Close actions`);
+    }
   }
 
   const webRoot = fileURLToPath(new URL('../web/', import.meta.url));
