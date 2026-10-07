@@ -276,4 +276,67 @@ assert.equal(staleGetStorage.getItem('nia-dashboard-preferences-sync-enabled:use
 await staleGetSync.saveWorkspace(10, { version: 3, marker: 'must-stay-disabled' });
 assert.deepEqual(staleGetWrites, [{ enabled: false }], 'a stale GET must not cause later dashboard saves to reactivate the server copy');
 
+const websocketGenerationStorageMap = new Map([['nia-dashboard-preferences-sync-enabled:user:1', 'true']]);
+const websocketGenerationStorage = {
+  getItem: key => websocketGenerationStorageMap.get(key) ?? null,
+  setItem: (key, value) => websocketGenerationStorageMap.set(key, String(value)),
+  removeItem: key => websocketGenerationStorageMap.delete(key),
+};
+const websocketStaleGet = deferred();
+let websocketGetCalls = 0;
+const websocketGenerationSync = createDashboardPreferencesSync({
+  api: {
+    async getDashboardPreferences() {
+      websocketGetCalls += 1;
+      if (websocketGetCalls === 1) return { enabled: true, preferences: {} };
+      return websocketStaleGet.promise;
+    },
+    async updateDashboardPreferences(payload) { return payload; },
+  },
+  storage: websocketGenerationStorage,
+  getUserId: () => 1,
+  getWorkspaces: () => [{ id: 10 }],
+  getPreferences: () => ({ version: 3 }),
+  setPreferences() {},
+});
+await websocketGenerationSync.initialize();
+const websocketOldRefresh = websocketGenerationSync.refresh();
+while (websocketGetCalls < 2) await Promise.resolve();
+websocketGenerationSync.applyRemote({ enabled: false, preferences: {} });
+websocketStaleGet.resolve({ enabled: true, preferences: { '10': { version: 3, marker: 'older-get' } } });
+await websocketOldRefresh;
+assert.equal(websocketGenerationSync.isEnabled(), false, 'a GET started before a newer WebSocket update must not overwrite it');
+
+const rejectedEnableStorageMap = new Map();
+const rejectedEnableStorage = {
+  getItem: key => rejectedEnableStorageMap.get(key) ?? null,
+  setItem: (key, value) => rejectedEnableStorageMap.set(key, String(value)),
+  removeItem: key => rejectedEnableStorageMap.delete(key),
+};
+let rejectedEnableGets = 0;
+const rejectedEnableSync = createDashboardPreferencesSync({
+  api: {
+    async getDashboardPreferences() {
+      rejectedEnableGets += 1;
+      return { enabled: false, preferences: {} };
+    },
+    async updateDashboardPreferences() {
+      const error = new Error('invalid local preferences');
+      error.status = 422;
+      throw error;
+    },
+  },
+  storage: rejectedEnableStorage,
+  getUserId: () => 1,
+  getWorkspaces: () => [{ id: 10 }],
+  getPreferences: () => ({ version: 3, invalid: true }),
+  setPreferences() {},
+});
+await rejectedEnableSync.initialize();
+await rejectedEnableSync.setEnabled(true);
+assert.equal(rejectedEnableGets, 2, 'a rejected direct enable must reload the authoritative server state');
+assert.equal(rejectedEnableSync.isEnabled(), false, 'a rejected direct enable must not leave sync shown as enabled');
+assert.equal(rejectedEnableStorage.getItem('nia-dashboard-preferences-sync-enabled:user:1'), null, 'a rejected direct enable must clear the stale local enabled key');
+assert.equal(rejectedEnableStorage.getItem('nia-dashboard-preferences-sync-pending:user:1'), null, 'a rejected direct enable must not retain an unrecoverable payload');
+
 console.log('✅ Dashboard preference account sync tests passed');

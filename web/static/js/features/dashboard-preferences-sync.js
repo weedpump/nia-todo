@@ -1,6 +1,9 @@
 const ENABLED_KEY = 'nia-dashboard-preferences-sync-enabled';
 const PENDING_KEY = 'nia-dashboard-preferences-sync-pending';
 const TERMINAL_PENDING_STATUSES = new Set([400, 404, 422]);
+const FLUSH_OK = 'ok';
+const FLUSH_TRANSIENT = 'transient';
+const FLUSH_TERMINAL = 'terminal';
 
 export function createDashboardPreferencesSync({
   api,
@@ -13,7 +16,7 @@ export function createDashboardPreferencesSync({
 }) {
   let enabled = false;
   let flushPromise = null;
-  let intentGeneration = 0;
+  let stateGeneration = 0;
 
   function scopedKey(key) {
     const userId = getUserId?.();
@@ -35,7 +38,7 @@ export function createDashboardPreferencesSync({
   }
 
   function writePending(payload) {
-    intentGeneration += 1;
+    stateGeneration += 1;
     storage?.setItem?.(scopedKey(PENDING_KEY), JSON.stringify(payload));
   }
 
@@ -52,8 +55,8 @@ export function createDashboardPreferencesSync({
   }
 
   function applyRemote(payload) {
-    if (!payload || typeof payload !== 'object') return;
-    if (storage?.getItem?.(scopedKey(PENDING_KEY))) return;
+    if (!payload || typeof payload !== 'object') return false;
+    if (storage?.getItem?.(scopedKey(PENDING_KEY))) return false;
     persistEnabled(Boolean(payload.enabled));
     if (payload.enabled && payload.preferences && typeof payload.preferences === 'object') {
       Object.entries(payload.preferences).forEach(([workspaceId, preferences]) => {
@@ -61,6 +64,8 @@ export function createDashboardPreferencesSync({
       });
       renderDashboard?.();
     }
+    stateGeneration += 1;
+    return true;
   }
 
   function flushPending() {
@@ -69,7 +74,7 @@ export function createDashboardPreferencesSync({
       while (true) {
         const key = scopedKey(PENDING_KEY);
         const pendingRaw = storage?.getItem?.(key);
-        if (!pendingRaw) return true;
+        if (!pendingRaw) return FLUSH_OK;
         let pending;
         try {
           pending = JSON.parse(pendingRaw);
@@ -87,11 +92,11 @@ export function createDashboardPreferencesSync({
           if (TERMINAL_PENDING_STATUSES.has(Number(error?.status))) {
             if (storage?.getItem?.(key) === pendingRaw) {
               storage?.removeItem?.(key);
-              return true;
+              return FLUSH_TERMINAL;
             }
             continue;
           }
-          return false;
+          return FLUSH_TRANSIENT;
         }
       }
     })().finally(() => {
@@ -101,12 +106,12 @@ export function createDashboardPreferencesSync({
   }
 
   async function refresh() {
-    const flushed = await flushPending();
-    if (!flushed) return false;
-    const generation = intentGeneration;
+    const flushResult = await flushPending();
+    if (flushResult === FLUSH_TRANSIENT) return false;
+    const generation = stateGeneration;
     try {
       const payload = await api.getDashboardPreferences();
-      if (generation !== intentGeneration) return false;
+      if (generation !== stateGeneration) return false;
       applyRemote(payload);
       return true;
     } catch {
@@ -131,13 +136,15 @@ export function createDashboardPreferencesSync({
         }
       : { enabled: false };
     writePending(payload);
-    await flushPending();
+    const flushResult = await flushPending();
+    if (flushResult === FLUSH_TERMINAL) await refresh();
   }
 
   async function saveWorkspace(workspaceId, preferences) {
     if (!enabled) return;
     writePending(mergePending({ enabled: true, preferences: { [String(workspaceId)]: preferences } }));
-    await flushPending();
+    const flushResult = await flushPending();
+    if (flushResult === FLUSH_TERMINAL) await refresh();
   }
 
   return {
