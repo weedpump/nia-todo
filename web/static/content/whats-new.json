@@ -39,8 +39,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Heute und Ruhe, wenn du sie brauchst",
               "body": "Zwei klarere Schalter helfen dir, deine Aufmerksamkeit einzugrenzen, ohne deine persönliche Dashboard-Konfiguration zu überschreiben.",
@@ -97,8 +100,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Today and Calm when you need them",
               "body": "Two clearer controls help you narrow attention without overwriting your personal dashboard setup.",
@@ -155,8 +161,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Dnes a Klid, když je potřebujete",
               "body": "Dva přehlednější ovládací prvky vám pomohou soustředit pozornost, aniž by přepsaly vaše osobní nastavení přehledu.",
@@ -213,8 +222,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Aujourd’hui et Calme quand vous en avez besoin",
               "body": "Deux commandes plus claires vous aident à mieux cibler votre attention sans modifier la configuration personnalisée de votre tableau de bord.",
@@ -271,8 +283,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Oggi e Calma quando ti servono",
               "body": "Due controlli più chiari ti aiutano a concentrarti senza modificare la configurazione personale della dashboard.",
@@ -329,8 +344,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Vandaag en Rust wanneer je ze nodig hebt",
               "body": "Met twee duidelijkere opties richt je je aandacht zonder je persoonlijke dashboardinstellingen te overschrijven.",
@@ -387,8 +405,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Dzisiaj i Spokój, gdy ich potrzebujesz",
               "body": "Dwa bardziej przejrzyste ustawienia pomagają skupić uwagę bez zmieniania osobistej konfiguracji pulpitu.",
@@ -445,8 +466,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Hoje e Calma quando você precisar",
               "body": "Dois controles mais claros ajudam você a direcionar a atenção sem substituir sua configuração pessoal do painel.",
@@ -503,8 +527,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "«Сегодня» и «Спокойный режим» — когда они нужны",
               "body": "Два понятных переключателя помогают сосредоточиться, не меняя ваши личные настройки панели.",
@@ -561,8 +588,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Idag och Lugn – när du behöver dem",
               "body": "Två tydligare reglage hjälper dig att fokusera utan att skriva över dina personliga inställningar för instrumentpanelen.",
@@ -619,8 +649,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "Hoy y Calma, cuando los necesites",
               "body": "Dos controles más claros te ayudan a centrar la atención sin sobrescribir tu configuración personal del panel.",
@@ -677,8 +710,11 @@
             },
             {
               "media": {
-                "type": "icon",
-                "icon": "target"
+                "type": "icons",
+                "icons": [
+                  "calendar-days",
+                  "leaf"
+                ]
               },
               "title": "需要时，专注于今天或开启宁静模式",
               "body": "两个更清晰的控制选项，帮你集中注意力，同时保留个人仪表盘设置。",
