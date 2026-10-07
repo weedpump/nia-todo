@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { chromium } from 'playwright';
 
 console.log('🆕 Running 3.3.0 what\'s new content test...');
 
@@ -44,5 +45,28 @@ assert.deepEqual(
 );
 assert.match(rendererSource, /media\.type === 'icons'/, 'the tour renderer must support paired local icons');
 assert.match(tourCss, /\.whats-new-slide-media-icons/, 'paired Today and Calm icons need a dedicated layout');
+
+const browser = await chromium.launch({ headless: true });
+try {
+  const page = await browser.newPage({ viewport: { width: 560, height: 240 } });
+  await page.setContent(`
+    <style>${tourCss}</style>
+    <div class="whats-new-slide-media whats-new-slide-media-icon whats-new-slide-media-icons">
+      <span><svg class="ui-icon"></svg></span>
+      <span><svg class="ui-icon"></svg></span>
+    </div>
+  `);
+  const centers = await page.evaluate(() => {
+    const container = document.querySelector('.whats-new-slide-media-icons').getBoundingClientRect();
+    const icons = [...document.querySelectorAll('.whats-new-slide-media-icons > span')].map(element => element.getBoundingClientRect());
+    return {
+      container: (container.left + container.right) / 2,
+      group: (icons[0].left + icons.at(-1).right) / 2,
+    };
+  });
+  assert.ok(Math.abs(centers.container - centers.group) <= 1, 'Today and Calm icons must be centered as a group inside the media pill');
+} finally {
+  await browser.close();
+}
 
 console.log('✅ 3.3.0 what\'s new content is complete in all supported languages');

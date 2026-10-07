@@ -102,6 +102,7 @@
 .whats-new-slide-media-icons {
   grid-auto-flow: column;
   grid-auto-columns: max-content;
+  justify-content: center;
   gap: 34px;
 }
 
