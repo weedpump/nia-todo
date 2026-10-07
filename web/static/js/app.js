@@ -22,6 +22,7 @@ import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
 import { getEffectiveDashboardPreferences, loadDashboardPreferences, saveDashboardPreferences } from './features/dashboard-preferences.js';
 import { createDashboardPreferencesFeature } from './features/dashboard-preferences-dialog.js';
+import { createDashboardPreferencesSync } from './features/dashboard-preferences-sync.js';
 import { createDashboardDrilldownFeature } from './features/dashboard-drilldown.js';
 import { createMobileSearchFeature } from './features/mobile-search.js';
 import { createFocusFiltersFeature } from './features/focus-filters.js';
@@ -64,6 +65,7 @@ let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let minimalTodos = localStorage.getItem('nia-minimal-todos') === 'true';
 let desktopIntegration = null;
 let syncController = null;
+let dashboardPreferencesSyncFeature = null;
 
 function setCurrentWorkspaceState(next) {
   currentWorkspaceId = next;
@@ -380,6 +382,7 @@ const wsClient = createWebSocketClient({
     location.reload();
   },
   onServerUpdateStatus: (status) => serverUpdateIndicator.applyStatus(status),
+  onDashboardPreferencesUpdate: payload => dashboardPreferencesSyncFeature?.applyRemote(payload),
 });
 const getReconnectDelay = wsClient.getReconnectDelay;
 const connectWebSocket = wsClient.connectWebSocket;
@@ -635,19 +638,39 @@ const showBatchToast = toastUndoFeature.showBatchToast;
 const bindToastControls = toastUndoFeature.bindToastControls;
 const restoreBatchTodos = toastUndoFeature.restoreBatchTodos;
 const restoreTodo = toastUndoFeature.restoreTodo;
+function applyLocalDashboardPreferences(workspaceId, next) {
+  const saved = saveDashboardPreferences(localStorage, next, workspaceId);
+  if (String(workspaceId) === String(currentWorkspaceId)) {
+    dashboardPreferences = saved;
+    showProjectWidget = dashboardPreferences.showProjectWidgets;
+    updateProjectWidgetButton();
+  }
+  return saved;
+}
+
+dashboardPreferencesSyncFeature = createDashboardPreferencesSync({
+  api: authApi,
+  storage: localStorage,
+  getUserId: () => currentUser?.id,
+  getWorkspaces: () => workspaces,
+  getPreferences: workspaceId => loadDashboardPreferences(localStorage, workspaceId),
+  setPreferences: applyLocalDashboardPreferences,
+  renderDashboard: () => {
+    renderStats();
+    renderTodos();
+  },
+});
 const dashboardPreferencesFeature = createDashboardPreferencesFeature({
   getPreferences: workspaceId => loadDashboardPreferences(localStorage, workspaceId),
   setPreferences: (workspaceId, next) => {
-    const saved = saveDashboardPreferences(localStorage, next, workspaceId);
-    if (String(workspaceId) === String(currentWorkspaceId)) {
-      dashboardPreferences = saved;
-      showProjectWidget = dashboardPreferences.showProjectWidgets;
-      updateProjectWidgetButton();
-    }
+    const saved = applyLocalDashboardPreferences(workspaceId, next);
+    dashboardPreferencesSyncFeature.saveWorkspace(workspaceId, saved);
   },
   getProjects: () => projects,
   getWorkspaces: () => workspaces,
   getCurrentWorkspaceId: () => currentWorkspaceId,
+  getSyncEnabled: () => dashboardPreferencesSyncFeature.isEnabled(),
+  setSyncEnabled: enabled => dashboardPreferencesSyncFeature.setEnabled(enabled),
   renderDashboard: () => {
     renderStats();
     renderTodos();
@@ -702,6 +725,7 @@ const appLifecycle = createAppLifecycle({
   renderWorkspaces,
   refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.()),
   onAppReady: () => {
+    dashboardPreferencesSyncFeature.initialize();
     serverUpdateIndicator.loadStatus();
     brainDumpLiveFeature.init();
     whatsNewFeature.maybeShowWhatsNew().catch((error) => {
@@ -745,6 +769,7 @@ export function startAppModule() {
   bindMobileSearchEvents();
   bindTopbarPreferenceButtons();
   bindDashboardPreferencesActions();
+  window.addEventListener('online', () => dashboardPreferencesSyncFeature.flushPending());
   bindTodayFocusHotkey();
   bindSidebarControls();
   bindModalCloseControls();

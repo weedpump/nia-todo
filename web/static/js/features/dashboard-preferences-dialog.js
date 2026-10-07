@@ -30,6 +30,8 @@ export function createDashboardPreferencesFeature({
   getProjects,
   getWorkspaces,
   getCurrentWorkspaceId,
+  getSyncEnabled = () => false,
+  setSyncEnabled = () => {},
   renderDashboard,
   showToast,
 }) {
@@ -362,6 +364,7 @@ export function createDashboardPreferencesFeature({
       : workspaces[0]?.id ?? null;
     renderWorkspaceOptions();
     hydrateForm();
+    setChecked('dashboard-preferences-sync-enabled', getSyncEnabled?.());
     hydratePreferenceSelects();
     document.getElementById('user-menu')?.classList.remove('active');
     document.getElementById('user-menu-button')?.setAttribute('aria-expanded', 'false');
@@ -412,6 +415,7 @@ export function createDashboardPreferencesFeature({
       normalizedDrafts.push([workspaceId, normalizeDashboardPreferences(draft)]);
     }
     normalizedDrafts.forEach(([workspaceId, preferences]) => setPreferences?.(workspaceId, preferences));
+    setSyncEnabled?.(Boolean(document.getElementById('dashboard-preferences-sync-enabled')?.checked));
     closeDashboardPreferences();
     renderDashboard?.();
     showToast?.(t('dashboard.preferences.saved'));

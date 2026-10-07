@@ -327,6 +327,24 @@ export const authApi = {
     return parseOrThrow(response, t('api.auth.defaultReminderSaveFailed'));
   },
 
+  async getDashboardPreferences() {
+    const response = await fetch(API + '/api/me/dashboard-preferences', {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, t('api.auth.dashboardPreferencesLoadFailed'));
+  },
+
+  async updateDashboardPreferences(payload) {
+    const response = await fetch(API + '/api/me/dashboard-preferences', {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, t('api.auth.dashboardPreferencesSaveFailed'));
+  },
+
   async getBrainDumpLearning() {
     const response = await fetch(API + '/api/braindump/v2/learning', {
       headers: getAuthHeaders(),

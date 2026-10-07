@@ -24,6 +24,7 @@ export function createWebSocketClient({
   onReminderDue = () => {},
   onSessionInvalidated = () => {},
   onServerUpdateStatus = () => {},
+  onDashboardPreferencesUpdate = () => {},
 }) {
 let ws = null;
 let wsState = 'disconnected'; // connected, connecting, reconnecting, disconnected
@@ -329,6 +330,9 @@ async function handleWsMessage(msg) {
       break;
     case 'server_update_status':
       onServerUpdateStatus(msg.payload || {});
+      break;
+    case 'dashboard_preferences_update':
+      onDashboardPreferencesUpdate(msg.payload || {});
       break;
     case 'pong':
       // keepalive response — nothing to do

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [3.3.1] - 2026-10-07
 
 ### Added
+- ☁️ Added optional account-wide dashboard preference synchronization across web, PWA, and native clients, with local offline caching and realtime updates between active sessions.
 - 🗂️ Added an optional dashboard status grouping control; when disabled, Todos are grouped only by project while in-progress items are promoted without overriding the configured Todo sort order.
 - 🧭 Added a workspace selector to dashboard customization so multiple workspace configurations can be edited and saved in one session.
 

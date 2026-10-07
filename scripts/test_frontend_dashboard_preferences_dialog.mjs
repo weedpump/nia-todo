@@ -26,6 +26,7 @@ assert.match(indexHtml, /class="modal ui-detail-modal ui-detail-view dashboard-p
 assert.match(indexHtml, /class="modal-content entity-modal-content ui-detail-modal-content dashboard-preferences-modal-content"/);
 assert.match(indexHtml, /id="dashboard-preferences-form"/);
 assert.match(indexHtml, /id="dashboard-preferences-workspace"[^>]*data-ui-select/, 'dashboard preferences need a shared workspace selector');
+assert.match(indexHtml, /id="dashboard-preferences-sync-enabled"/, 'dashboard preferences need an account sync opt-in');
 assert.doesNotMatch(indexHtml, /id="dashboard-preferences-mode"/);
 assert.match(indexHtml, /id="dashboard-preferences-compact-display"/);
 assert.match(indexHtml, /id="dashboard-preferences-group-by-status"/);
@@ -62,6 +63,8 @@ assert.match(dialogSource, /ui-select-search-input/);
 assert.doesNotMatch(dialogSource, /data-dashboard-project-id[^\n]*:checked/);
 assert.doesNotMatch(indexHtml, /data-dashboard-content-option=/);
 assert.match(dialogSource, /renderDashboard\?\.\(\)/, 'saving dashboard preferences must refresh the visible dashboard immediately');
+assert.match(dialogSource, /setSyncEnabled\?\.\(/, 'saving dashboard preferences must persist the account sync choice');
+assert.match(appSource, /createDashboardPreferencesSync/, 'the production entrypoint must wire account-wide dashboard synchronization');
 assert.match(appSource, /renderDashboard:\s*\(\)\s*=>\s*\{\s*renderStats\(\);\s*renderTodos\(\);\s*\}/s, 'saving or resetting dashboard preferences must refresh dashboard widgets and active todo/drilldown views');
 assert.match(dashboardCss, /\.dashboard-preferences-modal \.ui-checkbox-box\s*\{[^}]*width:\s*18px[^}]*height:\s*18px/s, 'dashboard checkboxes must use the compact shared checkbox variant');
 assert.match(dashboardCss, /\.dashboard-preferences-layout-controls\s*\{[^}]*display:\s*grid[^}]*gap:/s, 'dashboard display and content options must use a consistent layout');

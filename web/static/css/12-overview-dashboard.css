@@ -320,6 +320,27 @@
   margin-bottom: 0;
 }
 
+.dashboard-preferences-sync-toggle {
+  margin-top: 12px;
+  width: min(100%, 36rem);
+}
+
+.dashboard-preferences-sync-toggle > span:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.dashboard-preferences-sync-toggle strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.dashboard-preferences-sync-toggle small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .dashboard-preferences-grid {
   align-items: start;
 }
