@@ -127,9 +127,9 @@ def _validate_dashboard_preferences(db, user_id: int, workspace_id: int, value: 
     focus_items = value.get("focusItems")
     scope = value.get("projectScope")
     active = value.get("activeProjects")
-    if not isinstance(stats, list) or len(stats) != 4 or len(set(stats)) != 4 or not set(stats) <= _DASHBOARD_STATS:
+    if not isinstance(stats, list) or len(stats) != 4 or any(not isinstance(item, str) for item in stats) or len(set(stats)) != 4 or not set(stats) <= _DASHBOARD_STATS:
         raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
-    if not isinstance(focus_items, list) or len(set(focus_items)) != len(focus_items) or not set(focus_items) <= _DASHBOARD_FOCUS_ITEMS:
+    if not isinstance(focus_items, list) or len(focus_items) > len(_DASHBOARD_FOCUS_ITEMS) or any(not isinstance(item, str) for item in focus_items) or len(set(focus_items)) != len(focus_items) or not set(focus_items) <= _DASHBOARD_FOCUS_ITEMS:
         raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")
     if not isinstance(scope, dict) or scope.get("mode") not in _PROJECT_SCOPE_MODES or not isinstance(scope.get("projectIds"), list):
         raise api_error(422, "dashboardPreferences.invalid", "Invalid dashboard preferences")

@@ -70,6 +70,30 @@ def main():
             analytics = db.execute("SELECT value FROM app_config WHERE key = 'update_analytics_enabled'").fetchone()
             assert analytics == ("true",), analytics
 
+        with sqlite3.connect(db_path) as db:
+            db.execute("DROP TABLE dashboard_preferences")
+            db.execute("UPDATE schema_version SET version = 53")
+            db.commit()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, 'api'); from migrate import run_migrations; run_migrations()",
+            ],
+            cwd=BASE,
+            env=env,
+            check=True,
+        )
+
+        with sqlite3.connect(db_path) as db:
+            version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
+            assert version == latest, (version, latest)
+            table = db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'dashboard_preferences'").fetchone()
+            assert table == ("dashboard_preferences",), table
+            indexes = {row[1] for row in db.execute("PRAGMA index_list(dashboard_preferences)")}
+            assert "idx_dashboard_preferences_user" in indexes, indexes
+
     print("✅ Fresh migration test passed")
 
 

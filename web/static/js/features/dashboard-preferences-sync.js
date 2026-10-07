@@ -11,6 +11,7 @@ export function createDashboardPreferencesSync({
   renderDashboard = () => {},
 }) {
   let enabled = false;
+  let flushPromise = null;
 
   function scopedKey(key) {
     const userId = getUserId?.();
@@ -58,13 +59,41 @@ export function createDashboardPreferencesSync({
     }
   }
 
-  async function flushPending() {
-    const pending = readPending();
-    if (!pending) return true;
+  function flushPending() {
+    if (flushPromise) return flushPromise;
+    flushPromise = (async () => {
+      while (true) {
+        const key = scopedKey(PENDING_KEY);
+        const pendingRaw = storage?.getItem?.(key);
+        if (!pendingRaw) return true;
+        let pending;
+        try {
+          pending = JSON.parse(pendingRaw);
+        } catch {
+          storage?.removeItem?.(key);
+          continue;
+        }
+        try {
+          const response = await api.updateDashboardPreferences(pending);
+          if (storage?.getItem?.(key) === pendingRaw) {
+            storage?.removeItem?.(key);
+            applyRemote(response);
+          }
+        } catch {
+          return false;
+        }
+      }
+    })().finally(() => {
+      flushPromise = null;
+    });
+    return flushPromise;
+  }
+
+  async function refresh() {
+    const flushed = await flushPending();
+    if (!flushed) return false;
     try {
-      const response = await api.updateDashboardPreferences(pending);
-      storage?.removeItem?.(scopedKey(PENDING_KEY));
-      applyRemote(response);
+      applyRemote(await api.getDashboardPreferences());
       return true;
     } catch {
       return false;
@@ -73,13 +102,7 @@ export function createDashboardPreferencesSync({
 
   async function initialize() {
     enabled = storage?.getItem?.(scopedKey(ENABLED_KEY)) === 'true';
-    const flushed = await flushPending();
-    if (!flushed) return;
-    try {
-      applyRemote(await api.getDashboardPreferences());
-    } catch {
-      // Keep the local cache usable while offline.
-    }
+    await refresh();
   }
 
   async function setEnabled(nextEnabled) {
@@ -108,6 +131,7 @@ export function createDashboardPreferencesSync({
     flushPending,
     initialize,
     isEnabled: () => enabled,
+    refresh,
     saveWorkspace,
     setEnabled,
   };

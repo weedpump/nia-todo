@@ -375,7 +375,10 @@ const wsClient = createWebSocketClient({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
-  onAuthOk: () => desktopIntegration?.announceNotificationReadiness(),
+  onAuthOk: () => {
+    desktopIntegration?.announceNotificationReadiness();
+    dashboardPreferencesSyncFeature?.refresh();
+  },
   onReminderDue: () => {},
   onSessionInvalidated: () => {
     localStorage.removeItem('nia-mfa-enrollment-required');
@@ -769,7 +772,7 @@ export function startAppModule() {
   bindMobileSearchEvents();
   bindTopbarPreferenceButtons();
   bindDashboardPreferencesActions();
-  window.addEventListener('online', () => dashboardPreferencesSyncFeature.flushPending());
+  window.addEventListener('online', () => dashboardPreferencesSyncFeature.refresh());
   bindTodayFocusHotkey();
   bindSidebarControls();
   bindModalCloseControls();

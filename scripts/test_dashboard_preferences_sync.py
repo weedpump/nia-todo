@@ -147,6 +147,19 @@ def main():
     except HTTPException as exc:
         assert_true(exc.status_code == 422, exc)
 
+    for field, invalid_values in (
+        ("stats", [["nested"], "pending", "in_progress", "overdue"]),
+        ("focusItems", [{"nested": True}]),
+    ):
+        try:
+            asyncio.run(me_router.update_dashboard_preferences(me_router.DashboardPreferencesSyncRequest(**{
+                "enabled": True,
+                "preferences": {"10": {**preferences(), field: invalid_values}},
+            }), user_id=1))
+            raise AssertionError(f"unhashable {field} entries must be rejected")
+        except HTTPException as exc:
+            assert_true(exc.status_code == 422, exc)
+
     disabled = asyncio.run(me_router.update_dashboard_preferences(me_router.DashboardPreferencesSyncRequest(enabled=False), user_id=1))
     assert_true(disabled == {"enabled": False, "preferences": {}}, disabled)
     assert_true(db.execute("SELECT COUNT(*) FROM dashboard_preferences WHERE user_id = 1").fetchone()[0] == 0, "disable must delete server copies")
