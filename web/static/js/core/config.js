@@ -7,7 +7,7 @@ export let API = '';
 export let WS_URL = websocketUrlFromBase(location.origin);
 export const DB_NAME = 'nia-todo-db';
 export const DB_VERSION = 4;
-export const APP_VERSION = 'v3.3.0-dev';
+export const APP_VERSION = 'v3.3.0';
 
 const TAURI_API = Object.freeze({
   core: Object.freeze({ invoke }),
