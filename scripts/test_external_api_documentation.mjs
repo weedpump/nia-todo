@@ -12,7 +12,7 @@ const issueUrl = 'https://github.com/weedpump/nia-todo/issues/new';
 const indexSource = read('web/index.html');
 assert(indexSource.includes('class="about-resources ui-detail-section"'), 'the About dialog must use the shared detail-section structure for resources');
 assert(indexSource.includes('class="ui-section-heading ui-detail-section-heading is-title-only"'), 'the title-only resources heading must use the shared centering modifier');
-assert(indexSource.includes('class="about-resource-actions"'), 'the About resource actions must use a top-down action container');
+assert(indexSource.includes('class="about-resource-actions"'), 'the About resource actions must use the responsive action container');
 assert.equal((indexSource.match(/class="btn btn-secondary about-resource-link"/g) || []).length, 4, 'the About resources must expose exactly four shared secondary buttons');
 assert(!indexSource.includes('about-resource-grid'), 'the About resources must not use a custom card grid');
 assert(!indexSource.includes('data-icon="code"'), 'GitHub must not use the generic code icon');
@@ -48,8 +48,25 @@ assert(appDownloadsSource.includes("link.matches?.('[data-external-resource]')")
 assert(appDownloadsSource.includes('nativeBridge.openExternal'), 'native apps must open external documentation with the native browser bridge');
 
 const serviceWorkerSource = read('web/sw.js');
-assert(serviceWorkerSource.includes("const CACHE_REVISION = 'dashboard-personalization-preview-44';"), 'the app-shell cache revision must advance for the GitHub mark');
+assert(serviceWorkerSource.includes("const CACHE_REVISION = 'dashboard-personalization-preview-49';"), 'the app-shell cache revision must advance for the shared header divider');
 assert(serviceWorkerSource.includes("'/static/icons/brands/github-mark.svg'"), 'the official GitHub mark must be available offline');
+
+const aboutCss = read('web/static/css/54-about.css');
+assert(
+  /#about-modal\.ui-detail-modal\.ui-detail-view \.ui-detail-modal-content\s*\{[\s\S]*?padding: 0;[\s\S]*?overflow-y: auto;/.test(aboutCss),
+  'the About modal shell must remove generic modal padding while preserving its scroll owner',
+);
+assert(aboutCss.includes('grid-template-columns: repeat(2, minmax(0, 1fr));'), 'desktop About resources must use a balanced two-column grid');
+assert(
+  /@media \(max-width: 768px\)[\s\S]*?\.about-resource-actions\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/.test(aboutCss),
+  'mobile About resources must collapse to one column',
+);
+assert(!aboutCss.includes('#about-modal .ui-detail-modal-header {'), 'the About dialog must not override the shared detail-modal header geometry');
+assert(!aboutCss.includes('#about-modal .ui-detail-header-actions {'), 'the About dialog must not override the shared detail-modal header actions');
+assert(
+  /\.about-actions\s*\{[\s\S]*?padding-top: 18px;[\s\S]*?border-top: 1px solid/.test(aboutCss),
+  'the About actions must render as a separated footer',
+);
 
 const githubMarkSource = read('web/static/icons/brands/github-mark.svg');
 assert(githubMarkSource.includes('viewBox="0 0 16 16"'), 'the GitHub mark must retain the official 16px viewBox');
@@ -58,6 +75,10 @@ assert(githubMarkSource.includes('<path'), 'the GitHub mark must contain its off
 const detailModalCss = read('web/static/css/89-ui-detail-modal.css');
 assert(detailModalCss.includes('.ui-detail-section-heading.is-title-only'), 'the shared detail-modal CSS must define title-only heading alignment');
 assert(detailModalCss.includes('align-items: center;'), 'title-only detail headings must center their contents structurally');
+assert(
+  /\.ui-detail-modal\.ui-detail-view \.ui-detail-modal-header,[\s\S]*?border-bottom: 1px solid color-mix/.test(detailModalCss),
+  'the shared detail-modal header must own its inset divider',
+);
 
 const mainSource = read('api/main.py');
 assert(!mainSource.includes('def _api_docs_html'), 'the server must not generate API documentation HTML');

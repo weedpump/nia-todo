@@ -27,7 +27,7 @@
   max-width: 920px;
   margin: 0 auto;
   padding: 18px 48px 16px 0;
-  border-bottom-color: color-mix(in srgb, var(--border) 54%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
   background: transparent;
 }
 
