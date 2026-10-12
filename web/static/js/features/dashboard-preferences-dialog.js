@@ -38,6 +38,8 @@ export function createDashboardPreferencesFeature({
   let lastFocusedElement = null;
   let selectedWorkspaceId = null;
   const workspaceDrafts = new Map();
+  const savedWorkspaceSnapshots = new Map();
+  let savedSyncEnabled = false;
 
   function getModal() {
     return document.getElementById('dashboard-preferences-modal');
@@ -45,6 +47,10 @@ export function createDashboardPreferencesFeature({
 
   function workspaceKey(workspaceId) {
     return String(workspaceId ?? '');
+  }
+
+  function preferenceSnapshot(preferences) {
+    return JSON.stringify(normalizeDashboardPreferences(preferences));
   }
 
   function availableWorkspaces() {
@@ -124,6 +130,7 @@ export function createDashboardPreferencesFeature({
     option.classList.toggle('is-selected', selected);
     option.setAttribute('aria-checked', selected ? 'true' : 'false');
     updateProjectSummary();
+    refreshSaveButtonState();
   }
 
   function setProjectMenuOpen(open, { restoreFocus = false } = {}) {
@@ -312,11 +319,25 @@ export function createDashboardPreferencesFeature({
     workspaceDrafts.set(workspaceKey(selectedWorkspaceId), readDraft());
   }
 
+  function refreshSaveButtonState() {
+    const saveButton = document.getElementById('dashboard-preferences-save');
+    if (!saveButton) return;
+    stashCurrentDraft();
+    const workspaceChanged = [...workspaceDrafts].some(([workspaceId, draft]) => (
+      preferenceSnapshot(draft) !== savedWorkspaceSnapshots.get(workspaceId)
+    ));
+    const syncChanged = Boolean(document.getElementById('dashboard-preferences-sync-enabled')?.checked) !== savedSyncEnabled;
+    const canSave = workspaceChanged || syncChanged;
+    saveButton.hidden = !canSave;
+    saveButton.disabled = !canSave;
+  }
+
   function switchDashboardWorkspace(workspaceId) {
     stashCurrentDraft();
     selectedWorkspaceId = workspaceId;
     setProjectMenuOpen(false);
     hydrateForm();
+    refreshSaveButtonState();
   }
 
   function readDraft() {
@@ -357,19 +378,25 @@ export function createDashboardPreferencesFeature({
     lastFocusedElement = returnFocusTo
       || (!modal?.contains?.(document.activeElement) ? document.activeElement : lastFocusedElement);
     workspaceDrafts.clear();
+    savedWorkspaceSnapshots.clear();
     const workspaces = availableWorkspaces();
+    workspaces.forEach(workspace => {
+      savedWorkspaceSnapshots.set(workspaceKey(workspace.id), preferenceSnapshot(getPreferences?.(workspace.id)));
+    });
     const currentWorkspaceId = getCurrentWorkspaceId?.();
     selectedWorkspaceId = workspaces.some(workspace => String(workspace.id) === String(currentWorkspaceId))
       ? currentWorkspaceId
       : workspaces[0]?.id ?? null;
     renderWorkspaceOptions();
     hydrateForm();
-    setChecked('dashboard-preferences-sync-enabled', getSyncEnabled?.());
+    savedSyncEnabled = Boolean(getSyncEnabled?.());
+    setChecked('dashboard-preferences-sync-enabled', savedSyncEnabled);
     hydratePreferenceSelects();
     document.getElementById('user-menu')?.classList.remove('active');
     document.getElementById('user-menu-button')?.setAttribute('aria-expanded', 'false');
     modal?.classList.add('active');
     modal?.setAttribute('aria-hidden', 'false');
+    refreshSaveButtonState();
     window.setTimeout(() => document.getElementById('dashboard-preferences-compact-display')?.focus(), 0);
   }
 
@@ -437,8 +464,10 @@ export function createDashboardPreferencesFeature({
         // Reset is an explicit immediate action; closing the modal does not roll it back.
         workspaceDrafts.set(workspaceKey(selectedWorkspaceId), defaults);
         setPreferences?.(selectedWorkspaceId, defaults);
+        savedWorkspaceSnapshots.set(workspaceKey(selectedWorkspaceId), preferenceSnapshot(defaults));
         hydrateForm(defaults);
         renderDashboard?.();
+        refreshSaveButtonState();
       } else if (action === 'cancel') {
         event.preventDefault();
         closeDashboardPreferences();
@@ -461,6 +490,9 @@ export function createDashboardPreferencesFeature({
     });
     document.addEventListener('input', event => {
       if (event.target?.matches?.('[data-dashboard-project-search]')) filterProjectOptions(event.target.value);
+    });
+    document.addEventListener('change', event => {
+      if (event.target?.closest?.('#dashboard-preferences-form')) refreshSaveButtonState();
     });
     document.addEventListener('keydown', event => {
       const modal = getModal();
@@ -518,6 +550,7 @@ export function createDashboardPreferencesFeature({
       renderWorkspaceOptions(selectedWorkspaceId);
       hydrateDraft(currentWorkspaceDraft(), { clearError: false });
       if (error) error.textContent = showStatsError ? t('dashboard.preferences.validation.stats') : '';
+      refreshSaveButtonState();
     });
   }
 

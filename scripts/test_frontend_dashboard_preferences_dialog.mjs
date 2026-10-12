@@ -98,9 +98,14 @@ try {
   const page = await browser.newPage();
   await page.setContent(`<style>${layoutCss}</style>${modalFixture}`);
   await page.locator('#dashboard-preferences-modal').evaluate(modal => modal.classList.add('active'));
+  await page.locator('#dashboard-preferences-modal [data-icon]').evaluateAll(elements => {
+    elements.forEach(element => {
+      element.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"></svg>';
+    });
+  });
   for (const [localeFile, dictionary] of localeDictionaries) {
     await page.locator('#dashboard-preferences-modal-title').evaluate((title, text) => { title.textContent = text; }, dictionary['dashboard.preferences.title']);
-    await page.locator('#dashboard-preferences-save').evaluate((button, text) => { button.textContent = text; }, dictionary['common.save']);
+    await page.locator('.dashboard-preferences-save-label').evaluate((label, text) => { label.textContent = text; }, dictionary['common.save']);
     for (const width of [320, 360, 390, 480, 481, 500, 600, 768]) {
       await page.setViewportSize({ width, height: 800 });
       const geometry = await page.evaluate(() => {
@@ -115,6 +120,58 @@ try {
       assert.equal(overlaps(geometry.icon, geometry.title), false, `${localeFile} ${width}px header icon and title must remain aligned without overlap`);
       assert.equal(overlaps(geometry.title, geometry.actions), false, `${localeFile} ${width}px title must not overlap Save, Reset, or Close actions`);
       assert.equal(overlaps(geometry.icon, geometry.actions), false, `${localeFile} ${width}px icon must not overlap Save, Reset, or Close actions`);
+      if (width <= 768) {
+        const controls = await page.evaluate(() => {
+          const details = selector => {
+            const element = document.querySelector(selector);
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return {
+              top: rect.top,
+              bottom: rect.bottom,
+              center: (rect.top + rect.bottom) / 2,
+              width: rect.width,
+              height: rect.height,
+              color: style.color,
+              backgroundColor: style.backgroundColor,
+              display: style.display,
+              transform: style.transform,
+            };
+          };
+          return {
+            save: details('#dashboard-preferences-save'),
+            reset: details('#dashboard-preferences-reset'),
+            close: details('.dashboard-preferences-modal-header .modal-close-x'),
+            saveIcon: details('#dashboard-preferences-save .ui-icon'),
+            resetIcon: details('#dashboard-preferences-reset .ui-icon'),
+            closeIcon: details('.dashboard-preferences-modal-header .modal-close-x .ui-icon'),
+            saveLabel: details('.dashboard-preferences-save-label'),
+          };
+        });
+        assert.deepEqual(
+          [controls.save.width, controls.reset.width, controls.close.width],
+          [40, 40, 40],
+          `${localeFile} ${width}px header actions must use one shared control width`,
+        );
+        assert.deepEqual(
+          [controls.save.center, controls.reset.center, controls.close.center],
+          [controls.close.center, controls.close.center, controls.close.center],
+          `${localeFile} ${width}px header actions must share one vertical center`,
+        );
+        assert.deepEqual(
+          [controls.saveIcon.center, controls.resetIcon.center, controls.closeIcon.center],
+          [controls.closeIcon.center, controls.closeIcon.center, controls.closeIcon.center],
+          `${localeFile} ${width}px header SVGs must share one vertical center`,
+        );
+        assert.deepEqual(
+          [controls.saveIcon.transform, controls.resetIcon.transform, controls.closeIcon.transform],
+          ['none', 'none', 'none'],
+          `${localeFile} ${width}px modal header icons must not inherit the generic button translation`,
+        );
+        assert.equal(controls.reset.backgroundColor, 'rgba(0, 0, 0, 0)', `${localeFile} ${width}px Reset must use the transparent options-button treatment`);
+        assert.equal(controls.reset.color, controls.close.color, `${localeFile} ${width}px Reset and Close must use the same muted color`);
+        assert.equal(controls.saveLabel.display, 'none', `${localeFile} ${width}px Save must use its compact icon-only presentation`);
+      }
     }
   }
 
@@ -239,6 +296,18 @@ try {
   }));
 
   const workspaceSelect = page.locator('#dashboard-preferences-workspace');
+  const saveButton = page.locator('#dashboard-preferences-save');
+  const compactDisplay = page.locator('#dashboard-preferences-compact-display');
+  assert.equal(await saveButton.isHidden(), true, 'Save must stay hidden while the dashboard preferences are unchanged');
+  await compactDisplay.check();
+  assert.equal(await saveButton.isVisible(), true, 'changing a dashboard preference must reveal Save');
+  await compactDisplay.uncheck();
+  assert.equal(await saveButton.isHidden(), true, 'reverting the dashboard preferences to their saved state must hide Save again');
+  const syncEnabled = page.locator('#dashboard-preferences-sync-enabled');
+  await syncEnabled.check();
+  assert.equal(await saveButton.isVisible(), true, 'changing account synchronization must reveal Save');
+  await syncEnabled.uncheck();
+  assert.equal(await saveButton.isHidden(), true, 'reverting account synchronization must hide Save again');
   assert.equal(await workspaceSelect.inputValue(), '10', 'the active workspace must be selected when the dialog opens');
   assert.deepEqual(await workspaceSelect.locator('option').allTextContents(), ['Personal', 'Shared'], 'the workspace selector must list every available workspace');
   assert.deepEqual(
@@ -255,10 +324,14 @@ try {
   );
   assert.equal(await page.locator('#dashboard-preferences-compact-display').isChecked(), true, 'the selected workspace must load its own complete dashboard configuration');
   await page.locator('#dashboard-preferences-compact-display').uncheck();
+  assert.equal(await saveButton.isVisible(), true, 'an unsaved workspace preference must keep Save visible');
   await workspaceSelect.selectOption('10');
   assert.equal(await page.locator('#dashboard-preferences-compact-display').isChecked(), false, 'switching back must restore the first workspace draft');
+  assert.equal(await saveButton.isVisible(), true, 'Save must remain visible when another workspace still has unsaved changes');
   await workspaceSelect.selectOption('20');
   assert.equal(await page.locator('#dashboard-preferences-compact-display').isChecked(), false, 'unsaved edits must survive workspace switches until the dialog is saved or closed');
+  await page.locator('#dashboard-preferences-compact-display').check();
+  assert.equal(await saveButton.isHidden(), true, 'reverting the changed workspace must hide Save when no unsaved changes remain');
   await workspaceSelect.selectOption('10');
 
   const projectTrigger = page.locator('#dashboard-preferences-projects .dashboard-preferences-project-trigger');
