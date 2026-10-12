@@ -6,8 +6,10 @@ import { readdirSync, statSync, existsSync } from 'node:fs';
 const webRoot = new URL('../web/', import.meta.url);
 const swPath = new URL('../web/sw.js', import.meta.url);
 const indexPath = new URL('../web/index.html', import.meta.url);
+const stylePath = new URL('../web/static/style.css', import.meta.url);
 const swSource = readFileSync(swPath, 'utf8');
 const indexSource = readFileSync(indexPath, 'utf8');
+const styleSource = readFileSync(stylePath, 'utf8');
 
 function walk(dirUrl) {
   const dirPath = dirUrl.pathname;
@@ -57,15 +59,20 @@ const missingIndexRefs = indexStaticRefs
 const queryRefsNeedIgnoreSearch = indexQueryRefs.length > 0 && !swSource.includes('ignoreSearch: true');
 
 const missingJs = jsModules.filter(asset => !precacheAssets.has(asset));
+const importedStylesheets = [...styleSource.matchAll(/@import\s+url\(["']([^"']+)["']\)/g)]
+  .map(match => match[1])
+  .sort();
+const missingImportedStylesheets = importedStylesheets.filter(asset => !precacheAssets.has(asset));
 const missingRequired = requiredStaticAssets.filter(asset => !precacheAssets.has(asset));
 const staleAssets = [...precacheAssets]
   .filter(asset => asset !== '/')
   .filter(asset => !existsSync(new URL(asset.replace(/^\//, ''), webRoot).pathname))
   .sort();
 
-if (missingJs.length || missingRequired.length || staleAssets.length || missingIndexRefs.length || queryRefsNeedIgnoreSearch) {
+if (missingJs.length || missingImportedStylesheets.length || missingRequired.length || staleAssets.length || missingIndexRefs.length || queryRefsNeedIgnoreSearch) {
   console.error('❌ Service worker precache validation failed');
   if (missingJs.length) console.error('\nMissing JS modules:\n' + missingJs.map(x => `  - ${x}`).join('\n'));
+  if (missingImportedStylesheets.length) console.error('\nImported stylesheets missing from precache:\n' + missingImportedStylesheets.map(x => `  - ${x}`).join('\n'));
   if (missingRequired.length) console.error('\nMissing required assets:\n' + missingRequired.map(x => `  - ${x}`).join('\n'));
   if (missingIndexRefs.length) console.error('\nIndex app-shell refs missing from precache:\n' + missingIndexRefs.map(x => `  - ${x}`).join('\n'));
   if (queryRefsNeedIgnoreSearch) console.error('\nIndex app-shell refs use query strings but service worker does not match cache with ignoreSearch: true:\n' + indexQueryRefs.map(x => `  - ${x}`).join('\n'));
@@ -73,4 +80,4 @@ if (missingJs.length || missingRequired.length || staleAssets.length || missingI
   process.exit(1);
 }
 
-console.log(`✅ Service worker precache includes all ${jsModules.length} JS modules, index app-shell refs, and required assets`);
+console.log(`✅ Service worker precache includes all ${jsModules.length} JS modules, ${importedStylesheets.length} imported stylesheets, index app-shell refs, and required assets`);

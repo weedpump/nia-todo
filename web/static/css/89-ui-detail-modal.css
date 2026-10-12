@@ -113,6 +113,11 @@
   margin-bottom: 18px;
 }
 
+.ui-detail-modal.ui-detail-view .ui-detail-section-heading.is-title-only,
+.ui-detail-modal.todo-detail-view .ui-detail-section-heading.is-title-only {
+  align-items: center;
+}
+
 .ui-detail-modal.ui-detail-view .ui-detail-section-heading h4,
 .ui-detail-modal.todo-detail-view .ui-detail-section-heading h4 {
   margin: 0;
