@@ -6,6 +6,7 @@ import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import qrcode from '../../vendor/qrcode-generator.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
@@ -577,6 +578,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     renderUserInfo();
     resetPlaceForm();
     document.getElementById('settings-modal')?.classList.add('active');
+    openUiLayer('settings-modal');
     updateSettingsEnrollmentLock();
     await refreshCurrentUser().catch(() => {});
     updateSettingsEnrollmentLock();
@@ -919,6 +921,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     img.onload = () => {
       cropState.image = img;
       document.getElementById('avatar-crop-modal')?.classList.add('active');
+      openUiLayer('avatar-crop-modal');
       requestAnimationFrame(() => {
         const stage = document.getElementById('avatar-crop-stage');
         const stageSize = stage?.clientWidth || 320;
@@ -942,7 +945,8 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     img.src = cropState.objectUrl;
   }
 
-  function cancelAvatarCrop() {
+  function cancelAvatarCrop({ fromHistory = false } = {}) {
+    if (document.getElementById('avatar-crop-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('avatar-crop-modal', { reason: 'ui' })) return;
     document.getElementById('avatar-crop-modal')?.classList.remove('active');
     document.getElementById('avatar-crop-image')?.removeAttribute('src');
     document.getElementById('avatar-crop-error').textContent = '';
@@ -950,6 +954,8 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (input) input.value = '';
     resetCropState();
   }
+
+  registerUiLayer('avatar-crop-modal', () => cancelAvatarCrop({ fromHistory: true }));
 
   async function saveAvatarCrop() {
     const stage = document.getElementById('avatar-crop-stage');
@@ -1309,6 +1315,12 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (userSettingsActionsBound) return;
     userSettingsActionsBound = true;
     document.addEventListener('click', async (event) => {
+      const sectionButton = event.target?.closest?.('[data-settings-section]');
+      if (sectionButton) {
+        event.preventDefault();
+        document.getElementById(sectionButton.dataset.settingsSection)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
       const target = event.target?.closest?.('[data-user-settings-action]');
       if (!target) return;
       const action = target.dataset.userSettingsAction;

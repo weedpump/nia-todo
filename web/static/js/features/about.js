@@ -2,6 +2,7 @@ import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { createNativeBridge } from './native-bridge.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 function displayVersion(value) {
   const normalized = String(value || '').trim().replace(/^v/i, '');
@@ -114,18 +115,23 @@ export function createAboutFeature({ appVersion, serverUpdatesApi, openAppDownlo
     document.getElementById('about-reload-btn')?.toggleAttribute('hidden', RUNTIME_CAPABILITIES.native);
     document.getElementById('about-downloads-btn')?.toggleAttribute('hidden', RUNTIME_CAPABILITIES.native);
     modal.classList.add('active');
+    openUiLayer('about-modal');
     modal.removeAttribute('aria-hidden');
     modal.querySelector('.modal-close-x')?.focus();
     await Promise.all([renderClientVersion(generation), renderServerStatus(generation)]);
   }
 
-  function closeAboutModal({ restoreFocus = true } = {}) {
+  function closeAboutModal({ restoreFocus = true, fromHistory = false, afterClose = null } = {}) {
     renderGeneration += 1;
     const modal = document.getElementById('about-modal');
+    if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer('about-modal', { restoreFocus }, { afterClose })) return;
     modal?.classList.remove('active');
     modal?.setAttribute('aria-hidden', 'true');
     if (restoreFocus && lastFocusedElement?.isConnected) lastFocusedElement.focus();
+    afterClose?.();
   }
+
+  registerUiLayer('about-modal', payload => closeAboutModal({ restoreFocus: payload?.restoreFocus ?? false, fromHistory: true }));
 
   function trapAboutFocus(event) {
     if (event.key !== 'Tab') return;
@@ -178,8 +184,10 @@ export function createAboutFeature({ appVersion, serverUpdatesApi, openAppDownlo
       }
       if (target.dataset.aboutAction === 'downloads') {
         const returnFocusTo = lastFocusedElement;
-        closeAboutModal({ restoreFocus: false });
-        openAppDownloadsModal?.({ returnFocusTo });
+        closeAboutModal({
+          restoreFocus: false,
+          afterClose: () => openAppDownloadsModal?.({ returnFocusTo }),
+        });
       }
     });
     document.addEventListener('keydown', (event) => {

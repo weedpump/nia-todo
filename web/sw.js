@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.3.1';
-const CACHE_REVISION = 'dashboard-personalization-preview-49';
+const CACHE_REVISION = 'in-app-history-preview-53';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -127,6 +127,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/push-notifications.js',
   '/static/js/features/project-sharing.js',
   '/static/js/features/theme.js',
+  '/static/js/features/ui-history.js',
   '/static/js/features/ui-shell.js',
   '/static/js/features/user-menu.js',
   '/static/js/features/user-settings.js',

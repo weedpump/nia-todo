@@ -1,3 +1,5 @@
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+
 export function createTodoAttachmentsFeature({
   getTodos,
   setTodos,
@@ -358,8 +360,9 @@ export function createTodoAttachmentsFeature({
     }
   }
 
-  function closeAttachmentPreview() {
-    closeModal('attachment-preview-modal');
+  function closeAttachmentPreview({ fromHistory = false } = {}) {
+    if (document.getElementById('attachment-preview-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('attachment-preview-modal', { reason: 'ui' })) return;
+    closeModal('attachment-preview-modal', { fromHistory: true });
     document.getElementById('attachment-preview-modal')?.classList.remove('show');
     const body = document.getElementById('attachment-preview-body');
     if (body) body.innerHTML = '';
@@ -397,6 +400,7 @@ export function createTodoAttachmentsFeature({
         }
       }
       document.getElementById('attachment-preview-modal')?.classList.add('active');
+      openUiLayer('attachment-preview-modal');
     } catch (error) {
       console.error('Failed to preview todo attachment', error);
       showToast(t('todo.attachments.previewFailed'));
@@ -481,6 +485,8 @@ export function createTodoAttachmentsFeature({
       });
     }
   }
+
+  registerUiLayer('attachment-preview-modal', () => closeAttachmentPreview({ fromHistory: true }));
 
   return {
     getSelectedAttachmentFiles,

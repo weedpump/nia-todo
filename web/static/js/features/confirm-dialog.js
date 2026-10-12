@@ -1,10 +1,12 @@
 import { t } from '../i18n/index.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 export function createConfirmDialogFeature() {
   let pendingResolve = null;
 
-  function close(result = false) {
+  function close(result = false, { fromHistory = false } = {}) {
     const modal = document.getElementById('confirm-modal');
+    if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer('confirm-modal', { result })) return;
     modal?.classList.remove('active');
     document.getElementById('confirm-cancel-btn')?.style.removeProperty('display');
     const resolve = pendingResolve;
@@ -13,7 +15,7 @@ export function createConfirmDialogFeature() {
   }
 
   function confirmDanger({ title = t('confirm.deleteTitle'), message = '', confirmText = t('todo.delete'), cancelText = t('common.cancel'), hideCancel = false } = {}) {
-    if (pendingResolve) close(false);
+    if (pendingResolve) close(false, { fromHistory: true });
     const modal = document.getElementById('confirm-modal');
     if (!modal) return Promise.resolve(window.confirm(message || title));
 
@@ -39,6 +41,7 @@ export function createConfirmDialogFeature() {
       cancelEl.style.display = hideCancel ? 'none' : '';
     }
     modal.classList.add('active');
+    openUiLayer('confirm-modal');
 
     return new Promise((resolve) => {
       pendingResolve = resolve;
@@ -59,6 +62,8 @@ export function createConfirmDialogFeature() {
   function alertInfo({ title = t('common.error'), message = '', confirmText = t('common.close') } = {}) {
     return confirmDanger({ title, message, confirmText, hideCancel: true });
   }
+
+  registerUiLayer('confirm-modal', payload => close(Boolean(payload?.result), { fromHistory: true }));
 
   return { confirmDanger, alertInfo, closeConfirmDialog: close, bindConfirmDialog };
 }

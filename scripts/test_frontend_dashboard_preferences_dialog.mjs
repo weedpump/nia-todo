@@ -482,14 +482,13 @@ try {
     trigger.dispatchEvent(event);
     return {
       defaultPrevented: event.defaultPrevented,
-      modalActive: document.getElementById('dashboard-preferences-modal').classList.contains('active'),
       sharedDropdownWasOpen,
       sharedDropdownIsOpen: isDropdownOpen(),
     };
   });
   assert.equal(subsequentEscapeState.sharedDropdownWasOpen, false, 'no shared select may remain open after its first Escape');
   assert.equal(subsequentEscapeState.defaultPrevented, true, 'the subsequent Escape must be consumed by the modal');
-  assert.equal(subsequentEscapeState.modalActive, false, 'a subsequent Escape must close the modal');
+  await page.waitForFunction(() => !document.getElementById('dashboard-preferences-modal').classList.contains('active'));
 } finally {
   await browser.close();
 }

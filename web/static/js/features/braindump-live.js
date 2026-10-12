@@ -5,6 +5,7 @@ import { hydrateIcons, iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
 import { closeOpenDropdown, hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 const SILENCE_LEVEL = 0.035;
 const SILENCE_STOP_MS = 3200;
@@ -282,6 +283,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     injectModal();
     updateStaticLabels();
     document.getElementById('braindump-modal')?.classList.add('active');
+    openUiLayer('braindump-modal');
     render();
     void loadSavedPlaces();
     if (!state.recording && !state.starting && !state.processing && !state.active && !state.queue.length && !state.creating) {
@@ -289,7 +291,8 @@ export function createBrainDumpLiveFeature(options = {}) {
     }
   }
 
-  async function close() {
+  async function close({ fromHistory = false } = {}) {
+    if (document.getElementById('braindump-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('braindump-modal', { reason: 'ui' })) return;
     if (state.starting) {
       state.startToken += 1;
       state.starting = false;
@@ -300,6 +303,8 @@ export function createBrainDumpLiveFeature(options = {}) {
     }
     document.getElementById('braindump-modal')?.classList.remove('active');
   }
+
+  registerUiLayer('braindump-modal', () => { void close({ fromHistory: true }); });
 
   function resetSession() {
     state.segmentId = 0;

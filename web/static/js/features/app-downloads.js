@@ -2,6 +2,7 @@ import { API, RUNTIME_CAPABILITIES, RUNTIME_PLATFORM, verifyInstance } from '../
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hideAutoScrollbars } from './auto-scrollbars.js';
+import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { createNativeBridge } from './native-bridge.js';
 
 let deferredPwaInstallPrompt = null;
@@ -390,6 +391,19 @@ function deferUntilAfterLogin(callback) {
   timer = window.setInterval(finishIfReady, 500);
 }
 
+function closeNativeUpdateModal({ fromHistory = false } = {}) {
+  const modal = document.getElementById('native-app-update-modal');
+  if (!modal) return false;
+  if (modal.classList.contains('native-update-required')) {
+    if (fromHistory) openUiLayer('native-app-update-modal');
+    return false;
+  }
+  if (modal.classList.contains('active') && !fromHistory && requestCloseUiLayer('native-app-update-modal', { reason: 'ui' })) return true;
+  modal.classList.remove('active');
+  modal.setAttribute('aria-hidden', 'true');
+  return true;
+}
+
 function showNativeUpdateModal(download, currentVersion, nativeBridge = null, options = {}) {
   if (!download?.url) return;
   if (!hasAuthToken() || isLoginOverlayVisible()) {
@@ -416,8 +430,7 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
     laterButton.style.display = forced ? 'none' : '';
     laterButton.onclick = () => {
       dismissedNativeUpdateKeys.add(nativeUpdateKey(download.platform, currentVersion, download.version));
-      modal?.classList.remove('active');
-      modal?.setAttribute('aria-hidden', 'true');
+      closeNativeUpdateModal();
     };
   }
   if (button) {
@@ -438,6 +451,7 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
   if (modal) {
     modal.classList.toggle('native-update-required', Boolean(forced));
     modal.classList.add('active');
+    openUiLayer('native-app-update-modal');
     modal.removeAttribute('aria-hidden');
   }
 }
@@ -451,6 +465,8 @@ export function createAppDownloadsFeature() {
   let nativeAppUpdateStatus = { known: false, updateAvailable: false, latestVersion: '' };
   let appDownloadsReturnFocusElement = null;
 
+  registerUiLayer('native-app-update-modal', () => closeNativeUpdateModal({ fromHistory: true }));
+
   function openAppDownloadsModal({ returnFocusTo = null } = {}) {
     if (!isBrowserDownloadEligible() && !isWebInstallEligible()) return;
     appDownloadsReturnFocusElement = returnFocusTo || document.activeElement;
@@ -463,19 +479,23 @@ export function createAppDownloadsFeature() {
     if (sidebarWasOpen && sidebar) hideAutoScrollbars(sidebar);
     const modal = document.getElementById('app-downloads-modal');
     modal?.classList.add('active');
+    if (!sidebarWasOpen || !replaceUiLayer('sidebar', 'app-downloads-modal')) openUiLayer('app-downloads-modal');
     modal?.removeAttribute('aria-hidden');
     modal?.querySelector('.modal-close-x, button:not([hidden]), a[href]:not([hidden])')?.focus();
     updateWebInstallUI();
     refreshAppDownloads();
   }
 
-  function closeAppDownloadsModal() {
+  function closeAppDownloadsModal({ fromHistory = false } = {}) {
     const modal = document.getElementById('app-downloads-modal');
+    if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer('app-downloads-modal', { reason: 'ui' })) return;
     modal?.classList.remove('active');
     modal?.setAttribute('aria-hidden', 'true');
     if (appDownloadsReturnFocusElement?.isConnected) appDownloadsReturnFocusElement.focus();
     appDownloadsReturnFocusElement = null;
   }
+
+  registerUiLayer('app-downloads-modal', () => closeAppDownloadsModal({ fromHistory: true }));
 
   function nativeExternalUrlForLink(link) {
     const rawHref = link?.getAttribute?.('href') || '';

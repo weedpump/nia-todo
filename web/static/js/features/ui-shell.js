@@ -1,4 +1,5 @@
 import { hideAutoScrollbars } from './auto-scrollbars.js';
+import { closeUiLayerNow, openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 function hideSidebarScrollbars() {
   const sidebar = document.getElementById('sidebar');
@@ -18,30 +19,49 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
   function openSidebar() {
     document.getElementById('sidebar')?.classList.add('open');
     document.getElementById('sidebar-overlay')?.classList.add('active');
+    openUiLayer('sidebar');
   }
 
   function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
     const nextOpen = !sidebar?.classList.contains('open');
-    sidebar?.classList.toggle('open', nextOpen);
-    overlay?.classList.toggle('active', nextOpen);
-    if (!nextOpen) hideSidebarScrollbars();
+    if (nextOpen) {
+      sidebar?.classList.add('open');
+      overlay?.classList.add('active');
+      openUiLayer('sidebar');
+    } else {
+      closeSidebar();
+    }
     closeFloatingMenus();
   }
 
-  function closeSidebar() {
+  function closeSidebar({ fromHistory = false, preserveHistory = false } = {}) {
     const sidebar = document.getElementById('sidebar');
     const wasOpen = sidebar?.classList.contains('open');
+    if (wasOpen && preserveHistory && closeUiLayerNow('sidebar', { reason: 'navigation' })) return true;
+    if (wasOpen && !fromHistory && requestCloseUiLayer('sidebar', { reason: 'ui' })) return true;
     sidebar?.classList.remove('open');
     document.getElementById('sidebar-overlay')?.classList.remove('active');
     if (wasOpen) hideSidebarScrollbars();
     closeFloatingMenus();
+    return Boolean(wasOpen);
   }
 
-  function closeModal(modalId) {
+  registerUiLayer('sidebar', () => closeSidebar({ fromHistory: true }));
+  registerUiLayer('settings-modal', () => {
+    const modal = document.getElementById('settings-modal');
+    if (modal?.classList.contains('mfa-enrollment-locked')) {
+      openUiLayer('settings-modal');
+      return;
+    }
+    closeModal('settings-modal', { fromHistory: true });
+  });
+
+  function closeModal(modalId, { fromHistory = false } = {}) {
     const modal = document.getElementById(modalId);
     if (modalId === 'settings-modal' && modal?.classList.contains('mfa-enrollment-locked')) return;
+    if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer(modalId, { reason: 'ui' })) return;
     modal?.classList.remove('active');
 
     const activeElement = document.activeElement;

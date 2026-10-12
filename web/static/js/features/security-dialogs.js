@@ -1,5 +1,6 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { t } from '../i18n/index.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -43,24 +44,29 @@ function openSecurityDialog({ title, message = '', bodyHtml = '', primaryText = 
   primary.classList.toggle('btn-danger', Boolean(danger));
   primary.classList.toggle('btn-primary', !danger);
   modal.classList.add('active');
+  openUiLayer('security-action-modal');
 
   return new Promise((resolve, reject) => {
     let settled = false;
+    let unregisterHistory = null;
     const cleanup = () => {
       form.removeEventListener('submit', submitHandler);
       cancel?.removeEventListener('click', cancelHandler);
       overlay?.removeEventListener('click', cancelHandler);
       document.removeEventListener('keydown', keyHandler);
+      unregisterHistory?.();
     };
-    const finish = (value) => {
+    const finish = (value, { fromHistory = false } = {}) => {
       if (settled) return;
+      if (!fromHistory && requestCloseUiLayer('security-action-modal', { value })) return;
       settled = true;
       cleanup();
       closeSecurityDialog();
       resolve(value);
     };
-    const fail = (err) => {
+    const fail = (err, { fromHistory = false } = {}) => {
       if (settled) return;
+      if (!fromHistory && requestCloseUiLayer('security-action-modal', { error: err })) return;
       settled = true;
       cleanup();
       closeSecurityDialog();
@@ -87,6 +93,10 @@ function openSecurityDialog({ title, message = '', bodyHtml = '', primaryText = 
     cancel?.addEventListener('click', cancelHandler);
     overlay?.addEventListener('click', cancelHandler);
     document.addEventListener('keydown', keyHandler);
+    unregisterHistory = registerUiLayer('security-action-modal', payload => {
+      if (payload?.error) fail(payload.error, { fromHistory: true });
+      else finish(Object.prototype.hasOwnProperty.call(payload || {}, 'value') ? payload.value : null, { fromHistory: true });
+    });
     try {
       onOpen?.(form);
     } catch (err) {

@@ -1,5 +1,6 @@
 import { apiResourceUrl } from '../core/config.js';
 import { loadAuthenticatedImage } from '../core/authenticated-image.js';
+import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 export function createUserMenuFeature({
   getCurrentUser,
@@ -12,13 +13,26 @@ export function createUserMenuFeature({
   toggleProjectWidget = null,
   logout = null,
 }) {
-  function closeUserMenu() {
+  function closeUserMenu({ fromHistory = false, afterClose = null } = {}) {
     const menu = document.getElementById('user-menu');
     const button = document.getElementById('user-menu-button');
+    if (menu?.classList.contains('active') && !fromHistory && requestCloseUiLayer('user-menu', { reason: 'ui' }, { afterClose })) return;
     menu?.classList.remove('active');
     button?.setAttribute('aria-expanded', 'false');
     document.getElementById('accent-preset-panel')?.classList.remove('active');
     document.getElementById('accent-preset-row')?.setAttribute('aria-expanded', 'false');
+    afterClose?.();
+  }
+
+  registerUiLayer('user-menu', () => closeUserMenu({ fromHistory: true }));
+
+  function openFromUserMenu(layerId, open) {
+    if (replaceUiLayer('user-menu', layerId)) {
+      closeUserMenu({ fromHistory: true });
+      open?.();
+      return;
+    }
+    closeUserMenu({ afterClose: open });
   }
 
   function toggleUserMenu(event) {
@@ -27,7 +41,12 @@ export function createUserMenuFeature({
     const button = document.getElementById('user-menu-button');
     if (!menu || !button) return;
     const nextOpen = !menu.classList.contains('active');
-    menu.classList.toggle('active', nextOpen);
+    if (nextOpen) {
+      menu.classList.add('active');
+      openUiLayer('user-menu');
+    } else {
+      closeUserMenu();
+    }
     button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
   }
 
@@ -73,13 +92,11 @@ export function createUserMenuFeature({
       return;
     }
     if (action === 'settings') {
-      closeUserMenu();
-      openSettingsModal?.();
+      openFromUserMenu('settings-modal', () => openSettingsModal?.());
       return;
     }
     if (action === 'about') {
-      closeUserMenu();
-      openAboutModal?.({ returnFocusTo: document.getElementById('user-menu-button') });
+      openFromUserMenu('about-modal', () => openAboutModal?.({ returnFocusTo: document.getElementById('user-menu-button') }));
       return;
     }
     if (action === 'theme') cycleTheme?.();

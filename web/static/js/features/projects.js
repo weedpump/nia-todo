@@ -2,6 +2,7 @@ import { t } from '../i18n/index.js';
 import { renderIconPicker } from '../icons/lucide-icons.js';
 import { renderColorPicker } from '../ui/color-picker.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
+import { openUiLayer } from './ui-history.js';
 
 export function createProjectsFeature({
   getProjects,
@@ -265,6 +266,7 @@ export function createProjectsFeature({
     }
 
     document.getElementById('project-modal')?.classList.add('active');
+    openUiLayer('project-modal');
     resetProjectSaveSnapshot();
     if (!project) {
       window.setTimeout(() => document.getElementById('project-name')?.focus(), 0);

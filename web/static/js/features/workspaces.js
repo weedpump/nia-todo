@@ -1,6 +1,7 @@
 import { t } from '../i18n/index.js';
 import { hydrateIcons, iconSvg, markerHtml, renderIconPicker } from '../icons/lucide-icons.js';
 import { renderColorPicker } from '../ui/color-picker.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 export function createWorkspacesFeature({
   workspacesApi,
@@ -280,16 +281,20 @@ export function createWorkspacesFeature({
       headerMenu.removeAttribute('open');
     }
     document.getElementById('workspace-modal')?.classList.add('active');
+    openUiLayer('workspace-modal');
     resetWorkspaceSaveSnapshot();
     if (!workspace) {
       setTimeout(() => document.getElementById('workspace-name')?.focus(), 50);
     }
   }
 
-  function closeWorkspaceModal() {
+  function closeWorkspaceModal({ fromHistory = false } = {}) {
+    if (document.getElementById('workspace-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('workspace-modal', { reason: 'ui' })) return;
     document.getElementById('workspace-modal')?.classList.remove('active');
     editingWorkspaceId = null;
   }
+
+  registerUiLayer('workspace-modal', () => closeWorkspaceModal({ fromHistory: true }));
 
   async function saveWorkspace(event) {
     event?.preventDefault?.();

@@ -43,6 +43,7 @@ import { createAppLifecycle } from './features/app-lifecycle.js';
 import { createOidcNoticeFeature } from './features/oidc-notice.js';
 import { createServerUpdateIndicator } from './features/server-update-indicator.js';
 import { createAboutFeature } from './features/about.js';
+import { bindUiHistory } from './features/ui-history.js';
 import { exposeRuntimeGlobals } from './features/runtime-globals.js';
 import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
@@ -509,7 +510,7 @@ workspacesFeature = createWorkspacesFeature({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
-  closeSidebar: () => closeSidebar(),
+  closeSidebar: (options) => closeSidebar(options),
   confirmDanger,
   showToast: (...args) => showToast(...args),
 });
@@ -534,6 +535,7 @@ const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
 const navigationFeature = createNavigationFeature({
   sectionsApi,
   getCurrentProjectId: () => currentProjectId,
+  getCurrentFilter: () => currentFilter,
   setCurrentProjectId: (next) => { currentProjectId = next; },
   setCurrentFilter: (next) => { currentFilter = next; },
   clearDashboardDrilldown: () => { dashboardDrilldown = null; },
@@ -542,7 +544,7 @@ const navigationFeature = createNavigationFeature({
   dbGetAll,
   dbPut,
   deleteFromDB,
-  closeSidebar: () => closeSidebar(),
+  closeSidebar: (options) => closeSidebar(options),
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
@@ -784,6 +786,7 @@ export function startAppModule() {
   bindSectionActions();
   bindNavigationActions();
   bindDashboardDrilldownActions();
+  bindUiHistory();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
   document.addEventListener('click', (event) => {

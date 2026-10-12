@@ -6,6 +6,7 @@ import { createNativeBridge } from './native-bridge.js';
 import { createTodoAttachmentsFeature } from './todo-attachments.js';
 import { createTodoQuickAddFeature } from './todo-quick-add.js';
 import { createTodoMultiAddFeature } from './todo-multi-add.js';
+import { openUiLayer } from './ui-history.js';
 
 export function createTodosFeature({
   getTodos,
@@ -2518,6 +2519,7 @@ export function createTodosFeature({
     renderTodoMetaSummary(todo);
     document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
     getTodoModal()?.classList.add('active');
+    openUiLayer('todo-modal');
     resizeTodoTitleField();
     window.requestAnimationFrame?.(resizeTodoTitleField);
     if (!todo) focusTodoTitle();

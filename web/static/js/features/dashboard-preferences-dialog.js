@@ -2,6 +2,7 @@ import { t } from '../i18n/index.js';
 import { iconSvg, markerHtml } from '../icons/lucide-icons.js';
 import { hydrateSelect, isDropdownOpen, refreshSelect } from '../ui/dropdowns.js';
 import { DEFAULT_DASHBOARD_PREFERENCES, normalizeDashboardPreferences } from './dashboard-preferences.js';
+import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 const STAT_OPTIONS = [
   ['total', 'overview.stats.total'],
@@ -395,21 +396,28 @@ export function createDashboardPreferencesFeature({
     savedSyncEnabled = Boolean(getSyncEnabled?.());
     setChecked('dashboard-preferences-sync-enabled', savedSyncEnabled);
     hydratePreferenceSelects();
-    document.getElementById('user-menu')?.classList.remove('active');
+    const userMenu = document.getElementById('user-menu');
+    const replacedUserMenu = userMenu?.classList.contains('active')
+      && replaceUiLayer('user-menu', 'dashboard-preferences-modal');
+    userMenu?.classList.remove('active');
     document.getElementById('user-menu-button')?.setAttribute('aria-expanded', 'false');
     modal?.classList.add('active');
+    if (!replacedUserMenu) openUiLayer('dashboard-preferences-modal');
     modal?.setAttribute('aria-hidden', 'false');
     refreshSaveButtonState();
     window.setTimeout(() => document.getElementById('dashboard-preferences-compact-display')?.focus(), 0);
   }
 
-  function closeDashboardPreferences() {
+  function closeDashboardPreferences({ fromHistory = false } = {}) {
     setProjectMenuOpen(false);
     const modal = getModal();
+    if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer('dashboard-preferences-modal', { reason: 'ui' })) return;
     modal?.classList.remove('active');
     modal?.setAttribute('aria-hidden', 'true');
     if (lastFocusedElement?.isConnected) lastFocusedElement.focus();
   }
+
+  registerUiLayer('dashboard-preferences-modal', () => closeDashboardPreferences({ fromHistory: true }));
 
   function trapDashboardPreferencesFocus(event) {
     if (event.key !== 'Tab') return;

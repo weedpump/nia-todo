@@ -1,6 +1,7 @@
 export function createNavigationFeature({
   sectionsApi,
   getCurrentProjectId,
+  getCurrentFilter,
   setCurrentProjectId,
   setCurrentFilter,
   clearDashboardDrilldown = () => {},
@@ -19,7 +20,7 @@ export function createNavigationFeature({
   let applyingHistory = false;
 
   function cleanRoute() {
-    return `${location.pathname}${location.hash || ''}`;
+    return `${location.pathname}${location.search || ''}`;
   }
 
   function filterFromLocation() {
@@ -37,7 +38,7 @@ export function createNavigationFeature({
 
   function updateHistory(filter, replace = false) {
     if (applyingHistory || typeof history === 'undefined') return;
-    const state = { niaTodoView: true, filter: String(filter || 'all') };
+    const state = { ...(history.state || {}), niaTodoView: true, filter: String(filter || 'all') };
     if (replace || !history.state?.niaTodoView) history.replaceState(state, '', cleanRoute());
     else history.pushState(state, '', cleanRoute());
   }
@@ -49,7 +50,8 @@ export function createNavigationFeature({
     setCurrentProjectId(nextProjectId);
 
     localStorage.setItem('nia-last-filter', filter);
-    updateHistory(filter, Boolean(options.replaceHistory));
+    const sidebarClosed = closeSidebar({ preserveHistory: true });
+    updateHistory(filter, Boolean(options.replaceHistory || sidebarClosed));
 
     document.querySelectorAll('.nav-btn').forEach((button) => {
       const buttonFilter = String(button.dataset.filter || '');
@@ -58,7 +60,6 @@ export function createNavigationFeature({
         : buttonFilter === String(filter);
       button.classList.toggle('active', isActive);
     });
-    closeSidebar();
 
     return loadSectionsForCurrentProject().then(() => {
       renderProjects();
@@ -125,8 +126,10 @@ export function createNavigationFeature({
     const initialFilter = location.search ? filterFromLocation() : (localStorage.getItem('nia-last-filter') || 'all');
     updateHistory(initialFilter, true);
     window.addEventListener('popstate', (event) => {
+      const nextFilter = filterFromHistoryState(event);
+      if (String(nextFilter) === String(getCurrentFilter?.() || 'all')) return;
       applyingHistory = true;
-      setFilter(filterFromHistoryState(event));
+      setFilter(nextFilter);
       applyingHistory = false;
     });
   }

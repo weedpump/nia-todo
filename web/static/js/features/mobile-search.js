@@ -1,3 +1,5 @@
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+
 function isTypingTarget(element) {
   const tag = element?.tagName;
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element?.isContentEditable;
@@ -8,15 +10,17 @@ export function createMobileSearchFeature({ renderStats, renderTodos, toggleToda
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
     box?.classList.add('open');
+    openUiLayer('mobile-search');
     requestAnimationFrame(() => {
       input?.focus();
       input?.select();
     });
   }
 
-  function closeMobileSearch() {
+  function closeMobileSearch({ fromHistory = false } = {}) {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
+    if (box?.classList.contains('open') && !fromHistory && requestCloseUiLayer('mobile-search', { reason: 'ui' })) return;
     if (input?.value) {
       input.value = '';
       renderTodos();
@@ -24,6 +28,8 @@ export function createMobileSearchFeature({ renderStats, renderTodos, toggleToda
     box?.classList.remove('open');
     input?.blur();
   }
+
+  registerUiLayer('mobile-search', () => closeMobileSearch({ fromHistory: true }));
 
   function toggleMobileSearch() {
     const box = document.getElementById('search-box');

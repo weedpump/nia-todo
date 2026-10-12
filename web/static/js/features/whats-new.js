@@ -1,5 +1,6 @@
 import { getCurrentLanguage, t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 const WHATS_NEW_CONTENT_URL = '/static/content/whats-new.json';
 
@@ -196,7 +197,8 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     `;
   }
 
-  function close({ remember = true } = {}) {
+  function close({ remember = true, fromHistory = false } = {}) {
+    if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer('whats-new-modal', { remember })) return;
     if (remember) markSeen();
     modal?.classList.remove('active');
     modal?.setAttribute('aria-hidden', 'true');
@@ -211,10 +213,13 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     ensureModal();
     render();
     modal.classList.add('active');
+    openUiLayer('whats-new-modal');
     modal.removeAttribute('aria-hidden');
     modal.querySelector('[data-whats-new-action="next"], [data-whats-new-action="done"]')?.focus();
     return true;
   }
+
+  registerUiLayer('whats-new-modal', payload => close({ remember: payload?.remember ?? false, fromHistory: true }));
 
   function ensureModal() {
     if (modal) return modal;
