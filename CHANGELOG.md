@@ -10,10 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Added
 - 🔗 Added a localized Resources section to the About dialog with links to the documentation, API reference, GitHub repository, and issue form across web, PWA, and native clients.
 
-### Fixed
-- Arranged About resources in a balanced two-column desktop grid while preserving the single-column mobile layout.
-- Restored the shared detail-modal header geometry for About, including its inset divider and aligned close control, and separated reload/download actions into a distinct footer.
-
 ## [3.3.1] - 2026-10-08
 
 ### Added
