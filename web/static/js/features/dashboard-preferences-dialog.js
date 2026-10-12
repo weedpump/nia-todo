@@ -50,7 +50,10 @@ export function createDashboardPreferencesFeature({
   }
 
   function preferenceSnapshot(preferences) {
-    return JSON.stringify(normalizeDashboardPreferences(preferences));
+    const normalized = normalizeDashboardPreferences(preferences);
+    normalized.projectScope.projectIds = [...normalized.projectScope.projectIds].sort((left, right) => left - right);
+    normalized.focusItems = [...normalized.focusItems].sort();
+    return JSON.stringify(normalized);
   }
 
   function availableWorkspaces() {

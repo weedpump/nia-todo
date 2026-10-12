@@ -376,12 +376,18 @@
   height: 20px;
 }
 
-.dashboard-preferences-modal #dashboard-preferences-reset:hover,
-.dashboard-preferences-modal #dashboard-preferences-reset:focus-visible {
+.dashboard-preferences-modal #dashboard-preferences-reset:hover {
   border: 0;
   background: transparent;
   color: var(--text-primary);
   box-shadow: none;
+}
+
+.dashboard-preferences-modal #dashboard-preferences-reset:focus-visible {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.28), 0 0 0 1px rgba(var(--accent-rgb), 0.45);
   outline: none;
 }
 
@@ -513,12 +519,18 @@
     line-height: 0;
   }
 
-  .dashboard-preferences-modal #dashboard-preferences-save:hover,
-  .dashboard-preferences-modal #dashboard-preferences-save:focus-visible {
+  .dashboard-preferences-modal #dashboard-preferences-save:hover {
     border: 0;
     background: transparent;
     color: var(--accent-hover);
     box-shadow: none;
+  }
+
+  .dashboard-preferences-modal #dashboard-preferences-save:focus-visible {
+    border: 0;
+    background: transparent;
+    color: var(--accent-hover);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.28), 0 0 0 1px rgba(var(--accent-rgb), 0.45);
     outline: none;
   }
 
@@ -538,4 +550,9 @@
   .dashboard-preferences-save-label {
     display: none;
   }
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-header-actions .modal-close-x:focus-visible,
+.ui-detail-modal.todo-detail-view .ui-detail-header-actions .modal-close-x:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.28), 0 0 0 1px rgba(var(--accent-rgb), 0.45);
 }

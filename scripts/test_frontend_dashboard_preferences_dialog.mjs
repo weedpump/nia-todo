@@ -175,6 +175,18 @@ try {
     }
   }
 
+  await page.setViewportSize({ width: 390, height: 800 });
+  for (const selector of ['#dashboard-preferences-save', '#dashboard-preferences-reset', '.dashboard-preferences-modal-header .modal-close-x']) {
+    const control = page.locator(selector);
+    await control.focus();
+    const focusState = await control.evaluate(element => ({
+      focusVisible: element.matches(':focus-visible'),
+      boxShadow: getComputedStyle(element).boxShadow,
+    }));
+    assert.equal(focusState.focusVisible, true, `${selector} must expose keyboard focus at mobile widths`);
+    assert.notEqual(focusState.boxShadow, 'none', `${selector} must retain a visible focus ring at mobile widths`);
+  }
+
   const webRoot = fileURLToPath(new URL('../web/', import.meta.url));
   await page.route('http://nia.test/**', async route => {
     const requestUrl = new URL(route.request().url());
@@ -216,9 +228,9 @@ try {
         showFocus: true,
         showActiveProjects: true,
         showProjectWidgets: false,
-        projectScope: { mode: 'include', projectIds: [1] },
+        projectScope: { mode: 'include', projectIds: [3, 1] },
         stats: ['total', 'pending', 'in_progress', 'overdue'],
-        focusItems: ['overdue', 'due_today'],
+        focusItems: ['due_today', 'overdue'],
         hideEmptyFocusItems: false,
         activeProjects: { limit: 5, sort: 'activity' },
       },
@@ -341,9 +353,9 @@ try {
     'the project picker trigger must be named by both its visible label and current value',
   );
   assert.equal(
-    await page.locator('#dashboard-preferences-projects').getByRole('button', { name: 'Projects Alpha', exact: true }).count(),
+    await page.locator('#dashboard-preferences-projects').getByRole('button', { name: 'Projects Alpha, Gamma', exact: true }).count(),
     1,
-    'Chromium must expose the project picker with its visible label and current selection',
+    'Chromium must expose the project picker with its visible label and current selections',
   );
 
   const sharedSelectTriggers = page.locator('#dashboard-preferences-modal .ui-select > .ui-select-trigger');
