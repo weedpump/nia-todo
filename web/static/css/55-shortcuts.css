@@ -1,0 +1,107 @@
+#shortcuts-modal.ui-detail-modal.ui-detail-view .shortcuts-modal-content {
+  width: min(620px, calc(100vw - 40px));
+  height: auto;
+  min-height: 0;
+  max-width: none;
+  max-height: min(88vh, 680px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 26px;
+}
+
+#shortcuts-modal .ui-detail-modal-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+#shortcuts-modal .ui-detail-modal-header,
+#shortcuts-modal .shortcuts-shell {
+  max-width: 560px;
+}
+
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.shortcuts-row {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+}
+
+.shortcuts-row:last-child {
+  border-bottom: 0;
+}
+
+.shortcuts-label {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.shortcuts-keys {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-tertiary) 74%, var(--bg-primary));
+}
+
+.shortcuts-key-alternative {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.shortcuts-keys kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  font: 700 12px/1.2 var(--font-family, inherit);
+}
+
+@media (max-width: 768px) {
+  #shortcuts-modal.ui-detail-modal.ui-detail-view .shortcuts-modal-content {
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .shortcuts-row {
+    min-height: 58px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 11px 14px;
+  }
+
+  .shortcuts-keys {
+    justify-content: flex-start;
+  }
+}

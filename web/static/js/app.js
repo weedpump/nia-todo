@@ -43,6 +43,7 @@ import { createAppLifecycle } from './features/app-lifecycle.js';
 import { createOidcNoticeFeature } from './features/oidc-notice.js';
 import { createServerUpdateIndicator } from './features/server-update-indicator.js';
 import { createAboutFeature } from './features/about.js';
+import { createShortcutHelpFeature } from './features/shortcut-help.js';
 import { bindUiHistory } from './features/ui-history.js';
 import { exposeRuntimeGlobals } from './features/runtime-globals.js';
 import { t, translatePage } from './i18n/index.js';
@@ -109,6 +110,7 @@ const aboutFeature = createAboutFeature({
     return serviceWorkerUpdates.refreshUpdateStatus();
   },
 });
+const shortcutHelpFeature = createShortcutHelpFeature();
 const bindAppDownloadLaunchers = appDownloadsFeature.bindAppDownloadLaunchers;
 const whatsNewFeature = createWhatsNewFeature({
   appVersion: APP_VERSION,
@@ -290,6 +292,7 @@ let workspacesFeature = null;
 const userMenuFeature = createUserMenuFeature({
   getCurrentUser: () => currentUser,
   openSettingsModal: () => openSettingsModal(),
+  openShortcutHelpModal: options => shortcutHelpFeature.openShortcutHelpModal(options),
   openAboutModal: options => aboutFeature.openAboutModal(options),
   cycleTheme: () => cycleTheme(),
   toggleAccentPresetMenu: (event) => toggleAccentPresetMenu(event),
@@ -765,6 +768,7 @@ export function startAppModule() {
   consumeOidcErrorNotice();
   bindServiceWorkerUpdateButtons();
   bindAppDownloadLaunchers();
+  shortcutHelpFeature.bindShortcutHelpActions();
   aboutFeature.bindAboutActions();
   whatsNewFeature.bindWhatsNewActions();
   appDownloadsFeature.initAppDownloads();

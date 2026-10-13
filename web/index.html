@@ -158,6 +158,7 @@
             <button type="button" class="ui-menu-item user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
             <button type="button" class="ui-menu-item user-menu-item" id="dashboard-preferences-menu-btn" data-dashboard-preferences-action="open" role="menuitem"><span class="menu-item-icon" data-icon="sliders-horizontal"></span><span class="menu-item-label" data-i18n-key="dashboard.preferences.open">Dashboard anpassen</span></button>
             <button type="button" class="ui-menu-item user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" data-user-menu-action="shortcuts" role="menuitem"><span data-icon="keyboard"></span><span data-i18n-key="menu.shortcuts">Tastaturkürzel</span></button>
             <button type="button" class="ui-menu-item user-menu-item" data-user-menu-action="about" role="menuitem"><span data-icon="info"></span><span data-i18n-key="about.menu">Über nia-todo</span></button>
             <div class="user-menu-separator"></div>
             <button type="button" class="ui-menu-item user-menu-item danger" data-user-menu-action="logout" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
@@ -244,6 +245,62 @@
               <button type="button" class="btn btn-secondary" id="about-reload-btn" data-force-refresh-button><span data-icon="refresh-cw"></span><span data-i18n-key="about.reloadWebApp">Web-App neu laden</span></button>
               <button type="button" class="btn btn-primary" id="about-downloads-btn" data-about-action="downloads"><span data-icon="download"></span><span data-i18n-key="appDownloads.title">Apps herunterladen</span></button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal ui-detail-modal ui-detail-view shortcuts-modal" id="shortcuts-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
+      <div class="modal-overlay" data-close-modal="shortcuts-modal"></div>
+      <div class="modal-content ui-detail-modal-content shortcuts-modal-content">
+        <div class="ui-detail-modal-header">
+          <div class="ui-detail-title-icon" data-icon="keyboard"></div>
+          <div>
+            <h3 id="shortcuts-modal-title" data-i18n-key="shortcuts.title">Tastaturkürzel</h3>
+            <p data-i18n-key="shortcuts.subtitle">Schneller durch nia-todo navigieren.</p>
+          </div>
+          <div class="ui-detail-header-actions">
+            <button class="modal-close-x" data-close-modal="shortcuts-modal" aria-label="Schließen" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
+          </div>
+        </div>
+        <div class="modal-body ui-detail-modal-body">
+          <div class="shortcuts-shell ui-detail-shell">
+            <section class="ui-section-card ui-detail-section shortcuts-section" aria-labelledby="shortcuts-general-title">
+              <div class="ui-section-heading ui-detail-section-heading is-title-only">
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="keyboard"></div>
+                <div><h4 id="shortcuts-general-title" data-i18n-key="shortcuts.section.general">Allgemein</h4></div>
+              </div>
+              <div class="shortcuts-list">
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.openHelp">Tastaturkürzel öffnen</span><span class="shortcuts-keys"><kbd>?</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.newTodo">Neues Todo erstellen</span><span class="shortcuts-keys"><kbd>N</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.todayView">Heute-Ansicht umschalten</span><span class="shortcuts-keys"><kbd>T</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.calmView">Ruhige Ansicht umschalten</span><span class="shortcuts-keys"><kbd>C</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.switchWorkspace">Workspace 1 bis 6 öffnen</span><span class="shortcuts-keys"><kbd>Alt</kbd><span aria-hidden="true">+</span><kbd>1–6</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.closeDialog">Dialog oder Menü schließen</span><span class="shortcuts-keys"><kbd>Esc</kbd></span></div>
+              </div>
+            </section>
+            <section class="ui-section-card ui-detail-section shortcuts-section" aria-labelledby="shortcuts-todo-list-title">
+              <div class="ui-section-heading ui-detail-section-heading is-title-only">
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
+                <div><h4 id="shortcuts-todo-list-title" data-i18n-key="shortcuts.section.todoList">Todo-Liste</h4></div>
+              </div>
+              <div class="shortcuts-list">
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.cycleStatus">Status des fokussierten Todos weiterschalten</span><span class="shortcuts-keys"><kbd>Space</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.deleteTodo">Fokussiertes Todo löschen</span><span class="shortcuts-keys"><kbd>Delete</kbd></span></div>
+              </div>
+            </section>
+            <section class="ui-section-card ui-detail-section shortcuts-section" aria-labelledby="shortcuts-editor-title">
+              <div class="ui-section-heading ui-detail-section-heading is-title-only">
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="pencil"></div>
+                <div><h4 id="shortcuts-editor-title" data-i18n-key="shortcuts.section.editor">Todo-Editor</h4></div>
+              </div>
+              <div class="shortcuts-list">
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.saveTodo">Todo speichern</span><span class="shortcuts-keys"><kbd>Ctrl</kbd><span aria-hidden="true">+</span><kbd>Enter</kbd><span class="shortcuts-key-alternative" aria-hidden="true">/</span><kbd>⌘</kbd><span aria-hidden="true">+</span><kbd>Enter</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.multiAddNext">Mehrfachanlage: neue Zeile</span><span class="shortcuts-keys"><kbd>Enter</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.multiAddRemove">Mehrfachanlage: leere Zeile entfernen</span><span class="shortcuts-keys"><kbd>Backspace</kbd></span></div>
+                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.multiAddSave">Mehrfachanlage speichern</span><span class="shortcuts-keys"><kbd>Ctrl</kbd><span aria-hidden="true">+</span><kbd>Enter</kbd><span class="shortcuts-key-alternative" aria-hidden="true">/</span><kbd>⌘</kbd><span aria-hidden="true">+</span><kbd>Enter</kbd></span></div>
+              </div>
+            </section>
           </div>
         </div>
       </div>

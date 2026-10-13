@@ -56,10 +56,10 @@ export function createMobileSearchFeature({ renderStats, renderTodos, toggleToda
     document.documentElement.dataset.todayFocusHotkeyBound = '1';
     document.addEventListener('keydown', (event) => {
       const key = event.key?.toLowerCase();
-      if ((key !== 'f' && key !== 'm') || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+      if ((key !== 't' && key !== 'c') || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
       if (isTypingTarget(event.target) || document.querySelector('.modal.active')) return;
       event.preventDefault();
-      if (key === 'f') toggleTodayFocus();
+      if (key === 't') toggleTodayFocus();
       else toggleMinimalTodos();
     });
   }

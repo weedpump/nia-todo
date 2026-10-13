@@ -5,6 +5,7 @@ import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } fro
 export function createUserMenuFeature({
   getCurrentUser,
   openSettingsModal = null,
+  openShortcutHelpModal = null,
   openAboutModal = null,
   cycleTheme = null,
   toggleAccentPresetMenu = null,
@@ -93,6 +94,10 @@ export function createUserMenuFeature({
     }
     if (action === 'settings') {
       openFromUserMenu('settings-modal', () => openSettingsModal?.());
+      return;
+    }
+    if (action === 'shortcuts') {
+      openFromUserMenu('shortcuts-modal', () => openShortcutHelpModal?.({ returnFocusTo: document.getElementById('user-menu-button') }));
       return;
     }
     if (action === 'about') {
