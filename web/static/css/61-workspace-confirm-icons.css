@@ -112,6 +112,15 @@
   .topbar-workspace-switcher .workspace-current-chevron {
     display: none;
   }
+  .topbar-workspace-switcher .workspace-current-dot.has-icon {
+    width: 21px;
+    height: 21px;
+  }
+  .topbar-workspace-switcher .workspace-current-dot.has-icon .entity-icon,
+  .topbar-workspace-switcher .workspace-current-dot.has-icon .ui-icon {
+    width: 19px;
+    height: 19px;
+  }
 }
 
 .workspace-menu-list {
@@ -384,8 +393,8 @@
 }
 
 .workspace-current-dot.has-icon {
-  width: 18px;
-  height: 18px;
+  width: 21px;
+  height: 21px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -396,8 +405,8 @@
 
 .workspace-current-dot.has-icon .entity-icon,
 .workspace-current-dot.has-icon .ui-icon {
-  width: 16px;
-  height: 16px;
+  width: 19px;
+  height: 19px;
 }
 
 .icon-picker-current {

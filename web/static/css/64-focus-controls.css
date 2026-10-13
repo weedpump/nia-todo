@@ -14,7 +14,7 @@
   color: var(--text-secondary);
   border-radius: 999px;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: inset 0 0 0 1px transparent;
@@ -36,18 +36,28 @@
   box-shadow: 0 8px 20px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.26));
 }
 
-.today-focus-btn.active::after,
-.minimal-todos-btn.active::after {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.95;
+.today-focus-btn .ui-icon,
+.minimal-todos-btn .ui-icon { display: block; width: 19px; height: 19px; margin: 0; }
+
+.today-calendar-icon {
+  position: relative;
+  display: block;
+  flex: 0 0 19px;
+  width: 19px;
+  height: 19px;
 }
 
-.today-focus-btn .ui-icon,
-.minimal-todos-btn .ui-icon { display: block; width: 15px; height: 15px; margin: 0; }
+.today-calendar-day {
+  position: absolute;
+  top: 12.25px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 7.5px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.3px;
+  pointer-events: none;
+}
 
 .quick-add-hint {
   margin-top: 6px;
@@ -269,16 +279,23 @@
     justify-content: center;
     gap: 0;
   }
+  .today-focus-btn .today-calendar-icon,
+  .today-focus-btn .ui-icon,
+  .minimal-todos-btn .ui-icon {
+    width: 19px;
+    height: 19px;
+  }
+  .today-focus-btn .today-calendar-icon {
+    flex-basis: 19px;
+  }
+  .today-focus-btn .today-calendar-day {
+    top: 12.25px;
+    font-size: 7.5px;
+    letter-spacing: -0.35px;
+  }
   .today-focus-btn span[data-i18n-key="todayFocus.short"],
   .minimal-todos-btn span[data-i18n-key="minimalTodos.short"] { display: none; }
-  .today-focus-btn.active::after,
-  .minimal-todos-btn.active::after {
-    position: absolute;
-    right: 5px;
-    top: 5px;
-    width: 6px;
-    height: 6px;
-  }
+
   .status-syncing,
   .status-pending-sync {
     width: 30px;

@@ -2,6 +2,24 @@ import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
 export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, saveShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos, renderStats = () => {} }) {
+  let todayIconRefreshTimer = null;
+
+  function renderTodayCalendarIcon(date = new Date()) {
+    const day = date.getDate();
+    return `${iconSvg('calendar')}<span class="today-calendar-day">${day}</span>`;
+  }
+
+  function scheduleTodayIconRefresh() {
+    if (todayIconRefreshTimer) clearTimeout(todayIconRefreshTimer);
+    const now = new Date();
+    const nextDay = new Date(now);
+    nextDay.setHours(24, 0, 0, 50);
+    todayIconRefreshTimer = setTimeout(() => {
+      updateTodayFocusButton();
+      scheduleTodayIconRefresh();
+    }, nextDay.getTime() - now.getTime());
+  }
+
   function toggleHideDone() {
     const next = !getHideDone();
     setHideDone(next);
@@ -71,6 +89,8 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
     btn.title = active ? t('todayFocus.disable') : t('todayFocus.enable');
+    const icon = btn.querySelector('.today-calendar-icon');
+    if (icon) icon.innerHTML = renderTodayCalendarIcon();
     const label = btn.querySelector('[data-i18n-key="todayFocus.short"]');
     if (label) label.textContent = active ? t('todayFocus.on') : t('todayFocus.short');
   }
@@ -135,6 +155,13 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     topbarPreferenceButtonsBound = true;
     document.getElementById('today-focus-btn')?.addEventListener('click', () => toggleTodayFocus());
     document.getElementById('minimal-todos-btn')?.addEventListener('click', () => toggleMinimalTodos());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        updateTodayFocusButton();
+        scheduleTodayIconRefresh();
+      }
+    });
+    scheduleTodayIconRefresh();
   }
 
   function sortTodoList(list) {

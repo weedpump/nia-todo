@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added a localized keyboard shortcut reference with a user-menu entry, a `?` launcher, and responsive desktop and mobile layouts.
 - Added a localized Resources section to the About dialog with links to the documentation, API reference, GitHub repository, and issue form across web, PWA, and native clients.
 
+### Changed
+- Made the Today top-bar control show the current local calendar day, refresh automatically at local midnight or after resuming the app, and use consistently sized responsive top-bar icons.
+
 ### Fixed
 - Made browser, mobile gesture, and native Back navigation close the active in-app layer before leaving the current view, including nested Todo details drawers and description editors, while keeping Settings section navigation hash-free.
 
