@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Added a localized keyboard shortcut reference with a user-menu entry, a `?` launcher, and responsive desktop and mobile layouts.
 - Added a localized Resources section to the About dialog with links to the documentation, API reference, GitHub repository, and issue form across web, PWA, and native clients.
 
 ### Fixed

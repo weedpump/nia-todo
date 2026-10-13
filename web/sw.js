@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.3.1';
-const CACHE_REVISION = 'shortcut-help-preview-61';
+const CACHE_REVISION = 'shortcut-help-preview-70';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
