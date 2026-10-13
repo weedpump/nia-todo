@@ -14,6 +14,7 @@ const sw = await readFile(join(root, 'web/sw.js'), 'utf8');
 const styleManifest = await readFile(join(root, 'web/static/style.css'), 'utf8');
 
 assert.match(html, /data-user-menu-action="shortcuts"[^>]*role="menuitem"/);
+assert.match(html, /class="[^"]*shortcut-help-menu-item[^"]*"[^>]*data-user-menu-action="shortcuts"/);
 assert.match(html, /class="modal ui-detail-modal ui-detail-view shortcuts-modal" id="shortcuts-modal"/);
 assert.match(html, /id="shortcuts-modal"[^>]*aria-labelledby="shortcuts-modal-title"/);
 assert.match(html, /id="shortcuts-modal-title"[^>]*data-i18n-key="shortcuts.title"/);
@@ -61,6 +62,8 @@ assert.match(styleManifest, /@import url\("\/static\/css\/55-shortcuts\.css"\);/
 assert.match(shortcutCss, /\.shortcuts-keys[\s\S]*background: color-mix/);
 assert.match(shortcutCss, /\.shortcuts-keys kbd[\s\S]*box-shadow: none/);
 assert.match(shortcutCss, /#shortcuts-modal \.ui-detail-modal-body[\s\S]*overflow-y: auto/);
+assert.match(shortcutCss, /@media \(max-width: 768px\)[\s\S]*html:not\(\.native-app\) \.shortcut-help-menu-item/);
+assert.match(shortcutCss, /@media \(max-width: 768px\)[\s\S]*html\.native-android \.shortcut-help-menu-item[\s\S]*display: none/);
 
 const requiredKeys = [
   'menu.shortcuts',

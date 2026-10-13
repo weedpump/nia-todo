@@ -179,3 +179,10 @@
     font-size: 13px;
   }
 }
+
+@media (max-width: 768px) {
+  html:not(.native-app) .shortcut-help-menu-item,
+  html.native-android .shortcut-help-menu-item {
+    display: none;
+  }
+}

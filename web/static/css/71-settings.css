@@ -609,17 +609,18 @@
 }
 
 @media (max-width: 1180px) {
+  #settings-modal .settings-modal-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
   #settings-modal .modal-close-x {
     right: 12px;
   }
 }
 
 @media (max-width: 900px) {
-  #settings-modal .settings-modal-content {
-    width: min(100%, calc(100vw - 24px));
-    max-width: none;
-  }
-
   .settings-modal-body { grid-template-columns: 1fr; }
   .settings-nav,
   .settings-sections {
