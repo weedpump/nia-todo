@@ -8,6 +8,7 @@ const html = await readFile(join(root, 'web/index.html'), 'utf8');
 const app = await readFile(join(root, 'web/static/js/app.js'), 'utf8');
 const userMenu = await readFile(join(root, 'web/static/js/features/user-menu.js'), 'utf8');
 const about = await readFile(join(root, 'web/static/js/features/about.js'), 'utf8');
+const uiShell = await readFile(join(root, 'web/static/js/features/ui-shell.js'), 'utf8');
 const shortcutCss = await readFile(join(root, 'web/static/css/55-shortcuts.css'), 'utf8');
 const sw = await readFile(join(root, 'web/sw.js'), 'utf8');
 const styleManifest = await readFile(join(root, 'web/static/style.css'), 'utf8');
@@ -36,6 +37,8 @@ assert.match(html, /<kbd[^>]*>⌘<\/kbd>/);
 assert.match(html, /<kbd[^>]*>Enter<\/kbd>/);
 assert.match(html, /<kbd[^>]*>Backspace<\/kbd>/);
 assert.match(html, /<kbd[^>]*>Esc<\/kbd>/);
+assert.doesNotMatch(html, /<span aria-hidden="true">\+<\/span>/);
+assert.match(html, /class="visually-hidden" data-i18n-key="shortcuts\.or"/);
 
 assert.match(app, /createShortcutHelpFeature/);
 assert.match(app, /openShortcutHelpModal:\s*options\s*=>\s*shortcutHelpFeature\.openShortcutHelpModal\(options\)/);
@@ -44,6 +47,8 @@ const mobileSearch = await readFile(join(root, 'web/static/js/features/mobile-se
 assert.match(mobileSearch, /key !== 't' && key !== 'c'/);
 assert.match(mobileSearch, /key === 't'/);
 assert.doesNotMatch(mobileSearch, /key !== 'f'|key !== 'm'|key === 'f'|key === 'm'/);
+assert.match(uiShell, /!document\.querySelector\('\.modal\.active, \.ui-menu\.active'\)/);
+assert.match(uiShell, /login-overlay/);
 assert.match(await readFile(join(root, 'web/static/js/features/shortcut-help.js'), 'utf8'), /event\.key !== '\?'/);
 assert.doesNotMatch(about, /event\.key !== '\?'/);
 assert.doesNotMatch(about, /openAboutModal\(\{ returnFocusTo: document\.activeElement \}\)/);
@@ -65,6 +70,7 @@ const requiredKeys = [
   'shortcuts.section.todoList',
   'shortcuts.section.editor',
   'shortcuts.openHelp',
+  'shortcuts.or',
   'shortcuts.newTodo',
   'shortcuts.todayView',
   'shortcuts.calmView',

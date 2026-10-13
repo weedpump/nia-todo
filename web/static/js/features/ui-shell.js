@@ -220,7 +220,10 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
 
   function bindKeyboardShortcuts() {
     document.addEventListener('keydown', async (e) => {
-      if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(document.activeElement)) {
+      const canUseGlobalShortcut = !isTypingTarget(document.activeElement)
+        && !document.querySelector('.modal.active, .ui-menu.active')
+        && document.getElementById('login-overlay')?.classList.contains('hidden');
+      if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey && canUseGlobalShortcut) {
         e.preventDefault();
         await showTodoModal();
       }
