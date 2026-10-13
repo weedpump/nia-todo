@@ -6,7 +6,7 @@ import { createNativeBridge } from './native-bridge.js';
 import { createTodoAttachmentsFeature } from './todo-attachments.js';
 import { createTodoQuickAddFeature } from './todo-quick-add.js';
 import { createTodoMultiAddFeature } from './todo-multi-add.js';
-import { openUiLayer } from './ui-history.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 export function createTodosFeature({
   getTodos,
@@ -240,7 +240,7 @@ export function createTodosFeature({
         </div>
         <div class="todo-meta-drawer-body"></div>
       `;
-      drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', closeTodoMetaEditor);
+      drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => closeTodoMetaEditor());
       form.appendChild(drawer);
     }
     const body = drawer.querySelector('.todo-meta-drawer-body') || drawer;
@@ -271,16 +271,23 @@ export function createTodosFeature({
     toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
   }
 
-  function closeTodoMetaEditor() {
-    getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
+  function closeTodoMetaEditor({ fromHistory = false } = {}) {
+    const modal = getTodoModal();
+    if (modal?.classList.contains(TODO_MODAL_CLASSES.editingMeta)
+      && !fromHistory
+      && requestCloseUiLayer('todo-meta-drawer', { reason: 'ui' })) return;
+    modal?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
     renderTodoMetaSummary(getTodoBeingEdited());
   }
+
+  registerUiLayer('todo-meta-drawer', () => closeTodoMetaEditor({ fromHistory: true }));
 
   function openTodoMetaEditor(controlId) {
     const modal = getTodoModal();
     const control = document.getElementById(controlId);
     if (!modal || !control) return;
     modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
+    openUiLayer('todo-meta-drawer');
     syncTodoMetaToggleLabel();
     const drawerBody = document.querySelector('#todo-meta-drawer .todo-meta-drawer-body');
     const fieldGroup = control.closest('.form-group, .settings-toggle-row') || control;
@@ -373,6 +380,7 @@ export function createTodosFeature({
       if (modal.classList.contains(TODO_MODAL_CLASSES.editingMeta)) closeTodoMetaEditor();
       else {
         modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
+        openUiLayer('todo-meta-drawer');
         syncTodoMetaToggleLabel();
       }
     });
@@ -783,7 +791,8 @@ export function createTodosFeature({
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingDescription);
+        event.stopPropagation();
+        closeTodoDescriptionEditor();
         return;
       }
       if (event.key === 'Enter') {
@@ -873,6 +882,7 @@ export function createTodosFeature({
       if (!modal.classList.contains(TODO_MODAL_CLASSES.detail)) return;
       editor.innerHTML = renderMarkdown(textarea.value || '');
       modal.classList.add(TODO_MODAL_CLASSES.editingDescription);
+      openUiLayer('todo-description-editor');
       window.requestAnimationFrame?.(() => editor.focus());
     };
     preview.addEventListener('click', openEditor);
@@ -882,6 +892,16 @@ export function createTodosFeature({
       openEditor();
     });
   }
+
+  function closeTodoDescriptionEditor({ fromHistory = false } = {}) {
+    const modal = getTodoModal();
+    if (modal?.classList.contains(TODO_MODAL_CLASSES.editingDescription)
+      && !fromHistory
+      && requestCloseUiLayer('todo-description-editor', { reason: 'ui' })) return;
+    modal?.classList.remove(TODO_MODAL_CLASSES.editingDescription);
+  }
+
+  registerUiLayer('todo-description-editor', () => closeTodoDescriptionEditor({ fromHistory: true }));
 
   function getTodoSaveRelevantState() {
     const id = document.getElementById('todo-id')?.value || '';

@@ -142,13 +142,17 @@ export function createUiHistory({
     if (!id || !history?.back) return false;
     bind();
     const layerId = String(id);
-    if (currentLayers.at(-1) !== layerId) return false;
+    const layerIndex = currentLayers.lastIndexOf(layerId);
+    if (layerIndex === -1) return false;
     if (pendingCloses.has(layerId)) return true;
+    const distance = currentLayers.length - layerIndex;
+    if (distance > 1 && typeof history.go !== 'function') return false;
     pendingCloses.set(layerId, {
       payload,
       afterClose: typeof afterClose === 'function' ? afterClose : null,
     });
-    history.back();
+    if (distance === 1) history.back();
+    else history.go(-distance);
     return true;
   }
 

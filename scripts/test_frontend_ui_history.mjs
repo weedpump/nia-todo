@@ -48,6 +48,12 @@ function createHarness({
       index += 1;
       dispatchPopState();
     },
+    go(delta) {
+      const next = Math.max(0, Math.min(stack.length - 1, index + Number(delta || 0)));
+      if (next === index) return;
+      index = next;
+      dispatchPopState();
+    },
   };
   const dispatch = (type, event = {}) => {
     for (const handler of listeners.get(type) || []) handler(event);
@@ -138,6 +144,24 @@ function createHarness({
   const harness = createHarness();
   const closed = [];
   const uiHistory = createUiHistory(harness);
+  uiHistory.registerLayer('todo-modal', payload => closed.push(['todo-modal', payload]));
+  uiHistory.registerLayer('todo-meta-drawer', payload => closed.push(['todo-meta-drawer', payload]));
+  uiHistory.bind();
+  uiHistory.openLayer('todo-modal');
+  uiHistory.openLayer('todo-meta-drawer');
+
+  assert.equal(uiHistory.requestCloseLayer('todo-modal', { reason: 'close-button' }), true, 'closing a parent layer must consume its nested child layers');
+  assert.deepEqual(closed, [
+    ['todo-meta-drawer', { reason: 'history' }],
+    ['todo-modal', { reason: 'close-button' }],
+  ]);
+  assert.deepEqual(harness.history.state.niaTodoUi.layers, []);
+}
+
+{
+  const harness = createHarness();
+  const closed = [];
+  const uiHistory = createUiHistory(harness);
   uiHistory.registerLayer('settings-modal', payload => closed.push(['settings-modal', payload]));
   uiHistory.bind();
   uiHistory.openLayer('user-menu');
@@ -157,6 +181,7 @@ const dashboardPreferencesSource = readFileSync(new URL('../web/static/js/featur
 const appDownloadsSource = readFileSync(new URL('../web/static/js/features/app-downloads.js', import.meta.url), 'utf8');
 const uiShellSource = readFileSync(new URL('../web/static/js/features/ui-shell.js', import.meta.url), 'utf8');
 const navigationModuleSource = readFileSync(new URL('../web/static/js/features/navigation.js', import.meta.url), 'utf8');
+const todosSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 const settingsNav = indexHtml.slice(indexHtml.indexOf('<nav class="settings-nav"'), indexHtml.indexOf('</nav>', indexHtml.indexOf('<nav class="settings-nav"')));
 
 assert.doesNotMatch(settingsNav, /href="#settings-section-/, 'settings navigation must not write section fragments into the URL');
@@ -168,6 +193,11 @@ assert.match(userMenuSource, /registerUiLayer\('user-menu'/, 'the user action me
 assert.match(dashboardPreferencesSource, /replaceUiLayer\('user-menu', 'dashboard-preferences-modal'\)/, 'dashboard settings must replace the user-menu history entry');
 assert.match(uiShellSource, /mfa-enrollment-locked[\s\S]*openUiLayer\('settings-modal'\)/, 'MFA-locked settings must restore their history guard');
 assert.match(appDownloadsSource, /native-update-required[\s\S]*openUiLayer\('native-app-update-modal'\)/, 'required native updates must restore their history guard');
+assert.match(todosSource, /registerUiLayer\('todo-meta-drawer'/, 'the todo details drawer must be a nested history layer');
+assert.match(todosSource, /openUiLayer\('todo-meta-drawer'\)/, 'opening the todo details drawer must create a nested history entry');
+assert.match(todosSource, /registerUiLayer\('todo-description-editor'/, 'the todo description editor must be a nested history layer');
+assert.match(todosSource, /openUiLayer\('todo-description-editor'\)/, 'opening the todo description editor must create a nested history entry');
+assert.match(todosSource, /event\.key === 'Escape'[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*closeTodoDescriptionEditor\(\)/, 'Escape in the todo description editor must not bubble to the parent modal handler');
 
 const uiHistorySource = readFileSync(new URL('../web/static/js/features/ui-history.js', import.meta.url), 'utf8');
 const browser = await chromium.launch({ headless: true });
