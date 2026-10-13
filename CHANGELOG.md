@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Added
 - Added a localized Resources section to the About dialog with links to the documentation, API reference, GitHub repository, and issue form across web, PWA, and native clients.
 
+### Fixed
+- Made browser, mobile gesture, and native Back navigation close the active in-app layer before leaving the current view, including nested Todo details drawers and description editors, while keeping Settings section navigation hash-free.
+
 ## [3.3.1] - 2026-10-08
 
 ### Added
