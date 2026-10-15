@@ -48,6 +48,7 @@ try {
     'Package: nia-todo',
     'Version: 1.0.0',
     'Architecture: amd64',
+    'Depends: libwebkit2gtk-4.1-0, libc6 (>= 2.34)',
     'Maintainer: Test <test@example.invalid>',
     'Description: Debian repack fixture',
     '',
@@ -62,6 +63,12 @@ try {
   assert.equal(spawnSync('dpkg-deb', ['--build', packageRoot, rawDeb], { encoding: 'utf8' }).status, 0, 'Fixture deb must build');
   const repack = spawnSync(path.join(repoRoot, 'scripts/release/repack-native-debian-deb.sh'), [rawDeb, finalDeb], { encoding: 'utf8' });
   assert.equal(repack.status, 0, `Debian repack must succeed: ${repack.stderr}`);
+
+  const dependencies = spawnSync('dpkg-deb', ['-f', finalDeb, 'Depends'], { encoding: 'utf8' });
+  assert.equal(dependencies.status, 0, `Repacked dependencies must be readable: ${dependencies.stderr}`);
+  assert.match(dependencies.stdout, /libwebkit2gtk-4\.1-0/, 'Repack must preserve Tauri-generated WebKit dependencies');
+  assert.match(dependencies.stdout, /libc6 \(>= 2\.34\)/, 'Repack must preserve Tauri-generated libc dependencies');
+  assert.match(dependencies.stdout, /(?:^|, )gstreamer1\.0-plugins-bad(?:,|\s*$)/, 'Debian desktop package must install the GStreamer MediaRecorder runtime');
 
   const extractedData = path.join(fixtureRoot, 'data');
   const extractedControl = path.join(fixtureRoot, 'control');

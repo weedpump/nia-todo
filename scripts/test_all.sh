@@ -179,6 +179,7 @@ run_step "Desktop Hotkey Description Sync" node scripts/test_desktop_hotkey_desc
 run_step "Native Linux Window Integration" node scripts/test_native_linux_window_integration.mjs
 run_step "Native Android Reminder Alarm Policy" node scripts/test_native_android_reminder_alarm_policy.mjs
 run_step "Native Android Microphone Permission" node scripts/test_native_android_microphone_permission.mjs
+run_step "Native Linux Microphone Permission" node scripts/test_native_linux_microphone_permission.mjs
 run_step "Native Windows Installer Cache Hook" node scripts/test_native_windows_installer_cache_hooks.mjs
 
 echo

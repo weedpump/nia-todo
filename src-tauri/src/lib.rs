@@ -1099,6 +1099,22 @@ fn same_url_origin(left: &url::Url, right: &url::Url) -> bool {
     && left.port_or_known_default() == right.port_or_known_default()
 }
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn is_trusted_microphone_webview(label: &str, url: &url::Url) -> bool {
+  if label != "main" {
+    return false;
+  }
+  let host = url.host_str().unwrap_or_default();
+  match url.scheme() {
+    "tauri" => host.eq_ignore_ascii_case("localhost"),
+    "http" | "https" if host.eq_ignore_ascii_case("tauri.localhost") => true,
+    "http" | "https" if cfg!(debug_assertions) => {
+      host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1"
+    }
+    _ => false,
+  }
+}
+
 #[cfg(desktop)]
 const DESKTOP_ATTACHMENT_DOWNLOAD_TIMEOUT_SECS: u64 = 60;
 #[cfg(desktop)]
@@ -1950,9 +1966,42 @@ mod passkey_validation_tests {
   }
 }
 
+#[cfg(all(test, unix, not(target_os = "macos"), not(target_os = "android")))]
+mod linux_microphone_permission_tests {
+  use super::is_trusted_microphone_webview;
+
+  #[test]
+  fn bundled_main_webview_is_trusted_for_microphone_capture() {
+    let tauri = url::Url::parse("tauri://localhost/index.html").unwrap();
+    let http = url::Url::parse("http://tauri.localhost/index.html").unwrap();
+    assert!(is_trusted_microphone_webview("main", &tauri));
+    assert!(is_trusted_microphone_webview("main", &http));
+  }
+
+  #[test]
+  fn secondary_or_remote_webviews_are_not_trusted_for_microphone_capture() {
+    let local = url::Url::parse("tauri://localhost/index.html").unwrap();
+    let remote = url::Url::parse("https://example.test/").unwrap();
+    assert!(!is_trusted_microphone_webview("secondary", &local));
+    assert!(!is_trusted_microphone_webview("main", &remote));
+  }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   let builder = tauri::Builder::default();
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  let builder = builder.on_permission_request(|webview, kind| {
+    use tauri::webview::{PermissionKind, PermissionResponse};
+
+    match kind {
+      PermissionKind::Microphone => match webview.url() {
+        Ok(url) if is_trusted_microphone_webview(webview.label(), &url) => PermissionResponse::Allow,
+        _ => PermissionResponse::Deny,
+      },
+      _ => PermissionResponse::Default,
+    }
+  });
   #[cfg(desktop)]
   let builder = builder
     .plugin(tauri_plugin_notification::init())
