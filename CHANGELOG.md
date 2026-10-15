@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Fixed
+- Allowed microphone capture in the trusted bundled Linux desktop WebView while keeping microphone requests from secondary or remote WebViews denied.
 - Cleared stale BrainDump segment errors after a newer audio segment is successfully transcribed and converted into Todo suggestions.
 - Made closing BrainDump abort the active recording and pending transcription or extraction work so reopening always starts a clean session.
 - Made BrainDump resume its active-speaking state when speech continues after a pause and filtered brief microphone movement or wind spikes from repeatedly resetting the auto-stop countdown across browser and native clients.
