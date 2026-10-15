@@ -8,12 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [3.3.3] - 2026-10-15
 
 ### Fixed
-- Packaged the GStreamer transcoding runtime required by WebKitGTK `MediaRecorder` in Debian desktop installations.
-- Allowed microphone capture in the trusted bundled Linux desktop WebView while keeping microphone requests from secondary or remote WebViews denied.
-- Cleared stale BrainDump segment errors after a newer audio segment is successfully transcribed and converted into Todo suggestions.
-- Made closing BrainDump abort the active recording and pending transcription or extraction work so reopening always starts a clean session.
-- Made BrainDump resume its active-speaking state when speech continues after a pause and filtered brief microphone movement or wind spikes from repeatedly resetting the auto-stop countdown across browser and native clients.
-- Restored BrainDump microphone permission prompts and recording in same-origin web browsers and installed PWAs while keeping microphone access blocked for other origins.
+- Improved BrainDump voice recording reliability in browsers, installed PWAs, and the Linux desktop app.
+- Fixed recordings ending incorrectly after speech pauses or brief background noise.
+- Fixed stale errors and unfinished work carrying over after closing and reopening BrainDump.
 
 ## [3.3.2] - 2026-10-13
 
