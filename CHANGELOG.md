@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Fixed
+- Made closing BrainDump abort the active recording and pending transcription or extraction work so reopening always starts a clean session.
+- Made BrainDump resume its active-speaking state when speech continues after a pause and filtered brief microphone movement or wind spikes from repeatedly resetting the auto-stop countdown across browser and native clients.
 - Restored BrainDump microphone permission prompts and recording in same-origin web browsers and installed PWAs while keeping microphone access blocked for other origins.
 
 ## [3.3.2] - 2026-10-13

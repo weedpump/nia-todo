@@ -8,6 +8,10 @@ import { createNativeBridge } from './native-bridge.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 const SILENCE_LEVEL = 0.035;
+const NATIVE_VOICE_LEVEL = 0.09;
+const WEB_VOICE_CONFIRM_MS = 120;
+const NATIVE_VOICE_CONFIRM_MS = 240;
+const SILENCE_HINT_DELAY_MS = 400;
 const SILENCE_STOP_MS = 3200;
 const MIN_RECORDING_MS = 1600;
 const SNAPSHOT_INTERVAL_MS = 3000;
@@ -67,11 +71,13 @@ export function createBrainDumpLiveFeature(options = {}) {
     stoppedAt: 0,
     lastVoiceAt: 0,
     hasVoice: false,
+    voiceStartedAt: 0,
     level: 0,
     peak: 0,
     segmentId: 0,
     active: 0,
     queue: [],
+    requestControllers: new Set(),
     audioChunks: [],
     lastSnapshotChunkCount: 0,
     latestQueuedSegmentId: 0,
@@ -293,14 +299,7 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   async function close({ fromHistory = false } = {}) {
     if (document.getElementById('braindump-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('braindump-modal', { reason: 'ui' })) return;
-    if (state.starting) {
-      state.startToken += 1;
-      state.starting = false;
-      cleanupRecordingHandles();
-      resetSession();
-    } else if (state.recording) {
-      cancelRecording();
-    }
+    cancelSession();
     document.getElementById('braindump-modal')?.classList.remove('active');
   }
 
@@ -330,6 +329,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.stoppedAt = 0;
     state.lastVoiceAt = 0;
     state.hasVoice = false;
+    state.voiceStartedAt = 0;
     state.workspaceId = null;
   }
 
@@ -456,8 +456,14 @@ export function createBrainDumpLiveFeature(options = {}) {
     }
   }
 
-  function cancelRecording() {
-    if (!state.recording) return;
+  function abortPendingRequests() {
+    for (const controller of state.requestControllers) controller.abort();
+    state.requestControllers.clear();
+  }
+
+  function cancelSession() {
+    state.startToken += 1;
+    abortPendingRequests();
     state.recording = false;
     state.starting = false;
     state.processing = false;
@@ -491,7 +497,9 @@ export function createBrainDumpLiveFeature(options = {}) {
       requestRecorderData();
       try { state.recorder?.stop(); } catch {}
     }
+    const stopToken = state.startToken;
     setTimeout(() => {
+      if (stopToken !== state.startToken) return;
       if (!state.audioChunks.length && state.active === 0 && !state.queue.length) {
         state.error = reason === 'auto' ? t('braindump.error.noVoice') : t('braindump.error.noAudio');
         state.processing = false;
@@ -519,6 +527,19 @@ export function createBrainDumpLiveFeature(options = {}) {
     }
   }
 
+  function updateVoiceActivity(level, now, native = false) {
+    const voiceLevel = native ? NATIVE_VOICE_LEVEL : SILENCE_LEVEL;
+    const confirmMs = native ? NATIVE_VOICE_CONFIRM_MS : WEB_VOICE_CONFIRM_MS;
+    if (level <= voiceLevel) {
+      state.voiceStartedAt = 0;
+      return;
+    }
+    if (!state.voiceStartedAt) state.voiceStartedAt = now;
+    if (now - state.voiceStartedAt < confirmMs) return;
+    state.hasVoice = true;
+    state.lastVoiceAt = now;
+  }
+
   function updateNativeAudioLevel() {
     if (!state.nativeRecording || !state.recording) return;
     try {
@@ -527,10 +548,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       state.level = Math.min(1, normalized * 3.2);
       state.peak = Math.max(state.level, state.peak * 0.92);
       const now = performance.now();
-      if (state.level > SILENCE_LEVEL) {
-        state.hasVoice = true;
-        state.lastVoiceAt = now;
-      }
+      updateVoiceActivity(state.level, now, true);
       if (state.hasVoice && now - state.startedAt > MIN_RECORDING_MS && now - state.lastVoiceAt > SILENCE_STOP_MS) {
         stop('auto');
       }
@@ -551,10 +569,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.level = Math.min(1, rms * 5.5);
     state.peak = Math.max(state.level, state.peak * 0.92);
     const now = performance.now();
-    if (state.level > SILENCE_LEVEL) {
-      state.hasVoice = true;
-      state.lastVoiceAt = now;
-    }
+    updateVoiceActivity(state.level, now);
     if (state.hasVoice && now - state.startedAt > MIN_RECORDING_MS && now - state.lastVoiceAt > SILENCE_STOP_MS) {
       stop('auto');
     }
@@ -627,6 +642,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       audioStartMs: 0,
       audioEndMs,
       kind: reason,
+      sessionToken: state.startToken,
     };
     state.latestQueuedSegmentId = item.segmentId;
     if (state.stoppedAt) {
@@ -647,6 +663,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       const job = state.queue.shift();
       state.active += 1;
       processSegment(job).finally(() => {
+        if (job.item.sessionToken !== state.startToken) return;
         state.active -= 1;
         if (state.stoppedAt && state.active === 0 && state.queue.length === 0) {
           state.processing = false;
@@ -661,11 +678,13 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   async function fetchWithTimeout(url, options, timeoutMs = 60_000) {
     const controller = new AbortController();
+    state.requestControllers.add(controller);
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       return await fetch(url, { ...options, signal: controller.signal });
     } finally {
       clearTimeout(timeout);
+      state.requestControllers.delete(controller);
     }
   }
 
@@ -678,6 +697,8 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   async function processSegment({ item, blob }) {
+    const sessionToken = item.sessionToken;
+    if (sessionToken !== state.startToken) return;
     const workspaceId = activeWorkspaceId();
     const params = new URLSearchParams({
       segment_id: String(item.segmentId),
@@ -698,6 +719,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       });
       if (!transcribeResponse.ok) throw new Error(await transcribeResponse.text());
       const transcribed = await transcribeResponse.json();
+      if (sessionToken !== state.startToken) return;
       if (state.stoppedAt && item.segmentId < state.finalSegmentId) return;
       if (!state.stoppedAt && item.segmentId < state.latestQueuedSegmentId) return;
       state.transcript = transcribed.transcript || state.transcript || '';
@@ -718,6 +740,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       });
       if (!extractResponse.ok) throw new Error(await extractResponse.text());
       const data = await extractResponse.json();
+      if (sessionToken !== state.startToken) return;
       if (state.stoppedAt && item.segmentId < state.finalSegmentId) return;
       if (!state.stoppedAt && item.segmentId < state.latestQueuedSegmentId) return;
       const candidates = Array.isArray(data.json?.candidates) ? data.json.candidates : [];
@@ -725,6 +748,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       applyCandidates(candidates);
       if (state.stoppedAt && item.segmentId === state.finalSegmentId) state.finalProcessed = true;
     } catch (error) {
+      if (sessionToken !== state.startToken) return;
       state.error = String(error?.message || error);
       state.processing = false;
       state.processingPhase = '';
@@ -929,7 +953,11 @@ export function createBrainDumpLiveFeature(options = {}) {
         : t('braindump.processing.transcribing');
     }
     if (hint) {
-      const silenceLeft = state.recording && state.hasVoice ? Math.max(0, (SILENCE_STOP_MS - (performance.now() - state.lastVoiceAt)) / 1000) : null;
+      const silenceLeft = state.recording
+        && state.hasVoice
+        && performance.now() - state.lastVoiceAt >= SILENCE_HINT_DELAY_MS
+        ? Math.max(0, (SILENCE_STOP_MS - (performance.now() - state.lastVoiceAt)) / 1000)
+        : null;
       hint.textContent = state.starting
         ? t('braindump.hint.starting')
         : state.recording
