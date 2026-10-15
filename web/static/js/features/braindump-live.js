@@ -746,6 +746,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       const candidates = Array.isArray(data.json?.candidates) ? data.json.candidates : [];
       state.latestAppliedSegmentId = Math.max(state.latestAppliedSegmentId, item.segmentId);
       applyCandidates(candidates);
+      state.error = '';
       if (state.stoppedAt && item.segmentId === state.finalSegmentId) state.finalProcessed = true;
     } catch (error) {
       if (sessionToken !== state.startToken) return;
