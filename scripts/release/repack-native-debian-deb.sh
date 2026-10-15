@@ -8,6 +8,7 @@ INPUT="${1:-}"
 OUTPUT="${2:-}"
 PACKAGE_NAME="${NIA_TODO_DESKTOP_DEB_PACKAGE:-nia-todo-desktop}"
 APPLICATION_ID="de.tobiaskneidl.nia-todo"
+MEDIA_RECORDER_DEPENDENCY="gstreamer1.0-plugins-bad"
 
 if [ -z "${INPUT}" ] || [ ! -f "${INPUT}" ]; then
   echo "Usage: $0 INPUT.deb [OUTPUT.deb]" >&2
@@ -46,6 +47,13 @@ if ! grep -q '^Package:' "${CONTROL}"; then
   exit 1
 fi
 sed -i "s/^Package:.*/Package: ${PACKAGE_NAME}/" "${CONTROL}"
+if ! grep -Eq '(^|[[:space:],])gstreamer1\.0-plugins-bad([[:space:],]|$)' "${CONTROL}"; then
+  if grep -q '^Depends:' "${CONTROL}"; then
+    sed -i "/^Depends:/ s/$/, ${MEDIA_RECORDER_DEPENDENCY}/" "${CONTROL}"
+  else
+    printf 'Depends: %s\n' "${MEDIA_RECORDER_DEPENDENCY}" >> "${CONTROL}"
+  fi
+fi
 
 PREINST="${WORK_DIR}/root/DEBIAN/preinst"
 PREINST_HOOK="${WORK_DIR}/preinst-stop-desktop"

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Fixed
+- Packaged the GStreamer transcoding runtime required by WebKitGTK `MediaRecorder` in Debian desktop installations.
 - Allowed microphone capture in the trusted bundled Linux desktop WebView while keeping microphone requests from secondary or remote WebViews denied.
 - Cleared stale BrainDump segment errors after a newer audio segment is successfully transcribed and converted into Todo suggestions.
 - Made closing BrainDump abort the active recording and pending transcription or extraction work so reopening always starts a clean session.
