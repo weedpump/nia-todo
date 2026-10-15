@@ -21,6 +21,8 @@ assert not handler.search(oidc_source)
 assert not inline_script.search(oidc_source)
 security=(ROOT/'api/middleware/security.py').read_text()
 assert "script-src 'self' 'unsafe-inline'" not in security
+assert 'microphone=(self)' in security
+assert 'microphone=()' not in security
 config=json.loads((ROOT/'src-tauri/tauri.conf.json').read_text())
 assert config['app']['withGlobalTauri'] is False
 assert "script-src 'self' 'unsafe-inline'" not in config['app']['security']['csp']

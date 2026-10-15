@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Restored BrainDump microphone permission prompts and recording in same-origin web browsers and installed PWAs while keeping microphone access blocked for other origins.
+
 ## [3.3.2] - 2026-10-13
 
 ### Added
