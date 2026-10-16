@@ -254,8 +254,24 @@ export function createNativeBridge() {
     return invokeTauri('desktop_install_update');
   }
 
+  async function installDebianUpdate(download) {
+    if (!isDesktop() || RUNTIME_PLATFORM !== 'linux') {
+      throw new Error('Native Debian updates are only available in the Linux desktop app');
+    }
+    return invokeTauri('desktop_install_debian_update', {
+      update: {
+        url: String(download?.url || ''),
+        filename: String(download?.filename || ''),
+        version: String(download?.version || '').replace(/^v/, ''),
+        sha256: String(download?.sha256 || ''),
+        sizeBytes: Number(download?.sizeBytes || 0),
+        signature: String(download?.signature || ''),
+      },
+    });
+  }
+
   async function listenNativeUpdateProgress(callback) {
-    if (!isDesktop() || RUNTIME_PLATFORM !== 'windows' || typeof callback !== 'function') return null;
+    if (!isDesktop() || !['windows', 'linux'].includes(RUNTIME_PLATFORM) || typeof callback !== 'function') return null;
     const listen = tauri()?.event?.listen;
     if (!listen) return null;
     return listen('native-update-progress', (event) => callback(event?.payload || {}));
@@ -399,6 +415,7 @@ export function createNativeBridge() {
     openExternal,
     downloadToDownloads,
     installUpdate,
+    installDebianUpdate,
     listenNativeUpdateProgress,
     listenOidcCallbacks,
     setSystemBarsTheme,

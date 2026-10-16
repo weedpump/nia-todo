@@ -25,8 +25,9 @@ assert.match(
   /mv "\$\{TAURI_DESKTOP_ENTRY\}" "\$\{PORTAL_DESKTOP_ENTRY\}"/,
   'Debian desktop repack must make the desktop filename match the registered portal application ID',
 );
-assert.match(buildWorkflow, /repack-native-debian-deb\.sh src-tauri\/target\/release\/bundle\/deb\/nia-todo_\*_amd64\.deb/, 'Build workflow must repack the raw Tauri deb before staging');
-assert.match(buildWorkflow, /cp "\$\{BUILT\}" dist\/ci-debian-desktop\/nia-todo-desktop-amd64\.deb/, 'Build workflow must stage the repacked Debian desktop deb');
+assert.match(buildWorkflow, /repack-native-debian-deb\.sh/, 'Build workflow must repack the raw Tauri deb before staging');
+assert.match(buildWorkflow, /dist\/ci-debian-desktop\/nia-todo-desktop-amd64\.deb/, 'Build workflow must stage the repacked Debian desktop deb');
+assert.match(buildWorkflow, /src-tauri\/target\/release\/nia-todo-desktop-updater/, 'Build workflow must inject the restricted updater binary');
 assert.ok(
   !buildWorkflow.split('\n').some(line => line.includes('cp ') && line.includes('src-tauri/target/release/bundle/deb/nia-todo_') && line.includes('dist/ci-debian-desktop')),
   'Build workflow must not stage the raw Tauri deb with Package: nia-todo',
@@ -60,15 +61,29 @@ try {
 
   const rawDeb = path.join(fixtureRoot, 'nia-todo_1.0.0_amd64.deb');
   const finalDeb = path.join(fixtureRoot, 'nia-todo-desktop_1.0.0_amd64.deb');
+  const updaterBinary = path.join(fixtureRoot, 'nia-todo-desktop-updater');
+  fs.writeFileSync(updaterBinary, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
   assert.equal(spawnSync('dpkg-deb', ['--build', packageRoot, rawDeb], { encoding: 'utf8' }).status, 0, 'Fixture deb must build');
-  const repack = spawnSync(path.join(repoRoot, 'scripts/release/repack-native-debian-deb.sh'), [rawDeb, finalDeb], { encoding: 'utf8' });
+  const repack = spawnSync(path.join(repoRoot, 'scripts/release/repack-native-debian-deb.sh'), [rawDeb, finalDeb, updaterBinary], { encoding: 'utf8' });
   assert.equal(repack.status, 0, `Debian repack must succeed: ${repack.stderr}`);
+  const archiveContents = spawnSync('dpkg-deb', ['--contents', finalDeb], { encoding: 'utf8' });
+  assert.equal(archiveContents.status, 0, `Repacked archive contents must be readable: ${archiveContents.stderr}`);
+  for (const packagedPath of [
+    './usr/lib/nia-todo-desktop/nia-todo-desktop-updater',
+    './usr/share/polkit-1/actions/de.tobiaskneidl.nia-todo.desktop-update.policy',
+    './var/lib/nia-todo-desktop/updater/',
+  ]) {
+    const line = archiveContents.stdout.split('\n').find(entry => entry.endsWith(packagedPath));
+    assert.ok(line, `Repacked archive must contain ${packagedPath}`);
+    assert.match(line, /\sroot\/root\s/, `${packagedPath} must be archived as root:root`);
+  }
 
   const dependencies = spawnSync('dpkg-deb', ['-f', finalDeb, 'Depends'], { encoding: 'utf8' });
   assert.equal(dependencies.status, 0, `Repacked dependencies must be readable: ${dependencies.stderr}`);
   assert.match(dependencies.stdout, /libwebkit2gtk-4\.1-0/, 'Repack must preserve Tauri-generated WebKit dependencies');
   assert.match(dependencies.stdout, /libc6 \(>= 2\.34\)/, 'Repack must preserve Tauri-generated libc dependencies');
   assert.match(dependencies.stdout, /(?:^|, )gstreamer1\.0-plugins-bad(?:,|\s*$)/, 'Debian desktop package must install the GStreamer MediaRecorder runtime');
+  assert.match(dependencies.stdout, /(?:^|, )pkexec(?:,|\s*$)/, 'Debian desktop package must install the Polkit execution runtime');
 
   const extractedData = path.join(fixtureRoot, 'data');
   const extractedControl = path.join(fixtureRoot, 'control');
@@ -83,8 +98,16 @@ try {
   assert.ok(preinst.indexOf('set -e') < preinst.indexOf('start-stop-daemon'), 'Repacked preinst must enable fail-fast behavior before stopping the app');
   assert.ok(preinst.indexOf('start-stop-daemon') < preinst.indexOf('original-preinst'), 'Repacked preinst must stop the app before running the original maintainer script body');
   assert.equal(fs.statSync(preinstPath).mode & 0o777, 0o755, 'Repacked preinst must be executable');
+  const updaterPath = path.join(extractedData, 'usr/lib/nia-todo-desktop/nia-todo-desktop-updater');
+  const policyPath = path.join(extractedData, 'usr/share/polkit-1/actions/de.tobiaskneidl.nia-todo.desktop-update.policy');
+  const rootStagePath = path.join(extractedData, 'var/lib/nia-todo-desktop/updater');
+  assert.equal(fs.statSync(updaterPath).mode & 0o777, 0o755, 'Restricted updater must be executable');
+  assert.equal(fs.statSync(policyPath).mode & 0o777, 0o644, 'Polkit policy must not be executable');
+  assert.equal(fs.statSync(rootStagePath).mode & 0o777, 0o700, 'Root update staging must not be accessible to users');
   const md5sums = fs.readFileSync(path.join(extractedControl, 'md5sums'), 'utf8');
   assert.match(md5sums, /usr\/share\/applications\/de\.tobiaskneidl\.nia-todo\.desktop/, 'md5sums must cover the renamed desktop entry');
+  assert.match(md5sums, /usr\/lib\/nia-todo-desktop\/nia-todo-desktop-updater/, 'md5sums must cover the restricted updater');
+  assert.match(md5sums, /usr\/share\/polkit-1\/actions\/de\.tobiaskneidl\.nia-todo\.desktop-update\.policy/, 'md5sums must cover the Polkit policy');
   assert.doesNotMatch(md5sums, /usr\/share\/applications\/nia-todo\.desktop/, 'md5sums must not retain the removed desktop entry');
   const md5Check = spawnSync('md5sum', ['-c', path.join(extractedControl, 'md5sums')], { cwd: extractedData, encoding: 'utf8' });
   assert.equal(md5Check.status, 0, `Repacked md5sums must validate: ${md5Check.stdout}${md5Check.stderr}`);
@@ -96,7 +119,7 @@ try {
   const unsupportedDeb = path.join(fixtureRoot, 'unsupported_1.0.0_amd64.deb');
   const unsupportedOutput = path.join(fixtureRoot, 'unsupported-repacked.deb');
   assert.equal(spawnSync('dpkg-deb', ['--build', unsupportedRoot, unsupportedDeb], { encoding: 'utf8' }).status, 0, 'Unsupported-interpreter fixture deb must build');
-  const unsupportedRepack = spawnSync(path.join(repoRoot, 'scripts/release/repack-native-debian-deb.sh'), [unsupportedDeb, unsupportedOutput], { encoding: 'utf8' });
+  const unsupportedRepack = spawnSync(path.join(repoRoot, 'scripts/release/repack-native-debian-deb.sh'), [unsupportedDeb, unsupportedOutput, updaterBinary], { encoding: 'utf8' });
   assert.notEqual(unsupportedRepack.status, 0, 'Debian repack must reject a non-shell preinst');
   assert.match(unsupportedRepack.stderr, /Unsupported existing preinst interpreter/, 'Unsupported preinst rejection must explain the interpreter constraint');
 } finally {

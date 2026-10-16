@@ -6,14 +6,20 @@ set -euo pipefail
 
 INPUT="${1:-}"
 OUTPUT="${2:-}"
+UPDATER_BINARY="${3:-}"
 PACKAGE_NAME="${NIA_TODO_DESKTOP_DEB_PACKAGE:-nia-todo-desktop}"
 APPLICATION_ID="de.tobiaskneidl.nia-todo"
 MEDIA_RECORDER_DEPENDENCY="gstreamer1.0-plugins-bad"
+PKEXEC_DEPENDENCY="pkexec"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+POLKIT_POLICY="${REPO_ROOT}/src-tauri/linux/de.tobiaskneidl.nia-todo.desktop-update.policy"
 
-if [ -z "${INPUT}" ] || [ ! -f "${INPUT}" ]; then
-  echo "Usage: $0 INPUT.deb [OUTPUT.deb]" >&2
+if [ -z "${INPUT}" ] || [ ! -f "${INPUT}" ] || [ -z "${UPDATER_BINARY}" ] || [ ! -f "${UPDATER_BINARY}" ]; then
+  echo "Usage: $0 INPUT.deb [OUTPUT.deb] UPDATER_BINARY" >&2
   exit 2
 fi
+[ -f "${POLKIT_POLICY}" ] || { echo "Missing Polkit policy: ${POLKIT_POLICY}" >&2; exit 1; }
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "Missing required command: $1" >&2; exit 127; }
@@ -54,6 +60,19 @@ if ! grep -Eq '(^|[[:space:],])gstreamer1\.0-plugins-bad([[:space:],]|$)' "${CON
     printf 'Depends: %s\n' "${MEDIA_RECORDER_DEPENDENCY}" >> "${CONTROL}"
   fi
 fi
+if ! grep -Eq '(^|[[:space:],])pkexec([[:space:],]|$)' "${CONTROL}"; then
+  if grep -q '^Depends:' "${CONTROL}"; then
+    sed -i "/^Depends:/ s/$/, ${PKEXEC_DEPENDENCY}/" "${CONTROL}"
+  else
+    printf 'Depends: %s\n' "${PKEXEC_DEPENDENCY}" >> "${CONTROL}"
+  fi
+fi
+
+install -D -m 0755 "${UPDATER_BINARY}" \
+  "${WORK_DIR}/root/usr/lib/nia-todo-desktop/nia-todo-desktop-updater"
+install -D -m 0644 "${POLKIT_POLICY}" \
+  "${WORK_DIR}/root/usr/share/polkit-1/actions/de.tobiaskneidl.nia-todo.desktop-update.policy"
+install -d -m 0700 "${WORK_DIR}/root/var/lib/nia-todo-desktop/updater"
 
 PREINST="${WORK_DIR}/root/DEBIAN/preinst"
 PREINST_HOOK="${WORK_DIR}/preinst-stop-desktop"
@@ -112,6 +131,6 @@ mv "${TAURI_DESKTOP_ENTRY}" "${PORTAL_DESKTOP_ENTRY}"
   find . -type f ! -path './DEBIAN/*' -printf '%P\0' | sort -z | xargs -0 md5sum
 ) > "${WORK_DIR}/root/DEBIAN/md5sums"
 
-dpkg-deb --build "${WORK_DIR}/root" "${OUTPUT}" >/dev/null
+dpkg-deb --root-owner-group --build "${WORK_DIR}/root" "${OUTPUT}" >/dev/null
 
 echo "${OUTPUT}"

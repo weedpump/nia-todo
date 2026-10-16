@@ -1,6 +1,7 @@
 [package]
 name = "nia-todo-desktop"
 version = "3.3.3"
+default-run = "nia-todo-desktop"
 description = "Desktop wrapper for nia-todo"
 authors = ["Tobias Kneidl"]
 edition = "2021"
@@ -9,6 +10,14 @@ license = "AGPL-3.0-or-later"
 [lib]
 name = "nia_todo_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "nia-todo-desktop"
+path = "src/main.rs"
+
+[[bin]]
+name = "nia-todo-desktop-updater"
+path = "src/bin/nia-todo-desktop-updater.rs"
 
 [build-dependencies]
 tauri-build = { version = "2.7.1", features = [] }
@@ -28,11 +37,16 @@ tauri-plugin-single-instance = "2"
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))'.dependencies]
 ashpd = { version = "0.13.12", features = ["global_shortcuts"] }
+base64 = "0.22"
 futures-util = "0.3"
 futures-channel = "0.3"
 gtk = "0.18"
 gdkwayland-sys = "0.18"
 gdkx11-sys = "0.18"
+libc = "0.2"
+minisign-verify = "0.3"
+rand = "0.9"
+sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 base64 = "0.22"

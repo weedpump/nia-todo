@@ -2,6 +2,10 @@
 mod windows_update;
 #[cfg(target_os = "windows")]
 use windows_update::desktop_install_update;
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+mod debian_update;
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+use debian_update::desktop_install_debian_update;
 
 use serde::{Deserialize, Serialize};
 use std::{
@@ -35,6 +39,12 @@ use std::process::Command;
 #[tauri::command]
 async fn desktop_install_update() -> Result<bool, String> {
   Err("Native in-place updates are currently available on Windows only".to_string())
+}
+
+#[cfg(not(all(unix, not(target_os = "macos"), not(target_os = "android"))))]
+#[tauri::command]
+async fn desktop_install_debian_update(_update: serde_json::Value) -> Result<bool, String> {
+  Err("Native Debian updates are only available on Linux".to_string())
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
@@ -2046,6 +2056,7 @@ pub fn run() {
       desktop_clear_server_url,
       desktop_open_url,
       desktop_install_update,
+      desktop_install_debian_update,
       desktop_download_attachment,
       desktop_sync_hotkey_descriptions,
       desktop_set_hotkey,
