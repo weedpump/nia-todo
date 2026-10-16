@@ -74,19 +74,24 @@ export function setNativeUpdateButtonBusy(button, busy) {
     button.dataset.updateBusy = 'true';
     button.dataset.updateHref = button.getAttribute('href') || '';
     button.dataset.updateDownload = button.getAttribute('download') || '';
+    button.dataset.updateTabindex = button.getAttribute('tabindex') ?? '';
     button.setAttribute('aria-disabled', 'true');
-    button.setAttribute('disabled', '');
+    button.setAttribute('tabindex', '-1');
+    button.classList.add('is-native-update-busy');
     button.removeAttribute('href');
     button.removeAttribute('download');
     return;
   }
   button.dataset.updateBusy = 'false';
   button.removeAttribute('aria-disabled');
-  button.removeAttribute('disabled');
+  button.classList.remove('is-native-update-busy');
+  if (button.dataset.updateTabindex) button.setAttribute('tabindex', button.dataset.updateTabindex);
+  else button.removeAttribute('tabindex');
   if (button.dataset.updateHref) button.setAttribute('href', button.dataset.updateHref);
   if (button.dataset.updateDownload) button.setAttribute('download', button.dataset.updateDownload);
   delete button.dataset.updateHref;
   delete button.dataset.updateDownload;
+  delete button.dataset.updateTabindex;
 }
 
 export function formatNativeUpdateProgressLabel(progress, { downloadLabel, installLabel }) {

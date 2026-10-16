@@ -57,6 +57,12 @@ const scenario = String.raw`
   ]);
   const button = {
     dataset: {},
+    classList: {
+      values: new Set(),
+      add(value) { this.values.add(value); },
+      remove(value) { this.values.delete(value); },
+      contains(value) { return this.values.has(value); },
+    },
     getAttribute: (name) => attributes.get(name) ?? null,
     hasAttribute: (name) => attributes.has(name),
     setAttribute: (name, value) => attributes.set(name, String(value)),
@@ -66,7 +72,8 @@ const scenario = String.raw`
   if (button.dataset.updateBusy !== 'true' || button.getAttribute('aria-disabled') !== 'true') {
     throw new Error('busy Debian update button must expose disabled state');
   }
-  if (!button.hasAttribute('disabled') || button.hasAttribute('href') || button.hasAttribute('download')) {
+  if (button.hasAttribute('disabled') || !button.classList.contains('is-native-update-busy')
+      || button.getAttribute('tabindex') !== '-1' || button.hasAttribute('href') || button.hasAttribute('download')) {
     throw new Error('busy Debian update button must not remain actionable');
   }
   const downloadingLabel = formatNativeUpdateProgressLabel(
@@ -84,7 +91,8 @@ const scenario = String.raw`
     throw new Error('install phase must use the install action label');
   }
   setNativeUpdateButtonBusy(button, false);
-  if (button.dataset.updateBusy !== 'false' || button.hasAttribute('disabled') || button.hasAttribute('aria-disabled')) {
+  if (button.dataset.updateBusy !== 'false' || button.classList.contains('is-native-update-busy')
+      || button.hasAttribute('tabindex') || button.hasAttribute('aria-disabled')) {
     throw new Error('failed Debian update must restore the enabled button state');
   }
   if (button.getAttribute('href') !== download.url || button.getAttribute('download') !== download.filename) {

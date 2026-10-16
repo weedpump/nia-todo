@@ -259,6 +259,14 @@
   justify-content: center;
 }
 
+#native-app-update-download-btn.is-native-update-busy {
+  pointer-events: none;
+  cursor: wait;
+  opacity: 1;
+  filter: none;
+  transform: none;
+}
+
 @media (max-width: 768px) {
   .web-update-modal.active {
     display: flex;
