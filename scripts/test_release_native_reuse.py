@@ -18,10 +18,12 @@ def test_embed_native_downloads_decouples_web_and_native_versions():
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         downloads = tmp_path / "downloads"
-        windows = tmp_path / "nia-todo-v2.11.1-windows-x64-setup.exe"
+        windows = tmp_path / "nia-todo-v2.11.2-windows-x64-setup.exe"
+        windows_signature = tmp_path / "nia-todo-v2.11.2-windows-x64-setup.exe.sig"
         android = tmp_path / "nia-todo-v2.11.1-android-arm64.apk"
         debian = tmp_path / "nia-todo-desktop-v2.11.1-debian-amd64.deb"
         windows.write_bytes(b"windows-installer")
+        windows_signature.write_text("signed updater payload\n", encoding="utf-8")
         android.write_bytes(b"android-apk")
         debian.write_bytes(b"debian-deb")
 
@@ -31,7 +33,9 @@ def test_embed_native_downloads_decouples_web_and_native_versions():
                 "--download-dir", str(downloads),
                 "--web-version", "2.12.0",
                 "--native-app-version", "2.11.1",
+                "--windows-version", "2.11.2",
                 "--windows-installer", str(windows),
+                "--windows-signature", str(windows_signature),
                 "--android-apk", str(android),
                 "--debian-deb", str(debian),
             ],
@@ -47,13 +51,19 @@ def test_embed_native_downloads_decouples_web_and_native_versions():
         assert_equal(manifest["latest"]["debian"]["platform"], "debian", "latest debian platform")
 
         by_platform = {entry["platform"]: entry for entry in manifest["apps"]}
-        assert_equal(by_platform["windows"]["version"], "v2.11.1", "windows app version")
-        assert_equal(by_platform["windows"]["filename"], "nia-todo-v2.11.1-windows-x64-setup.exe", "windows filename")
+        assert_equal(by_platform["windows"]["version"], "v2.11.2", "windows app version")
+        assert by_platform["windows"]["tauri_updater"] is True
+        assert_equal(by_platform["windows"]["filename"], "nia-todo-v2.11.2-windows-x64-setup.exe", "windows filename")
         assert_equal(by_platform["android"]["version"], "v2.11.1", "android app version")
         assert_equal(by_platform["android"]["filename"], "nia-todo-v2.11.1-android-arm64.apk", "android filename")
         assert_equal(by_platform["debian"]["version"], "v2.11.1", "debian app version")
         assert_equal(by_platform["debian"]["filename"], "nia-todo-desktop-v2.11.1-debian-amd64.deb", "debian filename")
-        assert (downloads / "nia-todo-v2.11.1-windows-x64-setup.exe").is_file()
+        assert (downloads / "nia-todo-v2.11.2-windows-x64-setup.exe").is_file()
+        assert_equal(
+            (downloads / "nia-todo-v2.11.2-windows-x64-setup.exe.sig").read_text(encoding="utf-8"),
+            "signed updater payload\n",
+            "Windows updater signature",
+        )
         assert (downloads / "nia-todo-v2.11.1-android-arm64.apk").is_file()
         assert (downloads / "nia-todo-desktop-v2.11.1-debian-amd64.deb").is_file()
         assert not (downloads / "nia-todo-v2.12.0-windows-x64-setup.exe").exists()
@@ -67,8 +77,61 @@ def test_release_scripts_expose_native_app_version_flow():
 
     for label, text in (("full-bundle", full_bundle), ("docker", docker_build)):
         assert "--native-app-version" in text, f"{label} must accept native app version"
+        assert "--windows-version" in text, f"{label} must accept Windows app version"
+        assert "--windows-signature" in text, f"{label} must accept Windows updater signature"
         assert "--debian-deb" in text, f"{label} must accept Debian package input"
         assert "embed-native-downloads.py" in text, f"{label} must use shared manifest writer"
+    assert '${FORCE:+--force}' not in docker_build, "docker build must not treat FORCE=0 as enabled"
+
+
+def test_ad_hoc_windows_artifact_can_remain_unsigned():
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        windows = tmp_path / "windows.exe"
+        windows.write_bytes(b"ad-hoc windows installer")
+        downloads = tmp_path / "downloads"
+        subprocess.run(
+            [
+                str(ROOT / "scripts/release/embed-native-downloads.py"),
+                "--download-dir", str(downloads),
+                "--web-version", "2.12.0",
+                "--native-app-version", "2.11.1",
+                "--windows-version", "2.11.2",
+                "--windows-installer", str(windows),
+                "--allow-missing-apps",
+            ],
+            cwd=ROOT,
+            check=True,
+        )
+        assert (downloads / "nia-todo-v2.11.2-windows-x64-setup.exe").is_file()
+        assert not (downloads / "nia-todo-v2.11.2-windows-x64-setup.exe.sig").exists()
+        manifest = json.loads((downloads / "app-downloads.json").read_text(encoding="utf-8"))
+        windows_entry = next(entry for entry in manifest["apps"] if entry["platform"] == "windows")
+        assert windows_entry["tauri_updater"] is False
+
+
+def test_release_windows_artifact_requires_signature():
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        windows = tmp_path / "windows.exe"
+        windows.write_bytes(b"release windows installer")
+        result = subprocess.run(
+            [
+                str(ROOT / "scripts/release/embed-native-downloads.py"),
+                "--download-dir", str(tmp_path / "downloads"),
+                "--web-version", "2.12.0",
+                "--native-app-version", "2.12.0",
+                "--windows-installer", str(windows),
+                "--require-windows-signature",
+                "--allow-missing-apps",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "unrecognized arguments" not in result.stderr.lower()
+        assert "signature" in result.stderr.lower()
 
 
 def test_release_shell_syntax():
@@ -89,6 +152,8 @@ def test_release_shell_syntax():
 def main():
     test_embed_native_downloads_decouples_web_and_native_versions()
     test_release_scripts_expose_native_app_version_flow()
+    test_ad_hoc_windows_artifact_can_remain_unsigned()
+    test_release_windows_artifact_requires_signature()
     test_release_shell_syntax()
     print("✅ release native reuse tests passed")
 

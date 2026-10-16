@@ -164,7 +164,7 @@
   "update.native.installed": "Geïnstalleerd:",
   "update.native.new": "Nieuw:",
   "update.native.later": "Later",
-  "update.native.download": "Update downloaden",
+  "update.native.install": "Update installeren",
   "update.native.unknownVersion": "onbekend",
   "version.appVersion": "App-versie:",
   "todo.edit": "Bewerk taak",

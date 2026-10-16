@@ -39,7 +39,10 @@ def main() -> int:
     parser.add_argument("--download-dir", required=True, type=Path)
     parser.add_argument("--web-version", required=True)
     parser.add_argument("--native-app-version", required=True)
+    parser.add_argument("--windows-version")
     parser.add_argument("--windows-installer", type=Path)
+    parser.add_argument("--windows-signature", type=Path)
+    parser.add_argument("--require-windows-signature", action="store_true")
     parser.add_argument("--android-apk", type=Path)
     parser.add_argument("--debian-deb", type=Path)
     parser.add_argument("--allow-missing-apps", action="store_true")
@@ -47,17 +50,26 @@ def main() -> int:
 
     web_version = args.web_version.strip().removeprefix("v")
     native_version = args.native_app_version.strip().removeprefix("v")
-    for label, value in (("web", web_version), ("native app", native_version)):
+    windows_version = (args.windows_version or native_version).strip().removeprefix("v")
+    for label, value in (("web", web_version), ("native app", native_version), ("Windows app", windows_version)):
         if not STABLE_VERSION_RE.fullmatch(value):
             raise SystemExit(f"Invalid {label} version: {value}")
 
     args.download_dir.mkdir(parents=True, exist_ok=True)
     required = not args.allow_missing_apps
 
-    windows_name = f"nia-todo-v{native_version}-windows-x64-setup.exe"
+    windows_name = f"nia-todo-v{windows_version}-windows-x64-setup.exe"
     android_name = f"nia-todo-v{native_version}-android-arm64.apk"
     debian_name = f"nia-todo-desktop-v{native_version}-debian-amd64.deb"
     windows_sha, windows_size = copy_artifact(args.windows_installer, args.download_dir, windows_name, required=required)
+    if args.require_windows_signature and args.windows_installer and not args.windows_signature:
+        raise SystemExit("Missing required Windows updater signature")
+    if args.windows_installer and args.windows_signature:
+        if not args.windows_signature.is_file():
+            raise SystemExit(f"Missing Windows updater signature: {args.windows_signature}")
+        shutil.copy2(args.windows_signature, args.download_dir / f"{windows_name}.sig")
+    elif args.windows_signature:
+        raise SystemExit("Windows updater signature supplied without Windows installer")
     android_sha, android_size = copy_artifact(args.android_apk, args.download_dir, android_name, required=required)
     debian_sha, debian_size = copy_artifact(args.debian_deb, args.download_dir, debian_name, required=required)
 
@@ -67,11 +79,12 @@ def main() -> int:
             "platform": "windows",
             "arch": "x64",
             "label": "Windows Setup",
-            "version": f"v{native_version}",
+            "version": f"v{windows_version}",
             "filename": windows_name,
             "url": f"/downloads/{windows_name}",
             "sha256": windows_sha,
             "size_bytes": windows_size,
+            "tauri_updater": bool(args.windows_signature),
         })
     if android_sha:
         apps.append({

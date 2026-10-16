@@ -207,6 +207,12 @@
           "markdownDescription": "Enables the desktop_get_settings command without any pre-configured scope."
         },
         {
+          "description": "Enables the desktop_install_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-install-update",
+          "markdownDescription": "Enables the desktop_install_update command without any pre-configured scope."
+        },
+        {
           "description": "Enables the desktop_notify command without any pre-configured scope.",
           "type": "string",
           "const": "allow-desktop-notify",
@@ -295,6 +301,12 @@
           "type": "string",
           "const": "deny-desktop-get-settings",
           "markdownDescription": "Denies the desktop_get_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the desktop_install_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-install-update",
+          "markdownDescription": "Denies the desktop_install_update command without any pre-configured scope."
         },
         {
           "description": "Denies the desktop_notify command without any pre-configured scope.",

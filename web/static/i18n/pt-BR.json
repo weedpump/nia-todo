@@ -164,7 +164,7 @@
   "update.native.installed": "Instalado:",
   "update.native.new": "Novo:",
   "update.native.later": "Mais tarde",
-  "update.native.download": "Baixar atualização",
+  "update.native.install": "Instalar atualização",
   "update.native.unknownVersion": "desconhecido",
   "version.appVersion": "Versão do aplicativo:",
   "todo.edit": "Editar tarefas",

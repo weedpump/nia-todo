@@ -164,7 +164,7 @@
   "update.native.installed": "Установлено:",
   "update.native.new": "Новое:",
   "update.native.later": "Позже",
-  "update.native.download": "Скачать обновление",
+  "update.native.install": "Установить обновление",
   "update.native.unknownVersion": "неизвестно",
   "version.appVersion": "Версия приложения:",
   "todo.edit": "Изменить задачу",
