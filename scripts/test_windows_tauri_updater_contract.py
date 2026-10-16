@@ -45,6 +45,7 @@ def test_windows_release_publishes_updater_signature():
         "- name: Rename to a fixed artifact name", 1
     )[0]
     assert "if: inputs.version != ''" in signed_step
+    assert "cargo install cargo-xwin --locked" in workflow
     assert "TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" in workflow
     assert "TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" in workflow
     assert "if: inputs.version == ''" in unsigned_step

@@ -89,7 +89,7 @@ jobs:
         with: { targets: x86_64-pc-windows-msvc }
       - run: |
           rustup target add x86_64-pc-windows-msvc
-          cargo install cargo-xwin
+          cargo install cargo-xwin --locked
       - run: python3 scripts/prepare_tauri_frontend_dist.py
       - name: Build signed Windows release installer
         if: inputs.version != ''
