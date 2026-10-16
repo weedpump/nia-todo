@@ -132,6 +132,7 @@ def main() -> int:
             "url": f"/downloads/{android_name}",
             "sha256": android_sha,
             "size_bytes": android_size,
+            "android_updater": True,
         })
     if debian_sha:
         apps.append({

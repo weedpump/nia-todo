@@ -201,6 +201,19 @@
       </div>
     </div>
 
+    <div class="modal web-update-modal" id="android-update-permission-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="android-update-permission-title">
+      <div class="modal-overlay web-update-backdrop"></div>
+      <div class="modal-content web-update-content">
+        <div class="web-update-icon" aria-hidden="true" data-icon="shield-check"></div>
+        <h3 id="android-update-permission-title" data-i18n-key="update.android.permission.title">Berechtigung für Updates</h3>
+        <p id="android-update-permission-message" data-i18n-key="update.android.permission.body">Damit nia-todo Updates installieren kann, muss Android die Installation von Apps aus dieser Quelle erlauben. Aktiviere im nächsten Bildschirm „Aus dieser Quelle zulassen“ und kehre anschließend zu nia-todo zurück.</p>
+        <div class="web-update-actions">
+          <button type="button" class="btn btn-secondary" id="android-update-permission-cancel" data-i18n-key="common.cancel">Abbrechen</button>
+          <button type="button" class="btn btn-primary" id="android-update-permission-open-settings" data-i18n-key="update.android.permission.openSettings">Einstellungen öffnen</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal ui-detail-modal ui-detail-view" id="about-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="about-modal-title">
       <div class="modal-overlay" data-close-modal="about-modal"></div>
       <div class="modal-content ui-detail-modal-content">

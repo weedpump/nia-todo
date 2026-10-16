@@ -1,6 +1,11 @@
 import { RUNTIME_CAPABILITIES, RUNTIME_PLATFORM, getTauri, getTauriInvoke } from '../core/config.js';
 import { t } from '../i18n/index.js';
 
+const androidUpdateRequests = new Map();
+const androidUpdaterCalls = new Map();
+const ANDROID_UPDATE_TIMEOUT_MS = 10 * 60 * 1000;
+const ANDROID_UPDATER_CALL_TIMEOUT_MS = 15_000;
+
 export function createNativeBridge() {
   const android = () => window.NiaAndroidNative || null;
   const androidSystemBars = () => window.NiaAndroidSystemBars || null;
@@ -128,6 +133,115 @@ export function createNativeBridge() {
     } catch {
       return { ok: false, error: String(raw || fallbackError) };
     }
+  }
+
+  const androidUpdater = () => window.NiaAndroidUpdater || null;
+
+  function hasAndroidUpdater() {
+    return isAndroid() && typeof androidUpdater()?.postMessage === 'function';
+  }
+
+  function ensureAndroidUpdateCallbacks() {
+    if (typeof window.__niaAndroidUpdateProgress !== 'function') {
+      Object.defineProperty(window, '__niaAndroidUpdateProgress', {
+        configurable: false,
+        writable: false,
+        value: (requestId, progress) => {
+          androidUpdateRequests.get(String(requestId))?.onProgress?.(progress || {});
+        },
+      });
+    }
+    if (typeof window.__niaAndroidUpdateComplete !== 'function') {
+      Object.defineProperty(window, '__niaAndroidUpdateComplete', {
+        configurable: false,
+        writable: false,
+        value: (requestId, success, payload) => {
+          const key = String(requestId);
+          const pending = androidUpdateRequests.get(key);
+          if (!pending) return;
+          clearTimeout(pending.timeoutId);
+          androidUpdateRequests.delete(key);
+          if (success) pending.resolve(Boolean(payload?.started));
+          else pending.reject(new Error(payload?.error || 'Android update failed'));
+        },
+      });
+    }
+    if (typeof window.__niaAndroidUpdaterResponse !== 'function') {
+      Object.defineProperty(window, '__niaAndroidUpdaterResponse', {
+        configurable: false,
+        writable: false,
+        value: (requestId, success, payload) => {
+          const key = String(requestId);
+          const pending = androidUpdaterCalls.get(key);
+          if (!pending) return;
+          clearTimeout(pending.timeoutId);
+          androidUpdaterCalls.delete(key);
+          if (success) pending.resolve(payload);
+          else pending.reject(new Error(payload?.error || 'Android updater bridge call failed'));
+        },
+      });
+    }
+  }
+
+  function callAndroidUpdater(action, payload = {}) {
+    if (!hasAndroidUpdater()) return Promise.reject(new Error('Android updater bridge unavailable'));
+    ensureAndroidUpdateCallbacks();
+    const requestId = globalThis.crypto?.randomUUID?.() || `android-updater-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        androidUpdaterCalls.delete(requestId);
+        reject(new Error('Android updater bridge call timed out'));
+      }, ANDROID_UPDATER_CALL_TIMEOUT_MS);
+      androidUpdaterCalls.set(requestId, { resolve, reject, timeoutId });
+      try {
+        androidUpdater().postMessage(JSON.stringify({ requestId, action, ...payload }));
+      } catch (error) {
+        clearTimeout(timeoutId);
+        androidUpdaterCalls.delete(requestId);
+        reject(error);
+      }
+    });
+  }
+
+  async function androidUpdatePermissionState() {
+    if (!hasAndroidUpdater()) return 'unsupported';
+    const payload = await callAndroidUpdater('permissionState');
+    return String(payload?.state || 'prompt');
+  }
+
+  async function openAndroidUpdatePermissionSettings() {
+    if (!hasAndroidUpdater()) return false;
+    const payload = await callAndroidUpdater('openPermissionSettings');
+    return Boolean(payload?.opened);
+  }
+
+  function installAndroidUpdate(download, onProgress = () => {}) {
+    if (!hasAndroidUpdater()) return Promise.reject(new Error('Android update bridge unavailable'));
+    ensureAndroidUpdateCallbacks();
+    const requestId = globalThis.crypto?.randomUUID?.() || `android-update-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        androidUpdateRequests.delete(requestId);
+        try { androidUpdater().postMessage(JSON.stringify({ requestId, action: 'cancel' })); } catch (_error) {}
+        reject(new Error('Android update timed out'));
+      }, ANDROID_UPDATE_TIMEOUT_MS);
+      androidUpdateRequests.set(requestId, { resolve, reject, onProgress, timeoutId });
+      try {
+        androidUpdater().postMessage(JSON.stringify({
+          requestId,
+          action: 'install',
+          url: String(download?.url || ''),
+          filename: String(download?.filename || ''),
+          expectedSha256: String(download?.sha256 || ''),
+          expectedSize: Number(download?.sizeBytes || 0),
+          expectedVersion: String(download?.version || '').replace(/^v/i, ''),
+        }));
+      } catch (error) {
+        clearTimeout(timeoutId);
+        androidUpdateRequests.delete(requestId);
+        reject(error);
+      }
+    });
   }
 
   function supportsAudioRecording() {
@@ -414,6 +528,9 @@ export function createNativeBridge() {
     passkeyAuthenticate,
     openExternal,
     downloadToDownloads,
+    androidUpdatePermissionState,
+    openAndroidUpdatePermissionSettings,
+    installAndroidUpdate,
     installUpdate,
     installDebianUpdate,
     listenNativeUpdateProgress,

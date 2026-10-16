@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.3.3';
-const CACHE_REVISION = 'today-calendar-preview-73';
+const CACHE_REVISION = 'android-native-updates-74';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -120,6 +120,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/native-bridge.js',
   '/static/js/features/windows-native-update.js',
   '/static/js/features/debian-native-update.js',
+  '/static/js/features/android-native-update.js',
   '/static/js/features/auth-session.js',
   '/static/js/features/oidc-notice.js',
   '/static/js/features/connection-status.js',

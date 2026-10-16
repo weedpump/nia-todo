@@ -197,6 +197,8 @@ jobs:
             --ks-key-alias nia-todo-android-release \
             --ks-pass env:ANDROID_KEYSTORE_PASS --key-pass env:ANDROID_KEYSTORE_PASS \
             --out dist/ci-android/nia-todo-android-arm64.apk "${ALIGNED_APK}"
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --verbose --print-certs \
+            dist/ci-android/nia-todo-android-arm64.apk
           unset ANDROID_KEYSTORE_PASS
       - if: always()
         run: rm -rf secrets

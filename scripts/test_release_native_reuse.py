@@ -66,6 +66,7 @@ def test_embed_native_downloads_decouples_web_and_native_versions():
         assert_equal(by_platform["windows"]["filename"], "nia-todo-v2.11.2-windows-x64-setup.exe", "windows filename")
         assert_equal(by_platform["android"]["version"], "v2.11.1", "android app version")
         assert_equal(by_platform["android"]["filename"], "nia-todo-v2.11.1-android-arm64.apk", "android filename")
+        assert by_platform["android"]["android_updater"] is True
         assert_equal(by_platform["debian"]["version"], "v2.11.1", "debian app version")
         assert_equal(by_platform["debian"]["filename"], "nia-todo-desktop-v2.11.1-debian-amd64.deb", "debian filename")
         assert by_platform["debian"]["debian_updater"] is True
