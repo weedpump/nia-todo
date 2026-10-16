@@ -42,7 +42,55 @@ const scenario = String.raw`
   if (call.args.update?.signature !== signature) throw new Error('Debian signature was not forwarded');
   if (call.args.update?.sizeBytes !== 12345) throw new Error('Debian size was not forwarded');
 
-  const { validateDownloadEntry } = await import('./web/static/js/features/app-downloads.js');
+  const {
+    formatNativeUpdateProgressLabel,
+    setNativeUpdateButtonBusy,
+    validateDownloadEntry,
+  } = await import('./web/static/js/features/app-downloads.js');
+
+  if (typeof formatNativeUpdateProgressLabel !== 'function' || typeof setNativeUpdateButtonBusy !== 'function') {
+    throw new Error('Debian updater must expose its button state transitions');
+  }
+  const attributes = new Map([
+    ['href', download.url],
+    ['download', download.filename],
+  ]);
+  const button = {
+    dataset: {},
+    getAttribute: (name) => attributes.get(name) ?? null,
+    hasAttribute: (name) => attributes.has(name),
+    setAttribute: (name, value) => attributes.set(name, String(value)),
+    removeAttribute: (name) => attributes.delete(name),
+  };
+  setNativeUpdateButtonBusy(button, true);
+  if (button.dataset.updateBusy !== 'true' || button.getAttribute('aria-disabled') !== 'true') {
+    throw new Error('busy Debian update button must expose disabled state');
+  }
+  if (!button.hasAttribute('disabled') || button.hasAttribute('href') || button.hasAttribute('download')) {
+    throw new Error('busy Debian update button must not remain actionable');
+  }
+  const downloadingLabel = formatNativeUpdateProgressLabel(
+    { phase: 'downloading', downloadedBytes: 25, totalBytes: 100 },
+    { downloadLabel: 'Update herunterladen', installLabel: 'Update installieren' },
+  );
+  if (downloadingLabel !== 'Update herunterladen (25%)') {
+    throw new Error('download progress must use the download action label');
+  }
+  const installingLabel = formatNativeUpdateProgressLabel(
+    { phase: 'installing' },
+    { downloadLabel: 'Update herunterladen', installLabel: 'Update installieren' },
+  );
+  if (installingLabel !== 'Update installieren (100%)') {
+    throw new Error('install phase must use the install action label');
+  }
+  setNativeUpdateButtonBusy(button, false);
+  if (button.dataset.updateBusy !== 'false' || button.hasAttribute('disabled') || button.hasAttribute('aria-disabled')) {
+    throw new Error('failed Debian update must restore the enabled button state');
+  }
+  if (button.getAttribute('href') !== download.url || button.getAttribute('download') !== download.filename) {
+    throw new Error('failed Debian update must restore the original link target');
+  }
+
   const signed = validateDownloadEntry({
     platform: 'debian', arch: 'amd64', version: 'v4.2.1',
     filename: 'nia-todo-desktop-v4.2.1-debian-amd64.deb',

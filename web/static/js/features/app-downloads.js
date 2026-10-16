@@ -68,6 +68,36 @@ const DOWNLOADS_BY_PLATFORM = {
   },
 };
 
+export function setNativeUpdateButtonBusy(button, busy) {
+  if (!button) return;
+  if (busy) {
+    button.dataset.updateBusy = 'true';
+    button.dataset.updateHref = button.getAttribute('href') || '';
+    button.dataset.updateDownload = button.getAttribute('download') || '';
+    button.setAttribute('aria-disabled', 'true');
+    button.setAttribute('disabled', '');
+    button.removeAttribute('href');
+    button.removeAttribute('download');
+    return;
+  }
+  button.dataset.updateBusy = 'false';
+  button.removeAttribute('aria-disabled');
+  button.removeAttribute('disabled');
+  if (button.dataset.updateHref) button.setAttribute('href', button.dataset.updateHref);
+  if (button.dataset.updateDownload) button.setAttribute('download', button.dataset.updateDownload);
+  delete button.dataset.updateHref;
+  delete button.dataset.updateDownload;
+}
+
+export function formatNativeUpdateProgressLabel(progress, { downloadLabel, installLabel }) {
+  if (progress?.phase === 'downloading' && progress.totalBytes > 0) {
+    const percent = Math.min(100, Math.floor((progress.downloadedBytes / progress.totalBytes) * 100));
+    return `${downloadLabel} (${percent}%)`;
+  }
+  if (progress?.phase === 'installing') return `${installLabel} (100%)`;
+  return '';
+}
+
 function absoluteDownloadUrl(url) {
   const base = RUNTIME_CAPABILITIES.native && API ? API : location.origin;
   return new URL(url, base).toString();
@@ -451,17 +481,11 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
       if (RUNTIME_PLATFORM === 'windows' && download.tauri_updater === true && nativeBridge.installUpdate) {
         if (button.dataset.updateBusy === 'true') return;
         const idleLabel = t('update.native.install');
-        button.dataset.updateBusy = 'true';
-        button.setAttribute('aria-disabled', 'true');
-        button.removeAttribute('download');
+        const downloadLabel = t('update.native.download');
+        setNativeUpdateButtonBusy(button, true);
         try {
           const installed = await installWindowsNativeUpdate(nativeBridge, (progress) => {
-            if (progress?.phase === 'downloading' && progress.totalBytes > 0) {
-              const percent = Math.min(100, Math.floor((progress.downloadedBytes / progress.totalBytes) * 100));
-              button.textContent = `${idleLabel} (${percent}%)`;
-            } else if (progress?.phase === 'installing') {
-              button.textContent = `${idleLabel} (100%)`;
-            }
+            button.textContent = formatNativeUpdateProgressLabel(progress, { downloadLabel, installLabel: idleLabel }) || idleLabel;
           });
           if (installed) return;
           if (message) message.textContent = t('update.native.optionalMessage');
@@ -470,24 +494,17 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
           if (message) message.textContent = error?.message || t('update.native.optionalMessage');
         }
         button.textContent = idleLabel;
-        button.dataset.updateBusy = 'false';
-        button.removeAttribute('aria-disabled');
+        setNativeUpdateButtonBusy(button, false);
         return;
       }
       if (RUNTIME_PLATFORM === 'linux' && download.debian_updater === true && nativeBridge.installDebianUpdate) {
         if (button.dataset.updateBusy === 'true') return;
         const idleLabel = t('update.native.install');
-        button.dataset.updateBusy = 'true';
-        button.setAttribute('aria-disabled', 'true');
-        button.removeAttribute('download');
+        const downloadLabel = t('update.native.download');
+        setNativeUpdateButtonBusy(button, true);
         try {
           const installed = await installDebianNativeUpdate(nativeBridge, download, (progress) => {
-            if (progress?.phase === 'downloading' && progress.totalBytes > 0) {
-              const percent = Math.min(100, Math.floor((progress.downloadedBytes / progress.totalBytes) * 100));
-              button.textContent = `${idleLabel} (${percent}%)`;
-            } else if (progress?.phase === 'installing') {
-              button.textContent = `${idleLabel} (100%)`;
-            }
+            button.textContent = formatNativeUpdateProgressLabel(progress, { downloadLabel, installLabel: idleLabel }) || idleLabel;
           });
           if (installed) return;
           if (message) message.textContent = t('update.native.optionalMessage');
@@ -496,8 +513,7 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
           if (message) message.textContent = error?.message || t('update.native.optionalMessage');
         }
         button.textContent = idleLabel;
-        button.dataset.updateBusy = 'false';
-        button.removeAttribute('aria-disabled');
+        setNativeUpdateButtonBusy(button, false);
         return;
       }
       try {
