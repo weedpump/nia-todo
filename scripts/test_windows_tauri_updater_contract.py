@@ -36,21 +36,21 @@ def test_tauri_updater_is_windows_only_and_signed():
     assert '"desktop_install_update"' in build_script
 
 
-def test_windows_release_publishes_updater_signature():
+def test_all_authorized_windows_builds_publish_updater_signatures():
     workflow = (ROOT / ".github" / "workflows" / "build.yml").read_text(encoding="utf-8")
-    signed_step = workflow.split("- name: Build signed Windows release installer", 1)[1].split(
-        "- name: Build unsigned Windows ad-hoc installer", 1
-    )[0]
-    unsigned_step = workflow.split("- name: Build unsigned Windows ad-hoc installer", 1)[1].split(
+    signed_step = workflow.split("- name: Build signed Windows installer", 1)[1].split(
         "- name: Rename to a fixed artifact name", 1
     )[0]
-    assert "if: inputs.version != ''" in signed_step
+    signature_upload = workflow.split("- name: Upload Windows updater signature", 1)[1].split(
+        "\n\n  build-android:", 1
+    )[0]
+    assert "if: inputs.version" not in signed_step
     assert "cargo install cargo-xwin --locked" in workflow
-    assert "TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" in workflow
-    assert "TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" in workflow
-    assert "if: inputs.version == ''" in unsigned_step
-    assert '"createUpdaterArtifacts":false' in unsigned_step
-    assert "TAURI_SIGNING_PRIVATE_KEY" not in unsigned_step
+    assert "TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" in signed_step
+    assert "TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" in signed_step
+    assert "Build unsigned Windows ad-hoc installer" not in workflow
+    assert '"createUpdaterArtifacts":false' not in workflow
+    assert "if: inputs.version" not in signature_upload
     assert "windows-x64-setup.exe.sig" in workflow
     assert "if-no-files-found: error" in workflow
     assert workflow.count("archive: false") >= 2
@@ -73,7 +73,7 @@ def test_windows_download_is_bounded_before_signature_installation():
 
 def main():
     test_tauri_updater_is_windows_only_and_signed()
-    test_windows_release_publishes_updater_signature()
+    test_all_authorized_windows_builds_publish_updater_signatures()
     test_windows_download_is_bounded_before_signature_installation()
     print("✅ Windows Tauri updater release contract passed")
 
