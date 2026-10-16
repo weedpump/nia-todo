@@ -6,11 +6,15 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/release/build-full-bundle.sh VERSION --windows-installer FILE --android-apk FILE --debian-deb FILE [options]
+Usage: scripts/release/build-full-bundle.sh VERSION --windows-installer FILE --windows-signature FILE --android-apk FILE --debian-deb FILE [options]
 
 Options:
   --native-app-version VERSION
                          Native app download version to publish (default: VERSION)
+  --windows-version VERSION
+                         Windows app version to publish (default: native app version)
+  --require-windows-signature
+                         Fail unless the Windows installer has a signature
   --output-dir DIR       Output directory (default: dist/release)
   --work-dir DIR         Build work directory (default: dist/build/full-bundle-VERSION)
   --allow-missing-apps   Allow building a test package without native app files
@@ -20,9 +24,12 @@ USAGE
 
 VERSION=""
 WINDOWS_INSTALLER=""
+WINDOWS_SIGNATURE=""
+REQUIRE_WINDOWS_SIGNATURE=0
 ANDROID_APK=""
 DEBIAN_DEB=""
 NATIVE_APP_VERSION=""
+WINDOWS_VERSION=""
 OUTPUT_DIR="dist/release"
 WORK_DIR=""
 ALLOW_MISSING_APPS=0
@@ -32,9 +39,12 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     -h|--help) usage; exit 0 ;;
     --windows-installer) WINDOWS_INSTALLER="${2:-}"; shift 2 ;;
+    --windows-signature) WINDOWS_SIGNATURE="${2:-}"; shift 2 ;;
+    --require-windows-signature) REQUIRE_WINDOWS_SIGNATURE=1; shift ;;
     --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
     --debian-deb) DEBIAN_DEB="${2:-}"; shift 2 ;;
     --native-app-version) NATIVE_APP_VERSION="${2:-}"; shift 2 ;;
+    --windows-version) WINDOWS_VERSION="${2:-}"; shift 2 ;;
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     --work-dir) WORK_DIR="${2:-}"; shift 2 ;;
     --allow-missing-apps) ALLOW_MISSING_APPS=1; shift ;;
@@ -50,9 +60,17 @@ if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 2
 fi
 NATIVE_APP_VERSION="${NATIVE_APP_VERSION:-${VERSION}}"
+WINDOWS_VERSION="${WINDOWS_VERSION:-${NATIVE_APP_VERSION}}"
 if ! [[ "${NATIVE_APP_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid stable native app version: ${NATIVE_APP_VERSION}" >&2
   exit 2
+fi
+if ! [[ "${WINDOWS_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid stable Windows app version: ${WINDOWS_VERSION}" >&2
+  exit 2
+fi
+if [ "${REQUIRE_WINDOWS_SIGNATURE}" = "1" ]; then
+  [ -n "${WINDOWS_SIGNATURE}" ] && [ -f "${WINDOWS_SIGNATURE}" ] || { echo "Missing required --windows-signature FILE" >&2; exit 1; }
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -83,9 +101,16 @@ EMBED_ARGS=(
   --download-dir "${DOWNLOAD_DIR}"
   --web-version "${VERSION}"
   --native-app-version "${NATIVE_APP_VERSION}"
+  --windows-version "${WINDOWS_VERSION}"
 )
 if [ -n "${WINDOWS_INSTALLER}" ]; then
   EMBED_ARGS+=(--windows-installer "${WINDOWS_INSTALLER}")
+  if [ -n "${WINDOWS_SIGNATURE}" ]; then
+    EMBED_ARGS+=(--windows-signature "${WINDOWS_SIGNATURE}")
+  fi
+fi
+if [ "${REQUIRE_WINDOWS_SIGNATURE}" = "1" ]; then
+  EMBED_ARGS+=(--require-windows-signature)
 fi
 if [ -n "${ANDROID_APK}" ]; then
   EMBED_ARGS+=(--android-apk "${ANDROID_APK}")

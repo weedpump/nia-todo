@@ -1,4 +1,4 @@
-import { RUNTIME_CAPABILITIES, getTauri, getTauriInvoke } from '../core/config.js';
+import { RUNTIME_CAPABILITIES, RUNTIME_PLATFORM, getTauri, getTauriInvoke } from '../core/config.js';
 import { t } from '../i18n/index.js';
 
 export function createNativeBridge() {
@@ -247,6 +247,20 @@ export function createNativeBridge() {
     return false;
   }
 
+  async function installUpdate() {
+    if (!isDesktop() || RUNTIME_PLATFORM !== 'windows') {
+      throw new Error('Native in-place updates are currently available on Windows only');
+    }
+    return invokeTauri('desktop_install_update');
+  }
+
+  async function listenNativeUpdateProgress(callback) {
+    if (!isDesktop() || RUNTIME_PLATFORM !== 'windows' || typeof callback !== 'function') return null;
+    const listen = tauri()?.event?.listen;
+    if (!listen) return null;
+    return listen('native-update-progress', (event) => callback(event?.payload || {}));
+  }
+
 
   function ensureOidcCallbackBridge() {
     if (typeof window.__niaNativeOidcCallback !== 'function') {
@@ -384,6 +398,8 @@ export function createNativeBridge() {
     passkeyAuthenticate,
     openExternal,
     downloadToDownloads,
+    installUpdate,
+    listenNativeUpdateProgress,
     listenOidcCallbacks,
     setSystemBarsTheme,
     getAppVersion,

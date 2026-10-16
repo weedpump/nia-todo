@@ -36,5 +36,6 @@ gdkx11-sys = "0.18"
 
 [target.'cfg(windows)'.dependencies]
 base64 = "0.22"
+tauri-plugin-updater = { version = "2.14.0", default-features = false, features = ["rustls-tls", "system-proxy"] }
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Networking_WindowsWebServices"] }
 winreg = "0.55"

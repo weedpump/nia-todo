@@ -8,6 +8,7 @@ fn main() {
         "desktop_set_setting",
         "desktop_set_server_url",
         "desktop_clear_server_url",
+        "desktop_install_update",
         "desktop_download_attachment",
         "desktop_sync_hotkey_descriptions",
         "desktop_set_hotkey",

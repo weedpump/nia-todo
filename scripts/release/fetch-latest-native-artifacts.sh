@@ -56,6 +56,11 @@ copy_or_fail() {
     cp "${source}" "${dest}"
 }
 copy_or_fail "${SOURCE_DIR}/nia-todo-${LATEST_TAG}-windows-x64-setup.exe" "${OUTPUT_DIR}/nia-todo-ci-windows-x64-setup.exe"
+if [ -f "${SOURCE_DIR}/nia-todo-${LATEST_TAG}-windows-x64-setup.exe.sig" ]; then
+    cp "${SOURCE_DIR}/nia-todo-${LATEST_TAG}-windows-x64-setup.exe.sig" "${OUTPUT_DIR}/nia-todo-ci-windows-x64-setup.exe.sig"
+else
+    echo "ℹ️  Release ${LATEST_TAG} predates signed Windows in-place updates; reusing its installer without updater metadata."
+fi
 copy_or_fail "${SOURCE_DIR}/nia-todo-${LATEST_TAG}-android-arm64.apk" "${OUTPUT_DIR}/nia-todo-ci-android-arm64.apk"
 copy_or_fail "${SOURCE_DIR}/nia-todo-desktop-${LATEST_TAG}-debian-amd64.deb" "${OUTPUT_DIR}/nia-todo-ci-debian-amd64.deb"
 

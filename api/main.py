@@ -1,11 +1,12 @@
 """nia-todo: FastAPI backend - slim entry point"""
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 import asyncio
+import json
 import re
 
 from db import get_db, init_db
@@ -15,6 +16,8 @@ from middleware.security import CSRFProtectionMiddleware, RateLimitMiddleware, R
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
 from services.server_updates import update_check_background_task
+from services.instance_config import get_public_base_url
+from services.native_updates import build_windows_updater_response
 from routers.websocket import websocket_endpoint
 from errors import APIError, api_error_handler
 
@@ -164,6 +167,27 @@ if WEB_DIR.exists():
         return FileResponse(
             str(manifest_path),
             media_type="application/json",
+            headers={
+                "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+
+    @app.get("/downloads/windows-updater.json")
+    def windows_updater_manifest(request: Request):
+        manifest_path = DOWNLOADS_DIR / "app-downloads.json"
+        if not manifest_path.exists():
+            return Response(status_code=204)
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            payload = build_windows_updater_response(manifest, DOWNLOADS_DIR, get_public_base_url(request))
+        except LookupError:
+            return Response(status_code=204)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail="Windows update metadata is unavailable") from exc
+        return JSONResponse(
+            payload,
             headers={
                 "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
                 "Pragma": "no-cache",

@@ -91,16 +91,40 @@ jobs:
           rustup target add x86_64-pc-windows-msvc
           cargo install cargo-xwin
       - run: python3 scripts/prepare_tauri_frontend_dist.py
-      - run: npm run tauri -- build --target x86_64-pc-windows-msvc --runner cargo-xwin
+      - name: Build signed Windows release installer
+        if: inputs.version != ''
+        run: npm run tauri -- build --target x86_64-pc-windows-msvc --runner cargo-xwin
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Build unsigned Windows ad-hoc installer
+        if: inputs.version == ''
+        run: npm run tauri -- build --target x86_64-pc-windows-msvc --runner cargo-xwin --config '{"bundle":{"createUpdaterArtifacts":false}}'
       - name: Rename to a fixed artifact name
         run: |
           mkdir -p dist/ci-windows
           cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe dist/ci-windows/nia-todo-ci-windows-x64-setup.exe
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+          if [ -n "${{ inputs.version }}" ]; then
+            cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe.sig dist/ci-windows/nia-todo-ci-windows-x64-setup.exe.sig
+          elif compgen -G 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe.sig' >/dev/null; then
+            cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe.sig dist/ci-windows/nia-todo-ci-windows-x64-setup.exe.sig
+          fi
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
+          name: nia-todo-ci-windows-x64-setup.exe
           retention-days: 7
           if-no-files-found: error
           path: dist/ci-windows/nia-todo-ci-windows-x64-setup.exe
+          archive: false
+      - name: Upload Windows updater signature
+        if: inputs.version != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        with:
+          name: nia-todo-ci-windows-x64-setup.exe.sig
+          retention-days: 7
+          if-no-files-found: error
+          path: dist/ci-windows/nia-todo-ci-windows-x64-setup.exe.sig
           archive: false
 
   build-android:
@@ -259,6 +283,7 @@ jobs:
           mkdir -p dist/native-embed
           have_windows=0; have_android=0; have_debian=0
           [ "${{ needs.build-windows.result }}" = "success" ] && cp dist/ci-native/nia-todo-ci-windows-x64-setup.exe dist/native-embed/ && have_windows=1
+          [ -f dist/ci-native/nia-todo-ci-windows-x64-setup.exe.sig ] && cp dist/ci-native/nia-todo-ci-windows-x64-setup.exe.sig dist/native-embed/ || true
           [ "${{ needs.build-android.result }}" = "success" ] && cp dist/ci-native/nia-todo-android-arm64.apk dist/native-embed/nia-todo-ci-android-arm64.apk && have_android=1
           [ "${{ needs.build-debian-desktop.result }}" = "success" ] && cp dist/ci-native/nia-todo-desktop-amd64.deb dist/native-embed/nia-todo-ci-debian-amd64.deb && have_debian=1
 
@@ -276,6 +301,9 @@ jobs:
                 --output-dir dist/native-fallback
               source dist/native-fallback/native-app-version.env
               [ "${have_windows}" = "1" ] || cp dist/native-fallback/nia-todo-ci-windows-x64-setup.exe dist/native-embed/
+              if [ "${have_windows}" = "0" ] && [ -f dist/native-fallback/nia-todo-ci-windows-x64-setup.exe.sig ]; then
+                cp dist/native-fallback/nia-todo-ci-windows-x64-setup.exe.sig dist/native-embed/
+              fi
               [ "${have_android}" = "1" ] || cp dist/native-fallback/nia-todo-ci-android-arm64.apk dist/native-embed/
               [ "${have_debian}" = "1" ] || cp dist/native-fallback/nia-todo-ci-debian-amd64.deb dist/native-embed/
             fi
@@ -292,6 +320,14 @@ jobs:
               echo "::warning::Embedding a mix of freshly built and last-release native apps; the manifest version number does not reflect this precisely - fine for an ad-hoc test build, not for a real release."
             fi
           fi
+
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "windows_app_version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${have_windows}" = "1" ]; then
+            echo "windows_app_version=$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')" >> "$GITHUB_OUTPUT"
+          else
+            echo "windows_app_version=${native_app_version}" >> "$GITHUB_OUTPUT"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -302,11 +338,19 @@ jobs:
       - name: Build Docker image
         if: inputs.build_docker
         run: |
+          WINDOWS_SIGNATURE_ARGS=()
+          if [ -n "${{ inputs.version }}" ]; then
+            WINDOWS_SIGNATURE_ARGS=(--windows-signature dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig --require-windows-signature)
+          elif [ -f dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig ]; then
+            WINDOWS_SIGNATURE_ARGS=(--windows-signature dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig)
+          fi
           scripts/release/build-docker.sh "${{ inputs.version || '0.0.0' }}" \
             --windows-installer dist/native-embed/nia-todo-ci-windows-x64-setup.exe \
+            "${WINDOWS_SIGNATURE_ARGS[@]}" \
             --android-apk dist/native-embed/nia-todo-ci-android-arm64.apk \
             --debian-deb dist/native-embed/nia-todo-ci-debian-amd64.deb \
             --native-app-version "${{ steps.apps.outputs.native_app_version }}" \
+            --windows-version "${{ steps.apps.outputs.windows_app_version }}" \
             --tag "${{ inputs.version && format('nia-todo:{0}', inputs.version) || 'nia-todo:ci-check' }}" \
             --output "dist/docker/build-${{ github.sha }}" \
             --force
@@ -337,11 +381,19 @@ jobs:
       - name: Build server .deb installer
         if: inputs.build_server_deb
         run: |
+          WINDOWS_SIGNATURE_ARGS=()
+          if [ -n "${{ inputs.version }}" ]; then
+            WINDOWS_SIGNATURE_ARGS=(--windows-signature dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig --require-windows-signature)
+          elif [ -f dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig ]; then
+            WINDOWS_SIGNATURE_ARGS=(--windows-signature dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig)
+          fi
           scripts/release/build-full-bundle.sh "${{ inputs.version || '0.0.0' }}" \
             --windows-installer dist/native-embed/nia-todo-ci-windows-x64-setup.exe \
+            "${WINDOWS_SIGNATURE_ARGS[@]}" \
             --android-apk dist/native-embed/nia-todo-ci-android-arm64.apk \
             --debian-deb dist/native-embed/nia-todo-ci-debian-amd64.deb \
             --native-app-version "${{ steps.apps.outputs.native_app_version }}" \
+            --windows-version "${{ steps.apps.outputs.windows_app_version }}" \
             --output-dir "dist/release/build-${{ github.sha }}" \
             --force
 

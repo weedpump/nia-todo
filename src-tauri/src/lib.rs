@@ -1,3 +1,8 @@
+#[cfg(any(target_os = "windows", test))]
+mod windows_update;
+#[cfg(target_os = "windows")]
+use windows_update::desktop_install_update;
+
 use serde::{Deserialize, Serialize};
 use std::{
   collections::HashMap,
@@ -25,6 +30,12 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri_plugin_notification::NotificationExt;
 #[cfg(not(target_os = "android"))]
 use std::process::Command;
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+async fn desktop_install_update() -> Result<bool, String> {
+  Err("Native in-place updates are currently available on Windows only".to_string())
+}
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 type LinuxPortalShortcutSession = ashpd::desktop::Session<ashpd::desktop::global_shortcuts::GlobalShortcuts>;
@@ -2020,6 +2031,8 @@ pub fn run() {
         emit_native_oidc_callback(app, url);
       }
     }));
+  #[cfg(target_os = "windows")]
+  let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
   builder
     .manage(DesktopReminderScheduler::default())
@@ -2032,6 +2045,7 @@ pub fn run() {
       desktop_set_server_url,
       desktop_clear_server_url,
       desktop_open_url,
+      desktop_install_update,
       desktop_download_attachment,
       desktop_sync_hotkey_descriptions,
       desktop_set_hotkey,

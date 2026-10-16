@@ -4,6 +4,7 @@ import { iconSvg } from '../icons/lucide-icons.js';
 import { hideAutoScrollbars } from './auto-scrollbars.js';
 import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { createNativeBridge } from './native-bridge.js';
+import { installWindowsNativeUpdate } from './windows-native-update.js';
 
 let deferredPwaInstallPrompt = null;
 
@@ -75,7 +76,7 @@ function filenameFromDownloadPath(pathname) {
   return match ? match[1] : '';
 }
 
-function validateDownloadEntry(app, fallbackVersion = '') {
+export function validateDownloadEntry(app, fallbackVersion = '') {
   if (!app || typeof app !== 'object') return null;
   const platform = String(app.platform || '').toLowerCase();
   const spec = DOWNLOADS_BY_PLATFORM[platform];
@@ -111,6 +112,7 @@ function validateDownloadEntry(app, fallbackVersion = '') {
     url: absoluteDownloadUrl(parsed.pathname),
     sha256: app.sha256 || '',
     sizeBytes: Number.isSafeInteger(app.size_bytes) && app.size_bytes > 0 ? app.size_bytes : null,
+    tauri_updater: app.tauri_updater === true,
   };
 }
 
@@ -440,6 +442,32 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
     button.onclick = async (event) => {
       if (!RUNTIME_CAPABILITIES.native || !nativeBridge?.openExternal) return;
       event.preventDefault();
+      if (RUNTIME_PLATFORM === 'windows' && download.tauri_updater === true && nativeBridge.installUpdate) {
+        if (button.dataset.updateBusy === 'true') return;
+        const idleLabel = t('update.native.download');
+        button.dataset.updateBusy = 'true';
+        button.setAttribute('aria-disabled', 'true');
+        button.removeAttribute('download');
+        try {
+          const installed = await installWindowsNativeUpdate(nativeBridge, (progress) => {
+            if (progress?.phase === 'downloading' && progress.totalBytes > 0) {
+              const percent = Math.min(100, Math.floor((progress.downloadedBytes / progress.totalBytes) * 100));
+              button.textContent = `${idleLabel} (${percent}%)`;
+            } else if (progress?.phase === 'installing') {
+              button.textContent = `${idleLabel} (100%)`;
+            }
+          });
+          if (installed) return;
+          if (message) message.textContent = t('update.native.optionalMessage');
+        } catch (error) {
+          console.warn('[Downloads] Native update installation failed', error);
+          if (message) message.textContent = error?.message || t('update.native.optionalMessage');
+        }
+        button.textContent = idleLabel;
+        button.dataset.updateBusy = 'false';
+        button.removeAttribute('aria-disabled');
+        return;
+      }
       try {
         await nativeBridge.openExternal(download.url);
       } catch (error) {
