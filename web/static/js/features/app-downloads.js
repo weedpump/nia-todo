@@ -6,8 +6,17 @@ import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } fro
 import { createNativeBridge } from './native-bridge.js';
 import { installWindowsNativeUpdate } from './windows-native-update.js';
 import { installDebianNativeUpdate } from './debian-native-update.js';
+import {
+  createAndroidUpdatePermissionFlow,
+  createAndroidUpdateResumeCoordinator,
+  runAndroidUpdateBridgeAction,
+} from './android-native-update.js';
 
 let deferredPwaInstallPrompt = null;
+let androidUpdatePermissionFlow = null;
+let androidUpdatePermissionReturnPending = false;
+let androidUpdateUiState = null;
+let coordinateAndroidUpdateResume = null;
 
 function isStandaloneDisplayMode() {
   return Boolean(
@@ -152,6 +161,7 @@ export function validateDownloadEntry(app, fallbackVersion = '') {
     sha256: app.sha256 || '',
     sizeBytes: Number.isSafeInteger(app.size_bytes) && app.size_bytes > 0 ? app.size_bytes : null,
     tauri_updater: app.tauri_updater === true,
+    android_updater: platform === 'android' && app.android_updater === true,
     debian_updater: platform === 'debian' && app.debian_updater === true && Boolean(signature),
     signature,
   };
@@ -434,6 +444,111 @@ function deferUntilAfterLogin(callback) {
   timer = window.setInterval(finishIfReady, 500);
 }
 
+function showAndroidUpdatePermissionModal({ denied = false } = {}) {
+  const modal = document.getElementById('android-update-permission-modal');
+  const nativeModal = document.getElementById('native-app-update-modal');
+  const message = document.getElementById('android-update-permission-message');
+  if (message) message.textContent = t(denied ? 'update.android.permission.denied' : 'update.android.permission.body');
+  nativeModal?.classList.remove('active');
+  nativeModal?.setAttribute('aria-hidden', 'true');
+  modal?.classList.add('active');
+  modal?.removeAttribute('aria-hidden');
+  if (!replaceUiLayer('native-app-update-modal', 'android-update-permission-modal')) {
+    openUiLayer('android-update-permission-modal');
+  }
+  const settingsButton = document.getElementById('android-update-permission-open-settings');
+  if (settingsButton) {
+    settingsButton.onclick = async () => {
+      const opened = await runAndroidUpdateBridgeAction(
+        () => androidUpdatePermissionFlow?.openPermissionSettings(),
+        recoverAndroidUpdateError,
+      );
+      if (opened?.status === 'error') return;
+      if (opened) androidUpdatePermissionReturnPending = true;
+      else showAndroidUpdatePermissionModal({ denied: true });
+    };
+    settingsButton.focus();
+  }
+  const cancelButton = document.getElementById('android-update-permission-cancel');
+  if (cancelButton) {
+    cancelButton.onclick = () => {
+      androidUpdatePermissionReturnPending = false;
+      androidUpdatePermissionFlow?.cancel();
+      resetAndroidUpdateUi();
+      closeAndroidUpdatePermissionModal({ restoreNative: true });
+    };
+  }
+}
+
+function closeAndroidUpdatePermissionModal({ restoreNative = true, fromHistory = false } = {}) {
+  const modal = document.getElementById('android-update-permission-modal');
+  const nativeModal = document.getElementById('native-app-update-modal');
+  if (modal?.classList.contains('active') && !fromHistory
+      && requestCloseUiLayer('android-update-permission-modal', { reason: 'ui' })) return;
+  modal?.classList.remove('active');
+  modal?.setAttribute('aria-hidden', 'true');
+  if (restoreNative) {
+    nativeModal?.classList.add('active');
+    nativeModal?.removeAttribute('aria-hidden');
+    replaceUiLayer('android-update-permission-modal', 'native-app-update-modal');
+  }
+}
+
+function resetAndroidUpdateUi() {
+  const state = androidUpdateUiState;
+  if (!state) return;
+  state.button.textContent = state.idleLabel;
+  setNativeUpdateButtonBusy(state.button, false);
+  androidUpdateUiState = null;
+}
+
+function recoverAndroidUpdateError(error) {
+  androidUpdatePermissionReturnPending = false;
+  androidUpdatePermissionFlow?.cancel();
+  androidUpdatePermissionFlow = null;
+  closeAndroidUpdatePermissionModal({ restoreNative: true, fromHistory: true });
+  if (androidUpdateUiState?.message) {
+    androidUpdateUiState.message.textContent = error?.message || t('update.native.optionalMessage');
+  }
+  resetAndroidUpdateUi();
+}
+
+async function handleAndroidUpdateFlowResult(result) {
+  if (result?.status === 'permission-required') {
+    showAndroidUpdatePermissionModal({ denied: false });
+    return false;
+  }
+  if (result?.status !== 'started' || !result.installPromise) return false;
+  closeAndroidUpdatePermissionModal({ restoreNative: true, fromHistory: true });
+  try {
+    const installed = await result.installPromise;
+    if (installed) return true;
+    if (androidUpdateUiState?.message) androidUpdateUiState.message.textContent = t('update.native.optionalMessage');
+  } catch (error) {
+    console.warn('[Downloads] Android update installation failed', error);
+    if (androidUpdateUiState?.message) {
+      androidUpdateUiState.message.textContent = error?.message || t('update.native.optionalMessage');
+    }
+  }
+  resetAndroidUpdateUi();
+  return false;
+}
+
+async function resumeAndroidUpdateAfterPermission() {
+  if (!androidUpdatePermissionReturnPending || document.visibilityState === 'hidden') return;
+  androidUpdatePermissionReturnPending = false;
+  const result = await runAndroidUpdateBridgeAction(
+    () => androidUpdatePermissionFlow.resume(),
+    recoverAndroidUpdateError,
+  );
+  if (result?.status === 'error') return { skipRefresh: true };
+  if (result?.status === 'permission-required') {
+    showAndroidUpdatePermissionModal({ denied: true });
+    return;
+  }
+  await handleAndroidUpdateFlowResult(result);
+}
+
 function closeNativeUpdateModal({ fromHistory = false } = {}) {
   const modal = document.getElementById('native-app-update-modal');
   if (!modal) return false;
@@ -449,6 +564,10 @@ function closeNativeUpdateModal({ fromHistory = false } = {}) {
 
 function showNativeUpdateModal(download, currentVersion, nativeBridge = null, options = {}) {
   if (!download?.url) return;
+  if (RUNTIME_PLATFORM === 'android' && (
+    androidUpdatePermissionReturnPending
+    || document.getElementById('android-update-permission-modal')?.classList.contains('active')
+  )) return;
   if (!hasAuthToken() || isLoginOverlayVisible()) {
     deferUntilAfterLogin(() => showNativeUpdateModal(download, currentVersion, nativeBridge, options));
     return;
@@ -483,6 +602,23 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
     button.onclick = async (event) => {
       if (!RUNTIME_CAPABILITIES.native || !nativeBridge?.openExternal) return;
       event.preventDefault();
+      if (RUNTIME_PLATFORM === 'android' && download.android_updater === true && nativeBridge.installAndroidUpdate) {
+        if (button.dataset.updateBusy === 'true') return;
+        const idleLabel = t('update.native.install');
+        const downloadLabel = t('update.native.download');
+        setNativeUpdateButtonBusy(button, true);
+        androidUpdateUiState = { button, message, idleLabel };
+        androidUpdatePermissionFlow = createAndroidUpdatePermissionFlow(nativeBridge);
+        const result = await runAndroidUpdateBridgeAction(
+          () => androidUpdatePermissionFlow.start(download, (progress) => {
+            button.textContent = formatNativeUpdateProgressLabel(progress, { downloadLabel, installLabel: idleLabel }) || idleLabel;
+          }),
+          recoverAndroidUpdateError,
+        );
+        if (result?.status === 'error') return;
+        await handleAndroidUpdateFlowResult(result);
+        return;
+      }
       if (RUNTIME_PLATFORM === 'windows' && download.tauri_updater === true && nativeBridge.installUpdate) {
         if (button.dataset.updateBusy === 'true') return;
         const idleLabel = t('update.native.install');
@@ -547,6 +683,12 @@ export function createAppDownloadsFeature() {
   let appDownloadsReturnFocusElement = null;
 
   registerUiLayer('native-app-update-modal', () => closeNativeUpdateModal({ fromHistory: true }));
+  registerUiLayer('android-update-permission-modal', () => {
+    androidUpdatePermissionReturnPending = false;
+    androidUpdatePermissionFlow?.cancel();
+    resetAndroidUpdateUi();
+    closeAndroidUpdatePermissionModal({ restoreNative: true, fromHistory: true });
+  });
 
   function openAppDownloadsModal({ returnFocusTo = null } = {}) {
     if (!isBrowserDownloadEligible() && !isWebInstallEligible()) return;
@@ -677,9 +819,15 @@ export function createAppDownloadsFeature() {
     });
     window.addEventListener('nia-language-change', updateWebInstallUI);
     window.addEventListener('online', () => { refreshAppDownloads(); });
-    window.addEventListener('focus', () => { refreshAppDownloads(); });
+    coordinateAndroidUpdateResume ||= createAndroidUpdateResumeCoordinator(
+      resumeAndroidUpdateAfterPermission,
+      refreshAppDownloads,
+    );
+    window.addEventListener('focus', () => { coordinateAndroidUpdateResume(); });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') refreshAppDownloads();
+      if (document.visibilityState === 'visible') {
+        coordinateAndroidUpdateResume();
+      }
     });
     refreshInterval = window.setInterval(() => { refreshAppDownloads(); }, 60 * 60 * 1000);
   }

@@ -9,6 +9,7 @@ import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Base64
 import java.util.Locale
 import android.content.pm.PackageManager
@@ -29,6 +30,8 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.FileProvider
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -39,13 +42,18 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetPublicKeyCredentialOption
 import androidx.credentials.PublicKeyCredential
 import androidx.lifecycle.lifecycleScope
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
+import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -59,12 +67,23 @@ class MainActivity : TauriActivity() {
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
   private val maxNativeAudioDurationMs = 120_000
   private val maxNativeAudioBytes = 8 * 1024 * 1024
+  private val maxAndroidUpdateBytes = 512L * 1024L * 1024L
+  private val maxAndroidUpdateDurationMs = 9L * 60L * 1000L
+  private val androidUpdateInFlight = AtomicBoolean(false)
+  private val androidUpdateCancelled = AtomicBoolean(false)
   private val notificationIds = AtomicInteger(1000)
   private var appWebView: WebView? = null
   private var nativeAudioRecorder: MediaRecorder? = null
   private var nativeAudioFile: File? = null
   private var nativeAudioStartedAtMs: Long = 0
   @Volatile private var configuredPasskeyOrigin: String? = null
+  @Volatile private var configuredServerOrigin: String? = null
+  @Volatile private var activeAndroidUpdateRequestId: String? = null
+  @Volatile private var activeAndroidUpdateConnection: HttpURLConnection? = null
+  @Volatile private var pendingAndroidInstallerRequestId: String? = null
+  @Volatile private var pendingAndroidInstallerVersionCode: Long = 0
+  @Volatile private var pendingAndroidInstallerFile: File? = null
+  @Volatile private var androidInstallerWasPaused = false
   @Volatile private var pendingOidcCallbackUrl: String? = null
   private val credentialManager by lazy { CredentialManager.create(this) }
 
@@ -97,6 +116,12 @@ class MainActivity : TauriActivity() {
   override fun onResume() {
     super.onResume()
     LocationReminderReceiver.rescheduleStoredLocationReminders(this)
+    handleReturnedAndroidInstaller()
+  }
+
+  override fun onPause() {
+    if (pendingAndroidInstallerRequestId != null) androidInstallerWasPaused = true
+    super.onPause()
   }
 
   override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -142,6 +167,24 @@ class MainActivity : TauriActivity() {
     val nativeBridge = AndroidNativeBridge()
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidNative")
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidSystemBars")
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+      WebViewCompat.addWebMessageListener(
+        webView,
+        "NiaAndroidUpdater",
+        setOf(
+          "http://tauri.localhost",
+          "https://tauri.localhost",
+          "http://localhost",
+          "https://localhost",
+          "http://127.0.0.1",
+          "https://127.0.0.1",
+          "http://[::1]",
+          "https://[::1]",
+        ),
+      ) { _, message, sourceOrigin, isMainFrame, _ ->
+        handleAndroidUpdaterMessage(message.data, sourceOrigin, isMainFrame)
+      }
+    }
     webView.post {
       applySystemBarInsetsToContentRoot()
     }
@@ -176,18 +219,26 @@ class MainActivity : TauriActivity() {
       .apply()
   }
 
-  private fun canonicalOrigin(origin: String): String {
+  private fun canonicalServerOrigin(origin: String): String {
     val uri = URI(origin.trim().trimEnd('/'))
     val scheme = (uri.scheme ?: throw IllegalArgumentException("Origin fehlt")).lowercase(Locale.ROOT)
-    if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Passkey-Origin muss HTTP(S) sein")
+    if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Server-Origin muss HTTP(S) sein")
     val host = (uri.host ?: throw IllegalArgumentException("Origin-Host fehlt")).lowercase(Locale.ROOT)
-    val localHttp = scheme == "http" && (host == "localhost" || host == "127.0.0.1" || host == "::1")
-    if (scheme != "https" && !localHttp) throw IllegalArgumentException("Passkeys benötigen HTTPS")
     if (!uri.rawUserInfo.isNullOrBlank()) throw IllegalArgumentException("Origin darf keine Zugangsdaten enthalten")
     if (!uri.rawQuery.isNullOrBlank() || !uri.rawFragment.isNullOrBlank()) throw IllegalArgumentException("Origin darf keinen Query-String enthalten")
     val defaultPort = (scheme == "https" && (uri.port == -1 || uri.port == 443)) || (scheme == "http" && (uri.port == -1 || uri.port == 80))
     val hostPart = if (host.contains(":") && !host.startsWith("[")) "[$host]" else host
     return if (defaultPort) "$scheme://$hostPart" else "$scheme://$hostPart:${uri.port}"
+  }
+
+  private fun canonicalOrigin(origin: String): String {
+    val canonical = canonicalServerOrigin(origin)
+    val uri = URI(canonical)
+    val scheme = uri.scheme.lowercase(Locale.ROOT)
+    val host = uri.host.lowercase(Locale.ROOT)
+    val localHttp = scheme == "http" && (host == "localhost" || host == "127.0.0.1" || host == "::1")
+    if (scheme != "https" && !localHttp) throw IllegalArgumentException("Passkeys benötigen HTTPS")
+    return canonical
   }
 
   private fun originHost(origin: String): String {
@@ -498,6 +549,300 @@ class MainActivity : TauriActivity() {
     return true
   }
 
+  private fun emitAndroidUpdateProgress(requestId: String, phase: String, downloadedBytes: Long, totalBytes: Long) {
+    val payload = JSONObject()
+      .put("phase", phase)
+      .put("downloadedBytes", downloadedBytes)
+      .put("totalBytes", totalBytes)
+      .toString()
+    runOnUiThread {
+      appWebView?.evaluateJavascript(
+        "window.__niaAndroidUpdateProgress?.(${JSONObject.quote(requestId)}, $payload);",
+        null,
+      )
+    }
+  }
+
+  private fun completeAndroidUpdate(requestId: String, success: Boolean, payload: JSONObject) {
+    runOnUiThread {
+      appWebView?.evaluateJavascript(
+        "window.__niaAndroidUpdateComplete?.(${JSONObject.quote(requestId)}, $success, ${payload});",
+        null,
+      )
+    }
+  }
+
+  private fun respondAndroidUpdaterCall(requestId: String, success: Boolean, payload: JSONObject) {
+    runOnUiThread {
+      appWebView?.evaluateJavascript(
+        "window.__niaAndroidUpdaterResponse?.(${JSONObject.quote(requestId)}, $success, ${payload});",
+        null,
+      )
+    }
+  }
+
+  private fun isTrustedAndroidUpdaterSource(sourceOrigin: Uri, isMainFrame: Boolean): Boolean {
+    if (!isMainFrame) return false
+    return isTrustedLocalWebViewUrl(sourceOrigin.toString())
+  }
+
+  private fun handleAndroidUpdaterMessage(raw: String?, sourceOrigin: Uri, isMainFrame: Boolean) {
+    val message = try { JSONObject(raw ?: "") } catch (_: Exception) { return }
+    val requestId = message.optString("requestId", "")
+    if (requestId.isBlank()) return
+    if (!isTrustedAndroidUpdaterSource(sourceOrigin, isMainFrame)) {
+      respondAndroidUpdaterCall(requestId, false, JSONObject().put("error", "Android updater bridge is unavailable from this frame"))
+      return
+    }
+    when (message.optString("action", "")) {
+      "permissionState" -> respondAndroidUpdaterCall(
+        requestId,
+        true,
+        JSONObject().put("state", updateInstallPermissionState()),
+      )
+      "openPermissionSettings" -> respondAndroidUpdaterCall(
+        requestId,
+        true,
+        JSONObject().put("opened", openUpdateInstallPermissionSettings()),
+      )
+      "install" -> startAndroidUpdate(
+        requestId = requestId,
+        url = message.optString("url", ""),
+        filename = message.optString("filename", ""),
+        expectedSha256 = message.optString("expectedSha256", ""),
+        expectedSize = message.optLong("expectedSize", 0),
+        expectedVersion = message.optString("expectedVersion", ""),
+      )
+      "cancel" -> cancelAndroidUpdate(requestId)
+      else -> respondAndroidUpdaterCall(requestId, false, JSONObject().put("error", "Unknown Android updater action"))
+    }
+  }
+
+  private fun cancelAndroidUpdate(requestId: String) {
+    if (activeAndroidUpdateRequestId != requestId) return
+    androidUpdateCancelled.set(true)
+    activeAndroidUpdateConnection?.disconnect()
+  }
+
+  private fun updateInstallPermissionState(): String {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      if (packageManager.canRequestPackageInstalls()) "granted" else "prompt"
+    } else {
+      val allowed = Settings.Secure.getInt(contentResolver, Settings.Secure.INSTALL_NON_MARKET_APPS, 0) == 1
+      if (allowed) "granted" else "prompt"
+    }
+  }
+
+  private fun openUpdateInstallPermissionSettings(): Boolean {
+    return try {
+      val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+      } else {
+        Intent(Settings.ACTION_SECURITY_SETTINGS)
+      }
+      startActivity(intent)
+      true
+    } catch (_: Exception) {
+      false
+    }
+  }
+
+  private fun signatureDigests(info: android.content.pm.PackageInfo): Set<String> {
+    val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      info.signingInfo?.apkContentsSigners?.toList().orEmpty()
+    } else {
+      @Suppress("DEPRECATION")
+      info.signatures?.toList().orEmpty()
+    }
+    return signatures.map { signature ->
+      MessageDigest.getInstance("SHA-256").digest(signature.toByteArray()).joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    }.toSet()
+  }
+
+  private fun verifyAndroidUpdatePackage(apk: File, expectedVersion: String): Long {
+    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      PackageManager.GET_SIGNING_CERTIFICATES
+    } else {
+      @Suppress("DEPRECATION")
+      PackageManager.GET_SIGNATURES
+    }
+    val archive = packageManager.getPackageArchiveInfo(apk.absolutePath, flags)
+      ?: throw IllegalArgumentException("Downloaded file is not a valid Android package")
+    val installed = packageManager.getPackageInfo(packageName, flags)
+    if (archive.packageName != packageName) throw IllegalArgumentException("Android update package name does not match")
+    if (archive.versionName != expectedVersion) throw IllegalArgumentException("Android update version does not match")
+    val archiveVersionCode = PackageInfoCompat.getLongVersionCode(archive)
+    if (archiveVersionCode <= PackageInfoCompat.getLongVersionCode(installed)) {
+      throw IllegalArgumentException("Android update must have a higher version code")
+    }
+    val installedSigners = signatureDigests(installed)
+    val updateSigners = signatureDigests(archive)
+    if (installedSigners.isEmpty() || updateSigners != installedSigners) {
+      throw IllegalArgumentException("Android update signing certificate does not match")
+    }
+    return archiveVersionCode
+  }
+
+  private fun handleReturnedAndroidInstaller() {
+    val requestId = pendingAndroidInstallerRequestId ?: return
+    if (!androidInstallerWasPaused) return
+    val expectedVersionCode = pendingAndroidInstallerVersionCode
+    val stagedApk = pendingAndroidInstallerFile
+    pendingAndroidInstallerRequestId = null
+    pendingAndroidInstallerVersionCode = 0
+    pendingAndroidInstallerFile = null
+    androidInstallerWasPaused = false
+    lifecycleScope.launch(Dispatchers.IO) {
+      val installedVersionCode = try {
+        PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0))
+      } catch (_: Exception) {
+        0L
+      }
+      stagedApk?.delete()
+      androidUpdateInFlight.set(false)
+      if (installedVersionCode >= expectedVersionCode && expectedVersionCode > 0) {
+        completeAndroidUpdate(requestId, true, JSONObject().put("started", true))
+      } else {
+        completeAndroidUpdate(requestId, false, JSONObject().put("error", "Android update installation was cancelled or failed"))
+      }
+    }
+  }
+
+  private fun startAndroidUpdate(
+    requestId: String,
+    url: String,
+    filename: String,
+    expectedSha256: String,
+    expectedSize: Long,
+    expectedVersion: String,
+  ) {
+    if (!androidUpdateInFlight.compareAndSet(false, true)) {
+      completeAndroidUpdate(requestId, false, JSONObject().put("error", "Another Android update is already running"))
+      return
+    }
+    androidUpdateCancelled.set(false)
+    activeAndroidUpdateRequestId = requestId
+    lifecycleScope.launch(Dispatchers.IO) {
+      var stagedApk: File? = null
+      var installerLaunched = false
+      try {
+        if (updateInstallPermissionState() != "granted") throw IllegalStateException("Android install permission is not granted")
+        val normalizedVersion = expectedVersion.removePrefix("v")
+        if (!Regex("^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-.][0-9A-Za-z.-]+)?$").matches(normalizedVersion)) {
+          throw IllegalArgumentException("Invalid Android update version")
+        }
+        if (filename != "nia-todo-v${normalizedVersion}-android-arm64.apk") {
+          throw IllegalArgumentException("Invalid Android update filename")
+        }
+        if (!Regex("^[0-9a-fA-F]{64}$").matches(expectedSha256)) {
+          throw IllegalArgumentException("Invalid Android update SHA-256")
+        }
+        if (expectedSize <= 0 || expectedSize > maxAndroidUpdateBytes) {
+          throw IllegalArgumentException("Invalid Android update size")
+        }
+        val uri = URI(url)
+        val scheme = (uri.scheme ?: "").lowercase(Locale.ROOT)
+        if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Unsupported Android update URL")
+        if (uri.host.isNullOrBlank() || uri.rawUserInfo != null || uri.rawQuery != null || uri.rawFragment != null) {
+          throw IllegalArgumentException("Invalid Android update URL")
+        }
+        if (uri.rawPath != "/downloads/$filename") throw IllegalArgumentException("Invalid Android update URL path")
+        val configured = configuredServerOrigin
+          ?: throw IllegalStateException("Server origin is not configured")
+        val requestedOrigin = "${scheme}://${uri.host}${if (uri.port > 0) ":${uri.port}" else ""}"
+        if (canonicalServerOrigin(requestedOrigin) != configured) {
+          throw IllegalArgumentException("Android update URL does not match configured server")
+        }
+
+        val updateDir = File(cacheDir, "native-updates").apply { mkdirs() }
+        val target = File(updateDir, filename)
+        if (target.parentFile?.canonicalFile != updateDir.canonicalFile) {
+          throw IllegalArgumentException("Invalid Android update path")
+        }
+        stagedApk = target
+        if (target.exists() && !target.delete()) throw IllegalStateException("Could not replace staged Android update")
+
+        val digest = MessageDigest.getInstance("SHA-256")
+        var downloaded = 0L
+        val downloadStartedAt = SystemClock.elapsedRealtime()
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+          requestMethod = "GET"
+          connectTimeout = 15_000
+          readTimeout = 15_000
+          instanceFollowRedirects = false
+          useCaches = false
+        }
+        activeAndroidUpdateConnection = connection
+        try {
+          connection.connect()
+          if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+            throw IllegalStateException("Android update download failed: HTTP ${connection.responseCode}")
+          }
+          val contentLength = connection.contentLengthLong
+          if (contentLength > maxAndroidUpdateBytes || (contentLength >= 0 && contentLength != expectedSize)) {
+            throw IllegalStateException("Android update download size does not match")
+          }
+          emitAndroidUpdateProgress(requestId, "downloading", 0, expectedSize)
+          connection.inputStream.use { input ->
+            FileOutputStream(target).use { output ->
+              val buffer = ByteArray(64 * 1024)
+              while (true) {
+                if (androidUpdateCancelled.get()) throw IllegalStateException("Android update was cancelled")
+                if (SystemClock.elapsedRealtime() - downloadStartedAt > maxAndroidUpdateDurationMs) {
+                  throw IllegalStateException("Android update download timed out")
+                }
+                val count = input.read(buffer)
+                if (count < 0) break
+                downloaded += count
+                if (downloaded > expectedSize || downloaded > maxAndroidUpdateBytes) {
+                  throw IllegalStateException("Android update exceeds expected size")
+                }
+                digest.update(buffer, 0, count)
+                output.write(buffer, 0, count)
+                emitAndroidUpdateProgress(requestId, "downloading", downloaded, expectedSize)
+              }
+              output.fd.sync()
+            }
+          }
+        } finally {
+          activeAndroidUpdateConnection = null
+          connection.disconnect()
+        }
+        if (androidUpdateCancelled.get()) throw IllegalStateException("Android update was cancelled")
+        if (downloaded != expectedSize) throw IllegalStateException("Android update download is incomplete")
+        val actualSha256 = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
+          throw IllegalStateException("Android update SHA-256 does not match")
+        }
+        val targetVersionCode = verifyAndroidUpdatePackage(target, normalizedVersion)
+        emitAndroidUpdateProgress(requestId, "installing", expectedSize, expectedSize)
+        val contentUri = FileProvider.getUriForFile(this@MainActivity, "$packageName.fileprovider", target)
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+          setDataAndType(contentUri, "application/vnd.android.package-archive")
+          addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        pendingAndroidInstallerRequestId = requestId
+        pendingAndroidInstallerVersionCode = targetVersionCode
+        pendingAndroidInstallerFile = target
+        androidInstallerWasPaused = false
+        withContext(Dispatchers.Main) { startActivity(installIntent) }
+        installerLaunched = true
+      } catch (error: Exception) {
+        pendingAndroidInstallerRequestId = null
+        pendingAndroidInstallerVersionCode = 0
+        pendingAndroidInstallerFile = null
+        androidInstallerWasPaused = false
+        stagedApk?.delete()
+        completeAndroidUpdate(requestId, false, JSONObject().put("error", error.message ?: error.javaClass.simpleName))
+      } finally {
+        activeAndroidUpdateRequestId = null
+        activeAndroidUpdateConnection = null
+        androidUpdateCancelled.set(false)
+        if (!installerLaunched) androidUpdateInFlight.set(false)
+      }
+    }
+  }
+
   private fun safeDownloadFilename(raw: String): String {
     val fallback = "attachment"
     val cleaned = raw
@@ -513,9 +858,9 @@ class MainActivity : TauriActivity() {
       val uri = URI(url)
       val scheme = (uri.scheme ?: "").lowercase(Locale.ROOT)
       if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Unsupported download URL")
-      val configured = configuredPasskeyOrigin
+      val configured = configuredServerOrigin
       val requestedOrigin = "${scheme}://${uri.host}${if (uri.port > 0) ":${uri.port}" else ""}"
-      if (configured != null && canonicalOrigin(requestedOrigin) != configured) {
+      if (configured != null && canonicalServerOrigin(requestedOrigin) != configured) {
         throw IllegalArgumentException("Download URL does not match configured server")
       }
       val targetName = safeDownloadFilename(filename)
@@ -683,14 +1028,13 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun setConfiguredServerUrl(serverUrl: String): Boolean {
       return try {
-        val canonical = canonicalOrigin(serverUrl)
-        // The configured server may change while the WebView is still running.
-        // Keep the passkey origin in sync with the persisted native setting so
-        // the web layer can reload into the new server without requiring a full
-        // Android process restart.
-        configuredPasskeyOrigin = canonical
+        val serverOrigin = canonicalServerOrigin(serverUrl)
+        configuredServerOrigin = serverOrigin
+        configuredPasskeyOrigin = runCatching { canonicalOrigin(serverOrigin) }.getOrNull()
         true
       } catch (_: Exception) {
+        configuredServerOrigin = null
+        configuredPasskeyOrigin = null
         false
       }
     }

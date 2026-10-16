@@ -48,7 +48,7 @@ assert(appDownloadsSource.includes("link.matches?.('[data-external-resource]')")
 assert(appDownloadsSource.includes('nativeBridge.openExternal'), 'native apps must open external documentation with the native browser bridge');
 
 const serviceWorkerSource = read('web/sw.js');
-assert(serviceWorkerSource.includes("const CACHE_REVISION = 'today-calendar-preview-73';"), 'the app-shell cache revision must advance for the dynamic Today calendar icon');
+assert(serviceWorkerSource.includes("const CACHE_REVISION = 'android-native-updates-74';"), 'the app-shell cache revision must include the Android native updater assets');
 assert(serviceWorkerSource.includes("'/static/icons/brands/github-mark.svg'"), 'the official GitHub mark must be available offline');
 
 const aboutCss = read('web/static/css/54-about.css');
