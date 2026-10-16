@@ -72,7 +72,49 @@ class LocationReminderReceiver : BroadcastReceiver() {
     const val ACTION_GEOFENCE_EVENT = "de.tobiaskneidl.nia_todo.LOCATION_REMINDER"
     const val PREFS_NAME = "nia_todo_location_reminders"
     const val PREFS_SCHEDULES = "location_schedules"
+    const val PREFS_GUIDANCE_DECLINED = "location_permission_guidance_declined"
+    const val PREFS_SETTINGS_PENDING = "location_permission_settings_pending"
+    const val PREFS_SETTINGS_WAS_PAUSED = "location_permission_settings_was_paused"
     const val DEFAULT_RADIUS_M = 150f
+
+    fun isLocationPermissionGuidanceDeclined(context: Context): Boolean {
+      return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(PREFS_GUIDANCE_DECLINED, false)
+    }
+
+    fun setLocationPermissionGuidanceDeclined(context: Context, declined: Boolean) {
+      val editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(PREFS_GUIDANCE_DECLINED, declined)
+      editor.apply()
+    }
+
+    fun beginLocationPermissionSettingsRoundTrip(context: Context) {
+      context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(PREFS_SETTINGS_PENDING, true)
+        .putBoolean(PREFS_SETTINGS_WAS_PAUSED, false)
+        .commit()
+    }
+
+    fun markLocationPermissionSettingsPaused(context: Context) {
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      if (!prefs.getBoolean(PREFS_SETTINGS_PENDING, false)) return
+      prefs.edit().putBoolean(PREFS_SETTINGS_WAS_PAUSED, true).commit()
+    }
+
+    fun consumeLocationPermissionSettingsRoundTrip(context: Context): Boolean {
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      val completed = prefs.getBoolean(PREFS_SETTINGS_PENDING, false) &&
+        prefs.getBoolean(PREFS_SETTINGS_WAS_PAUSED, false)
+      if (completed) {
+        prefs.edit()
+          .remove(PREFS_SETTINGS_PENDING)
+          .remove(PREFS_SETTINGS_WAS_PAUSED)
+          .commit()
+      }
+      return completed
+    }
 
     fun hasStoredLocationSchedules(context: Context): Boolean {
       val schedulesJson = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(PREFS_SCHEDULES, "[]") ?: "[]"

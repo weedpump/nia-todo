@@ -83,9 +83,9 @@ const {
   bindFocusProjectMenuDismissal,
 } = createFocusFiltersFeature({ renderTodos: () => renderTodos() });
 
-function setTodosState(next) {
+function setTodosState(next, { nativeReminderSnapshotAuthoritative = true } = {}) {
   todos = next;
-  desktopIntegration?.syncLocalReminders(todos);
+  desktopIntegration?.syncLocalReminders(todos, { authoritative: nativeReminderSnapshotAuthoritative });
 }
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────

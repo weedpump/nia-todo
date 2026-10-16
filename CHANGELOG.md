@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added in-app updates for the Debian desktop app.
 - Added in-app updates for the Android app.
 
+### Fixed
+- Explained Android location access before opening system settings and stopped repeated prompts after opting out.
+
 ## [3.3.3] - 2026-10-15
 
 ### Fixed

@@ -46,6 +46,8 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -63,6 +65,7 @@ class MainActivity : TauriActivity() {
   private val nativePrefsName = "nia_todo_native"
   private val lastWebViewCacheVersionKey = "last_webview_cache_version"
   private val pendingOidcCallbackKey = "pending_oidc_callback_url"
+  private val locationReminderScheduleMutex = Mutex()
   private val lightSystemBarColor = Color.rgb(248, 250, 252)
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
   private val maxNativeAudioDurationMs = 120_000
@@ -115,25 +118,36 @@ class MainActivity : TauriActivity() {
 
   override fun onResume() {
     super.onResume()
+    if (LocationReminderReceiver.consumeLocationPermissionSettingsRoundTrip(this)) {
+      val granted = LocationReminderReceiver.locationPermissionState(this) == "granted"
+      LocationReminderReceiver.setLocationPermissionGuidanceDeclined(this, !granted)
+    }
     LocationReminderReceiver.rescheduleStoredLocationReminders(this)
     handleReturnedAndroidInstaller()
   }
 
   override fun onPause() {
     if (pendingAndroidInstallerRequestId != null) androidInstallerWasPaused = true
+    LocationReminderReceiver.markLocationPermissionSettingsPaused(this)
     super.onPause()
   }
 
   override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     if (requestCode == 7303) {
-      if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+      val fineIndex = permissions.indexOf(Manifest.permission.ACCESS_FINE_LOCATION)
+      val fineGranted = fineIndex >= 0 && grantResults.getOrNull(fineIndex) == PackageManager.PERMISSION_GRANTED
+      if (fineGranted) {
         requestLocationPermission()
+      } else {
+        LocationReminderReceiver.setLocationPermissionGuidanceDeclined(this, true)
       }
       LocationReminderReceiver.rescheduleStoredLocationReminders(this)
       return
     }
     if (requestCode == 7304) {
+      val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+      LocationReminderReceiver.setLocationPermissionGuidanceDeclined(this, !granted)
       LocationReminderReceiver.rescheduleStoredLocationReminders(this)
     }
   }
@@ -168,21 +182,29 @@ class MainActivity : TauriActivity() {
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidNative")
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidSystemBars")
     if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+      val trustedLocalOrigins = setOf(
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "https://localhost",
+        "http://127.0.0.1",
+        "https://127.0.0.1",
+        "http://[::1]",
+        "https://[::1]",
+      )
       WebViewCompat.addWebMessageListener(
         webView,
         "NiaAndroidUpdater",
-        setOf(
-          "http://tauri.localhost",
-          "https://tauri.localhost",
-          "http://localhost",
-          "https://localhost",
-          "http://127.0.0.1",
-          "https://127.0.0.1",
-          "http://[::1]",
-          "https://[::1]",
-        ),
+        trustedLocalOrigins,
       ) { _, message, sourceOrigin, isMainFrame, _ ->
         handleAndroidUpdaterMessage(message.data, sourceOrigin, isMainFrame)
+      }
+      WebViewCompat.addWebMessageListener(
+        webView,
+        "NiaAndroidLocationPermission",
+        trustedLocalOrigins,
+      ) { _, message, sourceOrigin, isMainFrame, _ ->
+        handleAndroidLocationPermissionMessage(message.data, sourceOrigin, isMainFrame)
       }
     }
     webView.post {
@@ -408,10 +430,11 @@ class MainActivity : TauriActivity() {
 
   private fun requestLocationPermission(): String {
     if (!LocationReminderReceiver.hasStoredLocationSchedules(this)) return LocationReminderReceiver.locationPermissionState(this)
+    LocationReminderReceiver.setLocationPermissionGuidanceDeclined(this, false)
     val state = LocationReminderReceiver.locationPermissionState(this)
     if (state == "granted") return state
     if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-      requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 7303)
+      requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION), 7303)
       return "prompt"
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -419,6 +442,7 @@ class MainActivity : TauriActivity() {
         val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
           data = Uri.parse("package:$packageName")
         }
+        LocationReminderReceiver.beginLocationPermissionSettingsRoundTrip(this)
         startActivity(intent)
         return "background_settings"
       }
@@ -427,6 +451,38 @@ class MainActivity : TauriActivity() {
     }
     LocationReminderReceiver.rescheduleStoredLocationReminders(this)
     return LocationReminderReceiver.locationPermissionState(this)
+  }
+
+  private fun locationPermissionGuidanceState(): String {
+    val state = LocationReminderReceiver.locationPermissionState(this)
+    if (state == "granted") {
+      LocationReminderReceiver.setLocationPermissionGuidanceDeclined(this, false)
+      return state
+    }
+    return if (LocationReminderReceiver.isLocationPermissionGuidanceDeclined(this)) "declined" else state
+  }
+
+  private fun declineLocationPermissionGuidance(): Boolean {
+    LocationReminderReceiver.setLocationPermissionGuidanceDeclined(this, true)
+    return true
+  }
+
+  private fun resetLocationPermissionGuidance(): Boolean {
+    LocationReminderReceiver.setLocationPermissionGuidanceDeclined(this, false)
+    return true
+  }
+
+  private fun backgroundLocationPermissionOptionLabel(): String {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return ""
+    return packageManager.backgroundPermissionOptionLabel.toString()
+  }
+
+  private fun backgroundLocationPermissionMode(): String {
+    return when {
+      Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> "settings"
+      Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> "runtime_prompt"
+      else -> "legacy"
+    }
   }
 
   @Synchronized
@@ -581,6 +637,15 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  private fun respondAndroidLocationPermissionCall(requestId: String, success: Boolean, payload: JSONObject) {
+    runOnUiThread {
+      appWebView?.evaluateJavascript(
+        "window.__niaAndroidLocationPermissionResponse?.(${JSONObject.quote(requestId)}, $success, ${payload});",
+        null,
+      )
+    }
+  }
+
   private fun isTrustedAndroidUpdaterSource(sourceOrigin: Uri, isMainFrame: Boolean): Boolean {
     if (!isMainFrame) return false
     return isTrustedLocalWebViewUrl(sourceOrigin.toString())
@@ -616,6 +681,49 @@ class MainActivity : TauriActivity() {
       "cancel" -> cancelAndroidUpdate(requestId)
       else -> respondAndroidUpdaterCall(requestId, false, JSONObject().put("error", "Unknown Android updater action"))
     }
+  }
+
+  private fun handleAndroidLocationPermissionMessage(raw: String?, sourceOrigin: Uri, isMainFrame: Boolean) {
+    val message = try { JSONObject(raw ?: "") } catch (_: Exception) { return }
+    val requestId = message.optString("requestId", "")
+    if (requestId.isBlank()) return
+    if (!isTrustedAndroidUpdaterSource(sourceOrigin, isMainFrame)) {
+      respondAndroidLocationPermissionCall(requestId, false, JSONObject().put("error", "Android location permission bridge is unavailable from this frame"))
+      return
+    }
+    val action = message.optString("action", "")
+    if (action == "schedule") {
+      val schedulesJson = message.optJSONArray("schedules")?.toString() ?: "[]"
+      lifecycleScope.launch(Dispatchers.IO) {
+        try {
+          val count = locationReminderScheduleMutex.withLock {
+            LocationReminderReceiver.scheduleLocationReminders(this@MainActivity, schedulesJson)
+          }
+          respondAndroidLocationPermissionCall(requestId, true, JSONObject().put("count", count))
+        } catch (_: Exception) {
+          respondAndroidLocationPermissionCall(
+            requestId,
+            false,
+            JSONObject().put("error", "Android location reminder scheduling failed"),
+          )
+        }
+      }
+      return
+    }
+    val payload = when (action) {
+      "state" -> JSONObject().put("state", LocationReminderReceiver.locationPermissionState(this))
+      "guidanceState" -> JSONObject().put("state", locationPermissionGuidanceState())
+      "decline" -> JSONObject().put("declined", declineLocationPermissionGuidance())
+      "resetGuidance" -> JSONObject().put("reset", resetLocationPermissionGuidance())
+      "optionLabel" -> JSONObject().put("label", backgroundLocationPermissionOptionLabel())
+      "mode" -> JSONObject().put("mode", backgroundLocationPermissionMode())
+      "request" -> JSONObject().put("state", requestLocationPermission())
+      else -> {
+        respondAndroidLocationPermissionCall(requestId, false, JSONObject().put("error", "Unknown Android location permission action"))
+        return
+      }
+    }
+    respondAndroidLocationPermissionCall(requestId, true, payload)
   }
 
   private fun cancelAndroidUpdate(requestId: String) {
@@ -1000,21 +1108,6 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun scheduleReminders(schedulesJson: String): Int {
       return ReminderReceiver.scheduleReminders(this@MainActivity, schedulesJson)
-    }
-
-    @JavascriptInterface
-    fun scheduleLocationReminders(schedulesJson: String): Int {
-      return LocationReminderReceiver.scheduleLocationReminders(this@MainActivity, schedulesJson)
-    }
-
-    @JavascriptInterface
-    fun locationPermissionState(): String {
-      return LocationReminderReceiver.locationPermissionState(this@MainActivity)
-    }
-
-    @JavascriptInterface
-    fun requestLocationPermission(): String {
-      return this@MainActivity.requestLocationPermission()
     }
 
     @JavascriptInterface

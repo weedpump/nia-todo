@@ -1730,6 +1730,15 @@ export function createTodosFeature({
     return locationReminder ? [locationReminder] : [];
   }
 
+  async function resetLocationPermissionGuidanceForUserIntent() {
+    if (!RUNTIME_CAPABILITIES.android) return;
+    try {
+      await nativeBridge.resetLocationPermissionGuidance?.();
+    } catch (error) {
+      console.warn('[Native] Failed to reset location permission guidance', error);
+    }
+  }
+
   function bindRecurringControls() {
     const select = document.getElementById('todo-recurring-frequency');
     const interval = document.getElementById('todo-recurring-interval');
@@ -2656,6 +2665,9 @@ export function createTodosFeature({
       if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
+    const locationReminderIntent = Boolean(todoData.location_reminder) && (
+      !id || document.getElementById('todo-form')?.dataset.locationReminderDirty === '1'
+    );
     const draftComments = id ? [] : collectTodoDraftCommentsFromEditor();
     const draftAttachmentFiles = id ? [] : getSelectedAttachmentFiles();
     const hasPostCreateDrafts = draftComments.length > 0 || draftAttachmentFiles.length > 0;
@@ -2670,6 +2682,7 @@ export function createTodosFeature({
         const nowIso = new Date().toISOString();
         const updated = { ...existing, ...todoData, completed_at: todoData.status === 'done' ? (existing.completed_at || nowIso) : null, updated_at: nowIso };
         await dbPut('todos', updated);
+        if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
         setTodos(getTodos().map(t => t.id === parseInt(id) ? updated : t));
         await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
         if (isOnlineForSync()) await syncWithServer();
@@ -2677,6 +2690,7 @@ export function createTodosFeature({
     } else if (hasPostCreateDrafts) {
       let createdTodo = await todosApi.create(todoData);
       await dbPut('todos', createdTodo);
+      if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       setTodos([...getTodos(), createdTodo]);
       document.getElementById('todo-id').value = String(createdTodo.id);
       for (const body of draftComments) {
@@ -2700,6 +2714,7 @@ export function createTodosFeature({
       const nowIso = new Date().toISOString();
       const newTodo = { id: tempId, ...todoData, completed_at: todoData.status === 'done' ? nowIso : null, created_at: nowIso, updated_at: nowIso, reminders: [], subtasks: normalizeSubtasks(todoData.subtasks) };
       await dbPut('todos', newTodo);
+      if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       setTodos([...getTodos(), newTodo]);
       renderProjects();
       renderStats();
@@ -2815,6 +2830,7 @@ export function createTodosFeature({
     const nowIso = new Date().toISOString();
     const duplicated = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: todoData.remind_at ? [{ remind_at: todoData.remind_at }] : [] };
     await dbPut('todos', duplicated);
+    if (todoData.location_reminder) await resetLocationPermissionGuidanceForUserIntent();
     setTodos([...getTodos(), duplicated]);
     renderStats();
     renderTodos();

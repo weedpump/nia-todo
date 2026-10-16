@@ -3,8 +3,10 @@ import { t } from '../i18n/index.js';
 
 const androidUpdateRequests = new Map();
 const androidUpdaterCalls = new Map();
+const androidLocationPermissionCalls = new Map();
 const ANDROID_UPDATE_TIMEOUT_MS = 10 * 60 * 1000;
 const ANDROID_UPDATER_CALL_TIMEOUT_MS = 15_000;
+const ANDROID_LOCATION_PERMISSION_CALL_TIMEOUT_MS = 15_000;
 
 export function createNativeBridge() {
   const android = () => window.NiaAndroidNative || null;
@@ -103,8 +105,9 @@ export function createNativeBridge() {
   }
 
   async function scheduleLocationReminders(reminders) {
-    if (!RUNTIME_CAPABILITIES.android || !hasAndroidMethod('scheduleLocationReminders')) return 0;
-    return Number(android().scheduleLocationReminders(JSON.stringify(reminders || []))) || 0;
+    if (!hasAndroidLocationPermissionBridge()) return 0;
+    const payload = await callAndroidLocationPermission('schedule', { schedules: reminders || [] }, null);
+    return Number(payload?.count) || 0;
   }
 
   async function clearReminders() {
@@ -112,14 +115,91 @@ export function createNativeBridge() {
     return scheduleReminders([]);
   }
 
-  function locationPermissionState() {
-    if (!RUNTIME_CAPABILITIES.android || !hasAndroidMethod('locationPermissionState')) return 'unsupported';
-    return android().locationPermissionState() || 'prompt';
+  const androidLocationPermission = () => window.NiaAndroidLocationPermission || null;
+
+  function hasAndroidLocationPermissionBridge() {
+    return isAndroid() && typeof androidLocationPermission()?.postMessage === 'function';
   }
 
-  function requestLocationPermission() {
-    if (!RUNTIME_CAPABILITIES.android || !hasAndroidMethod('requestLocationPermission')) return 'unsupported';
-    return android().requestLocationPermission() || locationPermissionState();
+  function ensureAndroidLocationPermissionCallbacks() {
+    if (typeof window.__niaAndroidLocationPermissionResponse === 'function') return;
+    Object.defineProperty(window, '__niaAndroidLocationPermissionResponse', {
+      configurable: false,
+      writable: false,
+      value: (requestId, success, payload) => {
+        const key = String(requestId);
+        const pending = androidLocationPermissionCalls.get(key);
+        if (!pending) return;
+        if (pending.timeoutId !== null) clearTimeout(pending.timeoutId);
+        androidLocationPermissionCalls.delete(key);
+        if (success) pending.resolve(payload);
+        else pending.reject(new Error(payload?.error || 'Android location permission bridge call failed'));
+      },
+    });
+  }
+
+  function callAndroidLocationPermission(action, payload = {}, timeoutMs = ANDROID_LOCATION_PERMISSION_CALL_TIMEOUT_MS) {
+    if (!hasAndroidLocationPermissionBridge()) return Promise.reject(new Error('Android location permission bridge unavailable'));
+    ensureAndroidLocationPermissionCallbacks();
+    const requestId = globalThis.crypto?.randomUUID?.() || `android-location-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return new Promise((resolve, reject) => {
+      const timeoutId = Number.isFinite(timeoutMs) && timeoutMs > 0
+        ? setTimeout(() => {
+          androidLocationPermissionCalls.delete(requestId);
+          reject(new Error('Android location permission bridge call timed out'));
+        }, timeoutMs)
+        : null;
+      androidLocationPermissionCalls.set(requestId, { resolve, reject, timeoutId });
+      try {
+        androidLocationPermission().postMessage(JSON.stringify({ requestId, action, ...payload }));
+      } catch (error) {
+        if (timeoutId !== null) clearTimeout(timeoutId);
+        androidLocationPermissionCalls.delete(requestId);
+        reject(error);
+      }
+    });
+  }
+
+  async function locationPermissionState() {
+    if (!hasAndroidLocationPermissionBridge()) return 'unsupported';
+    const payload = await callAndroidLocationPermission('state');
+    return String(payload?.state || 'prompt');
+  }
+
+  async function locationPermissionGuidanceState() {
+    if (!hasAndroidLocationPermissionBridge()) return 'unsupported';
+    const payload = await callAndroidLocationPermission('guidanceState');
+    return String(payload?.state || 'prompt');
+  }
+
+  async function declineLocationPermissionGuidance() {
+    if (!hasAndroidLocationPermissionBridge()) return false;
+    const payload = await callAndroidLocationPermission('decline');
+    return Boolean(payload?.declined);
+  }
+
+  async function resetLocationPermissionGuidance() {
+    if (!hasAndroidLocationPermissionBridge()) return false;
+    const payload = await callAndroidLocationPermission('resetGuidance');
+    return Boolean(payload?.reset);
+  }
+
+  async function backgroundLocationPermissionOptionLabel() {
+    if (!hasAndroidLocationPermissionBridge()) return '';
+    const payload = await callAndroidLocationPermission('optionLabel');
+    return String(payload?.label || '');
+  }
+
+  async function backgroundLocationPermissionMode() {
+    if (!hasAndroidLocationPermissionBridge()) return 'unsupported';
+    const payload = await callAndroidLocationPermission('mode');
+    return String(payload?.mode || 'unsupported');
+  }
+
+  async function requestLocationPermission() {
+    if (!hasAndroidLocationPermissionBridge()) return 'unsupported';
+    const payload = await callAndroidLocationPermission('request');
+    return String(payload?.state || 'prompt');
   }
 
   function hapticFeedback(pattern = 12) {
@@ -517,6 +597,11 @@ export function createNativeBridge() {
     scheduleLocationReminders,
     clearReminders,
     locationPermissionState,
+    locationPermissionGuidanceState,
+    declineLocationPermissionGuidance,
+    resetLocationPermissionGuidance,
+    backgroundLocationPermissionOptionLabel,
+    backgroundLocationPermissionMode,
     requestLocationPermission,
     hapticFeedback,
     supportsAudioRecording,
