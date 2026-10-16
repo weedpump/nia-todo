@@ -165,6 +165,7 @@
   "update.native.new": "Nytt:",
   "update.native.later": "Senare",
   "update.native.install": "Installera uppdatering",
+  "update.native.download": "Hämta uppdatering",
   "update.native.unknownVersion": "okänt",
   "version.appVersion": "Appversion:",
   "todo.edit": "Redigera att göra",

@@ -5,6 +5,7 @@ import { hideAutoScrollbars } from './auto-scrollbars.js';
 import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { createNativeBridge } from './native-bridge.js';
 import { installWindowsNativeUpdate } from './windows-native-update.js';
+import { installDebianNativeUpdate } from './debian-native-update.js';
 
 let deferredPwaInstallPrompt = null;
 
@@ -45,6 +46,7 @@ async function getNativeAppVersion(nativeBridge) {
 
 const DOWNLOAD_SHA_RE = /^[a-f0-9]{64}$/;
 const DOWNLOAD_VERSION_RE = /^v?\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?$/;
+const DOWNLOAD_SIGNATURE_RE = /^[A-Za-z0-9+/=]+$/;
 const DOWNLOADS_BY_PLATFORM = {
   windows: {
     arch: 'x64',
@@ -65,6 +67,41 @@ const DOWNLOADS_BY_PLATFORM = {
     filenameRe: /^nia-todo-desktop-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-debian-amd64\.deb$/,
   },
 };
+
+export function setNativeUpdateButtonBusy(button, busy) {
+  if (!button) return;
+  if (busy) {
+    button.dataset.updateBusy = 'true';
+    button.dataset.updateHref = button.getAttribute('href') || '';
+    button.dataset.updateDownload = button.getAttribute('download') || '';
+    button.dataset.updateTabindex = button.getAttribute('tabindex') ?? '';
+    button.setAttribute('aria-disabled', 'true');
+    button.setAttribute('tabindex', '-1');
+    button.classList.add('is-native-update-busy');
+    button.removeAttribute('href');
+    button.removeAttribute('download');
+    return;
+  }
+  button.dataset.updateBusy = 'false';
+  button.removeAttribute('aria-disabled');
+  button.classList.remove('is-native-update-busy');
+  if (button.dataset.updateTabindex) button.setAttribute('tabindex', button.dataset.updateTabindex);
+  else button.removeAttribute('tabindex');
+  if (button.dataset.updateHref) button.setAttribute('href', button.dataset.updateHref);
+  if (button.dataset.updateDownload) button.setAttribute('download', button.dataset.updateDownload);
+  delete button.dataset.updateHref;
+  delete button.dataset.updateDownload;
+  delete button.dataset.updateTabindex;
+}
+
+export function formatNativeUpdateProgressLabel(progress, { downloadLabel, installLabel }) {
+  if (progress?.phase === 'downloading' && progress.totalBytes > 0) {
+    const percent = Math.min(100, Math.floor((progress.downloadedBytes / progress.totalBytes) * 100));
+    return `${downloadLabel} (${percent}%)`;
+  }
+  if (progress?.phase === 'installing') return `${installLabel} (100%)`;
+  return '';
+}
 
 function absoluteDownloadUrl(url) {
   const base = RUNTIME_CAPABILITIES.native && API ? API : location.origin;
@@ -102,6 +139,8 @@ export function validateDownloadEntry(app, fallbackVersion = '') {
   if (!DOWNLOAD_VERSION_RE.test(version)) return null;
   const versionSlug = normalizeVersion(version);
   if (filename !== `${spec.filenamePrefix}${versionSlug}${spec.filenameSuffix}`) return null;
+  const signature = typeof app.signature === 'string' && app.signature.length <= 16 * 1024
+    && DOWNLOAD_SIGNATURE_RE.test(app.signature) ? app.signature : '';
 
   return {
     platform,
@@ -113,6 +152,8 @@ export function validateDownloadEntry(app, fallbackVersion = '') {
     sha256: app.sha256 || '',
     sizeBytes: Number.isSafeInteger(app.size_bytes) && app.size_bytes > 0 ? app.size_bytes : null,
     tauri_updater: app.tauri_updater === true,
+    debian_updater: platform === 'debian' && app.debian_updater === true && Boolean(signature),
+    signature,
   };
 }
 
@@ -445,17 +486,11 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
       if (RUNTIME_PLATFORM === 'windows' && download.tauri_updater === true && nativeBridge.installUpdate) {
         if (button.dataset.updateBusy === 'true') return;
         const idleLabel = t('update.native.install');
-        button.dataset.updateBusy = 'true';
-        button.setAttribute('aria-disabled', 'true');
-        button.removeAttribute('download');
+        const downloadLabel = t('update.native.download');
+        setNativeUpdateButtonBusy(button, true);
         try {
           const installed = await installWindowsNativeUpdate(nativeBridge, (progress) => {
-            if (progress?.phase === 'downloading' && progress.totalBytes > 0) {
-              const percent = Math.min(100, Math.floor((progress.downloadedBytes / progress.totalBytes) * 100));
-              button.textContent = `${idleLabel} (${percent}%)`;
-            } else if (progress?.phase === 'installing') {
-              button.textContent = `${idleLabel} (100%)`;
-            }
+            button.textContent = formatNativeUpdateProgressLabel(progress, { downloadLabel, installLabel: idleLabel }) || idleLabel;
           });
           if (installed) return;
           if (message) message.textContent = t('update.native.optionalMessage');
@@ -464,8 +499,26 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
           if (message) message.textContent = error?.message || t('update.native.optionalMessage');
         }
         button.textContent = idleLabel;
-        button.dataset.updateBusy = 'false';
-        button.removeAttribute('aria-disabled');
+        setNativeUpdateButtonBusy(button, false);
+        return;
+      }
+      if (RUNTIME_PLATFORM === 'linux' && download.debian_updater === true && nativeBridge.installDebianUpdate) {
+        if (button.dataset.updateBusy === 'true') return;
+        const idleLabel = t('update.native.install');
+        const downloadLabel = t('update.native.download');
+        setNativeUpdateButtonBusy(button, true);
+        try {
+          const installed = await installDebianNativeUpdate(nativeBridge, download, (progress) => {
+            button.textContent = formatNativeUpdateProgressLabel(progress, { downloadLabel, installLabel: idleLabel }) || idleLabel;
+          });
+          if (installed) return;
+          if (message) message.textContent = t('update.native.optionalMessage');
+        } catch (error) {
+          console.warn('[Downloads] Debian update installation failed', error);
+          if (message) message.textContent = error?.message || t('update.native.optionalMessage');
+        }
+        button.textContent = idleLabel;
+        setNativeUpdateButtonBusy(button, false);
         return;
       }
       try {

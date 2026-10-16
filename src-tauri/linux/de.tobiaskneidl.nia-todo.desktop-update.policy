@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>nia-todo</vendor>
+  <vendor_url>https://github.com/weedpump/nia-todo</vendor_url>
+  <action id="de.tobiaskneidl.nia-todo.desktop-update.install">
+    <description>Install a nia-todo desktop update</description>
+    <message>Authentication is required to update nia-todo</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/nia-todo-desktop/nia-todo-desktop-updater</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">privileged</annotate>
+  </action>
+</policyconfig>

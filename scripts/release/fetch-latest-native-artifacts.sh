@@ -63,6 +63,11 @@ else
 fi
 copy_or_fail "${SOURCE_DIR}/nia-todo-${LATEST_TAG}-android-arm64.apk" "${OUTPUT_DIR}/nia-todo-ci-android-arm64.apk"
 copy_or_fail "${SOURCE_DIR}/nia-todo-desktop-${LATEST_TAG}-debian-amd64.deb" "${OUTPUT_DIR}/nia-todo-ci-debian-amd64.deb"
+if [ -f "${SOURCE_DIR}/nia-todo-desktop-${LATEST_TAG}-debian-amd64.deb.sig" ]; then
+    cp "${SOURCE_DIR}/nia-todo-desktop-${LATEST_TAG}-debian-amd64.deb.sig" "${OUTPUT_DIR}/nia-todo-ci-debian-amd64.deb.sig"
+else
+    echo "ℹ️  Release ${LATEST_TAG} predates signed Debian in-place updates; reusing its package without updater metadata."
+fi
 
 echo "native_app_version=${NATIVE_APP_VERSION}" > "${OUTPUT_DIR}/native-app-version.env"
 echo "✅ Reused native apps from ${LATEST_TAG} staged in ${OUTPUT_DIR}"

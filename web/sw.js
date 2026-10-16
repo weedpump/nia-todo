@@ -119,6 +119,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/desktop-hotkey-descriptions.js',
   '/static/js/features/native-bridge.js',
   '/static/js/features/windows-native-update.js',
+  '/static/js/features/debian-native-update.js',
   '/static/js/features/auth-session.js',
   '/static/js/features/oidc-notice.js',
   '/static/js/features/connection-status.js',

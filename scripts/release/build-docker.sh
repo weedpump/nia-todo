@@ -13,10 +13,13 @@ Options:
   --require-windows-signature
                             Fail unless the Windows installer has a signature
   --android-apk FILE         Signed Android APK to embed under /downloads
-  --debian-deb FILE           Debian package to embed under /downloads
+  --debian-deb FILE          Debian package to embed under /downloads
+  --debian-signature FILE    Tauri/minisign signature for the Debian package
+  --require-debian-signature Fail unless the Debian package has a signature
   --native-app-version VERSION
                             Native app download version to publish (default: VERSION)
   --windows-version VERSION Windows app version to publish (default: native app version)
+  --debian-version VERSION  Debian app version to publish (default: native app version)
   --allow-missing-apps       Allow building a test image without native app files
   --tag TAG                  Docker tag to build (default: nia-todo:VERSION)
   --latest                   Also tag as nia-todo:latest
@@ -31,8 +34,11 @@ WINDOWS_SIGNATURE=""
 REQUIRE_WINDOWS_SIGNATURE=0
 ANDROID_APK=""
 DEBIAN_DEB=""
+DEBIAN_SIGNATURE=""
+REQUIRE_DEBIAN_SIGNATURE=0
 NATIVE_APP_VERSION=""
 WINDOWS_VERSION=""
+DEBIAN_VERSION=""
 ALLOW_MISSING_APPS=0
 TAG=""
 LATEST=0
@@ -47,8 +53,11 @@ while [ "$#" -gt 0 ]; do
     --require-windows-signature) REQUIRE_WINDOWS_SIGNATURE=1; shift ;;
     --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
     --debian-deb) DEBIAN_DEB="${2:-}"; shift 2 ;;
+    --debian-signature) DEBIAN_SIGNATURE="${2:-}"; shift 2 ;;
+    --require-debian-signature) REQUIRE_DEBIAN_SIGNATURE=1; shift ;;
     --native-app-version) NATIVE_APP_VERSION="${2:-}"; shift 2 ;;
     --windows-version) WINDOWS_VERSION="${2:-}"; shift 2 ;;
+    --debian-version) DEBIAN_VERSION="${2:-}"; shift 2 ;;
     --allow-missing-apps) ALLOW_MISSING_APPS=1; shift ;;
     --tag) TAG="${2:-}"; shift 2 ;;
     --latest) LATEST=1; shift ;;
@@ -66,12 +75,17 @@ if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 NATIVE_APP_VERSION="${NATIVE_APP_VERSION:-${VERSION}}"
 WINDOWS_VERSION="${WINDOWS_VERSION:-${NATIVE_APP_VERSION}}"
+DEBIAN_VERSION="${DEBIAN_VERSION:-${NATIVE_APP_VERSION}}"
 if ! [[ "${NATIVE_APP_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid stable native app version: ${NATIVE_APP_VERSION}" >&2
   exit 2
 fi
 if ! [[ "${WINDOWS_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid stable Windows app version: ${WINDOWS_VERSION}" >&2
+  exit 2
+fi
+if ! [[ "${DEBIAN_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid stable Debian app version: ${DEBIAN_VERSION}" >&2
   exit 2
 fi
 if [ "${ALLOW_MISSING_APPS}" != "1" ]; then
@@ -82,6 +96,9 @@ if [ "${ALLOW_MISSING_APPS}" != "1" ]; then
 fi
 if [ "${REQUIRE_WINDOWS_SIGNATURE}" = "1" ]; then
   [ -n "${WINDOWS_SIGNATURE}" ] && [ -f "${WINDOWS_SIGNATURE}" ] || { echo "Missing required --windows-signature FILE" >&2; exit 1; }
+fi
+if [ "${REQUIRE_DEBIAN_SIGNATURE}" = "1" ]; then
+  [ -n "${DEBIAN_SIGNATURE}" ] && [ -f "${DEBIAN_SIGNATURE}" ] || { echo "Missing required --debian-signature FILE" >&2; exit 1; }
 fi
 TAG="${TAG:-nia-todo:${VERSION}}"
 OUTPUT="${OUTPUT:-dist/docker/nia-todo-${VERSION}}"
@@ -107,6 +124,7 @@ EMBED_ARGS=(
   --web-version "${VERSION}"
   --native-app-version "${NATIVE_APP_VERSION}"
   --windows-version "${WINDOWS_VERSION}"
+  --debian-version "${DEBIAN_VERSION}"
 )
 if [ -n "${WINDOWS_INSTALLER}" ]; then
   EMBED_ARGS+=(--windows-installer "${WINDOWS_INSTALLER}")
@@ -122,6 +140,12 @@ if [ -n "${ANDROID_APK}" ]; then
 fi
 if [ -n "${DEBIAN_DEB}" ]; then
   EMBED_ARGS+=(--debian-deb "${DEBIAN_DEB}")
+  if [ -n "${DEBIAN_SIGNATURE}" ]; then
+    EMBED_ARGS+=(--debian-signature "${DEBIAN_SIGNATURE}")
+  fi
+fi
+if [ "${REQUIRE_DEBIAN_SIGNATURE}" = "1" ]; then
+  EMBED_ARGS+=(--require-debian-signature)
 fi
 if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
   EMBED_ARGS+=(--allow-missing-apps)

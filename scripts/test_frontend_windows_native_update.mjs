@@ -73,8 +73,8 @@ if (!appDownloadsSource.includes("download.tauri_updater === true")) {
 if (!appDownloadsSource.includes("t('update.native.install')")) {
   throw new Error('Windows native updater must label the native action as installation');
 }
-if (appDownloadsSource.includes("t('update.native.download')")) {
-  throw new Error('Windows native updater must not retain the download action label');
+if (!appDownloadsSource.includes("t('update.native.download')")) {
+  throw new Error('Windows native updater must use the download label while transferring the package');
 }
 
 const indexHtml = readFileSync('web/index.html', 'utf8');
@@ -96,13 +96,27 @@ const expectedInstallLabels = {
   sv: 'Installera uppdatering',
   'zh-CN': '安装更新',
 };
+const expectedDownloadLabels = {
+  cs: 'Stáhnout aktualizaci',
+  de: 'Update herunterladen',
+  en: 'Download update',
+  es: 'Descargar actualización',
+  fr: 'Télécharger la mise à jour',
+  it: 'Scarica aggiornamento',
+  nl: 'Update downloaden',
+  pl: 'Pobierz aktualizację',
+  'pt-BR': 'Baixar atualização',
+  ru: 'Скачать обновление',
+  sv: 'Hämta uppdatering',
+  'zh-CN': '下载更新',
+};
 for (const [locale, expected] of Object.entries(expectedInstallLabels)) {
   const dictionary = JSON.parse(readFileSync(`web/static/i18n/${locale}.json`, 'utf8'));
   if (dictionary['update.native.install'] !== expected) {
     throw new Error(`${locale} must translate update.native.install as ${expected}`);
   }
-  if ('update.native.download' in dictionary) {
-    throw new Error(`${locale} must not retain update.native.download`);
+  if (dictionary['update.native.download'] !== expectedDownloadLabels[locale]) {
+    throw new Error(`${locale} must translate update.native.download as ${expectedDownloadLabels[locale]}`);
   }
 }
 

@@ -165,6 +165,7 @@
   "update.native.new": "New:",
   "update.native.later": "Later",
   "update.native.install": "Install update",
+  "update.native.download": "Download update",
   "update.native.unknownVersion": "unknown",
   "version.appVersion": "App version:",
   "todo.edit": "Edit todo",

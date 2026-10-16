@@ -227,17 +227,38 @@ jobs:
             libayatana-appindicator3-dev
       - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c  # stable
       - run: python3 scripts/prepare_tauri_frontend_dist.py
+      - name: Build restricted Debian updater
+        run: cargo build --release --manifest-path src-tauri/Cargo.toml --bin nia-todo-desktop-updater
       - run: npm run tauri -- build --bundles deb
       - name: Repack with the correct package name
         run: |
           mkdir -p dist/ci-debian-desktop
-          BUILT="$(scripts/release/repack-native-debian-deb.sh src-tauri/target/release/bundle/deb/nia-todo_*_amd64.deb)"
-          cp "${BUILT}" dist/ci-debian-desktop/nia-todo-desktop-amd64.deb
+          scripts/release/repack-native-debian-deb.sh \
+            src-tauri/target/release/bundle/deb/nia-todo_*_amd64.deb \
+            dist/ci-debian-desktop/nia-todo-desktop-amd64.deb \
+            src-tauri/target/release/nia-todo-desktop-updater
+      - name: Sign final Debian package
+        run: |
+          DEB="dist/ci-debian-desktop/nia-todo-desktop-amd64.deb"
+          DEB_VERSION="$(dpkg-deb -f "${DEB}" Version)"
+          npm run tauri -- signer sign --app-version "${DEB_VERSION}" "${DEB}"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
+          name: nia-todo-desktop-amd64.deb
           retention-days: 7
           if-no-files-found: error
           path: dist/ci-debian-desktop/nia-todo-desktop-amd64.deb
+          archive: false
+      - name: Upload Debian updater signature
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        with:
+          name: nia-todo-desktop-amd64.deb.sig
+          retention-days: 7
+          if-no-files-found: error
+          path: dist/ci-debian-desktop/nia-todo-desktop-amd64.deb.sig
           archive: false
 
   # Docker/server-.deb always embed native apps: freshly built ones from the
@@ -277,6 +298,7 @@ jobs:
           [ -f dist/ci-native/nia-todo-ci-windows-x64-setup.exe.sig ] && cp dist/ci-native/nia-todo-ci-windows-x64-setup.exe.sig dist/native-embed/ || true
           [ "${{ needs.build-android.result }}" = "success" ] && cp dist/ci-native/nia-todo-android-arm64.apk dist/native-embed/nia-todo-ci-android-arm64.apk && have_android=1
           [ "${{ needs.build-debian-desktop.result }}" = "success" ] && cp dist/ci-native/nia-todo-desktop-amd64.deb dist/native-embed/nia-todo-ci-debian-amd64.deb && have_debian=1
+          [ -f dist/ci-native/nia-todo-desktop-amd64.deb.sig ] && cp dist/ci-native/nia-todo-desktop-amd64.deb.sig dist/native-embed/nia-todo-ci-debian-amd64.deb.sig || true
 
           if [ -n "${{ inputs.version }}" ]; then
             # Release build: all three are always built fresh above, never fall back.
@@ -297,6 +319,9 @@ jobs:
               fi
               [ "${have_android}" = "1" ] || cp dist/native-fallback/nia-todo-ci-android-arm64.apk dist/native-embed/
               [ "${have_debian}" = "1" ] || cp dist/native-fallback/nia-todo-ci-debian-amd64.deb dist/native-embed/
+              if [ "${have_debian}" = "0" ] && [ -f dist/native-fallback/nia-todo-ci-debian-amd64.deb.sig ]; then
+                cp dist/native-fallback/nia-todo-ci-debian-amd64.deb.sig dist/native-embed/
+              fi
             fi
 
             if [ "${have_windows}" = "1" ] && [ "${have_android}" = "1" ] && [ "${have_debian}" = "1" ]; then
@@ -319,6 +344,13 @@ jobs:
           else
             echo "windows_app_version=${native_app_version}" >> "$GITHUB_OUTPUT"
           fi
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "debian_app_version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${have_debian}" = "1" ]; then
+            echo "debian_app_version=$(dpkg-deb -f dist/native-embed/nia-todo-ci-debian-amd64.deb Version)" >> "$GITHUB_OUTPUT"
+          else
+            echo "debian_app_version=${native_app_version}" >> "$GITHUB_OUTPUT"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -330,18 +362,25 @@ jobs:
         if: inputs.build_docker
         run: |
           WINDOWS_SIGNATURE_ARGS=()
+          DEBIAN_SIGNATURE_ARGS=()
           if [ -n "${{ inputs.version }}" ]; then
             WINDOWS_SIGNATURE_ARGS=(--windows-signature dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig --require-windows-signature)
+            DEBIAN_SIGNATURE_ARGS=(--debian-signature dist/native-embed/nia-todo-ci-debian-amd64.deb.sig --require-debian-signature)
           elif [ -f dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig ]; then
             WINDOWS_SIGNATURE_ARGS=(--windows-signature dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig)
+          fi
+          if [ -z "${{ inputs.version }}" ] && [ -f dist/native-embed/nia-todo-ci-debian-amd64.deb.sig ]; then
+            DEBIAN_SIGNATURE_ARGS=(--debian-signature dist/native-embed/nia-todo-ci-debian-amd64.deb.sig)
           fi
           scripts/release/build-docker.sh "${{ inputs.version || '0.0.0' }}" \
             --windows-installer dist/native-embed/nia-todo-ci-windows-x64-setup.exe \
             "${WINDOWS_SIGNATURE_ARGS[@]}" \
             --android-apk dist/native-embed/nia-todo-ci-android-arm64.apk \
             --debian-deb dist/native-embed/nia-todo-ci-debian-amd64.deb \
+            "${DEBIAN_SIGNATURE_ARGS[@]}" \
             --native-app-version "${{ steps.apps.outputs.native_app_version }}" \
             --windows-version "${{ steps.apps.outputs.windows_app_version }}" \
+            --debian-version "${{ steps.apps.outputs.debian_app_version }}" \
             --tag "${{ inputs.version && format('nia-todo:{0}', inputs.version) || 'nia-todo:ci-check' }}" \
             --output "dist/docker/build-${{ github.sha }}" \
             --force
@@ -373,18 +412,25 @@ jobs:
         if: inputs.build_server_deb
         run: |
           WINDOWS_SIGNATURE_ARGS=()
+          DEBIAN_SIGNATURE_ARGS=()
           if [ -n "${{ inputs.version }}" ]; then
             WINDOWS_SIGNATURE_ARGS=(--windows-signature dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig --require-windows-signature)
+            DEBIAN_SIGNATURE_ARGS=(--debian-signature dist/native-embed/nia-todo-ci-debian-amd64.deb.sig --require-debian-signature)
           elif [ -f dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig ]; then
             WINDOWS_SIGNATURE_ARGS=(--windows-signature dist/native-embed/nia-todo-ci-windows-x64-setup.exe.sig)
+          fi
+          if [ -z "${{ inputs.version }}" ] && [ -f dist/native-embed/nia-todo-ci-debian-amd64.deb.sig ]; then
+            DEBIAN_SIGNATURE_ARGS=(--debian-signature dist/native-embed/nia-todo-ci-debian-amd64.deb.sig)
           fi
           scripts/release/build-full-bundle.sh "${{ inputs.version || '0.0.0' }}" \
             --windows-installer dist/native-embed/nia-todo-ci-windows-x64-setup.exe \
             "${WINDOWS_SIGNATURE_ARGS[@]}" \
             --android-apk dist/native-embed/nia-todo-ci-android-arm64.apk \
             --debian-deb dist/native-embed/nia-todo-ci-debian-amd64.deb \
+            "${DEBIAN_SIGNATURE_ARGS[@]}" \
             --native-app-version "${{ steps.apps.outputs.native_app_version }}" \
             --windows-version "${{ steps.apps.outputs.windows_app_version }}" \
+            --debian-version "${{ steps.apps.outputs.debian_app_version }}" \
             --output-dir "dist/release/build-${{ github.sha }}" \
             --force
 
