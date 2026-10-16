@@ -164,7 +164,7 @@
   "update.native.installed": "Instalováno:",
   "update.native.new": "Nové:",
   "update.native.later": "Později",
-  "update.native.download": "Stáhnout aktualizaci",
+  "update.native.install": "Nainstalovat aktualizaci",
   "update.native.unknownVersion": "neznámý",
   "version.appVersion": "Verze aplikace:",
   "todo.edit": "Upravit úkol",

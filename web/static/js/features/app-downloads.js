@@ -444,7 +444,7 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
       event.preventDefault();
       if (RUNTIME_PLATFORM === 'windows' && download.tauri_updater === true && nativeBridge.installUpdate) {
         if (button.dataset.updateBusy === 'true') return;
-        const idleLabel = t('update.native.download');
+        const idleLabel = t('update.native.install');
         button.dataset.updateBusy = 'true';
         button.setAttribute('aria-disabled', 'true');
         button.removeAttribute('download');

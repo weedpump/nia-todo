@@ -70,5 +70,40 @@ const appDownloadsSource = readFileSync('web/static/js/features/app-downloads.js
 if (!appDownloadsSource.includes("download.tauri_updater === true")) {
   throw new Error('Windows native updater must only run for explicitly signed updater artifacts');
 }
+if (!appDownloadsSource.includes("t('update.native.install')")) {
+  throw new Error('Windows native updater must label the native action as installation');
+}
+if (appDownloadsSource.includes("t('update.native.download')")) {
+  throw new Error('Windows native updater must not retain the download action label');
+}
+
+const indexHtml = readFileSync('web/index.html', 'utf8');
+if (!indexHtml.includes('data-i18n-key="update.native.install"')) {
+  throw new Error('Native update button must use the installation translation key');
+}
+
+const expectedInstallLabels = {
+  cs: 'Nainstalovat aktualizaci',
+  de: 'Update installieren',
+  en: 'Install update',
+  es: 'Instalar actualización',
+  fr: 'Installer la mise à jour',
+  it: 'Installa aggiornamento',
+  nl: 'Update installeren',
+  pl: 'Zainstaluj aktualizację',
+  'pt-BR': 'Instalar atualização',
+  ru: 'Установить обновление',
+  sv: 'Installera uppdatering',
+  'zh-CN': '安装更新',
+};
+for (const [locale, expected] of Object.entries(expectedInstallLabels)) {
+  const dictionary = JSON.parse(readFileSync(`web/static/i18n/${locale}.json`, 'utf8'));
+  if (dictionary['update.native.install'] !== expected) {
+    throw new Error(`${locale} must translate update.native.install as ${expected}`);
+  }
+  if ('update.native.download' in dictionary) {
+    throw new Error(`${locale} must not retain update.native.download`);
+  }
+}
 
 console.log('✅ Windows native update frontend test passed');
