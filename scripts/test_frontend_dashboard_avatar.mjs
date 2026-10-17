@@ -192,9 +192,16 @@ try {
   currentFilter = 'pending';
   renderStats();
   assert.equal(statsBar.avatar, null, 'leaving the dashboard must remove its avatar element');
-  assert.ok(revokedObjectUrls.includes(currentAvatar.src), 'leaving the dashboard must release the displayed avatar object URL');
+  assert.ok(!revokedObjectUrls.includes(currentAvatar.src), 'navigation away from the dashboard must retain the unchanged avatar object URL');
 
-  console.log('✅ Dashboard avatar remains stable across periodic stats rendering');
+  const requestsBeforeReturn = requests.length;
+  currentFilter = 'all';
+  renderStats();
+  assert.equal(statsBar.avatar, currentAvatar, 'returning to the dashboard must synchronously reuse the unchanged avatar element');
+  assert.equal(statsBar.avatar.src, currentAvatar.src, 'the cached avatar must already be visible in the first render frame');
+  assert.equal(requests.length, requestsBeforeReturn, 'returning to the dashboard must not fetch the unchanged avatar again');
+
+  console.log('✅ Dashboard avatar remains stable across periodic rendering and navigation');
 } finally {
   URL.createObjectURL = originalCreateObjectURL;
   URL.revokeObjectURL = originalRevokeObjectURL;

@@ -33,6 +33,8 @@ export function createAppRenderingFeature({
   cleanupCalendarView,
   getInvites,
 }) {
+  let retainedDashboardAvatar = null;
+
   function renderVersionInfo() {
     const el = document.getElementById('version-info');
     if (!el) return;
@@ -210,11 +212,15 @@ export function createAppRenderingFeature({
     const avatarBaseSrc = user?.avatar_url ? apiResourceUrl(user.avatar_url) : '';
     const avatarSrc = avatarBaseSrc ? `${avatarBaseSrc}${avatarVersion ? `?v=${avatarVersion}` : ''}` : '';
     const currentAvatar = el.querySelector('[data-auth-avatar]');
-    const reusableAvatar = currentAvatar
-      && (currentAvatar.dataset.authAvatarSrc === avatarSrc || currentAvatar.dataset.authAvatarPendingSrc === avatarSrc)
-      ? currentAvatar
+    const availableAvatar = currentAvatar || retainedDashboardAvatar;
+    const reusableAvatar = availableAvatar
+      && (availableAvatar.dataset.authAvatarSrc === avatarSrc || availableAvatar.dataset.authAvatarPendingSrc === avatarSrc)
+      ? availableAvatar
       : null;
-    if (currentAvatar && !reusableAvatar) releaseAuthenticatedImage(currentAvatar);
+    if (availableAvatar && !reusableAvatar) {
+      releaseAuthenticatedImage(availableAvatar);
+      if (retainedDashboardAvatar === availableAvatar) retainedDashboardAvatar = null;
+    }
     const locale = getActiveLocale();
     const dateTime = new Intl.DateTimeFormat(locale, {
       weekday: 'long',
@@ -231,7 +237,12 @@ export function createAppRenderingFeature({
     const showDashboard = currentFilter === 'all' && !currentProjectId && !search;
     el.hidden = !showDashboard;
     if (!showDashboard) {
-      if (currentAvatar) releaseAuthenticatedImage(currentAvatar);
+      if (currentAvatar?.dataset.authAvatarSrc === avatarSrc) {
+        retainedDashboardAvatar = currentAvatar;
+      } else if (currentAvatar) {
+        releaseAuthenticatedImage(currentAvatar);
+        if (retainedDashboardAvatar === currentAvatar) retainedDashboardAvatar = null;
+      }
       el.innerHTML = '';
       return;
     }
@@ -363,6 +374,7 @@ export function createAppRenderingFeature({
       const nextAvatar = el.querySelector('[data-auth-avatar]');
       if (reusableAvatar) {
         nextAvatar?.replaceWith(reusableAvatar);
+        retainedDashboardAvatar = reusableAvatar;
       } else if (nextAvatar) {
         nextAvatar.dataset.authAvatarPendingSrc = avatarSrc;
         loadAuthenticatedImage(nextAvatar, avatarSrc, { userId: user?.id, version: user?.avatar_updated_at }).then(loaded => {
