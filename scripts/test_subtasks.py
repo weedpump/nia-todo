@@ -75,6 +75,7 @@ def make_db():
             title TEXT NOT NULL,
             is_done INTEGER NOT NULL DEFAULT 0,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            client_mutation_id TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
@@ -83,6 +84,7 @@ def make_db():
             todo_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             body TEXT NOT NULL,
+            client_mutation_id TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
@@ -95,6 +97,10 @@ def make_db():
             created_at TEXT DEFAULT (datetime('now')),
             user_id INTEGER
         );
+        CREATE UNIQUE INDEX idx_todo_subtasks_client_mutation
+            ON todo_subtasks(todo_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
+        CREATE UNIQUE INDEX idx_todo_comments_client_mutation
+            ON todo_comments(todo_id, user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
         """
     )
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'tobi', 'Tobi', NULL)")
@@ -208,6 +214,21 @@ def main():
     assert_true(immediate_subtask["title"] == "Immediate API item", immediate.json())
     assert_true(len(immediate.json()["todo"]["subtasks"]) == 3, immediate.json())
 
+    idempotent_payload = {"title": "Offline idempotent item", "client_mutation_id": "temp-subtask-offline-1"}
+    idempotent_first = shared_client.post(f"/api/todos/{shared_todo_id}/subtasks", json=idempotent_payload)
+    idempotent_retry = shared_client.post(f"/api/todos/{shared_todo_id}/subtasks", json={**idempotent_payload, "title": "Must not duplicate"})
+    assert_true(idempotent_first.status_code == 200, idempotent_first.text)
+    assert_true(idempotent_retry.status_code == 200, idempotent_retry.text)
+    assert_true(idempotent_retry.json()["subtask"]["id"] == idempotent_first.json()["subtask"]["id"], idempotent_retry.json())
+    assert_true(idempotent_retry.json()["subtask"]["title"] == "Offline idempotent item", idempotent_retry.json())
+    other_account_same_key = client.post(f"/api/todos/{shared_todo_id}/subtasks", json={**idempotent_payload, "title": "Owner mutation with same client key"})
+    assert_true(other_account_same_key.status_code == 200, other_account_same_key.text)
+    assert_true(other_account_same_key.json()["subtask"]["id"] != idempotent_first.json()["subtask"]["id"], other_account_same_key.json())
+    idempotent_cleanup = shared_client.delete(f"/api/todos/{shared_todo_id}/subtasks/{idempotent_first.json()['subtask']['id']}")
+    assert_true(idempotent_cleanup.status_code == 200, idempotent_cleanup.text)
+    other_account_cleanup = client.delete(f"/api/todos/{shared_todo_id}/subtasks/{other_account_same_key.json()['subtask']['id']}")
+    assert_true(other_account_cleanup.status_code == 200, other_account_cleanup.text)
+
     toggled = shared_client.patch(f"/api/todos/{shared_todo_id}/subtasks/{immediate_subtask['id']}", json={"is_done": True})
     assert_true(toggled.status_code == 200, toggled.text)
     assert_true(toggled.json()["subtask"]["is_done"] is True, toggled.json())
@@ -220,6 +241,8 @@ def main():
     assert_true(deleted.status_code == 200, deleted.text)
     assert_true(deleted.json()["deleted"] == immediate_subtask["id"], deleted.json())
     assert_true(len(deleted.json()["todo"]["subtasks"]) == 2, deleted.json())
+    repeated_delete = client.delete(f"/api/todos/{shared_todo_id}/subtasks/{immediate_subtask['id']}")
+    assert_true(repeated_delete.status_code == 404, repeated_delete.text)
 
     print("✅ Subtask API tests passed")
 

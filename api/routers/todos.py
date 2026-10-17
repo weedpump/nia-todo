@@ -5,6 +5,7 @@ import json
 import re
 import secrets
 import shutil
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -65,6 +66,7 @@ class TodoUpdate(BaseModel):
 
 class TodoCommentCreate(BaseModel):
     body: str
+    client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
 class TodoCommentUpdate(BaseModel):
     body: str
@@ -73,6 +75,7 @@ class TodoSubtaskCreate(BaseModel):
     title: str
     is_done: bool = False
     sort_order: Optional[int] = None
+    client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
 class TodoSubtaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -1034,17 +1037,37 @@ async def create_todo_subtask(todo_id: int, data: TodoSubtaskCreate, user_id: in
         todo = fetch_todo(db, todo_id, user_id)
         if not todo or not _todo_project_access(db, todo, user_id):
             raise HTTPException(404, "Todo not found")
+        raw_client_mutation_id = (data.client_mutation_id or '').strip() or None
+        client_mutation_id = f"{user_id}:{raw_client_mutation_id}" if raw_client_mutation_id else None
+        if client_mutation_id:
+            existing_id = db.execute(
+                "SELECT id FROM todo_subtasks WHERE todo_id = ? AND client_mutation_id = ?",
+                (todo_id, client_mutation_id),
+            ).fetchone()
+            if existing_id:
+                subtask = _subtask_row(db, existing_id['id'])
+                return {"subtask": subtask, "todo": todo}
         title = _normalize_subtask_title(data.title)
         now = now_iso()
         sort_order = data.sort_order
         if sort_order is None:
             row = db.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM todo_subtasks WHERE todo_id = ?", (todo_id,)).fetchone()
             sort_order = int(row['next_sort_order'] if row else 0)
-        cursor = db.execute(
-            """INSERT INTO todo_subtasks (todo_id, title, is_done, sort_order, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (todo_id, title, int(bool(data.is_done)), sort_order, now, now),
-        )
+        try:
+            cursor = db.execute(
+                """INSERT INTO todo_subtasks (todo_id, title, is_done, sort_order, client_mutation_id, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (todo_id, title, int(bool(data.is_done)), sort_order, client_mutation_id, now, now),
+            )
+        except sqlite3.IntegrityError:
+            existing_id = db.execute(
+                "SELECT id FROM todo_subtasks WHERE todo_id = ? AND client_mutation_id = ?",
+                (todo_id, client_mutation_id),
+            ).fetchone()
+            if not existing_id:
+                raise
+            subtask = _subtask_row(db, existing_id['id'])
+            return {"subtask": subtask, "todo": fetch_todo(db, todo_id, user_id)}
         db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
         db.commit()
         subtask = _subtask_row(db, cursor.lastrowid)
@@ -1110,12 +1133,37 @@ async def create_todo_comment(todo_id: int, data: TodoCommentCreate, user_id: in
             raise HTTPException(404, "Todo not found")
         if not _todo_project_access(db, existing, user_id):
             raise HTTPException(403, "Not authorized")
+        client_mutation_id = (data.client_mutation_id or '').strip() or None
+        if client_mutation_id:
+            previous = db.execute(
+                """SELECT tc.id, tc.todo_id, tc.user_id, tc.body, tc.created_at, tc.updated_at,
+                          u.username AS author_username, u.display_name AS author_display_name
+                   FROM todo_comments tc
+                   LEFT JOIN users u ON u.id = tc.user_id
+                   WHERE tc.todo_id = ? AND tc.user_id = ? AND tc.client_mutation_id = ?""",
+                (todo_id, user_id, client_mutation_id),
+            ).fetchone()
+            if previous:
+                return {"comment": dict(previous), "todo": existing}
         now = now_iso()
-        cursor = db.execute(
-            """INSERT INTO todo_comments (todo_id, user_id, body, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?)""",
-            (todo_id, user_id, body, now, now)
-        )
+        try:
+            cursor = db.execute(
+                """INSERT INTO todo_comments (todo_id, user_id, body, client_mutation_id, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (todo_id, user_id, body, client_mutation_id, now, now)
+            )
+        except sqlite3.IntegrityError:
+            previous = db.execute(
+                """SELECT tc.id, tc.todo_id, tc.user_id, tc.body, tc.created_at, tc.updated_at,
+                          u.username AS author_username, u.display_name AS author_display_name
+                   FROM todo_comments tc
+                   LEFT JOIN users u ON u.id = tc.user_id
+                   WHERE tc.todo_id = ? AND tc.user_id = ? AND tc.client_mutation_id = ?""",
+                (todo_id, user_id, client_mutation_id),
+            ).fetchone()
+            if not previous:
+                raise
+            return {"comment": dict(previous), "todo": fetch_todo(db, todo_id, user_id)}
         db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
         db.commit()
         comment = dict(db.execute(

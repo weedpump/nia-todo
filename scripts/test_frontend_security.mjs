@@ -205,7 +205,7 @@ assert(toastSource.includes("undoBtn.style.display = action ? '' : 'none'"), 'to
 assert(toastSource.includes('cancelPendingTodoDelete') && toastSource.includes("item?.action === 'DELETE_TODO'"), 'todo delete undo must cancel the queued hard-delete instead of recreating the todo');
 assert(syncSource.includes('undo_grace_until') && syncSource.includes('Date.now() < undoGraceUntil'), 'todo hard-delete sync must wait for the undo grace window');
 const todosFeatureSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
-assert(todosFeatureSource.includes("addToSyncQueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 })"), 'todo delete must enqueue a deferred hard-delete so undo can preserve subtasks, comments, and attachments');
+assert(todosFeatureSource.includes("await enqueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 })"), 'todo delete must enqueue a deferred hard-delete inside the shared queue mutation so undo can preserve subtasks, comments, and attachments');
 
 const originalGlobals = {
   window: globalThis.window,

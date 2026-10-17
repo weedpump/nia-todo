@@ -47,6 +47,7 @@ export function createTodoMultiAddFeature({
   getDb,
   dbPut,
   addToSyncQueue,
+  runSyncQueueMutation,
   isOnlineForSync,
   syncWithServer,
   parseQuickAddTitle,
@@ -59,6 +60,7 @@ export function createTodoMultiAddFeature({
   closeModal,
   showToast,
 }) {
+  const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
   let bound = false;
   let rowSequence = 0;
   let parseSequence = 0;
@@ -486,15 +488,17 @@ export function createTodoMultiAddFeature({
     }
     const now = Date.now();
     const created = [];
-    for (const [index, { todoData }] of prepared.entries()) {
-      const tempId = `temp-${now}-${index}`;
-      const nowIso = new Date(now + index).toISOString();
-      const newTodo = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: [], subtasks: [] };
-      await dbPut('todos', newTodo);
-      await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
-      created.push(newTodo);
-    }
-    setTodos([...getTodos(), ...created]);
+    await commitQueuedMutation(async enqueue => {
+      for (const [index, { todoData }] of prepared.entries()) {
+        const tempId = `temp-${now}-${index}`;
+        const nowIso = new Date(now + index).toISOString();
+        const newTodo = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: [], subtasks: [] };
+        await dbPut('todos', newTodo);
+        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+        created.push(newTodo);
+      }
+      setTodos([...getTodos(), ...created]);
+    });
     renderProjects();
     renderStats();
     renderTodos();
