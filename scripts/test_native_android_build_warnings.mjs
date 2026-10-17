@@ -89,12 +89,21 @@ const gradleWrapper = read('src-tauri/gen/android/gradle/wrapper/gradle-wrapper.
 assert.match(gradleWrapper, /gradle-9\.6\.1-bin\.zip/);
 
 const packageJson = JSON.parse(read('package.json'));
-assert.equal(packageJson.dependencies['@tauri-apps/api'], '2.12.1');
-assert.equal(packageJson.devDependencies['@tauri-apps/cli'], '2.12.1');
+assert.equal(packageJson.dependencies['@tauri-apps/api'], '2.12.3');
+assert.equal(packageJson.devDependencies['@tauri-apps/cli'], '2.12.2');
 
 const cargoToml = read('src-tauri/Cargo.toml');
 assert.match(cargoToml, /tauri-build = \{ version = "2\.7\.1"/);
 assert.match(cargoToml, /tauri = \{ version = "2\.12\.1"/);
+
+const cargoLock = read('src-tauri/Cargo.lock');
+const lockedTauriVersion = cargoLock.match(/\[\[package\]\]\nname = "tauri"\nversion = "([^"]+)"/)?.[1];
+assert.ok(lockedTauriVersion, 'Cargo.lock must contain the resolved Tauri package');
+const gradlePatch = read('scripts/patch_tauri_android_gradle.py');
+assert.ok(
+  gradlePatch.includes(`EXPECTED_TAURI_VERSION = "${lockedTauriVersion}"`),
+  'Android Gradle patch must target the Tauri version resolved in Cargo.lock',
+);
 
 const buildWorkflow = read('.github/workflows/build.yml');
 const androidJob = buildWorkflow.match(/  build-android:\n([\s\S]*?)\n  build-debian-desktop:/)?.[1];
@@ -102,8 +111,8 @@ assert.ok(androidJob, 'build-android job must be present');
 assert.doesNotMatch(androidJob, /sdkmanager/);
 assert.match(androidJob, /accept-android-sdk-licenses: false/);
 assert.match(androidJob, /packages: ""/);
-assert.match(androidJob, /android-cli_1\.0\.16486076_amd64\.deb/);
-assert.match(androidJob, /6b3e936cf0d770ed39c9118c9cf541c01082fd36b3308749c21affb1f1bcf83d/);
+assert.match(androidJob, /https:\/\/dl\.google\.com\/android\/cli\/latest\/debian\/ stable main/);
+assert.match(androidJob, /sudo apt-get install -y android-cli/);
 for (const sdkPackage of ['platform-tools', 'platforms/android-37.0', 'ndk/27.0.12077973', 'build-tools/35.0.0']) {
   assert.ok(androidJob.includes(`sdk install ${sdkPackage}`), `Android CLI must install ${sdkPackage}`);
 }
@@ -118,7 +127,7 @@ assert.equal(existsSync(join(ROOT, 'scripts/filter_android_gradle_output.py')), 
 
 const patchFixture = mkdtempSync(join(tmpdir(), 'nia-todo-tauri-gradle-'));
 try {
-  const tauriRoot = join(patchFixture, 'tauri-2.12.1');
+  const tauriRoot = join(patchFixture, `tauri-${lockedTauriVersion}`);
   const androidGradle = join(tauriRoot, 'mobile/android/build.gradle.kts');
   mkdirSync(join(tauriRoot, 'mobile/android'), { recursive: true });
   writeFileSync(androidGradle, 'plugins {\n    id("com.android.library")\n}\n');
