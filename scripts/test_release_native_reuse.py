@@ -100,6 +100,30 @@ def test_release_scripts_expose_native_app_version_flow():
     assert '${FORCE:+--force}' not in docker_build, "docker build must not treat FORCE=0 as enabled"
 
 
+def test_manual_packaging_uses_the_fresh_android_version():
+    workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+
+    assert 'android_app_version=${{ inputs.version }}' in workflow
+    assert 'android_app_version=$(python3 -c' in workflow
+    assert 'android_app_version=${native_app_version}' in workflow
+    assert workflow.count('--native-app-version "${{ steps.apps.outputs.android_app_version }}"') == 2
+
+
+def test_release_docker_push_waits_for_release_tests():
+    build_workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+    release_workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+
+    assert "Push release Docker image to GHCR and Docker Hub" not in build_workflow
+    assert 'docker save "nia-todo:${{ inputs.version }}" --output "dist/docker/release/nia-todo-v${{ inputs.version }}.tar"' in build_workflow
+    assert "name: nia-todo-v${{ inputs.version }}.tar" in build_workflow
+    assert "path: dist/docker/release/nia-todo-v${{ inputs.version }}.tar" in build_workflow
+    assert "push-docker:" in release_workflow
+    assert "name: nia-todo-v${{ env.VERSION }}.tar" in release_workflow
+    assert "needs: [prepare-version, build, test, webkit-swipe]" in release_workflow
+    assert 'docker load --input "dist/release/docker/nia-todo-v${VERSION}.tar"' in release_workflow
+    assert "needs: [prepare-version, build, test, webkit-swipe, push-docker]" not in release_workflow
+
+
 def test_ad_hoc_windows_artifact_can_remain_unsigned():
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
@@ -223,6 +247,8 @@ def test_release_shell_syntax():
 def main():
     test_embed_native_downloads_decouples_web_and_native_versions()
     test_release_scripts_expose_native_app_version_flow()
+    test_manual_packaging_uses_the_fresh_android_version()
+    test_release_docker_push_waits_for_release_tests()
     test_ad_hoc_windows_artifact_can_remain_unsigned()
     test_release_windows_artifact_requires_signature()
     test_release_debian_artifact_requires_signature()

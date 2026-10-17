@@ -31,6 +31,10 @@ def test_release_pipeline_requires_and_propagates_debian_signature():
     assert '"signature": debian_signature' in embed
     assert "nia-todo-ci-debian-amd64.deb.sig" in fetch
     assert "nia-todo-ci-debian-amd64.deb.sig" in workflow
+
+    release_gate = (ROOT / "scripts/test_all.sh").read_text(encoding="utf-8")
+    assert "scripts/test_debian_native_updater_contract.py" in release_gate
+    assert "scripts/test_frontend_debian_native_update.mjs" in release_gate
     assert "--require-debian-signature" in workflow
     assert "--debian-signature" in full_bundle
     assert "--debian-signature" in docker

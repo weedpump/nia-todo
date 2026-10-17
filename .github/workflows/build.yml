@@ -347,6 +347,13 @@ jobs:
             echo "windows_app_version=${native_app_version}" >> "$GITHUB_OUTPUT"
           fi
           if [ -n "${{ inputs.version }}" ]; then
+            echo "android_app_version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${have_android}" = "1" ]; then
+            echo "android_app_version=$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')" >> "$GITHUB_OUTPUT"
+          else
+            echo "android_app_version=${native_app_version}" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "${{ inputs.version }}" ]; then
             echo "debian_app_version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
           elif [ "${have_debian}" = "1" ]; then
             echo "debian_app_version=$(dpkg-deb -f dist/native-embed/nia-todo-ci-debian-amd64.deb Version)" >> "$GITHUB_OUTPUT"
@@ -380,24 +387,28 @@ jobs:
             --android-apk dist/native-embed/nia-todo-ci-android-arm64.apk \
             --debian-deb dist/native-embed/nia-todo-ci-debian-amd64.deb \
             "${DEBIAN_SIGNATURE_ARGS[@]}" \
-            --native-app-version "${{ steps.apps.outputs.native_app_version }}" \
+            --native-app-version "${{ steps.apps.outputs.android_app_version }}" \
             --windows-version "${{ steps.apps.outputs.windows_app_version }}" \
             --debian-version "${{ steps.apps.outputs.debian_app_version }}" \
             --tag "${{ inputs.version && format('nia-todo:{0}', inputs.version) || 'nia-todo:ci-check' }}" \
             --output "dist/docker/build-${{ github.sha }}" \
             --force
 
-      - name: Push release Docker image to GHCR and Docker Hub (version + latest tags)
+      - name: Save release Docker image
         if: inputs.build_docker && inputs.version != ''
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          for image in "ghcr.io/${{ github.repository_owner }}/nia-todo" "docker.io/${{ secrets.DOCKERHUB_USERNAME }}/nia-todo"; do
-            docker tag "nia-todo:${{ inputs.version }}" "${image}:${{ inputs.version }}"
-            docker push "${image}:${{ inputs.version }}"
-            docker tag "nia-todo:${{ inputs.version }}" "${image}:latest"
-            docker push "${image}:latest"
-          done
+          mkdir -p dist/docker/release
+          docker save "nia-todo:${{ inputs.version }}" --output "dist/docker/release/nia-todo-v${{ inputs.version }}.tar"
+
+      - name: Upload release Docker image
+        if: inputs.build_docker && inputs.version != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        with:
+          name: nia-todo-v${{ inputs.version }}.tar
+          retention-days: 7
+          if-no-files-found: error
+          path: dist/docker/release/nia-todo-v${{ inputs.version }}.tar
+          archive: false
 
       - name: Push dev/test Docker image to GHCR and Docker Hub
         if: inputs.build_docker && inputs.version == '' && inputs.push_docker
@@ -430,7 +441,7 @@ jobs:
             --android-apk dist/native-embed/nia-todo-ci-android-arm64.apk \
             --debian-deb dist/native-embed/nia-todo-ci-debian-amd64.deb \
             "${DEBIAN_SIGNATURE_ARGS[@]}" \
-            --native-app-version "${{ steps.apps.outputs.native_app_version }}" \
+            --native-app-version "${{ steps.apps.outputs.android_app_version }}" \
             --windows-version "${{ steps.apps.outputs.windows_app_version }}" \
             --debian-version "${{ steps.apps.outputs.debian_app_version }}" \
             --output-dir "dist/release/build-${{ github.sha }}" \
