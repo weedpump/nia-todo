@@ -1,5 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
-import { loadAuthenticatedImage } from '../core/authenticated-image.js';
+import { loadAuthenticatedImage, releaseAuthenticatedImage, removeCachedAvatar } from '../core/authenticated-image.js';
 import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
 import { iconSvg } from '../icons/lucide-icons.js';
@@ -71,6 +71,22 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     startY: 0,
   };
 
+  function persistAvatarMetadata(data) {
+    const currentUser = getCurrentUser();
+    if (!currentUser?.id) return;
+    try {
+      const cached = JSON.parse(localStorage.getItem('cached_user') || 'null');
+      if (!cached || String(cached.id) !== String(currentUser.id)) return;
+      localStorage.setItem('cached_user', JSON.stringify({
+        ...cached,
+        avatar_url: data.avatar_url ?? null,
+        avatar_updated_at: data.avatar_updated_at ?? null,
+      }));
+    } catch (_error) {
+      // A later authenticated refresh replaces malformed cached metadata.
+    }
+  }
+
   function avatarSrc(user) {
     if (!user?.avatar_url) return '';
     const version = user.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
@@ -87,11 +103,12 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const src = avatarSrc(user);
     initialEl.textContent = (name.trim()[0] || 'U').toUpperCase();
     if (src) {
-      loadAuthenticatedImage(imgEl, src);
+      loadAuthenticatedImage(imgEl, src, { userId: user?.id, version: user?.avatar_updated_at });
       imgEl.style.display = '';
       initialEl.style.display = 'none';
       if (removeBtn) removeBtn.style.display = '';
     } else {
+      releaseAuthenticatedImage(imgEl);
       imgEl.removeAttribute('src');
       imgEl.style.display = 'none';
       initialEl.style.display = '';
@@ -887,6 +904,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       const data = await authApi.uploadAvatar(file);
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
+      persistAvatarMetadata(data);
       renderUserInfo();
       successEl.textContent = fallbackMessage;
     } catch (e) {
@@ -992,6 +1010,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       const data = await authApi.uploadAvatar(file);
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
+      persistAvatarMetadata(data);
       cancelAvatarCrop();
       renderUserInfo();
       successEl.textContent = t('settings.avatar.saved');
@@ -1013,9 +1032,14 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
+      const previousUser = getCurrentUser();
       const data = await authApi.deleteAvatar();
+      if (previousUser?.avatar_url) {
+        await removeCachedAvatar(apiResourceUrl(previousUser.avatar_url), { userId: previousUser.id });
+      }
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
+      persistAvatarMetadata(data);
       renderUserInfo();
       successEl.textContent = t('settings.avatar.deleted');
     } catch (e) {

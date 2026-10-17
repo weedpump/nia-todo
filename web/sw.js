@@ -356,22 +356,6 @@ self.addEventListener('fetch', (event) => {
   
   if (event.request.method !== 'GET') return;
   
-  // User avatars are static, versioned by avatar_updated_at and should stay visible offline.
-  if (url.pathname.startsWith('/api/avatars/')) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        const network = fetch(event.request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        });
-        return cached || network;
-      }).catch(() => caches.match(event.request))
-    );
-    return;
-  }
 
   // Downloads and their manifest must never be cached by the service worker.
   if (isNeverCachePath(url.pathname)) {

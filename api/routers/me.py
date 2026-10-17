@@ -330,11 +330,13 @@ async def upload_own_avatar(request: Request, user_id: int = Depends(require_aut
             raise HTTPException(404, "User not found")
         db.execute("UPDATE users SET avatar_url = ?, avatar_updated_at = ? WHERE id = ?", (avatar_url, updated_at, user_id))
         db.commit()
-    return {"avatar_url": avatar_url, "avatar_updated_at": updated_at}
+    payload = {"avatar_url": avatar_url, "avatar_updated_at": updated_at}
+    await broadcast_change("avatar_update", payload, user_id)
+    return payload
 
 
 @router.delete("/avatar")
-def delete_own_avatar(user_id: int = Depends(require_auth)):
+async def delete_own_avatar(user_id: int = Depends(require_auth)):
     avatar_path = AVATAR_DIR / f"user-{user_id}.webp"
     with get_db() as db:
         user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -346,7 +348,9 @@ def delete_own_avatar(user_id: int = Depends(require_auth)):
             pass
         db.execute("UPDATE users SET avatar_url = NULL, avatar_updated_at = NULL WHERE id = ?", (user_id,))
         db.commit()
-    return {"avatar_url": None, "avatar_updated_at": None}
+    payload = {"avatar_url": None, "avatar_updated_at": None}
+    await broadcast_change("avatar_update", payload, user_id)
+    return payload
 
 
 @router.post("/email/verify")

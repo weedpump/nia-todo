@@ -365,7 +365,7 @@ export function createAppRenderingFeature({
         nextAvatar?.replaceWith(reusableAvatar);
       } else if (nextAvatar) {
         nextAvatar.dataset.authAvatarPendingSrc = avatarSrc;
-        loadAuthenticatedImage(nextAvatar, avatarSrc).then(loaded => {
+        loadAuthenticatedImage(nextAvatar, avatarSrc, { userId: user?.id, version: user?.avatar_updated_at }).then(loaded => {
           const stillCurrent = el.querySelector('[data-auth-avatar]') === nextAvatar
             && nextAvatar.dataset.authAvatarPendingSrc === avatarSrc;
           if (!stillCurrent) {

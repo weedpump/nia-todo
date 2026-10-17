@@ -252,7 +252,7 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
             db.commit()
             raise api_error(401, "mfa.challengeAlreadyUsed", "2FA-Challenge bereits verwendet")
         user = db.execute(
-            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?",
+            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, avatar_updated_at, is_admin, token_version FROM users WHERE id = ?",
             (challenge["user_id"],),
         ).fetchone()
         trusted_device_token = None
@@ -272,7 +272,7 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
             "user": {
                 "id": user["id"], "username": user["username"], "display_name": user["display_name"],
                 "email": user["email"], "email_verified_at": user["email_verified_at"],
-                "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"],
+                "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "avatar_updated_at": user["avatar_updated_at"],
                 "is_admin": bool(user["is_admin"]),
             },
         }
@@ -636,7 +636,7 @@ def passwordless_passkey_login_verify(data: PasswordlessPasskeyVerifyRequest, re
             db.commit()
             raise api_error(401, "passkey.challengeAlreadyUsed", "Passkey challenge already used")
         db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
-        user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?", (key["user_id"],)).fetchone()
+        user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, avatar_updated_at, is_admin, token_version FROM users WHERE id = ?", (key["user_id"],)).fetchone()
         token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, user_agent=session_user_agent(request), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
@@ -644,7 +644,7 @@ def passwordless_passkey_login_verify(data: PasswordlessPasskeyVerifyRequest, re
         from rate_limit import rate_limiter
         rate_limiter.record_successful_login(ip, user["username"], db=db)
         db.commit()
-        return {"access_token": token, "token_type": "bearer", "csrf_token": csrf_token, "user": {"id": user["id"], "username": user["username"], "display_name": user["display_name"], "email": user["email"], "email_verified_at": user["email_verified_at"], "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "is_admin": bool(user["is_admin"])}}
+        return {"access_token": token, "token_type": "bearer", "csrf_token": csrf_token, "user": {"id": user["id"], "username": user["username"], "display_name": user["display_name"], "email": user["email"], "email_verified_at": user["email_verified_at"], "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "avatar_updated_at": user["avatar_updated_at"], "is_admin": bool(user["is_admin"])}}
 
 
 @router.post("/2fa/passkey/options")
@@ -707,7 +707,7 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
             db.commit()
             raise api_error(401, "mfa.challengeAlreadyUsed", "2FA-Challenge bereits verwendet")
         db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
-        user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?", (challenge["user_id"],)).fetchone()
+        user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, avatar_updated_at, is_admin, token_version FROM users WHERE id = ?", (challenge["user_id"],)).fetchone()
         trusted_device_token = None
         trusted_device_id = None
         if data.remember_device:
@@ -718,7 +718,7 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "two_factor_challenge_passed", user_id=user["id"], ip_address=ip, details=f"method=passkey; remember_device={bool(trusted_device_token)}")
         db.commit()
-        return {"access_token": token, "token_type": "bearer", "csrf_token": csrf_token, "user": {"id": user["id"], "username": user["username"], "display_name": user["display_name"], "email": user["email"], "email_verified_at": user["email_verified_at"], "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "is_admin": bool(user["is_admin"])}}
+        return {"access_token": token, "token_type": "bearer", "csrf_token": csrf_token, "user": {"id": user["id"], "username": user["username"], "display_name": user["display_name"], "email": user["email"], "email_verified_at": user["email_verified_at"], "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "avatar_updated_at": user["avatar_updated_at"], "is_admin": bool(user["is_admin"])}}
 
 
 @router.post("/me/2fa/reauth/passkey/options")
