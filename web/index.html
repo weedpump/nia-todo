@@ -214,6 +214,19 @@
       </div>
     </div>
 
+    <div class="modal web-update-modal" id="android-location-permission-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="android-location-permission-title">
+      <div class="modal-overlay web-update-backdrop"></div>
+      <div class="modal-content web-update-content">
+        <div class="web-update-icon" aria-hidden="true" data-icon="map-pin"></div>
+        <h3 id="android-location-permission-title" data-i18n-key="todo.location.permission.title">Standortzugriff einrichten</h3>
+        <p id="android-location-permission-message" data-i18n-key="todo.location.permission.body">Damit ortsbezogene Erinnerungen auch bei geschlossener App funktionieren, benötigt nia-todo dauerhaften Standortzugriff. Erlaube zuerst den genauen Standort. Wähle anschließend in den Android-App-Einstellungen „Immer zulassen“ und kehre zu nia-todo zurück.</p>
+        <div class="web-update-actions">
+          <button type="button" class="btn btn-secondary" id="android-location-permission-decline" data-i18n-key="todo.location.permission.decline">Nicht verwenden</button>
+          <button type="button" class="btn btn-primary" id="android-location-permission-continue" data-i18n-key="todo.location.permission.continue">Berechtigungen einrichten</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal ui-detail-modal ui-detail-view" id="about-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="about-modal-title">
       <div class="modal-overlay" data-close-modal="about-modal"></div>
       <div class="modal-content ui-detail-modal-content">

@@ -96,7 +96,7 @@ export function createAppLifecycle({
 
   async function loadFromLocalDB() {
     restoreSavedNavigation();
-    setTodos(await dbGetAll('todos'));
+    setTodos(await dbGetAll('todos'), { nativeReminderSnapshotAuthoritative: false });
     setProjects(await dbGetAll('projects'));
     setSections(await dbGetAll('sections'));
     setWorkspaces(await dbGetAll('workspaces'));

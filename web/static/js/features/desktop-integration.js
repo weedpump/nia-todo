@@ -2,6 +2,13 @@ import { RUNTIME_CAPABILITIES, normalizeServerUrl as normalizeRuntimeServerUrl }
 import { t } from '../i18n/index.js';
 import { createNativeBridge } from './native-bridge.js';
 import {
+  createAndroidLocationPermissionFlow,
+  createAndroidLocationPermissionPrompt,
+  createNativeReminderSnapshotState,
+  scheduleAndroidLocationReminders,
+} from './android-location-permission.js';
+import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import {
   bindDesktopHotkeyDescriptionSync,
   syncDesktopHotkeyDescriptions,
 } from './desktop-hotkey-descriptions.js';
@@ -115,6 +122,23 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   let reminderScheduleTimer = null;
   let settingsControlsBound = false;
   let settingsLoaded = !isNativeApp();
+  const reminderSnapshots = createNativeReminderSnapshotState();
+  const locationPermissionPrompt = createAndroidLocationPermissionPrompt({
+    document,
+    translate: t,
+    openLayer: openUiLayer,
+    registerLayer: registerUiLayer,
+    requestCloseLayer: requestCloseUiLayer,
+  });
+
+  const locationPermissionFlow = createAndroidLocationPermissionFlow({
+    nativeBridge,
+    promptUser: locationPermissionPrompt.show,
+  });
+
+  function bindAndroidLocationPermissionActions() {
+    locationPermissionPrompt.bind();
+  }
 
   async function loadSettings() {
     if (!isNativeApp()) return settings;
@@ -200,12 +224,12 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       bindDesktopHotkeyDescriptionSync();
     }
     await loadSettings();
+    if (isAndroidApp()) bindAndroidLocationPermissionActions();
     if (isDesktopApp()) {
       await syncDesktopHotkeyDescriptions();
     }
     renderSettings();
     if (isDesktopApp()) bindHotkeyEvents();
-    syncLocalReminders(latestTodos, { immediate: true });
     announceNotificationReadiness();
   }
 
@@ -219,7 +243,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       settings = mergeSettings(await nativeBridge.setSetting(key, nextValue));
       renderSettings();
       setDesktopStatus(t('common.saved'));
-      if (key === 'notifications') syncLocalReminders(latestTodos, { immediate: true });
+      if (key === 'notifications' && reminderSnapshots.hasSnapshot()) syncLocalReminders(latestTodos, { immediate: true });
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
       await loadSettings();
@@ -249,6 +273,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     if (!settingsLoaded) await loadSettings();
     if (!settings.notifications) return;
     if (await ensureNativeNotificationPermission()) {
+      if (!reminderSnapshots.hasSnapshot()) return;
       syncLocalReminders(latestTodos, { immediate: true });
     }
   }
@@ -331,10 +356,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function ensureNativeLocationPermission(required = false) {
     if (!required || !RUNTIME_CAPABILITIES.android) return true;
     try {
-      const state = nativeBridge.locationPermissionState?.() || 'unsupported';
-      if (state === 'granted') return true;
-      const requested = nativeBridge.requestLocationPermission?.() || state;
-      return requested === 'granted';
+      return await locationPermissionFlow.ensurePermission(true);
     } catch (error) {
       console.warn('[Native] Location permission request failed', error);
       return false;
@@ -343,6 +365,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
 
   async function scheduleLocalRemindersNow() {
     if (!isNativeApp()) return;
+    if (!reminderSnapshots.hasSnapshot()) return;
     const reminders = settings.notifications ? buildReminderSchedules(latestTodos) : [];
     const locationReminders = settings.notifications ? buildLocationReminderSchedules(latestTodos) : [];
     if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
@@ -360,21 +383,19 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       // Always hand location schedules to Android first. The native layer stores
       // them even without location permission, so onResume/onPermissionResult can
       // register geofences after the user grants access.
-      const scheduledLocations = await nativeBridge.scheduleLocationReminders?.(locationReminders);
-      if (locationReminders.length) {
-        const hasLocationPermission = await ensureNativeLocationPermission(true);
-        if (hasLocationPermission && Number(scheduledLocations) < locationReminders.length) {
-          const retriedLocations = await nativeBridge.scheduleLocationReminders?.(locationReminders);
-          if (Number(retriedLocations) < locationReminders.length) console.warn('[Native] Some location reminders were not scheduled', { scheduledLocations: retriedLocations, expected: locationReminders.length });
-        }
-      }
+      await scheduleAndroidLocationReminders({
+        nativeBridge,
+        reminders: locationReminders,
+        ensurePermission: ensureNativeLocationPermission,
+      });
     } catch (error) {
       console.warn('[Native] Failed to schedule local reminders', error);
     }
   }
 
-  function syncLocalReminders(todos = [], { immediate = false } = {}) {
-    latestTodos = Array.isArray(todos) ? todos : [];
+  function syncLocalReminders(todos = [], { immediate = false, authoritative = true } = {}) {
+    if (!reminderSnapshots.accept(todos, { authoritative })) return;
+    latestTodos = reminderSnapshots.todos();
     if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
     if (!settingsLoaded) return;
     if (reminderScheduleTimer) {

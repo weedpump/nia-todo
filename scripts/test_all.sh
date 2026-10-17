@@ -170,6 +170,7 @@ restore_frontend_suite
 trap - EXIT
 run_step "Native Android Dashboard Scrollbars" node scripts/test_native_android_dashboard_scrollbars.mjs
 run_step "Native Android Location Reminder" node scripts/test_native_android_location_reminders.mjs
+run_step "Android Location Permission Guidance" node scripts/test_frontend_android_location_permission.mjs
 run_step "Native Android WebView Cache Migration" node scripts/test_native_android_webview_cache_migration.mjs
 run_step "Native Debian WebView Cache Migration" node scripts/test_native_linux_webview_cache_migration.mjs
 run_step "Native Debian Package Name" node scripts/test_native_debian_deb_package_name.mjs
