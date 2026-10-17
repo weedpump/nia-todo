@@ -98,6 +98,10 @@ run_step "Instance Config Services" python3 scripts/test_instance_config_service
 run_step "Fresh Migrations" python3 scripts/test_fresh_migrations.py
 run_step "Release Version Checker" python3 scripts/test_release_versions.py
 run_step "Release Native Reuse" python3 scripts/test_release_native_reuse.py
+run_step "Windows Updater Endpoint" python3 scripts/test_native_windows_updater_endpoint.py
+run_step "Windows Updater Contract" python3 scripts/test_windows_tauri_updater_contract.py
+run_step "Debian Updater Contract" python3 scripts/test_debian_native_updater_contract.py
+run_step "Android Updater Contract" python3 scripts/test_android_native_updater_contract.py
 run_step "Server Updates" python3 scripts/test_server_updates.py
 run_step "Update Analytics Admin Static" python3 scripts/test_update_analytics_admin_static.py
 run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
@@ -182,6 +186,9 @@ run_step "Native Android Reminder Alarm Policy" node scripts/test_native_android
 run_step "Native Android Microphone Permission" node scripts/test_native_android_microphone_permission.mjs
 run_step "Native Linux Microphone Permission" node scripts/test_native_linux_microphone_permission.mjs
 run_step "Native Windows Installer Cache Hook" node scripts/test_native_windows_installer_cache_hooks.mjs
+run_step "Frontend Windows Native Update" node scripts/test_frontend_windows_native_update.mjs
+run_step "Frontend Debian Native Update" node scripts/test_frontend_debian_native_update.mjs
+run_step "Frontend Android Native Update" node scripts/test_frontend_android_native_update.mjs
 
 echo
 echo "🎉 Release gate green"

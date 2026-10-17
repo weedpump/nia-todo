@@ -51,7 +51,12 @@ def test_all_authorized_windows_builds_publish_updater_signatures():
     assert "Build unsigned Windows ad-hoc installer" not in workflow
     assert '"createUpdaterArtifacts":false' not in workflow
     assert "if: inputs.version" not in signature_upload
-    assert "windows-x64-setup.exe.sig" in workflow
+    assert "nia-todo-ci-windows-x64-setup.exe.sig" in workflow
+
+    release_gate = (ROOT / "scripts/test_all.sh").read_text(encoding="utf-8")
+    assert "scripts/test_native_windows_updater_endpoint.py" in release_gate
+    assert "scripts/test_windows_tauri_updater_contract.py" in release_gate
+    assert "scripts/test_frontend_windows_native_update.mjs" in release_gate
     assert "if-no-files-found: error" in workflow
     assert workflow.count("archive: false") >= 2
     assert "--require-windows-signature" in workflow

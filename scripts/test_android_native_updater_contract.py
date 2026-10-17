@@ -72,4 +72,8 @@ assert 'apksigner\" verify --verbose' in WORKFLOW, "CI must verify the final sig
 assert 'test_frontend_android_native_update.mjs' in PACKAGE, "Android updater frontend regression must be in the native suite"
 assert 'test_android_native_updater_contract.py' in PACKAGE, "Android updater native contract must be in the native suite"
 
+RELEASE_GATE = (ROOT / "scripts/test_all.sh").read_text(encoding="utf-8")
+assert 'scripts/test_android_native_updater_contract.py' in RELEASE_GATE, "Android updater native contract must run in test_all"
+assert 'scripts/test_frontend_android_native_update.mjs' in RELEASE_GATE, "Android updater frontend regression must run in test_all"
+
 print("✅ Android native updater contract passed")
