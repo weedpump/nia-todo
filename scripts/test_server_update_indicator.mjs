@@ -10,6 +10,7 @@ import { createServerUpdateIndicator } from '../web/static/js/features/server-up
 const root = new URL('../', import.meta.url);
 const html = await readFile(new URL('web/index.html', root), 'utf8');
 const appSource = await readFile(new URL('web/static/js/app.js', root), 'utf8');
+const adminSource = await readFile(new URL('web/static/js/pages/admin.js', root), 'utf8');
 const userButtonIndex = html.indexOf('id="user-menu-button"');
 const indicatorIndex = html.indexOf('id="server-update-indicator"');
 assert(userButtonIndex >= 0, 'sidebar must contain the user menu button');
@@ -164,7 +165,15 @@ for (const name of (await readdir(localeDir)).filter(name => name.endsWith('.jso
   const messages = JSON.parse(await readFile(new URL(name, localeDir), 'utf8'));
   assert.equal(typeof messages['update.server.available'], 'string', `${name} must translate update.server.available`);
   assert(messages['update.server.available'].trim(), `${name} translation must not be empty`);
+  assert.equal(typeof messages['admin.serverUpdate.debHelpReady'], 'string', `${name} must translate Debian update readiness`);
+  assert(messages['admin.serverUpdate.debHelpReady'].trim(), `${name} Debian update readiness must not be empty`);
+  assert.equal(messages['admin.serverUpdate.debHelpUnavailable'], undefined, `${name} must not describe the obsolete missing-helper state`);
 }
+assert.match(
+  adminSource,
+  /else if \(installType === 'deb'\) \{\s*help\.textContent = t\('admin\.serverUpdate\.debHelpReady'\);\s*\}/,
+  'Debian installations must always show the update-ready help text',
+);
 
 const classes = new Set(['hidden']);
 const element = {
