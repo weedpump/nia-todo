@@ -54,6 +54,33 @@ async function installTauriStub(page, settings, options = {}) {
   }, { tauriSettings: settings, appVersion: options.appVersion || NEWER_TEST_APP_VERSION });
 }
 
+async function testNativeConfiguredServerProbeDoesNotBlockStartup() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL });
+    await page.route(`${BASE_URL}/api/instance`, async route => {
+      await new Promise(resolve => setTimeout(resolve, 5_000));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ app: 'nia-todo' }),
+      });
+    });
+    const startedAt = Date.now();
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#boot-overlay').waitFor({ state: 'hidden', timeout: 2_000 });
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= 2_000) {
+      throw new Error(`Configured native server probe blocked startup for ${elapsedMs}ms`);
+    }
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function testNativeSetupWithoutServerUrl() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
@@ -573,6 +600,7 @@ async function testNativeRuntimeUsesConfiguredServerUrl() {
     await installTauriStub(page, { serverUrl: BASE_URL });
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.waitForFunction(() => window.NIA_TODO_RUNTIME?.instance?.app === 'nia-todo', null, { timeout: 10_000 });
     const runtime = await page.evaluate(() => window.NIA_TODO_RUNTIME);
     if (runtime?.mode !== 'native') throw new Error(`Expected native runtime, got ${JSON.stringify(runtime)}`);
     if (runtime?.apiBaseUrl !== BASE_URL) throw new Error(`Expected API base ${BASE_URL}, got ${runtime?.apiBaseUrl}`);
@@ -597,6 +625,7 @@ async function testNativeRuntimeUsesConfiguredServerUrl() {
 
 async function run() {
   console.log('🧭 Running native runtime config regression test...');
+  await testNativeConfiguredServerProbeDoesNotBlockStartup();
   await testNativeSetupWithoutServerUrl();
   await testNativeLoginChromeIsCompact();
   await testNativeRuntimeUsesConfiguredServerUrl();

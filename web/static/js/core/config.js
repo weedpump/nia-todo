@@ -156,9 +156,16 @@ export async function initRuntimeConfig() {
   }
   API = serverUrl;
   WS_URL = websocketUrlFromBase(serverUrl);
-  // Native apps load their UI from bundled APK/installer assets. The optional
-  // instance probe must never block offline cold-start; API calls can recover
-  // once the configured server is reachable again.
-  const instance = await verifyInstance(serverUrl, { timeoutMs: 3500 }).catch((error) => ({ error: error?.message || String(error) }));
-  return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance };
+  // Native apps load their UI from bundled APK/installer assets. Probe the
+  // configured server in the background so degraded connectivity cannot hold
+  // the local app shell behind a network timeout.
+  const runtime = { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
+  void verifyInstance(serverUrl, { timeoutMs: 3500 })
+    .then((instance) => {
+      runtime.instance = instance;
+    })
+    .catch((error) => {
+      runtime.instance = { error: error?.message || String(error) };
+    });
+  return runtime;
 }
