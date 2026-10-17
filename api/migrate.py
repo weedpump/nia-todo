@@ -447,11 +447,29 @@ def repair_dashboard_preferences_sync_migration(conn):
     conn.commit()
 
 
+def repair_todo_child_idempotency_migration(conn):
+    """Make migration 055 idempotent for partially-added mutation keys."""
+    add_column_if_missing(conn, "todo_subtasks", "client_mutation_id", "TEXT")
+    add_column_if_missing(conn, "todo_comments", "client_mutation_id", "TEXT")
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_subtasks_client_mutation
+        ON todo_subtasks(todo_id, client_mutation_id)
+        WHERE client_mutation_id IS NOT NULL
+    """)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_comments_client_mutation
+        ON todo_comments(todo_id, user_id, client_mutation_id)
+        WHERE client_mutation_id IS NOT NULL
+    """)
+    conn.commit()
+
+
 POST_APPLY_REPAIRS = {
     48: repair_todo_subtasks_migration,
     49: repair_todo_comments_migration,
     50: repair_todo_attachments_migration,
     54: repair_dashboard_preferences_sync_migration,
+    55: repair_todo_child_idempotency_migration,
 }
 
 def get_migration_files():

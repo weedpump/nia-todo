@@ -124,6 +124,7 @@ run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
+run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
 
 frontend_suite_active=0
 restore_frontend_suite() {
@@ -155,6 +156,7 @@ node scripts/frontend_db_suite.mjs prepare-shared
 run_frontend_shared_step_retry "Frontend Smoke" node scripts/test_frontend_smoke.mjs
 run_frontend_shared_step_retry "Frontend App Core" node scripts/test_frontend_app.mjs
 run_frontend_shared_step_retry "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
+run_frontend_shared_step_retry "Frontend Offline Todo Children" node scripts/test_frontend_offline_todo_children.mjs
 run_frontend_shared_step_retry "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
 run_frontend_shared_step_retry "Frontend Todo Metadata Badges" node scripts/test_frontend_todo_meta_badges.mjs
 run_frontend_shared_step_retry "Frontend DragDrop" node scripts/test_frontend_dragdrop.mjs

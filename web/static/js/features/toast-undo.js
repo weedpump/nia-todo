@@ -1,3 +1,5 @@
+import { queueItemReferencesTodo } from './todo-pending.js';
+
 export function createToastUndoFeature({
   getDb,
   getTodos,
@@ -6,6 +8,7 @@ export function createToastUndoFeature({
   dbGetAll,
   deleteFromDB,
   addToSyncQueue,
+  runSyncQueueMutation,
   isOnlineForSync,
   syncWithServer,
   renderStats,
@@ -15,6 +18,7 @@ export function createToastUndoFeature({
   onUndoRemoveMember,
   onUndoInvite,
 }) {
+  const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
   let undoAction = null;
   let undoTimer = null;
   let pendingUndoBatch = null;
@@ -88,63 +92,70 @@ export function createToastUndoFeature({
     const t = getTodos().find(x => String(x.id) === String(id));
     if (!t) return;
     const updatedTodo = { ...t, ...changes, updated_at: new Date().toISOString() };
-    await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => String(todo.id) === String(id) ? updatedTodo : todo));
+    await commitQueuedMutation(async enqueue => {
+      await dbPut('todos', updatedTodo);
+      setTodos(getTodos().map(todo => String(todo.id) === String(id) ? updatedTodo : todo));
+      await enqueue('UPDATE_TODO', { id, changes });
+    });
     renderStats();
     renderTodos();
-    await addToSyncQueue('UPDATE_TODO', { id, changes });
+
     if (isOnlineForSync()) await syncWithServer();
   }
 
   async function restoreBatchTodos() {
     if (!pendingUndoBatch || !getDb()) return;
     const { todos: deletedTodos } = pendingUndoBatch;
-    let todos = getTodos();
-    for (const todoData of deletedTodos) {
-      await dbPut('todos', todoData);
-      const existing = todos.find(t => t.id === todoData.id);
-      if (!existing) {
-        todos = [...todos, todoData];
-      } else {
-        todos = todos.map(t => t.id === todoData.id ? todoData : t);
+    await commitQueuedMutation(async enqueue => {
+      let todos = getTodos();
+      for (const todoData of deletedTodos) {
+        await dbPut('todos', todoData);
+        const existing = todos.find(t => t.id === todoData.id);
+        if (!existing) {
+          todos = [...todos, todoData];
+        } else {
+          todos = todos.map(t => t.id === todoData.id ? todoData : t);
+        }
+        if (isOnlineForSync()) await enqueue('UPDATE_TODO', { id: todoData.id, changes: { status: todoData.status } });
       }
-    }
-    setTodos(todos);
+      setTodos(todos);
+    });
     renderStats();
     renderTodos();
     pendingUndoBatch = null;
     if (isOnlineForSync()) {
-      for (const todoData of deletedTodos) {
-        await addToSyncQueue('UPDATE_TODO', { id: todoData.id, changes: { status: todoData.status } });
-      }
       await syncWithServer();
     }
   }
 
   async function restoreTodo(id, data) {
     if (!getDb()) return;
-    await dbPut('todos', data);
-    const todos = getTodos();
-    const existing = todos.find(t => t.id === data.id);
-    setTodos(existing ? todos.map(t => t.id === data.id ? data : t) : [...todos, data]);
+    await commitQueuedMutation(async enqueue => {
+      await dbPut('todos', data);
+      const todos = getTodos();
+      const existing = todos.find(t => t.id === data.id);
+      setTodos(existing ? todos.map(t => t.id === data.id ? data : t) : [...todos, data]);
+      const canceledPendingDelete = await cancelPendingTodoDelete(id);
+      if (isOnlineForSync() && !canceledPendingDelete) await enqueue('CREATE_TODO', { ...data, _tempId: data.id });
+    });
     renderStats();
     renderTodos();
-    const canceledPendingDelete = await cancelPendingTodoDelete(id);
     if (isOnlineForSync()) {
-      if (!canceledPendingDelete) await addToSyncQueue('CREATE_TODO', { ...data, _tempId: data.id });
       await syncWithServer();
     }
   }
 
   async function undoDuplicatedTodo(id) {
     if (!getDb()) return;
-    await deleteFromDB('todos', id);
-    setTodos(getTodos().filter(todo => String(todo.id) !== String(id)));
+    await commitQueuedMutation(async enqueue => {
+      await deleteFromDB('todos', id);
+      setTodos(getTodos().filter(todo => String(todo.id) !== String(id)));
+      const canceledPendingCreate = await cancelPendingTodoCreate(id);
+      if (isOnlineForSync() && !canceledPendingCreate) await enqueue('DELETE_TODO', { id });
+    });
     renderStats();
     renderTodos();
-    const canceledPendingCreate = await cancelPendingTodoCreate(id);
     if (isOnlineForSync()) {
-      if (!canceledPendingCreate) await addToSyncQueue('DELETE_TODO', { id });
       await syncWithServer();
     }
   }
@@ -168,9 +179,10 @@ export function createToastUndoFeature({
   async function cancelPendingTodoCreate(id) {
     if (!dbGetAll || !deleteFromDB) return false;
     const queue = await dbGetAll('syncQueue');
-    const pendingCreates = queue.filter(item => item?.action === 'CREATE_TODO' && String(item?.data?._tempId) === String(id));
-    await Promise.all(pendingCreates.map(item => deleteFromDB('syncQueue', item.id)));
-    return pendingCreates.length > 0;
+    const pendingEntries = queue.filter(item => queueItemReferencesTodo(item, id));
+    const canceledCreate = pendingEntries.some(item => item?.action === 'CREATE_TODO' && String(item?.data?._tempId) === String(id));
+    await Promise.all(pendingEntries.map(item => deleteFromDB('syncQueue', item.id)));
+    return canceledCreate;
   }
 
   return {

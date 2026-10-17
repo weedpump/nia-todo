@@ -22,6 +22,7 @@ export function createTodosFeature({
   dbGetAll,
   deleteFromDB,
   addToSyncQueue,
+  runSyncQueueMutation,
   isOnlineForSync,
   syncWithServer,
   todosApi,
@@ -37,6 +38,7 @@ export function createTodosFeature({
   renderMarkdown,
 }) {
   const nativeBridge = createNativeBridge();
+  const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
   let todoFormBound = false;
   let savedPlaces = [];
   let todoSaveSnapshot = null;
@@ -105,6 +107,7 @@ export function createTodosFeature({
     getDb,
     dbPut,
     addToSyncQueue,
+    runSyncQueueMutation,
     isOnlineForSync,
     syncWithServer,
     parseQuickAddTitle,
@@ -983,73 +986,102 @@ export function createTodosFeature({
 
   function collectTodoSubtasksFromEditor() {
     return Array.from(document.querySelectorAll('#todo-subtasks-list .todo-subtask-row')).map((row, index) => ({
-      id: row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null,
+      id: subtaskIdFromRow(row),
       title: row.querySelector('.todo-subtask-title-input')?.value?.trim() || '',
       is_done: Boolean(row.querySelector('.todo-subtask-check')?.checked),
       sort_order: index,
     })).filter(subtask => subtask.title);
   }
 
-  async function applySubtaskTodoResponse(response) {
-    const updatedTodo = response?.todo;
-    if (!updatedTodo) return;
+  async function persistTodoSubtasks(todoId, subtasks) {
+    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
+    if (!existing) return false;
+    const normalized = normalizeSubtasks(subtasks);
+    const updatedTodo = { ...existing, subtasks: normalized, updated_at: new Date().toISOString() };
     await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
-    renderTodoSubtaskEditor(updatedTodo.subtasks || []);
+    setTodos(getTodos().map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo));
+    renderTodoSubtaskEditor(normalized);
     renderStats();
     renderTodos();
+    return true;
+  }
+
+  async function finishTodoSubtaskMutation(todoId) {
+    if (isOnlineForSync()) await syncWithServer();
+    const current = getTodos().find(todo => String(todo.id) === String(todoId));
+    const openTodoId = document.getElementById('todo-id')?.value || '';
+    if (current && String(openTodoId) === String(todoId)) renderTodoSubtaskEditor(current.subtasks || []);
   }
 
   async function createTodoSubtask(todoId, title, isDone = false) {
-    if (!todoId || String(todoId).startsWith('temp-')) {
+    if (!todoId) {
       showToast(t('todo.subtasks.saveFirst'));
       return false;
     }
-    if (!isOnlineForSync()) {
-      showToast(t('todo.subtasks.onlineOnly'));
-      return false;
-    }
-    try {
-      const response = await todosApi.createSubtask(todoId, { title, is_done: isDone });
-      await applySubtaskTodoResponse(response);
-      return true;
-    } catch (error) {
-      console.error('Failed to add todo subtask', error);
-      showToast(t('todo.subtasks.saveFailed'));
-      return false;
-    }
+    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
+    if (!existing) return false;
+    const nowIso = new Date().toISOString();
+    const subtask = {
+      id: `temp-subtask-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title,
+      is_done: Boolean(isDone),
+      sort_order: normalizeSubtasks(existing.subtasks).length,
+      created_at: nowIso,
+      updated_at: nowIso,
+      is_pending: true,
+    };
+    let persisted = false;
+    await commitQueuedMutation(async enqueue => {
+      await enqueue('CREATE_SUBTASK', {
+        todo_id: existing.id,
+        temp_id: subtask.id,
+        subtask: { title: subtask.title, is_done: subtask.is_done, sort_order: subtask.sort_order },
+        local_subtask: subtask,
+      });
+      persisted = await persistTodoSubtasks(todoId, [...normalizeSubtasks(existing.subtasks), subtask]);
+    });
+    if (!persisted) return false;
+    await finishTodoSubtaskMutation(todoId);
+    return true;
   }
 
   async function updateTodoSubtask(todoId, subtaskId, changes) {
-    if (!todoId || !subtaskId || !isOnlineForSync()) {
-      showToast(t('todo.subtasks.onlineOnly'));
-      return false;
-    }
-    try {
-      const response = await todosApi.updateSubtask(todoId, subtaskId, changes);
-      await applySubtaskTodoResponse(response);
-      return true;
-    } catch (error) {
-      console.error('Failed to update todo subtask', error);
-      showToast(t('todo.subtasks.saveFailed'));
-      return false;
-    }
+    if (!todoId || !subtaskId) return false;
+    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
+    if (!existing) return false;
+    const subtasks = normalizeSubtasks(existing.subtasks).map(subtask => (
+      String(subtask.id) === String(subtaskId)
+        ? { ...subtask, ...changes, updated_at: new Date().toISOString() }
+        : subtask
+    ));
+    let persisted = false;
+    await commitQueuedMutation(async enqueue => {
+      await enqueue('UPDATE_SUBTASK', { todo_id: existing.id, subtask_id: subtaskId, changes });
+      persisted = await persistTodoSubtasks(todoId, subtasks);
+    });
+    if (!persisted) return false;
+    await finishTodoSubtaskMutation(todoId);
+    return true;
   }
 
   async function deleteTodoSubtask(todoId, subtaskId) {
-    if (!todoId || !subtaskId || !isOnlineForSync()) {
-      showToast(t('todo.subtasks.onlineOnly'));
-      return false;
-    }
-    try {
-      const response = await todosApi.deleteSubtask(todoId, subtaskId);
-      await applySubtaskTodoResponse(response);
-      return true;
-    } catch (error) {
-      console.error('Failed to delete todo subtask', error);
-      showToast(t('todo.subtasks.deleteFailed'));
-      return false;
-    }
+    if (!todoId || !subtaskId) return false;
+    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
+    if (!existing) return false;
+    const subtasks = normalizeSubtasks(existing.subtasks).filter(subtask => String(subtask.id) !== String(subtaskId));
+    let persisted = false;
+    await commitQueuedMutation(async enqueue => {
+      await enqueue('DELETE_SUBTASK', { todo_id: existing.id, subtask_id: subtaskId });
+      persisted = await persistTodoSubtasks(todoId, subtasks);
+    });
+    if (!persisted) return false;
+    await finishTodoSubtaskMutation(todoId);
+    return true;
+  }
+
+  function subtaskIdFromRow(row) {
+    const raw = row?.dataset?.subtaskId || '';
+    return !raw || raw.startsWith('new-') ? null : raw;
   }
 
   function addTodoSubtaskRow(subtask = {}) {
@@ -1069,7 +1101,7 @@ export function createTodosFeature({
     checkbox.checked = Boolean(subtask.is_done);
     checkbox.setAttribute('aria-label', t('todo.subtasks.toggleDone'));
     checkbox.addEventListener('change', async () => {
-      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      const persistedId = subtaskIdFromRow(row);
       if (persistedId && todoId) {
         const previous = !checkbox.checked;
         const ok = await updateTodoSubtask(todoId, persistedId, { is_done: checkbox.checked });
@@ -1098,7 +1130,7 @@ export function createTodosFeature({
     input.addEventListener('input', updateSubtaskEditorCount);
     input.addEventListener('blur', async () => {
       if (row.dataset.deleting === '1') return;
-      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      const persistedId = subtaskIdFromRow(row);
       const title = input.value.trim();
       if (!persistedId || !todoId || title === input.dataset.originalTitle) return;
       if (!title) {
@@ -1125,7 +1157,7 @@ export function createTodosFeature({
     remove.addEventListener('mousedown', (event) => event.preventDefault());
     remove.addEventListener('click', async () => {
       row.dataset.deleting = '1';
-      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      const persistedId = subtaskIdFromRow(row);
       const hasTitle = Boolean(input.value.trim());
       if (persistedId || hasTitle) {
         const confirmed = await confirmDanger({
@@ -1180,7 +1212,7 @@ export function createTodosFeature({
       input?.focus();
       return;
     }
-    if (todoId && !String(todoId).startsWith('temp-')) {
+    if (todoId) {
       const ok = await createTodoSubtask(todoId, title, false);
       if (!ok) return;
     } else {
@@ -1278,7 +1310,7 @@ export function createTodosFeature({
       const isDraft = Boolean(comment.is_draft) || String(comment.id || '').startsWith('draft-comment-');
       const isAuthor = String(comment.user_id) === String(currentUserId);
       const canDelete = isDraft || isAuthor || String(todo?.user_id) === String(currentUserId);
-      if (isAuthor && !isDraft) {
+      if ((isAuthor || comment.is_pending) && !isDraft) {
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'btn btn-secondary btn-small btn-icon';
@@ -1363,6 +1395,39 @@ export function createTodosFeature({
     renderTodos();
   }
 
+  async function persistLocalTodoComments(todoId, comments) {
+    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
+    if (!existing) return null;
+    const updatedTodo = {
+      ...existing,
+      comments,
+      comments_count: comments.length,
+      updated_at: new Date().toISOString(),
+    };
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo));
+    renderTodoComments(comments, updatedTodo);
+    renderStats();
+    renderTodos();
+    return updatedTodo;
+  }
+
+  function pendingTodoComment(todoId, body) {
+    const nowIso = new Date().toISOString();
+    const user = getCurrentUser?.() || {};
+    return {
+      id: `temp-comment-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      todo_id: todoId,
+      user_id: user.id,
+      body,
+      created_at: nowIso,
+      updated_at: nowIso,
+      author_username: user.username,
+      author_display_name: user.display_name || user.username,
+      is_pending: true,
+    };
+  }
+
   async function addTodoCommentFromInput() {
     if (!getAppInitialized() || !getDb()) return;
     const id = document.getElementById('todo-id')?.value;
@@ -1372,7 +1437,7 @@ export function createTodosFeature({
       input?.focus();
       return;
     }
-    if (!id || id.startsWith('temp-')) {
+    if (!id) {
       const comments = [...collectTodoDraftCommentsFromEditor(), body];
       renderTodoComments(comments.map((commentBody, index) => ({
         id: `draft-comment-${index}`,
@@ -1388,20 +1453,23 @@ export function createTodosFeature({
       refreshTodoSaveButtonState();
       return;
     }
-    if (!isOnlineForSync()) {
-      showToast(t('todo.comments.onlineOnly'));
-      return;
+    const existing = getTodos().find(todo => String(todo.id) === String(id));
+    if (!existing) return;
+    const comment = pendingTodoComment(existing.id, body);
+    await commitQueuedMutation(async enqueue => {
+      await enqueue('CREATE_COMMENT', {
+        todo_id: existing.id,
+        temp_id: comment.id,
+        body,
+        local_comment: comment,
+      });
+      await persistLocalTodoComments(existing.id, [...(existing.comments || []), comment]);
+    });
+    if (input) {
+      clearTodoCommentEditor(input);
+      input.focus();
     }
-    try {
-      const response = await todosApi.createComment(id, { body });
-      await applyCommentTodoResponse(response);
-      if (input) {
-        clearTodoCommentEditor(input);
-      }
-    } catch (error) {
-      console.error('Failed to add todo comment', error);
-      showToast(t('todo.comments.saveFailed'));
-    }
+    if (isOnlineForSync()) await syncWithServer();
   }
 
   async function updateTodoComment(todoId, commentId, body) {
@@ -1410,37 +1478,37 @@ export function createTodosFeature({
       showToast(t('todo.comments.emptyBody'));
       return;
     }
-    if (!todoId || !commentId || !isOnlineForSync()) {
-      showToast(t('todo.comments.onlineOnly'));
-      return;
-    }
-    try {
-      const response = await todosApi.updateComment(todoId, commentId, { body: normalized });
-      await applyCommentTodoResponse(response);
-    } catch (error) {
-      console.error('Failed to update todo comment', error);
-      showToast(t('todo.comments.saveFailed'));
-    }
+    if (!todoId || !commentId) return;
+    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
+    if (!existing) return;
+    const comments = (existing.comments || []).map(comment => (
+      String(comment.id) === String(commentId)
+        ? { ...comment, body: normalized, updated_at: new Date().toISOString(), is_pending: true }
+        : comment
+    ));
+    await commitQueuedMutation(async enqueue => {
+      await enqueue('UPDATE_COMMENT', { todo_id: existing.id, comment_id: commentId, changes: { body: normalized } });
+      await persistLocalTodoComments(existing.id, comments);
+    });
+    if (isOnlineForSync()) await syncWithServer();
   }
 
   async function deleteTodoComment(todoId, commentId) {
-    if (!todoId || !commentId || !isOnlineForSync()) {
-      showToast(t('todo.comments.onlineOnly'));
-      return;
-    }
+    if (!todoId || !commentId) return;
     const confirmed = await confirmDanger({
       title: t('todo.comments.deleteTitle'),
       message: t('todo.comments.deleteMessage'),
       confirmText: t('todo.comments.deleteConfirm'),
     });
     if (!confirmed) return;
-    try {
-      const response = await todosApi.deleteComment(todoId, commentId);
-      await applyCommentTodoResponse(response);
-    } catch (error) {
-      console.error('Failed to delete todo comment', error);
-      showToast(t('todo.comments.deleteFailed'));
-    }
+    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
+    if (!existing) return;
+    const comments = (existing.comments || []).filter(comment => String(comment.id) !== String(commentId));
+    await commitQueuedMutation(async enqueue => {
+      await enqueue('DELETE_COMMENT', { todo_id: existing.id, comment_id: commentId });
+      await persistLocalTodoComments(existing.id, comments);
+    });
+    if (isOnlineForSync()) await syncWithServer();
   }
 
   function bindTodoForm() {
@@ -1826,14 +1894,16 @@ export function createTodosFeature({
     const nowIso = new Date().toISOString();
     const completed_at = status === 'done' ? nowIso : null;
     const updatedTodo = { ...todo, status, completed_at, updated_at: nowIso };
-    await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+    await commitQueuedMutation(async enqueue => {
+      await dbPut('todos', updatedTodo);
+      setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+      await enqueue('UPDATE_TODO', { id: todo.id, changes });
+    });
     renderStats();
     renderTodos();
     runHapticFeedback(status === 'done' ? 18 : 10);
     if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
     else if (todo.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: todo.id, previousStatus: todo.status });
-    await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -2671,7 +2741,7 @@ export function createTodosFeature({
     const draftComments = id ? [] : collectTodoDraftCommentsFromEditor();
     const draftAttachmentFiles = id ? [] : getSelectedAttachmentFiles();
     const hasPostCreateDrafts = draftComments.length > 0 || draftAttachmentFiles.length > 0;
-    if (hasPostCreateDrafts && !isOnlineForSync()) {
+    if (draftAttachmentFiles.length > 0 && !isOnlineForSync()) {
       showToast(t('todo.drafts.onlineOnly'));
       return;
     }
@@ -2681,13 +2751,15 @@ export function createTodosFeature({
       if (existing) {
         const nowIso = new Date().toISOString();
         const updated = { ...existing, ...todoData, completed_at: todoData.status === 'done' ? (existing.completed_at || nowIso) : null, updated_at: nowIso };
-        await dbPut('todos', updated);
+        await commitQueuedMutation(async enqueue => {
+          await dbPut('todos', updated);
+          setTodos(getTodos().map(t => t.id === parseInt(id) ? updated : t));
+          await enqueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
+        });
         if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
-        setTodos(getTodos().map(t => t.id === parseInt(id) ? updated : t));
-        await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
         if (isOnlineForSync()) await syncWithServer();
       }
-    } else if (hasPostCreateDrafts) {
+    } else if (hasPostCreateDrafts && isOnlineForSync()) {
       let createdTodo = await todosApi.create(todoData);
       await dbPut('todos', createdTodo);
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
@@ -2712,15 +2784,36 @@ export function createTodosFeature({
     } else {
       const tempId = 'temp-' + Date.now();
       const nowIso = new Date().toISOString();
-      const newTodo = { id: tempId, ...todoData, completed_at: todoData.status === 'done' ? nowIso : null, created_at: nowIso, updated_at: nowIso, reminders: [], subtasks: normalizeSubtasks(todoData.subtasks) };
-      await dbPut('todos', newTodo);
+      const pendingComments = draftComments.map(body => pendingTodoComment(tempId, body));
+      const newTodo = {
+        id: tempId,
+        ...todoData,
+        completed_at: todoData.status === 'done' ? nowIso : null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        reminders: [],
+        subtasks: normalizeSubtasks(todoData.subtasks),
+        comments: pendingComments,
+        comments_count: pendingComments.length,
+      };
+      await commitQueuedMutation(async enqueue => {
+        await dbPut('todos', newTodo);
+        setTodos([...getTodos(), newTodo]);
+        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+        for (const comment of pendingComments) {
+          await enqueue('CREATE_COMMENT', {
+            todo_id: tempId,
+            temp_id: comment.id,
+            body: comment.body,
+            local_comment: comment,
+          });
+        }
+      });
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
-      setTodos([...getTodos(), newTodo]);
       renderProjects();
       renderStats();
       renderTodos();
       closeModal('todo-modal');
-      await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
       if (isOnlineForSync()) {
         await syncWithServer();
         renderProjects();
@@ -2744,8 +2837,11 @@ export function createTodosFeature({
     const statusChanged = Object.prototype.hasOwnProperty.call(changes, 'status');
     const completed_at = statusChanged ? (changes.status === 'done' ? (todo.completed_at || nowIso) : null) : todo.completed_at;
     const updatedTodo = { ...todo, ...changes, completed_at, updated_at: nowIso };
-    await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+    await commitQueuedMutation(async enqueue => {
+      await dbPut('todos', updatedTodo);
+      setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+      await enqueue('UPDATE_TODO', { id: todo.id, changes });
+    });
     renderStats();
     renderTodos();
     if (toastMessage) {
@@ -2755,7 +2851,6 @@ export function createTodosFeature({
       }));
       showToast(toastMessage, { type: 'fields', id: todo.id, changes: previousChanges });
     }
-    await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -2829,13 +2924,16 @@ export function createTodosFeature({
     const tempId = 'temp-' + Date.now();
     const nowIso = new Date().toISOString();
     const duplicated = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: todoData.remind_at ? [{ remind_at: todoData.remind_at }] : [] };
-    await dbPut('todos', duplicated);
+    await commitQueuedMutation(async enqueue => {
+      await dbPut('todos', duplicated);
+      setTodos([...getTodos(), duplicated]);
+      await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
+    });
     if (todoData.location_reminder) await resetLocationPermissionGuidanceForUserIntent();
-    setTodos([...getTodos(), duplicated]);
     renderStats();
     renderTodos();
     showToast(t('todo.toast.duplicated'), { type: 'duplicate', id: tempId });
-    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
+
     if (isOnlineForSync()) await syncWithServer();
     setTimeout(() => {
       if (isOnlineForSync()) syncWithServer();
@@ -2861,13 +2959,16 @@ export function createTodosFeature({
     if (!confirmed) return;
     const todo = getTodos().find(t => t.id === id);
     if (!todo) return;
-    await deleteFromDB('todos', id);
-    setTodos(getTodos().filter(t => t.id !== id));
+    await commitQueuedMutation(async enqueue => {
+      await deleteFromDB('todos', id);
+      setTodos(getTodos().filter(t => t.id !== id));
+      await enqueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 });
+    });
     renderStats();
     renderTodos();
     closeModal('todo-modal');
     showToast(t('todo.toast.deleted'), { type: 'delete', id, data: { ...todo } });
-    await addToSyncQueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 });
+
     if (isOnlineForSync()) await syncWithServer();
     setTimeout(() => {
       if (isOnlineForSync()) syncWithServer();

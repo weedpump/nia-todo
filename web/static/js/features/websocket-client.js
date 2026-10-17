@@ -1,7 +1,10 @@
+import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
+
 export function createWebSocketClient({
   wsUrl,
   getAuthToken,
   syncWithServer,
+  syncInProgressRef,
   refreshFromServer = null,
   renderConnectionStatus,
   dbGetAll,
@@ -223,6 +226,23 @@ async function handleWsMessage(msg) {
   let sections = getSections();
   let workspaces = getWorkspaces?.() || [];
 
+  async function persistTodoPayloadWithPending(todo) {
+    if (!todo?.id) return false;
+    const queue = await dbGetAll('syncQueue');
+    const projected = projectPendingTodoChanges(todo, queue);
+    if (!projected) {
+      await deleteFromDB('todos', todo.id);
+      todos = todos.filter(item => String(item.id) !== String(todo.id));
+      return true;
+    }
+    await dbPut('todos', projected);
+    const exists = todos.some(item => String(item.id) === String(projected.id));
+    todos = exists
+      ? todos.map(item => String(item.id) === String(projected.id) ? projected : item)
+      : [...todos, projected];
+    return true;
+  }
+
   async function applyProjectPayload(projectPayload) {
     if (!projectPayload?.id) return;
     const local = await getFromDB('projects', projectPayload.id);
@@ -239,30 +259,33 @@ async function handleWsMessage(msg) {
   }
 
   async function applyTodoCommentPayload(payload, mode) {
-    const todoId = payload?.todo_id;
-    if (!todoId) return false;
-    const local = await getFromDB('todos', todoId);
-    if (!local) return false;
-    const comments = Array.isArray(local.comments) ? [...local.comments] : [];
-    let nextComments = comments;
-    if (mode === 'delete') {
-      nextComments = comments.filter(comment => String(comment.id) !== String(payload.comment_id));
-    } else if (payload.comment?.id) {
-      const existing = comments.find(comment => String(comment.id) === String(payload.comment.id));
-      nextComments = existing
-        ? comments.map(comment => String(comment.id) === String(payload.comment.id) ? payload.comment : comment)
-        : [...comments, payload.comment];
-      nextComments.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime() || Number(a.id || 0) - Number(b.id || 0));
+    const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+    try {
+      const todoId = payload?.todo_id;
+      if (!todoId) return false;
+      const local = await getFromDB('todos', todoId);
+      if (!local) return false;
+      const comments = Array.isArray(local.comments) ? [...local.comments] : [];
+      let nextComments = comments;
+      if (mode === 'delete') {
+        nextComments = comments.filter(comment => String(comment.id) !== String(payload.comment_id));
+      } else if (payload.comment?.id) {
+        const existing = comments.find(comment => String(comment.id) === String(payload.comment.id));
+        nextComments = existing
+          ? comments.map(comment => String(comment.id) === String(payload.comment.id) ? payload.comment : comment)
+          : [...comments, payload.comment];
+        nextComments.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime() || Number(a.id || 0) - Number(b.id || 0));
+      }
+      const updatedTodo = {
+        ...local,
+        comments: nextComments,
+        comments_count: Number.isFinite(Number(payload.comments_count)) ? Number(payload.comments_count) : nextComments.length,
+        updated_at: payload.updated_at || local.updated_at,
+      };
+      return await persistTodoPayloadWithPending(updatedTodo);
+    } finally {
+      releaseCommitLock();
     }
-    const updatedTodo = {
-      ...local,
-      comments: nextComments,
-      comments_count: Number.isFinite(Number(payload.comments_count)) ? Number(payload.comments_count) : nextComments.length,
-      updated_at: payload.updated_at || local.updated_at,
-    };
-    await dbPut('todos', updatedTodo);
-    todos = todos.map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo);
-    return true;
   }
 
   async function applyTodoAttachmentPayload(payload, mode) {
@@ -293,30 +316,33 @@ async function handleWsMessage(msg) {
   }
 
   async function applyTodoSubtaskPayload(payload, mode) {
-    const todoId = payload?.todo_id;
-    if (!todoId) return false;
-    const local = await getFromDB('todos', todoId);
-    if (!local) return false;
-    const subtasks = Array.isArray(local.subtasks) ? [...local.subtasks] : [];
-    let nextSubtasks = subtasks;
-    if (mode === 'delete') {
-      nextSubtasks = subtasks.filter(subtask => String(subtask.id) !== String(payload.subtask_id));
-    } else if (payload.subtask?.id) {
-      const normalizedSubtask = { ...payload.subtask, is_done: Boolean(payload.subtask.is_done) };
-      const existing = subtasks.find(subtask => String(subtask.id) === String(normalizedSubtask.id));
-      nextSubtasks = existing
-        ? subtasks.map(subtask => String(subtask.id) === String(normalizedSubtask.id) ? normalizedSubtask : subtask)
-        : [...subtasks, normalizedSubtask];
-      nextSubtasks.sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || Number(a.id || 0) - Number(b.id || 0));
+    const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+    try {
+      const todoId = payload?.todo_id;
+      if (!todoId) return false;
+      const local = await getFromDB('todos', todoId);
+      if (!local) return false;
+      const subtasks = Array.isArray(local.subtasks) ? [...local.subtasks] : [];
+      let nextSubtasks = subtasks;
+      if (mode === 'delete') {
+        nextSubtasks = subtasks.filter(subtask => String(subtask.id) !== String(payload.subtask_id));
+      } else if (payload.subtask?.id) {
+        const normalizedSubtask = { ...payload.subtask, is_done: Boolean(payload.subtask.is_done) };
+        const existing = subtasks.find(subtask => String(subtask.id) === String(normalizedSubtask.id));
+        nextSubtasks = existing
+          ? subtasks.map(subtask => String(subtask.id) === String(normalizedSubtask.id) ? normalizedSubtask : subtask)
+          : [...subtasks, normalizedSubtask];
+        nextSubtasks.sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || Number(a.id || 0) - Number(b.id || 0));
+      }
+      const updatedTodo = {
+        ...local,
+        subtasks: nextSubtasks,
+        updated_at: payload.updated_at || local.updated_at,
+      };
+      return await persistTodoPayloadWithPending(updatedTodo);
+    } finally {
+      releaseCommitLock();
     }
-    const updatedTodo = {
-      ...local,
-      subtasks: nextSubtasks,
-      updated_at: payload.updated_at || local.updated_at,
-    };
-    await dbPut('todos', updatedTodo);
-    todos = todos.map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo);
-    return true;
   }
 
   switch (msg.type) {
@@ -344,35 +370,39 @@ async function handleWsMessage(msg) {
     case 'reminder_due':
       onReminderDue(msg.payload || msg);
       break;
-    case 'sync_response':
+    case 'sync_response': {
+      const deferredForActiveSync = Boolean(syncInProgressRef?.value);
+      while (syncInProgressRef?.value) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      if (deferredForActiveSync && refreshFromServer) {
+        await refreshFromServer();
+        break;
+      }
+      const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+      try {
       // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
         const serverTodoIds = new Set(msg.todos.map(todo => String(todo.id)));
         const queue = await dbGetAll('syncQueue');
         for (const localTodo of await dbGetAll('todos')) {
-          const hasPendingChange = queue.some(q =>
-            (q.action === 'CREATE_TODO' && q.data?._tempId === localTodo.id) ||
-            (q.action === 'UPDATE_TODO' && q.data?.id === localTodo.id)
-          );
-          if (!serverTodoIds.has(String(localTodo.id)) && !hasPendingChange) await deleteFromDB('todos', localTodo.id);
+          if (!serverTodoIds.has(String(localTodo.id)) && !hasPendingTodoChanges(queue, localTodo.id)) {
+            await deleteFromDB('todos', localTodo.id);
+          }
         }
         for (const todo of msg.todos) {
           const local = await getFromDB('todos', todo.id);
           const incomingTodo = mergeTodoPayloadWithLocalSubtasks(todo, local);
-          if (!local) {
+          if (hasPendingTodoChanges(queue, todo.id)) {
+            const projected = projectPendingTodoChanges(incomingTodo, queue);
+            if (projected) await dbPut('todos', projected);
+            else await deleteFromDB('todos', todo.id);
+          } else if (!local) {
             await dbPut('todos', incomingTodo);
           } else {
-            const queue = await dbGetAll('syncQueue');
-            const pendingChanges = queue.find(q =>
-              q.action === 'UPDATE_TODO' && q.data.id === todo.id
-            );
-            if (!pendingChanges) {
-              const localTime = new Date(local.updated_at || 0).getTime();
-              const serverTime = new Date(incomingTodo.updated_at || 0).getTime();
-              if (serverTime >= localTime) {
-                await dbPut('todos', incomingTodo);
-              }
-            }
+            const localTime = new Date(local.updated_at || 0).getTime();
+            const serverTime = new Date(incomingTodo.updated_at || 0).getTime();
+            if (serverTime >= localTime) await dbPut('todos', incomingTodo);
           }
         }
         todos = await dbGetAll('todos');
@@ -455,32 +485,27 @@ async function handleWsMessage(msg) {
       renderProjects();
       renderStats();
       renderTodos();
+      } finally {
+        releaseCommitLock();
+      }
       break;
+    }
     case 'todo_create':
       if (msg.payload) {
-        const local = await getFromDB('todos', msg.payload.id);
-        const incomingTodo = mergeTodoPayloadWithLocalSubtasks(msg.payload, local);
-        await dbPut('todos', incomingTodo);
-        // Check if we have a temp todo in queue for this server response
-        const queue = await dbGetAll('syncQueue');
-        const pendingCreate = queue.find(q =>
-          q.action === 'CREATE_TODO' && q.data._tempId
-        );
-        if (pendingCreate) {
-          // Replace temp todo with real server version
-          await deleteFromDB('todos', pendingCreate.data._tempId);
-          todos = todos.filter(t => t.id !== pendingCreate.data._tempId);
-          const existingReal = todos.find(t => t.id === incomingTodo.id);
-          if (existingReal) {
-            todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
-          } else {
-            todos.push(incomingTodo);
-          }
-        } else {
-          // Broadcast from another client → add to list
+        const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+        try {
+          const local = await getFromDB('todos', msg.payload.id);
+          const queue = await dbGetAll('syncQueue');
+          const incomingTodo = projectPendingTodoChanges(
+            mergeTodoPayloadWithLocalSubtasks(msg.payload, local),
+            queue,
+          );
+          await dbPut('todos', incomingTodo);
           const existing = todos.find(t => t.id === incomingTodo.id);
           if (!existing) todos.push(incomingTodo);
           else todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
+        } finally {
+          releaseCommitLock();
         }
         renderProjects();
         renderStats();
@@ -489,18 +514,25 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_update':
       if (msg.payload) {
-        const local = await getFromDB('todos', msg.payload.id);
-        if (local) {
-          const localTime = new Date(local.updated_at || 0).getTime();
-          const serverTime = new Date(msg.payload.updated_at || 0).getTime();
-          if (serverTime < localTime) {
-            // Local version is newer → do not overwrite
-            break;
+        const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+        try {
+          const local = await getFromDB('todos', msg.payload.id);
+          const queue = await dbGetAll('syncQueue');
+          const incomingTodo = mergeTodoPayloadWithLocalSubtasks(msg.payload, local);
+          if (hasPendingTodoChanges(queue, msg.payload.id)) {
+            await persistTodoPayloadWithPending(incomingTodo);
+          } else {
+            if (local) {
+              const localTime = new Date(local.updated_at || 0).getTime();
+              const serverTime = new Date(msg.payload.updated_at || 0).getTime();
+              if (serverTime < localTime) break;
+            }
+            await dbPut('todos', incomingTodo);
+            todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
           }
+        } finally {
+          releaseCommitLock();
         }
-        const incomingTodo = mergeTodoPayloadWithLocalSubtasks(msg.payload, local);
-        await dbPut('todos', incomingTodo);
-        todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
         renderProjects();
         renderStats();
         renderTodos();
@@ -508,8 +540,16 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_delete':
       if (msg.payload?.id) {
-        await deleteFromDB('todos', msg.payload.id);
-        todos = todos.filter(t => t.id !== msg.payload.id);
+        const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+        try {
+          const queue = await dbGetAll('syncQueue');
+          const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
+          await Promise.all(childOperations.map(item => deleteFromDB('syncQueue', item.id)));
+          await deleteFromDB('todos', msg.payload.id);
+          todos = todos.filter(t => t.id !== msg.payload.id);
+        } finally {
+          releaseCommitLock();
+        }
         renderProjects();
         renderStats();
         renderTodos();
