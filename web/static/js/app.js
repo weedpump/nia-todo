@@ -311,6 +311,11 @@ const userSettingsFeature = createUserSettingsFeature({
   updatePushSettingsUI: () => updatePushSettingsUI(),
   logout: () => logout(),
 });
+async function disconnectAuthenticatedRuntime() {
+  const websocketDrain = disconnectWebSocket();
+  await Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]);
+}
+
 const authSessionFeature = createAuthSessionFeature({
   authApi,
   getAppInitialized: () => appInitialized,
@@ -319,10 +324,7 @@ const authSessionFeature = createAuthSessionFeature({
   initApp: () => initApp(),
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
-  disconnectRealtime: async () => {
-    const websocketDrain = disconnectWebSocket();
-    await Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]);
-  },
+  disconnectRealtime: () => disconnectAuthenticatedRuntime(),
 });
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
 const bindServiceWorkerUpdateButtons = serviceWorkerUpdates.bindServiceWorkerUpdateButtons;
@@ -696,7 +698,7 @@ const bindPushActions = pushFeature.bindPushActions;
 const appLifecycle = createAppLifecycle({
   authApi,
   initTheme,
-  checkAuth: () => checkAuth(),
+  checkAuth: (options) => checkAuth(options),
   hideLoginOverlay,
   showLoginOverlay,
   renderUserInfo,
@@ -715,6 +717,7 @@ const appLifecycle = createAppLifecycle({
   ensureCurrentWorkspace: () => ensureCurrentWorkspace(),
   setAppInitialized: (next) => { appInitialized = next; },
   connectWebSocket,
+  disconnectRealtime: () => disconnectAuthenticatedRuntime(),
   getWsState: () => wsClient.getWsState(),
   isAuthenticated: () => Boolean(currentUser),
   isOnlineForSync,

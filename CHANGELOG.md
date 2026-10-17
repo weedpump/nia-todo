@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added in-app updates for the Android app.
 
 ### Fixed
+- Fixed slow offline startup and delays on unstable server connections by loading cached tasks immediately while connection and sign-in checks continue in the background.
 - Explained Android location access before opening system settings and stopped repeated prompts after opting out.
 
 ## [3.3.3] - 2026-10-15
