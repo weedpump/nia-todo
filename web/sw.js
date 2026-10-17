@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v3.3.3';
+const SW_VERSION = 'v3.4.0';
 const CACHE_REVISION = 'android-location-permission-75';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
