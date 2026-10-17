@@ -1242,9 +1242,7 @@ function renderServerUpdate(status) {
     command.style.display = 'block';
     command.textContent = status.docker_update_hint || 'docker compose pull && docker compose up -d';
   } else if (installType === 'deb') {
-    help.textContent = status.can_install
-      ? t('admin.serverUpdate.debHelpReady')
-      : t('admin.serverUpdate.debHelpUnavailable');
+    help.textContent = t('admin.serverUpdate.debHelpReady');
   } else {
     help.textContent = t('admin.serverUpdate.unsupportedHelp');
   }

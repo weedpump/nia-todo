@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
+### Fixed
+- Clarified the Debian server update status when no update is available.
+
 ## [3.4.0] - 2026-10-17
 
 ### Added
