@@ -46,7 +46,7 @@ gdkx11-sys = "0.18"
 libc = "0.2"
 minisign-verify = "0.3"
 rand = "0.10"
-sha2 = "0.10"
+sha2 = "0.11"
 
 [target.'cfg(windows)'.dependencies]
 base64 = "0.22"
