@@ -20,7 +20,7 @@ async function run() {
     await waitForText('Inbox');
     await page.waitForFunction(async () => {
       const db = await new Promise((resolve, reject) => {
-        const req = indexedDB.open('nia-todo-db', 4);
+        const req = indexedDB.open('nia-todo-db');
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });
@@ -107,7 +107,7 @@ async function run() {
     await page.waitForTimeout(800);
     const pendingDeleteBeforeUndo = await page.evaluate(async () => {
       const db = await new Promise((resolve, reject) => {
-        const req = indexedDB.open('nia-todo-db', 4);
+        const req = indexedDB.open('nia-todo-db');
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });
@@ -126,7 +126,7 @@ async function run() {
     await page.click('#toast-undo');
     await page.waitForFunction(async () => {
       const db = await new Promise((resolve, reject) => {
-        const req = indexedDB.open('nia-todo-db', 4);
+        const req = indexedDB.open('nia-todo-db');
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });
