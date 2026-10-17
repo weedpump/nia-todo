@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-10-17
+
 ### Added
 - Added in-app updates for the Windows desktop app.
 - Added in-app updates for the Debian desktop app.
