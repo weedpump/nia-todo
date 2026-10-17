@@ -17,6 +17,7 @@ import { createWorkspacesFeature } from './features/workspaces.js';
 import { createProjectSharingFeature } from './features/project-sharing.js';
 import { createTodosFeature } from './features/todos.js';
 import { createSyncFeature } from './features/sync.js';
+import { beginSyncQueueWrite } from './features/todo-pending.js';
 import { createSyncController } from './features/sync-controller.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
@@ -195,10 +196,23 @@ async function updateConnectionStatusView(wsState = wsClient?.getWsState?.()) {
   renderConnectionStatus(wsState, { pendingCount, syncing: syncInProgressRef.value });
 }
 
-async function addToSyncQueue(action, data) {
-  const result = await appStorage.addToSyncQueue(action, data);
-  updateConnectionStatusView().catch(() => {});
-  return result;
+async function addToSyncQueue(action, data, { reserved = false } = {}) {
+  const finishQueueWrite = reserved ? () => {} : await beginSyncQueueWrite(syncInProgressRef);
+  try {
+    const result = await appStorage.addToSyncQueue(action, data);
+    updateConnectionStatusView().catch(() => {});
+    return result;
+  } finally {
+    finishQueueWrite();
+  }
+}
+async function runSyncQueueMutation(operation) {
+  const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
+  try {
+    return await operation((action, data) => addToSyncQueue(action, data, { reserved: true }));
+  } finally {
+    finishQueueWrite();
+  }
 }
 const syncInProgressRef = { value: syncInProgress };
 const activeBackgroundSyncOperations = new Set();
@@ -256,6 +270,7 @@ const todosFeature = createTodosFeature({
   dbGetAll,
   deleteFromDB,
   addToSyncQueue,
+  runSyncQueueMutation,
   isOnlineForSync,
   syncWithServer,
   todosApi,
@@ -379,6 +394,7 @@ const wsClient = createWebSocketClient({
   wsUrl: WS_URL,
   getAuthToken: () => getAuthToken(),
   syncWithServer: () => syncWithServer(),
+  syncInProgressRef,
   refreshFromServer: () => refreshFromServer(),
   renderConnectionStatus: (state) => updateConnectionStatusView(state),
   dbGetAll,
@@ -662,6 +678,7 @@ const toastUndoFeature = createToastUndoFeature({
   dbGetAll,
   deleteFromDB,
   addToSyncQueue,
+  runSyncQueueMutation,
   isOnlineForSync,
   syncWithServer,
   renderStats: () => renderStats(),

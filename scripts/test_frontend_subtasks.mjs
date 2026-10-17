@@ -83,6 +83,21 @@ await withFreshDb(async () => {
       const todo = todos.find(item => item.title === localStorage.getItem('__subtask_test_title'));
       return Array.isArray(todo?.subtasks) && todo.subtasks.length === 3;
     }, null, { timeout: 10000 });
+    const immediateSubtaskRow = page.locator('#todo-subtasks-list .todo-subtask-row').last();
+    await immediateSubtaskRow.locator('.todo-subtask-check-label').click();
+    await page.waitForFunction(async () => {
+      const token = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${token}` }, credentials: 'include', cache: 'no-store' }).then(response => response.json());
+      const todo = data.todos?.find?.(item => item.title === localStorage.getItem('__subtask_test_title'));
+      return todo?.subtasks?.find?.(subtask => subtask.title === 'Immediate checklist item')?.is_done === true;
+    }, null, { timeout: 10000 });
+    await immediateSubtaskRow.locator('.todo-subtask-check-label').click();
+    await page.waitForFunction(async () => {
+      const token = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${token}` }, credentials: 'include', cache: 'no-store' }).then(response => response.json());
+      const todo = data.todos?.find?.(item => item.title === localStorage.getItem('__subtask_test_title'));
+      return todo?.subtasks?.find?.(subtask => subtask.title === 'Immediate checklist item')?.is_done === false;
+    }, null, { timeout: 10000 });
     const saveDisabledAfterImmediateSubtask = await page.locator('#todo-save-btn').evaluate(button => button.disabled);
     if (!saveDisabledAfterImmediateSubtask) {
       throw new Error('Expected save button to stay disabled after immediate subtask create');

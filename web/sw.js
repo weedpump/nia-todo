@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.4.0';
-const CACHE_REVISION = 'android-location-permission-75';
+const CACHE_REVISION = 'offline-todo-children-78';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -144,6 +144,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/todo-attachments.js',
   '/static/js/features/todo-quick-add.js',
   '/static/js/features/todo-multi-add.js',
+  '/static/js/features/todo-pending.js',
   '/static/js/features/sync.js',
   '/static/js/features/sync-controller.js',
   '/static/js/features/todo-rendering.js',

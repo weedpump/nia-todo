@@ -75,6 +75,7 @@ def make_db():
             title TEXT NOT NULL,
             is_done INTEGER NOT NULL DEFAULT 0,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            client_mutation_id TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
@@ -83,6 +84,7 @@ def make_db():
             todo_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             body TEXT NOT NULL,
+            client_mutation_id TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
@@ -95,6 +97,10 @@ def make_db():
             created_at TEXT DEFAULT (datetime('now')),
             user_id INTEGER
         );
+        CREATE UNIQUE INDEX idx_todo_subtasks_client_mutation
+            ON todo_subtasks(todo_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
+        CREATE UNIQUE INDEX idx_todo_comments_client_mutation
+            ON todo_comments(todo_id, user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
         """
     )
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'owner', 'Owner Display', NULL)")
@@ -159,6 +165,16 @@ def main():
     assert_true("reminders" not in broadcast_events[-1]["payload"], broadcast_events[-1])
     assert_true("location_reminders" not in broadcast_events[-1]["payload"], broadcast_events[-1])
 
+    idempotent_payload = {"body": "Offline retry note", "client_mutation_id": "temp-comment-offline-1"}
+    idempotent_first = owner.post(f"/api/todos/{todo_id}/comments", json=idempotent_payload)
+    idempotent_retry = owner.post(f"/api/todos/{todo_id}/comments", json={**idempotent_payload, "body": "Must not duplicate"})
+    assert_true(idempotent_first.status_code == 200, idempotent_first.text)
+    assert_true(idempotent_retry.status_code == 200, idempotent_retry.text)
+    assert_true(idempotent_retry.json()["comment"]["id"] == idempotent_first.json()["comment"]["id"], idempotent_retry.json())
+    assert_true(idempotent_retry.json()["comment"]["body"] == "Offline retry note", idempotent_retry.json())
+    idempotent_cleanup = owner.delete(f"/api/todos/{todo_id}/comments/{idempotent_first.json()['comment']['id']}")
+    assert_true(idempotent_cleanup.status_code == 200, idempotent_cleanup.text)
+
     listed = owner.get("/api/todos")
     assert_true(listed.status_code == 200, listed.text)
     listed_todo = next(todo for todo in listed.json()["todos"] if todo["id"] == todo_id)
@@ -217,6 +233,8 @@ def main():
     deleted = owner.delete(f"/api/todos/{todo_id}/comments/{comment_id}")
     assert_true(deleted.status_code == 200, deleted.text)
     assert_true(deleted.json()["todo"]["comments_count"] == 0, deleted.text)
+    repeated_delete = owner.delete(f"/api/todos/{todo_id}/comments/{comment_id}")
+    assert_true(repeated_delete.status_code == 404, repeated_delete.text)
 
     empty = owner.post(f"/api/todos/{todo_id}/comments", json={"body": "   "})
     assert_true(empty.status_code == 422, empty.text)

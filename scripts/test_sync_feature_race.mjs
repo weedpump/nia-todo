@@ -41,7 +41,7 @@ async function run() {
     todosApi: {
       list: async () => {
         listCalls += 1;
-        if (syncInProgressRef.value) listCalledWhileSyncActive = true;
+        if (syncInProgressRef.value && !syncInProgressRef.refreshing) listCalledWhileSyncActive = true;
         return { todos: [{ id: 42, title: 'Server title', updated_at: '2026-06-16T17:01:00Z' }] };
       },
       update: async (id, changes) => ({ id, ...changes, updated_at: '2026-06-16T17:00:30Z' }),

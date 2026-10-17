@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS todo_subtasks (
     title TEXT NOT NULL,
     is_done INTEGER NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    client_mutation_id TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
@@ -81,6 +82,7 @@ CREATE TABLE IF NOT EXISTS todo_comments (
     todo_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
     body TEXT NOT NULL,
+    client_mutation_id TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
@@ -140,6 +142,8 @@ CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
 CREATE INDEX IF NOT EXISTS idx_todo_subtasks_todo ON todo_subtasks(todo_id, sort_order, id);
 CREATE INDEX IF NOT EXISTS idx_todo_comments_todo ON todo_comments(todo_id, created_at, id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_subtasks_client_mutation ON todo_subtasks(todo_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_comments_client_mutation ON todo_comments(todo_id, user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_todo_attachments_todo ON todo_attachments(todo_id, created_at, id);
 CREATE INDEX IF NOT EXISTS idx_todo_attachments_user ON todo_attachments(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_places_user_name ON saved_places(user_id, lower(name));
