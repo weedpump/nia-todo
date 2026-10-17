@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - Clarified the Debian server update status when no update is available.
+- Kept user avatars available after offline restarts across web and native clients without storing authenticated images in the Service Worker cache.
 
 ## [3.4.0] - 2026-10-17
 

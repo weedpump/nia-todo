@@ -187,8 +187,7 @@ try {
   await new Promise(resolve => setTimeout(resolve, 0));
 
   assert.notEqual(currentAvatar, staleAvatar, 'a newer avatar version must replace an older in-flight element');
-  assert.ok(staleAvatar.src, 'the stale request must have produced an object URL for cleanup verification');
-  assert.ok(revokedObjectUrls.includes(staleAvatar.src), 'a stale in-flight avatar result must release its object URL');
+  assert.equal(staleAvatar.src, '', 'a stale in-flight avatar result must never attach an object URL');
 
   currentFilter = 'pending';
   renderStats();

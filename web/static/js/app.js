@@ -1,5 +1,5 @@
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
-import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL } from './core/config.js';
+import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL, apiResourceUrl } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
 import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
@@ -46,6 +46,7 @@ import { createAboutFeature } from './features/about.js';
 import { createShortcutHelpFeature } from './features/shortcut-help.js';
 import { bindUiHistory } from './features/ui-history.js';
 import { exposeRuntimeGlobals } from './features/runtime-globals.js';
+import { removeCachedAvatar } from './core/authenticated-image.js';
 import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
 let todos = [];
@@ -91,6 +92,21 @@ function setTodosState(next, { nativeReminderSnapshotAuthoritative = true } = {}
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
 let currentUser = null;  // { id, username, display_name, token }
+
+function persistCachedAvatarMetadata(payload) {
+  if (!currentUser?.id) return;
+  try {
+    const cached = JSON.parse(localStorage.getItem('cached_user') || 'null');
+    if (!cached || String(cached.id) !== String(currentUser.id)) return;
+    localStorage.setItem('cached_user', JSON.stringify({
+      ...cached,
+      avatar_url: payload.avatar_url ?? null,
+      avatar_updated_at: payload.avatar_updated_at ?? null,
+    }));
+  } catch (_error) {
+    // The next successful auth refresh will replace malformed cached metadata.
+  }
+}
 const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
 const confirmDialogFeature = createConfirmDialogFeature();
@@ -392,6 +408,18 @@ const wsClient = createWebSocketClient({
   },
   onServerUpdateStatus: (status) => serverUpdateIndicator.applyStatus(status),
   onDashboardPreferencesUpdate: payload => dashboardPreferencesSyncFeature?.applyRemote(payload),
+  onAvatarUpdate: async payload => {
+    if (!currentUser) return;
+    const previousAvatarUrl = currentUser.avatar_url;
+    if (!payload.avatar_url && previousAvatarUrl) {
+      await removeCachedAvatar(apiResourceUrl(previousAvatarUrl), { userId: currentUser.id });
+    }
+    currentUser = { ...currentUser, ...payload };
+    persistCachedAvatarMetadata(payload);
+    updateUserMenu();
+    renderUserInfo();
+    renderStats();
+  },
 });
 const getReconnectDelay = wsClient.getReconnectDelay;
 const connectWebSocket = wsClient.connectWebSocket;

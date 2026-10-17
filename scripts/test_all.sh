@@ -79,6 +79,7 @@ run_step "Android CLI Workflow Contract" python3 scripts/test_android_cli_workfl
 run_step "Playwright Workflow Contract" python3 scripts/test_playwright_workflow.py
 run_step "Security Runtime Code Ownership" python3 scripts/test_runtime_code_ownership.py
 run_step "Security Avatar Pixel Limit" python3 scripts/test_avatar_pixel_limit.py
+run_step "Avatar Profile Updates" python3 scripts/test_avatar_profile_update.py
 run_step "BrainDump Services" python3 scripts/test_braindump_v2_services.py
 run_step "BrainDump Extractor Normalization" python3 scripts/test_braindump_v2_extractor_normalization.py
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
@@ -108,6 +109,10 @@ run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
+run_step "Service Worker Avatar Privacy" node scripts/test_sw_avatar_privacy.mjs
+run_step "Avatar IndexedDB" node scripts/test_avatar_indexeddb.mjs
+run_step "Avatar Offline Cache" node scripts/test_avatar_cache.mjs
+run_step "Avatar Realtime Updates" node scripts/test_avatar_realtime.mjs
 run_step "Todo Attachment Thumbnails" node scripts/test_todo_attachment_thumbnails.mjs
 run_step "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
 run_step "Frontend Project Counters" node scripts/test_frontend_project_counters.mjs

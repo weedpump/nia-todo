@@ -1,5 +1,5 @@
 import { apiResourceUrl } from '../core/config.js';
-import { loadAuthenticatedImage } from '../core/authenticated-image.js';
+import { loadAuthenticatedImage, releaseAuthenticatedImage } from '../core/authenticated-image.js';
 import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 export function createUserMenuFeature({
@@ -58,12 +58,18 @@ export function createUserMenuFeature({
     return version ? `${src}?v=${version}` : src;
   }
 
-  function renderAvatar(target, initial, src) {
+  function renderAvatar(target, initial, src, user) {
     if (!target) return;
     if (src) {
-      target.innerHTML = `<img alt="Avatar">`;
-      loadAuthenticatedImage(target.querySelector('img'), src);
+      let img = target.querySelector('img');
+      if (!img) {
+        target.innerHTML = `<img alt="Avatar">`;
+        img = target.querySelector('img');
+      }
+      loadAuthenticatedImage(img, src, { userId: user?.id, version: user?.avatar_updated_at });
     } else {
+      const img = target.querySelector('img');
+      if (img) releaseAuthenticatedImage(img);
       target.textContent = initial;
     }
   }
@@ -75,8 +81,8 @@ export function createUserMenuFeature({
     const initial = (name.trim()[0] || 'U').toUpperCase();
     const src = avatarSrc(user);
 
-    renderAvatar(document.getElementById('user-menu-button-avatar'), initial, src);
-    renderAvatar(document.getElementById('user-menu-avatar'), initial, src);
+    renderAvatar(document.getElementById('user-menu-button-avatar'), initial, src, user);
+    renderAvatar(document.getElementById('user-menu-avatar'), initial, src, user);
     const menuName = document.getElementById('user-menu-name');
     const menuEmail = document.getElementById('user-menu-email');
     const sidebarName = document.getElementById('sidebar-user-name');

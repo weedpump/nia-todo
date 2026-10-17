@@ -106,6 +106,7 @@ def login(data: LoginRequest, request: Request, response: Response):
                     "email_verified_at": user.get('email_verified_at'),
                     "email_trust_source": user.get('email_trust_source'),
                     "avatar_url": user.get('avatar_url'),
+                    "avatar_updated_at": user.get('avatar_updated_at'),
                     "braindump_enabled": bool(user.get('braindump_enabled', False)),
                     "braindump_learning_enabled": bool(user.get('braindump_learning_enabled', True)),
                     "is_admin": bool(user.get('is_admin', False))
@@ -129,6 +130,7 @@ def login(data: LoginRequest, request: Request, response: Response):
                 "email_verified_at": user.get('email_verified_at'),
                 "email_trust_source": user.get('email_trust_source'),
                 "avatar_url": user.get('avatar_url'),
+                "avatar_updated_at": user.get('avatar_updated_at'),
                 "braindump_enabled": bool(user.get('braindump_enabled', False)),
                 "braindump_learning_enabled": bool(user.get('braindump_learning_enabled', True)),
                 "is_admin": bool(user.get('is_admin', False))

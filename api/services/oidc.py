@@ -300,6 +300,7 @@ def _user_response(user, token: str, csrf_token: str) -> dict:
             "email_verified_at": user["email_verified_at"],
             "email_trust_source": user["email_trust_source"],
             "avatar_url": user["avatar_url"],
+            "avatar_updated_at": user["avatar_updated_at"],
             "braindump_enabled": bool(user["braindump_enabled"]),
             "braindump_learning_enabled": bool(user["braindump_learning_enabled"]),
             "is_admin": bool(user["is_admin"]),
@@ -316,7 +317,7 @@ def complete_user_oidc_login(claims: dict, request, response) -> dict:
     ip = get_client_ip(request) if request else None
     with get_db() as db:
         user = db.execute(
-            """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version,
+            """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, avatar_updated_at, is_admin, token_version,
                       COALESCE(braindump_enabled, 0) AS braindump_enabled, COALESCE(braindump_learning_enabled, 1) AS braindump_learning_enabled
                FROM users WHERE lower(email) = lower(?) AND email_verified_at IS NOT NULL LIMIT 1""",
             (email,),
