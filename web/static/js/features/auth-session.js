@@ -153,7 +153,8 @@ export function createAuthSessionFeature({
   }
 
   function isTransientAuthCheckFailure(error) {
-    return !error?.status || error.name === 'TypeError';
+    const status = Number(error?.status || 0);
+    return !status || ![401, 403].includes(status) || error.name === 'TypeError';
   }
 
   function storeUserSession(data) {
@@ -319,15 +320,26 @@ export function createAuthSessionFeature({
     return completeLogin(verified);
   }
 
-  async function checkAuth() {
+  async function checkAuth({ preferCached = false, authoritative = false } = {}) {
     const token = getAuthToken();
     if (!token) return false;
 
+    if (preferCached) {
+      const cachedUser = readCachedUser(token);
+      if (cachedUser) {
+        setCurrentUser(cachedUser);
+        return true;
+      }
+    }
+
     try {
-      const user = await Promise.race([
-        authApi.me(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('auth check timeout')), 2500)),
-      ]);
+      const authRequest = authApi.me();
+      const user = authoritative
+        ? await authRequest
+        : await Promise.race([
+          authRequest,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('auth check timeout')), 2500)),
+        ]);
       const refreshedToken = user.access_token || token;
       if (user.access_token) localStorage.setItem('jwt_token', user.access_token);
       if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);
@@ -347,6 +359,7 @@ export function createAuthSessionFeature({
       return true;
     } catch (e) {
       if (isTransientAuthCheckFailure(e)) {
+        if (authoritative) throw e;
         const cachedUser = readCachedUser(token);
         if (cachedUser) {
           console.log('Auth check unavailable; keeping cached offline session');

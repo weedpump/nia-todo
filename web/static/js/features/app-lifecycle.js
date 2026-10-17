@@ -22,6 +22,7 @@ export function createAppLifecycle({
   ensureCurrentWorkspace,
   setAppInitialized,
   connectWebSocket,
+  disconnectRealtime = null,
   getWsState,
   isAuthenticated = () => false,
   isOnlineForSync,
@@ -259,50 +260,105 @@ export function createAppLifecycle({
       const bootWatchdog = setTimeout(() => showBootError(new Error('Boot watchdog timeout')), 18000);
       Promise.resolve().then(async () => {
         try {
-          const setupData = await Promise.race([
-            authApi.setupStatus(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('setup timeout')), 4000)),
-          ]);
-          if (!setupData.setup_complete) {
-            window.location.href = '/setup';
+          let usedCachedSession = false;
+          try {
+            usedCachedSession = await checkAuth({ preferCached: true });
+          } catch (e) {
+            // Continue with the normal online validation path.
+          }
+
+          if (usedCachedSession) {
+            let mfaPrompted = false;
+            const enforceMfaEnrollment = async () => {
+              if (mfaPrompted || !isMfaEnrollmentRequired()) return;
+              mfaPrompted = true;
+              await openSettingsModal?.();
+            };
+            const rejectCachedSession = async () => {
+              lifecycleInitialized = false;
+              setAppInitialized(false);
+              showLoginOverlay();
+              await disconnectRealtime?.();
+            };
+
+            hideLoginOverlay();
+            renderUserInfo();
+
+            Promise.resolve(authApi.setupStatus()).then((setupData) => {
+              if (!setupData?.setup_complete) window.location.href = '/setup';
+            }).catch((error) => {
+              console.warn('Background setup validation failed:', error);
+            });
+
+            if (isMfaEnrollmentRequired()) {
+              hideBootOverlay();
+              clearTimeout(bootWatchdog);
+              enforceMfaEnrollment().catch((error) => console.warn('Cached MFA enforcement failed:', error));
+            } else {
+              await withTimeout(initApp(), 12000, 'App init');
+              hideBootOverlay();
+              clearTimeout(bootWatchdog);
+            }
+
+            Promise.resolve(checkAuth({ authoritative: true })).then(async (authed) => {
+              if (!authed || !isAuthenticated()) {
+                await rejectCachedSession();
+                return;
+              }
+              renderUserInfo();
+              await enforceMfaEnrollment();
+            }).catch((error) => {
+              console.warn('Background auth validation failed:', error);
+            });
             return;
           }
-        } catch (e) {
-          // Continue with login overlay when setup check fails or times out.
-        }
 
-        try {
-          await initServiceWorker();
-        } catch (e) {
-          console.warn('Service worker init failed before auth:', e);
-        }
-
-        let authed = false;
-        try {
-          authed = await checkAuth();
-        } catch (e) {
-          // Keep login overlay on non-recoverable auth-check errors.
-        }
-
-        if (authed) {
-          hideLoginOverlay();
-          renderUserInfo();
-          if (isMfaEnrollmentRequired()) {
-            hideBootOverlay();
-            await openSettingsModal?.();
-          } else {
-            await withTimeout(initApp(), 12000, 'App init');
-            hideBootOverlay();
+          try {
+            const setupData = await Promise.race([
+              authApi.setupStatus(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('setup timeout')), 4000)),
+            ]);
+            if (!setupData.setup_complete) {
+              window.location.href = '/setup';
+              return;
+            }
+          } catch (e) {
+            // Continue with login overlay when setup check fails or times out.
           }
-        } else {
-          hideBootOverlay();
-          showLoginOverlay();
+
+          try {
+            await initServiceWorker();
+          } catch (e) {
+            console.warn('Service worker init failed before auth:', e);
+          }
+
+          let authed = false;
+          try {
+            authed = await checkAuth();
+          } catch (e) {
+            // Keep login overlay on non-recoverable auth-check errors.
+          }
+
+          if (authed) {
+            hideLoginOverlay();
+            renderUserInfo();
+            if (isMfaEnrollmentRequired()) {
+              hideBootOverlay();
+              await openSettingsModal?.();
+            } else {
+              await withTimeout(initApp(), 12000, 'App init');
+              hideBootOverlay();
+            }
+          } else {
+            hideBootOverlay();
+            showLoginOverlay();
+          }
+          clearTimeout(bootWatchdog);
+        } catch (error) {
+          console.error('Boot failed:', error);
+          showBootError(error);
+          clearTimeout(bootWatchdog);
         }
-        clearTimeout(bootWatchdog);
-      }).catch((error) => {
-        console.error('Boot failed:', error);
-        showBootError(error);
-        clearTimeout(bootWatchdog);
       });
     };
 

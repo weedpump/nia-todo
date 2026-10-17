@@ -130,6 +130,13 @@ async function blockBackendRequests(context) {
   await context.route(`${BASE_ORIGIN}/**`, route => route.abort('internetdisconnected'));
 }
 
+async function stallBackendRequests(context, delayMs = 30_000) {
+  await context.route(`${BASE_ORIGIN}/**`, async route => {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    await route.abort('timedout');
+  });
+}
+
 async function run() {
   console.log('🧊 Running native offline cold-start regression test...');
   const staticServer = startStaticServer();
@@ -154,6 +161,55 @@ async function run() {
     await waitForAppReady(firstOffline);
     await assertNoNativeServiceWorker(firstOffline);
     await firstOffline.close();
+
+    // A connected-but-broken network must not hold the cached native UI behind network timeouts.
+    const stalledContext = await browser.newContext({ viewport: { width: 390, height: 900 }, storageState: await page.context().storageState(), serviceWorkers: 'block' });
+    await installTauriStub(stalledContext, BASE_URL);
+    await stallBackendRequests(stalledContext);
+    const stalledOffline = await stalledContext.newPage();
+    const stalledStartedAt = Date.now();
+    await stalledOffline.goto(LOCAL_URL, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+    await waitForAppReady(stalledOffline, 3_000);
+    const stalledReadyMs = Date.now() - stalledStartedAt;
+    if (stalledReadyMs >= 3_000) {
+      throw new Error(`Native cached startup waited for stalled backend requests: ${stalledReadyMs}ms`);
+    }
+    await assertNoNativeServiceWorker(stalledOffline);
+    await stalledContext.close();
+
+    for (const status of [503, 504]) {
+      const gatewayErrorContext = await browser.newContext({
+        viewport: { width: 390, height: 900 },
+        serviceWorkers: 'block',
+        storageState: {
+          cookies: [],
+          origins: [{
+            origin: LOCAL_URL,
+            localStorage: [
+              { name: 'auth_token', value: 'cached-session-token' },
+              { name: 'cached_user', value: JSON.stringify({ id: 42, username: 'cached-user', display_name: 'Cached User' }) },
+              { name: 'last_user_id', value: '42' },
+            ],
+          }],
+        },
+      });
+      await installTauriStub(gatewayErrorContext, BASE_URL);
+      await gatewayErrorContext.route(`${BASE_ORIGIN}/**`, route => route.abort('internetdisconnected'));
+      await gatewayErrorContext.route(`${BASE_ORIGIN}/api/setup/status`, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ setup_complete: true }) }));
+      await gatewayErrorContext.route(`${BASE_ORIGIN}/api/me`, route => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ detail: 'temporary gateway failure' }) }));
+      const gatewayErrorPage = await gatewayErrorContext.newPage();
+      await gatewayErrorPage.goto(LOCAL_URL, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+      await waitForAppReady(gatewayErrorPage, 3_000);
+      await gatewayErrorPage.waitForTimeout(250);
+      const sessionState = await gatewayErrorPage.evaluate(() => ({
+        tokenKept: Boolean(localStorage.getItem('jwt_token') || localStorage.getItem('auth_token')),
+        loginHidden: document.getElementById('login-overlay')?.classList.contains('hidden'),
+      }));
+      if (!sessionState.tokenKept || !sessionState.loginHidden) {
+        throw new Error(`Temporary ${status} auth failure destroyed cached session: ${JSON.stringify(sessionState)}`);
+      }
+      await gatewayErrorContext.close();
+    }
 
     const secondOffline = await browser.newPage({ viewport: { width: 390, height: 900 } });
     await secondOffline.goto(LOCAL_URL, { waitUntil: 'domcontentloaded', timeout: 15_000 });
