@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
+### Added
+- Added full offline support for creating, editing, and deleting Todo comments and subtasks, with automatic synchronization when the connection returns.
+
 ### Fixed
 - Clarified the Debian server update status when no update is available.
 - Kept user avatars available after offline restarts across web and native clients without storing authenticated images in the Service Worker cache.
