@@ -4,7 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 
-EXPECTED_TAURI_VERSION = "2.12.1"
+EXPECTED_TAURI_VERSION = "2.12.3"
 SUPPRESSION = '@file:Suppress("DEPRECATION")'
 
 

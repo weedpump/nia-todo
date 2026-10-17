@@ -128,6 +128,17 @@ fn decode_and_verify_signature(
     Ok(())
 }
 
+fn sha256_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let digest = Sha256::digest(bytes);
+    let mut encoded = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
+}
+
 fn create_stage_dir(uid: u32, token: &str) -> Result<PathBuf, String> {
     let base = PathBuf::from(format!("/run/user/{uid}/nia-todo-desktop-updates"));
     if !base.exists() {
@@ -208,7 +219,7 @@ fn download_and_stage(
     if package.len() as u64 != request.size_bytes {
         return Err("Debian update download is incomplete".to_string());
     }
-    let actual_sha = format!("{:x}", Sha256::digest(&package));
+    let actual_sha = sha256_hex(&package);
     if actual_sha != request.sha256 {
         return Err("Debian update checksum does not match the manifest".to_string());
     }
@@ -275,6 +286,14 @@ pub(crate) async fn desktop_install_debian_update(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encodes_sha256_as_lowercase_hex() {
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
 
     fn request(url: &str) -> DebianUpdateRequest {
         DebianUpdateRequest {
