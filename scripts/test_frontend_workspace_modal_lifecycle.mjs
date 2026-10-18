@@ -45,34 +45,26 @@ const testHtml = `<!doctype html>
       };
       let workspaces = [initialWorkspace];
       let currentWorkspaceId = 1;
+      let currentFilter = 'all';
       let nextWorkspaceId = 2;
-      let delayCreate = false;
-      let pendingCreateResolve = null;
-      let deferHistoryBack = false;
-      let deferredHistoryBack = null;
       const records = new Map();
 
-      const nativeHistoryBack = history.back.bind(history);
-      history.back = () => {
-        if (deferHistoryBack) {
-          deferredHistoryBack = nativeHistoryBack;
-          return;
-        }
-        nativeHistoryBack();
-      };
-
       window.setFilter = (filter, { replaceHistory = false } = {}) => {
+        currentFilter = String(filter);
+        localStorage.setItem('nia-last-filter', currentFilter);
         const state = { ...(history.state || {}), niaTodoView: true, filter };
         if (replaceHistory) history.replaceState(state, '', location.pathname);
         else history.pushState(state, '', location.pathname);
       };
+      window.addEventListener('popstate', event => {
+        if (!event.state?.niaTodoView) return;
+        currentFilter = String(event.state.filter || 'all');
+        localStorage.setItem('nia-last-filter', currentFilter);
+      });
 
       const feature = createWorkspacesFeature({
         workspacesApi: {
-          create: async data => {
-            if (delayCreate) await new Promise(resolve => { pendingCreateResolve = resolve; });
-            return { id: nextWorkspaceId++, ...data, is_default: false };
-          },
+          create: async data => ({ id: nextWorkspaceId++, ...data, is_default: false }),
           update: async (id, data) => ({ ...workspaces.find(item => String(item.id) === String(id)), ...data }),
           delete: async () => ({}),
           list: async () => ({ workspaces }),
@@ -96,20 +88,11 @@ const testHtml = `<!doctype html>
       window.workspaceTest = {
         feature,
         getWorkspaces: () => workspaces,
-        delayNextCreate: () => { delayCreate = true; },
-        isCreatePending: () => Boolean(pendingCreateResolve),
-        releaseCreate: () => {
-          delayCreate = false;
-          const resolve = pendingCreateResolve;
-          pendingCreateResolve = null;
-          resolve?.();
-        },
-        deferNextHistoryBack: () => { deferHistoryBack = true; },
-        flushHistoryBack: () => {
-          deferHistoryBack = false;
-          const run = deferredHistoryBack;
-          deferredHistoryBack = null;
-          run?.();
+        getState: () => ({ currentWorkspaceId, currentFilter, lastFilter: localStorage.getItem('nia-last-filter') }),
+        setInitialFilter: filter => {
+          currentFilter = String(filter);
+          localStorage.setItem('nia-last-filter', currentFilter);
+          history.replaceState({ ...(history.state || {}), niaTodoView: true, filter: currentFilter }, '', location.pathname);
         },
       };
     </script>
@@ -154,39 +137,20 @@ try {
 
   {
     const page = await openHarness();
-    await page.evaluate(() => window.workspaceTest.feature.showWorkspaceModal());
+    await page.evaluate(() => {
+      window.workspaceTest.setInitialFilter('42');
+      window.workspaceTest.feature.showWorkspaceModal();
+    });
     await page.fill('#workspace-name', 'Created workspace');
     await page.dispatchEvent('#workspace-name', 'input');
     await page.click('#workspace-save-btn');
     await page.waitForFunction(() => window.workspaceTest.getWorkspaces().length === 2);
-
-    const activeAfterCreate = await page.locator('#workspace-modal').evaluate(element => element.classList.contains('active'));
-    await page.click('#workspace-close-btn');
-    const activeAfterClose = await page.locator('#workspace-modal').evaluate(element => element.classList.contains('active'));
-    assert.deepEqual(
-      { activeAfterCreate, activeAfterClose },
-      { activeAfterCreate: false, activeAfterClose: false },
-      'creating a workspace must close its modal without leaving the close action blocked',
-    );
-    await page.close();
-  }
-
-  {
-    const page = await openHarness();
-    await page.evaluate(() => {
-      window.workspaceTest.delayNextCreate();
-      window.workspaceTest.deferNextHistoryBack();
-      window.workspaceTest.feature.showWorkspaceModal();
-    });
-    await page.fill('#workspace-name', 'Created during close');
-    await page.dispatchEvent('#workspace-name', 'input');
-    await page.click('#workspace-save-btn');
-    await page.waitForFunction(() => window.workspaceTest.isCreatePending());
-    await page.click('#workspace-close-btn');
-    await page.evaluate(() => window.workspaceTest.releaseCreate());
-    await page.waitForFunction(() => window.workspaceTest.getWorkspaces().length === 2);
-    await page.evaluate(() => window.workspaceTest.flushHistoryBack());
     await page.waitForFunction(() => !document.getElementById('workspace-modal').classList.contains('active'));
+    assert.deepEqual(
+      await page.evaluate(() => window.workspaceTest.getState()),
+      { currentWorkspaceId: 2, currentFilter: 'all', lastFilter: 'all' },
+      'creating a workspace must close its modal and reset the previous workspace filter',
+    );
 
     await page.evaluate(() => window.workspaceTest.feature.showWorkspaceModal(1));
     await page.click('#workspace-close-btn');

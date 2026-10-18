@@ -288,10 +288,11 @@ export function createWorkspacesFeature({
     }
   }
 
-  function closeWorkspaceModal({ fromHistory = false } = {}) {
-    if (document.getElementById('workspace-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('workspace-modal', { reason: 'ui' })) return;
+  function closeWorkspaceModal({ fromHistory = false, afterClose = null } = {}) {
+    if (document.getElementById('workspace-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('workspace-modal', { reason: 'ui' }, { afterClose })) return;
     document.getElementById('workspace-modal')?.classList.remove('active');
     editingWorkspaceId = null;
+    afterClose?.();
   }
 
   registerUiLayer('workspace-modal', () => closeWorkspaceModal({ fromHistory: true }));
@@ -320,14 +321,18 @@ export function createWorkspacesFeature({
         await dbPut('workspaces', updated);
         setWorkspaces(getWorkspaces().map(w => String(w.id) === String(updated.id) ? updated : w));
         showToast?.(t('workspace.saved')); 
+        closeWorkspaceModal();
       } else {
         const workspace = await workspacesApi.create({ name, color, icon, sort_order: getWorkspaces().length });
         await dbPut('workspaces', workspace);
         setWorkspaces([...getWorkspaces(), workspace]);
-        await switchWorkspace(workspace.id, { replaceHistory: true });
+        await new Promise((resolve, reject) => {
+          closeWorkspaceModal({
+            afterClose: () => switchWorkspace(workspace.id, { replaceHistory: true }).then(resolve, reject),
+          });
+        });
         showToast?.(t('workspace.created')); 
       }
-      closeWorkspaceModal();
       renderWorkspaces();
       renderProjects();
       renderStats();
