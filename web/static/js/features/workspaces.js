@@ -1,7 +1,7 @@
 import { t } from '../i18n/index.js';
 import { hydrateIcons, iconSvg, markerHtml, renderIconPicker } from '../icons/lucide-icons.js';
 import { renderColorPicker } from '../ui/color-picker.js';
-import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { closeUiLayerNow, openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 export function createWorkspacesFeature({
   workspacesApi,
@@ -288,9 +288,11 @@ export function createWorkspacesFeature({
     }
   }
 
-  function closeWorkspaceModal({ fromHistory = false } = {}) {
-    if (document.getElementById('workspace-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('workspace-modal', { reason: 'ui' })) return;
-    document.getElementById('workspace-modal')?.classList.remove('active');
+  function closeWorkspaceModal({ fromHistory = false, immediate = false } = {}) {
+    const modal = document.getElementById('workspace-modal');
+    if (modal?.classList.contains('active') && immediate && closeUiLayerNow('workspace-modal', { reason: 'programmatic' })) return;
+    if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer('workspace-modal', { reason: 'ui' })) return;
+    modal?.classList.remove('active');
     editingWorkspaceId = null;
   }
 
@@ -324,6 +326,7 @@ export function createWorkspacesFeature({
         const workspace = await workspacesApi.create({ name, color, icon, sort_order: getWorkspaces().length });
         await dbPut('workspaces', workspace);
         setWorkspaces([...getWorkspaces(), workspace]);
+        closeWorkspaceModal({ immediate: true });
         await switchWorkspace(workspace.id);
         showToast?.(t('workspace.created')); 
       }
