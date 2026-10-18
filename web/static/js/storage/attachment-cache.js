@@ -1,4 +1,4 @@
-import { getAll, get, putStrict, remove } from './indexed-db.js';
+import { getAll, getStrict, putStrict, remove } from './indexed-db.js';
 
 export const DEFAULT_ATTACHMENT_CACHE_MAX_BYTES = 250 * 1024 * 1024;
 const STORE = 'attachmentBlobs';
@@ -17,7 +17,7 @@ function isQuotaError(error) {
 
 export function createAttachmentCache({
   getAll: readAll = () => getAll(STORE),
-  get: read = id => get(STORE, id),
+  get: read = id => getStrict(STORE, id),
   put: write = item => putStrict(STORE, item),
   remove: discard = id => remove(STORE, id),
   estimateStorage = () => globalThis.navigator?.storage?.estimate?.(),
@@ -93,10 +93,11 @@ export function createAttachmentCache({
     return item;
   }
 
-  async function getRecord(attachmentId, { touch = true } = {}) {
+  async function getRecord(attachmentId, { touch = true, todoId = undefined } = {}) {
     const id = cacheId(attachmentId);
     const item = await read(id);
     if (!item) return null;
+    if (todoId !== undefined && String(item.todo_id) !== String(todoId)) return null;
     if (touch) {
       item.last_accessed = now();
       await write(item).catch(() => {});

@@ -32,6 +32,7 @@ export function createTodoAttachmentsFeature({
 }) {
   let attachmentPreviewObjectUrl = '';
   let attachmentPreviewDownload = null;
+  let attachmentPreviewGeneration = 0;
   let attachmentThumbnailObserver = null;
   let attachmentThumbnailRenderId = 0;
   const attachmentThumbnailObjectUrls = new Set();
@@ -164,7 +165,7 @@ export function createTodoAttachmentsFeature({
   }
 
   async function loadAttachmentBlob(todoId, attachment) {
-    const cached = await attachmentCache.get(attachment?.id);
+    const cached = await attachmentCache.get(attachment?.id, { todoId });
     if (cached?.blob) return cached.blob;
     if (!isOnlineForSync()) throw new Error('Attachment is not available offline');
     const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
@@ -184,7 +185,7 @@ export function createTodoAttachmentsFeature({
   async function makeAttachmentAvailableOffline(todoId, attachment) {
     try {
       const blob = await loadAttachmentBlob(todoId, attachment);
-      const cached = await attachmentCache.get(attachment.id, { touch: false });
+      const cached = await attachmentCache.get(attachment.id, { touch: false, todoId });
       if (!cached) {
         await attachmentCache.put({ id: attachment.id, todo_id: todoId, attachment_id: attachment.id, blob, size_bytes: attachment.size_bytes || blob.size, pinned: true, offline_explicit: true });
       } else {
@@ -250,6 +251,7 @@ export function createTodoAttachmentsFeature({
         },
       };
     });
+    let optimisticTodo = null;
     try {
       for (const item of pending) {
         await attachmentCache.put({
@@ -271,6 +273,7 @@ export function createTodoAttachmentsFeature({
         };
         await dbPut('todos', updated);
         setTodos(getTodos().map(item => String(item.id) === String(todoId) ? updated : item));
+        optimisticTodo = updated;
         for (const item of pending) {
           await enqueue('CREATE_ATTACHMENT', {
             todo_id: todoId,
@@ -292,7 +295,27 @@ export function createTodoAttachmentsFeature({
       if (isOnlineForSync()) await syncWithServer();
       return true;
     } catch (error) {
-      await Promise.all(pending.map(item => attachmentCache.remove(item.tempId)));
+      let queuedAttachmentItems = [];
+      try {
+        const pendingIds = new Set(pending.map(item => String(item.tempId)));
+        queuedAttachmentItems = (await dbGetAll('syncQueue')).filter(item => item.action === 'CREATE_ATTACHMENT'
+          && pendingIds.has(String(item.data?.temp_id || item.data?.blob_id)));
+      } catch (_cleanupError) {
+        queuedAttachmentItems = [];
+      }
+      const cleanupOperations = [
+        ...pending.map(item => attachmentCache.remove(item.tempId)),
+        ...queuedAttachmentItems.map(item => deleteFromDB('syncQueue', item.id)),
+      ];
+      if (optimisticTodo) {
+        await Promise.allSettled([
+          dbPut('todos', todo),
+          ...cleanupOperations,
+        ]);
+        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
+      } else {
+        await Promise.allSettled(cleanupOperations);
+      }
       console.error('Failed to queue todo attachment', error);
       showToast(error?.name === 'AttachmentStorageError' ? t('todo.attachments.localStorageFull') : t('todo.attachments.uploadFailed'));
       return false;
@@ -395,7 +418,7 @@ export function createTodoAttachmentsFeature({
       availability.textContent = attachment.is_pending ? t('todo.attachments.statusPending') : t('todo.attachments.statusOnlineOnly');
       meta.append(details, availability);
       if (!attachment.is_pending) {
-        void attachmentCache.get(attachment.id, { touch: false }).then((cached) => {
+        void attachmentCache.get(attachment.id, { touch: false, todoId }).then((cached) => {
           if (!cached) return;
           availability.textContent = t('todo.attachments.statusCached');
           availability.classList.add('is-cached');
@@ -486,15 +509,20 @@ export function createTodoAttachmentsFeature({
     }
   }
 
-  function closeAttachmentPreview({ fromHistory = false } = {}) {
-    if (document.getElementById('attachment-preview-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('attachment-preview-modal', { reason: 'ui' })) return;
-    closeModal('attachment-preview-modal', { fromHistory: true });
-    document.getElementById('attachment-preview-modal')?.classList.remove('show');
+  function clearAttachmentPreviewState() {
+    attachmentPreviewGeneration += 1;
     const body = document.getElementById('attachment-preview-body');
     if (body) body.innerHTML = '';
     if (attachmentPreviewObjectUrl) URL.revokeObjectURL(attachmentPreviewObjectUrl);
     attachmentPreviewObjectUrl = '';
     attachmentPreviewDownload = null;
+  }
+
+  function closeAttachmentPreview({ fromHistory = false } = {}) {
+    clearAttachmentPreviewState();
+    if (document.getElementById('attachment-preview-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('attachment-preview-modal', { reason: 'ui' })) return;
+    closeModal('attachment-preview-modal', { fromHistory: true });
+    document.getElementById('attachment-preview-modal')?.classList.remove('show');
   }
 
   async function previewTodoAttachment(todoId, attachment) {
@@ -503,10 +531,17 @@ export function createTodoAttachmentsFeature({
       showToast(t('todo.attachments.noPreview'));
       return downloadTodoAttachment(todoId, attachment.id, attachment.original_filename);
     }
+    clearAttachmentPreviewState();
+    const previewGeneration = attachmentPreviewGeneration;
     try {
-      closeAttachmentPreview();
       const blob = await loadAttachmentBlob(todoId, attachment);
-      attachmentPreviewObjectUrl = URL.createObjectURL(blob);
+      if (previewGeneration !== attachmentPreviewGeneration) return;
+      const objectUrl = URL.createObjectURL(blob);
+      if (previewGeneration !== attachmentPreviewGeneration) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      attachmentPreviewObjectUrl = objectUrl;
       attachmentPreviewDownload = { todoId, attachmentId: attachment.id, filename: attachment.original_filename || 'attachment' };
       const title = document.getElementById('attachment-preview-title');
       const body = document.getElementById('attachment-preview-body');
@@ -522,9 +557,12 @@ export function createTodoAttachmentsFeature({
           body.textContent = t('todo.attachments.noPreview');
         }
       }
-      document.getElementById('attachment-preview-modal')?.classList.add('active');
-      openUiLayer('attachment-preview-modal');
+      const modal = document.getElementById('attachment-preview-modal');
+      const alreadyOpen = modal?.classList.contains('active');
+      modal?.classList.add('active');
+      if (!alreadyOpen) openUiLayer('attachment-preview-modal');
     } catch (error) {
+      if (previewGeneration !== attachmentPreviewGeneration) return;
       console.error('Failed to preview todo attachment', error);
       showToast(t('todo.attachments.previewFailed'));
     }

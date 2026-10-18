@@ -142,6 +142,17 @@ export function get(storeName, id) {
   });
 }
 
+export function getStrict(storeName, id) {
+  return new Promise((resolve, reject) => {
+    if (!db) { reject(new Error('IndexedDB is not open')); return; }
+    const tx = db.transaction(storeName, 'readonly');
+    const request = tx.objectStore(storeName).get(id);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error || tx.error || new Error(`Failed to read ${storeName}`));
+    tx.onabort = () => reject(tx.error || new Error(`Failed to read ${storeName}`));
+  });
+}
+
 export function remove(storeName, id) {
   return new Promise((resolve) => {
     if (!db) { resolve(); return; }

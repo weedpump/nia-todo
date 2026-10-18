@@ -118,6 +118,10 @@ const elements = new Map([
   ['todo-attachments-empty', new FakeElement('div')],
   ['todo-attachments-count', new FakeElement('span')],
   ['todo-attachment-upload-btn', new FakeElement('button')],
+  ['attachment-preview-modal', new FakeElement('div')],
+  ['attachment-preview-title', new FakeElement('h3')],
+  ['attachment-preview-body', new FakeElement('div')],
+  ['attachment-preview-download-btn', new FakeElement('button')],
 ]);
 
 globalThis.document = {
@@ -153,6 +157,13 @@ URL.revokeObjectURL = (url) => revokedUrls.push(url);
 
 const blobRequests = [];
 let failAttachmentId = null;
+const deferredCacheReads = new Map();
+function deferredCacheRead(id) {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  deferredCacheReads.set(String(id), { promise, resolve });
+  return promise;
+}
 const feature = createTodoAttachmentsFeature({
   getTodos: () => [],
   setTodos: () => {},
@@ -171,12 +182,12 @@ const feature = createTodoAttachmentsFeature({
     },
   },
   attachmentCache: {
-    get: async () => null,
+    get: async id => deferredCacheReads.get(String(id))?.promise || null,
     put: async () => {},
   },
   renderStats: () => {},
   renderTodos: () => {},
-  closeModal: () => {},
+  closeModal: (id) => elements.get(id)?.classList.remove('active'),
   confirmDanger: async () => false,
   showToast: () => {},
   t: (key) => key,
@@ -254,6 +265,40 @@ try {
   await flushPromises();
   assert.equal(brokenThumbnail.classList.contains('is-loaded'), false, 'failed thumbnail requests should keep the fallback visible');
   assert.equal(brokenFallback.classList.contains('is-hidden'), false, 'failed thumbnail requests should retain the file icon');
+
+  deferredCacheRead(21);
+  feature.renderTodoAttachments([{
+    id: 21,
+    user_id: 1,
+    original_filename: 'slow.png',
+    content_type: 'image/png',
+    size_bytes: 4,
+    uploader_display_name: 'Owner',
+  }], { id: 7, user_id: 1, project_id: 1 });
+  findByClass(elements.get('todo-attachments-list').children[0], 'todo-attachment-name').dispatch('click');
+  feature.closeAttachmentPreview();
+  deferredCacheReads.get('21').resolve({ blob: new Blob(['slow'], { type: 'image/png' }) });
+  await flushPromises();
+  assert.equal(elements.get('attachment-preview-modal').classList.contains('active'), false, 'closing during load must keep the preview closed');
+
+  deferredCacheRead(22);
+  deferredCacheRead(23);
+  feature.renderTodoAttachments([
+    { id: 22, user_id: 1, original_filename: 'first.png', content_type: 'image/png', size_bytes: 5, uploader_display_name: 'Owner' },
+    { id: 23, user_id: 1, original_filename: 'second.png', content_type: 'image/png', size_bytes: 6, uploader_display_name: 'Owner' },
+  ], { id: 7, user_id: 1, project_id: 1 });
+  const previewList = elements.get('todo-attachments-list');
+  findByClass(previewList.children[0], 'todo-attachment-name').dispatch('click');
+  findByClass(previewList.children[1], 'todo-attachment-name').dispatch('click');
+  deferredCacheReads.get('23').resolve({ blob: new Blob(['second'], { type: 'image/png' }) });
+  await flushPromises();
+  const winningPreviewHtml = elements.get('attachment-preview-body').innerHTML;
+  deferredCacheReads.get('22').resolve({ blob: new Blob(['first'], { type: 'image/png' }) });
+  await flushPromises();
+  assert.equal(elements.get('attachment-preview-title').textContent, 'second.png', 'the second preview request must win');
+  assert.equal(elements.get('attachment-preview-body').innerHTML, winningPreviewHtml, 'a stale first preview must not replace the second preview');
+  feature.closeAttachmentPreview();
+  assert.ok(revokedUrls.includes(createdUrls.at(-1).url), 'closing the winning preview must revoke its object URL');
 
   console.log('✅ Todo attachment thumbnails are lazy, accessible, and resilient');
 } finally {

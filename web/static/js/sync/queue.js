@@ -1,7 +1,7 @@
-import { clear, put } from '../storage/indexed-db.js';
+import { clear, putStrict } from '../storage/indexed-db.js';
 
 export function enqueue(action, data) {
-  return put('syncQueue', {
+  return putStrict('syncQueue', {
     action,
     data,
     timestamp: Date.now(),

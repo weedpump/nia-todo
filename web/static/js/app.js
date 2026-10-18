@@ -249,6 +249,8 @@ const syncFeature = createSyncFeature({
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
   setWorkspaces: (next) => { workspaces = next; },
+  getCurrentUser: () => currentUser,
+  setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   todosApi,
   projectsApi,
   sectionsApi,
@@ -467,6 +469,9 @@ desktopIntegration = createDesktopIntegration({
     openMobileSearch();
   },
   getCurrentUser: () => currentUser,
+  clearLocalAuthState: () => authSessionFeature.clearLocalAuthState(),
+  clearBrowserAuthCaches: () => authSessionFeature.clearBrowserAuthCaches(),
+  clearCache: () => clearIndexedDB(),
 });
 
 

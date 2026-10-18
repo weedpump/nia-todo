@@ -122,6 +122,16 @@ export function createAuthSessionFeature({
     }
   }
 
+  function clearLocalAuthState() {
+    setCurrentUser(null);
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('last_user_id');
+    localStorage.removeItem('csrf_token');
+    localStorage.removeItem('cached_user');
+    localStorage.removeItem('nia-mfa-enrollment-required');
+  }
+
   function persistCachedUser(user) {
     const { token, ...cacheableUser } = user || {};
     localStorage.setItem('cached_user', JSON.stringify(cacheableUser));
@@ -389,7 +399,6 @@ export function createAuthSessionFeature({
         // Ignore logout errors; local session cleanup still needs to happen.
       }
     }
-
     localStorage.removeItem('jwt_token');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('last_user_id');
@@ -622,5 +631,7 @@ export function createAuthSessionFeature({
     hideLoginOverlay,
     handleLogin,
     bindLoginForm,
+    clearLocalAuthState,
+    clearBrowserAuthCaches,
   };
 }

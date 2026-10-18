@@ -115,7 +115,15 @@ function setDesktopStatus(text, danger = false) {
   });
 }
 
-export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch, getCurrentUser }) {
+export function createDesktopIntegration({
+  showToast,
+  onHotkeyNewTodo,
+  onHotkeySearch,
+  getCurrentUser,
+  clearLocalAuthState = () => {},
+  clearBrowserAuthCaches = async () => {},
+  clearCache = async () => {},
+}) {
   const nativeBridge = createNativeBridge();
   let settings = { ...DEFAULT_SETTINGS };
   let latestTodos = [];
@@ -412,10 +420,17 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     }, 250);
   }
 
+  async function clearServerScopedBrowserData() {
+    clearLocalAuthState();
+    await clearBrowserAuthCaches();
+    await clearCache();
+  }
+
   async function updateServerUrl(value) {
     if (!isNativeApp()) return;
     try {
       const serverUrl = normalizeRuntimeServerUrl(value);
+      await clearServerScopedBrowserData();
       settings = mergeSettings(await nativeBridge.setServerUrl(serverUrl));
       setDesktopStatus(t('settings.desktop.server.savedReloading'));
       setTimeout(() => location.reload(), 250);
@@ -427,6 +442,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function resetServerUrl() {
     if (!isNativeApp()) return;
     try {
+      await clearServerScopedBrowserData();
       await nativeBridge.clearServerUrl();
       setDesktopStatus(t('settings.desktop.server.selectionOpening'));
       setTimeout(() => location.reload(), 250);

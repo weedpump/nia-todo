@@ -314,7 +314,9 @@ async function handleWsMessage(msg) {
         attachments_count: Number.isFinite(Number(payload.attachments_count)) ? Number(payload.attachments_count) : nextAttachments.length,
         updated_at: payload.updated_at || local.updated_at,
       };
-      return await persistTodoPayloadWithPending(updatedTodo);
+      const persisted = await persistTodoPayloadWithPending(updatedTodo);
+      if (persisted && mode === 'delete') await attachmentCache.remove(payload.attachment_id);
+      return persisted;
     } finally {
       releaseCommitLock();
     }
@@ -393,6 +395,7 @@ async function handleWsMessage(msg) {
         for (const localTodo of await dbGetAll('todos')) {
           if (!serverTodoIds.has(String(localTodo.id)) && !hasPendingTodoChanges(queue, localTodo.id)) {
             await deleteFromDB('todos', localTodo.id);
+            await attachmentCache.removeForTodo(localTodo.id);
           }
         }
         for (const todo of msg.todos) {

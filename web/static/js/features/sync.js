@@ -16,6 +16,8 @@ export function createSyncFeature({
   setSections,
   getWorkspaces,
   setWorkspaces,
+  getCurrentUser = () => null,
+  setCurrentUser = () => {},
   todosApi,
   projectsApi,
   sectionsApi,
@@ -24,6 +26,23 @@ export function createSyncFeature({
   renderStats,
   renderTodos,
 }) {
+  function applyAttachmentUsage(usage) {
+    const currentUser = getCurrentUser?.();
+    if (!usage || !currentUser) return;
+    const fieldMap = {
+      enabled: 'attachments_enabled',
+      used_bytes: 'attachment_usage_bytes',
+      quota_bytes: 'attachment_quota_bytes',
+      remaining_bytes: 'attachment_remaining_bytes',
+      allowed_types: 'attachments_allowed_types',
+      max_upload_bytes: 'attachment_max_upload_bytes',
+    };
+    const next = { ...currentUser };
+    for (const [source, target] of Object.entries(fieldMap)) {
+      if (Object.prototype.hasOwnProperty.call(usage, source)) next[target] = usage[source];
+    }
+    setCurrentUser(next);
+  }
   function isOnlineForSync(wsState) {
     // Browser/native offline state must win over a stale WebSocket state.
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
@@ -325,7 +344,7 @@ export function createSyncFeature({
             ...currentQueuedItem,
             data: { ...currentQueuedItem.data, upload_started: true },
           });
-          const cached = await attachmentCache.get(item.data.blob_id || item.data.temp_id);
+          const cached = await attachmentCache.get(item.data.blob_id || item.data.temp_id, { todoId: item.data.todo_id });
           if (!cached?.blob) {
             const error = new Error('Pending attachment bytes are unavailable');
             error.status = 422;
@@ -345,6 +364,7 @@ export function createSyncFeature({
               await attachmentCache.rewrite(item.data.blob_id || item.data.temp_id, response.attachment);
             }
             await persistTodoWithPending(response?.todo, item.id);
+            applyAttachmentUsage(response?.usage);
           }, syncInProgressRef);
           successCount++;
           continue;
