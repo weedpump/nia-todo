@@ -35,6 +35,7 @@ const testHtml = `<!doctype html>
     </div>
     <script type="module">
       import { createWorkspacesFeature } from '/static/js/features/workspaces.js';
+      import { bindUiHistory } from '/static/js/features/ui-history.js';
 
       const initialWorkspace = {
         id: 1,
@@ -56,6 +57,7 @@ const testHtml = `<!doctype html>
         if (replaceHistory) history.replaceState(state, '', location.pathname);
         else history.pushState(state, '', location.pathname);
       };
+      bindUiHistory();
       window.addEventListener('popstate', event => {
         if (!event.state?.niaTodoView) return;
         currentFilter = String(event.state.filter || 'all');

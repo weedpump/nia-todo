@@ -328,7 +328,11 @@ export function createWorkspacesFeature({
         setWorkspaces([...getWorkspaces(), workspace]);
         await new Promise((resolve, reject) => {
           closeWorkspaceModal({
-            afterClose: () => switchWorkspace(workspace.id, { replaceHistory: true }).then(resolve, reject),
+            afterClose: () => {
+              setTimeout(() => {
+                switchWorkspace(workspace.id, { replaceHistory: true }).then(resolve, reject);
+              }, 0);
+            },
           });
         });
         showToast?.(t('workspace.created')); 
