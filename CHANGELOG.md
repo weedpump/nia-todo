@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added full offline support for creating, editing, and deleting Todo comments and subtasks, with automatic synchronization when the connection returns.
 
 ### Fixed
+- Prevented newly created Todos from appearing twice briefly while realtime updates and local synchronization overlap.
 - Fixed closing the mobile sidebar while the user menu is open so browsers stay in nia-todo instead of returning to the previous website.
 - Kept all user-menu actions visible when the accent color choices are expanded on mobile.
 - Clarified the Debian server update status when no update is available.

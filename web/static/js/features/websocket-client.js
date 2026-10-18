@@ -492,6 +492,10 @@ async function handleWsMessage(msg) {
     }
     case 'todo_create':
       if (msg.payload) {
+        while (syncInProgressRef?.value) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        todos = getTodos();
         const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
         try {
           const local = await getFromDB('todos', msg.payload.id);
