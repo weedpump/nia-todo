@@ -400,6 +400,13 @@ async function handleWsMessage(msg) {
         }
         for (const todo of msg.todos) {
           const local = await getFromDB('todos', todo.id);
+          if (local) {
+            const incomingAttachmentIds = new Set((todo.attachments || []).map(attachment => String(attachment.id)));
+            const removedAttachmentIds = (local.attachments || [])
+              .filter(attachment => !attachment?.is_pending && !incomingAttachmentIds.has(String(attachment.id)))
+              .map(attachment => attachment.id);
+            await Promise.all(removedAttachmentIds.map(attachmentId => attachmentCache.remove(attachmentId)));
+          }
           const incomingTodo = mergeTodoPayloadWithLocalSubtasks(todo, local);
           if (hasPendingTodoChanges(queue, todo.id)) {
             const projected = projectPendingTodoChanges(incomingTodo, queue);

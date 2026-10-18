@@ -1371,7 +1371,7 @@ async def delete_todo_attachment(todo_id: int, attachment_id: int, user_id: int 
         path.unlink(missing_ok=True)
         updated_todo = fetch_todo(db, todo_id, user_id)
         await broadcast_change("todo_attachment_delete", _attachment_event_payload(db, todo_id, attachment_id=attachment_id), user_id, updated_todo.get('project_id'))
-        return {"deleted": attachment_id, "todo": updated_todo}
+        return {"deleted": attachment_id, "todo": updated_todo, "usage": attachment_usage_payload(db, user_id)}
 
 @router.delete("/{todo_id}")
 async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):

@@ -9,20 +9,35 @@ export function createAppStorage({ setDb }) {
   }
 
   async function clearIndexedDB() {
-    await indexedDb.closeAndDeleteDatabase();
-    setDb(null);
+    try {
+      await indexedDb.closeAndDeleteDatabase();
+    } finally {
+      setDb(null);
+    }
   }
 
   function dbGetAll(storeName) {
     return indexedDb.getAll(storeName);
   }
 
+  function dbGetAllStrict(storeName) {
+    return indexedDb.getAllStrict(storeName);
+  }
+
   function dbPut(storeName, item) {
     return indexedDb.put(storeName, item);
   }
 
+  function dbPutStrict(storeName, item) {
+    return indexedDb.putStrict(storeName, item);
+  }
+
   function dbClear(storeName) {
     return indexedDb.clear(storeName);
+  }
+
+  function dbClearStrict(storeName) {
+    return indexedDb.clearStrict(storeName);
   }
 
   function getFromDB(storeName, id) {
@@ -31,6 +46,10 @@ export function createAppStorage({ setDb }) {
 
   function deleteFromDB(storeName, id) {
     return indexedDb.remove(storeName, id);
+  }
+
+  function deleteFromDBStrict(storeName, id) {
+    return indexedDb.removeStrict(storeName, id);
   }
 
   async function clearSyncQueue() {
@@ -45,10 +64,14 @@ export function createAppStorage({ setDb }) {
     openDB,
     clearIndexedDB,
     dbGetAll,
+    dbGetAllStrict,
     dbPut,
+    dbPutStrict,
     dbClear,
+    dbClearStrict,
     getFromDB,
     deleteFromDB,
+    deleteFromDBStrict,
     clearSyncQueue,
     addToSyncQueue,
   };

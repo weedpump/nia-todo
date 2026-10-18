@@ -4,10 +4,13 @@ import { attachmentCache as defaultAttachmentCache } from '../storage/attachment
 export function createSyncFeature({
   getDb,
   dbGetAll,
+  dbGetAllStrict = dbGetAll,
   dbPut,
+  dbPutStrict = dbPut,
   dbClear,
   getFromDB,
   deleteFromDB,
+  deleteFromDBStrict = deleteFromDB,
   getTodos,
   setTodos,
   getProjects,
@@ -111,7 +114,10 @@ export function createSyncFeature({
         queued.data.attachment_id = attachmentIdTo;
         changed = true;
       }
-      if (changed) await dbPut('syncQueue', queued);
+      if (changed) {
+        const write = ['CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(queued.action) ? dbPutStrict : dbPut;
+        await write('syncQueue', queued);
+      }
     }
   }
 
@@ -119,7 +125,8 @@ export function createSyncFeature({
     const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
     try {
       await applyResult();
-      await deleteFromDB('syncQueue', item.id);
+      const removeQueueItem = ['CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(item.action) ? deleteFromDBStrict : deleteFromDB;
+      await removeQueueItem('syncQueue', item.id);
     } finally {
       releaseCommitLock();
     }
@@ -340,7 +347,7 @@ export function createSyncFeature({
           successCount++;
           continue;
         } else if (item.action === 'CREATE_ATTACHMENT') {
-          await dbPut('syncQueue', {
+          await dbPutStrict('syncQueue', {
             ...currentQueuedItem,
             data: { ...currentQueuedItem.data, upload_started: true },
           });
@@ -373,6 +380,7 @@ export function createSyncFeature({
           await commitQueueItem(item, async () => {
             await persistTodoWithPending(response?.todo, item.id);
             await attachmentCache.remove(item.data.attachment_id);
+            applyAttachmentUsage(response?.usage);
           }, syncInProgressRef);
           successCount++;
           continue;
@@ -488,7 +496,8 @@ export function createSyncFeature({
           && Number(err?.status) < 500
           && ![401, 408, 429].includes(Number(err?.status))
         ) {
-          await deleteFromDB('syncQueue', item.id);
+          const removeQueueItem = ['CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(item.action) ? deleteFromDBStrict : deleteFromDB;
+          await removeQueueItem('syncQueue', item.id);
           if (item.action === 'CREATE_ATTACHMENT') await attachmentCache.remove(item.data.blob_id || item.data.temp_id);
           todoIdsNeedingRecovery.add(item.data.todo_id);
           handledPermanentAbsence = true;
@@ -575,6 +584,16 @@ export function createSyncFeature({
       if (queueBeforeCommit.length) {
         shouldDrainQueue = true;
       } else {
+        const localTodosById = new Map(getTodos().map(todo => [String(todo.id), todo]));
+        for (const incomingTodo of nextTodos) {
+          const localTodo = localTodosById.get(String(incomingTodo.id));
+          if (!localTodo) continue;
+          const incomingAttachmentIds = new Set((incomingTodo.attachments || []).map(attachment => String(attachment.id)));
+          const removedAttachmentIds = (localTodo.attachments || [])
+            .filter(attachment => !attachment?.is_pending && !incomingAttachmentIds.has(String(attachment.id)))
+            .map(attachment => attachment.id);
+          await Promise.all(removedAttachmentIds.map(attachmentId => attachmentCache.remove(attachmentId)));
+        }
         const serverTodoIds = new Set(nextTodos.map(todo => String(todo.id)));
         const removedTodoIds = getTodos().map(todo => todo.id).filter(todoId => !serverTodoIds.has(String(todoId)));
         await Promise.all(removedTodoIds.map(todoId => attachmentCache.removeForTodo(todoId)));

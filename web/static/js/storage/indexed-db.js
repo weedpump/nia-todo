@@ -30,7 +30,7 @@ export function getDatabaseGeneration() {
 }
 
 export async function closeAndDeleteDatabase() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     dbGeneration += 1;
     dbReady = false;
     cancelPendingAvatarOperations();
@@ -40,8 +40,14 @@ export async function closeAndDeleteDatabase() {
     }
     const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
     deleteRequest.onsuccess = () => { console.log('IndexedDB deleted'); resolve(); };
-    deleteRequest.onerror = () => { console.log('IndexedDB delete error'); resolve(); };
-    deleteRequest.onblocked = () => { console.log('IndexedDB delete blocked'); resolve(); };
+    deleteRequest.onerror = () => {
+      console.log('IndexedDB delete error');
+      reject(deleteRequest.error || new Error('IndexedDB delete error'));
+    };
+    deleteRequest.onblocked = () => {
+      console.log('IndexedDB delete blocked');
+      reject(new Error('IndexedDB delete blocked'));
+    };
   });
 }
 
@@ -101,6 +107,17 @@ export function getAll(storeName) {
   });
 }
 
+export function getAllStrict(storeName) {
+  return new Promise((resolve, reject) => {
+    if (!db) { reject(new Error('IndexedDB is not open')); return; }
+    const tx = db.transaction(storeName, 'readonly');
+    const request = tx.objectStore(storeName).getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error || tx.error || new Error(`Failed to read ${storeName}`));
+    tx.onabort = () => reject(tx.error || new Error(`Failed to read ${storeName}`));
+  });
+}
+
 export function put(storeName, item) {
   return new Promise((resolve) => {
     if (!db) { resolve(); return; }
@@ -132,6 +149,17 @@ export function clear(storeName) {
   });
 }
 
+export function clearStrict(storeName) {
+  return new Promise((resolve, reject) => {
+    if (!db) { reject(new Error('IndexedDB is not open')); return; }
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error(`Failed to clear ${storeName}`));
+    tx.onabort = () => reject(tx.error || new Error(`Failed to clear ${storeName}`));
+  });
+}
+
 export function get(storeName, id) {
   return new Promise((resolve) => {
     if (!db) { resolve(null); return; }
@@ -160,6 +188,17 @@ export function remove(storeName, id) {
     tx.objectStore(storeName).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => resolve();
+  });
+}
+
+export function removeStrict(storeName, id) {
+  return new Promise((resolve, reject) => {
+    if (!db) { reject(new Error('IndexedDB is not open')); return; }
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error(`Failed to delete from ${storeName}`));
+    tx.onabort = () => reject(tx.error || new Error(`Failed to delete from ${storeName}`));
   });
 }
 

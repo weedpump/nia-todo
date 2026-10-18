@@ -181,10 +181,13 @@ const appStorage = createAppStorage({ setDb: (next) => { db = next; } });
 const openDB = appStorage.openDB;
 const clearIndexedDB = appStorage.clearIndexedDB;
 const dbGetAll = appStorage.dbGetAll;
+const dbGetAllStrict = appStorage.dbGetAllStrict;
 const dbPut = appStorage.dbPut;
+const dbPutStrict = appStorage.dbPutStrict;
 const dbClear = appStorage.dbClear;
 const getFromDB = appStorage.getFromDB;
 const deleteFromDB = appStorage.deleteFromDB;
+const deleteFromDBStrict = appStorage.deleteFromDBStrict;
 const clearSyncQueue = appStorage.clearSyncQueue;
 async function updateConnectionStatusView(wsState = wsClient?.getWsState?.()) {
   let pendingCount = 0;
@@ -237,10 +240,13 @@ async function waitForBackgroundSyncOperations() {
 const syncFeature = createSyncFeature({
   getDb: () => db,
   dbGetAll,
+  dbGetAllStrict,
   dbPut,
+  dbPutStrict,
   dbClear,
   getFromDB,
   deleteFromDB,
+  deleteFromDBStrict,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
@@ -269,8 +275,11 @@ const todosFeature = createTodosFeature({
   getAppInitialized: () => appInitialized,
   getDb: () => db,
   dbPut,
+  dbPutStrict,
   dbGetAll,
+  dbGetAllStrict,
   deleteFromDB,
+  deleteFromDBStrict,
   addToSyncQueue,
   runSyncQueueMutation,
   isOnlineForSync,
@@ -877,7 +886,7 @@ export function startAppModule() {
   utils: { escapeHtml, escapeHtmlAttr, jsArg, formatDate, renderTodoItem },
   theme: { initTheme, applyTheme, cycleTheme, toggleAccentPresetMenu },
   websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
-  storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
+  storage: { openDB, dbGetAll, dbGetAllStrict, dbPut, dbPutStrict, dbClear, getFromDB, deleteFromDB, deleteFromDBStrict, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
   ui: { closeSidebar, closeModal, setupDescPreview, openMobileSearch },
   lifecycle: { initServiceWorker, initApp, loadFromLocalDB, loadAll },

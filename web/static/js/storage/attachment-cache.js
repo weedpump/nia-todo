@@ -1,4 +1,4 @@
-import { getAll, getStrict, putStrict, remove } from './indexed-db.js';
+import { getAll, getStrict, putStrict, removeStrict } from './indexed-db.js';
 
 export const DEFAULT_ATTACHMENT_CACHE_MAX_BYTES = 250 * 1024 * 1024;
 const STORE = 'attachmentBlobs';
@@ -19,7 +19,7 @@ export function createAttachmentCache({
   getAll: readAll = () => getAll(STORE),
   get: read = id => getStrict(STORE, id),
   put: write = item => putStrict(STORE, item),
-  remove: discard = id => remove(STORE, id),
+  remove: discard = id => removeStrict(STORE, id),
   estimateStorage = () => globalThis.navigator?.storage?.estimate?.(),
   requestPersistence = () => globalThis.navigator?.storage?.persist?.(),
   now = () => Date.now(),

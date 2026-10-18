@@ -260,6 +260,7 @@ def main():
 
         member_delete_owner_attachment = member.delete(f"/api/todos/{todo_id}/attachments/{attachment_id}")
         assert_true(member_delete_owner_attachment.status_code == 200, member_delete_owner_attachment.text)
+        assert_true("usage" in member_delete_owner_attachment.json(), member_delete_owner_attachment.text)
         attachment_id = owner.post(
             f"/api/todos/{todo_id}/attachments",
             content=b"hello attachment again",
@@ -351,9 +352,14 @@ def main():
         db.execute("UPDATE app_config SET value = '1' WHERE key = 'attachments_enabled'")
         db.commit()
 
+        usage_before_delete = owner.get("/api/todos/attachments/usage").json()
         deleted = owner.delete(f"/api/todos/{todo_id}/attachments/{attachment_id}")
         assert_true(deleted.status_code == 200, deleted.text)
         assert_true(deleted.json()["todo"]["attachments_count"] == 0, deleted.text)
+        assert_true(
+            deleted.json()["usage"]["used_bytes"] == usage_before_delete["used_bytes"] - len(b"hello attachment again"),
+            deleted.text,
+        )
 
         missing_download = owner.get(f"/api/todos/{todo_id}/attachments/{attachment_id}/download")
         assert_true(missing_download.status_code == 404, missing_download.text)

@@ -29,7 +29,7 @@ function memoryCache(initial = []) {
   };
 }
 
-function syncHarness({ queue, todos, blobs, api, attachmentCache = null, currentUser = null }) {
+function syncHarness({ queue, todos, blobs, api, attachmentCache = null, currentUser = null, dbPutStrict = null, deleteFromDBStrict = null }) {
   const stores = {
     syncQueue: structuredClone(queue),
     todos: structuredClone(todos),
@@ -43,9 +43,13 @@ function syncHarness({ queue, todos, blobs, api, attachmentCache = null, current
     dbPut: async (store, item) => {
       stores[store] = [...(stores[store] || []).filter(existing => String(existing.id) !== String(item.id)), structuredClone(item)];
     },
+    dbPutStrict: dbPutStrict || (async (store, item) => {
+      stores[store] = [...(stores[store] || []).filter(existing => String(existing.id) !== String(item.id)), structuredClone(item)];
+    }),
     dbClear: async store => { stores[store] = []; },
     getFromDB: async (store, id) => structuredClone((stores[store] || []).find(item => String(item.id) === String(id)) || null),
     deleteFromDB: async (store, id) => { stores[store] = (stores[store] || []).filter(item => String(item.id) !== String(id)); },
+    deleteFromDBStrict: deleteFromDBStrict || (async (store, id) => { stores[store] = (stores[store] || []).filter(item => String(item.id) !== String(id)); }),
     getTodos: () => stores.todos,
     setTodos: next => { stores.todos = structuredClone(next); },
     getProjects: () => stores.projects,
@@ -132,6 +136,40 @@ assert.equal(uploadHarness.stores.syncQueue.length, 0);
 assert.equal(uploadHarness.cacheState.records.has('temp-attachment-1'), false);
 assert.equal(uploadHarness.cacheState.records.get('81')?.pending_upload, false, 'uploaded bytes should remain as normal cached content');
 
+let markerFailureUploadCalls = 0;
+const markerFailureHarness = syncHarness({
+  queue: [{ id: 2, action: 'CREATE_ATTACHMENT', data: { todo_id: 7, temp_id: 'temp-marker-failure', blob_id: 'temp-marker-failure', filename: 'marker.txt', content_type: 'text/plain' } }],
+  todos: [{ id: 7, attachments: [{ id: 'temp-marker-failure', is_pending: true }], attachments_count: 1 }],
+  blobs: [{ id: 'temp-marker-failure', todo_id: 7, attachment_id: 'temp-marker-failure', blob: uploadBlob, pending_upload: true, pinned: true }],
+  dbPutStrict: async (store) => {
+    if (store === 'syncQueue') throw new Error('marker transaction failed');
+  },
+  api: { uploadAttachment: async () => { markerFailureUploadCalls += 1; } },
+});
+const markerFailureResult = await markerFailureHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(markerFailureResult.failCount, 1, 'failed durable upload markers must remain retryable');
+assert.equal(markerFailureUploadCalls, 0, 'HTTP upload must not start until upload_started is durable');
+assert.equal(markerFailureHarness.stores.syncQueue.length, 1, 'marker failures must preserve the queued create');
+const markerFailureDeleteUi = createTodoAttachmentsFeature({
+  getTodos: () => markerFailureHarness.stores.todos,
+  setTodos: next => { markerFailureHarness.stores.todos = structuredClone(next); },
+  getProjects: () => [], getCurrentUser: () => ({ id: 1 }), setCurrentUser: () => {},
+  getAppInitialized: () => true, getDb: () => ({}),
+  dbPut: async (store, item) => { markerFailureHarness.stores[store] = [...markerFailureHarness.stores[store].filter(existing => String(existing.id) !== String(item.id)), structuredClone(item)]; },
+  dbPutStrict: async (store, item) => { markerFailureHarness.stores[store] = [...markerFailureHarness.stores[store].filter(existing => String(existing.id) !== String(item.id)), structuredClone(item)]; },
+  dbGetAll: async store => structuredClone(markerFailureHarness.stores[store] || []),
+  dbGetAllStrict: async store => structuredClone(markerFailureHarness.stores[store] || []),
+  deleteFromDB: async (store, id) => { markerFailureHarness.stores[store] = markerFailureHarness.stores[store].filter(item => String(item.id) !== String(id)); },
+  deleteFromDBStrict: async (store, id) => { markerFailureHarness.stores[store] = markerFailureHarness.stores[store].filter(item => String(item.id) !== String(id)); },
+  runSyncQueueMutation: async operation => operation(async () => assert.fail('a failed upload marker must be treated as not started')),
+  isOnlineForSync: () => true, syncWithServer: async () => {}, todosApi: {}, attachmentCache: markerFailureHarness.cacheState.cache,
+  renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => true, showToast: () => {}, t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
+  setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
+});
+await markerFailureDeleteUi.deleteTodoAttachment(7, 'temp-marker-failure');
+assert.equal(markerFailureHarness.stores.syncQueue.length, 0, 'delete after marker failure must cancel the queued create');
+assert.equal(markerFailureHarness.cacheState.records.has('temp-marker-failure'), false, 'delete after marker failure must remove pending bytes');
+
 let sequentialUploadCount = 0;
 const sequentialBlobA = new Blob(['aaaa']);
 const sequentialBlobB = new Blob(['bbbb']);
@@ -166,6 +204,33 @@ assert.equal(sequentialResult.failCount, 0);
 assert.equal(sequentialHarness.userState.current.attachment_usage_bytes, 8);
 assert.equal(sequentialHarness.userState.current.attachment_remaining_bytes, 2);
 assert.deepEqual(sequentialHarness.userState.current.attachments_allowed_types, ['text/plain']);
+
+let rewrittenDeleteAttachmentId = null;
+const uploadDeleteHarness = syncHarness({
+  queue: [
+    { id: 41, action: 'CREATE_ATTACHMENT', data: { todo_id: 7, temp_id: 'temp-upload-delete', blob_id: 'temp-upload-delete', client_mutation_id: 'temp-upload-delete', filename: 'cycle.txt', content_type: 'text/plain' } },
+    { id: 42, action: 'DELETE_ATTACHMENT', data: { todo_id: 7, attachment_id: 'temp-upload-delete' } },
+  ],
+  todos: [{ id: 7, attachments: [], attachments_count: 0 }],
+  blobs: [{ id: 'temp-upload-delete', todo_id: 7, attachment_id: 'temp-upload-delete', blob: sequentialBlobA, pending_upload: true, pinned: true }],
+  currentUser: { id: 1, attachment_usage_bytes: 0, attachment_quota_bytes: 10, attachment_remaining_bytes: 10 },
+  api: {
+    uploadAttachment: async () => ({
+      attachment: { id: 410, todo_id: 7, size_bytes: 4 },
+      todo: { id: 7, attachments: [{ id: 410, size_bytes: 4 }], attachments_count: 1 },
+      usage: { used_bytes: 4, quota_bytes: 10, remaining_bytes: 6 },
+    }),
+    deleteAttachment: async (_todoId, attachmentId) => {
+      rewrittenDeleteAttachmentId = attachmentId;
+      assert.equal(uploadDeleteHarness.userState.current.attachment_remaining_bytes, 6, 'delete replay must observe quota from the preceding upload');
+      return { todo: { id: 7, attachments: [], attachments_count: 0 }, usage: { used_bytes: 0, quota_bytes: 10, remaining_bytes: 10 } };
+    },
+  },
+});
+const uploadDeleteResult = await uploadDeleteHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(uploadDeleteResult.failCount, 0);
+assert.equal(rewrittenDeleteAttachmentId, 410, 'dependent attachment delete must use the uploaded server ID');
+assert.equal(uploadDeleteHarness.userState.current.attachment_remaining_bytes, 10, 'delete replay must restore quota state');
 
 const readFailureCache = memoryCache([{ id: 'temp-read-failure', todo_id: 7, attachment_id: 'temp-read-failure', blob: uploadBlob, size_bytes: uploadBlob.size, pending_upload: true, pinned: true }]);
 const readFailureHarness = syncHarness({
@@ -207,17 +272,44 @@ assert.equal(deleteResult.failCount, 0, 'authenticated attachment delete 404 is 
 assert.equal(deleteHarness.stores.syncQueue.length, 0);
 assert.equal(deleteHarness.cacheState.records.has('81'), false);
 
+const deleteQuotaHarness = syncHarness({
+  queue: [{ id: 3, action: 'DELETE_ATTACHMENT', data: { todo_id: 7, attachment_id: 82 } }],
+  todos: [{ id: 7, attachments: [], attachments_count: 0 }],
+  blobs: [{ id: '82', todo_id: 7, attachment_id: 82, blob: uploadBlob, pinned: true }],
+  currentUser: { id: 1, attachment_usage_bytes: 12, attachment_quota_bytes: 20, attachment_remaining_bytes: 8 },
+  api: { deleteAttachment: async () => ({ todo: { id: 7, attachments: [], attachments_count: 0 }, usage: { used_bytes: 0, quota_bytes: 20, remaining_bytes: 20 } }) },
+});
+await deleteQuotaHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(deleteQuotaHarness.userState.current.attachment_usage_bytes, 0, 'successful delete replay must update attachment usage');
+assert.equal(deleteQuotaHarness.userState.current.attachment_remaining_bytes, 20);
+
+const refreshCache = memoryCache([
+  { id: '500', todo_id: 50, attachment_id: 500, blob: uploadBlob, pinned: true, offline_explicit: true },
+]);
+const refreshHarness = syncHarness({
+  queue: [],
+  todos: [{ id: 50, attachments: [{ id: 500 }], attachments_count: 1, updated_at: '2026-10-18T10:00:00Z' }],
+  blobs: [],
+  attachmentCache: refreshCache.cache,
+  api: { list: async () => ({ todos: [{ id: 50, attachments: [], attachments_count: 0, updated_at: '2026-10-18T11:00:00Z' }] }) },
+});
+await refreshHarness.feature.refreshFromServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(refreshCache.records.has('500'), false, 'REST refresh must purge cached bytes for server attachments removed from an existing todo');
+
 const websocketStores = {
-  syncQueue: [],
+  syncQueue: [{ action: 'CREATE_ATTACHMENT', data: { todo_id: 23, temp_id: 'temp-230', local_attachment: { id: 'temp-230', todo_id: 23, is_pending: true } } }],
   todos: [
     { id: 21, attachments: [{ id: 210 }], attachments_count: 1, updated_at: '2026-10-18T10:00:00Z' },
     { id: 22, attachments: [{ id: 220 }], attachments_count: 1, updated_at: '2026-10-18T10:00:00Z' },
+    { id: 23, attachments: [{ id: 230 }, { id: 'temp-230', is_pending: true }], attachments_count: 2, updated_at: '2026-10-18T10:00:00Z' },
   ],
   projects: [], sections: [], workspaces: [],
 };
 const websocketCache = memoryCache([
   { id: '210', todo_id: 21, attachment_id: 210, blob: uploadBlob, pinned: true, offline_explicit: true },
   { id: '220', todo_id: 22, attachment_id: 220, blob: uploadBlob, pinned: true, offline_explicit: true },
+  { id: '230', todo_id: 23, attachment_id: 230, blob: uploadBlob, pinned: true, offline_explicit: true },
+  { id: 'temp-230', todo_id: 23, attachment_id: 'temp-230', blob: uploadBlob, pinned: true, pending_upload: true },
 ]);
 const websocketClient = createWebSocketClient({
   wsUrl: 'ws://unused.invalid', getAuthToken: () => null, syncWithServer: async () => {}, syncInProgressRef: { value: false }, renderConnectionStatus: () => {},
@@ -234,20 +326,27 @@ const websocketClient = createWebSocketClient({
 });
 await websocketClient.handleWsMessage({ type: 'todo_attachment_delete', payload: { todo_id: 21, attachment_id: 210, attachments_count: 0 } });
 assert.equal(websocketCache.records.has('210'), false, 'websocket attachment deletes must remove pinned cached bytes');
-await websocketClient.handleWsMessage({ type: 'sync_response', todos: [{ id: 21, attachments: [], attachments_count: 0, updated_at: '2026-10-18T11:00:00Z' }], projects: [], sections: [], workspaces: [] });
+await websocketClient.handleWsMessage({ type: 'sync_response', todos: [
+  { id: 21, attachments: [], attachments_count: 0, updated_at: '2026-10-18T11:00:00Z' },
+  { id: 23, attachments: [], attachments_count: 0, updated_at: '2026-10-18T11:00:00Z' },
+], projects: [], sections: [], workspaces: [] });
 assert.equal(websocketCache.records.has('220'), false, 'full websocket sync must remove pinned cached bytes for todos absent from the server');
+assert.equal(websocketCache.records.has('230'), false, 'full websocket sync must remove cached bytes for server attachments removed from an existing todo');
+assert.equal(websocketCache.records.has('temp-230'), true, 'full websocket sync must preserve pending attachment bytes');
+assert.deepEqual(websocketStores.todos.find(todo => todo.id === 23).attachments.map(item => item.id), ['temp-230'], 'pending attachment projection must survive server removal reconciliation');
 
 const uiStores = {
   todos: [{ id: 9, title: 'Existing', attachments: [] }],
   queue: [],
 };
 const uiCache = memoryCache();
+let directResponseUser = { id: 1, attachment_usage_bytes: 9, attachment_quota_bytes: 10, attachment_remaining_bytes: 1 };
 const feature = createTodoAttachmentsFeature({
   getTodos: () => uiStores.todos,
   setTodos: next => { uiStores.todos = structuredClone(next); },
   getProjects: () => [],
-  getCurrentUser: () => ({ id: 1, attachments_enabled: true, attachment_max_upload_bytes: 25 * 1024 * 1024, attachment_remaining_bytes: 1024 * 1024 }),
-  setCurrentUser: () => {},
+  getCurrentUser: () => directResponseUser,
+  setCurrentUser: next => { directResponseUser = structuredClone(next); },
   getAppInitialized: () => true,
   getDb: () => ({}),
   dbPut: async (_store, todo) => { uiStores.todos = uiStores.todos.map(item => item.id === todo.id ? structuredClone(todo) : item); },
@@ -263,6 +362,9 @@ const feature = createTodoAttachmentsFeature({
   showToast: () => {}, t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
   setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
 });
+await feature.applyAttachmentTodoResponse({ usage: { used_bytes: 4, quota_bytes: 10, remaining_bytes: 6 } });
+assert.equal(directResponseUser.attachment_usage_bytes, 4, 'direct attachment responses must update current-user usage');
+assert.equal(directResponseUser.attachment_remaining_bytes, 6);
 const offlineFile = new Blob(['queued'], { type: 'text/plain' });
 offlineFile.name = 'queued.txt';
 offlineFile.lastModified = 1;
@@ -271,6 +373,26 @@ assert.equal(uiStores.queue[0].action, 'CREATE_ATTACHMENT');
 const tempAttachment = uiStores.todos[0].attachments[0];
 assert.equal(tempAttachment.is_pending, true);
 assert.equal((await uiCache.cache.get(tempAttachment.id)).pending_upload, true);
+const failedDeleteToasts = [];
+const failedDeleteFeature = createTodoAttachmentsFeature({
+  getTodos: () => uiStores.todos, setTodos: next => { uiStores.todos = structuredClone(next); }, getProjects: () => [],
+  getCurrentUser: () => directResponseUser, setCurrentUser: next => { directResponseUser = structuredClone(next); },
+  getAppInitialized: () => true, getDb: () => ({}),
+  dbPut: async (_store, todo) => { uiStores.todos = uiStores.todos.map(item => item.id === todo.id ? structuredClone(todo) : item); },
+  dbPutStrict: async (_store, todo) => { uiStores.todos = uiStores.todos.map(item => item.id === todo.id ? structuredClone(todo) : item); },
+  dbGetAll: async store => store === 'syncQueue' ? structuredClone(uiStores.queue) : [],
+  dbGetAllStrict: async store => store === 'syncQueue' ? structuredClone(uiStores.queue) : [],
+  deleteFromDB: async () => {}, deleteFromDBStrict: async () => { throw new Error('queue delete failed'); },
+  runSyncQueueMutation: async operation => operation(async () => {}), isOnlineForSync: () => false, syncWithServer: async () => {}, todosApi: {}, attachmentCache: uiCache.cache,
+  renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => true,
+  showToast: message => failedDeleteToasts.push(message), t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
+  setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
+});
+await failedDeleteFeature.deleteTodoAttachment(9, tempAttachment.id);
+assert.equal(uiStores.queue.length, 1, 'failed strict cancellation must retain the queued create');
+assert.equal(uiStores.todos[0].attachments.length, 1, 'failed strict cancellation must retain the optimistic pending attachment');
+assert.notEqual(await uiCache.cache.get(tempAttachment.id), null, 'failed strict cancellation must retain pending bytes');
+assert.equal(failedDeleteToasts.at(-1), 'todo.attachments.uploadPending');
 await feature.deleteTodoAttachment(9, tempAttachment.id);
 assert.equal(uiStores.queue.length, 0, 'deleting a temporary attachment should cancel its create operation');
 assert.equal(uiStores.todos[0].attachments.length, 0);
@@ -313,6 +435,41 @@ assert.deepEqual(rollbackStores.todos[0].attachments, [], 'failed queue persiste
 assert.equal(rollbackStores.todos[0].attachments_count, 0, 'failed queue persistence must restore the previous attachment count');
 assert.equal(rollbackStores.queue.length, 0, 'failed multi-file queue persistence must remove already-written attachment operations');
 assert.equal(rollbackCache.records.size, 0, 'failed queue persistence must remove staged attachment bytes');
+
+const uncertainRollbackStores = {
+  todos: [{ id: 13, title: 'Uncertain rollback', attachments: [], attachments_count: 0 }],
+  queue: [],
+};
+const uncertainRollbackCache = memoryCache();
+const uncertainToasts = [];
+const uncertainRollbackFeature = createTodoAttachmentsFeature({
+  getTodos: () => uncertainRollbackStores.todos,
+  setTodos: next => { uncertainRollbackStores.todos = structuredClone(next); },
+  getProjects: () => [],
+  getCurrentUser: () => ({ id: 1, attachments_enabled: true, attachment_remaining_bytes: 1024 * 1024 }), setCurrentUser: () => {},
+  getAppInitialized: () => true, getDb: () => ({}),
+  dbPut: async (_store, todo) => { uncertainRollbackStores.todos = uncertainRollbackStores.todos.map(item => item.id === todo.id ? structuredClone(todo) : item); },
+  dbPutStrict: async (_store, todo) => { uncertainRollbackStores.todos = uncertainRollbackStores.todos.map(item => item.id === todo.id ? structuredClone(todo) : item); },
+  dbGetAll: async store => store === 'syncQueue' ? structuredClone(uncertainRollbackStores.queue) : [],
+  dbGetAllStrict: async store => store === 'syncQueue' ? structuredClone(uncertainRollbackStores.queue) : [],
+  deleteFromDB: async () => {},
+  deleteFromDBStrict: async (store) => { if (store === 'syncQueue') throw new Error('queue delete transaction failed'); },
+  runSyncQueueMutation: async operation => operation(async (action, data) => {
+    if (uncertainRollbackStores.queue.length) throw new Error('second queue write failed');
+    uncertainRollbackStores.queue.push({ id: 1, action, data: structuredClone(data) });
+  }),
+  isOnlineForSync: () => false, syncWithServer: async () => {}, todosApi: {}, attachmentCache: uncertainRollbackCache.cache,
+  renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => true,
+  showToast: message => uncertainToasts.push(message), t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
+  setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
+});
+const uncertainFileA = new Blob(['uncertain a'], { type: 'text/plain' }); uncertainFileA.name = 'uncertain-a.txt';
+const uncertainFileB = new Blob(['uncertain b'], { type: 'text/plain' }); uncertainFileB.name = 'uncertain-b.txt';
+assert.equal(await uncertainRollbackFeature.queueAttachmentFiles(13, [uncertainFileA, uncertainFileB]), true, 'unproven cleanup must report surviving work as pending');
+assert.equal(uncertainRollbackStores.queue.length, 1, 'a queue record whose deletion failed must remain live');
+assert.equal(uncertainRollbackStores.todos[0].attachments.length, 1, 'the live queue record must keep its optimistic pending attachment');
+assert.equal(uncertainRollbackCache.records.size, 1, 'bytes for the live queue record must be preserved while unqueued bytes are cleaned');
+assert.equal(uncertainToasts.at(-1), 'todo.attachments.uploadPending');
 
 const cachedBlob = new Blob(['cached'], { type: 'text/plain' });
 await uiCache.cache.put({ id: '90', todo_id: 9, attachment_id: 90, blob: cachedBlob, size_bytes: cachedBlob.size, pinned: true, pending_upload: false });

@@ -10,8 +10,11 @@ export function createTodoAttachmentsFeature({
   getAppInitialized,
   getDb,
   dbPut,
+  dbPutStrict = dbPut,
   dbGetAll = async () => [],
+  dbGetAllStrict = dbGetAll,
   deleteFromDB = async () => {},
+  deleteFromDBStrict = deleteFromDB,
   runSyncQueueMutation = async operation => operation(async () => {}),
   isOnlineForSync,
   syncWithServer = async () => {},
@@ -36,6 +39,24 @@ export function createTodoAttachmentsFeature({
   let attachmentThumbnailObserver = null;
   let attachmentThumbnailRenderId = 0;
   const attachmentThumbnailObjectUrls = new Set();
+
+  function applyAttachmentUsage(usage) {
+    const currentUser = getCurrentUser?.();
+    if (!usage || !currentUser) return;
+    const next = { ...currentUser };
+    const fields = {
+      enabled: 'attachments_enabled',
+      used_bytes: 'attachment_usage_bytes',
+      quota_bytes: 'attachment_quota_bytes',
+      remaining_bytes: 'attachment_remaining_bytes',
+      allowed_types: 'attachments_allowed_types',
+      max_upload_bytes: 'attachment_max_upload_bytes',
+    };
+    for (const [source, target] of Object.entries(fields)) {
+      if (Object.prototype.hasOwnProperty.call(usage, source)) next[target] = usage[source];
+    }
+    setCurrentUser?.(next);
+  }
 
   function formatAttachmentSize(bytes) {
     const size = Number(bytes) || 0;
@@ -271,7 +292,7 @@ export function createTodoAttachmentsFeature({
           attachments_count: existingCount + pending.length,
           updated_at: new Date().toISOString(),
         };
-        await dbPut('todos', updated);
+        await dbPutStrict('todos', updated);
         setTodos(getTodos().map(item => String(item.id) === String(todoId) ? updated : item));
         optimisticTodo = updated;
         for (const item of pending) {
@@ -295,28 +316,92 @@ export function createTodoAttachmentsFeature({
       if (isOnlineForSync()) await syncWithServer();
       return true;
     } catch (error) {
-      let queuedAttachmentItems = [];
+      const queueDataFor = item => ({
+        todo_id: todoId,
+        temp_id: item.tempId,
+        blob_id: item.tempId,
+        client_mutation_id: item.tempId,
+        filename: item.attachment.original_filename,
+        content_type: item.attachment.content_type,
+        size_bytes: item.attachment.size_bytes,
+        local_attachment: item.attachment,
+      });
+      const pendingById = new Map(pending.map(item => [String(item.tempId), item]));
+      const preservedIds = new Set();
+      const liveQueueIds = new Set();
+      let queuedByTempId = new Map();
+      let queueReadFailed = false;
       try {
-        const pendingIds = new Set(pending.map(item => String(item.tempId)));
-        queuedAttachmentItems = (await dbGetAll('syncQueue')).filter(item => item.action === 'CREATE_ATTACHMENT'
-          && pendingIds.has(String(item.data?.temp_id || item.data?.blob_id)));
+        queuedByTempId = new Map((await dbGetAllStrict('syncQueue'))
+          .filter(item => item.action === 'CREATE_ATTACHMENT' && pendingById.has(String(item.data?.temp_id || item.data?.blob_id)))
+          .map(item => [String(item.data?.temp_id || item.data?.blob_id), item]));
       } catch (_cleanupError) {
-        queuedAttachmentItems = [];
+        queueReadFailed = true;
+        for (const item of pending) preservedIds.add(String(item.tempId));
       }
-      const cleanupOperations = [
-        ...pending.map(item => attachmentCache.remove(item.tempId)),
-        ...queuedAttachmentItems.map(item => deleteFromDB('syncQueue', item.id)),
-      ];
-      if (optimisticTodo) {
-        await Promise.allSettled([
-          dbPut('todos', todo),
-          ...cleanupOperations,
-        ]);
-        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
-      } else {
-        await Promise.allSettled(cleanupOperations);
+
+      if (!queueReadFailed) {
+        for (const item of pending) {
+          const queueItem = queuedByTempId.get(String(item.tempId));
+          if (!queueItem) continue;
+          try {
+            await deleteFromDBStrict('syncQueue', queueItem.id);
+          } catch (_cleanupError) {
+            preservedIds.add(String(item.tempId));
+            liveQueueIds.add(String(item.tempId));
+          }
+        }
       }
+
+      const todoWithPreserved = () => {
+        const preserved = pending.filter(item => preservedIds.has(String(item.tempId))).map(item => item.attachment);
+        return {
+          ...todo,
+          attachments: [...(todo.attachments || []), ...preserved],
+          attachments_count: existingCount + preserved.length,
+          updated_at: optimisticTodo?.updated_at || todo.updated_at,
+        };
+      };
+
+      try {
+        await dbPutStrict('todos', todoWithPreserved());
+      } catch (_cleanupError) {
+        for (const item of pending) preservedIds.add(String(item.tempId));
+      }
+
+      for (const item of pending) {
+        if (preservedIds.has(String(item.tempId))) continue;
+        try {
+          await attachmentCache.remove(item.tempId);
+        } catch (_cleanupError) {
+          preservedIds.add(String(item.tempId));
+        }
+      }
+
+      for (const item of pending) {
+        const id = String(item.tempId);
+        if (!preservedIds.has(id) || liveQueueIds.has(id)) continue;
+        try {
+          await runSyncQueueMutation(enqueue => enqueue('CREATE_ATTACHMENT', queueDataFor(item)));
+        } catch (_cleanupError) {
+          // Keep the optimistic pending attachment and bytes visible. A later
+          // retry can safely reconstruct the idempotent queue entry.
+        }
+      }
+
+      const recoveredTodo = todoWithPreserved();
+      try {
+        await dbPutStrict('todos', recoveredTodo);
+      } catch (_cleanupError) {
+        // The original optimistic write is already durable; do not hide bytes
+        // when rollback durability cannot be proven.
+      }
+      setTodos(getTodos().map(item => String(item.id) === String(todoId) ? recoveredTodo : item));
       console.error('Failed to queue todo attachment', error);
+      if (preservedIds.size) {
+        showToast(t('todo.attachments.uploadPending'));
+        return true;
+      }
       showToast(error?.name === 'AttachmentStorageError' ? t('todo.attachments.localStorageFull') : t('todo.attachments.uploadFailed'));
       return false;
     }
@@ -470,8 +555,9 @@ export function createTodoAttachmentsFeature({
 
   async function applyAttachmentTodoResponse(response) {
     const updatedTodo = response?.todo;
+    applyAttachmentUsage(response?.usage);
     if (!updatedTodo) return;
-    await dbPut('todos', updatedTodo);
+    await dbPutStrict('todos', updatedTodo);
     setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
     renderTodoAttachments(updatedTodo.attachments || [], updatedTodo);
     renderStats();
@@ -613,12 +699,15 @@ export function createTodoAttachmentsFeature({
     if (!confirmed) return;
     const todo = getTodos().find(item => String(item.id) === String(todoId));
     if (!todo) return;
+    let pendingCreate = null;
+    let uploadAlreadyStarted = false;
+    let cancelledPendingCreate = false;
     try {
-      const queue = await dbGetAll('syncQueue');
-      const pendingCreate = queue.find(item => item.action === 'CREATE_ATTACHMENT'
+      const queue = await dbGetAllStrict('syncQueue');
+      pendingCreate = queue.find(item => item.action === 'CREATE_ATTACHMENT'
         && String(item.data?.todo_id) === String(todoId)
         && String(item.data?.temp_id) === String(attachmentId));
-      const uploadAlreadyStarted = Boolean(pendingCreate?.data?.upload_started);
+      uploadAlreadyStarted = Boolean(pendingCreate?.data?.upload_started);
       await runSyncQueueMutation(async enqueue => {
         const updated = {
           ...todo,
@@ -626,10 +715,14 @@ export function createTodoAttachmentsFeature({
           attachments_count: Math.max(0, Number(todo.attachments_count ?? todo.attachments?.length ?? 0) - 1),
           updated_at: new Date().toISOString(),
         };
-        await dbPut('todos', updated);
+        if (pendingCreate && !uploadAlreadyStarted) {
+          await deleteFromDBStrict('syncQueue', pendingCreate.id);
+          cancelledPendingCreate = true;
+        } else {
+          await enqueue('DELETE_ATTACHMENT', { todo_id: todoId, attachment_id: attachmentId });
+        }
+        await dbPutStrict('todos', updated);
         setTodos(getTodos().map(item => String(item.id) === String(todoId) ? updated : item));
-        if (pendingCreate && !uploadAlreadyStarted) await deleteFromDB('syncQueue', pendingCreate.id);
-        else await enqueue('DELETE_ATTACHMENT', { todo_id: todoId, attachment_id: attachmentId });
       });
       if (!uploadAlreadyStarted) await attachmentCache.remove(attachmentId);
       if (typeof document !== 'undefined') {
@@ -639,8 +732,26 @@ export function createTodoAttachmentsFeature({
       renderTodos();
       if (isOnlineForSync() && (!pendingCreate || uploadAlreadyStarted)) await syncWithServer();
     } catch (error) {
+      if (pendingCreate && !uploadAlreadyStarted) {
+        if (cancelledPendingCreate) {
+          try {
+            await runSyncQueueMutation(enqueue => enqueue('CREATE_ATTACHMENT', pendingCreate.data));
+          } catch (_restoreError) {
+            // Preserve the optimistic attachment and bytes even if queue
+            // reconstruction must be retried after storage recovers.
+          }
+        }
+        try {
+          await dbPutStrict('todos', todo);
+        } catch (_restoreError) {
+          // The original todo remains the only safe in-memory projection.
+        }
+        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
+        showToast(t('todo.attachments.uploadPending'));
+      } else {
+        showToast(t('todo.attachments.deleteFailed'));
+      }
       console.error('Failed to delete todo attachment', error);
-      showToast(t('todo.attachments.deleteFailed'));
     }
   }
 
@@ -688,6 +799,7 @@ export function createTodoAttachmentsFeature({
     closeAttachmentPreview,
     downloadPreviewAttachment,
     deleteTodoAttachment,
+    applyAttachmentTodoResponse,
     bindTodoAttachmentInputs,
   };
 }
