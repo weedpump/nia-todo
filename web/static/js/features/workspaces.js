@@ -218,13 +218,13 @@ export function createWorkspacesFeature({
     }, true);
   }
 
-  async function switchWorkspace(workspaceId, { replaceHistory = false } = {}) {
+  async function switchWorkspace(workspaceId) {
     const next = normalizeWorkspaceId(workspaceId);
     setCurrentWorkspaceId(next);
     if (next) localStorage.setItem('nia-current-workspace', String(next));
     localStorage.setItem('nia-last-filter', 'all');
     closeWorkspaceMenu();
-    window.setFilter?.('all', { replaceHistory });
+    window.setFilter?.('all');
     renderWorkspaces();
     renderProjects();
     renderStats();
@@ -330,7 +330,7 @@ export function createWorkspacesFeature({
           closeWorkspaceModal({
             afterClose: () => {
               setTimeout(() => {
-                switchWorkspace(workspace.id, { replaceHistory: true }).then(resolve, reject);
+                switchWorkspace(workspace.id).then(resolve, reject);
               }, 0);
             },
           });

@@ -153,6 +153,13 @@ try {
       { currentWorkspaceId: 2, currentFilter: 'all', lastFilter: 'all' },
       'creating a workspace must close its modal and reset the previous workspace filter',
     );
+    await page.evaluate(() => history.forward());
+    await page.waitForTimeout(50);
+    assert.deepEqual(
+      await page.evaluate(() => window.workspaceTest.getState()),
+      { currentWorkspaceId: 2, currentFilter: 'all', lastFilter: 'all' },
+      'creating a workspace must discard the stale modal entry from forward history',
+    );
 
     await page.evaluate(() => window.workspaceTest.feature.showWorkspaceModal(1));
     await page.click('#workspace-close-btn');
