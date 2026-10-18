@@ -33,7 +33,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     } else {
       closeSidebar();
     }
-    closeFloatingMenus();
+    if (nextOpen) closeFloatingMenus();
   }
 
   function closeSidebar({ fromHistory = false, preserveHistory = false } = {}) {

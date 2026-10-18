@@ -36,6 +36,21 @@ export function createUserMenuFeature({
     closeUserMenu({ afterClose: open });
   }
 
+  function syncSidebarUserMenuMaxHeight() {
+    const menu = document.getElementById('user-menu');
+    const button = document.getElementById('user-menu-button');
+    const sidebar = button?.closest?.('.sidebar');
+    if (!menu || !button || !sidebar) return;
+    const sidebarTopPadding = Number.parseFloat(getComputedStyle(sidebar).paddingTop) || 0;
+    const availableHeight = Math.floor(
+      button.getBoundingClientRect().top
+      - sidebar.getBoundingClientRect().top
+      - sidebarTopPadding
+      - 10
+    );
+    menu.style.setProperty('--sidebar-user-menu-available-height', `${Math.max(0, availableHeight)}px`);
+  }
+
   function toggleUserMenu(event) {
     event?.stopPropagation?.();
     const menu = document.getElementById('user-menu');
@@ -43,6 +58,7 @@ export function createUserMenuFeature({
     if (!menu || !button) return;
     const nextOpen = !menu.classList.contains('active');
     if (nextOpen) {
+      syncSidebarUserMenuMaxHeight();
       menu.classList.add('active');
       openUiLayer('user-menu');
     } else {
@@ -129,12 +145,22 @@ export function createUserMenuFeature({
         handleUserMenuAction(actionTarget.dataset.userMenuAction, event);
         return;
       }
+      if (event.target?.closest?.('[data-sidebar-toggle]')) return;
       const menuWrap = event.target?.closest?.('.user-menu-wrap');
       if (!menuWrap) closeUserMenu();
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeUserMenu();
     });
+    const syncOpenMenuHeight = () => {
+      if (document.getElementById('user-menu')?.classList.contains('active')) syncSidebarUserMenuMaxHeight();
+    };
+    window.addEventListener('resize', syncOpenMenuHeight);
+    const sidebarFooter = document.querySelector('.sidebar-footer');
+    if (sidebarFooter && typeof ResizeObserver === 'function') {
+      const resizeObserver = new ResizeObserver(syncOpenMenuHeight);
+      resizeObserver.observe(sidebarFooter);
+    }
   }
 
   return { toggleUserMenu, closeUserMenu, updateUserMenu, bindUserMenu };

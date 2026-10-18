@@ -210,7 +210,7 @@
   bottom: calc(100% + 10px);
   left: 0;
   width: 100%;
-  max-height: min(420px, calc(100dvh - 32px));
+  max-height: min(520px, var(--sidebar-user-menu-available-height, calc(100dvh - 108px)));
   overflow-y: auto;
 }
 .user-menu.active { display: block; }

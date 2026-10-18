@@ -213,6 +213,10 @@ try {
       await route.fulfill({ contentType: 'text/javascript', body: uiShellSource });
       return;
     }
+    if (url.pathname === '/static/js/features/user-menu.js') {
+      await route.fulfill({ contentType: 'text/javascript', body: userMenuSource });
+      return;
+    }
     if (url.pathname === '/static/js/features/navigation.js') {
       await route.fulfill({ contentType: 'text/javascript', body: navigationModuleSource });
       return;
@@ -226,8 +230,13 @@ try {
         export const API = '';
         export const RUNTIME_CAPABILITIES = { native: false, nativeAppVersion: false, appDownloads: false };
         export const RUNTIME_PLATFORM = 'web';
+        export function apiResourceUrl(value) { return value || ''; }
         export async function verifyInstance() { return {}; }
       ` });
+      return;
+    }
+    if (url.pathname === '/static/js/core/authenticated-image.js') {
+      await route.fulfill({ contentType: 'text/javascript', body: 'export function loadAuthenticatedImage() {} export function releaseAuthenticatedImage() {}' });
       return;
     }
     if (url.pathname === '/static/js/i18n/index.js') {
@@ -242,15 +251,39 @@ try {
       await route.fulfill({ contentType: 'text/javascript', body: 'export function createNativeBridge() { return {}; }' });
       return;
     }
+    if (url.pathname === '/static/js/features/windows-native-update.js') {
+      await route.fulfill({ contentType: 'text/javascript', body: 'export async function installWindowsNativeUpdate() {}' });
+      return;
+    }
+    if (url.pathname === '/static/js/features/debian-native-update.js') {
+      await route.fulfill({ contentType: 'text/javascript', body: 'export async function installDebianNativeUpdate() {}' });
+      return;
+    }
+    if (url.pathname === '/static/js/features/android-native-update.js') {
+      await route.fulfill({ contentType: 'text/javascript', body: 'export function createAndroidUpdatePermissionFlow() { return {}; } export function createAndroidUpdateResumeCoordinator() { return async () => {}; } export async function runAndroidUpdateBridgeAction() {}' });
+      return;
+    }
     if (url.pathname === '/static/js/features/auto-scrollbars.js') {
       await route.fulfill({ contentType: 'text/javascript', body: 'export function hideAutoScrollbars() {}' });
+      return;
+    }
+    if (url.pathname === '/favicon.ico') {
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+    if (url.pathname !== '/history-test') {
+      await route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not found' });
       return;
     }
     await route.fulfill({
       contentType: 'text/html',
       body: `<!doctype html><html><body>
         <div id="sidebar"></div>
-        <div id="sidebar-overlay"></div>
+        <div id="sidebar-overlay" data-sidebar-toggle style="position:fixed;inset:0;width:100px;height:100px"></div>
+        <div class="user-menu-wrap">
+          <button id="user-menu-button" data-user-menu-action="toggle" aria-expanded="false"></button>
+          <div id="user-menu"></div>
+        </div>
         <button class="nav-btn" data-filter="all"></button>
         <button class="nav-btn" data-filter="focus"></button>
         <div id="todo-modal" class="modal"></div>
@@ -260,17 +293,42 @@ try {
         <script type="module">
           import { bindUiHistory, closeUiLayerNow, openUiLayer, registerUiLayer } from '/static/js/features/ui-history.js';
           import { createUiShell } from '/static/js/features/ui-shell.js';
+          import { createUserMenuFeature } from '/static/js/features/user-menu.js';
           import { createNavigationFeature } from '/static/js/features/navigation.js';
           import { createAppDownloadsFeature } from '/static/js/features/app-downloads.js';
+          const historyCalls = [];
+          const originalHistoryBack = history.back.bind(history);
+          const originalHistoryGo = history.go.bind(history);
+          history.back = () => { historyCalls.push(['back']); return originalHistoryBack(); };
+          history.go = delta => { historyCalls.push(['go', delta]); return originalHistoryGo(delta); };
+          window.getHistoryCalls = () => [...historyCalls];
           const close = id => document.getElementById(id).classList.remove('active');
           registerUiLayer('todo-modal', () => close('todo-modal'));
           registerUiLayer('attachment-preview-modal', () => close('attachment-preview-modal'));
           bindUiHistory();
           const shell = createUiShell({ renderMarkdown: value => value, showTodoModal() {} });
+          const userMenu = createUserMenuFeature({ getCurrentUser: () => null });
+          userMenu.bindUserMenu();
+          shell.bindSidebarControls();
           createAppDownloadsFeature();
           window.openLayer = id => {
             document.getElementById(id).classList.add('active');
             openUiLayer(id);
+          };
+          window.prepareSidebarOverlayCloseWithOpenMenu = async () => {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const menu = document.getElementById('user-menu');
+            shell.openSidebar();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            document.getElementById('user-menu-button').click();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            return {
+              sidebarOpen: sidebar.classList.contains('open'),
+              overlayActive: overlay.classList.contains('active'),
+              menuActive: menu.classList.contains('active'),
+              layers: history.state.niaTodoUi.layers,
+            };
           };
           window.runSidebarNavigation = async () => {
             let currentFilter = 'all';
@@ -328,9 +386,39 @@ try {
       </body></html>`,
     });
   });
+  await page.route('http://previous.test/**', async route => {
+    await route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Previous website</title><p>Previous website</p>' });
+  });
+  await page.goto('http://previous.test/start');
   await page.goto('http://nia.test/history-test#stale');
   await page.waitForFunction(() => window.historyReady === true);
   assert.equal(page.url(), 'http://nia.test/history-test', 'binding must clean an existing fragment in a real browser');
+
+  assert.deepEqual(await page.evaluate(() => window.prepareSidebarOverlayCloseWithOpenMenu()), {
+    sidebarOpen: true,
+    overlayActive: true,
+    menuActive: true,
+    layers: ['sidebar', 'user-menu'],
+  }, 'the browser repro must begin with both sidebar layers open');
+  await page.locator('#sidebar-overlay').click();
+  await page.waitForFunction(() => (
+    !document.getElementById('sidebar')?.classList.contains('open')
+    && !document.getElementById('user-menu')?.classList.contains('active')
+    && (history.state?.niaTodoUi?.layers || []).length === 0
+  ), null, { timeout: 2000 }).catch(() => {});
+  assert.deepEqual(await page.evaluate(() => window.getHistoryCalls()), [['go', -2]], 'the overlay click must issue one parent close traversal, not a competing user-menu Back action');
+  assert.equal(page.url(), 'http://nia.test/history-test', 'the sidebar overlay must not navigate back to the previous website');
+  assert.deepEqual(await page.evaluate(() => ({
+    sidebarOpen: document.getElementById('sidebar').classList.contains('open'),
+    overlayActive: document.getElementById('sidebar-overlay').classList.contains('active'),
+    menuActive: document.getElementById('user-menu').classList.contains('active'),
+    layers: history.state?.niaTodoUi?.layers || [],
+  })), {
+    sidebarOpen: false,
+    overlayActive: false,
+    menuActive: false,
+    layers: [],
+  }, 'clicking the sidebar overlay with an open user menu must close both layers');
 
   await page.evaluate(() => window.openLayer('todo-modal'));
   await page.evaluate(() => window.openLayer('attachment-preview-modal'));
