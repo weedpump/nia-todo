@@ -169,11 +169,14 @@ export function createUiHistory({
     const layerId = String(id || '');
     const index = currentLayers.lastIndexOf(layerId);
     if (index === -1) return false;
+    const pending = pendingCloses.get(layerId);
+    pendingCloses.delete(layerId);
     currentLayers = currentLayers.slice(0, index);
     history?.replaceState?.(nextState(currentLayers), '', cleanAppRoute(location));
     const handler = closeHandlers.get(layerId);
     if (handler) handler(payload);
     else fallbackClose(layerId);
+    pending?.afterClose?.();
     return true;
   }
 
