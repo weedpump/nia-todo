@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.4.0';
-const CACHE_REVISION = 'desktop-sidebar-toggle-84';
+const CACHE_REVISION = 'realtime-create-reconciliation-85';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup

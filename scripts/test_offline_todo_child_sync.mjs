@@ -542,4 +542,23 @@ await staleDuringRefresh;
 assert.equal(authoritativeRefreshes, 2, 'a stale payload received during REST refresh must trigger a newer authoritative fetch');
 assert.equal(websocketStores.todos[0].comments[0].id, 99);
 
+websocketStores.syncQueue = [{ id: 60, action: 'CREATE_TODO', data: { title: 'Local create', _tempId: 'temp-own-create' } }];
+websocketStores.todos = [{ id: 'temp-own-create', title: 'Local create', comments: [], subtasks: [] }];
+websocketSyncRef.value = true;
+const realtimeOwnCreate = websocketClient.handleWsMessage({
+  type: 'todo_create',
+  payload: { id: 902, title: 'Local create', comments: [], subtasks: [] },
+});
+await new Promise(resolve => setTimeout(resolve, 20));
+assert.deepEqual(
+  websocketStores.todos.map(todo => todo.id),
+  ['temp-own-create'],
+  'a realtime echo received during local create sync must not render beside its temporary todo',
+);
+websocketStores.syncQueue = [];
+websocketStores.todos = [{ id: 902, title: 'Local create', comments: [], subtasks: [] }];
+websocketSyncRef.value = false;
+await realtimeOwnCreate;
+assert.deepEqual(websocketStores.todos.map(todo => todo.id), [902]);
+
 console.log('✅ Offline todo child sync test passed');
