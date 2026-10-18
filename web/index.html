@@ -94,23 +94,23 @@
       <div class="sidebar-scroll-region">
         <nav class="nav-section">
           <div class="nav-title" data-i18n-key="nav.view">Ansicht</div>
-          <button class="nav-btn ui-nav-pill" data-filter="all">
+          <button class="nav-btn ui-nav-pill" data-filter="all" aria-label="Dashboard" data-i18n-aria-label-key="nav.dashboard" title="Dashboard" data-i18n-title-key="nav.dashboard">
             <span data-icon="layout-dashboard"></span> <span data-i18n-key="nav.dashboard">Dashboard</span>
             <span class="badge" id="count-all">0</span>
           </button>
-          <button class="nav-btn ui-nav-pill" data-filter="focus">
+          <button class="nav-btn ui-nav-pill" data-filter="focus" aria-label="Filter" data-i18n-aria-label-key="nav.focus" title="Filter" data-i18n-title-key="nav.focus">
             <span data-icon="funnel"></span> <span data-i18n-key="nav.focus">Filter</span>
             <span class="badge" id="count-focus">0</span>
           </button>
-          <button class="nav-btn ui-nav-pill" data-filter="calendar">
+          <button class="nav-btn ui-nav-pill" data-filter="calendar" aria-label="Calendar" data-i18n-aria-label-key="nav.calendar" title="Calendar" data-i18n-title-key="nav.calendar">
             <span data-icon="calendar-days"></span> <span data-i18n-key="nav.calendar">Kalender</span>
             <span class="badge" id="count-calendar">0</span>
           </button>
-          <button class="nav-btn ui-nav-pill" data-filter="in_progress">
+          <button class="nav-btn ui-nav-pill" data-filter="in_progress" aria-label="In progress" data-i18n-aria-label-key="nav.inProgress" title="In progress" data-i18n-title-key="nav.inProgress">
             <span data-icon="flame"></span> <span data-i18n-key="nav.inProgress">In progress</span>
             <span class="badge" id="count-in_progress">0</span>
           </button>
-          <button class="nav-btn ui-nav-pill" data-filter="done">
+          <button class="nav-btn ui-nav-pill" data-filter="done" aria-label="Done" data-i18n-aria-label-key="nav.done" title="Done" data-i18n-title-key="nav.done">
             <span data-icon="check-circle"></span> <span data-i18n-key="nav.done">Erledigt</span>
             <span class="badge" id="count-done">0</span>
           </button>
@@ -121,7 +121,7 @@
           <div id="project-list"></div>
           <div class="project-tree-item add-project-tree-item">
             <div class="nav-item-with-action">
-              <button class="nav-btn ui-nav-pill add-btn" data-nav-action="new-project">
+              <button class="nav-btn ui-nav-pill add-btn" data-nav-action="new-project" aria-label="Add project" data-i18n-aria-label-key="nav.addProject" title="Add project" data-i18n-title-key="nav.addProject">
                 <span class="entity-icon add-project-icon" data-icon="plus"></span><span data-i18n-key="nav.addProject">Add project</span>
               </button>
             </div>
@@ -136,7 +136,7 @@
 
       <div class="sidebar-footer">
         <div class="user-menu-wrap sidebar-user-menu-wrap">
-          <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">
+          <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" aria-label="User menu" data-i18n-aria-label-key="menu.userMenu" title="User menu" data-i18n-title-key="menu.userMenu">
             <span class="user-menu-button-avatar" id="user-menu-button-avatar">U</span>
             <span class="sidebar-user-meta">
               <span class="sidebar-user-name" id="sidebar-user-name">User</span>
@@ -415,7 +415,7 @@
     <main class="main">
       <!-- Top bar -->
       <div class="topbar">
-        <button class="hamburger" data-sidebar-toggle aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
+        <button type="button" class="hamburger" id="sidebar-toggle-btn" data-sidebar-toggle aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu" title="Open menu" data-i18n-title-key="topbar.openMenu" aria-expanded="false"><span data-icon="sidebar"></span></button>
         <button type="button" class="today-focus-btn" id="today-focus-btn" title="Heute-Ansicht" data-i18n-title-key="todayFocus.toggleTitle"><span class="today-calendar-icon" aria-hidden="true"></span><span data-i18n-key="todayFocus.short">Heute</span></button>
         <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" title="Ruhige Ansicht" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="leaf"></span><span data-i18n-key="minimalTodos.short">Ruhe</span></button>
         <div class="search-box" id="search-box">

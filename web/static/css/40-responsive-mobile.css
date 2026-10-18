@@ -209,19 +209,24 @@
 
 /* Hamburger */
 .hamburger {
-  display: none;
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  background: transparent;
   border: none;
   color: var(--text-primary);
-  font-size: 22px;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius);
+  padding: 0;
+  border-radius: 999px;
 }
 .hamburger:hover { background: var(--bg-hover); }
-
-@media (max-width: 768px) {
-  .hamburger { display: block; }
+.hamburger .ui-icon {
+  width: 20px;
+  height: 20px;
 }
 
 /* Safe area for mobile browsers */
