@@ -61,8 +61,10 @@ const testHtml = `<!doctype html>
         nativeHistoryBack();
       };
 
-      window.setFilter = filter => {
-        history.pushState({ ...(history.state || {}), niaTodoView: true, filter }, '', location.pathname);
+      window.setFilter = (filter, { replaceHistory = false } = {}) => {
+        const state = { ...(history.state || {}), niaTodoView: true, filter };
+        if (replaceHistory) history.replaceState(state, '', location.pathname);
+        else history.pushState(state, '', location.pathname);
       };
 
       const feature = createWorkspacesFeature({
@@ -183,8 +185,8 @@ try {
     await page.click('#workspace-close-btn');
     await page.evaluate(() => window.workspaceTest.releaseCreate());
     await page.waitForFunction(() => window.workspaceTest.getWorkspaces().length === 2);
-    await page.waitForFunction(() => !document.getElementById('workspace-modal').classList.contains('active'));
     await page.evaluate(() => window.workspaceTest.flushHistoryBack());
+    await page.waitForFunction(() => !document.getElementById('workspace-modal').classList.contains('active'));
 
     await page.evaluate(() => window.workspaceTest.feature.showWorkspaceModal(1));
     await page.click('#workspace-close-btn');
