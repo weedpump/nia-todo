@@ -90,6 +90,7 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             todo_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
+            client_mutation_id TEXT,
             original_filename TEXT NOT NULL,
             stored_filename TEXT NOT NULL,
             content_type TEXT NOT NULL DEFAULT 'application/octet-stream',

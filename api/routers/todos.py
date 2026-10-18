@@ -1269,14 +1269,17 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
     client_mutation_id = sanitize_text(request.headers.get("x-client-mutation-id") or "")[:200] or None
     suffix = Path(original_filename).suffix[:20]
     stored_filename = f"{secrets.token_hex(16)}{suffix}"
-    target_path = _stored_attachment_path(todo_id, stored_filename)
-    tmp_path = target_path.with_suffix(target_path.suffix + f".{secrets.token_hex(6)}.tmp")
+    target_path = None
+    tmp_path = None
     try:
         with get_db() as db:
             todo = _require_attachment_writable_todo(db, todo_id, user_id)
             existing = _attachment_row_by_client_mutation(db, todo_id, user_id, client_mutation_id)
             if existing:
                 return {"attachment": _public_attachment(existing), "todo": fetch_todo(db, todo_id, user_id), "usage": attachment_usage_payload(db, user_id)}
+            authorized_todo_id = int(todo["id"])
+        target_path = _stored_attachment_path(authorized_todo_id, stored_filename)
+        tmp_path = target_path.with_suffix(target_path.suffix + f".{secrets.token_hex(6)}.tmp")
         target_path.parent.mkdir(parents=True, exist_ok=True)
         size_bytes, sample = await _stream_attachment_to_temp(request, tmp_path)
         if size_bytes <= 0:
@@ -1329,7 +1332,8 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
             await broadcast_change("todo_attachment_create", _attachment_event_payload(db, todo_id, attachment=attachment), user_id, updated_todo.get('project_id'))
             return {"attachment": attachment, "todo": updated_todo, "usage": attachment_usage_payload(db, user_id)}
     finally:
-        tmp_path.unlink(missing_ok=True)
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 @router.get("/{todo_id}/attachments/{attachment_id}/download")
