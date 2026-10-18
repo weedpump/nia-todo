@@ -1,5 +1,8 @@
 import { hideAutoScrollbars } from './auto-scrollbars.js';
 import { closeUiLayerNow, openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { t } from '../i18n/index.js';
+
+const DESKTOP_SIDEBAR_MODES = ['expanded', 'rail', 'hidden'];
 
 function hideSidebarScrollbars() {
   const sidebar = document.getElementById('sidebar');
@@ -7,6 +10,51 @@ function hideSidebarScrollbars() {
 }
 
 export function createUiShell({ renderMarkdown, showTodoModal }) {
+  let desktopSidebarMode = 'expanded';
+
+  function isMobileLayout() {
+    return window.matchMedia?.('(max-width: 768px)').matches;
+  }
+
+  function syncSidebarToggleButton() {
+    const button = document.getElementById('sidebar-toggle-btn');
+    if (!button) return;
+
+    let labelKey = 'topbar.openMenu';
+    if (isMobileLayout()) {
+      const isOpen = document.getElementById('sidebar')?.classList.contains('open');
+      labelKey = isOpen ? 'topbar.closeMenu' : 'topbar.openMenu';
+      button.setAttribute('aria-expanded', String(Boolean(isOpen)));
+    } else {
+      const nextMode = DESKTOP_SIDEBAR_MODES[(DESKTOP_SIDEBAR_MODES.indexOf(desktopSidebarMode) + 1) % DESKTOP_SIDEBAR_MODES.length];
+      labelKey = nextMode === 'rail'
+        ? 'sidebar.reduceToIcons'
+        : nextMode === 'hidden'
+          ? 'sidebar.hide'
+          : 'sidebar.show';
+      button.setAttribute('aria-expanded', String(desktopSidebarMode !== 'hidden'));
+    }
+
+    button.dataset.i18nAriaLabelKey = labelKey;
+    button.dataset.i18nTitleKey = labelKey;
+    button.setAttribute('aria-label', t(labelKey));
+    button.setAttribute('title', t(labelKey));
+  }
+
+  function setDesktopSidebarMode(mode) {
+    desktopSidebarMode = DESKTOP_SIDEBAR_MODES.includes(mode) ? mode : 'expanded';
+    const app = document.getElementById('app');
+    if (!app) return;
+    app.dataset.desktopSidebarMode = desktopSidebarMode;
+    closeFloatingMenus();
+    syncSidebarToggleButton();
+  }
+
+  function cycleDesktopSidebarMode() {
+    const currentIndex = DESKTOP_SIDEBAR_MODES.indexOf(desktopSidebarMode);
+    setDesktopSidebarMode(DESKTOP_SIDEBAR_MODES[(currentIndex + 1) % DESKTOP_SIDEBAR_MODES.length]);
+  }
+
   function closeFloatingMenus() {
     const userMenu = document.getElementById('user-menu');
     const userButton = document.getElementById('user-menu-button');
@@ -19,6 +67,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
   function openSidebar() {
     document.getElementById('sidebar')?.classList.add('open');
     document.getElementById('sidebar-overlay')?.classList.add('active');
+    syncSidebarToggleButton();
     openUiLayer('sidebar');
   }
 
@@ -34,6 +83,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
       closeSidebar();
     }
     if (nextOpen) closeFloatingMenus();
+    syncSidebarToggleButton();
   }
 
   function closeSidebar({ fromHistory = false, preserveHistory = false } = {}) {
@@ -45,6 +95,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     document.getElementById('sidebar-overlay')?.classList.remove('active');
     if (wasOpen) hideSidebarScrollbars();
     closeFloatingMenus();
+    syncSidebarToggleButton();
     return Boolean(wasOpen);
   }
 
@@ -94,10 +145,16 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     if (document.documentElement.dataset.sidebarControlsBound === '1') return;
     document.documentElement.dataset.sidebarControlsBound = '1';
     document.addEventListener('click', (event) => {
-      if (!event.target?.closest?.('[data-sidebar-toggle]')) return;
+      const toggle = event.target?.closest?.('[data-sidebar-toggle]');
+      if (!toggle) return;
       event.preventDefault();
-      toggleSidebar();
+      if (toggle.id === 'sidebar-overlay' || isMobileLayout()) toggleSidebar();
+      else cycleDesktopSidebarMode();
     });
+    document.getElementById('app')?.setAttribute('data-desktop-sidebar-mode', desktopSidebarMode);
+    syncSidebarToggleButton();
+    window.addEventListener('resize', syncSidebarToggleButton);
+    window.addEventListener('nia-language-change', syncSidebarToggleButton);
   }
 
   function bindSidebarEdgeSwipe() {
@@ -108,9 +165,6 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     const maxVerticalDrift = 55;
     let gesture = null;
 
-    function isMobileLayout() {
-      return window.matchMedia?.('(max-width: 768px)').matches;
-    }
 
     document.addEventListener('touchstart', (event) => {
       if (!isMobileLayout()) return;

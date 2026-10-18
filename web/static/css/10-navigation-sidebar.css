@@ -3,12 +3,79 @@
 /* Sidebar */
 .sidebar {
   width: 260px;
+  flex: 0 0 260px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding: 20px 16px;
+  transition: width 0.2s ease, flex-basis 0.2s ease, padding 0.2s ease, border-color 0.2s ease;
+}
+
+@media (min-width: 769px) {
+  #app[data-desktop-sidebar-mode="rail"] .sidebar {
+    width: 76px;
+    min-width: 76px;
+    flex-basis: 76px;
+    padding-inline: 12px;
+    overflow: visible;
+  }
+
+  #app[data-desktop-sidebar-mode="hidden"] .sidebar {
+    width: 0;
+    min-width: 0;
+    flex-basis: 0;
+    padding-inline: 0;
+    border-right-width: 0;
+    border-right-color: transparent;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .logo {
+    justify-content: center;
+    gap: 0;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .logo-text,
+  #app[data-desktop-sidebar-mode="rail"] .nav-title,
+  #app[data-desktop-sidebar-mode="rail"] .nav-label,
+  #app[data-desktop-sidebar-mode="rail"] .nav-btn > span[data-i18n-key],
+  #app[data-desktop-sidebar-mode="rail"] .nav-btn .badge,
+  #app[data-desktop-sidebar-mode="rail"] .nav-edit,
+  #app[data-desktop-sidebar-mode="rail"] #invites-section,
+  #app[data-desktop-sidebar-mode="rail"] .sidebar-user-meta,
+  #app[data-desktop-sidebar-mode="rail"] .server-update-footer {
+    display: none;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .nav-section {
+    margin-bottom: 12px;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .project-tree-item {
+    padding-left: 0 !important;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .nav-item-with-action,
+  #app[data-desktop-sidebar-mode="rail"] .sidebar-user-menu-wrap {
+    justify-content: center;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .sidebar .ui-nav-pill {
+    width: 44px;
+    min-width: 44px;
+    min-height: 40px;
+    justify-content: center;
+    gap: 0;
+    margin-inline: auto;
+    padding: 7px;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .sidebar .ui-nav-pill::before {
+    inset: 0;
+  }
 }
 
 .sidebar-scroll-region {

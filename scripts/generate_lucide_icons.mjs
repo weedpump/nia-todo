@@ -178,6 +178,7 @@ const ICON_NAMES = [
   'server',
   'settings',
   'share-2',
+  'sidebar',
   'shield',
   'shield-check',
   'ship',
