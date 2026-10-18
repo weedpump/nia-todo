@@ -16,6 +16,11 @@ assert.match(
   /id="sidebar-toggle-btn"[\s\S]*data-icon="sidebar"/,
   'the shared sidebar control must use the Lucide sidebar icon',
 );
+assert.match(
+  indexHtml,
+  /id="user-menu-button"[^>]*aria-label="User menu"[^>]*data-i18n-aria-label-key="menu\.userMenu"/,
+  'the rail user-menu button must keep its localized accessible name',
+);
 
 const browser = await chromium.launch({ headless: true });
 try {
@@ -59,7 +64,7 @@ try {
                 </div>
                 <div class="sidebar-footer">
                   <div class="user-menu-wrap sidebar-user-menu-wrap">
-                    <button class="user-menu-button" id="user-menu-button" aria-expanded="false"><span class="user-menu-button-avatar">T</span><span class="sidebar-user-meta">Tobi</span></button>
+                    <button class="user-menu-button" id="user-menu-button" aria-expanded="false" aria-label="User menu"><span class="user-menu-button-avatar">T</span><span class="sidebar-user-meta">Tobi</span></button>
                     <div class="ui-menu user-menu" id="user-menu"></div>
                   </div>
                 </div>
@@ -115,6 +120,9 @@ try {
     labelDisplay: 'none',
     badgeDisplay: 'none',
   });
+  const railUserMenuButton = page.getByRole('button', { name: 'User menu' });
+  await assert.doesNotReject(() => railUserMenuButton.click());
+  assert.equal(await railUserMenuButton.isVisible(), true);
 
   await page.locator('#sidebar-toggle-btn').click();
   await page.waitForTimeout(250);
