@@ -24,6 +24,7 @@ export function createWorkspacesFeature({
   let workspaceFormBound = false;
   let workspaceControlsBound = false;
   let workspaceSaveSnapshot = null;
+  const pendingWorkspaceCloseCallbacks = [];
 
   function getWorkspaceSaveRelevantState() {
     return {
@@ -289,10 +290,12 @@ export function createWorkspacesFeature({
   }
 
   function closeWorkspaceModal({ fromHistory = false, afterClose = null } = {}) {
-    if (document.getElementById('workspace-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('workspace-modal', { reason: 'ui' }, { afterClose })) return;
+    if (afterClose) pendingWorkspaceCloseCallbacks.push(afterClose);
+    if (document.getElementById('workspace-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('workspace-modal', { reason: 'ui' })) return;
     document.getElementById('workspace-modal')?.classList.remove('active');
     editingWorkspaceId = null;
-    afterClose?.();
+    const callbacks = pendingWorkspaceCloseCallbacks.splice(0);
+    callbacks.forEach(callback => callback());
   }
 
   registerUiLayer('workspace-modal', () => closeWorkspaceModal({ fromHistory: true }));
