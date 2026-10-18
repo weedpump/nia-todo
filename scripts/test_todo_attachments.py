@@ -93,12 +93,16 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             todo_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
+            client_mutation_id TEXT,
             original_filename TEXT NOT NULL,
             stored_filename TEXT NOT NULL,
             content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
             size_bytes INTEGER NOT NULL,
             created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE UNIQUE INDEX idx_todo_attachments_client_mutation
+            ON todo_attachments(todo_id, user_id, client_mutation_id)
+            WHERE client_mutation_id IS NOT NULL;
         CREATE TABLE reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             todo_id INTEGER NOT NULL,
@@ -176,7 +180,7 @@ def main():
         uploaded = owner.post(
             f"/api/todos/{todo_id}/attachments",
             content=b"hello attachment",
-            headers={"content-type": "text/plain", "x-nia-filename": "notes.txt"},
+            headers={"content-type": "text/plain", "x-nia-filename": "notes.txt", "x-client-mutation-id": "offline-upload-1"},
         )
         assert_true(uploaded.status_code == 200, uploaded.text)
         body = uploaded.json()
@@ -187,6 +191,57 @@ def main():
         assert_true(body["todo"]["attachments"][0]["uploader_display_name"] == "Owner Display", body)
         assert_true(broadcast_events[-1]["event_type"] == "todo_attachment_create", broadcast_events[-1])
         assert_true("stored_filename" not in broadcast_events[-1]["payload"]["attachment"], broadcast_events[-1])
+
+        replayed_upload = owner.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=b"hello attachment",
+            headers={"content-type": "text/plain", "x-nia-filename": "notes.txt", "x-client-mutation-id": "offline-upload-1"},
+        )
+        assert_true(replayed_upload.status_code == 200, replayed_upload.text)
+        assert_true(replayed_upload.json()["attachment"]["id"] == attachment_id, replayed_upload.text)
+        assert_true(replayed_upload.json()["todo"]["attachments_count"] == 1, replayed_upload.text)
+
+        real_lookup = todos_router._attachment_row_by_client_mutation
+        lookup_calls = 0
+
+        def force_unique_insert_race(db_arg, todo_id_arg, user_id_arg, mutation_id_arg):
+            nonlocal lookup_calls
+            lookup_calls += 1
+            if mutation_id_arg == "offline-upload-1" and lookup_calls <= 2:
+                return None
+            return real_lookup(db_arg, todo_id_arg, user_id_arg, mutation_id_arg)
+
+        todos_router._attachment_row_by_client_mutation = force_unique_insert_race
+        try:
+            raced_replay = owner.post(
+                f"/api/todos/{todo_id}/attachments",
+                content=b"hello attachment",
+                headers={"content-type": "text/plain", "x-nia-filename": "notes.txt", "x-client-mutation-id": "offline-upload-1"},
+            )
+        finally:
+            todos_router._attachment_row_by_client_mutation = real_lookup
+        assert_true(raced_replay.status_code == 200, raced_replay.text)
+        assert_true(raced_replay.json()["attachment"]["id"] == attachment_id, raced_replay.text)
+        assert_true(raced_replay.json()["todo"]["attachments_count"] == 1, raced_replay.text)
+
+        scoped_todo = owner.post("/api/todos", json={"title": "Scoped idempotency", "project_id": 2}).json()
+        scoped_upload = owner.post(
+            f"/api/todos/{scoped_todo['id']}/attachments",
+            content=b"same mutation on another todo",
+            headers={"content-type": "text/plain", "x-nia-filename": "other.txt", "x-client-mutation-id": "offline-upload-1"},
+        )
+        assert_true(scoped_upload.status_code == 200, scoped_upload.text)
+        assert_true(scoped_upload.json()["attachment"]["id"] != attachment_id, scoped_upload.text)
+        scoped_member = make_client(db, user_id=2, broadcast_events=broadcast_events)
+        member_scoped_upload = scoped_member.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=b"same mutation by another user",
+            headers={"content-type": "text/plain", "x-nia-filename": "member-scope.txt", "x-client-mutation-id": "offline-upload-1"},
+        )
+        assert_true(member_scoped_upload.status_code == 200, member_scoped_upload.text)
+        assert_true(member_scoped_upload.json()["attachment"]["id"] != attachment_id, member_scoped_upload.text)
+        owner.delete(f"/api/todos/{todo_id}/attachments/{member_scoped_upload.json()['attachment']['id']}")
+        owner.delete(f"/api/todos/{scoped_todo['id']}")
 
         listed = owner.get("/api/todos")
         assert_true(listed.status_code == 200, listed.text)

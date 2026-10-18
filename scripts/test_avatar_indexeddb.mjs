@@ -115,9 +115,10 @@ upgradeInProgress = false;
 openRequest.onsuccess?.({ target: { result: database } });
 await opening;
 assert.equal(await offlineLoad, true, 'offline avatar renders after IndexedDB becomes ready without a lifecycle rerender');
-assert.equal(DB_VERSION, 5, 'avatar storage requires the next database schema version');
+assert.equal(DB_VERSION, 6, 'attachment blob storage requires the next database schema version');
 assert.equal(openedVersion, DB_VERSION);
 assert.ok(createdStores.includes('avatars'), 'migration creates the avatars object store');
+assert.ok(createdStores.includes('attachmentBlobs'), 'migration creates the attachment blob object store');
 assert.equal(avatarRecords.size, 3, 'avatars fetched before DB readiness persist after open');
 
 await closeAndDeleteDatabase();

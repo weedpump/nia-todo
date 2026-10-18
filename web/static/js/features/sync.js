@@ -1,4 +1,5 @@
 import { acquireSyncCommitLock, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
+import { attachmentCache as defaultAttachmentCache } from '../storage/attachment-cache.js';
 
 export function createSyncFeature({
   getDb,
@@ -19,6 +20,7 @@ export function createSyncFeature({
   projectsApi,
   sectionsApi,
   workspacesApi,
+  attachmentCache = defaultAttachmentCache,
   renderStats,
   renderTodos,
 }) {
@@ -58,13 +60,13 @@ export function createSyncFeature({
     upsertTodo(projected);
   }
 
-  async function rewriteQueuedReferences({ todoIdFrom, todoIdTo, commentIdFrom, commentIdTo, subtaskIdFrom, subtaskIdTo }) {
+  async function rewriteQueuedReferences({ todoIdFrom, todoIdTo, commentIdFrom, commentIdTo, subtaskIdFrom, subtaskIdTo, attachmentIdFrom, attachmentIdTo }) {
     const queue = await dbGetAll('syncQueue');
     for (const queued of queue) {
       if (!queued?.data || typeof queued.data !== 'object') continue;
       let changed = false;
       if (todoIdFrom !== undefined) {
-        if (['CREATE_COMMENT', 'UPDATE_COMMENT', 'DELETE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK', 'DELETE_SUBTASK'].includes(queued.action)
+        if (['CREATE_COMMENT', 'UPDATE_COMMENT', 'DELETE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK', 'DELETE_SUBTASK', 'CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(queued.action)
           && String(queued.data.todo_id) === String(todoIdFrom)) {
           queued.data.todo_id = todoIdTo;
           changed = true;
@@ -84,6 +86,10 @@ export function createSyncFeature({
       }
       if (subtaskIdFrom !== undefined && String(queued.data.subtask_id) === String(subtaskIdFrom)) {
         queued.data.subtask_id = subtaskIdTo;
+        changed = true;
+      }
+      if (attachmentIdFrom !== undefined && String(queued.data.attachment_id) === String(attachmentIdFrom)) {
+        queued.data.attachment_id = attachmentIdTo;
         changed = true;
       }
       if (changed) await dbPut('syncQueue', queued);
@@ -170,6 +176,10 @@ export function createSyncFeature({
         return { ...item, data: { todo_id: data.todo_id, subtask_id: data.subtask_id, changes: pickAllowed(changes, ['title', 'is_done', 'sort_order']) } };
       case 'DELETE_SUBTASK':
         return { ...item, data: { todo_id: data.todo_id, subtask_id: data.subtask_id } };
+      case 'CREATE_ATTACHMENT':
+        return { ...item, data: { todo_id: data.todo_id, temp_id: data.temp_id, blob_id: data.blob_id, client_mutation_id: data.client_mutation_id, filename: data.filename, content_type: data.content_type, size_bytes: data.size_bytes, local_attachment: data.local_attachment } };
+      case 'DELETE_ATTACHMENT':
+        return { ...item, data: { todo_id: data.todo_id, attachment_id: data.attachment_id } };
       case 'CREATE_PROJECT':
         return { ...item, data: pickAllowed(data, projectFields) };
       case 'UPDATE_PROJECT':
@@ -238,6 +248,7 @@ export function createSyncFeature({
               await deleteFromDB('todos', createData._tempId);
               setTodos(getTodos().filter(t => t.id !== createData._tempId));
               await rewriteQueuedReferences({ todoIdFrom: createData._tempId, todoIdTo: res.id });
+              await attachmentCache.rewriteTodoId(createData._tempId, res.id);
             }
             const createdTodo = localTempTodo ? { ...localTempTodo, ...res, id: res.id } : res;
             await persistTodoWithPending(createdTodo, item.id);
@@ -309,6 +320,42 @@ export function createSyncFeature({
           await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef);
           successCount++;
           continue;
+        } else if (item.action === 'CREATE_ATTACHMENT') {
+          await dbPut('syncQueue', {
+            ...currentQueuedItem,
+            data: { ...currentQueuedItem.data, upload_started: true },
+          });
+          const cached = await attachmentCache.get(item.data.blob_id || item.data.temp_id);
+          if (!cached?.blob) {
+            const error = new Error('Pending attachment bytes are unavailable');
+            error.status = 422;
+            throw error;
+          }
+          const response = await todosApi.uploadAttachment(item.data.todo_id, cached.blob, {
+            filename: item.data.filename,
+            contentType: item.data.content_type,
+            clientMutationId: item.data.client_mutation_id || item.data.temp_id,
+          });
+          await commitQueueItem(item, async () => {
+            if (response?.attachment?.id) {
+              await rewriteQueuedReferences({
+                attachmentIdFrom: item.data.temp_id,
+                attachmentIdTo: response.attachment.id,
+              });
+              await attachmentCache.rewrite(item.data.blob_id || item.data.temp_id, response.attachment);
+            }
+            await persistTodoWithPending(response?.todo, item.id);
+          }, syncInProgressRef);
+          successCount++;
+          continue;
+        } else if (item.action === 'DELETE_ATTACHMENT') {
+          const response = await todosApi.deleteAttachment(item.data.todo_id, item.data.attachment_id);
+          await commitQueueItem(item, async () => {
+            await persistTodoWithPending(response?.todo, item.id);
+            await attachmentCache.remove(item.data.attachment_id);
+          }, syncInProgressRef);
+          successCount++;
+          continue;
         } else if (item.action === 'DELETE_TODO') {
           const undoGraceUntil = Number(item.data.undo_grace_until || 0);
           if (undoGraceUntil && Date.now() < undoGraceUntil) {
@@ -319,6 +366,7 @@ export function createSyncFeature({
             await deleteFromDB('todos', item.data.id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
             await deleteQueuedTodoOperations(item.data.id);
+            await attachmentCache.removeForTodo(item.data.id);
           }, syncInProgressRef);
           successCount++;
           continue;
@@ -385,8 +433,22 @@ export function createSyncFeature({
             await deleteFromDB('todos', item.data.id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
             await deleteQueuedTodoOperations(item.data.id);
+            await attachmentCache.removeForTodo(item.data.id);
           }, syncInProgressRef);
           successCount++;
+          handledPermanentAbsence = true;
+        } else if (item?.action === 'DELETE_ATTACHMENT' && err?.status === 404) {
+          await commitQueueItem(item, () => attachmentCache.remove(item.data.attachment_id), syncInProgressRef);
+          successCount++;
+          handledPermanentAbsence = true;
+        } else if (item?.action === 'CREATE_ATTACHMENT' && err?.status === 404) {
+          await commitQueueItem(item, async () => {
+            await attachmentCache.remove(item.data.blob_id || item.data.temp_id);
+            await deleteFromDB('todos', item.data.todo_id);
+            setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.todo_id)));
+            await deleteQueuedTodoOperations(item.data.todo_id);
+          }, syncInProgressRef);
+          needsAuthoritativeRefresh = true;
           handledPermanentAbsence = true;
         } else if (['CREATE_COMMENT', 'CREATE_SUBTASK'].includes(item?.action) && err?.status === 404) {
           await commitQueueItem(item, async () => {
@@ -401,12 +463,13 @@ export function createSyncFeature({
           todoIdsNeedingRecovery.add(item.data.todo_id);
           handledPermanentAbsence = true;
         } else if (
-          ['CREATE_COMMENT', 'UPDATE_COMMENT', 'DELETE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK', 'DELETE_SUBTASK'].includes(item?.action)
+          ['CREATE_COMMENT', 'UPDATE_COMMENT', 'DELETE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK', 'DELETE_SUBTASK', 'CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(item?.action)
           && Number(err?.status) >= 400
           && Number(err?.status) < 500
           && ![401, 408, 429].includes(Number(err?.status))
         ) {
           await deleteFromDB('syncQueue', item.id);
+          if (item.action === 'CREATE_ATTACHMENT') await attachmentCache.remove(item.data.blob_id || item.data.temp_id);
           todoIdsNeedingRecovery.add(item.data.todo_id);
           handledPermanentAbsence = true;
         } else if (item?.action === 'CREATE_PROJECT' && item.data?._tempId && err?.status && err.status < 500) {
@@ -492,6 +555,9 @@ export function createSyncFeature({
       if (queueBeforeCommit.length) {
         shouldDrainQueue = true;
       } else {
+        const serverTodoIds = new Set(nextTodos.map(todo => String(todo.id)));
+        const removedTodoIds = getTodos().map(todo => todo.id).filter(todoId => !serverTodoIds.has(String(todoId)));
+        await Promise.all(removedTodoIds.map(todoId => attachmentCache.removeForTodo(todoId)));
         if (dbClear) {
           await Promise.all([dbClear('todos'), dbClear('projects'), dbClear('sections'), dbClear('workspaces')]);
         }

@@ -1,4 +1,5 @@
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { attachmentCache as defaultAttachmentCache } from '../storage/attachment-cache.js';
 
 export function createTodoAttachmentsFeature({
   getTodos,
@@ -9,8 +10,13 @@ export function createTodoAttachmentsFeature({
   getAppInitialized,
   getDb,
   dbPut,
+  dbGetAll = async () => [],
+  deleteFromDB = async () => {},
+  runSyncQueueMutation = async operation => operation(async () => {}),
   isOnlineForSync,
+  syncWithServer = async () => {},
   todosApi,
+  attachmentCache = defaultAttachmentCache,
   renderStats,
   renderTodos,
   closeModal,
@@ -122,7 +128,7 @@ export function createTodoAttachmentsFeature({
       if (thumbnail.dataset.thumbnailState) return;
       thumbnail.dataset.thumbnailState = 'loading';
       try {
-        const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
+        const blob = await loadAttachmentBlob(todoId, attachment);
         if (renderId !== attachmentThumbnailRenderId) return;
         if (!attachmentIsImagePreview(attachment, blob)) throw new Error('Attachment is not a supported image');
         const objectUrl = URL.createObjectURL(blob);
@@ -150,6 +156,147 @@ export function createTodoAttachmentsFeature({
       if (item.endsWith('/*')) return type.startsWith(item.slice(0, -1));
       return type === item;
     });
+  }
+
+  function newAttachmentMutationId() {
+    if (globalThis.crypto?.randomUUID) return `attachment-${globalThis.crypto.randomUUID()}`;
+    return `attachment-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  async function loadAttachmentBlob(todoId, attachment) {
+    const cached = await attachmentCache.get(attachment?.id);
+    if (cached?.blob) return cached.blob;
+    if (!isOnlineForSync()) throw new Error('Attachment is not available offline');
+    const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
+    await attachmentCache.put({
+      id: attachment.id,
+      todo_id: todoId,
+      attachment_id: attachment.id,
+      blob,
+      size_bytes: attachment.size_bytes || blob.size,
+      pending_upload: false,
+      pinned: false,
+      offline_explicit: false,
+    }).catch(error => console.warn('Failed to cache attachment download', error));
+    return blob;
+  }
+
+  async function makeAttachmentAvailableOffline(todoId, attachment) {
+    try {
+      const blob = await loadAttachmentBlob(todoId, attachment);
+      const cached = await attachmentCache.get(attachment.id, { touch: false });
+      if (!cached) {
+        await attachmentCache.put({ id: attachment.id, todo_id: todoId, attachment_id: attachment.id, blob, size_bytes: attachment.size_bytes || blob.size, pinned: true, offline_explicit: true });
+      } else {
+        await attachmentCache.setPinned(attachment.id, true);
+      }
+      showToast(t('todo.attachments.availableOffline'));
+      renderTodoAttachments(getTodos().find(todo => String(todo.id) === String(todoId))?.attachments || [], getTodos().find(todo => String(todo.id) === String(todoId)) || null);
+      return true;
+    } catch (error) {
+      console.error('Failed to cache todo attachment', error);
+      showToast(t('todo.attachments.cacheFailed'));
+      return false;
+    }
+  }
+
+  async function queueAttachmentFiles(todoId, files = []) {
+    const selected = Array.from(files || []);
+    if (!todoId || selected.length === 0 || !getDb()) return selected.length === 0;
+    const todo = getTodos().find(item => String(item.id) === String(todoId));
+    if (!todo) return false;
+    const currentUser = getCurrentUser?.();
+    if (currentUser?.attachments_enabled === false) {
+      showToast(t('todo.attachments.disabled'));
+      return false;
+    }
+    const existingCount = Array.isArray(todo.attachments) ? todo.attachments.length : 0;
+    if (existingCount + selected.length > 20) {
+      showToast(t('todo.attachments.tooMany'));
+      return false;
+    }
+    const maxUploadBytes = Number(currentUser?.attachment_max_upload_bytes || (25 * 1024 * 1024));
+    if (selected.some(file => Number(file.size || 0) > maxUploadBytes)) {
+      showToast(t('todo.attachments.fileTooLarge', { max: formatAttachmentSize(maxUploadBytes) }));
+      return false;
+    }
+    const remainingBytes = Number(currentUser?.attachment_remaining_bytes ?? currentUser?.attachment_quota_bytes ?? Number.MAX_SAFE_INTEGER);
+    const totalBytes = selected.reduce((sum, file) => sum + Number(file.size || 0), 0);
+    if (totalBytes > Math.max(remainingBytes, 0)) {
+      showToast(t('todo.attachments.quotaExceeded'));
+      return false;
+    }
+    if (selected.some(file => !attachmentAllowedByClient(file, currentUser))) {
+      showToast(t('todo.attachments.typeNotAllowed'));
+      return false;
+    }
+
+    const pending = selected.map(file => {
+      const tempId = newAttachmentMutationId();
+      return {
+        file,
+        tempId,
+        attachment: {
+          id: tempId,
+          todo_id: todoId,
+          user_id: currentUser?.id,
+          original_filename: file.name || 'attachment',
+          content_type: file.type || 'application/octet-stream',
+          size_bytes: Number(file.size || 0),
+          created_at: new Date().toISOString(),
+          uploader_username: currentUser?.username,
+          uploader_display_name: currentUser?.display_name || currentUser?.username,
+          is_pending: true,
+        },
+      };
+    });
+    try {
+      for (const item of pending) {
+        await attachmentCache.put({
+          id: item.tempId,
+          todo_id: todoId,
+          attachment_id: item.tempId,
+          blob: item.file,
+          size_bytes: item.file.size,
+          pending_upload: true,
+          pinned: true,
+        });
+      }
+      await runSyncQueueMutation(async enqueue => {
+        const updated = {
+          ...todo,
+          attachments: [...(todo.attachments || []), ...pending.map(item => item.attachment)],
+          attachments_count: existingCount + pending.length,
+          updated_at: new Date().toISOString(),
+        };
+        await dbPut('todos', updated);
+        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? updated : item));
+        for (const item of pending) {
+          await enqueue('CREATE_ATTACHMENT', {
+            todo_id: todoId,
+            temp_id: item.tempId,
+            blob_id: item.tempId,
+            client_mutation_id: item.tempId,
+            filename: item.attachment.original_filename,
+            content_type: item.attachment.content_type,
+            size_bytes: item.attachment.size_bytes,
+            local_attachment: item.attachment,
+          });
+        }
+      });
+      if (typeof document !== 'undefined') {
+        renderTodoAttachments(getTodos().find(item => String(item.id) === String(todoId))?.attachments || [], getTodos().find(item => String(item.id) === String(todoId)) || null);
+      }
+      renderStats();
+      renderTodos();
+      if (isOnlineForSync()) await syncWithServer();
+      return true;
+    } catch (error) {
+      await Promise.all(pending.map(item => attachmentCache.remove(item.tempId)));
+      console.error('Failed to queue todo attachment', error);
+      showToast(error?.name === 'AttachmentStorageError' ? t('todo.attachments.localStorageFull') : t('todo.attachments.uploadFailed'));
+      return false;
+    }
   }
 
   function getSelectedAttachmentFiles() {
@@ -241,7 +388,19 @@ export function createTodoAttachmentsFeature({
       name.addEventListener('click', () => previewTodoAttachment(todoId, attachment));
       const meta = document.createElement('div');
       meta.className = 'todo-attachment-meta';
-      meta.textContent = `${formatAttachmentSize(attachment.size_bytes)} · ${attachment.uploader_display_name || attachment.uploader_username || t('todo.attachments.unknownUploader')}`;
+      const details = document.createElement('span');
+      details.textContent = `${formatAttachmentSize(attachment.size_bytes)} · ${attachment.uploader_display_name || attachment.uploader_username || t('todo.attachments.unknownUploader')}`;
+      const availability = document.createElement('span');
+      availability.className = 'todo-attachment-availability';
+      availability.textContent = attachment.is_pending ? t('todo.attachments.statusPending') : t('todo.attachments.statusOnlineOnly');
+      meta.append(details, availability);
+      if (!attachment.is_pending) {
+        void attachmentCache.get(attachment.id, { touch: false }).then((cached) => {
+          if (!cached) return;
+          availability.textContent = t('todo.attachments.statusCached');
+          availability.classList.add('is-cached');
+        });
+      }
       body.append(name, meta);
 
       const actions = document.createElement('div');
@@ -254,6 +413,16 @@ export function createTodoAttachmentsFeature({
       download.setAttribute('title', t('todo.attachments.download'));
       download.addEventListener('click', () => downloadTodoAttachment(todoId, attachment.id, attachment.original_filename));
       actions.appendChild(download);
+      if (!attachment.is_pending) {
+        const offline = document.createElement('button');
+        offline.type = 'button';
+        offline.className = 'btn btn-secondary btn-small btn-icon';
+        offline.innerHTML = iconSvg('download');
+        offline.setAttribute('aria-label', t('todo.attachments.makeAvailableOffline'));
+        offline.setAttribute('title', t('todo.attachments.makeAvailableOffline'));
+        offline.addEventListener('click', () => makeAttachmentAvailableOffline(todoId, attachment));
+        actions.appendChild(offline);
+      }
       const currentUserId = getCurrentUser?.()?.id;
       const project = (getProjects?.() || []).find((item) => String(item.id) === String(todo?.project_id));
       const canDelete = String(attachment.user_id) === String(currentUserId)
@@ -291,7 +460,7 @@ export function createTodoAttachmentsFeature({
     const id = document.getElementById('todo-id')?.value;
     const input = document.getElementById('todo-attachment-file');
     const files = getSelectedAttachmentFiles();
-    if (!id || id.startsWith('temp-')) {
+    if (!id) {
       showToast(t('todo.attachments.saveFirst'));
       return false;
     }
@@ -299,63 +468,20 @@ export function createTodoAttachmentsFeature({
       input?.focus();
       return true;
     }
-    if (!isOnlineForSync()) {
-      showToast(t('todo.attachments.onlineOnly'));
-      return false;
-    }
-    const currentUser = getCurrentUser?.();
-    if (currentUser?.attachments_enabled === false) {
-      showToast(t('todo.attachments.disabled'));
-      return false;
-    }
-    const maxUploadBytes = Number(currentUser?.attachment_max_upload_bytes || 0);
-    const oversized = files.find(file => maxUploadBytes > 0 && file.size > maxUploadBytes);
-    if (oversized) {
-      showToast(t('todo.attachments.fileTooLarge', { max: formatAttachmentSize(maxUploadBytes) }));
-      return false;
-    }
-    const remainingBytes = Number(currentUser?.attachment_remaining_bytes ?? currentUser?.attachment_quota_bytes ?? 0);
-    const totalBytes = files.reduce((sum, file) => sum + (Number(file.size) || 0), 0);
-    if (totalBytes > Math.max(remainingBytes, 0)) {
-      showToast(t('todo.attachments.quotaExceeded'));
-      return false;
-    }
-    if (files.some(file => !attachmentAllowedByClient(file, currentUser))) {
-      showToast(t('todo.attachments.typeNotAllowed'));
-      return false;
-    }
     const uploadButton = document.getElementById('todo-attachment-upload-btn');
-    const previousDisabled = uploadButton?.disabled;
     if (uploadButton) uploadButton.disabled = true;
     try {
-      let latestResponse = null;
-      let latestUser = currentUser;
-      for (const file of files) {
-        latestResponse = await todosApi.uploadAttachment(id, file);
-        if (latestResponse?.usage && latestUser && typeof setCurrentUser === 'function') {
-          latestUser = {
-            ...latestUser,
-            attachments_enabled: Boolean(latestResponse.usage.enabled),
-            attachment_usage_bytes: latestResponse.usage.used_bytes,
-            attachment_quota_bytes: latestResponse.usage.quota_bytes,
-            attachment_remaining_bytes: latestResponse.usage.remaining_bytes,
-            attachments_allowed_types: latestResponse.usage.allowed_types || latestUser.attachments_allowed_types,
-            attachment_max_upload_bytes: latestResponse.usage.max_upload_bytes || latestUser.attachment_max_upload_bytes,
-          };
-          setCurrentUser(latestUser);
-        }
-      }
-      if (latestResponse) await applyAttachmentTodoResponse(latestResponse);
+      const queued = await queueAttachmentFiles(id, files);
+      if (!queued) return false;
       setSelectedAttachmentFileName([]);
       if (input) input.value = '';
-      showToast(files.length === 1 ? t('todo.attachments.uploaded') : t('todo.attachments.uploadedMany', { count: files.length }));
+      const stillPending = (await dbGetAll('syncQueue')).some(item => item.action === 'CREATE_ATTACHMENT' && String(item.data?.todo_id) === String(id));
+      showToast(stillPending
+        ? t('todo.attachments.uploadPending')
+        : (files.length === 1 ? t('todo.attachments.uploaded') : t('todo.attachments.uploadedMany', { count: files.length })));
       return true;
-    } catch (error) {
-      console.error('Failed to upload todo attachment', error);
-      showToast(error?.message || t('todo.attachments.uploadFailed'));
-      return false;
     } finally {
-      if (uploadButton) uploadButton.disabled = previousDisabled ?? false;
+      if (uploadButton) uploadButton.disabled = false;
       refreshTodoActionButtonState();
     }
   }
@@ -372,17 +498,14 @@ export function createTodoAttachmentsFeature({
   }
 
   async function previewTodoAttachment(todoId, attachment) {
-    if (!todoId || !attachment?.id || !isOnlineForSync()) {
-      showToast(t('todo.attachments.onlineOnly'));
-      return;
-    }
+    if (!todoId || !attachment?.id) return;
     if (!attachmentCanPreview(attachment)) {
       showToast(t('todo.attachments.noPreview'));
       return downloadTodoAttachment(todoId, attachment.id, attachment.original_filename);
     }
     try {
       closeAttachmentPreview();
-      const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
+      const blob = await loadAttachmentBlob(todoId, attachment);
       attachmentPreviewObjectUrl = URL.createObjectURL(blob);
       attachmentPreviewDownload = { todoId, attachmentId: attachment.id, filename: attachment.original_filename || 'attachment' };
       const title = document.getElementById('attachment-preview-title');
@@ -413,12 +536,13 @@ export function createTodoAttachmentsFeature({
   }
 
   async function downloadTodoAttachment(todoId, attachmentId, filename) {
-    if (!todoId || !attachmentId || !isOnlineForSync()) {
-      showToast(t('todo.attachments.onlineOnly'));
-      return;
-    }
+    if (!todoId || !attachmentId) return;
     try {
-      if (nativeBridge?.isNative?.() && nativeBridge?.downloadToDownloads) {
+      const attachment = getTodos()
+        .find(todo => String(todo.id) === String(todoId))
+        ?.attachments?.find(item => String(item.id) === String(attachmentId)) || { id: attachmentId, original_filename: filename };
+      const blob = await loadAttachmentBlob(todoId, attachment);
+      if (nativeBridge?.isNative?.() && nativeBridge?.downloadToDownloads && isOnlineForSync()) {
         const result = await todosApi.downloadAttachmentNative(todoId, attachmentId, filename || 'attachment', nativeBridge);
         if (result) {
           showToast(result?.path
@@ -427,7 +551,14 @@ export function createTodoAttachmentsFeature({
           return;
         }
       }
-      await todosApi.downloadAttachment(todoId, attachmentId, filename || 'attachment');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || attachment.original_filename || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error('Failed to download todo attachment', error);
       showToast(t('todo.attachments.downloadFailed'));
@@ -435,19 +566,40 @@ export function createTodoAttachmentsFeature({
   }
 
   async function deleteTodoAttachment(todoId, attachmentId) {
-    if (!todoId || !attachmentId || !isOnlineForSync()) {
-      showToast(t('todo.attachments.onlineOnly'));
-      return;
-    }
+    if (!todoId || !attachmentId) return;
     const confirmed = await confirmDanger({
       title: t('todo.attachments.deleteTitle'),
       message: t('todo.attachments.deleteMessage'),
       confirmText: t('todo.attachments.deleteConfirm'),
     });
     if (!confirmed) return;
+    const todo = getTodos().find(item => String(item.id) === String(todoId));
+    if (!todo) return;
     try {
-      const response = await todosApi.deleteAttachment(todoId, attachmentId);
-      await applyAttachmentTodoResponse(response);
+      const queue = await dbGetAll('syncQueue');
+      const pendingCreate = queue.find(item => item.action === 'CREATE_ATTACHMENT'
+        && String(item.data?.todo_id) === String(todoId)
+        && String(item.data?.temp_id) === String(attachmentId));
+      const uploadAlreadyStarted = Boolean(pendingCreate?.data?.upload_started);
+      await runSyncQueueMutation(async enqueue => {
+        const updated = {
+          ...todo,
+          attachments: (todo.attachments || []).filter(item => String(item.id) !== String(attachmentId)),
+          attachments_count: Math.max(0, Number(todo.attachments_count ?? todo.attachments?.length ?? 0) - 1),
+          updated_at: new Date().toISOString(),
+        };
+        await dbPut('todos', updated);
+        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? updated : item));
+        if (pendingCreate && !uploadAlreadyStarted) await deleteFromDB('syncQueue', pendingCreate.id);
+        else await enqueue('DELETE_ATTACHMENT', { todo_id: todoId, attachment_id: attachmentId });
+      });
+      if (!uploadAlreadyStarted) await attachmentCache.remove(attachmentId);
+      if (typeof document !== 'undefined') {
+        renderTodoAttachments(getTodos().find(item => String(item.id) === String(todoId))?.attachments || [], getTodos().find(item => String(item.id) === String(todoId)) || null);
+      }
+      renderStats();
+      renderTodos();
+      if (isOnlineForSync() && (!pendingCreate || uploadAlreadyStarted)) await syncWithServer();
     } catch (error) {
       console.error('Failed to delete todo attachment', error);
       showToast(t('todo.attachments.deleteFailed'));
@@ -490,6 +642,9 @@ export function createTodoAttachmentsFeature({
 
   return {
     getSelectedAttachmentFiles,
+    queueAttachmentFiles,
+    loadAttachmentBlob,
+    makeAttachmentAvailableOffline,
     renderTodoAttachments,
     uploadTodoAttachmentFromInput,
     closeAttachmentPreview,

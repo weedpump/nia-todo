@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.4.0';
-const CACHE_REVISION = 'workspace-modal-close-92';
+const CACHE_REVISION = 'offline-attachments-93';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -85,6 +85,7 @@ const PRECACHE_ASSETS = [
   '/static/js/core/device-labels.js',
   '/static/js/storage/app-storage.js',
   '/static/js/storage/indexed-db.js',
+  '/static/js/storage/attachment-cache.js',
   '/static/js/sync/queue.js',
   '/static/js/icons/lucide-icons.js',
   '/static/js/icons/lucide-generated.js',

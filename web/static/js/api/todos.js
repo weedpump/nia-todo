@@ -19,15 +19,18 @@ export const todosApi = {
   updateComment: (todoId, commentId, data) => http.patch(`/api/todos/${todoId}/comments/${commentId}`, data),
   deleteComment: (todoId, commentId) => http.del(`/api/todos/${todoId}/comments/${commentId}`),
   listAttachments: (todoId) => http.get(`/api/todos/${todoId}/attachments`),
-  async uploadAttachment(todoId, file) {
+  async uploadAttachment(todoId, file, options = {}) {
     const headers = getAuthHeaders();
     delete headers['Content-Type'];
+    const filename = options.filename || file.name || 'attachment';
+    const contentType = options.contentType || file.type || 'application/octet-stream';
     const response = await fetch(API + `/api/todos/${todoId}/attachments`, {
       method: 'POST',
       headers: {
         ...headers,
-        'Content-Type': file.type || 'application/octet-stream',
-        'X-Nia-Filename': encodeURIComponent(file.name || 'attachment'),
+        'Content-Type': contentType,
+        'X-Nia-Filename': encodeURIComponent(filename),
+        ...(options.clientMutationId ? { 'X-Client-Mutation-Id': options.clientMutationId } : {}),
       },
       body: file,
       credentials: 'include',

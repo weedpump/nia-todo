@@ -464,12 +464,24 @@ def repair_todo_child_idempotency_migration(conn):
     conn.commit()
 
 
+def repair_todo_attachment_idempotency_migration(conn):
+    """Make migration 056 idempotent for a partially-added mutation key."""
+    add_column_if_missing(conn, "todo_attachments", "client_mutation_id", "TEXT")
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_attachments_client_mutation
+        ON todo_attachments(todo_id, user_id, client_mutation_id)
+        WHERE client_mutation_id IS NOT NULL
+    """)
+    conn.commit()
+
+
 POST_APPLY_REPAIRS = {
     48: repair_todo_subtasks_migration,
     49: repair_todo_comments_migration,
     50: repair_todo_attachments_migration,
     54: repair_dashboard_preferences_sync_migration,
     55: repair_todo_child_idempotency_migration,
+    56: repair_todo_attachment_idempotency_migration,
 }
 
 def get_migration_files():

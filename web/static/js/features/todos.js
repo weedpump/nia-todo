@@ -52,6 +52,7 @@ export function createTodosFeature({
 
   const {
     getSelectedAttachmentFiles,
+    queueAttachmentFiles,
     renderTodoAttachments,
     uploadTodoAttachmentFromInput,
     closeAttachmentPreview,
@@ -67,7 +68,11 @@ export function createTodosFeature({
     getAppInitialized,
     getDb,
     dbPut,
+    dbGetAll,
+    deleteFromDB,
+    runSyncQueueMutation,
     isOnlineForSync,
+    syncWithServer,
     todosApi,
     renderStats,
     renderTodos,
@@ -2741,10 +2746,6 @@ export function createTodosFeature({
     const draftComments = id ? [] : collectTodoDraftCommentsFromEditor();
     const draftAttachmentFiles = id ? [] : getSelectedAttachmentFiles();
     const hasPostCreateDrafts = draftComments.length > 0 || draftAttachmentFiles.length > 0;
-    if (draftAttachmentFiles.length > 0 && !isOnlineForSync()) {
-      showToast(t('todo.drafts.onlineOnly'));
-      return;
-    }
     if (id) delete todoData.subtasks;
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
@@ -2795,6 +2796,8 @@ export function createTodosFeature({
         subtasks: normalizeSubtasks(todoData.subtasks),
         comments: pendingComments,
         comments_count: pendingComments.length,
+        attachments: [],
+        attachments_count: 0,
       };
       await commitQueuedMutation(async enqueue => {
         await dbPut('todos', newTodo);
@@ -2809,6 +2812,10 @@ export function createTodosFeature({
           });
         }
       });
+      if (draftAttachmentFiles.length > 0) {
+        const queuedAttachments = await queueAttachmentFiles(tempId, draftAttachmentFiles);
+        if (!queuedAttachments) return;
+      }
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       renderProjects();
       renderStats();

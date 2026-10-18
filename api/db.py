@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS todo_attachments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     todo_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
+    client_mutation_id TEXT,
     original_filename TEXT NOT NULL,
     stored_filename TEXT NOT NULL,
     content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
@@ -146,6 +147,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_subtasks_client_mutation ON todo_subt
 CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_comments_client_mutation ON todo_comments(todo_id, user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_todo_attachments_todo ON todo_attachments(todo_id, created_at, id);
 CREATE INDEX IF NOT EXISTS idx_todo_attachments_user ON todo_attachments(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_attachments_client_mutation ON todo_attachments(todo_id, user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_places_user_name ON saved_places(user_id, lower(name));
 CREATE INDEX IF NOT EXISTS idx_saved_places_user ON saved_places(user_id);
 CREATE INDEX IF NOT EXISTS idx_location_reminders_todo ON location_reminders(todo_id);

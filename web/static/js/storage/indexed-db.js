@@ -70,6 +70,9 @@ export function openDatabase() {
       if (!db.objectStoreNames.contains('avatars')) {
         db.createObjectStore('avatars', { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains('attachmentBlobs')) {
+        db.createObjectStore('attachmentBlobs', { keyPath: 'id' });
+      }
     };
 
     request.onsuccess = async (event) => {
@@ -105,6 +108,17 @@ export function put(storeName, item) {
     tx.objectStore(storeName).put(item);
     tx.oncomplete = () => resolve();
     tx.onerror = () => resolve();
+  });
+}
+
+export function putStrict(storeName, item) {
+  return new Promise((resolve, reject) => {
+    if (!db) { reject(new Error('IndexedDB is not open')); return; }
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(item);
+    tx.oncomplete = () => resolve(item);
+    tx.onerror = () => reject(tx.error || new Error(`Failed to write ${storeName}`));
+    tx.onabort = () => reject(tx.error || new Error(`Failed to write ${storeName}`));
   });
 }
 

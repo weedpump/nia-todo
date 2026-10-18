@@ -4,9 +4,9 @@ import { listen } from '../../vendor/tauri-api/event.js';
 import { getVersion } from '../../vendor/tauri-api/app.js';
 
 export let API = '';
-export let WS_URL = websocketUrlFromBase(location.origin);
+export let WS_URL = websocketUrlFromBase(typeof location !== 'undefined' ? location.origin : 'http://localhost');
 export const DB_NAME = 'nia-todo-db';
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 export const APP_VERSION = 'v3.4.0';
 
 const TAURI_API = Object.freeze({
@@ -24,21 +24,23 @@ export function getTauriInvoke() {
 }
 
 export function hasNativeLaunchParam() {
-  return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
+  return new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('nativeApp') === 'tauri';
 }
 
 function isIpadOSBrowser() {
-  const ua = navigator.userAgent || '';
-  return /iPad/i.test(ua) || (navigator.platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1);
+  const runtimeNavigator = globalThis.navigator || {};
+  const ua = runtimeNavigator.userAgent || '';
+  return /iPad/i.test(ua) || (runtimeNavigator.platform === 'MacIntel' && Number(runtimeNavigator.maxTouchPoints || 0) > 1);
 }
 
 export function getRuntimePlatform() {
-  if (/Android/i.test(navigator.userAgent || '')) return 'android';
-  if (/iPhone|iPod/i.test(navigator.userAgent || '')) return 'ios';
+  const userAgent = globalThis.navigator?.userAgent || '';
+  if (/Android/i.test(userAgent)) return 'android';
+  if (/iPhone|iPod/i.test(userAgent)) return 'ios';
   if (isIpadOSBrowser()) return 'ipados';
-  if (/Windows/i.test(navigator.userAgent || '')) return 'windows';
-  if (/Macintosh|Mac OS X/i.test(navigator.userAgent || '')) return 'macos';
-  if (/Linux/i.test(navigator.userAgent || '')) return 'linux';
+  if (/Windows/i.test(userAgent)) return 'windows';
+  if (/Macintosh|Mac OS X/i.test(userAgent)) return 'macos';
+  if (/Linux/i.test(userAgent)) return 'linux';
   return 'unknown';
 }
 

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Added
 - Added a desktop sidebar control that cycles between the full sidebar, an icon-only rail, and a fully hidden layout, with the same Sidebar icon used for mobile navigation.
 - Added full offline support for creating, editing, and deleting Todo comments and subtasks, with automatic synchronization when the connection returns.
+- Added offline Todo attachments with queued uploads and deletes, cached previews/downloads, explicit offline availability, and bounded local storage.
 
 ### Fixed
 - Prevented newly created Todos from appearing twice briefly while realtime updates and local synchronization overlap.

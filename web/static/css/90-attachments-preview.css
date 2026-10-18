@@ -95,6 +95,20 @@
   font-size: 0.82rem;
 }
 
+.todo-attachment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.55rem;
+}
+
+.todo-attachment-availability {
+  color: var(--text-muted);
+}
+
+.todo-attachment-availability.is-cached {
+  color: var(--success, #22c55e);
+}
+
 .todo-attachment-actions,
 .todo-attachments-add-row {
   display: flex;

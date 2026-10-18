@@ -1,4 +1,5 @@
 import { queueItemReferencesTodo } from './todo-pending.js';
+import { attachmentCache as defaultAttachmentCache } from '../storage/attachment-cache.js';
 
 export function createToastUndoFeature({
   getDb,
@@ -13,6 +14,7 @@ export function createToastUndoFeature({
   syncWithServer,
   renderStats,
   renderTodos,
+  attachmentCache = defaultAttachmentCache,
   toggleTodo,
   onUndoLeaveProject,
   onUndoRemoveMember,
@@ -151,6 +153,7 @@ export function createToastUndoFeature({
       await deleteFromDB('todos', id);
       setTodos(getTodos().filter(todo => String(todo.id) !== String(id)));
       const canceledPendingCreate = await cancelPendingTodoCreate(id);
+      if (canceledPendingCreate) await attachmentCache.removeForTodo(id);
       if (isOnlineForSync() && !canceledPendingCreate) await enqueue('DELETE_TODO', { id });
     });
     renderStats();

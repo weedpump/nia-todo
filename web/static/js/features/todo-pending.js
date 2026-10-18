@@ -2,7 +2,7 @@ function queueTodoId(item) {
   if (!item?.data || typeof item.data !== 'object') return null;
   if (['CREATE_TODO'].includes(item.action)) return item.data._tempId ?? null;
   if (['UPDATE_TODO', 'DELETE_TODO'].includes(item.action)) return item.data.id ?? null;
-  if (['CREATE_COMMENT', 'UPDATE_COMMENT', 'DELETE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK', 'DELETE_SUBTASK'].includes(item.action)) {
+  if (['CREATE_COMMENT', 'UPDATE_COMMENT', 'DELETE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK', 'DELETE_SUBTASK', 'CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(item.action)) {
     return item.data.todo_id ?? null;
   }
   return null;
@@ -51,6 +51,7 @@ export function projectPendingTodoChanges(todo, pendingItems) {
     ...todo,
     comments: Array.isArray(todo.comments) ? [...todo.comments] : [],
     subtasks: Array.isArray(todo.subtasks) ? [...todo.subtasks] : [],
+    attachments: Array.isArray(todo.attachments) ? [...todo.attachments] : [],
   };
 
   for (const item of pendingItems) {
@@ -86,10 +87,22 @@ export function projectPendingTodoChanges(todo, pendingItems) {
       ));
     } else if (item.action === 'DELETE_SUBTASK') {
       projected.subtasks = projected.subtasks.filter(subtask => String(subtask.id) !== String(item.data?.subtask_id));
+    } else if (item.action === 'CREATE_ATTACHMENT') {
+      const attachment = item.data?.local_attachment;
+      const mutationId = item.data?.client_mutation_id || item.data?.temp_id;
+      if (mutationId) {
+        projected.attachments = projected.attachments.filter(existing => String(existing.client_mutation_id || '') !== String(mutationId));
+      }
+      if (attachment && !projected.attachments.some(existing => String(existing.id) === String(attachment.id))) {
+        projected.attachments.push(attachment);
+      }
+    } else if (item.action === 'DELETE_ATTACHMENT') {
+      projected.attachments = projected.attachments.filter(attachment => String(attachment.id) !== String(item.data?.attachment_id));
     }
   }
 
   projected.comments_count = projected.comments.length;
+  projected.attachments_count = projected.attachments.length;
   projected.subtasks.sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || String(a.id).localeCompare(String(b.id)));
   return projected;
 }

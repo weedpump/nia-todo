@@ -140,7 +140,7 @@ def _attachments_for_todo(db, todo_id: int) -> list[dict]:
     if not _attachment_table_exists(db):
         return []
     rows = db.execute(
-        """SELECT ta.id, ta.todo_id, ta.user_id, ta.original_filename, ta.content_type, ta.size_bytes,
+        """SELECT ta.id, ta.todo_id, ta.user_id, ta.client_mutation_id, ta.original_filename, ta.content_type, ta.size_bytes,
                   ta.created_at, u.username AS uploader_username, u.display_name AS uploader_display_name
            FROM todo_attachments ta
            LEFT JOIN users u ON u.id = ta.user_id
@@ -174,7 +174,7 @@ def _attachment_event_payload(db, todo_id: int, *, attachment: dict | None = Non
 
 def _attachment_row(db, attachment_id: int) -> dict | None:
     row = db.execute(
-        """SELECT ta.id, ta.todo_id, ta.user_id, ta.original_filename, ta.stored_filename,
+        """SELECT ta.id, ta.todo_id, ta.user_id, ta.client_mutation_id, ta.original_filename, ta.stored_filename,
                   ta.content_type, ta.size_bytes, ta.created_at,
                   u.username AS uploader_username, u.display_name AS uploader_display_name
            FROM todo_attachments ta
@@ -185,9 +185,24 @@ def _attachment_row(db, attachment_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def _attachment_row_by_client_mutation(db, todo_id: int, user_id: int, client_mutation_id: str | None) -> dict | None:
+    if not client_mutation_id:
+        return None
+    row = db.execute(
+        """SELECT ta.id, ta.todo_id, ta.user_id, ta.client_mutation_id, ta.original_filename, ta.stored_filename,
+                  ta.content_type, ta.size_bytes, ta.created_at,
+                  u.username AS uploader_username, u.display_name AS uploader_display_name
+           FROM todo_attachments ta
+           LEFT JOIN users u ON u.id = ta.user_id
+           WHERE ta.todo_id = ? AND ta.user_id = ? AND ta.client_mutation_id = ?""",
+        (todo_id, user_id, client_mutation_id),
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def _public_attachment(row: dict) -> dict:
     return {k: row.get(k) for k in (
-        'id', 'todo_id', 'user_id', 'original_filename', 'content_type', 'size_bytes',
+        'id', 'todo_id', 'user_id', 'client_mutation_id', 'original_filename', 'content_type', 'size_bytes',
         'created_at', 'uploader_username', 'uploader_display_name'
     )}
 
@@ -811,7 +826,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
                 comments_by_todo.setdefault(comment_dict.get('todo_id'), []).append(comment_dict)
             if _attachment_table_exists(db):
                 attachment_rows = db.execute(
-                    f"""SELECT ta.id, ta.todo_id, ta.user_id, ta.original_filename, ta.content_type, ta.size_bytes,
+                    f"""SELECT ta.id, ta.todo_id, ta.user_id, ta.client_mutation_id, ta.original_filename, ta.content_type, ta.size_bytes,
                               ta.created_at, u.username AS uploader_username, u.display_name AS uploader_display_name
                        FROM todo_attachments ta
                        LEFT JOIN users u ON u.id = ta.user_id
@@ -1251,6 +1266,7 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
     original_filename = _safe_attachment_filename(
         request.headers.get("x-nia-filename") or request.headers.get("x-file-name") or request.headers.get("x-filename")
     )
+    client_mutation_id = sanitize_text(request.headers.get("x-client-mutation-id") or "")[:200] or None
     suffix = Path(original_filename).suffix[:20]
     stored_filename = f"{secrets.token_hex(16)}{suffix}"
     target_path = _stored_attachment_path(todo_id, stored_filename)
@@ -1258,6 +1274,9 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
     try:
         with get_db() as db:
             todo = _require_attachment_writable_todo(db, todo_id, user_id)
+            existing = _attachment_row_by_client_mutation(db, todo_id, user_id, client_mutation_id)
+            if existing:
+                return {"attachment": _public_attachment(existing), "todo": fetch_todo(db, todo_id, user_id), "usage": attachment_usage_payload(db, user_id)}
         target_path.parent.mkdir(parents=True, exist_ok=True)
         size_bytes, sample = await _stream_attachment_to_temp(request, tmp_path)
         if size_bytes <= 0:
@@ -1267,6 +1286,10 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
             todo = _require_attachment_writable_todo(db, todo_id, user_id)
             db.commit()
             db.execute("BEGIN IMMEDIATE")
+            existing = _attachment_row_by_client_mutation(db, todo_id, user_id, client_mutation_id)
+            if existing:
+                db.commit()
+                return {"attachment": _public_attachment(existing), "todo": fetch_todo(db, todo_id, user_id), "usage": attachment_usage_payload(db, user_id)}
             policy = enforce_attachment_upload_policy(
                 db,
                 user_id=user_id,
@@ -1283,12 +1306,19 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
             try:
                 cursor = db.execute(
                     """INSERT INTO todo_attachments
-                       (todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (todo_id, user_id, original_filename, stored_filename, policy["content_type"], size_bytes, now),
+                       (todo_id, user_id, client_mutation_id, original_filename, stored_filename, content_type, size_bytes, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (todo_id, user_id, client_mutation_id, original_filename, stored_filename, policy["content_type"], size_bytes, now),
                 )
                 db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
                 db.commit()
+            except sqlite3.IntegrityError:
+                db.rollback()
+                target_path.unlink(missing_ok=True)
+                existing = _attachment_row_by_client_mutation(db, todo_id, user_id, client_mutation_id)
+                if existing:
+                    return {"attachment": _public_attachment(existing), "todo": fetch_todo(db, todo_id, user_id), "usage": attachment_usage_payload(db, user_id)}
+                raise
             except Exception:
                 try:
                     target_path.unlink(missing_ok=True)

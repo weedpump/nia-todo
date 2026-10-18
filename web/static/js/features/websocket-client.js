@@ -1,4 +1,5 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
+import { attachmentCache as defaultAttachmentCache } from '../storage/attachment-cache.js';
 
 export function createWebSocketClient({
   wsUrl,
@@ -23,6 +24,7 @@ export function createWebSocketClient({
   renderProjects,
   renderStats,
   renderTodos,
+  attachmentCache = defaultAttachmentCache,
   onAuthOk = () => {},
   onReminderDue = () => {},
   onSessionInvalidated = () => {},
@@ -289,30 +291,33 @@ async function handleWsMessage(msg) {
   }
 
   async function applyTodoAttachmentPayload(payload, mode) {
-    const todoId = payload?.todo_id;
-    if (!todoId) return false;
-    const local = await getFromDB('todos', todoId);
-    if (!local) return false;
-    const attachments = Array.isArray(local.attachments) ? [...local.attachments] : [];
-    let nextAttachments = attachments;
-    if (mode === 'delete') {
-      nextAttachments = attachments.filter(attachment => String(attachment.id) !== String(payload.attachment_id));
-    } else if (payload.attachment?.id) {
-      const existing = attachments.find(attachment => String(attachment.id) === String(payload.attachment.id));
-      nextAttachments = existing
-        ? attachments.map(attachment => String(attachment.id) === String(payload.attachment.id) ? payload.attachment : attachment)
-        : [...attachments, payload.attachment];
-      nextAttachments.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime() || Number(a.id || 0) - Number(b.id || 0));
+    const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+    try {
+      const todoId = payload?.todo_id;
+      if (!todoId) return false;
+      const local = await getFromDB('todos', todoId);
+      if (!local) return false;
+      const attachments = Array.isArray(local.attachments) ? [...local.attachments] : [];
+      let nextAttachments = attachments;
+      if (mode === 'delete') {
+        nextAttachments = attachments.filter(attachment => String(attachment.id) !== String(payload.attachment_id));
+      } else if (payload.attachment?.id) {
+        const existing = attachments.find(attachment => String(attachment.id) === String(payload.attachment.id));
+        nextAttachments = existing
+          ? attachments.map(attachment => String(attachment.id) === String(payload.attachment.id) ? payload.attachment : attachment)
+          : [...attachments, payload.attachment];
+        nextAttachments.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime() || Number(a.id || 0) - Number(b.id || 0));
+      }
+      const updatedTodo = {
+        ...local,
+        attachments: nextAttachments,
+        attachments_count: Number.isFinite(Number(payload.attachments_count)) ? Number(payload.attachments_count) : nextAttachments.length,
+        updated_at: payload.updated_at || local.updated_at,
+      };
+      return await persistTodoPayloadWithPending(updatedTodo);
+    } finally {
+      releaseCommitLock();
     }
-    const updatedTodo = {
-      ...local,
-      attachments: nextAttachments,
-      attachments_count: Number.isFinite(Number(payload.attachments_count)) ? Number(payload.attachments_count) : nextAttachments.length,
-      updated_at: payload.updated_at || local.updated_at,
-    };
-    await dbPut('todos', updatedTodo);
-    todos = todos.map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo);
-    return true;
   }
 
   async function applyTodoSubtaskPayload(payload, mode) {
@@ -550,6 +555,7 @@ async function handleWsMessage(msg) {
           const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
           await Promise.all(childOperations.map(item => deleteFromDB('syncQueue', item.id)));
           await deleteFromDB('todos', msg.payload.id);
+          await attachmentCache.removeForTodo(msg.payload.id);
           todos = todos.filter(t => t.id !== msg.payload.id);
         } finally {
           releaseCommitLock();

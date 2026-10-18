@@ -170,6 +170,10 @@ const feature = createTodoAttachmentsFeature({
       return new Blob(['image'], { type: 'image/png' });
     },
   },
+  attachmentCache: {
+    get: async () => null,
+    put: async () => {},
+  },
   renderStats: () => {},
   renderTodos: () => {},
   closeModal: () => {},
