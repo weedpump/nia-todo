@@ -24,6 +24,7 @@ export function createWorkspacesFeature({
   let workspaceFormBound = false;
   let workspaceControlsBound = false;
   let workspaceSaveSnapshot = null;
+  const pendingWorkspaceCloseCallbacks = [];
 
   function getWorkspaceSaveRelevantState() {
     return {
@@ -288,10 +289,13 @@ export function createWorkspacesFeature({
     }
   }
 
-  function closeWorkspaceModal({ fromHistory = false } = {}) {
+  function closeWorkspaceModal({ fromHistory = false, afterClose = null } = {}) {
+    if (afterClose) pendingWorkspaceCloseCallbacks.push(afterClose);
     if (document.getElementById('workspace-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('workspace-modal', { reason: 'ui' })) return;
     document.getElementById('workspace-modal')?.classList.remove('active');
     editingWorkspaceId = null;
+    const callbacks = pendingWorkspaceCloseCallbacks.splice(0);
+    callbacks.forEach(callback => callback());
   }
 
   registerUiLayer('workspace-modal', () => closeWorkspaceModal({ fromHistory: true }));
@@ -320,14 +324,22 @@ export function createWorkspacesFeature({
         await dbPut('workspaces', updated);
         setWorkspaces(getWorkspaces().map(w => String(w.id) === String(updated.id) ? updated : w));
         showToast?.(t('workspace.saved')); 
+        closeWorkspaceModal();
       } else {
         const workspace = await workspacesApi.create({ name, color, icon, sort_order: getWorkspaces().length });
         await dbPut('workspaces', workspace);
         setWorkspaces([...getWorkspaces(), workspace]);
-        await switchWorkspace(workspace.id);
+        await new Promise((resolve, reject) => {
+          closeWorkspaceModal({
+            afterClose: () => {
+              setTimeout(() => {
+                switchWorkspace(workspace.id).then(resolve, reject);
+              }, 0);
+            },
+          });
+        });
         showToast?.(t('workspace.created')); 
       }
-      closeWorkspaceModal();
       renderWorkspaces();
       renderProjects();
       renderStats();

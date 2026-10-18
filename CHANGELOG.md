@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - Prevented newly created Todos from appearing twice briefly while realtime updates and local synchronization overlap.
+- Closed the workspace dialog reliably after creating a workspace without restoring the previous workspace's filter.
 - Fixed closing the mobile sidebar while the user menu is open so browsers stay in nia-todo instead of returning to the previous website.
 - Kept all user-menu actions visible when the accent color choices are expanded on mobile.
 - Clarified the Debian server update status when no update is available.
