@@ -970,6 +970,57 @@ assert.equal(uiStores.todos[0].attachments.length, 1, 'failed strict cancellatio
 assert.notEqual(await uiCache.cache.get(tempAttachment.id), null, 'failed strict cancellation must retain pending bytes');
 assert.equal(failedDeleteToasts.at(-1), 'todo.attachments.deleteFailed');
 
+const startedDeleteStores = {
+  syncQueue: [{ id: 98, action: 'CREATE_ATTACHMENT', data: {
+    todo_id: 9, temp_id: 'temp-started-delete', blob_id: 'temp-started-delete', upload_started: true,
+    filename: 'started.txt', content_type: 'text/plain', client_mutation_id: 'temp-started-delete',
+    local_attachment: { id: 'temp-started-delete', todo_id: 9, is_pending: true },
+  } }],
+  todos: [{ id: 9, attachments: [{ id: 'temp-started-delete', todo_id: 9, is_pending: true }], attachments_count: 1 }],
+  attachmentBlobs: [{ id: 'temp-started-delete', todo_id: 9, attachment_id: 'temp-started-delete', blob: uploadBlob, pending_upload: true, pinned: true }],
+};
+const startedDeleteCache = memoryCache(startedDeleteStores.attachmentBlobs);
+const startedDeleteFeature = createTodoAttachmentsFeature({
+  getTodos: () => startedDeleteStores.todos, setTodos: next => { startedDeleteStores.todos = structuredClone(next); }, getProjects: () => [],
+  getCurrentUser: () => ({ id: 1 }), setCurrentUser: () => {}, getAppInitialized: () => true, getDb: () => ({}),
+  dbGetAll: async store => structuredClone(startedDeleteStores[store] || []), dbGetAllStrict: async store => structuredClone(startedDeleteStores[store] || []),
+  dbTransactionStrict: createMemoryTransactionWithCache(startedDeleteStores, startedDeleteCache),
+  runSyncQueueMutation: async operation => operation(async () => {}), isOnlineForSync: () => false, syncWithServer: async () => {}, todosApi: {}, attachmentCache: startedDeleteCache.cache,
+  renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => true,
+  showToast: () => {}, t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
+  setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
+});
+await startedDeleteFeature.deleteTodoAttachment(9, 'temp-started-delete');
+assert.equal(startedDeleteStores.syncQueue.some(item => item.action === 'CREATE_ATTACHMENT'), true, 'started upload delete must retain the idempotent create');
+assert.equal(startedDeleteStores.syncQueue.some(item => item.action === 'DELETE_ATTACHMENT'), true, 'started upload delete must queue a dependent delete');
+assert.equal(startedDeleteCache.records.has('temp-started-delete'), true, 'started upload delete must retain retryable bytes');
+
+let startedDeleteUploadCalls = 0;
+let startedDeleteServerCalls = 0;
+const startedDeleteReplay = syncHarness({
+  queue: startedDeleteStores.syncQueue,
+  todos: startedDeleteStores.todos,
+  blobs: [...startedDeleteCache.records.values()],
+  api: {
+    uploadAttachment: async () => {
+      startedDeleteUploadCalls += 1;
+      return { attachment: { id: 901, todo_id: 9 }, todo: { id: 9, attachments: [{ id: 901, todo_id: 9 }], attachments_count: 1 } };
+    },
+    deleteAttachment: async (_todoId, attachmentId) => {
+      startedDeleteServerCalls += 1;
+      assert.equal(attachmentId, 901, 'dependent delete must be rewritten to the idempotently recovered server attachment ID');
+      assert.equal(startedDeleteReplay.cacheState.records.has('901'), true, 'recovered upload bytes must survive until the dependent delete request');
+      return { todo: { id: 9, attachments: [], attachments_count: 0 }, usage: { used_bytes: 0 } };
+    },
+  },
+});
+await startedDeleteReplay.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(startedDeleteUploadCalls, 1);
+assert.equal(startedDeleteServerCalls, 1);
+assert.equal(startedDeleteReplay.stores.syncQueue.length, 0);
+assert.equal(startedDeleteReplay.cacheState.records.size, 0, 'successful dependent delete must remove the recovered bytes');
+assert.deepEqual(startedDeleteReplay.stores.todos[0].attachments, []);
+
 const combinedDeleteStores = {
   syncQueue: [{ id: 99, action: 'CREATE_ATTACHMENT', data: { todo_id: 9, temp_id: 'temp-combined-delete', blob_id: 'temp-combined-delete', local_attachment: { id: 'temp-combined-delete', is_pending: true } } }],
   todos: [{ id: 9, attachments: [{ id: 'temp-combined-delete', is_pending: true }], attachments_count: 1 }],

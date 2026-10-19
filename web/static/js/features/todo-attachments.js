@@ -655,8 +655,8 @@ export function createTodoAttachmentsFeature({
         };
         updated.attachments_count = updated.attachments.length;
         await transaction.put('todos', updated);
-        await transaction.delete('attachmentBlobs', String(pendingCreate?.data?.blob_id || attachmentId));
         if (cancelCreate) {
+          await transaction.delete('attachmentBlobs', String(pendingCreate.data?.blob_id || attachmentId));
           await transaction.delete('syncQueue', pendingCreate.id);
         } else {
           await transaction.put('syncQueue', {
