@@ -185,6 +185,7 @@ const dbGetAllStrict = appStorage.dbGetAllStrict;
 const dbPut = appStorage.dbPut;
 const dbPutStrict = appStorage.dbPutStrict;
 const dbClear = appStorage.dbClear;
+const dbClearStrict = appStorage.dbClearStrict;
 const getFromDB = appStorage.getFromDB;
 const deleteFromDB = appStorage.deleteFromDB;
 const deleteFromDBStrict = appStorage.deleteFromDBStrict;
@@ -244,6 +245,7 @@ const syncFeature = createSyncFeature({
   dbPut,
   dbPutStrict,
   dbClear,
+  dbClearStrict,
   getFromDB,
   deleteFromDB,
   deleteFromDBStrict,
@@ -409,9 +411,12 @@ const wsClient = createWebSocketClient({
   refreshFromServer: () => refreshFromServer(),
   renderConnectionStatus: (state) => updateConnectionStatusView(state),
   dbGetAll,
+  dbGetAllStrict,
   dbPut,
+  dbPutStrict,
   getFromDB,
   deleteFromDB,
+  deleteFromDBStrict,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,

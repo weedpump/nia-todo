@@ -1818,6 +1818,7 @@
   "todo.attachments.onlineOnly": "Bilagor behöver för närvarande en onlineanslutning.",
   "todo.attachments.uploadPending": "Bilagan har sparats och väntar på uppladdning.",
   "todo.attachments.statusPending": "Uppladdning väntar",
+  "todo.attachments.statusPermanentFailure": "Uppladdningen misslyckades permanent",
   "todo.attachments.statusOnlineOnly": "Endast online",
   "todo.attachments.statusCached": "Tillgänglig offline",
   "todo.attachments.makeAvailableOffline": "Gör tillgänglig offline",

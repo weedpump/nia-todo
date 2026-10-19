@@ -1818,6 +1818,7 @@
   "todo.attachments.onlineOnly": "Gli allegati attualmente necessitano di una connessione online.",
   "todo.attachments.uploadPending": "Allegato salvato e in attesa di caricamento.",
   "todo.attachments.statusPending": "Caricamento in attesa",
+  "todo.attachments.statusPermanentFailure": "Caricamento non riuscito definitivamente",
   "todo.attachments.statusOnlineOnly": "Solo online",
   "todo.attachments.statusCached": "Disponibile offline",
   "todo.attachments.makeAvailableOffline": "Rendi disponibile offline",

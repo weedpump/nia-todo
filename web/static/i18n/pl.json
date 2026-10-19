@@ -1818,6 +1818,7 @@
   "todo.attachments.onlineOnly": "Załączniki wymagają obecnie połączenia online.",
   "todo.attachments.uploadPending": "Załącznik zapisany i oczekuje na wysłanie.",
   "todo.attachments.statusPending": "Oczekuje na wysłanie",
+  "todo.attachments.statusPermanentFailure": "Przesyłanie trwale nie powiodło się",
   "todo.attachments.statusOnlineOnly": "Tylko online",
   "todo.attachments.statusCached": "Dostępny offline",
   "todo.attachments.makeAvailableOffline": "Udostępnij offline",

@@ -1818,6 +1818,7 @@
   "todo.attachments.onlineOnly": "Los archivos adjuntos actualmente necesitan una conexión en línea.",
   "todo.attachments.uploadPending": "Adjunto guardado y pendiente de subida.",
   "todo.attachments.statusPending": "Subida pendiente",
+  "todo.attachments.statusPermanentFailure": "La subida falló permanentemente",
   "todo.attachments.statusOnlineOnly": "Solo en línea",
   "todo.attachments.statusCached": "Disponible sin conexión",
   "todo.attachments.makeAvailableOffline": "Hacer disponible sin conexión",

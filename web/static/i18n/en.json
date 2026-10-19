@@ -1818,6 +1818,7 @@
   "todo.attachments.onlineOnly": "Attachments currently need an online connection.",
   "todo.attachments.uploadPending": "Attachment saved and waiting to upload.",
   "todo.attachments.statusPending": "Upload pending",
+  "todo.attachments.statusPermanentFailure": "Upload failed permanently",
   "todo.attachments.statusOnlineOnly": "Online only",
   "todo.attachments.statusCached": "Available offline",
   "todo.attachments.makeAvailableOffline": "Make available offline",

@@ -1818,6 +1818,7 @@
   "todo.attachments.onlineOnly": "В настоящее время для вложений требуется подключение к Интернету.",
   "todo.attachments.uploadPending": "Вложение сохранено и ожидает загрузки.",
   "todo.attachments.statusPending": "Ожидает загрузки",
+  "todo.attachments.statusPermanentFailure": "Загрузка завершилась постоянной ошибкой",
   "todo.attachments.statusOnlineOnly": "Только онлайн",
   "todo.attachments.statusCached": "Доступно офлайн",
   "todo.attachments.makeAvailableOffline": "Сделать доступным офлайн",

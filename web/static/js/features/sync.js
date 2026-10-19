@@ -8,6 +8,7 @@ export function createSyncFeature({
   dbPut,
   dbPutStrict = dbPut,
   dbClear,
+  dbClearStrict = dbClear,
   getFromDB,
   deleteFromDB,
   deleteFromDBStrict = deleteFromDB,
@@ -110,19 +111,19 @@ export function createSyncFeature({
 
   async function persistTodoWithPending(todo, processedQueueId) {
     if (!todo?.id) return;
-    const queue = (await dbGetAll('syncQueue')).filter(item => String(item.id) !== String(processedQueueId));
+    const queue = (await dbGetAllStrict('syncQueue')).filter(item => String(item.id) !== String(processedQueueId));
     const projected = projectPendingTodoChanges(todo, queue);
     if (!projected) {
-      await deleteFromDB('todos', todo.id);
+      await deleteFromDBStrict('todos', todo.id);
       setTodos(getTodos().filter(item => String(item.id) !== String(todo.id)));
       return;
     }
-    await dbPut('todos', projected);
+    await dbPutStrict('todos', projected);
     upsertTodo(projected);
   }
 
-  async function rewriteQueuedReferences({ todoIdFrom, todoIdTo, commentIdFrom, commentIdTo, subtaskIdFrom, subtaskIdTo, attachmentIdFrom, attachmentIdTo }) {
-    const queue = await dbGetAll('syncQueue');
+  async function rewriteQueuedReferences({ todoIdFrom, todoIdTo, commentIdFrom, commentIdTo, subtaskIdFrom, subtaskIdTo, attachmentIdFrom, attachmentIdTo, queue: suppliedQueue }) {
+    const queue = suppliedQueue || await dbGetAllStrict('syncQueue');
     for (const queued of queue) {
       if (!queued?.data || typeof queued.data !== 'object') continue;
       let changed = false;
@@ -154,8 +155,7 @@ export function createSyncFeature({
         changed = true;
       }
       if (changed) {
-        const write = ['CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(queued.action) ? dbPutStrict : dbPut;
-        await write('syncQueue', queued);
+        await dbPutStrict('syncQueue', queued);
       }
     }
   }
@@ -164,8 +164,7 @@ export function createSyncFeature({
     const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
     try {
       await applyResult();
-      const removeQueueItem = ['CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(item.action) ? deleteFromDBStrict : deleteFromDB;
-      await removeQueueItem('syncQueue', item.id);
+      await deleteFromDBStrict('syncQueue', item.id);
     } finally {
       releaseCommitLock();
     }
@@ -177,24 +176,24 @@ export function createSyncFeature({
     const serverTodos = new Map((response?.todos || []).map(todo => [String(todo.id), todo]));
     const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
     try {
-      const queue = await dbGetAll('syncQueue');
+      const queue = await dbGetAllStrict('syncQueue');
       for (const todoId of todoIds) {
         const serverTodo = serverTodos.get(String(todoId));
         if (!serverTodo) {
-          await deleteFromDB('todos', todoId);
+          await deleteFromDBStrict('todos', todoId);
           setTodos(getTodos().filter(todo => String(todo.id) !== String(todoId)));
           await deleteQueuedTodoOperations(todoId);
           continue;
         }
         const projected = projectPendingTodoChanges(serverTodo, queue);
         if (projected) {
-          await dbPut('todos', projected);
+          await dbPutStrict('todos', projected);
           const exists = getTodos().some(todo => String(todo.id) === String(todoId));
           setTodos(exists
             ? getTodos().map(todo => String(todo.id) === String(todoId) ? projected : todo)
             : [...getTodos(), projected]);
         } else {
-          await deleteFromDB('todos', todoId);
+          await deleteFromDBStrict('todos', todoId);
           setTodos(getTodos().filter(todo => String(todo.id) !== String(todoId)));
         }
       }
@@ -207,9 +206,9 @@ export function createSyncFeature({
   }
 
   async function deleteQueuedTodoOperations(todoId) {
-    const queue = await dbGetAll('syncQueue');
+    const queue = await dbGetAllStrict('syncQueue');
     const matching = queue.filter(item => queueItemReferencesTodo(item, todoId));
-    await Promise.all(matching.map(item => deleteFromDB('syncQueue', item.id)));
+    await Promise.all(matching.map(item => deleteFromDBStrict('syncQueue', item.id)));
   }
 
   function sanitizeQueueItem(item) {
@@ -277,23 +276,27 @@ export function createSyncFeature({
     let needsAuthoritativeRefresh = false;
     const todoIdsNeedingRecovery = new Set();
     const attemptedQueueIds = new Set();
+    const blockedTodoIds = new Set();
+    const blockedAttachmentIds = new Set();
     try {
       while (true) {
       syncInProgressRef.requested = false;
-      const queue = (await dbGetAll('syncQueue')).filter(item => !attemptedQueueIds.has(String(item.id)));
+      const queue = (await dbGetAllStrict('syncQueue')).filter(item => !attemptedQueueIds.has(String(item.id)));
       if (!queue.length) break;
 
       for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
       const queuedItem = queue[queueIndex];
       attemptedQueueIds.add(String(queuedItem.id));
-      const currentQueuedItem = (await dbGetAll('syncQueue')).find(item => String(item.id) === String(queuedItem.id));
+      const currentQueuedItem = (await dbGetAllStrict('syncQueue')).find(item => String(item.id) === String(queuedItem.id));
       if (!currentQueuedItem) continue;
       const item = sanitizeQueueItem(currentQueuedItem);
       try {
         if (!item) {
-          await deleteFromDB('syncQueue', queuedItem.id);
+          await deleteFromDBStrict('syncQueue', queuedItem.id);
           continue;
         }
+        if ([...blockedTodoIds].some(todoId => queueItemReferencesTodo(item, todoId))) continue;
+        if (item.action === 'DELETE_ATTACHMENT' && blockedAttachmentIds.has(String(item.data.attachment_id))) continue;
         if (item.action === 'CREATE_ATTACHMENT' && item.data.failed_permanent) continue;
         if (item.action === 'CREATE_TODO') {
           const undoGraceUntil = Number(item.data.undo_grace_until || 0);
@@ -311,9 +314,10 @@ export function createSyncFeature({
               if (localSectionChanged) {
                 res = await todosApi.update(res.id, { section_id: localTempTodo.section_id });
               }
+              const queueForRewrite = await dbGetAllStrict('syncQueue');
               await attachmentCache.rewriteTodoId(createData._tempId, res.id);
-              await rewriteQueuedReferences({ todoIdFrom: createData._tempId, todoIdTo: res.id });
-              await deleteFromDB('todos', createData._tempId);
+              await rewriteQueuedReferences({ todoIdFrom: createData._tempId, todoIdTo: res.id, queue: queueForRewrite });
+              await deleteFromDBStrict('todos', createData._tempId);
               setTodos(getTodos().filter(t => t.id !== createData._tempId));
             }
             const createdTodo = localTempTodo ? { ...localTempTodo, ...res, id: res.id } : res;
@@ -404,9 +408,11 @@ export function createSyncFeature({
           });
           await commitQueueItem(item, async () => {
             if (response?.attachment?.id) {
+              const queueForRewrite = await dbGetAllStrict('syncQueue');
               await rewriteQueuedReferences({
                 attachmentIdFrom: item.data.temp_id,
                 attachmentIdTo: response.attachment.id,
+                queue: queueForRewrite,
               });
               await attachmentCache.rewrite(item.data.blob_id || item.data.temp_id, response.attachment);
             }
@@ -432,7 +438,7 @@ export function createSyncFeature({
           await todosApi.delete(item.data.id);
           await commitQueueItem(item, async () => {
             await attachmentCache.removeForTodo(item.data.id);
-            await deleteFromDB('todos', item.data.id);
+            await deleteFromDBStrict('todos', item.data.id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
             await deleteQueuedTodoOperations(item.data.id);
           }, syncInProgressRef);
@@ -492,15 +498,17 @@ export function createSyncFeature({
           await deleteFromDB('sections', item.data.id);
           successCount++;
         }
-        await deleteFromDB('syncQueue', item.id);
+        await deleteFromDBStrict('syncQueue', item.id);
       } catch (err) {
         console.error('Sync failed for action', item?.action || 'INVALID_QUEUE_ITEM', err);
+        if (item?.action === 'CREATE_TODO' && item.data?._tempId) blockedTodoIds.add(String(item.data._tempId));
+        if (item?.action === 'CREATE_ATTACHMENT' && item.data?.temp_id) blockedAttachmentIds.add(String(item.data.temp_id));
         let handledPermanentAbsence = false;
         if (item?.action === 'DELETE_TODO' && err?.status === 404) {
           try {
             await commitQueueItem(item, async () => {
               await attachmentCache.removeForTodo(item.data.id);
-              await deleteFromDB('todos', item.data.id);
+              await deleteFromDBStrict('todos', item.data.id);
               setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
               await deleteQueuedTodoOperations(item.data.id);
             }, syncInProgressRef);
@@ -542,14 +550,14 @@ export function createSyncFeature({
           handledPermanentAbsence = true;
         } else if (['CREATE_COMMENT', 'CREATE_SUBTASK'].includes(item?.action) && err?.status === 404) {
           await commitQueueItem(item, async () => {
-            await deleteFromDB('todos', item.data.todo_id);
+            await deleteFromDBStrict('todos', item.data.todo_id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.todo_id)));
             await deleteQueuedTodoOperations(item.data.todo_id);
           }, syncInProgressRef);
           needsAuthoritativeRefresh = true;
           handledPermanentAbsence = true;
         } else if (['UPDATE_COMMENT', 'DELETE_COMMENT', 'UPDATE_SUBTASK', 'DELETE_SUBTASK'].includes(item?.action) && err?.status === 404) {
-          await deleteFromDB('syncQueue', item.id);
+          await deleteFromDBStrict('syncQueue', item.id);
           todoIdsNeedingRecovery.add(item.data.todo_id);
           handledPermanentAbsence = true;
         } else if (
@@ -579,7 +587,7 @@ export function createSyncFeature({
         } else if (item?.action === 'CREATE_PROJECT' && item.data?._tempId && err?.status && err.status < 500) {
           await deleteFromDB('projects', item.data._tempId);
           setProjects(getProjects().filter(p => p.id !== item.data._tempId));
-          await deleteFromDB('syncQueue', item.id);
+          await deleteFromDBStrict('syncQueue', item.id);
         }
         if (!handledPermanentAbsence) failCount++;
       }
@@ -630,10 +638,10 @@ export function createSyncFeature({
       }
     }
 
-    const pendingQueue = await dbGetAll('syncQueue');
+    const pendingQueue = await dbGetAllStrict('syncQueue');
     if (pendingQueue.length) {
       await syncWithServer({ wsState, syncInProgressRef });
-      const remainingQueue = await dbGetAll('syncQueue');
+      const remainingQueue = await dbGetAllStrict('syncQueue');
       if (remainingQueue.length) {
         console.warn('Skipping server refresh while local sync queue still has pending changes');
         return;
@@ -655,7 +663,7 @@ export function createSyncFeature({
       const nextWorkspaces = workspacesData.workspaces || [];
 
       releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
-      const queueBeforeCommit = await dbGetAll('syncQueue');
+      const queueBeforeCommit = await dbGetAllStrict('syncQueue');
       if (queueBeforeCommit.length) {
         shouldDrainQueue = true;
       } else {
@@ -672,14 +680,14 @@ export function createSyncFeature({
         const serverTodoIds = new Set(nextTodos.map(todo => String(todo.id)));
         const removedTodoIds = getTodos().map(todo => todo.id).filter(todoId => !serverTodoIds.has(String(todoId)));
         await Promise.all(removedTodoIds.map(todoId => attachmentCache.removeForTodo(todoId)));
-        if (dbClear) {
-          await Promise.all([dbClear('todos'), dbClear('projects'), dbClear('sections'), dbClear('workspaces')]);
+        if (dbClearStrict) {
+          await Promise.all([dbClearStrict('todos'), dbClearStrict('projects'), dbClearStrict('sections'), dbClearStrict('workspaces')]);
         }
         await Promise.all([
-          ...nextTodos.map(todo => dbPut('todos', todo)),
-          ...nextProjects.map(project => dbPut('projects', project)),
-          ...nextSections.map(section => dbPut('sections', section)),
-          ...nextWorkspaces.map(workspace => dbPut('workspaces', workspace)),
+          ...nextTodos.map(todo => dbPutStrict('todos', todo)),
+          ...nextProjects.map(project => dbPutStrict('projects', project)),
+          ...nextSections.map(section => dbPutStrict('sections', section)),
+          ...nextWorkspaces.map(workspace => dbPutStrict('workspaces', workspace)),
         ]);
 
         setTodos(nextTodos);

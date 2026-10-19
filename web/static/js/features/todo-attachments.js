@@ -1,6 +1,21 @@
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { attachmentCache as defaultAttachmentCache } from '../storage/attachment-cache.js';
 
+export function getAttachmentAvailability(attachment = {}) {
+  if (attachment.failed_permanent) {
+    return {
+      key: 'todo.attachments.statusPermanentFailure',
+      error: String(attachment.sync_error?.message || '').trim(),
+      failed: true,
+    };
+  }
+  return {
+    key: attachment.is_pending ? 'todo.attachments.statusPending' : 'todo.attachments.statusOnlineOnly',
+    error: '',
+    failed: false,
+  };
+}
+
 export function createTodoAttachmentsFeature({
   getTodos,
   setTodos,
@@ -517,7 +532,11 @@ export function createTodoAttachmentsFeature({
       details.textContent = `${formatAttachmentSize(attachment.size_bytes)} · ${attachment.uploader_display_name || attachment.uploader_username || t('todo.attachments.unknownUploader')}`;
       const availability = document.createElement('span');
       availability.className = 'todo-attachment-availability';
-      availability.textContent = attachment.is_pending ? t('todo.attachments.statusPending') : t('todo.attachments.statusOnlineOnly');
+      const availabilityState = getAttachmentAvailability(attachment);
+      availability.textContent = availabilityState.error
+        ? `${t(availabilityState.key)}: ${availabilityState.error}`
+        : t(availabilityState.key);
+      if (availabilityState.failed) availability.classList.add('is-failed');
       meta.append(details, availability);
       if (!attachment.is_pending) {
         void attachmentCache.get(attachment.id, { touch: false, todoId }).then((cached) => {
@@ -719,6 +738,7 @@ export function createTodoAttachmentsFeature({
     let pendingCreate = null;
     let uploadAlreadyStarted = false;
     let cancelledPendingCreate = false;
+    let todoProjectionUpdated = false;
     try {
       const queue = await dbGetAllStrict('syncQueue');
       pendingCreate = queue.find(item => item.action === 'CREATE_ATTACHMENT'
@@ -732,16 +752,30 @@ export function createTodoAttachmentsFeature({
           attachments_count: Math.max(0, Number(todo.attachments_count ?? todo.attachments?.length ?? 0) - 1),
           updated_at: new Date().toISOString(),
         };
+        await dbPutStrict('todos', updated);
+        todoProjectionUpdated = true;
         if (pendingCreate && !uploadAlreadyStarted) {
           await deleteFromDBStrict('syncQueue', pendingCreate.id);
           cancelledPendingCreate = true;
         } else {
           await enqueue('DELETE_ATTACHMENT', { todo_id: todoId, attachment_id: attachmentId });
         }
-        await dbPutStrict('todos', updated);
         setTodos(getTodos().map(item => String(item.id) === String(todoId) ? updated : item));
       });
       if (!uploadAlreadyStarted) await attachmentCache.remove(attachmentId);
+      if (pendingCreate && !uploadAlreadyStarted) {
+        const [queueAfterDelete, todosAfterDelete, cachedAfterDelete] = await Promise.all([
+          dbGetAllStrict('syncQueue'),
+          dbGetAllStrict('todos'),
+          attachmentCache.get(attachmentId, { todoId, touch: false }),
+        ]);
+        const queueStillExists = queueAfterDelete.some(item => String(item.id) === String(pendingCreate.id));
+        const todoStillProjectsAttachment = (todosAfterDelete.find(item => String(item.id) === String(todoId))?.attachments || [])
+          .some(item => String(item.id) === String(attachmentId));
+        if (queueStillExists || todoStillProjectsAttachment || cachedAfterDelete) {
+          throw new Error('Pending attachment cancellation could not be verified');
+        }
+      }
       if (typeof document !== 'undefined') {
         renderTodoAttachments(getTodos().find(item => String(item.id) === String(todoId))?.attachments || [], getTodos().find(item => String(item.id) === String(todoId)) || null);
       }
@@ -750,6 +784,7 @@ export function createTodoAttachmentsFeature({
       if (isOnlineForSync() && (!pendingCreate || uploadAlreadyStarted)) await syncWithServer();
     } catch (error) {
       if (pendingCreate && !uploadAlreadyStarted) {
+        let pendingStateVerified = false;
         if (cancelledPendingCreate) {
           try {
             await runSyncQueueMutation(enqueue => enqueue('CREATE_ATTACHMENT', pendingCreate.data));
@@ -758,13 +793,30 @@ export function createTodoAttachmentsFeature({
             // reconstruction must be retried after storage recovers.
           }
         }
+        if (todoProjectionUpdated) {
+          try {
+            await dbPutStrict('todos', todo);
+          } catch (_restoreError) {
+            // Verification below decides whether the original pending state is durable.
+          }
+        }
         try {
-          await dbPutStrict('todos', todo);
-        } catch (_restoreError) {
-          // The original todo remains the only safe in-memory projection.
+          const [queueAfterRollback, todosAfterRollback, cachedAfterRollback] = await Promise.all([
+            dbGetAllStrict('syncQueue'),
+            dbGetAllStrict('todos'),
+            attachmentCache.get(attachmentId, { todoId, touch: false }),
+          ]);
+          const queueRestored = queueAfterRollback.some(item => item.action === 'CREATE_ATTACHMENT'
+            && String(item.data?.todo_id) === String(todoId)
+            && String(item.data?.temp_id) === String(attachmentId));
+          const todoRestored = (todosAfterRollback.find(item => String(item.id) === String(todoId))?.attachments || [])
+            .some(item => String(item.id) === String(attachmentId));
+          pendingStateVerified = Boolean(queueRestored && todoRestored && cachedAfterRollback?.pending_upload);
+        } catch (_verificationError) {
+          pendingStateVerified = false;
         }
         setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
-        showToast(t('todo.attachments.uploadPending'));
+        showToast(t(pendingStateVerified ? 'todo.attachments.uploadPending' : 'todo.attachments.deleteFailed'));
       } else {
         showToast(t('todo.attachments.deleteFailed'));
       }

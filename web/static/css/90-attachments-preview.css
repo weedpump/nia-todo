@@ -109,6 +109,10 @@
   color: var(--success, #22c55e);
 }
 
+.todo-attachment-availability.is-failed {
+  color: var(--danger, #ef4444);
+}
+
 .todo-attachment-actions,
 .todo-attachments-add-row {
   display: flex;

@@ -1818,6 +1818,7 @@
   "todo.attachments.onlineOnly": "Přílohy aktuálně vyžadují online připojení.",
   "todo.attachments.uploadPending": "Příloha byla uložena a čeká na nahrání.",
   "todo.attachments.statusPending": "Čeká na nahrání",
+  "todo.attachments.statusPermanentFailure": "Nahrávání trvale selhalo",
   "todo.attachments.statusOnlineOnly": "Pouze online",
   "todo.attachments.statusCached": "Dostupné offline",
   "todo.attachments.makeAvailableOffline": "Zpřístupnit offline",

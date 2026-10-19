@@ -9,9 +9,12 @@ export function createWebSocketClient({
   refreshFromServer = null,
   renderConnectionStatus,
   dbGetAll,
+  dbGetAllStrict = dbGetAll,
   dbPut,
+  dbPutStrict = dbPut,
   getFromDB,
   deleteFromDB,
+  deleteFromDBStrict = deleteFromDB,
   getTodos,
   setTodos,
   getProjects,
@@ -230,14 +233,14 @@ async function handleWsMessage(msg) {
 
   async function persistTodoPayloadWithPending(todo) {
     if (!todo?.id) return false;
-    const queue = await dbGetAll('syncQueue');
+    const queue = await dbGetAllStrict('syncQueue');
     const projected = projectPendingTodoChanges(todo, queue);
     if (!projected) {
-      await deleteFromDB('todos', todo.id);
+      await deleteFromDBStrict('todos', todo.id);
       todos = todos.filter(item => String(item.id) !== String(todo.id));
       return true;
     }
-    await dbPut('todos', projected);
+    await dbPutStrict('todos', projected);
     const exists = todos.some(item => String(item.id) === String(projected.id));
     todos = exists
       ? todos.map(item => String(item.id) === String(projected.id) ? projected : item)
@@ -391,11 +394,11 @@ async function handleWsMessage(msg) {
       // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
         const serverTodoIds = new Set(msg.todos.map(todo => String(todo.id)));
-        const queue = await dbGetAll('syncQueue');
-        for (const localTodo of await dbGetAll('todos')) {
+        const queue = await dbGetAllStrict('syncQueue');
+        for (const localTodo of await dbGetAllStrict('todos')) {
           if (!serverTodoIds.has(String(localTodo.id)) && !hasPendingTodoChanges(queue, localTodo.id)) {
-            await deleteFromDB('todos', localTodo.id);
             await attachmentCache.removeForTodo(localTodo.id);
+            await deleteFromDBStrict('todos', localTodo.id);
           }
         }
         for (const todo of msg.todos) {
@@ -410,21 +413,21 @@ async function handleWsMessage(msg) {
           const incomingTodo = mergeTodoPayloadWithLocalSubtasks(todo, local);
           if (hasPendingTodoChanges(queue, todo.id)) {
             const projected = projectPendingTodoChanges(incomingTodo, queue);
-            if (projected) await dbPut('todos', projected);
-            else await deleteFromDB('todos', todo.id);
+            if (projected) await dbPutStrict('todos', projected);
+            else await deleteFromDBStrict('todos', todo.id);
           } else if (!local) {
-            await dbPut('todos', incomingTodo);
+            await dbPutStrict('todos', incomingTodo);
           } else {
             const localTime = new Date(local.updated_at || 0).getTime();
             const serverTime = new Date(incomingTodo.updated_at || 0).getTime();
-            if (serverTime >= localTime) await dbPut('todos', incomingTodo);
+            if (serverTime >= localTime) await dbPutStrict('todos', incomingTodo);
           }
         }
-        todos = await dbGetAll('todos');
+        todos = await dbGetAllStrict('todos');
       }
       if (msg.projects) {
         const serverProjectIds = new Set(msg.projects.map(project => String(project.id)));
-        const queue = await dbGetAll('syncQueue');
+        const queue = await dbGetAllStrict('syncQueue');
         for (const localProject of await dbGetAll('projects')) {
           const hasPendingChange = queue.some(q =>
             (q.action === 'CREATE_PROJECT' && q.data?._tempId === localProject.id) ||
@@ -437,7 +440,7 @@ async function handleWsMessage(msg) {
           if (!local) {
             await dbPut('projects', project);
           } else {
-            const queue = await dbGetAll('syncQueue');
+            const queue = await dbGetAllStrict('syncQueue');
             const pendingChanges = queue.find(q =>
               q.action === 'UPDATE_PROJECT' && q.data.id === project.id
             );
@@ -454,7 +457,7 @@ async function handleWsMessage(msg) {
       }
       if (msg.sections) {
         const serverSectionIds = new Set(msg.sections.map(section => String(section.id)));
-        const queue = await dbGetAll('syncQueue');
+        const queue = await dbGetAllStrict('syncQueue');
         for (const localSection of await dbGetAll('sections')) {
           const hasPendingChange = queue.some(q =>
             (q.action === 'CREATE_SECTION' && q.data?._tempId === localSection.id) ||
@@ -467,7 +470,7 @@ async function handleWsMessage(msg) {
           if (!local) {
             await dbPut('sections', section);
           } else {
-            const queue = await dbGetAll('syncQueue');
+            const queue = await dbGetAllStrict('syncQueue');
             const pendingChanges = queue.find(q =>
               q.action === 'UPDATE_SECTION' && q.data.id === section.id
             );
@@ -514,12 +517,12 @@ async function handleWsMessage(msg) {
         const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
         try {
           const local = await getFromDB('todos', msg.payload.id);
-          const queue = await dbGetAll('syncQueue');
+          const queue = await dbGetAllStrict('syncQueue');
           const incomingTodo = projectPendingTodoChanges(
             mergeTodoPayloadWithLocalSubtasks(msg.payload, local),
             queue,
           );
-          await dbPut('todos', incomingTodo);
+          await dbPutStrict('todos', incomingTodo);
           const existing = todos.find(t => t.id === incomingTodo.id);
           if (!existing) todos.push(incomingTodo);
           else todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
@@ -536,7 +539,7 @@ async function handleWsMessage(msg) {
         const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
         try {
           const local = await getFromDB('todos', msg.payload.id);
-          const queue = await dbGetAll('syncQueue');
+          const queue = await dbGetAllStrict('syncQueue');
           const incomingTodo = mergeTodoPayloadWithLocalSubtasks(msg.payload, local);
           if (hasPendingTodoChanges(queue, msg.payload.id)) {
             await persistTodoPayloadWithPending(incomingTodo);
@@ -546,7 +549,7 @@ async function handleWsMessage(msg) {
               const serverTime = new Date(msg.payload.updated_at || 0).getTime();
               if (serverTime < localTime) break;
             }
-            await dbPut('todos', incomingTodo);
+            await dbPutStrict('todos', incomingTodo);
             todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
           }
         } finally {
@@ -561,11 +564,11 @@ async function handleWsMessage(msg) {
       if (msg.payload?.id) {
         const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
         try {
-          const queue = await dbGetAll('syncQueue');
+          const queue = await dbGetAllStrict('syncQueue');
           const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
-          await Promise.all(childOperations.map(item => deleteFromDB('syncQueue', item.id)));
-          await deleteFromDB('todos', msg.payload.id);
           await attachmentCache.removeForTodo(msg.payload.id);
+          await Promise.all(childOperations.map(item => deleteFromDBStrict('syncQueue', item.id)));
+          await deleteFromDBStrict('todos', msg.payload.id);
           todos = todos.filter(t => t.id !== msg.payload.id);
         } finally {
           releaseCommitLock();
