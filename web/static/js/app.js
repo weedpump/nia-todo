@@ -221,9 +221,10 @@ async function runSyncQueueMutation(operation) {
 }
 const syncInProgressRef = { value: syncInProgress };
 const activeBackgroundSyncOperations = new Set();
+let authenticatedRuntimeDraining = false;
 
 function trackBackgroundSyncOperation(operation) {
-  if (!currentUser) return Promise.resolve();
+  if (!currentUser || authenticatedRuntimeDraining) return Promise.resolve({ skipped: true, reason: 'runtime_draining' });
   const task = Promise.resolve().then(operation);
   activeBackgroundSyncOperations.add(task);
   task.then(
@@ -359,8 +360,15 @@ const userSettingsFeature = createUserSettingsFeature({
   logout: () => logout(),
 });
 async function disconnectAuthenticatedRuntime() {
+  authenticatedRuntimeDraining = true;
   const websocketDrain = disconnectWebSocket();
   await Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]);
+}
+
+async function resumeAuthenticatedRuntime() {
+  authenticatedRuntimeDraining = false;
+  wsClient?.resumeWebSocket?.();
+  if (currentUser) connectWebSocket();
 }
 
 const authSessionFeature = createAuthSessionFeature({
@@ -372,7 +380,9 @@ const authSessionFeature = createAuthSessionFeature({
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
   disconnectRealtime: () => disconnectAuthenticatedRuntime(),
+  resumeRealtime: () => resumeAuthenticatedRuntime(),
   clearNativeReminders: () => desktopIntegration?.clearNativeRemindersForPrivacy?.() || Promise.resolve(),
+  resumeNativeReminders: () => desktopIntegration?.resumeNativeRemindersAfterPrivacy?.(),
 });
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
 const bindServiceWorkerUpdateButtons = serviceWorkerUpdates.bindServiceWorkerUpdateButtons;

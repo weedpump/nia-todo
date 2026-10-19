@@ -223,6 +223,11 @@ function disconnectWebSocket() {
   return Promise.allSettled([...activeMessageHandlers]);
 }
 
+function resumeWebSocket() {
+  wsIntentionalClose = false;
+  reconnectAttempts = 0;
+}
+
 function updateConnectionStatus() {
   renderConnectionStatus(wsState);
 }
@@ -914,6 +919,7 @@ async function handleWsMessage(msg) {
     stopPingInterval,
     scheduleReconnect,
     disconnectWebSocket,
+    resumeWebSocket,
     updateConnectionStatus,
     handleWsMessage,
   };

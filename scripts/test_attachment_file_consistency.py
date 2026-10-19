@@ -102,6 +102,16 @@ def main() -> None:
         except Exception as exc:
             assert getattr(exc, "status_code", None) == 400
 
+        same_dir_target = todo_dir / "real.txt"
+        same_dir_target.write_bytes(b"real")
+        same_dir_link = todo_dir / "stored-link.txt"
+        same_dir_link.symlink_to(same_dir_target)
+        try:
+            todos_router._stored_attachment_path(10, "stored-link.txt")
+            raise AssertionError("symlinked attachment targets must be rejected")
+        except Exception as exc:
+            assert getattr(exc, "status_code", None) == 400
+
         client = make_client(db)
         original_unlink = Path.unlink
         original_replace = Path.replace

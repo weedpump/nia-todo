@@ -130,6 +130,9 @@ export function createDesktopIntegration({
   let settings = { ...DEFAULT_SETTINGS };
   let latestTodos = [];
   let reminderScheduleTimer = null;
+  let reminderGeneration = 0;
+  let reminderSchedulingSuspended = false;
+  const activeReminderOperations = new Set();
   let settingsControlsBound = false;
   let settingsLoaded = !isNativeApp();
   const reminderSnapshots = createNativeReminderSnapshotState();
@@ -374,36 +377,47 @@ export function createDesktopIntegration({
   }
 
   async function scheduleLocalRemindersNow() {
-    if (!isNativeApp()) return;
-    if (!reminderSnapshots.hasSnapshot()) return;
-    const reminders = settings.notifications ? buildReminderSchedules(latestTodos) : [];
-    const locationReminders = settings.notifications ? buildLocationReminderSchedules(latestTodos) : [];
-    if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
-    if (!settings.notifications) {
-      try {
-        await nativeBridge.clearReminders();
-      } catch (error) {
-        console.warn('[Native] Failed to clear local reminders', error);
+    const generation = reminderGeneration;
+    if (reminderSchedulingSuspended || !isNativeApp() || !reminderSnapshots.hasSnapshot()) return;
+    const operation = (async () => {
+      const isCurrent = () => !reminderSchedulingSuspended && generation === reminderGeneration;
+      const reminders = settings.notifications ? buildReminderSchedules(latestTodos) : [];
+      const locationReminders = settings.notifications ? buildLocationReminderSchedules(latestTodos) : [];
+      if (!RUNTIME_CAPABILITIES.nativeNotifications || !isCurrent()) return;
+      if (!settings.notifications) {
+        try {
+          if (isCurrent()) await nativeBridge.clearReminders();
+        } catch (error) {
+          console.warn('[Native] Failed to clear local reminders', error);
+        }
+        return;
       }
-      return;
-    }
-    try {
-      if (!await ensureNativeNotificationPermission()) return;
-      await nativeBridge.scheduleReminders(reminders);
-      // Always hand location schedules to Android first. The native layer stores
-      // them even without location permission, so onResume/onPermissionResult can
-      // register geofences after the user grants access.
-      await scheduleAndroidLocationReminders({
-        nativeBridge,
-        reminders: locationReminders,
-        ensurePermission: ensureNativeLocationPermission,
-      });
-    } catch (error) {
-      console.warn('[Native] Failed to schedule local reminders', error);
-    }
+      try {
+        if (!await ensureNativeNotificationPermission() || !isCurrent()) return;
+        await nativeBridge.scheduleReminders(reminders);
+        if (!isCurrent()) return;
+        // Always hand location schedules to Android first. The native layer stores
+        // them even without location permission, so onResume/onPermissionResult can
+        // register geofences after the user grants access.
+        await scheduleAndroidLocationReminders({
+          nativeBridge,
+          reminders: locationReminders,
+          ensurePermission: ensureNativeLocationPermission,
+        });
+      } catch (error) {
+        console.warn('[Native] Failed to schedule local reminders', error);
+      }
+    })();
+    activeReminderOperations.add(operation);
+    operation.then(
+      () => activeReminderOperations.delete(operation),
+      () => activeReminderOperations.delete(operation),
+    );
+    return operation;
   }
 
   function syncLocalReminders(todos = [], { immediate = false, authoritative = true } = {}) {
+    if (reminderSchedulingSuspended) return;
     if (!reminderSnapshots.accept(todos, { authoritative })) return;
     latestTodos = reminderSnapshots.todos();
     if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
@@ -422,10 +436,28 @@ export function createDesktopIntegration({
     }, 250);
   }
 
+  async function clearNativeRemindersForPrivacy() {
+    reminderSchedulingSuspended = true;
+    reminderGeneration += 1;
+    if (reminderScheduleTimer) {
+      clearTimeout(reminderScheduleTimer);
+      reminderScheduleTimer = null;
+    }
+    latestTodos = [];
+    reminderSnapshots.accept([], { authoritative: true });
+    await Promise.allSettled([...activeReminderOperations]);
+    if (isNativeApp()) await nativeBridge.clearReminders();
+  }
+
+  function resumeNativeRemindersAfterPrivacy() {
+    reminderGeneration += 1;
+    reminderSchedulingSuspended = false;
+  }
+
   async function clearServerScopedBrowserData() {
     await disconnectRealtime();
     if (clearNativeReminders) await clearNativeReminders();
-    else if (isNativeApp()) await nativeBridge.clearReminders();
+    else await clearNativeRemindersForPrivacy();
     await clearBrowserAuthCaches();
     await clearCache();
     clearLocalAuthState();
@@ -555,7 +587,8 @@ export function createDesktopIntegration({
     announceNotificationReadiness,
     notifyReminder,
     syncLocalReminders,
-    clearNativeRemindersForPrivacy: () => isNativeApp() ? nativeBridge.clearReminders() : Promise.resolve(),
+    clearNativeRemindersForPrivacy,
+    resumeNativeRemindersAfterPrivacy,
     updateServerUrl,
     resetServerUrl,
     testNotification,

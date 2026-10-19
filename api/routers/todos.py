@@ -232,8 +232,11 @@ def _safe_attachment_filename(raw_name: str | None) -> str:
 def _stored_attachment_path(todo_id: int, stored_filename: str) -> Path:
     root = ATTACHMENT_DIR.resolve()
     base = root / str(todo_id)
+    lexical_target = base / stored_filename
+    if lexical_target.is_symlink():
+        raise HTTPException(400, "Invalid attachment path")
     resolved_base = base.resolve()
-    target = (base / stored_filename).resolve()
+    target = lexical_target.resolve()
     if resolved_base != base or target.parent != base:
         raise HTTPException(400, "Invalid attachment path")
     return target

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 assert.match(appSource, /createDesktopIntegration\(\{[\s\S]*disconnectRealtime:\s*\(\)\s*=>\s*disconnectAuthenticatedRuntime\(\)/, 'production server-switch wiring must drain the authenticated runtime');
+assert.match(appSource, /authenticatedRuntimeDraining/, 'production runtime must close against new old-identity operations while draining');
 
 const events = [];
 globalThis.location = { origin: 'https://old.example', search: '?nativeApp=tauri', reload() { events.push('reload'); } };
@@ -29,6 +30,11 @@ window.__TAURI_INTERNALS__ = {
       events.push('persist:reset');
       return null;
     }
+    if (command === 'desktop_schedule_reminders') {
+      events.push(`schedule:${JSON.stringify(args.reminders || [])}`);
+      return (args.reminders || []).length;
+    }
+    if (command === 'desktop_get_settings') return {};
     return null;
   },
 };
@@ -128,6 +134,23 @@ try {
   });
   await reminderFailureFeature.updateServerUrl('https://reminder-blocked.example');
   assert.deepEqual(events, ['drain:runtime', 'clear:reminders'], 'native reminder cleanup failures must fail closed before changing server or identity state');
+
+  events.length = 0;
+  let delayedReminderCallback = null;
+  globalThis.setTimeout = callback => { delayedReminderCallback = callback; return 42; };
+  const privacyFeature = createDesktopIntegration({
+    showToast: () => {}, onHotkeyNewTodo: () => {}, onHotkeySearch: () => {},
+    getCurrentUser: () => ({ id: 1 }),
+  });
+  await privacyFeature.loadSettings();
+  privacyFeature.syncLocalReminders([{ id: 1, title: 'OLD USER SECRET', status: 'open', remind_at: new Date(Date.now() + 60000).toISOString() }]);
+  assert.equal(typeof delayedReminderCallback, 'function');
+  await privacyFeature.clearNativeRemindersForPrivacy();
+  delayedReminderCallback();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(events.some(event => event.includes('OLD USER SECRET')), false, 'privacy cleanup must invalidate delayed old-identity reminder scheduling');
+  assert.equal(events.at(-1), 'schedule:[]', 'privacy cleanup must leave the native reminder scheduler empty');
 
   console.log('✅ Native server switches clear scoped browser data before persistence');
 } finally {

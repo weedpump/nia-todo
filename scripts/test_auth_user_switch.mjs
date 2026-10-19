@@ -106,7 +106,9 @@ const drainedFeature = createAuthSessionFeature({
   getAppInitialized: () => true,
   setCurrentUser: () => { boundaryEvents.push('activate:new-user'); },
   disconnectRealtime: async () => { boundaryEvents.push('drain:start'); await runtimeDrain; boundaryEvents.push('drain:done'); },
+  resumeRealtime: async () => { boundaryEvents.push('resume:runtime'); },
   clearNativeReminders: async () => { boundaryEvents.push('clear:reminders'); },
+  resumeNativeReminders: () => { boundaryEvents.push('resume:reminders'); },
   clearCache: async () => { boundaryEvents.push('clear:indexeddb'); },
   initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
 });
@@ -116,6 +118,21 @@ await Promise.resolve();
 assert.deepEqual(boundaryEvents, ['drain:start'], 'cross-user cleanup must drain the old authenticated runtime before deleting old data');
 resolveRuntimeDrain();
 await drainedLogin;
-assert.deepEqual(boundaryEvents, ['drain:start', 'drain:done', 'clear:reminders', 'clear:indexeddb', 'activate:new-user']);
+assert.deepEqual(boundaryEvents, ['drain:start', 'drain:done', 'clear:reminders', 'clear:indexeddb', 'activate:new-user', 'resume:reminders', 'resume:runtime']);
+
+values.set('last_user_id', '1');
+const sameUserEvents = [];
+const sameUserFeature = createAuthSessionFeature({
+  authApi: { login: async () => ({ access_token: 'same-token', user: { id: 1, username: 'old-user' } }) },
+  getAppInitialized: () => true,
+  setCurrentUser: () => { sameUserEvents.push('activate'); },
+  resumeNativeReminders: () => { sameUserEvents.push('resume:reminders'); },
+  resumeRealtime: async () => { sameUserEvents.push('resume:runtime'); },
+  clearNativeReminders: async () => { sameUserEvents.push('unexpected:clear'); },
+  clearCache: async () => { sameUserEvents.push('unexpected:cache-clear'); },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+});
+await sameUserFeature.login('old-user', 'password');
+assert.deepEqual(sameUserEvents, ['activate', 'resume:reminders', 'resume:runtime'], 'successful login must reactivate a runtime intentionally closed by cached-session rejection');
 
 console.log('✅ Cross-user login fails closed before activating the new identity');

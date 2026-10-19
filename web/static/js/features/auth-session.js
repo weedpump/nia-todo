@@ -13,7 +13,9 @@ export function createAuthSessionFeature({
   refreshFromServer,
   renderUserInfo,
   disconnectRealtime = null,
+  resumeRealtime = null,
   clearNativeReminders = async () => {},
+  resumeNativeReminders = () => {},
 }) {
   let loginInProgress = false;
   let loginFormBound = false;
@@ -195,6 +197,8 @@ export function createAuthSessionFeature({
     await clearCacheIfUserChanged(newUserId);
     storeUserSession(data);
     localStorage.setItem('last_user_id', newUserId);
+    resumeNativeReminders();
+    await resumeRealtime?.();
     await maybeVerifyEmailFromUrl();
     if (data.mfa_enrollment_required) {
       setTimeout(async () => {
