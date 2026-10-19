@@ -443,7 +443,9 @@ export function createNativeBridge() {
 
   async function cancelAttachmentDownloadsForPrivacy() {
     if (isAndroid() && hasAndroidMethod('cancelAttachmentDownloadsForPrivacy')) {
-      return Boolean(android().cancelAttachmentDownloadsForPrivacy());
+      const cleaned = Boolean(android().cancelAttachmentDownloadsForPrivacy());
+      if (!cleaned) throw new Error('Android attachment download cleanup failed');
+      return true;
     }
     return true;
   }

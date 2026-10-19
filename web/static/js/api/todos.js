@@ -38,10 +38,11 @@ export const todosApi = {
     });
     return parseOrThrow(response, 'Attachment upload failed');
   },
-  async getAttachmentBlob(todoId, attachmentId) {
+  async getAttachmentBlob(todoId, attachmentId, { sideEffectToken = null } = {}) {
     const response = await authenticatedFetch(API + `/api/todos/${todoId}/attachments/${attachmentId}/download`, {
       headers: getAuthHeaders(),
       credentials: 'include',
+      sideEffectToken,
     });
     if (!response.ok) await apiErrorFromResponse(response, 'Attachment download failed');
     return response.blob();

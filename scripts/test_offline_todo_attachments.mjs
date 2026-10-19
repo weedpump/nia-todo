@@ -175,6 +175,60 @@ assert.equal(eviction.records.has('old'), false, 'LRU downloaded entries should 
 assert.equal(eviction.records.has('pinned'), true, 'explicit offline entries must never be evicted automatically');
 assert.equal(eviction.records.has('pending'), true, 'pending uploads are user data and must never be evicted');
 
+const stalePruneRecords = new Map([
+  ['old-cache', { id: 'old-cache', todo_id: 1, blob: new Blob(['old']), size_bytes: 3, pinned: false, pending_upload: false, last_accessed: 1 }],
+]);
+let cacheGenerationCurrent = true;
+const stalePruneCache = createAttachmentCache({
+  getAll: async () => [...stalePruneRecords.values()],
+  get: async id => stalePruneRecords.get(String(id)) || null,
+  put: async () => {
+    cacheGenerationCurrent = false;
+    const error = new Error('quota during stale transition');
+    error.name = 'QuotaExceededError';
+    throw error;
+  },
+  remove: async id => { stalePruneRecords.delete(String(id)); },
+});
+await assert.rejects(
+  stalePruneCache.put(
+    { id: 'new-cache', todo_id: 1, blob: new Blob(['new']), size_bytes: 3 },
+    { maxBytes: 64, isCurrent: () => { if (!cacheGenerationCurrent) { const error = new Error('stale cache generation'); error.code = 'authenticated_runtime_changed'; throw error; } } },
+  ),
+  error => error?.code === 'authenticated_runtime_changed',
+  'a failed write whose identity transition became stale must stop before retry pruning',
+);
+assert.equal(stalePruneRecords.has('old-cache'), true, 'stale retry prune must not discard bytes from the replacement identity');
+
+const midPruneRecords = new Map([
+  ['first', { id: 'first', blob: new Blob(['1']), size_bytes: 1, pinned: false, pending_upload: false, last_accessed: 1 }],
+  ['second', { id: 'second', blob: new Blob(['2']), size_bytes: 1, pinned: false, pending_upload: false, last_accessed: 2 }],
+]);
+let midPruneCurrent = true;
+const midPruneCache = createAttachmentCache({
+  getAll: async () => [...midPruneRecords.values()],
+  remove: async id => {
+    midPruneRecords.delete(String(id));
+    midPruneCurrent = false;
+  },
+});
+await assert.rejects(
+  midPruneCache.prune({
+    maxBytes: 0,
+    isCurrent: () => {
+      if (!midPruneCurrent) {
+        const error = new Error('stale during prune');
+        error.code = 'authenticated_runtime_changed';
+        throw error;
+      }
+    },
+  }),
+  error => error?.code === 'authenticated_runtime_changed',
+  'prune must recheck the authenticated generation immediately before every discard',
+);
+assert.equal(midPruneRecords.has('first'), false, 'the discard completed before the generation changed');
+assert.equal(midPruneRecords.has('second'), true, 'a later discard must not run after the generation changed');
+
 let failedScanWrites = 0;
 let failedScanRemovals = 0;
 const failedScanCache = createAttachmentCache({

@@ -34,7 +34,19 @@ for (const symbol of [
 }
 
 const mainActivity = read('src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/MainActivity.kt');
+const attachmentDownloadSource = mainActivity.slice(mainActivity.indexOf('private fun startNativeDownloadToDownloads'), mainActivity.indexOf('inner class AndroidNativeBridge'));
 assert.doesNotMatch(mainActivity, /collectionUri!!/);
+assert.match(mainActivity, /maxNativeAttachmentBytes = 25L \* 1024L \* 1024L/);
+assert.match(mainActivity, /attachmentDownloadPathRegex/);
+assert.match(mainActivity, /copyAttachmentDownloadBounded/);
+assert.match(mainActivity, /contentResolver\.update\(destinationUri, done, null, null\) <= 0/);
+assert.doesNotMatch(attachmentDownloadSource, /target\.exists\(\) && !target\.delete\(\)/, 'legacy publication must never delete an existing final file');
+assert.match(mainActivity, /Os\.link\(pending\.absolutePath, candidate\.absolutePath\)/, 'legacy publication must expose the completed .part file through an atomic no-clobber link');
+assert(!mainActivity.includes('FileOutputStream(reserved, false)'), 'legacy publication must never stream bytes into a visible final target');
+assert.match(mainActivity, /legacyReservedFile = published[\s\S]*pendingAttachmentDownloadFiles\.add\(published\)/, 'a published legacy target must remain tracked until the temporary link is removed or rollback completes');
+assert.match(mainActivity, /if \(deleted > 0\).*pendingAttachmentDownloadUris\.remove/s);
+assert.match(mainActivity, /if \(!file\.exists\(\) \|\| file\.delete\(\)\).*pendingAttachmentDownloadFiles\.remove/s);
+assert.match(mainActivity, /if \(!completion\.await\(remaining, TimeUnit\.MILLISECONDS\)\) cleanupSucceeded = false/);
 
 const oidcCallback = read('src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/OidcCallbackActivity.kt');
 assert.match(oidcCallback, /Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.UPSIDE_DOWN_CAKE/);

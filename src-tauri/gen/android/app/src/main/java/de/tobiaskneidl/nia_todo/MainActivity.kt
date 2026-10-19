@@ -10,6 +10,9 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import android.util.Base64
 import java.util.Locale
 import android.content.pm.PackageManager
@@ -52,6 +55,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -72,6 +77,9 @@ class MainActivity : TauriActivity() {
   private val maxNativeAudioBytes = 8 * 1024 * 1024
   private val maxAndroidUpdateBytes = 512L * 1024L * 1024L
   private val maxAndroidUpdateDurationMs = 9L * 60L * 1000L
+  private val maxNativeAttachmentBytes = 25L * 1024L * 1024L
+  private val maxNativeAttachmentDurationMs = 90_000L
+  private val attachmentDownloadPathRegex = Regex("^/api/todos/[0-9]+/attachments/[0-9]+/download$")
   private val androidUpdateInFlight = AtomicBoolean(false)
   private val androidUpdateCancelled = AtomicBoolean(false)
   private val notificationIds = AtomicInteger(1000)
@@ -967,12 +975,64 @@ class MainActivity : TauriActivity() {
     return cleaned.ifBlank { fallback }
   }
 
+  private fun copyAttachmentDownloadBounded(
+    input: InputStream,
+    output: OutputStream,
+    downloadGeneration: Int,
+    deadlineElapsedMs: Long,
+    connection: HttpURLConnection? = null,
+  ): Long {
+    val buffer = ByteArray(64 * 1024)
+    var total = 0L
+    while (true) {
+      if (downloadGeneration != nativeAttachmentDownloadGeneration.get()) throw IllegalStateException("Download cancelled for privacy transition")
+      val remainingMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
+      if (remainingMs <= 0) throw IllegalStateException("Attachment download timed out")
+      connection?.readTimeout = remainingMs.coerceAtMost(60_000L).coerceAtLeast(1L).toInt()
+      val read = input.read(buffer)
+      if (read < 0) break
+      total += read
+      if (total > maxNativeAttachmentBytes) throw IllegalStateException("Attachment exceeds 25 MiB limit")
+      output.write(buffer, 0, read)
+    }
+    return total
+  }
+
+  private fun publishUniqueLegacyDownload(dir: File, targetName: String, pending: File): File {
+    val dot = targetName.lastIndexOf('.')
+    val stem = if (dot > 0) targetName.substring(0, dot) else targetName
+    val extension = if (dot > 0) targetName.substring(dot) else ""
+    for (suffix in 0..999) {
+      val candidateName = if (suffix == 0) targetName else "$stem ($suffix)$extension"
+      val candidate = File(dir, candidateName)
+      try {
+        Os.link(pending.absolutePath, candidate.absolutePath)
+        return candidate
+      } catch (error: ErrnoException) {
+        if (error.errno != OsConstants.EEXIST) throw IllegalStateException("Could not publish download", error)
+      }
+    }
+    throw IllegalStateException("Could not publish a unique download target")
+  }
+
+  private fun deletePendingAttachmentUri(uri: Uri): Boolean {
+    return try { contentResolver.delete(uri, null, null) > 0 } catch (_: Exception) { false }
+  }
+
+  private fun deletePendingAttachmentFile(file: File): Boolean {
+    return !file.exists() || file.delete()
+  }
+
   private fun startNativeDownloadToDownloads(url: String, filename: String, headersJson: String): String {
     return try {
       val downloadGeneration = nativeAttachmentDownloadGeneration.get()
+      val downloadDeadline = SystemClock.elapsedRealtime() + maxNativeAttachmentDurationMs
       val uri = URI(url)
       val scheme = (uri.scheme ?: "").lowercase(Locale.ROOT)
       if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Unsupported download URL")
+      if (uri.userInfo != null || uri.fragment != null || uri.query != null || !attachmentDownloadPathRegex.matches(uri.path ?: "")) {
+        throw IllegalArgumentException("Unsupported attachment download path")
+      }
       val configured = configuredServerOrigin
       val requestedOrigin = "${scheme}://${uri.host}${if (uri.port > 0) ":${uri.port}" else ""}"
       if (configured != null && canonicalServerOrigin(requestedOrigin) != configured) {
@@ -989,6 +1049,7 @@ class MainActivity : TauriActivity() {
         var connection: HttpURLConnection? = null
         var collectionUri: Uri? = null
         var legacyPendingFile: File? = null
+        var legacyReservedFile: File? = null
         try {
           connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -1009,6 +1070,9 @@ class MainActivity : TauriActivity() {
           val status = activeConnection.responseCode
           if (status !in 200..299) throw IllegalStateException("Download failed: HTTP $status")
           if (downloadGeneration != nativeAttachmentDownloadGeneration.get()) throw IllegalStateException("Download cancelled for privacy transition")
+          if (SystemClock.elapsedRealtime() > downloadDeadline) throw IllegalStateException("Attachment download timed out")
+          val contentLength = activeConnection.contentLengthLong
+          if (contentLength > maxNativeAttachmentBytes) throw IllegalStateException("Attachment exceeds 25 MiB limit")
           val mimeType = activeConnection.contentType?.split(";", limit = 2)?.firstOrNull()?.trim()?.ifBlank { null }
             ?: "application/octet-stream"
           val savedLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -1026,19 +1090,24 @@ class MainActivity : TauriActivity() {
               pendingAttachmentDownloadUris.add(destinationUri)
             }
             contentResolver.openOutputStream(destinationUri)?.use { output ->
-              activeConnection.inputStream.use { input -> input.copyTo(output) }
+              activeConnection.inputStream.use { input ->
+                copyAttachmentDownloadBounded(input, output, downloadGeneration, downloadDeadline, activeConnection)
+              }
+              output.flush()
             } ?: throw IllegalStateException("Could not open download entry")
             synchronized(nativeAttachmentDownloadCommitLock) {
               if (downloadGeneration != nativeAttachmentDownloadGeneration.get()) throw IllegalStateException("Download cancelled for privacy transition")
+              if (SystemClock.elapsedRealtime() > downloadDeadline) throw IllegalStateException("Attachment download timed out")
               val done = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
-              contentResolver.update(destinationUri, done, null, null)
+              if (contentResolver.update(destinationUri, done, null, null) <= 0) throw IllegalStateException("Could not publish download entry")
               pendingAttachmentDownloadUris.remove(destinationUri)
               collectionUri = null
             }
             "Downloads/nia-todo/$targetName"
           } else {
-            val dir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "nia-todo").apply { mkdirs() }
-            val target = File(dir, targetName)
+            val dir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "nia-todo").apply {
+              if (!exists() && !mkdirs()) throw IllegalStateException("Could not create download directory")
+            }
             val pending = File(dir, ".$targetName.$downloadGeneration.${System.nanoTime()}.part")
             legacyPendingFile = pending
             synchronized(nativeAttachmentDownloadCommitLock) {
@@ -1046,16 +1115,30 @@ class MainActivity : TauriActivity() {
               pendingAttachmentDownloadFiles.add(pending)
             }
             pending.outputStream().use { output ->
-              activeConnection.inputStream.use { input -> input.copyTo(output) }
+              activeConnection.inputStream.use { input ->
+                copyAttachmentDownloadBounded(input, output, downloadGeneration, downloadDeadline, activeConnection)
+              }
               output.flush()
             }
             FileOutputStream(pending, true).use { it.fd.sync() }
-            synchronized(nativeAttachmentDownloadCommitLock) {
+            val target = synchronized(nativeAttachmentDownloadCommitLock) {
               if (downloadGeneration != nativeAttachmentDownloadGeneration.get()) throw IllegalStateException("Download cancelled for privacy transition")
-              if (target.exists() && !target.delete()) throw IllegalStateException("Could not replace existing download")
-              if (!pending.renameTo(target)) throw IllegalStateException("Could not publish download")
+              if (SystemClock.elapsedRealtime() > downloadDeadline) throw IllegalStateException("Attachment download timed out")
+              val published = publishUniqueLegacyDownload(dir, targetName, pending)
+              legacyReservedFile = published
+              pendingAttachmentDownloadFiles.add(published)
+              if (!pending.delete()) {
+                if (deletePendingAttachmentFile(published)) {
+                  pendingAttachmentDownloadFiles.remove(published)
+                  legacyReservedFile = null
+                }
+                throw IllegalStateException("Could not remove completed temporary download")
+              }
               pendingAttachmentDownloadFiles.remove(pending)
+              pendingAttachmentDownloadFiles.remove(published)
               legacyPendingFile = null
+              legacyReservedFile = null
+              published
             }
             target.absolutePath
           }
@@ -1067,8 +1150,32 @@ class MainActivity : TauriActivity() {
             }
           }
         } catch (error: Exception) {
-          collectionUri?.let { runCatching { contentResolver.delete(it, null, null) } }
-          legacyPendingFile?.let { runCatching { it.delete() } }
+          synchronized(nativeAttachmentDownloadCommitLock) {
+            collectionUri?.let { uriToDelete ->
+              if (deletePendingAttachmentUri(uriToDelete)) {
+                pendingAttachmentDownloadUris.remove(uriToDelete)
+                collectionUri = null
+              } else {
+                pendingAttachmentDownloadUris.add(uriToDelete)
+              }
+            }
+            legacyPendingFile?.let { fileToDelete ->
+              if (deletePendingAttachmentFile(fileToDelete)) {
+                pendingAttachmentDownloadFiles.remove(fileToDelete)
+                legacyPendingFile = null
+              } else {
+                pendingAttachmentDownloadFiles.add(fileToDelete)
+              }
+            }
+            legacyReservedFile?.let { fileToDelete ->
+              if (deletePendingAttachmentFile(fileToDelete)) {
+                pendingAttachmentDownloadFiles.remove(fileToDelete)
+                legacyReservedFile = null
+              } else {
+                pendingAttachmentDownloadFiles.add(fileToDelete)
+              }
+            }
+          }
           if (downloadGeneration == nativeAttachmentDownloadGeneration.get()) {
             runOnUiThread {
               if (downloadGeneration == nativeAttachmentDownloadGeneration.get()) {
@@ -1080,8 +1187,6 @@ class MainActivity : TauriActivity() {
           connection?.disconnect()
           synchronized(nativeAttachmentDownloadCommitLock) {
             connection?.let { activeAttachmentDownloadConnections.remove(it) }
-            collectionUri?.let { pendingAttachmentDownloadUris.remove(it) }
-            legacyPendingFile?.let { pendingAttachmentDownloadFiles.remove(it) }
             activeAttachmentDownloadCompletions.remove(completion)
             completion.countDown()
           }
@@ -1102,22 +1207,25 @@ class MainActivity : TauriActivity() {
       completions = activeAttachmentDownloadCompletions.toList()
     }
     connections.forEach { runCatching { it.disconnect() } }
+    var cleanupSucceeded = true
     val deadline = SystemClock.elapsedRealtime() + 2_000L
     completions.forEach { completion ->
       val remaining = deadline - SystemClock.elapsedRealtime()
-      if (remaining > 0) completion.await(remaining, TimeUnit.MILLISECONDS)
+      if (remaining <= 0) cleanupSucceeded = false
+      else if (!completion.await(remaining, TimeUnit.MILLISECONDS)) cleanupSucceeded = false
     }
     synchronized(nativeAttachmentDownloadCommitLock) {
       pendingAttachmentDownloadUris.toList().forEach { uri ->
-        runCatching { contentResolver.delete(uri, null, null) }
-        pendingAttachmentDownloadUris.remove(uri)
+        val deleted = try { contentResolver.delete(uri, null, null) } catch (_: Exception) { -1 }
+        if (deleted > 0) pendingAttachmentDownloadUris.remove(uri) else cleanupSucceeded = false
       }
       pendingAttachmentDownloadFiles.toList().forEach { file ->
-        runCatching { file.delete() }
-        pendingAttachmentDownloadFiles.remove(file)
+        if (!file.exists() || file.delete()) pendingAttachmentDownloadFiles.remove(file) else cleanupSucceeded = false
       }
+      if (activeAttachmentDownloadCompletions.isNotEmpty()) cleanupSucceeded = false
+      if (pendingAttachmentDownloadUris.isNotEmpty() || pendingAttachmentDownloadFiles.isNotEmpty()) cleanupSucceeded = false
     }
-    return true
+    return cleanupSucceeded
   }
 
   inner class AndroidNativeBridge {

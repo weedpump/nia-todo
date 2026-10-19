@@ -7,6 +7,7 @@ import { t } from '../i18n/index.js';
 export function createAuthSessionFeature({
   authApi,
   getAppInitialized,
+  getCurrentUser = () => null,
   setCurrentUser,
   clearCache,
   initApp,
@@ -133,11 +134,11 @@ export function createAuthSessionFeature({
     localStorage.removeItem('nia-mfa-enrollment-required');
   }
 
-  async function invalidateSessionForPrivacy({ reload = false } = {}) {
+  async function invalidateSessionForPrivacy({ reload = false, triggeringSideEffectTokens = null } = {}) {
     if (reload) sessionPrivacyReloadRequested = true;
     if (!sessionPrivacyCleanupInFlight) {
       sessionPrivacyCleanupInFlight = (async () => {
-        await disconnectRealtime?.();
+        await disconnectRealtime?.({ triggeringSideEffectTokens });
         await clearNativeReminders();
         await clearBrowserAuthCaches();
         await clearCache();
@@ -207,10 +208,32 @@ export function createAuthSessionFeature({
     return user;
   }
 
+  function normalizedUserId(value) {
+    if (value === undefined || value === null) return null;
+    const id = String(value).trim();
+    return /^\d+$/.test(id) ? id : null;
+  }
+
+  function priorAuthenticatedUserIds() {
+    const ids = [];
+    const activeUserId = normalizedUserId(getCurrentUser()?.id);
+    if (activeUserId) ids.push(activeUserId);
+    try {
+      const cached = JSON.parse(localStorage.getItem('cached_user') || 'null');
+      const cachedUserId = normalizedUserId(cached?.id);
+      if (cachedUserId && cached?.username) ids.push(cachedUserId);
+    } catch (_error) {
+      // A corrupt cache is not an identity source; the active user still protects an initialized document.
+    }
+    const lastUserId = normalizedUserId(localStorage.getItem('last_user_id'));
+    if (lastUserId) ids.push(lastUserId);
+    return [...new Set(ids)];
+  }
+
   async function clearCacheIfUserChanged(newUserId) {
-    const lastUserId = localStorage.getItem('last_user_id');
-    if (lastUserId && lastUserId !== newUserId) {
-      console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
+    const previousUserIds = priorAuthenticatedUserIds();
+    if (previousUserIds.some(previousUserId => previousUserId !== newUserId)) {
+      console.log('User changed from', previousUserIds.join(','), 'to', newUserId, '- clearing cache');
       try {
         await disconnectRealtime?.();
         await clearNativeReminders();

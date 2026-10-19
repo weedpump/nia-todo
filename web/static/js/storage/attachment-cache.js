@@ -63,7 +63,7 @@ export function createAttachmentCache({
     }
   }
 
-  async function prune({ maxBytes = DEFAULT_ATTACHMENT_CACHE_MAX_BYTES, bytesNeeded = 0 } = {}) {
+  async function prune({ maxBytes = DEFAULT_ATTACHMENT_CACHE_MAX_BYTES, bytesNeeded = 0, isCurrent = null } = {}) {
     const records = await readAll();
     let total = records.reduce((sum, item) => sum + recordSize(item), 0);
     const target = Math.max(0, Number(maxBytes) - Number(bytesNeeded || 0));
@@ -73,6 +73,7 @@ export function createAttachmentCache({
     const removed = [];
     for (const item of evictable) {
       if (total <= target) break;
+      isCurrent?.();
       await discard(item.id);
       total -= recordSize(item);
       removed.push(item.id);
@@ -94,17 +95,18 @@ export function createAttachmentCache({
     await requestPersistentStorage();
     const existing = await read(item.id);
     const existingSize = recordSize(existing);
-    await prune({ maxBytes, bytesNeeded: Math.max(0, item.size_bytes - existingSize) });
+    await prune({ maxBytes, bytesNeeded: Math.max(0, item.size_bytes - existingSize), isCurrent });
     try {
       isCurrent?.();
       await write(item);
     } catch (error) {
       if (!isQuotaError(error)) throw error;
-      await prune({ maxBytes: 0 });
+      await prune({ maxBytes: 0, isCurrent });
       try {
         isCurrent?.();
         await write(item);
       } catch (retryError) {
+        if (retryError?.code === 'authenticated_runtime_changed') throw retryError;
         let storage = null;
         try {
           storage = await estimateStorage?.();
@@ -118,7 +120,7 @@ export function createAttachmentCache({
         throw wrapped;
       }
     }
-    await prune({ maxBytes });
+    await prune({ maxBytes, isCurrent });
     return item;
   }
 

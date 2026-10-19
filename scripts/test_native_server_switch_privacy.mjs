@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 assert.match(appSource, /createDesktopIntegration\(\{[\s\S]*disconnectRealtime:\s*\(\)\s*=>\s*disconnectAuthenticatedRuntime\(\)/, 'production server-switch wiring must drain the authenticated runtime');
 assert.match(appSource, /authenticatedRuntimeDraining/, 'production runtime must close against new old-identity operations while draining');
-assert.match(appSource, /disconnectAuthenticatedRuntime\(\)[\s\S]*brainDumpLiveFeature\.resetForIdentityBoundary\(\)/, 'identity drain must reset BrainDump user state');
+assert.match(appSource, /disconnectAuthenticatedRuntime\(\{ triggeringSideEffectTokens = null \} = \{\}\)[\s\S]*brainDumpLiveFeature\.resetForIdentityBoundary\(\)/, 'authenticated runtime drain must reset BrainDump identity state');
 assert.match(appSource, /resumeAuthenticatedRuntime\(\)[\s\S]*brainDumpLiveFeature\.init\(\)/, 'identity resume must recheck BrainDump access for the active user');
 
 const events = [];

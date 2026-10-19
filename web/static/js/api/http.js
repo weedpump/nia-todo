@@ -5,9 +5,10 @@ let authenticatedRuntimeGeneration = 0;
 let authenticatedRequestsSuspended = false;
 let serverRuntimeGeneration = 0;
 let serverBoundRequestsSuspended = false;
-const activeAuthenticatedSideEffects = new Set();
+const activeAuthenticatedSideEffects = new Map();
 let authenticatedSessionInvalidationHandler = null;
 let authenticatedSessionInvalidationInFlight = null;
+let authenticatedSessionInvalidationSideEffectTokens = null;
 
 function runtimeBoundaryError() {
   const error = new Error('Authenticated runtime changed while request was in flight');
@@ -53,18 +54,25 @@ export function captureAuthenticatedGeneration() {
 export function registerAuthenticatedSessionInvalidationHandler(handler) {
   authenticatedSessionInvalidationHandler = typeof handler === 'function' ? handler : null;
   authenticatedSessionInvalidationInFlight = null;
+  authenticatedSessionInvalidationSideEffectTokens = null;
 }
 
-function beginAuthenticatedSessionInvalidationFromHttp(status) {
+function beginAuthenticatedSessionInvalidationFromHttp(status, sideEffectToken = null) {
   if (!authenticatedSessionInvalidationHandler) return null;
+  if (!authenticatedSessionInvalidationSideEffectTokens) authenticatedSessionInvalidationSideEffectTokens = new Set();
+  if (sideEffectToken) authenticatedSessionInvalidationSideEffectTokens.add(sideEffectToken);
   if (!authenticatedSessionInvalidationInFlight) {
+    const sideEffectTokens = authenticatedSessionInvalidationSideEffectTokens;
     authenticatedSessionInvalidationInFlight = Promise.resolve()
-      .then(() => authenticatedSessionInvalidationHandler({ status, source: 'http' }))
+      .then(() => authenticatedSessionInvalidationHandler({ status, source: 'http', sideEffectTokens }))
       .catch(error => {
         console.error('Failed to invalidate authenticated session after HTTP rejection', error);
         throw error;
       })
-      .finally(() => { authenticatedSessionInvalidationInFlight = null; });
+      .finally(() => {
+        authenticatedSessionInvalidationInFlight = null;
+        authenticatedSessionInvalidationSideEffectTokens = null;
+      });
   }
   return authenticatedSessionInvalidationInFlight;
 }
@@ -95,7 +103,7 @@ function guardResponse(response, assertCurrent) {
 export async function authenticatedFetch(input, init) {
   if (authenticatedRequestsSuspended) throw runtimeBoundaryError();
   const generation = authenticatedRuntimeGeneration;
-  const { privacyInvalidation = true, ...fetchInit } = init || {};
+  const { privacyInvalidation = true, sideEffectToken = null, ...fetchInit } = init || {};
   const response = await fetch(input, fetchInit);
   try {
     assertAuthenticatedGeneration(generation);
@@ -104,7 +112,7 @@ export async function authenticatedFetch(input, init) {
     throw error;
   }
   if (privacyInvalidation && Number(response.status) === 401) {
-    const invalidation = beginAuthenticatedSessionInvalidationFromHttp(response.status);
+    const invalidation = beginAuthenticatedSessionInvalidationFromHttp(response.status, sideEffectToken);
     if (invalidation) {
       await invalidation;
       const error = new Error(`Authenticated session invalidated by HTTP ${response.status}`);
@@ -132,27 +140,35 @@ export async function serverBoundFetch(input, init) {
 export function trackAuthenticatedSideEffect(operation) {
   if (authenticatedRequestsSuspended) return Promise.reject(runtimeBoundaryError());
   const generation = authenticatedRuntimeGeneration;
+  const token = Symbol('authenticated-side-effect');
   const task = Promise.resolve().then(() => {
     assertAuthenticatedGeneration(generation);
-    return operation();
+    return operation(token);
   }).then(result => {
     assertAuthenticatedGeneration(generation);
     return result;
   });
-  activeAuthenticatedSideEffects.add(task);
+  activeAuthenticatedSideEffects.set(token, task);
   task.then(
-    () => activeAuthenticatedSideEffects.delete(task),
-    () => activeAuthenticatedSideEffects.delete(task),
+    () => activeAuthenticatedSideEffects.delete(token),
+    () => activeAuthenticatedSideEffects.delete(token),
   );
   return task;
 }
 
-export async function waitForAuthenticatedSideEffects(timeoutMs = 65000) {
-  if (!activeAuthenticatedSideEffects.size) return;
+export async function waitForAuthenticatedSideEffects(options = 65000) {
+  const timeoutMs = typeof options === 'number' ? options : Number(options?.timeoutMs ?? 65000);
+  const excludeTokens = typeof options === 'object'
+    ? options?.excludeTokens ?? (options?.excludeToken ? new Set([options.excludeToken]) : null)
+    : null;
+  const pendingTasks = () => [...activeAuthenticatedSideEffects.entries()]
+    .filter(([token]) => !excludeTokens?.has(token))
+    .map(([, task]) => task);
+  if (!pendingTasks().length) return;
   let timeoutId;
   const drain = (async () => {
-    while (activeAuthenticatedSideEffects.size) {
-      await Promise.allSettled([...activeAuthenticatedSideEffects]);
+    while (pendingTasks().length) {
+      await Promise.allSettled(pendingTasks());
     }
   })();
   const timeout = new Promise((_, reject) => {

@@ -1139,9 +1139,34 @@ fn is_trusted_microphone_webview(label: &str, url: &url::Url) -> bool {
 #[cfg(desktop)]
 const DESKTOP_ATTACHMENT_DOWNLOAD_TIMEOUT_SECS: u64 = 60;
 #[cfg(desktop)]
-const DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+const DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES: u64 = 25 * 1024 * 1024;
 #[cfg(desktop)]
 static DESKTOP_ATTACHMENT_DOWNLOAD_NONCE: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(all(desktop, unix))]
+fn sync_download_parent_directory(parent: &Path) -> Result<(), String> {
+  fs::File::open(parent).and_then(|directory| directory.sync_all()).map_err(|err| err.to_string())
+}
+
+#[cfg(all(desktop, not(unix)))]
+fn sync_download_parent_directory(_parent: &Path) -> Result<(), String> {
+  Ok(())
+}
+
+#[cfg(desktop)]
+fn is_attachment_download_url(url: &url::Url) -> bool {
+  if !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
+    return false;
+  }
+  let segments: Vec<_> = url.path_segments().map(|items| items.collect()).unwrap_or_default();
+  segments.len() == 6
+    && segments[0] == "api"
+    && segments[1] == "todos"
+    && segments[2].parse::<u64>().is_ok()
+    && segments[3] == "attachments"
+    && segments[4].parse::<u64>().is_ok()
+    && segments[5] == "download"
+}
 
 #[cfg(desktop)]
 fn atomic_publish_download<R: Read>(target: &Path, reader: R, max_bytes: u64) -> Result<u64, String> {
@@ -1163,7 +1188,15 @@ fn atomic_publish_download<R: Read>(target: &Path, reader: R, max_bytes: u64) ->
     file.flush().map_err(|err| err.to_string())?;
     file.sync_all().map_err(|err| err.to_string())?;
     drop(file);
-    fs::rename(&part, target).map_err(|err| err.to_string())?;
+    fs::hard_link(&part, target).map_err(|err| err.to_string())?;
+    if let Err(err) = fs::remove_file(&part) {
+      let _ = fs::remove_file(target);
+      return Err(err.to_string());
+    }
+    if let Err(err) = sync_download_parent_directory(parent) {
+      let _ = fs::remove_file(target);
+      return Err(err);
+    }
     Ok(written)
   })();
   if result.is_err() {
@@ -1178,6 +1211,9 @@ fn desktop_download_attachment(app: AppHandle, url: String, filename: String, he
   let parsed = url::Url::parse(&url).map_err(|_| "Download-URL ist ungültig.".to_string())?;
   if !matches!(parsed.scheme(), "https" | "http") {
     return Err("Nur http(s)-Downloads sind erlaubt.".into());
+  }
+  if !is_attachment_download_url(&parsed) {
+    return Err("Download-URL ist kein gültiger Attachment-Endpunkt.".into());
   }
   if let Some(server_url) = load_settings(&app).server_url {
     let configured = url::Url::parse(&normalize_server_url(&server_url)?).map_err(|_| "Gespeicherte Server-URL ist ungültig.".to_string())?;
@@ -2035,7 +2071,7 @@ mod linux_microphone_permission_tests {
 
 #[cfg(all(test, desktop))]
 mod desktop_attachment_download_tests {
-  use super::atomic_publish_download;
+  use super::{atomic_publish_download, is_attachment_download_url};
   use std::{
     fs,
     io::{self, Cursor, Read},
@@ -2043,6 +2079,11 @@ mod desktop_attachment_download_tests {
   };
 
   struct FailingReader {
+    delivered: bool,
+  }
+
+  struct CollidingReader {
+    target: PathBuf,
     delivered: bool,
   }
 
@@ -2054,6 +2095,18 @@ mod desktop_attachment_download_tests {
       self.delivered = true;
       buffer[..4].copy_from_slice(b"part");
       Ok(4)
+    }
+  }
+
+  impl Read for CollidingReader {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+      if self.delivered {
+        return Ok(0);
+      }
+      self.delivered = true;
+      fs::write(&self.target, b"intervening").unwrap();
+      buffer[..8].copy_from_slice(b"download");
+      Ok(8)
     }
   }
 
@@ -2075,7 +2128,33 @@ mod desktop_attachment_download_tests {
     assert!(atomic_publish_download(&failed_target, FailingReader { delivered: false }, 64).is_err());
     assert!(!failed_target.exists());
     assert!(fs::read_dir(&dir).unwrap().all(|entry| !entry.unwrap().file_name().to_string_lossy().ends_with(".part")));
+
+    let oversized_target = dir.join("oversized.txt");
+    assert!(atomic_publish_download(&oversized_target, Cursor::new(b"too-large"), 4).is_err());
+    assert!(!oversized_target.exists());
+
+    let collision_target = dir.join("collision.txt");
+    assert!(atomic_publish_download(
+      &collision_target,
+      CollidingReader { target: collision_target.clone(), delivered: false },
+      64,
+    ).is_err());
+    assert_eq!(fs::read(&collision_target).unwrap(), b"intervening", "publication must not clobber a target created after selection");
+    assert!(fs::read_dir(&dir).unwrap().all(|entry| !entry.unwrap().file_name().to_string_lossy().ends_with(".part")));
     fs::remove_dir_all(dir).unwrap();
+  }
+
+  #[test]
+  fn desktop_attachment_download_accepts_only_exact_attachment_paths() {
+    assert!(is_attachment_download_url(&url::Url::parse("https://example.test/api/todos/1/attachments/2/download").unwrap()));
+    for rejected in [
+      "https://example.test/api/todos/1/attachments/2/download?other=1",
+      "https://example.test/api/todos/1/attachments/2/download/extra",
+      "https://example.test/api/projects",
+      "https://user@example.test/api/todos/1/attachments/2/download",
+    ] {
+      assert!(!is_attachment_download_url(&url::Url::parse(rejected).unwrap()), "accepted {rejected}");
+    }
   }
 }
 

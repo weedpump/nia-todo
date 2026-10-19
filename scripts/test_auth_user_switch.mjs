@@ -36,6 +36,7 @@ Object.defineProperty(globalThis, 'navigator', {
 });
 
 const { createAuthSessionFeature } = await import('../web/static/js/features/auth-session.js');
+const { todosApi } = await import('../web/static/js/api/todos.js');
 
 let currentUser = { id: 1, username: 'old-user', token: 'old-token' };
 let clearAttempts = 0;
@@ -110,6 +111,7 @@ location.reload = () => { boundaryEvents.push('reload'); };
 const drainedFeature = createAuthSessionFeature({
   authApi: { login: async () => ({ access_token: 'new-token', user: { id: 2, username: 'new-user' } }) },
   getAppInitialized: () => true,
+  getCurrentUser: () => currentUser,
   setCurrentUser: () => { boundaryEvents.push('activate:new-user'); },
   disconnectRealtime: async () => { boundaryEvents.push('drain:start'); await runtimeDrain; boundaryEvents.push('drain:done'); },
   resumeRealtime: async () => { boundaryEvents.push('resume:runtime'); },
@@ -129,10 +131,45 @@ assert.deepEqual(boundaryEvents, ['drain:start', 'drain:done', 'clear:reminders'
 assert.equal(localStorage.getItem('cached_user'), null, 'cross-user login must not persist user B or retain user A as the cached identity in the old document');
 location.reload = boundaryReload;
 
+for (const scenario of [
+  { label: 'missing marker with active user', invalidLastUserId: null, activeUser: { id: 1, username: 'old-user', token: 'old-token' }, cachedUser: null },
+  { label: 'missing marker with cached user', invalidLastUserId: null, activeUser: null, cachedUser: { id: 1, username: 'old-user' } },
+  { label: 'corrupt marker with active user', invalidLastUserId: '{broken-json', activeUser: { id: 1, username: 'old-user', token: 'old-token' }, cachedUser: null },
+  { label: 'corrupt marker with cached user', invalidLastUserId: '{broken-json', activeUser: null, cachedUser: { id: 1, username: 'old-user' } },
+]) {
+  values.set('jwt_token', 'old-token');
+  values.set('csrf_token', 'old-csrf');
+  if (scenario.invalidLastUserId === null) values.delete('last_user_id');
+  else values.set('last_user_id', scenario.invalidLastUserId);
+  if (scenario.cachedUser) values.set('cached_user', JSON.stringify(scenario.cachedUser));
+  else values.delete('cached_user');
+  currentUser = scenario.activeUser;
+  const missingMarkerEvents = [];
+  location.reload = () => { missingMarkerEvents.push('reload'); };
+  const missingMarkerFeature = createAuthSessionFeature({
+    authApi: { login: async () => ({ access_token: 'new-token', user: { id: 2, username: 'new-user' } }) },
+    getAppInitialized: () => true,
+    getCurrentUser: () => currentUser,
+    setCurrentUser: () => { missingMarkerEvents.push('activate:new-user'); },
+    disconnectRealtime: async () => { missingMarkerEvents.push('drain:runtime'); },
+    clearNativeReminders: async () => { missingMarkerEvents.push('clear:reminders'); },
+    clearCache: async () => { missingMarkerEvents.push('clear:indexeddb'); },
+    resumeRealtime: async () => { missingMarkerEvents.push('resume:runtime'); },
+    resumeNativeReminders: () => { missingMarkerEvents.push('resume:reminders'); },
+    initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+  });
+  const missingMarkerResult = await missingMarkerFeature.login('new-user', 'password');
+  assert.equal(missingMarkerResult.identity_reload_required, true, `${scenario.label} must detect B in A's initialized document`);
+  assert.deepEqual(missingMarkerEvents, ['drain:runtime', 'clear:reminders', 'clear:indexeddb', 'reload']);
+  assert.equal(localStorage.getItem('cached_user'), null);
+}
+location.reload = boundaryReload;
+
 values.set('jwt_token', 'boot-token');
 values.set('csrf_token', 'boot-csrf');
-values.set('last_user_id', '1');
+values.delete('last_user_id');
 values.set('cached_user', JSON.stringify({ id: 1, username: 'old-user' }));
+currentUser = { id: 1, username: 'old-user', token: 'boot-token' };
 const authoritativeSwitchEvents = [];
 location.reload = () => { authoritativeSwitchEvents.push('reload'); };
 const authoritativeSwitchFeature = createAuthSessionFeature({
@@ -141,6 +178,7 @@ const authoritativeSwitchFeature = createAuthSessionFeature({
     verifyEmail: async () => { authoritativeSwitchEvents.push('verify-email'); },
   },
   getAppInitialized: () => true,
+  getCurrentUser: () => currentUser,
   setCurrentUser: user => { authoritativeSwitchEvents.push(user ? `activate:${user.id}` : 'clear:user'); },
   disconnectRealtime: async () => { authoritativeSwitchEvents.push('drain:runtime'); },
   clearNativeReminders: async () => { authoritativeSwitchEvents.push('clear:reminders'); },
@@ -398,5 +436,35 @@ await Promise.resolve();
 await assert.rejects(waitForAuthenticatedSideEffects(5), error => error?.code === 'authenticated_side_effect_timeout', 'native side-effect drain must fail closed instead of waiting forever');
 releaseHungSideEffect(true);
 await boundedSideEffect;
+
+resumeAuthenticatedRequests();
+let releaseUnrelatedSideEffect;
+let unrelatedSideEffectFinished = false;
+const unrelatedSideEffect = trackAuthenticatedSideEffect(() => new Promise(resolve => {
+  releaseUnrelatedSideEffect = () => {
+    unrelatedSideEffectFinished = true;
+    resolve(true);
+  };
+}));
+const unrelatedSideEffectSettled = assert.rejects(unrelatedSideEffect, error => error?.code === 'authenticated_runtime_changed');
+registerAuthenticatedSessionInvalidationHandler(async ({ sideEffectTokens }) => {
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sideEffectTokens?.size, 2, 'a shared HTTP invalidation must collect every triggering tracked side effect');
+  suspendAuthenticatedRequests();
+  setImmediate(releaseUnrelatedSideEffect);
+  await waitForAuthenticatedSideEffects({ excludeTokens: sideEffectTokens, timeoutMs: 100 });
+  assert.equal(unrelatedSideEffectFinished, true, 'privacy cleanup must drain unrelated authenticated side effects');
+});
+globalThis.fetch = async () => ({ ok: false, status: 401, statusText: 'Unauthorized', body: { cancel: async () => {} } });
+const trackedAttachment401A = trackAuthenticatedSideEffect(sideEffectToken => todosApi.getAttachmentBlob(7, 70, { sideEffectToken }));
+const trackedAttachment401B = trackAuthenticatedSideEffect(sideEffectToken => todosApi.getAttachmentBlob(8, 80, { sideEffectToken }));
+await Promise.all([
+  assert.rejects(trackedAttachment401A, error => error?.code === 'session_invalidated', 'the first triggering attachment 401 must settle without waiting on itself'),
+  assert.rejects(trackedAttachment401B, error => error?.code === 'session_invalidated', 'the second triggering attachment 401 must settle without waiting on itself'),
+]);
+await unrelatedSideEffectSettled;
+resumeAuthenticatedRequests();
+registerAuthenticatedSessionInvalidationHandler(null);
+globalThis.fetch = originalFetch;
 
 console.log('✅ Cross-user login fails closed before activating the new identity');

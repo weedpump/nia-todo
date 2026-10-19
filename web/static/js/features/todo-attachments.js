@@ -205,15 +205,15 @@ export function createTodoAttachmentsFeature({
     return `attachment-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
-  async function loadAttachmentBlob(todoId, attachment) {
-    return trackAuthenticatedSideEffect(async () => {
+  async function loadAttachmentBlob(todoId, attachment, inheritedSideEffectToken = null) {
+    const load = async (sideEffectToken) => {
       const generation = captureAuthenticatedGeneration();
       const isCurrent = () => assertAuthenticatedGeneration(generation);
       const cached = await attachmentCache.get(attachment?.id, { todoId, isCurrent });
       assertAuthenticatedGeneration(generation);
       if (cached?.blob) return cached.blob;
       if (!isOnlineForSync()) throw new Error('Attachment is not available offline');
-      const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
+      const blob = await todosApi.getAttachmentBlob(todoId, attachment.id, { sideEffectToken });
       assertAuthenticatedGeneration(generation);
       await attachmentCache.put({
         id: attachment.id,
@@ -230,15 +230,16 @@ export function createTodoAttachmentsFeature({
       });
       assertAuthenticatedGeneration(generation);
       return blob;
-    });
+    };
+    return inheritedSideEffectToken ? load(inheritedSideEffectToken) : trackAuthenticatedSideEffect(load);
   }
 
   async function makeAttachmentAvailableOffline(todoId, attachment) {
-    return trackAuthenticatedSideEffect(async () => {
+    return trackAuthenticatedSideEffect(async (sideEffectToken) => {
       try {
         const authGeneration = captureAuthenticatedGeneration();
         const isCurrent = () => assertAuthenticatedGeneration(authGeneration);
-        const blob = await loadAttachmentBlob(todoId, attachment);
+        const blob = await loadAttachmentBlob(todoId, attachment, sideEffectToken);
         isCurrent();
         const cached = await attachmentCache.get(attachment.id, { touch: false, todoId, isCurrent });
         isCurrent();

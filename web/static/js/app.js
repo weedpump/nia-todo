@@ -367,18 +367,19 @@ const userSettingsFeature = createUserSettingsFeature({
   updatePushSettingsUI: () => updatePushSettingsUI(),
   logout: () => logout(),
 });
-async function disconnectAuthenticatedRuntime() {
+async function disconnectAuthenticatedRuntime({ triggeringSideEffectTokens = null } = {}) {
   authenticatedRuntimeDraining = true;
   suspendAuthenticatedRequests();
   brainDumpLiveFeature.resetForIdentityBoundary();
   try {
-    await desktopIntegration?.cancelNativeDownloadsForPrivacy?.();
+    const nativeDownloadsCleaned = await desktopIntegration?.cancelNativeDownloadsForPrivacy?.();
+    if (nativeDownloadsCleaned === false) throw new Error('Native attachment download cleanup failed');
     const websocketDrain = disconnectWebSocket();
     await Promise.allSettled([
       websocketDrain,
       waitForBackgroundSyncOperations(),
     ]);
-    await waitForAuthenticatedSideEffects();
+    await waitForAuthenticatedSideEffects({ excludeTokens: triggeringSideEffectTokens });
   } catch (error) {
     await resumeAuthenticatedRuntime();
     throw error;
@@ -398,17 +399,18 @@ async function resumeAuthenticatedRuntime() {
 const authSessionFeature = createAuthSessionFeature({
   authApi,
   getAppInitialized: () => appInitialized,
+  getCurrentUser: () => currentUser,
   setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   clearCache: () => clearIndexedDB(),
   initApp: () => initApp(),
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
-  disconnectRealtime: () => disconnectAuthenticatedRuntime(),
+  disconnectRealtime: (context) => disconnectAuthenticatedRuntime(context),
   resumeRealtime: () => resumeAuthenticatedRuntime(),
   clearNativeReminders: () => desktopIntegration?.clearNativeRemindersForPrivacy?.() || Promise.resolve(),
   resumeNativeReminders: () => desktopIntegration?.resumeNativeRemindersAfterPrivacy?.(),
 });
-registerAuthenticatedSessionInvalidationHandler(() => authSessionFeature.invalidateSessionForPrivacy());
+registerAuthenticatedSessionInvalidationHandler(({ sideEffectTokens } = {}) => authSessionFeature.invalidateSessionForPrivacy({ triggeringSideEffectTokens: sideEffectTokens }));
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
 const bindServiceWorkerUpdateButtons = serviceWorkerUpdates.bindServiceWorkerUpdateButtons;
 
