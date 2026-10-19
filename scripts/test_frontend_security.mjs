@@ -105,11 +105,14 @@ assert(authSessionSource.includes("methods.includes('recovery_code') ? 'recovery
 assert(authSessionSource.includes('nia_consumed_native_oidc_codes'), 'native OIDC must remember consumed handoff codes so logout/login-overlay re-entry does not show stale handoff errors');
 assert(authSessionSource.includes('nativeOidcCodesInFlight.has(code)'), 'native OIDC must dedupe simultaneous callback delivery before the one-time handoff is consumed twice');
 assert(authSessionSource.includes('rememberConsumedNativeOidcCode(code)'), 'native OIDC must mark handoff codes consumed after a successful exchange');
+const nativeOidcCallbackSource = authSessionSource.slice(authSessionSource.indexOf('async function handleNativeOidcCallback'), authSessionSource.indexOf('function bindNativeOidcListener'));
+assert(nativeOidcCallbackSource.indexOf('await storeOidcUserSession(payload)') < nativeOidcCallbackSource.indexOf('rememberConsumedNativeOidcCode(code)'), 'native OIDC must not consume a handoff code before login completion succeeds');
 const logoutSource = authSessionSource.slice(authSessionSource.indexOf('async function logout()'), authSessionSource.indexOf('function showLoginOverlay()'));
-assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('authApi.logout()') < logoutSource.indexOf('disconnectRealtime?.()'), 'logout must revoke the server session before suspending authenticated requests');
+assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('disconnectRealtime?.()') < logoutSource.indexOf('authApi.logout({ signal: controller.signal })'), 'logout must close authenticated producers before the reserved revocation request');
 assert(logoutSource.includes('await realtimeShutdown'), 'logout must drain realtime work before clearing IndexedDB');
+assert(logoutSource.includes('controller.abort()') && logoutSource.includes('logoutRevocationTimeoutMs'), 'logout revocation must be bounded so local privacy cleanup cannot hang indefinitely');
 assert(logoutSource.indexOf('await clearCache()') < logoutSource.indexOf('clearLocalAuthState()'), 'logout must retain the old identity marker until IndexedDB cleanup succeeds');
-assert(logoutSource.indexOf('authApi.logout()') < logoutSource.indexOf('await clearCache()'), 'logout must attempt server-side revocation before local privacy cleanup');
+assert(logoutSource.indexOf('authApi.logout({ signal: controller.signal })') < logoutSource.indexOf('await clearCache()'), 'logout must attempt server-side revocation before local privacy cleanup');
 const clearLocalAuthSource = authSessionSource.slice(authSessionSource.indexOf('function clearLocalAuthState()'), authSessionSource.indexOf('function persistCachedUser'));
 for (const key of ['jwt_token', 'auth_token', 'last_user_id', 'csrf_token', 'cached_user', 'nia-mfa-enrollment-required']) {
   assert(clearLocalAuthSource.includes(`localStorage.removeItem('${key}')`), `successful logout cleanup must explicitly remove ${key}`);
@@ -129,6 +132,7 @@ assert(!brainDumpSource.includes('window.NiaAndroidNative'), 'BrainDump must use
 assert(brainDumpSource.includes('aria-label="${escapeHtmlAttr(group.project)}"'), 'BrainDump project group labels must use attribute escaping, not HTML escaping');
 assert(!desktopSource.includes('getTauriInvoke'), 'desktop integration must use the native bridge adapter, not direct Tauri invoke');
 assert(desktopSource.includes('userId,'), 'native reminder schedules must carry the current user id for action isolation');
+assert(desktopSource.includes('Promise.race([') && desktopSource.includes('reminderDrainTimeoutMs'), 'privacy cleanup must not wait forever for an unresolved native location permission operation');
 
 const downloadsSource = readFileSync(new URL('../web/static/js/features/app-downloads.js', import.meta.url), 'utf8');
 assert(downloadsSource.includes('return RUNTIME_CAPABILITIES.appDownloads;'), 'app downloads must remain available in browser and installed PWA runtimes while native shells stay excluded by capability');
@@ -140,9 +144,16 @@ const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.ur
 assert(!appSource.includes('window.NiaAndroidNative'), 'app core must consume notification actions through the native bridge, not Android globals');
 assert(!appSource.includes('markTodoDoneFromNative') && !appSource.includes('startNativeDoneActionPolling'), 'app core must not keep removed native notification done-action polling');
 assert(appSource.includes('activeBackgroundSyncOperations') && appSource.includes('waitForBackgroundSyncOperations'), 'logout must wait for in-flight REST sync work before clearing user data');
+assert(appSource.includes('waitForAuthenticatedSideEffects()'), 'identity transitions must drain native authenticated side effects before cleanup');
+assert(appSource.includes('authSessionFeature.invalidateSessionForPrivacy({ reload: true })'), 'WebSocket session invalidation must use the full privacy cleanup path');
 assert(appSource.includes('return trackBackgroundSyncOperation(() => syncController.syncWithServer())'), 'app sync wrapper must preserve sync results for lifecycle recovery decisions');
 assert(appSource.includes('refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.())'), 'invite refreshes must join the authenticated background-operation drain');
 const websocketClientSource = readFileSync(new URL('../web/static/js/features/websocket-client.js', import.meta.url), 'utf8');
+const todosApiSource = readFileSync(new URL('../web/static/js/api/todos.js', import.meta.url), 'utf8');
+const todoAttachmentsSource = readFileSync(new URL('../web/static/js/features/todo-attachments.js', import.meta.url), 'utf8');
+assert(todosApiSource.includes('trackAuthenticatedSideEffect(() => nativeBridge.downloadToDownloads'), 'native attachment downloads must join the authenticated side-effect drain');
+const attachmentDownloadSource = todoAttachmentsSource.slice(todoAttachmentsSource.indexOf('async function downloadTodoAttachment'), todoAttachmentsSource.indexOf('async function toggleAttachmentPin'));
+assert(attachmentDownloadSource.indexOf('downloadAttachmentNative') < attachmentDownloadSource.indexOf('const blob = await loadAttachmentBlob'), 'online native download must not fetch the same attachment once in the WebView and again in native code');
 assert(websocketClientSource.includes('activeMessageHandlers') && websocketClientSource.includes('Promise.allSettled([...activeMessageHandlers])'), 'WebSocket disconnect must drain message handlers before logout clears IndexedDB');
 const websocketDisconnectSource = websocketClientSource.slice(websocketClientSource.indexOf('function disconnectWebSocket()'), websocketClientSource.indexOf('function updateConnectionStatus()'));
 assert(websocketDisconnectSource.includes('ws.onmessage = null'), 'WebSocket disconnect must reject queued message delivery before taking the handler-drain snapshot');

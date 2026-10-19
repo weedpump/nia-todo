@@ -1,23 +1,29 @@
-export function createAndroidLocationPermissionFlow({ nativeBridge, promptUser }) {
+export function createAndroidLocationPermissionFlow({ nativeBridge, promptUser, cancelPrompt = () => {} }) {
   let promptInFlight = null;
+  let permissionGeneration = 0;
 
   async function ensurePermission(required = false) {
     if (!required) return true;
+    const generation = permissionGeneration;
     const state = String(await nativeBridge?.locationPermissionGuidanceState?.() || 'unsupported');
+    if (generation !== permissionGeneration) return false;
     if (state === 'granted') return true;
     if (state === 'declined' || state === 'unsupported') return false;
     if (promptInFlight) return promptInFlight;
 
     promptInFlight = (async () => {
       const optionLabel = String(await nativeBridge?.backgroundLocationPermissionOptionLabel?.() || '');
+      if (generation !== permissionGeneration) return false;
       const mode = String(await nativeBridge?.backgroundLocationPermissionMode?.() || 'unsupported');
+      if (generation !== permissionGeneration) return false;
       const choice = await promptUser(state, optionLabel, mode);
+      if (generation !== permissionGeneration) return false;
       if (choice !== 'continue') {
         await nativeBridge?.declineLocationPermissionGuidance?.();
         return false;
       }
       const requested = String(await nativeBridge?.requestLocationPermission?.() || state);
-      return requested === 'granted';
+      return generation === permissionGeneration && requested === 'granted';
     })().finally(() => {
       promptInFlight = null;
     });
@@ -25,7 +31,12 @@ export function createAndroidLocationPermissionFlow({ nativeBridge, promptUser }
     return promptInFlight;
   }
 
-  return { ensurePermission };
+  function cancelPending() {
+    permissionGeneration += 1;
+    cancelPrompt();
+  }
+
+  return { ensurePermission, cancelPending };
 }
 
 export function createNativeReminderSnapshotState() {

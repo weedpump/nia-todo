@@ -117,6 +117,23 @@ async function testConcurrentSchedulingSharesOnePrompt() {
   assert.equal(requests, 1);
 }
 
+async function testPrivacyCancellationSettlesOpenPrompt() {
+  let resolvePrompt;
+  const flow = createAndroidLocationPermissionFlow({
+    nativeBridge: {
+      locationPermissionGuidanceState: () => 'prompt',
+      backgroundLocationPermissionOptionLabel: () => 'Allow all the time',
+      backgroundLocationPermissionMode: () => 'settings',
+    },
+    promptUser: () => new Promise(resolve => { resolvePrompt = resolve; }),
+    cancelPrompt: () => resolvePrompt?.('decline'),
+  });
+  const permission = flow.ensurePermission(true);
+  await new Promise(resolve => setImmediate(resolve));
+  flow.cancelPending();
+  assert.equal(await permission, false, 'privacy cancellation must settle an open permission prompt');
+}
+
 async function testDelayedZeroCountRetriesAndWarns() {
   const counts = [0, 0];
   let calls = 0;
@@ -323,6 +340,7 @@ await testDeclinedStateStaysQuiet();
 await testContinueStartsExistingNativeFlow();
 await testDeclinePersistsNativeDecision();
 await testConcurrentSchedulingSharesOnePrompt();
+await testPrivacyCancellationSettlesOpenPrompt();
 await testDelayedZeroCountRetriesAndWarns();
 await testGenerationChangeStopsPermissionContinuation();
 testTemporaryEmptyBootstrapDoesNotReplaceNativeReminderSnapshot();

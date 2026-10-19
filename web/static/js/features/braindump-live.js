@@ -128,7 +128,13 @@ export function createBrainDumpLiveFeature(options = {}) {
         headers: getAuthHeaders(),
         credentials: 'include',
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        if (identityGeneration === state.identityGeneration) {
+          state.accessChecked = false;
+          state.enabled = false;
+        }
+        return;
+      }
       const data = await response.json();
       if (identityGeneration !== state.identityGeneration) return;
       state.enabled = Boolean(data.enabled);

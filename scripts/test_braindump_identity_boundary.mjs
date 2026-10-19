@@ -68,4 +68,17 @@ assert.equal(accessRequests, 2, 'a stale old-user access result must not replace
 assert(elements.has('braindump-fab'), 'the new identity entitlement must survive a late old-user response');
 assert(elements.has('braindump-modal'), 'the new identity modal must remain available after a late old-user response');
 
+feature.resetForIdentityBoundary();
+accessRequests = 0;
+globalThis.fetch = async () => {
+  accessRequests += 1;
+  if (accessRequests === 1) return { ok: false, status: 503, json: async () => ({}) };
+  return { ok: true, json: async () => ({ enabled: true }) };
+};
+await feature.init();
+await feature.init();
+assert.equal(accessRequests, 2, 'a temporary BrainDump access failure must be retried by the next init');
+assert(elements.has('braindump-fab'), 'BrainDump must activate after a successful retry');
+assert(elements.has('braindump-modal'), 'BrainDump modal must be created after a successful retry');
+
 console.log('✅ BrainDump state resets across identity boundaries');

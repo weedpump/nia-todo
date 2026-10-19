@@ -12,16 +12,19 @@ globalThis.localStorage = {
   setItem: (key, value) => values.set(key, String(value)),
   removeItem: key => values.delete(key),
 };
+const sessionValues = new Map();
 globalThis.sessionStorage = {
-  getItem: () => null,
-  setItem() {},
-  removeItem() {},
+  getItem: key => sessionValues.get(key) ?? null,
+  setItem: (key, value) => sessionValues.set(key, String(value)),
+  removeItem: key => sessionValues.delete(key),
 };
 globalThis.location = { origin: 'https://todo.example', search: '', pathname: '/', hash: '', reload() {} };
 globalThis.history = { replaceState() {} };
 globalThis.window = {
   PublicKeyCredential: null,
+  dispatchEvent() {},
 };
+globalThis.CustomEvent = class CustomEvent { constructor(type) { this.type = type; } };
 globalThis.caches = {
   keys: async () => [],
   delete: async () => true,
@@ -177,7 +180,60 @@ const logoutOrderFeature = createAuthSessionFeature({
   initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
 });
 await logoutOrderFeature.logout();
-assert.deepEqual(logoutEvents.slice(0, 2), ['revoke:server', 'drain:runtime'], 'logout must revoke the server session before authenticated requests are suspended');
+assert.deepEqual(logoutEvents.slice(0, 3), ['drain:runtime', 'clear:reminders', 'revoke:server'], 'logout must close old producers before issuing the reserved server revocation request');
+
+values.set('jwt_token', 'hanging-token');
+const hangingLogoutEvents = [];
+const hangingLogoutFeature = createAuthSessionFeature({
+  authApi: { logout: async () => new Promise(() => {}) },
+  getAppInitialized: () => true,
+  setCurrentUser: () => { hangingLogoutEvents.push('clear:user'); },
+  disconnectRealtime: async () => { hangingLogoutEvents.push('drain:runtime'); },
+  clearNativeReminders: async () => { hangingLogoutEvents.push('clear:reminders'); },
+  clearCache: async () => { hangingLogoutEvents.push('clear:indexeddb'); },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+  logoutRevocationTimeoutMs: 5,
+});
+await hangingLogoutFeature.logout();
+assert(hangingLogoutEvents.includes('clear:indexeddb'), 'a hanging server revocation must not prevent local privacy cleanup');
+
+values.set('jwt_token', 'revoked-token');
+values.set('last_user_id', '1');
+const revokedEvents = [];
+const revokedFeature = createAuthSessionFeature({
+  authApi: { me: async () => { const error = new Error('revoked'); error.status = 401; throw error; } },
+  getAppInitialized: () => true,
+  setCurrentUser: user => { revokedEvents.push(user ? 'activate' : 'clear:user'); },
+  disconnectRealtime: async () => { revokedEvents.push('drain:runtime'); },
+  clearNativeReminders: async () => { revokedEvents.push('clear:reminders'); },
+  clearBrowserAuthCaches: async () => { revokedEvents.push('clear:browser'); },
+  clearCache: async () => { revokedEvents.push('clear:indexeddb'); },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+});
+assert.equal(await revokedFeature.checkAuth({ authoritative: true }), false);
+assert.deepEqual(revokedEvents, ['drain:runtime', 'clear:reminders', 'clear:indexeddb', 'clear:user'], 'authoritative session revocation must run the complete privacy cleanup');
+assert.equal(localStorage.getItem('last_user_id'), null, 'session revocation must remove the old identity marker');
+
+let finishConcurrentDrain;
+let concurrentReloads = 0;
+const originalReload = location.reload;
+location.reload = () => { concurrentReloads += 1; };
+const concurrentEvents = [];
+const concurrentInvalidationFeature = createAuthSessionFeature({
+  authApi: {}, getAppInitialized: () => true, setCurrentUser: () => { concurrentEvents.push('clear:user'); },
+  disconnectRealtime: async () => { concurrentEvents.push('drain:runtime'); await new Promise(resolve => { finishConcurrentDrain = resolve; }); },
+  clearNativeReminders: async () => { concurrentEvents.push('clear:reminders'); },
+  clearCache: async () => { concurrentEvents.push('clear:indexeddb'); },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+});
+const invalidationA = concurrentInvalidationFeature.invalidateSessionForPrivacy();
+const invalidationB = concurrentInvalidationFeature.invalidateSessionForPrivacy({ reload: true });
+await Promise.resolve();
+finishConcurrentDrain();
+await Promise.all([invalidationA, invalidationB]);
+assert.deepEqual(concurrentEvents, ['drain:runtime', 'clear:reminders', 'clear:indexeddb', 'clear:user'], 'concurrent invalidation signals must share one privacy cleanup');
+assert.equal(concurrentReloads, 1, 'a concurrent reload request must be preserved by the shared privacy cleanup');
+location.reload = originalReload;
 
 const {
   resumeServerBoundRequests,
@@ -196,5 +252,53 @@ await assert.rejects(oldServerLogin, error => error?.code === 'server_runtime_ch
 await assert.rejects(serverBoundFetch('/api/login', {}), error => error?.code === 'server_runtime_changed', 'new login and OIDC work must be blocked during a native server switch');
 resumeServerBoundRequests();
 globalThis.fetch = originalFetch;
+
+values.set('jwt_token', 'old-token');
+values.set('last_user_id', '1');
+values.set('cached_user', JSON.stringify({ id: 1, username: 'old-user' }));
+let oidcCleanupAttempts = 0;
+let oidcExchangeRequests = 0;
+const oidcRetryFeature = createAuthSessionFeature({
+  authApi: {},
+  getAppInitialized: () => false,
+  setCurrentUser: () => {},
+  disconnectRealtime: async () => {},
+  clearNativeReminders: async () => {},
+  clearCache: async () => {
+    oidcCleanupAttempts += 1;
+    if (oidcCleanupAttempts === 1) throw new Error('injected OIDC cleanup failure');
+  },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+});
+globalThis.fetch = async () => {
+  oidcExchangeRequests += 1;
+  return { ok: true, json: async () => ({ kind: 'user', payload: { access_token: 'new-token', user: { id: 2, username: 'new-user' } } }) };
+};
+await oidcRetryFeature.handleNativeOidcCallback('nia-todo://oidc/callback?code=retry-code');
+assert.equal(sessionValues.has('nia_consumed_native_oidc_codes'), false, 'failed login completion must not consume the native OIDC handoff code');
+await oidcRetryFeature.handleNativeOidcCallback('nia-todo://oidc/callback?code=retry-code');
+assert.equal(oidcExchangeRequests, 2, 'an OIDC handoff must remain retryable after cleanup failure');
+assert.deepEqual(JSON.parse(sessionValues.get('nia_consumed_native_oidc_codes')), ['retry-code']);
+globalThis.fetch = originalFetch;
+
+const {
+  trackAuthenticatedSideEffect,
+  waitForAuthenticatedSideEffects,
+} = await import('../web/static/js/api/http.js');
+let finishNativeDownload;
+resumeAuthenticatedRequests();
+const nativeDownload = trackAuthenticatedSideEffect(() => new Promise(resolve => { finishNativeDownload = resolve; }));
+await Promise.resolve();
+suspendAuthenticatedRequests();
+let sideEffectsDrained = false;
+const sideEffectDrain = waitForAuthenticatedSideEffects().then(() => { sideEffectsDrained = true; });
+await Promise.resolve();
+assert.equal(sideEffectsDrained, false, 'identity cleanup must wait for an already active native side effect');
+await assert.rejects(trackAuthenticatedSideEffect(async () => true), error => error?.code === 'authenticated_runtime_changed', 'new native side effects must be blocked during identity drain');
+finishNativeDownload({ path: '/downloads/file' });
+await Promise.allSettled([nativeDownload]);
+await sideEffectDrain;
+assert.equal(sideEffectsDrained, true);
+resumeAuthenticatedRequests();
 
 console.log('✅ Cross-user login fails closed before activating the new identity');

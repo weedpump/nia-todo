@@ -273,11 +273,12 @@ export const authApi = {
     return parseOrThrow(response, t('api.auth.notAuthenticated'));
   },
 
-  async logout() {
-    const response = await apiFetch(API + '/api/logout', {
+  async logout({ signal } = {}) {
+    const response = await serverBoundFetch(API + '/api/logout', {
       method: 'POST',
       headers: getAuthHeaders(),
       credentials: 'include',
+      signal,
     });
     return parseOrThrow(response, t('api.auth.logoutFailed'));
   },

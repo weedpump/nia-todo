@@ -128,6 +128,7 @@ export function createDesktopIntegration({
   clearLocalAuthState = () => {},
   clearBrowserAuthCaches = async () => {},
   clearCache = async () => {},
+  reminderDrainTimeoutMs = 1000,
 }) {
   const nativeBridge = createNativeBridge();
   let settings = { ...DEFAULT_SETTINGS };
@@ -151,6 +152,7 @@ export function createDesktopIntegration({
   const locationPermissionFlow = createAndroidLocationPermissionFlow({
     nativeBridge,
     promptUser: locationPermissionPrompt.show,
+    cancelPrompt: () => locationPermissionPrompt.close('decline'),
   });
 
   function bindAndroidLocationPermissionActions() {
@@ -444,13 +446,20 @@ export function createDesktopIntegration({
   async function clearNativeRemindersForPrivacy() {
     reminderSchedulingSuspended = true;
     reminderGeneration += 1;
+    locationPermissionFlow.cancelPending();
+    locationPermissionPrompt.close('decline');
     if (reminderScheduleTimer) {
       clearTimeout(reminderScheduleTimer);
       reminderScheduleTimer = null;
     }
     latestTodos = [];
     reminderSnapshots.accept([], { authoritative: true });
-    await Promise.allSettled([...activeReminderOperations]);
+    if (activeReminderOperations.size) {
+      await Promise.race([
+        Promise.allSettled([...activeReminderOperations]),
+        new Promise(resolve => setTimeout(resolve, reminderDrainTimeoutMs)),
+      ]);
+    }
     if (isNativeApp()) await nativeBridge.clearReminders();
   }
 

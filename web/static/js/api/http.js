@@ -5,6 +5,7 @@ let authenticatedRuntimeGeneration = 0;
 let authenticatedRequestsSuspended = false;
 let serverRuntimeGeneration = 0;
 let serverBoundRequestsSuspended = false;
+const activeAuthenticatedSideEffects = new Set();
 
 function runtimeBoundaryError() {
   const error = new Error('Authenticated runtime changed while request was in flight');
@@ -89,6 +90,27 @@ export async function serverBoundFetch(input, init) {
     throw error;
   }
   return guardResponse(response, () => assertServerGeneration(generation));
+}
+
+export function trackAuthenticatedSideEffect(operation) {
+  if (authenticatedRequestsSuspended) return Promise.reject(runtimeBoundaryError());
+  const generation = authenticatedRuntimeGeneration;
+  const task = Promise.resolve().then(operation).then(result => {
+    assertAuthenticatedGeneration(generation);
+    return result;
+  });
+  activeAuthenticatedSideEffects.add(task);
+  task.then(
+    () => activeAuthenticatedSideEffects.delete(task),
+    () => activeAuthenticatedSideEffects.delete(task),
+  );
+  return task;
+}
+
+export async function waitForAuthenticatedSideEffects() {
+  while (activeAuthenticatedSideEffects.size) {
+    await Promise.allSettled([...activeAuthenticatedSideEffects]);
+  }
 }
 
 export function getAuthToken() {

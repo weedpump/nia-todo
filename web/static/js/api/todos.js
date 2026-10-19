@@ -1,5 +1,5 @@
 import { API } from '../core/config.js';
-import { authenticatedFetch, http, getAuthHeaders } from './http.js';
+import { authenticatedFetch, http, getAuthHeaders, trackAuthenticatedSideEffect } from './http.js';
 import { apiErrorFromResponse } from './errors.js';
 
 async function parseOrThrow(response, fallback = 'Request failed') {
@@ -60,7 +60,7 @@ export const todosApi = {
   async downloadAttachmentNative(todoId, attachmentId, filename = 'attachment', nativeBridge = null) {
     if (!nativeBridge?.downloadToDownloads) return false;
     const url = API + `/api/todos/${todoId}/attachments/${attachmentId}/download`;
-    return nativeBridge.downloadToDownloads(url, filename || 'attachment', getAuthHeaders());
+    return trackAuthenticatedSideEffect(() => nativeBridge.downloadToDownloads(url, filename || 'attachment', getAuthHeaders()));
   },
   deleteAttachment: (todoId, attachmentId) => http.del(`/api/todos/${todoId}/attachments/${attachmentId}`),
   delete: (todoId) => http.del(`/api/todos/${todoId}`),

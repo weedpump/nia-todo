@@ -7,6 +7,7 @@ import {
   resumeServerBoundRequests,
   suspendAuthenticatedRequests,
   suspendServerBoundRequests,
+  waitForAuthenticatedSideEffects,
 } from './api/http.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
@@ -370,7 +371,11 @@ async function disconnectAuthenticatedRuntime() {
   suspendAuthenticatedRequests();
   brainDumpLiveFeature.resetForIdentityBoundary();
   const websocketDrain = disconnectWebSocket();
-  await Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]);
+  await Promise.allSettled([
+    websocketDrain,
+    waitForBackgroundSyncOperations(),
+    waitForAuthenticatedSideEffects(),
+  ]);
 }
 
 async function resumeAuthenticatedRuntime() {
@@ -462,8 +467,9 @@ const wsClient = createWebSocketClient({
   },
   onReminderDue: () => {},
   onSessionInvalidated: () => {
-    localStorage.removeItem('nia-mfa-enrollment-required');
-    location.reload();
+    void authSessionFeature.invalidateSessionForPrivacy({ reload: true }).catch((error) => {
+      console.error('Failed to clear invalidated session safely', error);
+    });
   },
   onServerUpdateStatus: (status) => serverUpdateIndicator.applyStatus(status),
   onDashboardPreferencesUpdate: payload => dashboardPreferencesSyncFeature?.applyRemote(payload),

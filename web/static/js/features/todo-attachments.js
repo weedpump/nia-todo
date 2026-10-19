@@ -602,7 +602,6 @@ export function createTodoAttachmentsFeature({
       const attachment = getTodos()
         .find(todo => String(todo.id) === String(todoId))
         ?.attachments?.find(item => String(item.id) === String(attachmentId)) || { id: attachmentId, original_filename: filename };
-      const blob = await loadAttachmentBlob(todoId, attachment);
       if (nativeBridge?.isNative?.() && nativeBridge?.downloadToDownloads && isOnlineForSync()) {
         const result = await todosApi.downloadAttachmentNative(todoId, attachmentId, filename || 'attachment', nativeBridge);
         if (result) {
@@ -612,6 +611,7 @@ export function createTodoAttachmentsFeature({
           return;
         }
       }
+      const blob = await loadAttachmentBlob(todoId, attachment);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

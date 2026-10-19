@@ -16,6 +16,7 @@ export function createAuthSessionFeature({
   resumeRealtime = null,
   clearNativeReminders = async () => {},
   resumeNativeReminders = () => {},
+  logoutRevocationTimeoutMs = 5000,
 }) {
   let loginInProgress = false;
   let loginFormBound = false;
@@ -23,6 +24,8 @@ export function createAuthSessionFeature({
   let pendingMfaChallenge = null;
   let pendingMfaMethod = null;
   let nativeOidcListenerBound = false;
+  let sessionPrivacyCleanupInFlight = null;
+  let sessionPrivacyReloadRequested = false;
   const nativeBridge = createNativeBridge();
   const nativeOidcCodesInFlight = new Set();
   const consumedNativeOidcCodesKey = 'nia_consumed_native_oidc_codes';
@@ -76,10 +79,10 @@ export function createAuthSessionFeature({
         if (hasConsumedNativeOidcCode(code) && /invalid or expired/i.test(String(detail))) return;
         throw new Error(detail);
       }
-      rememberConsumedNativeOidcCode(code);
       const payload = data.payload || {};
       if (data.kind === 'user') {
         await storeOidcUserSession(payload);
+        rememberConsumedNativeOidcCode(code);
         hideLoginOverlay();
         if (getAppInitialized()) await refreshFromServer();
         else await initApp();
@@ -127,6 +130,25 @@ export function createAuthSessionFeature({
     localStorage.removeItem('csrf_token');
     localStorage.removeItem('cached_user');
     localStorage.removeItem('nia-mfa-enrollment-required');
+  }
+
+  async function invalidateSessionForPrivacy({ reload = false } = {}) {
+    if (reload) sessionPrivacyReloadRequested = true;
+    if (!sessionPrivacyCleanupInFlight) {
+      sessionPrivacyCleanupInFlight = (async () => {
+        await disconnectRealtime?.();
+        await clearNativeReminders();
+        await clearBrowserAuthCaches();
+        await clearCache();
+        clearLocalAuthState();
+        if (sessionPrivacyReloadRequested) location.reload();
+        return false;
+      })().finally(() => {
+        sessionPrivacyCleanupInFlight = null;
+        sessionPrivacyReloadRequested = false;
+      });
+    }
+    return sessionPrivacyCleanupInFlight;
   }
 
   function persistCachedUser(user) {
@@ -384,26 +406,33 @@ export function createAuthSessionFeature({
         }
       }
 
-      localStorage.removeItem('jwt_token');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('csrf_token');
-      localStorage.removeItem('cached_user');
-      setCurrentUser(null);
-      return false;
+      return invalidateSessionForPrivacy();
     }
   }
 
   async function logout() {
-    if (getAuthToken()) {
-      try {
-        await authApi.logout();
-      } catch (e) {
-        // Local privacy cleanup must still complete when server revocation is unavailable.
-      }
-    }
     const realtimeShutdown = Promise.resolve(disconnectRealtime?.()).catch(() => {});
     await realtimeShutdown;
     await clearNativeReminders();
+    if (getAuthToken()) {
+      const controller = new AbortController();
+      let timeoutId;
+      try {
+        await Promise.race([
+          authApi.logout({ signal: controller.signal }),
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+              controller.abort();
+              reject(new Error('Logout revocation timed out'));
+            }, logoutRevocationTimeoutMs);
+          }),
+        ]);
+      } catch (e) {
+        // Local privacy cleanup must still complete when server revocation is unavailable.
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    }
     await clearBrowserAuthCaches();
     await clearCache();
 
@@ -625,6 +654,8 @@ export function createAuthSessionFeature({
     login,
     checkAuth,
     logout,
+    invalidateSessionForPrivacy,
+    handleNativeOidcCallback,
     showLoginOverlay,
     hideLoginOverlay,
     handleLogin,

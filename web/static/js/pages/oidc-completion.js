@@ -3,14 +3,54 @@
       const payload = JSON.parse(data.payload || '{}');
       const kind = data.kind || 'error';
       const redirectTo = data.redirectTo || '/';
-      if (kind === 'user') {
-        localStorage.setItem('jwt_token', payload.access_token);
-        if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
-        if (payload.user) {
-          localStorage.setItem('cached_user', JSON.stringify(payload.user));
-          localStorage.setItem('last_user_id', String(payload.user.id));
+      async function clearPreviousUserData(newUserId) {
+        let previousUserId = localStorage.getItem('last_user_id');
+        if (!previousUserId) {
+          try {
+            previousUserId = String(JSON.parse(localStorage.getItem('cached_user') || 'null')?.id || '');
+          } catch (_error) {
+            previousUserId = '';
+          }
         }
-        location.replace(redirectTo);
+        const hasPreviousSession = Boolean(previousUserId || localStorage.getItem('jwt_token') || localStorage.getItem('auth_token'));
+        if (!hasPreviousSession || previousUserId === newUserId) return;
+        if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          registrations.forEach(registration => registration.active?.postMessage({ action: 'clearAuthCaches' }));
+        }
+        if ('caches' in globalThis) {
+          const names = await caches.keys();
+          await Promise.all(names.filter(name => name.startsWith('nia-todo-api-')).map(name => caches.delete(name)));
+        }
+        await new Promise((resolve, reject) => {
+          const request = indexedDB.deleteDatabase('nia-todo-db');
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error || new Error('Failed to clear local database'));
+          request.onblocked = () => reject(new Error('Local database cleanup was blocked'));
+        });
+      }
+      if (kind === 'user') {
+        void (async () => {
+          try {
+            const newUserId = String(payload.user?.id || '');
+            if (!newUserId) throw new Error('OIDC response did not include a user identity');
+            await clearPreviousUserData(newUserId);
+            localStorage.setItem('jwt_token', payload.access_token);
+            if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
+            localStorage.setItem('cached_user', JSON.stringify(payload.user));
+            localStorage.setItem('last_user_id', newUserId);
+            location.replace(redirectTo);
+          } catch (error) {
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('csrf_token');
+            localStorage.removeItem('cached_user');
+            const message = document.getElementById('message');
+            if (message) message.textContent = 'Local privacy cleanup failed. Sign-in was not completed.';
+            document.title = 'OIDC sign-in failed';
+            console.error('OIDC identity cleanup failed:', error);
+          }
+        })();
         return;
       }
       if (kind === 'admin') {
