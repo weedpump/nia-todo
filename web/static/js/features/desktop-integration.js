@@ -120,6 +120,7 @@ export function createDesktopIntegration({
   onHotkeyNewTodo,
   onHotkeySearch,
   getCurrentUser,
+  disconnectRealtime = async () => {},
   clearNativeReminders = null,
   clearLocalAuthState = () => {},
   clearBrowserAuthCaches = async () => {},
@@ -422,6 +423,7 @@ export function createDesktopIntegration({
   }
 
   async function clearServerScopedBrowserData() {
+    await disconnectRealtime();
     if (clearNativeReminders) await clearNativeReminders();
     else if (isNativeApp()) await nativeBridge.clearReminders();
     await clearBrowserAuthCaches();

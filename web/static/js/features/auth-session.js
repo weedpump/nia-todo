@@ -177,6 +177,7 @@ export function createAuthSessionFeature({
     if (lastUserId && lastUserId !== newUserId) {
       console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
       try {
+        await disconnectRealtime?.();
         await clearNativeReminders();
         await clearBrowserAuthCaches();
         await clearCache();

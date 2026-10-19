@@ -488,6 +488,7 @@ desktopIntegration = createDesktopIntegration({
     openMobileSearch();
   },
   getCurrentUser: () => currentUser,
+  disconnectRealtime: () => disconnectAuthenticatedRuntime(),
   clearLocalAuthState: () => authSessionFeature.clearLocalAuthState(),
   clearBrowserAuthCaches: () => authSessionFeature.clearBrowserAuthCaches(),
   clearCache: () => clearIndexedDB(),

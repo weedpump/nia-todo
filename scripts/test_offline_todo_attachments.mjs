@@ -1021,6 +1021,39 @@ assert.equal(startedDeleteReplay.stores.syncQueue.length, 0);
 assert.equal(startedDeleteReplay.cacheState.records.size, 0, 'successful dependent delete must remove the recovered bytes');
 assert.deepEqual(startedDeleteReplay.stores.todos[0].attachments, []);
 
+let resolveStaleDeleteConfirmation;
+const staleDeleteConfirmation = new Promise(resolve => { resolveStaleDeleteConfirmation = resolve; });
+const staleDeleteStores = {
+  syncQueue: [{ id: 198, action: 'CREATE_ATTACHMENT', data: {
+    todo_id: 9, temp_id: 'temp-dialog-race', blob_id: 'temp-dialog-race', upload_started: true,
+    client_mutation_id: 'temp-dialog-race', filename: 'race.txt', content_type: 'text/plain',
+  } }],
+  todos: [{ id: 9, attachments: [{ id: 'temp-dialog-race', todo_id: 9, client_mutation_id: 'temp-dialog-race', is_pending: true }], attachments_count: 1 }],
+  attachmentBlobs: [{ id: 'temp-dialog-race', todo_id: 9, attachment_id: 'temp-dialog-race', blob: uploadBlob, pending_upload: true, pinned: true }],
+};
+const staleDeleteCache = memoryCache(staleDeleteStores.attachmentBlobs);
+const staleDeleteFeature = createTodoAttachmentsFeature({
+  getTodos: () => staleDeleteStores.todos, setTodos: next => { staleDeleteStores.todos = structuredClone(next); }, getProjects: () => [],
+  getCurrentUser: () => ({ id: 1 }), setCurrentUser: () => {}, getAppInitialized: () => true, getDb: () => ({}),
+  dbGetAll: async store => structuredClone(staleDeleteStores[store] || []), dbGetAllStrict: async store => structuredClone(staleDeleteStores[store] || []),
+  dbTransactionStrict: createMemoryTransactionWithCache(staleDeleteStores, staleDeleteCache),
+  runSyncQueueMutation: async operation => operation(async () => {}), isOnlineForSync: () => false, syncWithServer: async () => {}, todosApi: {}, attachmentCache: staleDeleteCache.cache,
+  renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => staleDeleteConfirmation,
+  showToast: () => {}, t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
+  setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
+});
+const staleDeletePromise = staleDeleteFeature.deleteTodoAttachment(9, 'temp-dialog-race');
+await Promise.resolve();
+staleDeleteStores.syncQueue = [];
+staleDeleteStores.todos = [{ id: 9, attachments: [{ id: 902, todo_id: 9, client_mutation_id: 'temp-dialog-race' }], attachments_count: 1 }];
+staleDeleteCache.records.delete('temp-dialog-race');
+staleDeleteCache.records.set('902', { id: '902', todo_id: 9, attachment_id: 902, blob: uploadBlob, pending_upload: false, pinned: false });
+resolveStaleDeleteConfirmation(true);
+await staleDeletePromise;
+assert.deepEqual(staleDeleteStores.todos[0].attachments, [], 'delete confirmation must remove an attachment rewritten while the dialog was open');
+assert.equal(staleDeleteStores.syncQueue.length, 1);
+assert.equal(staleDeleteStores.syncQueue[0].data.attachment_id, 902, 'delete confirmation must queue the current server attachment ID');
+
 const combinedDeleteStores = {
   syncQueue: [{ id: 99, action: 'CREATE_ATTACHMENT', data: { todo_id: 9, temp_id: 'temp-combined-delete', blob_id: 'temp-combined-delete', local_attachment: { id: 'temp-combined-delete', is_pending: true } } }],
   todos: [{ id: 9, attachments: [{ id: 'temp-combined-delete', is_pending: true }], attachments_count: 1 }],

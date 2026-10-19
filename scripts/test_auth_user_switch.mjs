@@ -95,4 +95,27 @@ assert.equal(failClosedCacheClears, 0, 'native reminder cleanup failure must sto
 assert.equal(localStorage.getItem('jwt_token'), 'old-token');
 assert.equal(failClosedUser.id, 1);
 
+values.set('jwt_token', 'old-token');
+values.set('csrf_token', 'old-csrf');
+values.set('last_user_id', '1');
+let resolveRuntimeDrain;
+const runtimeDrain = new Promise(resolve => { resolveRuntimeDrain = resolve; });
+const boundaryEvents = [];
+const drainedFeature = createAuthSessionFeature({
+  authApi: { login: async () => ({ access_token: 'new-token', user: { id: 2, username: 'new-user' } }) },
+  getAppInitialized: () => true,
+  setCurrentUser: () => { boundaryEvents.push('activate:new-user'); },
+  disconnectRealtime: async () => { boundaryEvents.push('drain:start'); await runtimeDrain; boundaryEvents.push('drain:done'); },
+  clearNativeReminders: async () => { boundaryEvents.push('clear:reminders'); },
+  clearCache: async () => { boundaryEvents.push('clear:indexeddb'); },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+});
+const drainedLogin = drainedFeature.login('new-user', 'password');
+await Promise.resolve();
+await Promise.resolve();
+assert.deepEqual(boundaryEvents, ['drain:start'], 'cross-user cleanup must drain the old authenticated runtime before deleting old data');
+resolveRuntimeDrain();
+await drainedLogin;
+assert.deepEqual(boundaryEvents, ['drain:start', 'drain:done', 'clear:reminders', 'clear:indexeddb', 'activate:new-user']);
+
 console.log('✅ Cross-user login fails closed before activating the new identity');

@@ -648,9 +648,14 @@ export function createTodoAttachmentsFeature({
           && String(item.data?.temp_id) === String(attachmentId));
         const cancelCreate = Boolean(pendingCreate && (!pendingCreate.data?.upload_started || pendingCreate.data?.failed_permanent));
         const sourceTodo = durableTodo || todo;
+        const currentAttachment = (sourceTodo.attachments || []).find(item =>
+          String(item.id) === String(attachmentId)
+          || String(item.client_mutation_id || '') === String(attachmentId));
+        if (!pendingCreate && !currentAttachment) return { updated: sourceTodo, shouldSync: false };
+        const effectiveAttachmentId = currentAttachment?.id ?? attachmentId;
         const updated = {
           ...sourceTodo,
-          attachments: (sourceTodo.attachments || []).filter(item => String(item.id) !== String(attachmentId)),
+          attachments: (sourceTodo.attachments || []).filter(item => String(item.id) !== String(effectiveAttachmentId)),
           updated_at: new Date().toISOString(),
         };
         updated.attachments_count = updated.attachments.length;
@@ -661,7 +666,7 @@ export function createTodoAttachmentsFeature({
         } else {
           await transaction.put('syncQueue', {
             action: 'DELETE_ATTACHMENT',
-            data: { todo_id: todoId, attachment_id: attachmentId },
+            data: { todo_id: todoId, attachment_id: effectiveAttachmentId },
             timestamp: Date.now(),
             localUpdatedAt: new Date().toISOString(),
           });
