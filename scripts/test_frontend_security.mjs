@@ -150,6 +150,7 @@ assert(appSource.includes('waitForAuthenticatedSideEffects()'), 'identity transi
 assert(appSource.includes('cancelNativeDownloadsForPrivacy'), 'identity transitions must invalidate Android attachment downloads before cleanup');
 assert(/catch \(error\) \{\s*await resumeAuthenticatedRuntime\(\);\s*throw error;/.test(appSource), 'a bounded side-effect drain failure must restore the old authenticated runtime instead of leaving the app wedged');
 assert(appSource.includes('authSessionFeature.invalidateSessionForPrivacy({ reload: true })'), 'WebSocket session invalidation must use the full privacy cleanup path');
+assert(appSource.includes('registerAuthenticatedSessionInvalidationHandler(() => authSessionFeature.invalidateSessionForPrivacy())'), 'authoritative HTTP rejection must use the same serialized privacy cleanup as WebSocket invalidation');
 assert(appSource.includes('return trackBackgroundSyncOperation(() => syncController.syncWithServer())'), 'app sync wrapper must preserve sync results for lifecycle recovery decisions');
 assert(appSource.includes('refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.())'), 'invite refreshes must join the authenticated background-operation drain');
 const websocketClientSource = readFileSync(new URL('../web/static/js/features/websocket-client.js', import.meta.url), 'utf8');
@@ -163,6 +164,10 @@ assert(androidMainActivitySource.includes('nativeAttachmentDownloadGeneration'),
 assert(androidMainActivitySource.includes('cancelAttachmentDownloadsForPrivacy'), 'Android must expose privacy invalidation for active attachment downloads');
 assert(androidMainActivitySource.includes('MediaStore.Downloads.IS_PENDING, 1') && androidMainActivitySource.includes('nativeAttachmentDownloadCommitLock'), 'Android must publish downloaded files only under the privacy commit lock');
 assert(androidMainActivitySource.includes('.part'), 'legacy Android downloads must remain hidden in a temporary file until the privacy generation is committed');
+assert(androidMainActivitySource.includes('activeAttachmentDownloadConnections') && androidMainActivitySource.includes('activeAttachmentDownloadCompletions'), 'Android privacy cleanup must track active attachment connections and completion signals');
+assert(androidMainActivitySource.includes('.disconnect()') && androidMainActivitySource.includes('await('), 'Android privacy cleanup must abort connections and synchronously bound its drain');
+assert(androidMainActivitySource.includes('pendingAttachmentDownloadUris') && androidMainActivitySource.includes('pendingAttachmentDownloadFiles'), 'Android privacy cleanup must own pending MediaStore and legacy .part resources');
+assert(androidMainActivitySource.includes('downloadGeneration == nativeAttachmentDownloadGeneration.get()'), 'Android download completion UI must reject stale generations');
 assert(websocketClientSource.includes('activeMessageHandlers') && websocketClientSource.includes('Promise.allSettled([...activeMessageHandlers])'), 'WebSocket disconnect must drain message handlers before logout clears IndexedDB');
 const websocketDisconnectSource = websocketClientSource.slice(websocketClientSource.indexOf('function disconnectWebSocket()'), websocketClientSource.indexOf('function updateConnectionStatus()'));
 assert(websocketDisconnectSource.includes('ws.onmessage = null'), 'WebSocket disconnect must reject queued message delivery before taking the handler-drain snapshot');

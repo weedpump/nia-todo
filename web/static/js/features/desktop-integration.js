@@ -486,19 +486,26 @@ export function createDesktopIntegration({
     if (serverSwitchInProgress) return false;
     serverSwitchInProgress = true;
     let reloadScheduled = false;
+    let irreversibleCommitReached = false;
     beginServerBoundary();
     try {
       const serverUrl = normalizeRuntimeServerUrl(value);
       await clearServerScopedBrowserData();
+      irreversibleCommitReached = true;
       settings = mergeSettings(await nativeBridge.setServerUrl(serverUrl));
       setDesktopStatus(t('settings.desktop.server.savedReloading'));
       reloadScheduled = true;
       setTimeout(() => location.reload(), 250);
       return true;
     } catch (error) {
-      resumeServerBoundary();
-      resumeNativeRemindersAfterPrivacy();
-      await resumeRealtime();
+      if (!irreversibleCommitReached) {
+        resumeServerBoundary();
+        resumeNativeRemindersAfterPrivacy();
+        await resumeRealtime();
+      } else {
+        reloadScheduled = true;
+        setTimeout(() => location.reload(), 250);
+      }
       setDesktopStatus(error?.message || String(error), true);
       return false;
     } finally {
@@ -511,18 +518,25 @@ export function createDesktopIntegration({
     if (serverSwitchInProgress) return false;
     serverSwitchInProgress = true;
     let reloadScheduled = false;
+    let irreversibleCommitReached = false;
     beginServerBoundary();
     try {
       await clearServerScopedBrowserData();
+      irreversibleCommitReached = true;
       await nativeBridge.clearServerUrl();
       setDesktopStatus(t('settings.desktop.server.selectionOpening'));
       reloadScheduled = true;
       setTimeout(() => location.reload(), 250);
       return true;
     } catch (error) {
-      resumeServerBoundary();
-      resumeNativeRemindersAfterPrivacy();
-      await resumeRealtime();
+      if (!irreversibleCommitReached) {
+        resumeServerBoundary();
+        resumeNativeRemindersAfterPrivacy();
+        await resumeRealtime();
+      } else {
+        reloadScheduled = true;
+        setTimeout(() => location.reload(), 250);
+      }
       setDesktopStatus(error?.message || String(error), true);
       return false;
     } finally {

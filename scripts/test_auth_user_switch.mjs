@@ -101,6 +101,7 @@ assert.equal(failClosedUser.id, 1);
 values.set('jwt_token', 'old-token');
 values.set('csrf_token', 'old-csrf');
 values.set('last_user_id', '1');
+values.set('cached_user', JSON.stringify({ id: 1, username: 'old-user' }));
 let resolveRuntimeDrain;
 const runtimeDrain = new Promise(resolve => { resolveRuntimeDrain = resolve; });
 const boundaryEvents = [];
@@ -125,6 +126,35 @@ resolveRuntimeDrain();
 const drainedResult = await drainedLogin;
 assert.equal(drainedResult.identity_reload_required, true);
 assert.deepEqual(boundaryEvents, ['drain:start', 'drain:done', 'clear:reminders', 'clear:indexeddb', 'reload'], 'cross-user login must persist credentials for a reload without activating user B in user A\'s in-memory app');
+assert.equal(localStorage.getItem('cached_user'), null, 'cross-user login must not persist user B or retain user A as the cached identity in the old document');
+location.reload = boundaryReload;
+
+values.set('jwt_token', 'boot-token');
+values.set('csrf_token', 'boot-csrf');
+values.set('last_user_id', '1');
+values.set('cached_user', JSON.stringify({ id: 1, username: 'old-user' }));
+const authoritativeSwitchEvents = [];
+location.reload = () => { authoritativeSwitchEvents.push('reload'); };
+const authoritativeSwitchFeature = createAuthSessionFeature({
+  authApi: {
+    me: async () => ({ id: 2, username: 'new-user', access_token: 'new-boot-token', csrf_token: 'new-boot-csrf' }),
+    verifyEmail: async () => { authoritativeSwitchEvents.push('verify-email'); },
+  },
+  getAppInitialized: () => true,
+  setCurrentUser: user => { authoritativeSwitchEvents.push(user ? `activate:${user.id}` : 'clear:user'); },
+  disconnectRealtime: async () => { authoritativeSwitchEvents.push('drain:runtime'); },
+  clearNativeReminders: async () => { authoritativeSwitchEvents.push('clear:reminders'); },
+  clearCache: async () => { authoritativeSwitchEvents.push('clear:indexeddb'); },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+});
+sessionStorage.setItem('pending_email_verify_token', 'old-document-token');
+assert.equal(await authoritativeSwitchFeature.checkAuth({ authoritative: true }), false);
+assert.deepEqual(authoritativeSwitchEvents, ['drain:runtime', 'clear:reminders', 'clear:indexeddb', 'reload'], 'authoritative cross-user boot must persist credentials and reload without activating user B in user A\'s document');
+assert.equal(localStorage.getItem('jwt_token'), 'new-boot-token');
+assert.equal(localStorage.getItem('csrf_token'), 'new-boot-csrf');
+assert.equal(localStorage.getItem('last_user_id'), '2');
+assert.equal(localStorage.getItem('cached_user'), null, 'authoritative cross-user boot must persist only boot credentials, never user B');
+assert.equal(sessionStorage.getItem('pending_email_verify_token'), 'old-document-token', 'old-document email verification must not run as user B');
 location.reload = boundaryReload;
 
 values.set('last_user_id', '1');
@@ -143,7 +173,13 @@ await sameUserFeature.login('old-user', 'password');
 assert.deepEqual(sameUserEvents, ['activate', 'resume:reminders', 'resume:runtime'], 'successful login must reactivate a runtime intentionally closed by cached-session rejection');
 
 const originalFetch = globalThis.fetch;
-const { http, resumeAuthenticatedRequests, suspendAuthenticatedRequests } = await import('../web/static/js/api/http.js');
+const {
+  authenticatedFetch,
+  http,
+  registerAuthenticatedSessionInvalidationHandler,
+  resumeAuthenticatedRequests,
+  suspendAuthenticatedRequests,
+} = await import('../web/static/js/api/http.js');
 let resolveOldResponse;
 let resolveOldBody;
 let fetchCalls = 0;
@@ -170,6 +206,51 @@ resolveOldBody({ sections: [{ id: 1 }] });
 await assert.rejects(oldBodyRead, error => error?.code === 'authenticated_runtime_changed', 'an identity change during response parsing must reject the old body');
 resumeAuthenticatedRequests();
 assert.deepEqual(await http.get('/api/sections?project_id=2'), { sections: [{ id: 2 }] }, 'authenticated REST must resume for the new identity');
+globalThis.fetch = originalFetch;
+
+resumeAuthenticatedRequests();
+let releaseHttpPrivacyCleanup;
+let httpPrivacyCleanupCount = 0;
+registerAuthenticatedSessionInvalidationHandler(async () => {
+  httpPrivacyCleanupCount += 1;
+  await new Promise(resolve => { releaseHttpPrivacyCleanup = resolve; });
+});
+globalThis.fetch = async () => ({ ok: false, status: 401, statusText: 'Rejected', body: { cancel: async () => {} } });
+const unauthorizedA = assert.rejects(authenticatedFetch('/api/todos', {}), error => error?.code === 'session_invalidated');
+const unauthorizedB = assert.rejects(authenticatedFetch('/api/projects', {}), error => error?.code === 'session_invalidated');
+for (let attempt = 0; attempt < 5 && !releaseHttpPrivacyCleanup; attempt += 1) await new Promise(resolve => setImmediate(resolve));
+assert.equal(httpPrivacyCleanupCount, 1, 'parallel authoritative 401 responses must share one privacy transition');
+let unauthorizedSettled = false;
+Promise.allSettled([unauthorizedA, unauthorizedB]).then(() => { unauthorizedSettled = true; });
+await Promise.resolve();
+assert.equal(unauthorizedSettled, false, 'authoritative 401 requests must not settle before privacy cleanup completes');
+releaseHttpPrivacyCleanup();
+await Promise.all([unauthorizedA, unauthorizedB]);
+assert.equal(httpPrivacyCleanupCount, 1);
+
+globalThis.fetch = async () => ({ ok: false, status: 403, statusText: 'Forbidden', body: { cancel: async () => {} } });
+const ordinaryForbidden = await authenticatedFetch('/api/projects/1', {});
+assert.equal(ordinaryForbidden.status, 403, 'ordinary authorization failures must remain API responses instead of invalidating the session');
+assert.equal(httpPrivacyCleanupCount, 1, 'ordinary 403 responses must not trigger privacy cleanup');
+
+const cleanupFailure = new Error('privacy cleanup failed');
+cleanupFailure.authIdentityCleanupFailed = true;
+registerAuthenticatedSessionInvalidationHandler(async () => { throw cleanupFailure; });
+globalThis.fetch = async () => ({ ok: false, status: 401, statusText: 'Unauthorized', body: { cancel: async () => {} } });
+await assert.rejects(authenticatedFetch('/api/todos', {}), error => error === cleanupFailure, 'a failed privacy cleanup must propagate instead of pretending the session was cleared');
+
+let expectedAuthInvalidations = 0;
+registerAuthenticatedSessionInvalidationHandler(async () => { expectedAuthInvalidations += 1; });
+globalThis.fetch = async () => ({ ok: false, status: 403, statusText: 'Forbidden', json: async () => ({ detail: 'expected auth rejection' }) });
+const { authApi: realAuthApi } = await import('../web/static/js/api/auth.js');
+await Promise.all([
+  assert.rejects(realAuthApi.login('user', 'bad-password'), /expected auth rejection/),
+  assert.rejects(realAuthApi.verify2fa('challenge', 'totp', 'bad-code'), /expected auth rejection/),
+  assert.rejects(realAuthApi.reauth('totp', 'bad-code'), /expected auth rejection/),
+  assert.rejects(realAuthApi.logout(), /expected auth rejection/),
+]);
+assert.equal(expectedAuthInvalidations, 0, 'expected login/MFA/reauth and logout-revoke failures must not invalidate the active session');
+registerAuthenticatedSessionInvalidationHandler(null);
 globalThis.fetch = originalFetch;
 
 const logoutEvents = [];

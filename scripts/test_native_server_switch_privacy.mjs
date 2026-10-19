@@ -21,14 +21,23 @@ Object.defineProperty(globalThis, 'navigator', {
   value: { userAgent: 'Mozilla/5.0 (X11; Linux x86_64)', platform: 'Linux', maxTouchPoints: 0 },
 });
 const originalSetTimeout = globalThis.setTimeout;
+let failNativePersistence = false;
 globalThis.setTimeout = callback => { callback(); return 0; };
 window.__TAURI_INTERNALS__ = {
   invoke: async (command, args = {}) => {
     if (command === 'desktop_set_server_url') {
+      if (failNativePersistence) {
+        events.push('persist:failed');
+        throw new Error('native persistence failed');
+      }
       events.push(`persist:${args.serverUrl}`);
       return { serverUrl: args.serverUrl };
     }
     if (command === 'desktop_clear_server_url') {
+      if (failNativePersistence) {
+        events.push('persist:reset-failed');
+        throw new Error('native persistence failed');
+      }
       events.push('persist:reset');
       return null;
     }
@@ -44,13 +53,16 @@ window.__TAURI_INTERNALS__ = {
 const { createDesktopIntegration } = await import('../web/static/js/features/desktop-integration.js');
 const { createAppStorage } = await import('../web/static/js/storage/app-storage.js');
 
-function createFeature({ failClear = false } = {}) {
+function createFeature({ failClear = false, observeResume = false } = {}) {
   return createDesktopIntegration({
     showToast: () => {},
     onHotkeyNewTodo: () => {},
     onHotkeySearch: () => {},
     getCurrentUser: () => null,
     disconnectRealtime: async () => { events.push('drain:runtime'); },
+    resumeRealtime: async () => { if (observeResume) events.push('resume:runtime'); },
+    beginServerBoundary: () => { if (observeResume) events.push('boundary:begin'); },
+    resumeServerBoundary: () => { if (observeResume) events.push('boundary:resume'); },
     clearNativeReminders: async () => { events.push('clear:reminders'); },
     clearLocalAuthState: () => { events.push('clear:auth'); },
     clearBrowserAuthCaches: async () => { events.push('clear:browser'); },
@@ -95,6 +107,38 @@ try {
     'clear:browser',
     'clear:indexeddb',
   ], 'a failed durable cache clear must prevent the server switch without clearing the old identity');
+
+  events.length = 0;
+  const reversibleFailure = createFeature({ failClear: true, observeResume: true });
+  assert.equal(await reversibleFailure.updateServerUrl('https://reversible-failure.example'), false);
+  assert.deepEqual(events, [
+    'boundary:begin', 'drain:runtime', 'clear:reminders', 'clear:browser', 'clear:indexeddb', 'boundary:resume', 'resume:runtime',
+  ], 'pre-commit cleanup failure must reactivate the old runtime and release the server boundary');
+  events.length = 0;
+  assert.equal(await reversibleFailure.updateServerUrl('https://reversible-retry.example'), false);
+  assert.equal(events[0], 'boundary:begin', 'pre-commit failure must release the transition lock for retry');
+
+  events.length = 0;
+  let irreversibleReload = null;
+  globalThis.setTimeout = callback => { irreversibleReload = callback; return 88; };
+  failNativePersistence = true;
+  const irreversibleFailure = createFeature({ observeResume: true });
+  assert.equal(await irreversibleFailure.updateServerUrl('https://persist-fails.example'), false);
+  assert.deepEqual(events, [
+    'boundary:begin', 'drain:runtime', 'clear:reminders', 'clear:browser', 'clear:indexeddb', 'clear:auth', 'persist:failed',
+  ], 'post-cleanup persistence failure must not reactivate the cleared runtime or release the old-document boundary');
+  assert.equal(typeof irreversibleReload, 'function', 'post-cleanup persistence failure must request a safe reload/server selection');
+  assert.equal(await irreversibleFailure.resetServerUrl(), false, 'irreversible failure must retain the transition lock in the old document');
+  events.length = 0;
+  const irreversibleResetFailure = createFeature({ observeResume: true });
+  assert.equal(await irreversibleResetFailure.resetServerUrl(), false);
+  assert.deepEqual(events, [
+    'boundary:begin', 'drain:runtime', 'clear:reminders', 'clear:browser', 'clear:indexeddb', 'clear:auth', 'persist:reset-failed',
+  ], 'post-cleanup reset persistence failure must also remain closed without resuming the old runtime');
+  assert.equal(await irreversibleResetFailure.updateServerUrl('https://must-stay-locked.example'), false);
+  failNativePersistence = false;
+  irreversibleReload();
+  globalThis.setTimeout = callback => { callback(); return 0; };
 
   events.length = 0;
   globalThis.indexedDB = {

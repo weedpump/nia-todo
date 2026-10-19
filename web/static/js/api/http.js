@@ -6,6 +6,8 @@ let authenticatedRequestsSuspended = false;
 let serverRuntimeGeneration = 0;
 let serverBoundRequestsSuspended = false;
 const activeAuthenticatedSideEffects = new Set();
+let authenticatedSessionInvalidationHandler = null;
+let authenticatedSessionInvalidationInFlight = null;
 
 function runtimeBoundaryError() {
   const error = new Error('Authenticated runtime changed while request was in flight');
@@ -48,6 +50,25 @@ export function captureAuthenticatedGeneration() {
   return authenticatedRuntimeGeneration;
 }
 
+export function registerAuthenticatedSessionInvalidationHandler(handler) {
+  authenticatedSessionInvalidationHandler = typeof handler === 'function' ? handler : null;
+  authenticatedSessionInvalidationInFlight = null;
+}
+
+function beginAuthenticatedSessionInvalidationFromHttp(status) {
+  if (!authenticatedSessionInvalidationHandler) return null;
+  if (!authenticatedSessionInvalidationInFlight) {
+    authenticatedSessionInvalidationInFlight = Promise.resolve()
+      .then(() => authenticatedSessionInvalidationHandler({ status, source: 'http' }))
+      .catch(error => {
+        console.error('Failed to invalidate authenticated session after HTTP rejection', error);
+        throw error;
+      })
+      .finally(() => { authenticatedSessionInvalidationInFlight = null; });
+  }
+  return authenticatedSessionInvalidationInFlight;
+}
+
 function assertServerGeneration(generation) {
   if (serverBoundRequestsSuspended || generation !== serverRuntimeGeneration) {
     throw serverBoundaryError();
@@ -74,12 +95,23 @@ function guardResponse(response, assertCurrent) {
 export async function authenticatedFetch(input, init) {
   if (authenticatedRequestsSuspended) throw runtimeBoundaryError();
   const generation = authenticatedRuntimeGeneration;
-  const response = await fetch(input, init);
+  const { privacyInvalidation = true, ...fetchInit } = init || {};
+  const response = await fetch(input, fetchInit);
   try {
     assertAuthenticatedGeneration(generation);
   } catch (error) {
     response.body?.cancel?.().catch?.(() => {});
     throw error;
+  }
+  if (privacyInvalidation && Number(response.status) === 401) {
+    const invalidation = beginAuthenticatedSessionInvalidationFromHttp(response.status);
+    if (invalidation) {
+      await invalidation;
+      const error = new Error(`Authenticated session invalidated by HTTP ${response.status}`);
+      error.code = 'session_invalidated';
+      error.status = response.status;
+      throw error;
+    }
   }
   return guardResponse(response, () => assertAuthenticatedGeneration(generation));
 }

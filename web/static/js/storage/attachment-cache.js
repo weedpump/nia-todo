@@ -80,7 +80,7 @@ export function createAttachmentCache({
     return { totalBytes: Math.max(total, 0), removed };
   }
 
-  async function put(record, { maxBytes = DEFAULT_ATTACHMENT_CACHE_MAX_BYTES } = {}) {
+  async function put(record, { maxBytes = DEFAULT_ATTACHMENT_CACHE_MAX_BYTES, isCurrent = null } = {}) {
     if (!record?.blob) throw new TypeError('Attachment cache record requires a blob');
     const item = {
       ...record,
@@ -96,11 +96,13 @@ export function createAttachmentCache({
     const existingSize = recordSize(existing);
     await prune({ maxBytes, bytesNeeded: Math.max(0, item.size_bytes - existingSize) });
     try {
+      isCurrent?.();
       await write(item);
     } catch (error) {
       if (!isQuotaError(error)) throw error;
       await prune({ maxBytes: 0 });
       try {
+        isCurrent?.();
         await write(item);
       } catch (retryError) {
         let storage = null;
@@ -120,13 +122,14 @@ export function createAttachmentCache({
     return item;
   }
 
-  async function getRecord(attachmentId, { touch = true, todoId = undefined } = {}) {
+  async function getRecord(attachmentId, { touch = true, todoId = undefined, isCurrent = null } = {}) {
     const id = cacheId(attachmentId);
     const item = await read(id);
     if (!item) return null;
     if (todoId !== undefined && String(item.todo_id) !== String(todoId)) return null;
     if (touch) {
       item.last_accessed = now();
+      isCurrent?.();
       await write(item).catch(() => {});
     }
     return item;
@@ -155,12 +158,13 @@ export function createAttachmentCache({
     return next;
   }
 
-  async function setPinned(attachmentId, pinned = true) {
-    const item = await getRecord(attachmentId, { touch: false });
+  async function setPinned(attachmentId, pinned = true, { isCurrent = null } = {}) {
+    const item = await getRecord(attachmentId, { touch: false, isCurrent });
     if (!item) return null;
     item.offline_explicit = Boolean(pinned);
     item.pinned = Boolean(pinned || item.pending_upload);
     item.last_accessed = now();
+    isCurrent?.();
     await write(item);
     return item;
   }

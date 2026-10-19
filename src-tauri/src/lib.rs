@@ -20,7 +20,7 @@ use std::{
   time::{Duration, SystemTime, UNIX_EPOCH},
 };
 #[cfg(desktop)]
-use std::io::Read;
+use std::io::{Read, Write};
 #[cfg(desktop)]
 use std::path::Path;
 use tauri::{AppHandle, Manager, State};
@@ -1140,6 +1140,37 @@ fn is_trusted_microphone_webview(label: &str, url: &url::Url) -> bool {
 const DESKTOP_ATTACHMENT_DOWNLOAD_TIMEOUT_SECS: u64 = 60;
 #[cfg(desktop)]
 const DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+#[cfg(desktop)]
+static DESKTOP_ATTACHMENT_DOWNLOAD_NONCE: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(desktop)]
+fn atomic_publish_download<R: Read>(target: &Path, reader: R, max_bytes: u64) -> Result<u64, String> {
+  let parent = target.parent().ok_or_else(|| "Download-Ziel hat kein Verzeichnis.".to_string())?;
+  let target_name = target.file_name().and_then(|value| value.to_str()).unwrap_or("attachment");
+  let nonce = DESKTOP_ATTACHMENT_DOWNLOAD_NONCE.fetch_add(1, Ordering::Relaxed);
+  let part = parent.join(format!(".{target_name}.{}-{}-{nonce}.part", std::process::id(), unix_now_ms()));
+  let result = (|| {
+    let mut file = fs::OpenOptions::new()
+      .write(true)
+      .create_new(true)
+      .open(&part)
+      .map_err(|err| err.to_string())?;
+    let mut limited = reader.take(max_bytes + 1);
+    let written = std::io::copy(&mut limited, &mut file).map_err(|err| err.to_string())?;
+    if written > max_bytes {
+      return Err("Anhang ist zu groß für den nativen Desktop-Download.".into());
+    }
+    file.flush().map_err(|err| err.to_string())?;
+    file.sync_all().map_err(|err| err.to_string())?;
+    drop(file);
+    fs::rename(&part, target).map_err(|err| err.to_string())?;
+    Ok(written)
+  })();
+  if result.is_err() {
+    let _ = fs::remove_file(&part);
+  }
+  result
+}
 
 #[cfg(desktop)]
 #[tauri::command]
@@ -1195,13 +1226,7 @@ fn desktop_download_attachment(app: AppHandle, url: String, filename: String, he
       return Err("Anhang ist zu groß für den nativen Desktop-Download.".into());
     }
   }
-  let mut limited_response = response.take(DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES + 1);
-  let mut file = fs::File::create(&target).map_err(|err| err.to_string())?;
-  let written = std::io::copy(&mut limited_response, &mut file).map_err(|err| err.to_string())?;
-  if written > DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES {
-    let _ = fs::remove_file(&target);
-    return Err("Anhang ist zu groß für den nativen Desktop-Download.".into());
-  }
+  atomic_publish_download(&target, response, DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES)?;
   let filename = target
     .file_name()
     .and_then(|value| value.to_str())
@@ -2005,6 +2030,52 @@ mod linux_microphone_permission_tests {
     let remote = url::Url::parse("https://example.test/").unwrap();
     assert!(!is_trusted_microphone_webview("secondary", &local));
     assert!(!is_trusted_microphone_webview("main", &remote));
+  }
+}
+
+#[cfg(all(test, desktop))]
+mod desktop_attachment_download_tests {
+  use super::atomic_publish_download;
+  use std::{
+    fs,
+    io::{self, Cursor, Read},
+    path::PathBuf,
+  };
+
+  struct FailingReader {
+    delivered: bool,
+  }
+
+  impl Read for FailingReader {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+      if self.delivered {
+        return Err(io::Error::new(io::ErrorKind::Other, "injected read failure"));
+      }
+      self.delivered = true;
+      buffer[..4].copy_from_slice(b"part");
+      Ok(4)
+    }
+  }
+
+  fn scratch_dir(label: &str) -> PathBuf {
+    let path = std::env::temp_dir().join(format!("nia-todo-{label}-{}-{}", std::process::id(), super::unix_now_ms()));
+    fs::create_dir_all(&path).unwrap();
+    path
+  }
+
+  #[test]
+  fn desktop_attachment_download_publishes_atomically_and_cleans_failed_part_files() {
+    let dir = scratch_dir("attachment-download");
+    let target = dir.join("report.txt");
+    atomic_publish_download(&target, Cursor::new(b"complete"), 64).unwrap();
+    assert_eq!(fs::read(&target).unwrap(), b"complete");
+    assert!(fs::read_dir(&dir).unwrap().all(|entry| !entry.unwrap().file_name().to_string_lossy().ends_with(".part")));
+
+    let failed_target = dir.join("failed.txt");
+    assert!(atomic_publish_download(&failed_target, FailingReader { delivered: false }, 64).is_err());
+    assert!(!failed_target.exists());
+    assert!(fs::read_dir(&dir).unwrap().all(|entry| !entry.unwrap().file_name().to_string_lossy().ends_with(".part")));
+    fs::remove_dir_all(dir).unwrap();
   }
 }
 

@@ -187,13 +187,23 @@ export function createAuthSessionFeature({
     return !status || ![401, 403].includes(status) || error.name === 'TypeError';
   }
 
+  function storeBootCredentials(data) {
+    localStorage.setItem('jwt_token', data.access_token);
+    localStorage.setItem('nia-mfa-enrollment-required', data.mfa_enrollment_required ? '1' : '0');
+    if (data.csrf_token) localStorage.setItem('csrf_token', data.csrf_token);
+  }
+
+  function storeCrossUserBootCredentials(data) {
+    localStorage.removeItem('cached_user');
+    localStorage.removeItem('csrf_token');
+    storeBootCredentials(data);
+  }
+
   function storeUserSession(data, { activate = true } = {}) {
     const user = { ...data.user, token: data.access_token, mfa_enrollment_required: Boolean(data.mfa_enrollment_required) };
     if (activate) setCurrentUser(user);
     persistCachedUser(user);
-    localStorage.setItem('jwt_token', data.access_token);
-    localStorage.setItem('nia-mfa-enrollment-required', data.mfa_enrollment_required ? '1' : '0');
-    if (data.csrf_token) localStorage.setItem('csrf_token', data.csrf_token);
+    storeBootCredentials(data);
     return user;
   }
 
@@ -219,7 +229,7 @@ export function createAuthSessionFeature({
     const newUserId = String(data.user.id);
     const userChanged = await clearCacheIfUserChanged(newUserId);
     if (userChanged) {
-      storeUserSession(data, { activate: false });
+      storeCrossUserBootCredentials(data);
       localStorage.setItem('last_user_id', newUserId);
       location.reload();
       return { ...data, identity_reload_required: true };
@@ -388,21 +398,30 @@ export function createAuthSessionFeature({
       const newUserId = String(user.id);
       const userChanged = await clearCacheIfUserChanged(newUserId);
       const refreshedToken = user.access_token || token;
+      if (userChanged) {
+        storeCrossUserBootCredentials({
+          user,
+          access_token: refreshedToken,
+          csrf_token: user.csrf_token,
+          mfa_enrollment_required: user.mfa_enrollment_required,
+        }, { activate: false });
+        localStorage.setItem('last_user_id', newUserId);
+        console.log('User changed, cache cleared — reloading once');
+        location.reload();
+        return false;
+      }
+
       if (user.access_token) localStorage.setItem('jwt_token', user.access_token);
       if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);
       setCurrentUser({ ...user, token: refreshedToken });
       persistCachedUser({ ...user, token: refreshedToken });
       localStorage.setItem('last_user_id', newUserId);
       await maybeVerifyEmailFromUrl();
-      if (userChanged) {
-        console.log('User changed, cache cleared — reloading once');
-        location.reload();
-        return false;
-      }
 
       return true;
     } catch (e) {
       if (e?.authIdentityCleanupFailed) throw e;
+      if (e?.code === 'session_invalidated') return false;
       if (isTransientAuthCheckFailure(e)) {
         if (authoritative) throw e;
         const cachedUser = readCachedUser(token);

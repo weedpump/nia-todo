@@ -208,7 +208,8 @@ export function createTodoAttachmentsFeature({
   async function loadAttachmentBlob(todoId, attachment) {
     return trackAuthenticatedSideEffect(async () => {
       const generation = captureAuthenticatedGeneration();
-      const cached = await attachmentCache.get(attachment?.id, { todoId });
+      const isCurrent = () => assertAuthenticatedGeneration(generation);
+      const cached = await attachmentCache.get(attachment?.id, { todoId, isCurrent });
       assertAuthenticatedGeneration(generation);
       if (cached?.blob) return cached.blob;
       if (!isOnlineForSync()) throw new Error('Attachment is not available offline');
@@ -223,34 +224,40 @@ export function createTodoAttachmentsFeature({
         pending_upload: false,
         pinned: false,
         offline_explicit: false,
-      }).catch(error => console.warn('Failed to cache attachment download', error));
+      }, { isCurrent }).catch(error => {
+        if (error?.code === 'authenticated_runtime_changed') throw error;
+        console.warn('Failed to cache attachment download', error);
+      });
       assertAuthenticatedGeneration(generation);
       return blob;
     });
   }
 
   async function makeAttachmentAvailableOffline(todoId, attachment) {
-    try {
-      const authGeneration = captureAuthenticatedGeneration();
-      const blob = await loadAttachmentBlob(todoId, attachment);
-      assertAuthenticatedGeneration(authGeneration);
-      const cached = await attachmentCache.get(attachment.id, { touch: false, todoId });
-      assertAuthenticatedGeneration(authGeneration);
-      if (!cached) {
-        await attachmentCache.put({ id: attachment.id, todo_id: todoId, attachment_id: attachment.id, blob, size_bytes: attachment.size_bytes || blob.size, pinned: true, offline_explicit: true });
-      } else {
-        await attachmentCache.setPinned(attachment.id, true);
+    return trackAuthenticatedSideEffect(async () => {
+      try {
+        const authGeneration = captureAuthenticatedGeneration();
+        const isCurrent = () => assertAuthenticatedGeneration(authGeneration);
+        const blob = await loadAttachmentBlob(todoId, attachment);
+        isCurrent();
+        const cached = await attachmentCache.get(attachment.id, { touch: false, todoId, isCurrent });
+        isCurrent();
+        if (!cached) {
+          await attachmentCache.put({ id: attachment.id, todo_id: todoId, attachment_id: attachment.id, blob, size_bytes: attachment.size_bytes || blob.size, pinned: true, offline_explicit: true }, { isCurrent });
+        } else {
+          await attachmentCache.setPinned(attachment.id, true, { isCurrent });
+        }
+        isCurrent();
+        showToast(t('todo.attachments.availableOffline'));
+        renderTodoAttachments(getTodos().find(todo => String(todo.id) === String(todoId))?.attachments || [], getTodos().find(todo => String(todo.id) === String(todoId)) || null);
+        return true;
+      } catch (error) {
+        if (error?.code === 'authenticated_runtime_changed') return false;
+        console.error('Failed to cache todo attachment', error);
+        showToast(t('todo.attachments.cacheFailed'));
+        return false;
       }
-      assertAuthenticatedGeneration(authGeneration);
-      showToast(t('todo.attachments.availableOffline'));
-      renderTodoAttachments(getTodos().find(todo => String(todo.id) === String(todoId))?.attachments || [], getTodos().find(todo => String(todo.id) === String(todoId)) || null);
-      return true;
-    } catch (error) {
-      if (error?.code === 'authenticated_runtime_changed') return false;
-      console.error('Failed to cache todo attachment', error);
-      showToast(t('todo.attachments.cacheFailed'));
-      return false;
-    }
+    }).catch(error => error?.code === 'authenticated_runtime_changed' ? false : Promise.reject(error));
   }
 
   async function queueAttachmentFiles(todoId, files = [], { todo: suppliedTodo = null, queueEntries = [] } = {}) {

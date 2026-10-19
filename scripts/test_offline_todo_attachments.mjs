@@ -16,7 +16,7 @@ const { createSyncFeature } = await import('../web/static/js/features/sync.js');
 const { createWebSocketClient } = await import('../web/static/js/features/websocket-client.js');
 const { projectPendingTodoChanges, queueItemReferencesTodo } = await import('../web/static/js/features/todo-pending.js');
 const { todosApi } = await import('../web/static/js/api/todos.js');
-const { resumeAuthenticatedRequests, suspendAuthenticatedRequests } = await import('../web/static/js/api/http.js');
+const { resumeAuthenticatedRequests, suspendAuthenticatedRequests, waitForAuthenticatedSideEffects } = await import('../web/static/js/api/http.js');
 
 function memoryCache(initial = []) {
   const records = new Map(initial.map(item => [item.id, structuredClone(item)]));
@@ -1188,6 +1188,43 @@ await assert.rejects(
   /not available offline/,
   'cached attachment bytes must not cross todo ownership boundaries',
 );
+
+let releasePinCommit;
+let pinCommitReached = false;
+let pinWrites = 0;
+const pausedPinCache = {
+  get: async () => ({ id: '93', todo_id: 9, attachment_id: 93, blob: cachedBlob, pinned: false }),
+  setPinned: async (_id, _pinned, { isCurrent } = {}) => {
+    pinCommitReached = true;
+    await new Promise(resolve => { releasePinCommit = resolve; });
+    isCurrent?.();
+    pinWrites += 1;
+  },
+};
+const pausedPinFeature = createTodoAttachmentsFeature({
+  getTodos: () => [{ id: 9, attachments: [{ id: 93, size_bytes: cachedBlob.size }] }], setTodos: () => {}, getProjects: () => [],
+  getCurrentUser: () => ({ id: 1 }), setCurrentUser: () => {}, getAppInitialized: () => true, getDb: () => ({}),
+  dbPut: async () => {}, dbPutStrict: async () => {}, dbGetAll: async () => [], dbGetAllStrict: async () => [],
+  deleteFromDB: async () => {}, deleteFromDBStrict: async () => {}, runSyncQueueMutation: async operation => operation(async () => {}),
+  isOnlineForSync: () => false, syncWithServer: async () => {}, todosApi: {}, attachmentCache: pausedPinCache,
+  renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => true,
+  showToast: () => {}, t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
+  setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
+});
+resumeAuthenticatedRequests();
+const pausedPin = pausedPinFeature.makeAttachmentAvailableOffline(9, { id: 93, size_bytes: cachedBlob.size });
+for (let attempt = 0; attempt < 5 && !pinCommitReached; attempt += 1) await new Promise(resolve => setImmediate(resolve));
+assert.equal(pinCommitReached, true, 'offline pin must reach the deferred storage commit');
+suspendAuthenticatedRequests();
+let pinDrainFinished = false;
+const pinDrain = waitForAuthenticatedSideEffects().then(() => { pinDrainFinished = true; });
+await Promise.resolve();
+assert.equal(pinDrainFinished, false, 'privacy drain must include the complete offline pin operation');
+releasePinCommit();
+assert.equal(await pausedPin, false, 'a generation change at the storage commit must cancel the pin');
+await pinDrain;
+assert.equal(pinWrites, 0, 'stale offline pin must not mutate attachment storage');
+resumeAuthenticatedRequests();
 
 let resolveOldAttachmentBody;
 let staleAttachmentCacheWrites = 0;

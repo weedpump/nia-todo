@@ -9,7 +9,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
 const rustSource = read('src-tauri/src/lib.rs');
-assert.match(rustSource, /#\[cfg\(desktop\)\]\nuse std::io::Read;/);
+assert.match(rustSource, /#\[cfg\(desktop\)\]\nuse std::io::\{Read, Write\};/);
 assert.match(rustSource, /#\[cfg\(desktop\)\]\nuse std::path::Path;/);
 for (const symbol of [
   'safe_download_filename',

@@ -16,7 +16,10 @@ function apiFetch(input, init) {
     || path.startsWith('/api/2fa/passkey')
     || path.startsWith('/api/password-setup')
     || path === '/api/setup/status';
-  return publicRequest ? serverBoundFetch(input, init) : authenticatedFetch(input, init);
+  const expectedAuthenticatedRejection = path.startsWith('/api/me/2fa/reauth');
+  return publicRequest
+    ? serverBoundFetch(input, init)
+    : authenticatedFetch(input, expectedAuthenticatedRejection ? { ...init, privacyInvalidation: false } : init);
 }
 
 function b64urlToBuffer(value) {

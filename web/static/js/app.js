@@ -3,6 +3,7 @@ import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL, apiResourceUrl } from './cor
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
 import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
 import {
+  registerAuthenticatedSessionInvalidationHandler,
   resumeAuthenticatedRequests,
   resumeServerBoundRequests,
   suspendAuthenticatedRequests,
@@ -407,6 +408,7 @@ const authSessionFeature = createAuthSessionFeature({
   clearNativeReminders: () => desktopIntegration?.clearNativeRemindersForPrivacy?.() || Promise.resolve(),
   resumeNativeReminders: () => desktopIntegration?.resumeNativeRemindersAfterPrivacy?.(),
 });
+registerAuthenticatedSessionInvalidationHandler(() => authSessionFeature.invalidateSessionForPrivacy());
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
 const bindServiceWorkerUpdateButtons = serviceWorkerUpdates.bindServiceWorkerUpdateButtons;
 
