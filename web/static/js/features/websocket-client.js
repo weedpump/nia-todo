@@ -1,5 +1,5 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
-import { attachmentCache as defaultAttachmentCache, getAuthoritativeAttachmentBlobIdsToDelete } from '../storage/attachment-cache.js';
+import { attachmentCache as defaultAttachmentCache, getAuthoritativeAttachmentBlobIdsToDelete, getOrphanedPermanentAttachmentQueueItems } from '../storage/attachment-cache.js';
 
 export function createWebSocketClient({
   wsUrl,
@@ -409,8 +409,17 @@ async function handleWsMessage(msg) {
             let nextProjects = storedProjects;
             let nextSections = storedSections;
             let nextWorkspaces = storedWorkspaces;
+            let reconciliationQueue = queue;
 
             if (msg.todos) {
+              const orphanedPermanentItems = getOrphanedPermanentAttachmentQueueItems(queue, msg.todos);
+              const orphanedPermanentIds = new Set(orphanedPermanentItems.map(item => String(item.id)));
+              const queueForProjection = queue.filter(item => !orphanedPermanentIds.has(String(item.id)));
+              reconciliationQueue = queueForProjection;
+              for (const orphaned of orphanedPermanentItems) {
+                await transaction.delete('syncQueue', orphaned.id);
+                await transaction.delete('attachmentBlobs', String(orphaned.data?.blob_id || orphaned.data?.temp_id));
+              }
               const localById = new Map(storedTodos.map(todo => [String(todo.id), todo]));
               const incomingIds = new Set(msg.todos.map(todo => String(todo.id)));
               nextTodos = [];
@@ -418,8 +427,8 @@ async function handleWsMessage(msg) {
                 const local = localById.get(String(todo.id)) || null;
                 const incomingTodo = mergeTodoPayloadWithLocalSubtasks(todo, local);
                 let nextTodo = incomingTodo;
-                if (hasPendingTodoChanges(queue, todo.id)) {
-                  nextTodo = projectPendingTodoChanges(incomingTodo, queue);
+                if (hasPendingTodoChanges(queueForProjection, todo.id)) {
+                  nextTodo = projectPendingTodoChanges(incomingTodo, queueForProjection);
                 } else if (local) {
                   const localTime = new Date(local.updated_at || 0).getTime();
                   const serverTime = new Date(incomingTodo.updated_at || 0).getTime();
@@ -430,7 +439,7 @@ async function handleWsMessage(msg) {
               }
               for (const local of storedTodos) {
                 if (incomingIds.has(String(local.id))) continue;
-                if (hasPendingTodoChanges(queue, local.id)) nextTodos.push(local);
+                if (hasPendingTodoChanges(queueForProjection, local.id)) nextTodos.push(local);
 
               }
               await transaction.clear('todos');
@@ -471,10 +480,10 @@ async function handleWsMessage(msg) {
               await transaction.clear('workspaces');
               for (const workspace of nextWorkspaces) await transaction.put('workspaces', workspace);
             }
-            for (const blobId of getAuthoritativeAttachmentBlobIdsToDelete(blobRecords, nextTodos, queue)) {
+            for (const blobId of getAuthoritativeAttachmentBlobIdsToDelete(blobRecords, nextTodos, reconciliationQueue)) {
               await transaction.delete('attachmentBlobs', blobId);
             }
-            return { todos: nextTodos, projects: nextProjects, sections: nextSections, workspaces: nextWorkspaces, queue };
+            return { todos: nextTodos, projects: nextProjects, sections: nextSections, workspaces: nextWorkspaces, queue: reconciliationQueue };
           },
         );
         todos = committed.todos;

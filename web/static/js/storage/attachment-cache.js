@@ -7,10 +7,22 @@ function cacheId(value) {
   return String(value);
 }
 
+export function getOrphanedPermanentAttachmentQueueItems(queue = [], todos = []) {
+  const authoritativeTodoIds = new Set(todos.map(todo => String(todo.id)));
+  const locallyCreatedTodoIds = new Set(queue
+    .filter(item => item?.action === 'CREATE_TODO')
+    .map(item => String(item.data?._tempId)));
+  return queue.filter(item => item?.action === 'CREATE_ATTACHMENT'
+    && item.data?.failed_permanent
+    && !authoritativeTodoIds.has(String(item.data?.todo_id))
+    && !locallyCreatedTodoIds.has(String(item.data?.todo_id)));
+}
+
 export function getAuthoritativeAttachmentBlobIdsToDelete(records = [], todos = [], queue = []) {
   const attachmentPairs = new Set(todos.flatMap(todo => (todo.attachments || []).map(attachment => `${String(todo.id)}\u0000${cacheId(attachment.id)}`)));
+  const orphanedPermanentIds = new Set(getOrphanedPermanentAttachmentQueueItems(queue, todos).map(item => String(item.id)));
   const pendingPairs = new Set(queue
-    .filter(item => item?.action === 'CREATE_ATTACHMENT')
+    .filter(item => item?.action === 'CREATE_ATTACHMENT' && !orphanedPermanentIds.has(String(item.id)))
     .map(item => `${String(item.data?.todo_id)}\u0000${cacheId(item.data?.blob_id || item.data?.temp_id)}`));
   return records
     .filter((item) => {

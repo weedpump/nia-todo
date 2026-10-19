@@ -2769,7 +2769,6 @@ export function createTodosFeature({
     );
     const draftComments = id ? [] : collectTodoDraftCommentsFromEditor();
     const draftAttachmentFiles = id ? [] : getSelectedAttachmentFiles();
-    const hasPostCreateDrafts = draftComments.length > 0 || draftAttachmentFiles.length > 0;
     if (id) delete todoData.subtasks;
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
@@ -2784,28 +2783,6 @@ export function createTodosFeature({
         if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
         if (isOnlineForSync()) await syncWithServer();
       }
-    } else if (hasPostCreateDrafts && isOnlineForSync()) {
-      let createdTodo = await todosApi.create(todoData);
-      await dbPut('todos', createdTodo);
-      if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
-      setTodos([...getTodos(), createdTodo]);
-      document.getElementById('todo-id').value = String(createdTodo.id);
-      for (const body of draftComments) {
-        const response = await todosApi.createComment(createdTodo.id, { body });
-        createdTodo = response?.todo || createdTodo;
-        await applyCommentTodoResponse(response);
-      }
-      if (draftAttachmentFiles.length > 0) {
-        const uploaded = await uploadTodoAttachmentFromInput();
-        if (!uploaded) return;
-      } else {
-        await dbPut('todos', createdTodo);
-        setTodos(getTodos().map(todo => String(todo.id) === String(createdTodo.id) ? createdTodo : todo));
-      }
-      renderProjects();
-      renderStats();
-      renderTodos();
-      closeModal('todo-modal');
     } else {
       const tempId = 'temp-' + Date.now();
       const nowIso = new Date().toISOString();

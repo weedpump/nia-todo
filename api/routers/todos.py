@@ -230,9 +230,11 @@ def _safe_attachment_filename(raw_name: str | None) -> str:
 
 
 def _stored_attachment_path(todo_id: int, stored_filename: str) -> Path:
-    base = (ATTACHMENT_DIR / str(todo_id)).resolve()
+    root = ATTACHMENT_DIR.resolve()
+    base = root / str(todo_id)
+    resolved_base = base.resolve()
     target = (base / stored_filename).resolve()
-    if base not in target.parents and target != base:
+    if resolved_base != base or target.parent != base:
         raise HTTPException(400, "Invalid attachment path")
     return target
 
@@ -1386,7 +1388,7 @@ async def delete_todo_attachment(todo_id: int, attachment_id: int, user_id: int 
         if not attachment or int(attachment['todo_id']) != int(todo_id):
             raise HTTPException(404, "Attachment not found")
         path = _stored_attachment_path(todo_id, attachment['stored_filename'])
-        quarantine = path.with_name(f".delete-{secrets.token_hex(12)}")
+        quarantine = path.with_name(f".delete-attachment-{attachment_id}-{secrets.token_hex(12)}")
         moved = False
         try:
             db.execute("BEGIN IMMEDIATE")

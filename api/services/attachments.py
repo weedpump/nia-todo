@@ -71,14 +71,36 @@ def reconcile_attachment_files(
     """Delete only old, unreferenced regular files below the attachment root."""
     root = Path(attachment_dir).resolve()
     current_time = time.time() if now is None else float(now)
-    referenced = {
-        (root / str(row["todo_id"]) / str(row["stored_filename"])).resolve()
-        for row in db.execute("SELECT todo_id, stored_filename FROM todo_attachments").fetchall()
-        if row["stored_filename"]
-    }
+    attachment_rows = [dict(row) for row in db.execute(
+        "SELECT id, todo_id, stored_filename FROM todo_attachments"
+    ).fetchall()]
+    attachments_by_id = {int(row["id"]): row for row in attachment_rows}
+    todo_ids = {int(row["id"]) for row in db.execute("SELECT id FROM todos").fetchall()}
+    referenced = set()
+    for row in attachment_rows:
+        if not row.get("stored_filename"):
+            continue
+        candidate = (root / str(row["todo_id"]) / str(row["stored_filename"])).resolve()
+        if root in candidate.parents:
+            referenced.add(candidate)
     deleted: list[Path] = []
     retained: list[Path] = []
+    restored: list[Path] = []
     errors: list[dict[str, object]] = []
+
+    def quarantine_attachment_id(name: str) -> int | None:
+        prefix = ".delete-attachment-"
+        if not name.startswith(prefix):
+            return None
+        raw_id = name[len(prefix):].split("-", 1)[0]
+        return int(raw_id) if raw_id.isdigit() else None
+
+    def quarantine_todo_id(name: str) -> int | None:
+        prefix = ".delete-todo-"
+        if not name.startswith(prefix):
+            return None
+        raw_id = name[len(prefix):].split("-", 1)[0]
+        return int(raw_id) if raw_id.isdigit() else None
 
     def walk(directory: Path) -> None:
         try:
@@ -98,10 +120,22 @@ def reconcile_attachment_files(
                     continue
                 if entry.is_dir(follow_symlinks=False):
                     stat = entry.stat(follow_symlinks=False)
-                    if directory == root and entry.name.startswith(".delete-todo-") \
-                            and current_time - stat.st_mtime >= max(0, minimum_age_seconds):
-                        shutil.rmtree(path)
-                        deleted.append(path)
+                    quarantined_todo_id = quarantine_todo_id(entry.name) if directory == root else None
+                    if quarantined_todo_id is not None:
+                        original = root / str(quarantined_todo_id)
+                        if quarantined_todo_id in todo_ids:
+                            if original.exists():
+                                retained.append(path)
+                                errors.append({"path": path, "error": RuntimeError("Referenced todo quarantine cannot be restored over an existing directory")})
+                            else:
+                                path.replace(original)
+                                restored.append(original)
+                            continue
+                        if current_time - stat.st_mtime >= max(0, minimum_age_seconds):
+                            shutil.rmtree(path)
+                            deleted.append(path)
+                        else:
+                            retained.append(path)
                         continue
                     walk(path)
                     try:
@@ -113,6 +147,28 @@ def reconcile_attachment_files(
                     retained.append(path)
                     continue
                 stat = entry.stat(follow_symlinks=False)
+                quarantined_attachment_id = quarantine_attachment_id(entry.name)
+                if quarantined_attachment_id is not None:
+                    attachment = attachments_by_id.get(quarantined_attachment_id)
+                    if attachment:
+                        original = root / str(attachment["todo_id"]) / str(attachment["stored_filename"])
+                        if original.exists():
+                            retained.append(path)
+                            errors.append({"path": path, "error": RuntimeError("Referenced attachment quarantine cannot be restored over an existing file")})
+                        else:
+                            path.replace(original)
+                            restored.append(original)
+                        continue
+                    if current_time - stat.st_mtime >= max(0, minimum_age_seconds):
+                        path.unlink()
+                        deleted.append(path)
+                    else:
+                        retained.append(path)
+                    continue
+                if entry.name.startswith(".delete-"):
+                    retained.append(path)
+                    errors.append({"path": path, "error": RuntimeError("Unrecognized quarantine entry retained conservatively")})
+                    continue
                 if resolved in referenced or current_time - stat.st_mtime < max(0, minimum_age_seconds):
                     retained.append(path)
                     continue
@@ -123,7 +179,7 @@ def reconcile_attachment_files(
 
     if root.exists():
         walk(root)
-    return {"deleted": deleted, "retained": retained, "errors": errors}
+    return {"deleted": deleted, "retained": retained, "restored": restored, "errors": errors}
 
 
 def _parse_bool(value: Any, default: bool = DEFAULT_ATTACHMENTS_ENABLED) -> bool:

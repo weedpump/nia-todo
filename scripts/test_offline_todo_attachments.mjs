@@ -383,46 +383,47 @@ assert.equal(readFailureResult.failCount, 1, 'attachment storage I/O failures mu
 assert.equal(readFailureHarness.stores.syncQueue.length, 1, 'attachment storage I/O failures must retain the queue item');
 assert.equal(readFailureCache.records.has('temp-read-failure'), true, 'attachment storage I/O failures must retain pending bytes');
 
-const rewriteFailureCache = memoryCache([{ id: 'temp-parent-attachment', todo_id: 'temp-parent', attachment_id: 'temp-parent-attachment', blob: uploadBlob, pending_upload: true, pinned: true }]);
-const rewriteFailureHarness = syncHarness({
+for (const failureStep of [1, 2, 3, 4, 5]) {
+  const todoRewriteHarness = syncHarness({
+    queue: [
+      { id: 61, action: 'CREATE_TODO', data: { _tempId: 'temp-parent', title: 'Temp parent', client_mutation_id: 'temp-parent' } },
+      { id: 62, action: 'CREATE_ATTACHMENT', data: { todo_id: 'temp-parent', temp_id: 'temp-parent-attachment', blob_id: 'temp-parent-attachment', filename: 'pending.txt', content_type: 'text/plain', local_attachment: { id: 'temp-parent-attachment', todo_id: 'temp-parent', is_pending: true } } },
+    ],
+    todos: [{ id: 'temp-parent', title: 'Temp parent', attachments: [{ id: 'temp-parent-attachment', todo_id: 'temp-parent', is_pending: true }], attachments_count: 1 }],
+    blobs: [{ id: 'temp-parent-attachment', todo_id: 'temp-parent', attachment_id: 'temp-parent-attachment', blob: uploadBlob, pending_upload: true, pinned: true }],
+    transactionFail: count => count === failureStep,
+    api: {
+      create: async () => ({ id: 70, title: 'Temp parent', attachments: [], attachments_count: 0 }),
+      uploadAttachment: async () => { const error = new Error('retry later'); error.status = 503; throw error; },
+    },
+  });
+  const result = await todoRewriteHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+  assert.ok(result.failCount >= 1, `todo rewrite transaction step ${failureStep} must fail closed`);
+  assert.equal(todoRewriteHarness.stores.todos.some(todo => todo.id === 'temp-parent'), true);
+  assert.equal(todoRewriteHarness.stores.todos.some(todo => todo.id === 70), false);
+  assert.equal(todoRewriteHarness.stores.syncQueue.some(item => item.action === 'CREATE_TODO'), true);
+  assert.equal(todoRewriteHarness.stores.syncQueue.find(item => item.action === 'CREATE_ATTACHMENT').data.todo_id, 'temp-parent');
+  assert.equal(todoRewriteHarness.cacheState.records.get('temp-parent-attachment').todo_id, 'temp-parent');
+}
+
+const todoRewriteSuccessHarness = syncHarness({
   queue: [
-    { id: 61, action: 'CREATE_TODO', data: { _tempId: 'temp-parent', title: 'Temp parent' } },
-    { id: 62, action: 'CREATE_ATTACHMENT', data: { todo_id: 'temp-parent', temp_id: 'temp-parent-attachment', blob_id: 'temp-parent-attachment', filename: 'pending.txt', content_type: 'text/plain' } },
+    { id: 63, action: 'CREATE_TODO', data: { _tempId: 'temp-parent-ok', title: 'Temp parent', client_mutation_id: 'temp-parent-ok' } },
+    { id: 64, action: 'CREATE_ATTACHMENT', data: { todo_id: 'temp-parent-ok', temp_id: 'temp-child-ok', blob_id: 'temp-child-ok', filename: 'pending.txt', content_type: 'text/plain', local_attachment: { id: 'temp-child-ok', todo_id: 'temp-parent-ok', is_pending: true } } },
   ],
-  todos: [{ id: 'temp-parent', title: 'Temp parent', attachments: [{ id: 'temp-parent-attachment', is_pending: true }], attachments_count: 1 }],
-  blobs: [],
-  attachmentCache: { ...rewriteFailureCache.cache, rewriteTodoId: async () => { throw new Error('transient attachment enumeration failure'); } },
+  todos: [{ id: 'temp-parent-ok', title: 'Temp parent', attachments: [{ id: 'temp-child-ok', todo_id: 'temp-parent-ok', is_pending: true }], attachments_count: 1 }],
+  blobs: [{ id: 'temp-child-ok', todo_id: 'temp-parent-ok', attachment_id: 'temp-child-ok', blob: uploadBlob, pending_upload: true, pinned: true }],
   api: {
-    create: async () => ({ id: 70, title: 'Temp parent', attachments: [], attachments_count: 0 }),
+    create: async () => ({ id: 72, title: 'Temp parent', attachments: [], attachments_count: 0 }),
     uploadAttachment: async () => { const error = new Error('retry later'); error.status = 503; throw error; },
   },
 });
-const rewriteFailureResult = await rewriteFailureHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
-assert.ok(rewriteFailureResult.failCount >= 1);
-assert.equal(rewriteFailureHarness.stores.todos.some(todo => todo.id === 'temp-parent'), true, 'failed attachment enumeration must not commit deletion of the temporary todo');
-assert.equal(rewriteFailureHarness.stores.syncQueue.some(item => item.action === 'CREATE_TODO'), true, 'failed attachment enumeration must retain the parent create');
-assert.equal(rewriteFailureHarness.stores.syncQueue.find(item => item.action === 'CREATE_ATTACHMENT').data.todo_id, 'temp-parent', 'failed attachment enumeration must not orphan the pending upload queue reference');
-assert.equal(rewriteFailureCache.records.has('temp-parent-attachment'), true, 'failed attachment enumeration must retain pending upload bytes');
-
-let todoRewriteStrictReads = 0;
-const todoRewriteReadFailureHarness = syncHarness({
-  queue: [
-    { id: 63, action: 'CREATE_TODO', data: { _tempId: 'temp-strict-parent', title: 'Strict parent' } },
-    { id: 64, action: 'CREATE_ATTACHMENT', data: { todo_id: 'temp-strict-parent', temp_id: 'temp-strict-child', blob_id: 'temp-strict-child', filename: 'strict.txt', content_type: 'text/plain' } },
-  ],
-  todos: [{ id: 'temp-strict-parent', title: 'Strict parent', attachments: [{ id: 'temp-strict-child', is_pending: true }], attachments_count: 1 }],
-  blobs: [{ id: 'temp-strict-child', todo_id: 'temp-strict-parent', attachment_id: 'temp-strict-child', blob: uploadBlob, pending_upload: true, pinned: true }],
-  dbGetAllStrict: async store => {
-    if (store === 'syncQueue' && ++todoRewriteStrictReads === 3) throw new Error('todo rewrite queue read failed');
-    return structuredClone(todoRewriteReadFailureHarness.stores[store] || []);
-  },
-  api: { create: async () => ({ id: 72, title: 'Strict parent', attachments: [], attachments_count: 0 }) },
-});
-const todoRewriteReadFailureResult = await todoRewriteReadFailureHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
-assert.equal(todoRewriteReadFailureResult.failCount, 1, 'todo ID rewrites must fail when the current queue cannot be read strictly');
-assert.equal(todoRewriteReadFailureHarness.stores.todos.some(todo => todo.id === 'temp-strict-parent'), true, 'failed strict rewrite reads must retain the temporary todo');
-assert.equal(todoRewriteReadFailureHarness.stores.syncQueue.find(item => item.action === 'CREATE_ATTACHMENT').data.todo_id, 'temp-strict-parent');
-assert.equal(todoRewriteReadFailureHarness.cacheState.records.get('temp-strict-child').todo_id, 'temp-strict-parent');
+await todoRewriteSuccessHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(todoRewriteSuccessHarness.stores.todos.some(todo => todo.id === 'temp-parent-ok'), false);
+assert.equal(todoRewriteSuccessHarness.stores.todos.some(todo => todo.id === 72), true);
+assert.equal(todoRewriteSuccessHarness.stores.syncQueue.some(item => item.action === 'CREATE_TODO'), false);
+assert.equal(todoRewriteSuccessHarness.stores.syncQueue.find(item => item.action === 'CREATE_ATTACHMENT').data.todo_id, 72);
+assert.equal(todoRewriteSuccessHarness.cacheState.records.get('temp-child-ok').todo_id, 72);
 
 const attachmentRewriteReadFailureHarness = syncHarness({
   queue: [
@@ -540,6 +541,34 @@ assert.equal(permanentRefreshProjectCalls, 1, 'permanent attachment failures mus
 assert.equal(permanentRefreshHarness.stores.todos[0].title, 'Fresh server title');
 assert.deepEqual(permanentRefreshHarness.stores.todos[0].attachments.map(item => item.id), ['temp-permanent-refresh'], 'full sync must preserve the failed local attachment projection');
 assert.equal(permanentRefreshHarness.stores.projects[0].name, 'Fresh project');
+
+const deletedPermanentRefreshHarness = syncHarness({
+  queue: [{ id: 132, action: 'CREATE_ATTACHMENT', data: {
+    todo_id: 8, temp_id: 'temp-permanent-deleted', blob_id: 'temp-permanent-deleted', failed_permanent: true,
+    local_attachment: { id: 'temp-permanent-deleted', todo_id: 8, is_pending: true, failed_permanent: true },
+  } }],
+  todos: [{ id: 8, title: 'Deleted elsewhere', attachments: [{ id: 'temp-permanent-deleted', is_pending: true, failed_permanent: true }], attachments_count: 1 }],
+  blobs: [{ id: 'temp-permanent-deleted', todo_id: 8, attachment_id: 'temp-permanent-deleted', blob: uploadBlob, pending_upload: true, pinned: true }],
+  api: { list: async () => ({ todos: [] }) },
+});
+deletedPermanentRefreshHarness.feature = createSyncFeature({
+  getDb: () => ({}),
+  dbGetAll: async store => structuredClone(deletedPermanentRefreshHarness.stores[store] || []),
+  dbGetAllStrict: async store => structuredClone(deletedPermanentRefreshHarness.stores[store] || []),
+  dbPut: async () => {}, dbPutStrict: async () => {}, dbClear: async () => {}, dbClearStrict: async () => {},
+  getFromDB: async (store, id) => structuredClone((deletedPermanentRefreshHarness.stores[store] || []).find(item => String(item.id) === String(id)) || null),
+  deleteFromDB: async () => {}, deleteFromDBStrict: async () => {},
+  dbTransactionStrict: createMemoryTransactionWithCache(deletedPermanentRefreshHarness.stores, deletedPermanentRefreshHarness.cacheState),
+  getTodos: () => deletedPermanentRefreshHarness.stores.todos, setTodos: next => { deletedPermanentRefreshHarness.stores.todos = structuredClone(next); },
+  getProjects: () => [], setProjects: () => {}, getSections: () => [], setSections: () => {}, getWorkspaces: () => [], setWorkspaces: () => {},
+  todosApi: { list: async () => ({ todos: [] }) }, projectsApi: { list: async () => ({ projects: [] }) },
+  sectionsApi: { listAll: async () => ({ sections: [] }) }, workspacesApi: { list: async () => ({ workspaces: [] }) },
+  attachmentCache: deletedPermanentRefreshHarness.cacheState.cache, renderStats: () => {}, renderTodos: () => {},
+});
+await deletedPermanentRefreshHarness.feature.refreshFromServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(deletedPermanentRefreshHarness.stores.todos.length, 0, 'authoritative REST deletion must remove a todo with only a permanent attachment failure');
+assert.equal(deletedPermanentRefreshHarness.stores.syncQueue.length, 0, 'authoritative REST deletion must remove the orphaned permanent queue entry');
+assert.equal(deletedPermanentRefreshHarness.cacheState.records.size, 0, 'authoritative REST deletion must remove orphaned failed upload bytes');
 
 const permanentCancellationHarness = syncHarness({
   queue: [
@@ -794,6 +823,21 @@ assert.equal(websocketCache.records.has('220'), false, 'full websocket sync must
 assert.equal(websocketCache.records.has('230'), false, 'full websocket sync must remove cached bytes for server attachments removed from an existing todo');
 assert.equal(websocketCache.records.has('temp-230'), true, 'full websocket sync must preserve pending attachment bytes');
 assert.deepEqual(websocketStores.todos.find(todo => todo.id === 23).attachments.map(item => item.id), ['temp-230'], 'pending attachment projection must survive server removal reconciliation');
+
+websocketStores.syncQueue.push({ id: 89, action: 'CREATE_ATTACHMENT', data: {
+  todo_id: 25, temp_id: 'temp-ws-permanent', blob_id: 'temp-ws-permanent', failed_permanent: true,
+  local_attachment: { id: 'temp-ws-permanent', todo_id: 25, is_pending: true, failed_permanent: true },
+} });
+websocketStores.todos.push({ id: 25, attachments: [{ id: 'temp-ws-permanent', is_pending: true, failed_permanent: true }], attachments_count: 1 });
+websocketStores.attachmentBlobs.push({ id: 'temp-ws-permanent', todo_id: 25, attachment_id: 'temp-ws-permanent', blob: uploadBlob, pending_upload: true, pinned: true });
+websocketCache.records.set('temp-ws-permanent', structuredClone(websocketStores.attachmentBlobs.at(-1)));
+await websocketClient.handleWsMessage({ type: 'sync_response', todos: [
+  { id: 21, attachments: [], attachments_count: 0, updated_at: '2026-10-18T12:00:00Z' },
+  { id: 23, attachments: [], attachments_count: 0, updated_at: '2026-10-18T12:00:00Z' },
+], projects: [], sections: [], workspaces: [] });
+assert.equal(websocketStores.todos.some(todo => todo.id === 25), false, 'authoritative websocket deletion must remove a todo with only a permanent attachment failure');
+assert.equal(websocketStores.syncQueue.some(item => item.id === 89), false, 'websocket reconciliation must remove the orphaned permanent queue entry');
+assert.equal(websocketCache.records.has('temp-ws-permanent'), false, 'websocket reconciliation must remove orphaned failed upload bytes');
 
 for (const message of [
   { type: 'sync_response', todos: [], projects: [], sections: [], workspaces: [] },

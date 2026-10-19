@@ -93,6 +93,14 @@ def main() -> None:
         kept.write_bytes(b"kept")
         outside = Path(tmp) / "outside.txt"
         outside.write_bytes(b"outside")
+        outside_dir = Path(tmp) / "outside-dir"
+        outside_dir.mkdir()
+        (root / "99").symlink_to(outside_dir, target_is_directory=True)
+        try:
+            todos_router._stored_attachment_path(99, "escaped.txt")
+            raise AssertionError("symlinked todo directories must not escape ATTACHMENT_DIR")
+        except Exception as exc:
+            assert getattr(exc, "status_code", None) == 400
 
         client = make_client(db)
         original_unlink = Path.unlink
@@ -128,14 +136,20 @@ def main() -> None:
         quarantined_attachment = next(root.glob("10/.delete-*"))
         assert quarantined_attachment.exists(), "failed post-commit cleanup must leave a quarantined file for reconciliation"
 
+        old = time.time() - (3 * 24 * 60 * 60)
+        os.utime(quarantined_attachment, (old, old))
+        quarantine_result = reconcile_attachment_files(db, attachment_dir=root, minimum_age_seconds=24 * 60 * 60, now=time.time())
+        assert quarantined_attachment in quarantine_result["deleted"]
+        assert not quarantined_attachment.exists(), "unreferenced quarantined attachment cleanup must be retryable by reconciliation"
+
         db.execute(
             "INSERT INTO todo_attachments (id, todo_id, user_id, original_filename, stored_filename, content_type, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (100, 10, 1, "kept.txt", "kept.txt", "text/plain", 4),
         )
         db.commit()
+        todo_dir.mkdir(exist_ok=True)
         kept.write_bytes(b"kept")
 
-        old = time.time() - (3 * 24 * 60 * 60)
         orphan = todo_dir / "orphan.txt"
         orphan.write_bytes(b"orphan")
         os.utime(orphan, (old, old))
@@ -155,10 +169,6 @@ def main() -> None:
         assert outside.exists(), "reconciliation must never delete outside ATTACHMENT_DIR"
         assert outside_link.is_symlink(), "reconciliation must retain symlinks instead of following them outside ATTACHMENT_DIR"
 
-        os.utime(quarantined_attachment, (old, old))
-        quarantine_result = reconcile_attachment_files(db, attachment_dir=root, minimum_age_seconds=24 * 60 * 60, now=time.time())
-        assert quarantined_attachment in quarantine_result["deleted"]
-        assert not quarantined_attachment.exists(), "quarantined attachment cleanup must be retryable by reconciliation"
 
         failing = todo_dir / "failing.txt"
         failing.write_bytes(b"failure")
@@ -170,6 +180,20 @@ def main() -> None:
             Path.unlink = original_unlink
         assert failing.exists()
         assert any(entry["path"] == failing for entry in failed_result["errors"]), "reconciliation errors must be visible and retryable"
+
+        referenced_quarantine = todo_dir / ".delete-attachment-100-restore"
+        kept.replace(referenced_quarantine)
+        os.utime(referenced_quarantine, (old, old))
+        restored_attachment = reconcile_attachment_files(db, attachment_dir=root, minimum_age_seconds=24 * 60 * 60, now=time.time())
+        assert kept in restored_attachment["restored"]
+        assert kept.read_bytes() == b"kept", "referenced quarantined attachments must be restored instead of deleted"
+
+        referenced_todo_quarantine = root / ".delete-todo-10-restore"
+        todo_dir.replace(referenced_todo_quarantine)
+        os.utime(referenced_todo_quarantine, (old, old))
+        restored_todo = reconcile_attachment_files(db, attachment_dir=root, minimum_age_seconds=24 * 60 * 60, now=time.time())
+        assert todo_dir in restored_todo["restored"]
+        assert kept.exists(), "referenced quarantined todo directories must be restored instead of deleted"
 
         success_client = make_client(db, raise_server_exceptions=True)
         delete_response = success_client.delete("/api/todos/10/attachments/100")

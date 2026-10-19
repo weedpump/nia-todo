@@ -212,6 +212,10 @@ assert(todosFeatureSource.includes("dbTransactionStrict(['todos', 'syncQueue'], 
   && todosFeatureSource.includes("action: 'DELETE_TODO'")
   && todosFeatureSource.includes("await transaction.delete('todos', todoId)"),
   'todo delete must atomically persist the deferred hard-delete and remove the optimistic todo projection');
+assert(!todosFeatureSource.includes('hasPostCreateDrafts && isOnlineForSync()'),
+  'todo creation with draft children must use the idempotent queued CREATE_TODO path even while online');
+assert(todosFeatureSource.includes("client_mutation_id: tempId"),
+  'queued todo creation must preserve a stable client mutation ID for uncertain server responses');
 
 const originalGlobals = {
   window: globalThis.window,
