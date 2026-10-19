@@ -251,23 +251,51 @@
   font-size: 12px;
   font-weight: 900;
   line-height: 1;
-  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border: 0;
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 12%, var(--bg-secondary));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 10%, transparent);
 }
 
-.status-syncing::before {
-  content: "";
-  width: 7px;
-  height: 7px;
+.status-syncing::before,
+.status-sync-icon {
+  width: 14px;
+  height: 14px;
   margin-right: 5px;
-  border-radius: 999px;
-  background: currentColor;
-  box-shadow: 0 0 8px color-mix(in srgb, currentColor 55%, transparent);
+  flex: 0 0 auto;
+}
+
+.status-syncing::before {
+  content: "↻";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.status-sync-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .status-pending-sync::after { content: none; }
+
+.status-offline {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-secondary));
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+}
 
 @media (max-width: 640px) {
   .today-focus-btn,
@@ -298,19 +326,27 @@
 
   .status-syncing,
   .status-pending-sync {
-    width: 30px;
-    min-width: 30px;
+    width: auto;
+    min-width: 42px;
     height: 26px;
-    padding: 0;
+    padding: 0 8px;
     font-size: 0;
   }
   .status-syncing::before {
-    width: 9px;
-    height: 9px;
+    width: 16px;
+    height: 16px;
     margin-right: 0;
   }
-  .status-pending-sync::after {
-    content: attr(data-count);
+  .status-sync-icon {
+    width: 15px;
+    height: 15px;
+    margin-right: 0;
+  }
+  .status-pending-sync {
+    gap: 5px;
+    font-size: 0;
+  }
+  .status-sync-count {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -323,6 +359,9 @@
     font-size: 11px;
     font-weight: 950;
     line-height: 1;
+  }
+  .status-pending-sync::after {
+    content: none;
   }
 
 }
