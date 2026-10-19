@@ -2,7 +2,12 @@
 import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL, apiResourceUrl } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
 import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
-import { resumeAuthenticatedRequests, suspendAuthenticatedRequests } from './api/http.js';
+import {
+  resumeAuthenticatedRequests,
+  resumeServerBoundRequests,
+  suspendAuthenticatedRequests,
+  suspendServerBoundRequests,
+} from './api/http.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -363,6 +368,7 @@ const userSettingsFeature = createUserSettingsFeature({
 async function disconnectAuthenticatedRuntime() {
   authenticatedRuntimeDraining = true;
   suspendAuthenticatedRequests();
+  brainDumpLiveFeature.resetForIdentityBoundary();
   const websocketDrain = disconnectWebSocket();
   await Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]);
 }
@@ -371,7 +377,10 @@ async function resumeAuthenticatedRuntime() {
   authenticatedRuntimeDraining = false;
   resumeAuthenticatedRequests();
   wsClient?.resumeWebSocket?.();
-  if (currentUser) connectWebSocket();
+  if (currentUser) {
+    connectWebSocket();
+    void brainDumpLiveFeature.init().catch(error => console.warn('[BrainDump] identity resume failed', error));
+  }
 }
 
 const authSessionFeature = createAuthSessionFeature({
@@ -502,6 +511,9 @@ desktopIntegration = createDesktopIntegration({
   },
   getCurrentUser: () => currentUser,
   disconnectRealtime: () => disconnectAuthenticatedRuntime(),
+  resumeRealtime: () => resumeAuthenticatedRuntime(),
+  beginServerBoundary: () => suspendServerBoundRequests(),
+  resumeServerBoundary: () => resumeServerBoundRequests(),
   clearLocalAuthState: () => authSessionFeature.clearLocalAuthState(),
   clearBrowserAuthCaches: () => authSessionFeature.clearBrowserAuthCaches(),
   clearCache: () => clearIndexedDB(),

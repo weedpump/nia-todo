@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 assert.match(appSource, /createDesktopIntegration\(\{[\s\S]*disconnectRealtime:\s*\(\)\s*=>\s*disconnectAuthenticatedRuntime\(\)/, 'production server-switch wiring must drain the authenticated runtime');
 assert.match(appSource, /authenticatedRuntimeDraining/, 'production runtime must close against new old-identity operations while draining');
+assert.match(appSource, /disconnectAuthenticatedRuntime\(\)[\s\S]*brainDumpLiveFeature\.resetForIdentityBoundary\(\)/, 'identity drain must reset BrainDump user state');
+assert.match(appSource, /resumeAuthenticatedRuntime\(\)[\s\S]*brainDumpLiveFeature\.init\(\)/, 'identity resume must recheck BrainDump access for the active user');
 
 const events = [];
 globalThis.location = { origin: 'https://old.example', search: '?nativeApp=tauri', reload() { events.push('reload'); } };
@@ -73,7 +75,8 @@ try {
   ], 'native server updates must clear browser auth and application data before persisting the new server');
 
   events.length = 0;
-  await feature.resetServerUrl();
+  const resetFeature = createFeature();
+  await resetFeature.resetServerUrl();
   assert.deepEqual(events, [
     'drain:runtime',
     'clear:reminders',
@@ -155,6 +158,16 @@ try {
   await concurrentUpdate;
   assert.equal(events.includes('persist:reset'), false, 'the rejected concurrent reset must not persist');
   assert.equal(events.filter(event => event === 'clear:indexeddb').length, 1, 'a concurrent switch must run cleanup exactly once');
+
+  events.length = 0;
+  let reloadCallback = null;
+  globalThis.setTimeout = callback => { reloadCallback = callback; return 77; };
+  const lockedUntilUnloadFeature = createFeature();
+  assert.equal(await lockedUntilUnloadFeature.updateServerUrl('https://locked.example'), true);
+  assert.equal(await lockedUntilUnloadFeature.resetServerUrl(), false, 'server reset must remain blocked before the reload callback');
+  reloadCallback();
+  assert.equal(await lockedUntilUnloadFeature.resetServerUrl(), false, 'server reset must remain blocked after location.reload returns in the same document');
+  assert.equal(events.filter(event => event === 'drain:runtime').length, 1, 'the successful server switch must remain single-shot until document unload');
 
   events.length = 0;
   let delayedReminderCallback = null;

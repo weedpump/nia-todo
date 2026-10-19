@@ -121,6 +121,9 @@ export function createDesktopIntegration({
   onHotkeySearch,
   getCurrentUser,
   disconnectRealtime = async () => {},
+  resumeRealtime = async () => {},
+  beginServerBoundary = () => {},
+  resumeServerBoundary = () => {},
   clearNativeReminders = null,
   clearLocalAuthState = () => {},
   clearBrowserAuthCaches = async () => {},
@@ -470,21 +473,19 @@ export function createDesktopIntegration({
     if (serverSwitchInProgress) return false;
     serverSwitchInProgress = true;
     let reloadScheduled = false;
+    beginServerBoundary();
     try {
       const serverUrl = normalizeRuntimeServerUrl(value);
       await clearServerScopedBrowserData();
       settings = mergeSettings(await nativeBridge.setServerUrl(serverUrl));
       setDesktopStatus(t('settings.desktop.server.savedReloading'));
       reloadScheduled = true;
-      setTimeout(() => {
-        try {
-          location.reload();
-        } finally {
-          serverSwitchInProgress = false;
-        }
-      }, 250);
+      setTimeout(() => location.reload(), 250);
       return true;
     } catch (error) {
+      resumeServerBoundary();
+      resumeNativeRemindersAfterPrivacy();
+      await resumeRealtime();
       setDesktopStatus(error?.message || String(error), true);
       return false;
     } finally {
@@ -497,20 +498,18 @@ export function createDesktopIntegration({
     if (serverSwitchInProgress) return false;
     serverSwitchInProgress = true;
     let reloadScheduled = false;
+    beginServerBoundary();
     try {
       await clearServerScopedBrowserData();
       await nativeBridge.clearServerUrl();
       setDesktopStatus(t('settings.desktop.server.selectionOpening'));
       reloadScheduled = true;
-      setTimeout(() => {
-        try {
-          location.reload();
-        } finally {
-          serverSwitchInProgress = false;
-        }
-      }, 250);
+      setTimeout(() => location.reload(), 250);
       return true;
     } catch (error) {
+      resumeServerBoundary();
+      resumeNativeRemindersAfterPrivacy();
+      await resumeRealtime();
       setDesktopStatus(error?.message || String(error), true);
       return false;
     } finally {

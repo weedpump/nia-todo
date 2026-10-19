@@ -1,4 +1,4 @@
-import { getAuthToken, getCsrfToken, getAuthHeaders } from '../api/http.js';
+import { getAuthToken, getCsrfToken, getAuthHeaders, serverBoundFetch } from '../api/http.js';
 import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
 import { getJsonHeaders } from '../api/http.js';
 import { createNativeBridge } from './native-bridge.js';
@@ -64,7 +64,7 @@ export function createAuthSessionFeature({
     if (!code || hasConsumedNativeOidcCode(code) || nativeOidcCodesInFlight.has(code)) return;
     nativeOidcCodesInFlight.add(code);
     try {
-      const response = await fetch(`${API}/api/oidc/native/exchange`, {
+      const response = await serverBoundFetch(`${API}/api/oidc/native/exchange`, {
         method: 'POST',
         headers: getJsonHeaders(),
         credentials: 'include',
@@ -394,19 +394,19 @@ export function createAuthSessionFeature({
   }
 
   async function logout() {
+    if (getAuthToken()) {
+      try {
+        await authApi.logout();
+      } catch (e) {
+        // Local privacy cleanup must still complete when server revocation is unavailable.
+      }
+    }
     const realtimeShutdown = Promise.resolve(disconnectRealtime?.()).catch(() => {});
     await realtimeShutdown;
     await clearNativeReminders();
     await clearBrowserAuthCaches();
     await clearCache();
 
-    if (getAuthToken()) {
-      try {
-        await authApi.logout();
-      } catch (e) {
-        // Ignore logout errors after local privacy cleanup has succeeded.
-      }
-    }
     clearLocalAuthState();
     location.reload();
   }

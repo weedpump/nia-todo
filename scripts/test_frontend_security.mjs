@@ -106,10 +106,10 @@ assert(authSessionSource.includes('nia_consumed_native_oidc_codes'), 'native OID
 assert(authSessionSource.includes('nativeOidcCodesInFlight.has(code)'), 'native OIDC must dedupe simultaneous callback delivery before the one-time handoff is consumed twice');
 assert(authSessionSource.includes('rememberConsumedNativeOidcCode(code)'), 'native OIDC must mark handoff codes consumed after a successful exchange');
 const logoutSource = authSessionSource.slice(authSessionSource.indexOf('async function logout()'), authSessionSource.indexOf('function showLoginOverlay()'));
-assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('disconnectRealtime?.()') < logoutSource.indexOf('authApi.logout()'), 'logout must disconnect realtime work before starting the server request');
+assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('authApi.logout()') < logoutSource.indexOf('disconnectRealtime?.()'), 'logout must revoke the server session before suspending authenticated requests');
 assert(logoutSource.includes('await realtimeShutdown'), 'logout must drain realtime work before clearing IndexedDB');
 assert(logoutSource.indexOf('await clearCache()') < logoutSource.indexOf('clearLocalAuthState()'), 'logout must retain the old identity marker until IndexedDB cleanup succeeds');
-assert(logoutSource.indexOf('await clearCache()') < logoutSource.indexOf('authApi.logout()'), 'logout must not invalidate the old server session before local privacy cleanup succeeds');
+assert(logoutSource.indexOf('authApi.logout()') < logoutSource.indexOf('await clearCache()'), 'logout must attempt server-side revocation before local privacy cleanup');
 const clearLocalAuthSource = authSessionSource.slice(authSessionSource.indexOf('function clearLocalAuthState()'), authSessionSource.indexOf('function persistCachedUser'));
 for (const key of ['jwt_token', 'auth_token', 'last_user_id', 'csrf_token', 'cached_user', 'nia-mfa-enrollment-required']) {
   assert(clearLocalAuthSource.includes(`localStorage.removeItem('${key}')`), `successful logout cleanup must explicitly remove ${key}`);

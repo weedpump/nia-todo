@@ -1,6 +1,6 @@
 import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
 import { createNativeBridge } from '../features/native-bridge.js';
-import { authenticatedFetch, getAuthHeaders, getJsonHeaders } from './http.js';
+import { authenticatedFetch, getAuthHeaders, getJsonHeaders, serverBoundFetch } from './http.js';
 import { apiErrorFromResponse } from './errors.js';
 import { t } from '../i18n/index.js';
 
@@ -16,7 +16,7 @@ function apiFetch(input, init) {
     || path.startsWith('/api/2fa/passkey')
     || path.startsWith('/api/password-setup')
     || path === '/api/setup/status';
-  return publicRequest ? fetch(input, init) : authenticatedFetch(input, init);
+  return publicRequest ? serverBoundFetch(input, init) : authenticatedFetch(input, init);
 }
 
 function b64urlToBuffer(value) {

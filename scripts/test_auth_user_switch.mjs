@@ -165,4 +165,36 @@ resumeAuthenticatedRequests();
 assert.deepEqual(await http.get('/api/sections?project_id=2'), { sections: [{ id: 2 }] }, 'authenticated REST must resume for the new identity');
 globalThis.fetch = originalFetch;
 
+const logoutEvents = [];
+values.set('jwt_token', 'logout-token');
+const logoutOrderFeature = createAuthSessionFeature({
+  authApi: { logout: async () => { logoutEvents.push('revoke:server'); } },
+  getAppInitialized: () => true,
+  setCurrentUser: () => {},
+  disconnectRealtime: async () => { logoutEvents.push('drain:runtime'); },
+  clearNativeReminders: async () => { logoutEvents.push('clear:reminders'); },
+  clearCache: async () => { logoutEvents.push('clear:indexeddb'); },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+});
+await logoutOrderFeature.logout();
+assert.deepEqual(logoutEvents.slice(0, 2), ['revoke:server', 'drain:runtime'], 'logout must revoke the server session before authenticated requests are suspended');
+
+const {
+  resumeServerBoundRequests,
+  serverBoundFetch,
+  suspendServerBoundRequests,
+} = await import('../web/static/js/api/http.js');
+let resolveOldServerBody;
+globalThis.fetch = async () => ({ ok: true, json: () => new Promise(resolve => { resolveOldServerBody = resolve; }) });
+resumeServerBoundRequests();
+const oldServerLogin = serverBoundFetch('/api/login', {}).then(response => response.json());
+await Promise.resolve();
+await Promise.resolve();
+suspendServerBoundRequests();
+resolveOldServerBody({ access_token: 'x' });
+await assert.rejects(oldServerLogin, error => error?.code === 'server_runtime_changed', 'an old login body must be rejected after the native server boundary changes');
+await assert.rejects(serverBoundFetch('/api/login', {}), error => error?.code === 'server_runtime_changed', 'new login and OIDC work must be blocked during a native server switch');
+resumeServerBoundRequests();
+globalThis.fetch = originalFetch;
+
 console.log('✅ Cross-user login fails closed before activating the new identity');

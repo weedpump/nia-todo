@@ -3,10 +3,18 @@ import { apiErrorFromResponse } from './errors.js';
 
 let authenticatedRuntimeGeneration = 0;
 let authenticatedRequestsSuspended = false;
+let serverRuntimeGeneration = 0;
+let serverBoundRequestsSuspended = false;
 
 function runtimeBoundaryError() {
   const error = new Error('Authenticated runtime changed while request was in flight');
   error.code = 'authenticated_runtime_changed';
+  return error;
+}
+
+function serverBoundaryError() {
+  const error = new Error('Server runtime changed while request was in flight');
+  error.code = 'server_runtime_changed';
   return error;
 }
 
@@ -19,13 +27,28 @@ export function resumeAuthenticatedRequests() {
   authenticatedRequestsSuspended = false;
 }
 
+export function suspendServerBoundRequests() {
+  serverBoundRequestsSuspended = true;
+  serverRuntimeGeneration += 1;
+}
+
+export function resumeServerBoundRequests() {
+  serverBoundRequestsSuspended = false;
+}
+
 function assertAuthenticatedGeneration(generation) {
   if (authenticatedRequestsSuspended || generation !== authenticatedRuntimeGeneration) {
     throw runtimeBoundaryError();
   }
 }
 
-function guardAuthenticatedResponse(response, generation) {
+function assertServerGeneration(generation) {
+  if (serverBoundRequestsSuspended || generation !== serverRuntimeGeneration) {
+    throw serverBoundaryError();
+  }
+}
+
+function guardResponse(response, assertCurrent) {
   const guardedBodyMethods = new Set(['arrayBuffer', 'blob', 'bytes', 'formData', 'json', 'text']);
   return new Proxy(response, {
     get(target, property) {
@@ -33,9 +56,9 @@ function guardAuthenticatedResponse(response, generation) {
       if (typeof value !== 'function') return value;
       if (!guardedBodyMethods.has(property)) return value.bind(target);
       return async (...args) => {
-        assertAuthenticatedGeneration(generation);
+        assertCurrent();
         const result = await value.apply(target, args);
-        assertAuthenticatedGeneration(generation);
+        assertCurrent();
         return result;
       };
     },
@@ -52,7 +75,20 @@ export async function authenticatedFetch(input, init) {
     response.body?.cancel?.().catch?.(() => {});
     throw error;
   }
-  return guardAuthenticatedResponse(response, generation);
+  return guardResponse(response, () => assertAuthenticatedGeneration(generation));
+}
+
+export async function serverBoundFetch(input, init) {
+  if (serverBoundRequestsSuspended) throw serverBoundaryError();
+  const generation = serverRuntimeGeneration;
+  const response = await fetch(input, init);
+  try {
+    assertServerGeneration(generation);
+  } catch (error) {
+    response.body?.cancel?.().catch?.(() => {});
+    throw error;
+  }
+  return guardResponse(response, () => assertServerGeneration(generation));
 }
 
 export function getAuthToken() {

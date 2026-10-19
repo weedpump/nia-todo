@@ -53,6 +53,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   const nativeBridge = createNativeBridge();
   const state = {
     accessChecked: false,
+    identityGeneration: 0,
     enabled: false,
     recorder: null,
     stream: null,
@@ -120,6 +121,7 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   async function checkAccess() {
     if (state.accessChecked) return;
+    const identityGeneration = state.identityGeneration;
     state.accessChecked = true;
     try {
       const response = await authenticatedFetch(`${API}/api/braindump/v2/access`, {
@@ -128,8 +130,11 @@ export function createBrainDumpLiveFeature(options = {}) {
       });
       if (!response.ok) return;
       const data = await response.json();
+      if (identityGeneration !== state.identityGeneration) return;
       state.enabled = Boolean(data.enabled);
     } catch {
+      if (identityGeneration !== state.identityGeneration) return;
+      state.accessChecked = false;
       state.enabled = false;
     }
   }
@@ -480,6 +485,20 @@ export function createBrainDumpLiveFeature(options = {}) {
     cleanupRecordingHandles();
     resetSession();
     render();
+  }
+
+  function resetForIdentityBoundary() {
+    state.identityGeneration += 1;
+    cancelSession();
+    state.accessChecked = false;
+    state.enabled = false;
+    state.creating = false;
+    state.editingCandidateKey = '';
+    state.savedPlaces = [];
+    state.initAttempts = 0;
+    document.getElementById('braindump-modal')?.remove();
+    document.getElementById('braindump-fab')?.remove();
+    if (window.openBrainDump === open) delete window.openBrainDump;
   }
 
   async function stop(reason = 'manual') {
@@ -1240,5 +1259,5 @@ export function createBrainDumpLiveFeature(options = {}) {
     `;
   }
 
-  return { init, open };
+  return { init, open, resetForIdentityBoundary };
 }
