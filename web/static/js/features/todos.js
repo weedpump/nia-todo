@@ -24,6 +24,7 @@ export function createTodosFeature({
   dbGetAllStrict = dbGetAll,
   deleteFromDB,
   deleteFromDBStrict = deleteFromDB,
+  dbTransactionStrict,
   addToSyncQueue,
   runSyncQueueMutation,
   isOnlineForSync,
@@ -76,6 +77,7 @@ export function createTodosFeature({
     dbGetAllStrict,
     deleteFromDB,
     deleteFromDBStrict,
+    dbTransactionStrict,
     runSyncQueueMutation,
     isOnlineForSync,
     syncWithServer,
@@ -2808,7 +2810,7 @@ export function createTodosFeature({
       await commitQueuedMutation(async enqueue => {
         await dbPut('todos', newTodo);
         setTodos([...getTodos(), newTodo]);
-        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, client_mutation_id: tempId });
         for (const comment of pendingComments) {
           await enqueue('CREATE_COMMENT', {
             todo_id: tempId,
@@ -2940,7 +2942,7 @@ export function createTodosFeature({
     await commitQueuedMutation(async enqueue => {
       await dbPut('todos', duplicated);
       setTodos([...getTodos(), duplicated]);
-      await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
+      await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, client_mutation_id: tempId, undo_grace_until: Date.now() + 5000 });
     });
     if (todoData.location_reminder) await resetLocationPermissionGuidanceForUserIntent();
     renderStats();

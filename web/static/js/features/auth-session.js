@@ -45,14 +45,8 @@ export function createAuthSessionFeature({
     sessionStorage.setItem(consumedNativeOidcCodesKey, JSON.stringify(codes.slice(-20)));
   }
 
-  function storeOidcUserSession(payload) {
-    localStorage.setItem('jwt_token', payload.access_token);
-    if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
-    if (payload.user) {
-      localStorage.setItem('cached_user', JSON.stringify(payload.user));
-      localStorage.setItem('last_user_id', String(payload.user.id));
-      setCurrentUser({ ...payload.user, token: payload.access_token });
-    }
+  async function storeOidcUserSession(payload) {
+    return completeLogin(payload);
   }
 
   async function handleNativeOidcCallback(url) {
@@ -82,7 +76,7 @@ export function createAuthSessionFeature({
       rememberConsumedNativeOidcCode(code);
       const payload = data.payload || {};
       if (data.kind === 'user') {
-        storeOidcUserSession(payload);
+        await storeOidcUserSession(payload);
         hideLoginOverlay();
         if (getAppInitialized()) await refreshFromServer();
         else await initApp();
@@ -181,19 +175,24 @@ export function createAuthSessionFeature({
     const lastUserId = localStorage.getItem('last_user_id');
     if (lastUserId && lastUserId !== newUserId) {
       console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
-      await clearBrowserAuthCaches();
-      await clearCache();
+      try {
+        await clearBrowserAuthCaches();
+        await clearCache();
+      } catch (error) {
+        error.authIdentityCleanupFailed = true;
+        throw error;
+      }
       return true;
     }
     return false;
   }
 
   async function completeLogin(data) {
-    storeUserSession(data);
-    await maybeVerifyEmailFromUrl();
     const newUserId = String(data.user.id);
     await clearCacheIfUserChanged(newUserId);
+    storeUserSession(data);
     localStorage.setItem('last_user_id', newUserId);
+    await maybeVerifyEmailFromUrl();
     if (data.mfa_enrollment_required) {
       setTimeout(async () => {
         await window.openSettingsModal?.();
@@ -350,16 +349,15 @@ export function createAuthSessionFeature({
           authRequest,
           new Promise((_, reject) => setTimeout(() => reject(new Error('auth check timeout')), 2500)),
         ]);
+      const newUserId = String(user.id);
+      const userChanged = await clearCacheIfUserChanged(newUserId);
       const refreshedToken = user.access_token || token;
       if (user.access_token) localStorage.setItem('jwt_token', user.access_token);
       if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);
       setCurrentUser({ ...user, token: refreshedToken });
       persistCachedUser({ ...user, token: refreshedToken });
-      await maybeVerifyEmailFromUrl();
-
-      const newUserId = String(user.id);
-      const userChanged = await clearCacheIfUserChanged(newUserId);
       localStorage.setItem('last_user_id', newUserId);
+      await maybeVerifyEmailFromUrl();
       if (userChanged) {
         console.log('User changed, cache cleared — reloading once');
         location.reload();
@@ -368,6 +366,7 @@ export function createAuthSessionFeature({
 
       return true;
     } catch (e) {
+      if (e?.authIdentityCleanupFailed) throw e;
       if (isTransientAuthCheckFailure(e)) {
         if (authoritative) throw e;
         const cachedUser = readCachedUser(token);

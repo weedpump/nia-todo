@@ -189,6 +189,7 @@ const dbClearStrict = appStorage.dbClearStrict;
 const getFromDB = appStorage.getFromDB;
 const deleteFromDB = appStorage.deleteFromDB;
 const deleteFromDBStrict = appStorage.deleteFromDBStrict;
+const dbTransactionStrict = appStorage.dbTransactionStrict;
 const clearSyncQueue = appStorage.clearSyncQueue;
 async function updateConnectionStatusView(wsState = wsClient?.getWsState?.()) {
   let pendingCount = 0;
@@ -249,6 +250,7 @@ const syncFeature = createSyncFeature({
   getFromDB,
   deleteFromDB,
   deleteFromDBStrict,
+  dbTransactionStrict,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
@@ -282,6 +284,7 @@ const todosFeature = createTodosFeature({
   dbGetAllStrict,
   deleteFromDB,
   deleteFromDBStrict,
+  dbTransactionStrict,
   addToSyncQueue,
   runSyncQueueMutation,
   isOnlineForSync,
@@ -417,6 +420,7 @@ const wsClient = createWebSocketClient({
   getFromDB,
   deleteFromDB,
   deleteFromDBStrict,
+  dbTransactionStrict,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,

@@ -34,8 +34,10 @@ CREATE TABLE IF NOT EXISTS todos (
     sort_order REAL DEFAULT 0,
     recurring_rule TEXT,
     parent_id INTEGER,
+    user_id INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
+    client_mutation_id TEXT,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
     FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL,
     FOREIGN KEY (parent_id) REFERENCES todos(id) ON DELETE SET NULL
@@ -139,6 +141,7 @@ CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
 CREATE INDEX IF NOT EXISTS idx_todos_due ON todos(due_date);
 CREATE INDEX IF NOT EXISTS idx_todos_project ON todos(project_id);
 CREATE INDEX IF NOT EXISTS idx_todos_section ON todos(section_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_todos_client_mutation ON todos(user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
 CREATE INDEX IF NOT EXISTS idx_todo_subtasks_todo ON todo_subtasks(todo_id, sort_order, id);

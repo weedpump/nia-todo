@@ -72,12 +72,16 @@ def main():
 
             subtask_columns = {row[1] for row in db.execute("PRAGMA table_info(todo_subtasks)")}
             comment_columns = {row[1] for row in db.execute("PRAGMA table_info(todo_comments)")}
+            todo_columns = {row[1] for row in db.execute("PRAGMA table_info(todos)")}
             assert "client_mutation_id" in subtask_columns, subtask_columns
             assert "client_mutation_id" in comment_columns, comment_columns
+            assert "client_mutation_id" in todo_columns, todo_columns
             subtask_indexes = {row[1] for row in db.execute("PRAGMA index_list(todo_subtasks)")}
             comment_indexes = {row[1] for row in db.execute("PRAGMA index_list(todo_comments)")}
+            todo_indexes = {row[1] for row in db.execute("PRAGMA index_list(todos)")}
             assert "idx_todo_subtasks_client_mutation" in subtask_indexes, subtask_indexes
             assert "idx_todo_comments_client_mutation" in comment_indexes, comment_indexes
+            assert "idx_todos_client_mutation" in todo_indexes, todo_indexes
 
         with sqlite3.connect(db_path) as db:
             db.execute("DROP TABLE dashboard_preferences")

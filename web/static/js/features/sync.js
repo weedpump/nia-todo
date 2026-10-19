@@ -12,6 +12,7 @@ export function createSyncFeature({
   getFromDB,
   deleteFromDB,
   deleteFromDBStrict = deleteFromDB,
+  dbTransactionStrict = null,
   getTodos,
   setTodos,
   getProjects,
@@ -215,7 +216,7 @@ export function createSyncFeature({
     if (!item || typeof item !== 'object' || typeof item.action !== 'string') return null;
     const data = item.data && typeof item.data === 'object' ? item.data : {};
     const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
-    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', 'location_reminder', 'recurring_rule', 'subtasks', 'confirm_incomplete_subtasks_completion', '_tempId'];
+    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', 'location_reminder', 'recurring_rule', 'subtasks', 'confirm_incomplete_subtasks_completion', 'client_mutation_id', '_tempId'];
     const projectFields = ['name', 'color', 'icon', 'sort_order', 'parent_id', 'workspace_id', '_tempId'];
     const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
     const localCommentFields = ['id', 'todo_id', 'user_id', 'body', 'created_at', 'updated_at', 'author_username', 'author_display_name', 'is_pending'];
@@ -305,7 +306,9 @@ export function createSyncFeature({
           }
           const createData = { ...item.data };
           delete createData.undo_grace_until;
-          let res = await todosApi.create(createData);
+          const createPayload = { ...createData };
+          delete createPayload._tempId;
+          let res = await todosApi.create(createPayload);
           await commitQueueItem(item, async () => {
             let localTempTodo = null;
             if (createData._tempId) {
@@ -663,37 +666,80 @@ export function createSyncFeature({
       const nextWorkspaces = workspacesData.workspaces || [];
 
       releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
-      const queueBeforeCommit = await dbGetAllStrict('syncQueue');
-      if (queueBeforeCommit.length) {
-        shouldDrainQueue = true;
+      if (dbTransactionStrict) {
+        const commit = await dbTransactionStrict(
+          ['todos', 'projects', 'sections', 'workspaces', 'syncQueue'],
+          'readwrite',
+          async transaction => {
+            const queueBeforeCommit = await transaction.getAll('syncQueue');
+            if (queueBeforeCommit.length) return { shouldDrainQueue: true, cleanup: null };
+            const existingTodos = await transaction.getAll('todos');
+            const incomingById = new Map(nextTodos.map(todo => [String(todo.id), todo]));
+            const cleanup = { attachmentIds: [], todoIds: [] };
+            for (const localTodo of existingTodos) {
+              const incomingTodo = incomingById.get(String(localTodo.id));
+              if (!incomingTodo) {
+                cleanup.todoIds.push(localTodo.id);
+                continue;
+              }
+              const incomingAttachmentIds = new Set((incomingTodo.attachments || []).map(attachment => String(attachment.id)));
+              cleanup.attachmentIds.push(...(localTodo.attachments || [])
+                .filter(attachment => !attachment?.is_pending && !incomingAttachmentIds.has(String(attachment.id)))
+                .map(attachment => attachment.id));
+            }
+            for (const storeName of ['todos', 'projects', 'sections', 'workspaces']) await transaction.clear(storeName);
+            for (const todo of nextTodos) await transaction.put('todos', todo);
+            for (const project of nextProjects) await transaction.put('projects', project);
+            for (const section of nextSections) await transaction.put('sections', section);
+            for (const workspace of nextWorkspaces) await transaction.put('workspaces', workspace);
+            return { shouldDrainQueue: false, cleanup };
+          },
+        );
+        shouldDrainQueue = commit.shouldDrainQueue;
+        if (!shouldDrainQueue) {
+          setTodos(nextTodos);
+          setProjects(nextProjects);
+          setSections(nextSections);
+          setWorkspaces(nextWorkspaces);
+          await Promise.all([
+            ...commit.cleanup.attachmentIds.map(attachmentId => attachmentCache.remove(attachmentId)),
+            ...commit.cleanup.todoIds.map(todoId => attachmentCache.removeForTodo(todoId)),
+          ]);
+          await attachmentCache.reconcileAuthoritative?.(nextTodos, []);
+        }
       } else {
-        const localTodosById = new Map(getTodos().map(todo => [String(todo.id), todo]));
-        for (const incomingTodo of nextTodos) {
-          const localTodo = localTodosById.get(String(incomingTodo.id));
-          if (!localTodo) continue;
-          const incomingAttachmentIds = new Set((incomingTodo.attachments || []).map(attachment => String(attachment.id)));
-          const removedAttachmentIds = (localTodo.attachments || [])
-            .filter(attachment => !attachment?.is_pending && !incomingAttachmentIds.has(String(attachment.id)))
-            .map(attachment => attachment.id);
-          await Promise.all(removedAttachmentIds.map(attachmentId => attachmentCache.remove(attachmentId)));
+        const queueBeforeCommit = await dbGetAllStrict('syncQueue');
+        if (queueBeforeCommit.length) {
+          shouldDrainQueue = true;
+        } else {
+          const localTodosById = new Map(getTodos().map(todo => [String(todo.id), todo]));
+          const cleanup = { attachmentIds: [], todoIds: [] };
+          for (const incomingTodo of nextTodos) {
+            const localTodo = localTodosById.get(String(incomingTodo.id));
+            if (!localTodo) continue;
+            const incomingAttachmentIds = new Set((incomingTodo.attachments || []).map(attachment => String(attachment.id)));
+            cleanup.attachmentIds.push(...(localTodo.attachments || [])
+              .filter(attachment => !attachment?.is_pending && !incomingAttachmentIds.has(String(attachment.id)))
+              .map(attachment => attachment.id));
+          }
+          const serverTodoIds = new Set(nextTodos.map(todo => String(todo.id)));
+          cleanup.todoIds = getTodos().map(todo => todo.id).filter(todoId => !serverTodoIds.has(String(todoId)));
+          if (dbClearStrict) await Promise.all([dbClearStrict('todos'), dbClearStrict('projects'), dbClearStrict('sections'), dbClearStrict('workspaces')]);
+          await Promise.all([
+            ...nextTodos.map(todo => dbPutStrict('todos', todo)),
+            ...nextProjects.map(project => dbPutStrict('projects', project)),
+            ...nextSections.map(section => dbPutStrict('sections', section)),
+            ...nextWorkspaces.map(workspace => dbPutStrict('workspaces', workspace)),
+          ]);
+          setTodos(nextTodos);
+          setProjects(nextProjects);
+          setSections(nextSections);
+          setWorkspaces(nextWorkspaces);
+          await Promise.all([
+            ...cleanup.attachmentIds.map(attachmentId => attachmentCache.remove(attachmentId)),
+            ...cleanup.todoIds.map(todoId => attachmentCache.removeForTodo(todoId)),
+          ]);
         }
-        const serverTodoIds = new Set(nextTodos.map(todo => String(todo.id)));
-        const removedTodoIds = getTodos().map(todo => todo.id).filter(todoId => !serverTodoIds.has(String(todoId)));
-        await Promise.all(removedTodoIds.map(todoId => attachmentCache.removeForTodo(todoId)));
-        if (dbClearStrict) {
-          await Promise.all([dbClearStrict('todos'), dbClearStrict('projects'), dbClearStrict('sections'), dbClearStrict('workspaces')]);
-        }
-        await Promise.all([
-          ...nextTodos.map(todo => dbPutStrict('todos', todo)),
-          ...nextProjects.map(project => dbPutStrict('projects', project)),
-          ...nextSections.map(section => dbPutStrict('sections', section)),
-          ...nextWorkspaces.map(workspace => dbPutStrict('workspaces', workspace)),
-        ]);
-
-        setTodos(nextTodos);
-        setProjects(nextProjects);
-        setSections(nextSections);
-        setWorkspaces(nextWorkspaces);
       }
     } finally {
       releaseCommitLock?.();

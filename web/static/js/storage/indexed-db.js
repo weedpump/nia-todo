@@ -29,6 +29,67 @@ export function getDatabaseGeneration() {
   return dbGeneration;
 }
 
+function requestPromise(request, fallbackMessage) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error(fallbackMessage));
+  });
+}
+
+export function transactionStrict(storeNames, mode, operation) {
+  return new Promise((resolve, reject) => {
+    if (!db) { reject(new Error('IndexedDB is not open')); return; }
+    const names = [...new Set(Array.isArray(storeNames) ? storeNames : [storeNames])];
+    let tx;
+    try {
+      tx = db.transaction(names, mode);
+    } catch (error) {
+      reject(error);
+      return;
+    }
+    let operationDone = false;
+    let transactionDone = false;
+    let operationResult;
+    let settled = false;
+    const fail = error => {
+      if (settled) return;
+      settled = true;
+      reject(error || tx.error || new Error('IndexedDB transaction failed'));
+    };
+    const finish = () => {
+      if (settled || !operationDone || !transactionDone) return;
+      settled = true;
+      resolve(operationResult);
+    };
+    const api = {
+      get: (storeName, id) => requestPromise(tx.objectStore(storeName).get(id), `Failed to read ${storeName}`).then(result => result ?? null),
+      getAll: storeName => requestPromise(tx.objectStore(storeName).getAll(), `Failed to read ${storeName}`).then(result => result || []),
+      put: (storeName, item) => requestPromise(tx.objectStore(storeName).put(item), `Failed to write ${storeName}`).then(() => item),
+      delete: (storeName, id) => requestPromise(tx.objectStore(storeName).delete(id), `Failed to delete from ${storeName}`),
+      clear: storeName => requestPromise(tx.objectStore(storeName).clear(), `Failed to clear ${storeName}`),
+    };
+    tx.oncomplete = () => { transactionDone = true; finish(); };
+    tx.onerror = () => fail(tx.error || new Error('IndexedDB transaction failed'));
+    tx.onabort = () => fail(tx.error || new Error('IndexedDB transaction aborted'));
+    let result;
+    try {
+      result = operation(api);
+    } catch (error) {
+      try { tx.abort(); } catch (_abortError) {}
+      fail(error);
+      return;
+    }
+    Promise.resolve(result).then((value) => {
+      operationResult = value;
+      operationDone = true;
+      finish();
+    }, (error) => {
+      try { tx.abort(); } catch (_abortError) {}
+      fail(error);
+    });
+  });
+}
+
 export async function closeAndDeleteDatabase() {
   return new Promise((resolve, reject) => {
     dbGeneration += 1;

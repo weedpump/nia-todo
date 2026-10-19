@@ -15,6 +15,7 @@ export function createWebSocketClient({
   getFromDB,
   deleteFromDB,
   deleteFromDBStrict = deleteFromDB,
+  dbTransactionStrict = null,
   getTodos,
   setTodos,
   getProjects,
@@ -391,6 +392,108 @@ async function handleWsMessage(msg) {
       }
       const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
       try {
+      if (dbTransactionStrict) {
+        const committed = await dbTransactionStrict(
+          ['todos', 'projects', 'sections', 'workspaces', 'syncQueue'],
+          'readwrite',
+          async transaction => {
+            const [queue, storedTodos, storedProjects, storedSections, storedWorkspaces] = await Promise.all([
+              transaction.getAll('syncQueue'),
+              transaction.getAll('todos'),
+              transaction.getAll('projects'),
+              transaction.getAll('sections'),
+              transaction.getAll('workspaces'),
+            ]);
+            let nextTodos = storedTodos;
+            let nextProjects = storedProjects;
+            let nextSections = storedSections;
+            let nextWorkspaces = storedWorkspaces;
+            const cleanup = { attachmentIds: [], todoIds: [] };
+            if (msg.todos) {
+              const localById = new Map(storedTodos.map(todo => [String(todo.id), todo]));
+              const incomingIds = new Set(msg.todos.map(todo => String(todo.id)));
+              nextTodos = [];
+              for (const todo of msg.todos) {
+                const local = localById.get(String(todo.id)) || null;
+                const incomingTodo = mergeTodoPayloadWithLocalSubtasks(todo, local);
+                let nextTodo = incomingTodo;
+                if (hasPendingTodoChanges(queue, todo.id)) {
+                  nextTodo = projectPendingTodoChanges(incomingTodo, queue);
+                } else if (local) {
+                  const localTime = new Date(local.updated_at || 0).getTime();
+                  const serverTime = new Date(incomingTodo.updated_at || 0).getTime();
+                  if (serverTime < localTime) nextTodo = local;
+                }
+                if (nextTodo) nextTodos.push(nextTodo);
+                if (local) {
+                  const nextAttachmentIds = new Set((nextTodo?.attachments || []).map(attachment => String(attachment.id)));
+                  cleanup.attachmentIds.push(...(local.attachments || [])
+                    .filter(attachment => !attachment?.is_pending && !nextAttachmentIds.has(String(attachment.id)))
+                    .map(attachment => attachment.id));
+                }
+              }
+              for (const local of storedTodos) {
+                if (incomingIds.has(String(local.id))) continue;
+                if (hasPendingTodoChanges(queue, local.id)) nextTodos.push(local);
+                else cleanup.todoIds.push(local.id);
+              }
+              await transaction.clear('todos');
+              for (const todo of nextTodos) await transaction.put('todos', todo);
+            }
+            if (msg.projects) {
+              const localById = new Map(storedProjects.map(project => [String(project.id), project]));
+              const incomingIds = new Set(msg.projects.map(project => String(project.id)));
+              nextProjects = msg.projects.map((project) => {
+                const local = localById.get(String(project.id));
+                const pending = queue.some(item => item.action === 'UPDATE_PROJECT' && String(item.data?.id) === String(project.id));
+                if (local && (pending || new Date(project.updated_at || 0).getTime() < new Date(local.updated_at || 0).getTime())) return local;
+                return project;
+              });
+              nextProjects.push(...storedProjects.filter(project => !incomingIds.has(String(project.id)) && queue.some(item =>
+                (item.action === 'CREATE_PROJECT' && String(item.data?._tempId) === String(project.id))
+                || (item.action === 'UPDATE_PROJECT' && String(item.data?.id) === String(project.id)))));
+              await transaction.clear('projects');
+              for (const project of nextProjects) await transaction.put('projects', project);
+            }
+            if (msg.sections) {
+              const localById = new Map(storedSections.map(section => [String(section.id), section]));
+              const incomingIds = new Set(msg.sections.map(section => String(section.id)));
+              nextSections = msg.sections.map((section) => {
+                const local = localById.get(String(section.id));
+                const pending = queue.some(item => item.action === 'UPDATE_SECTION' && String(item.data?.id) === String(section.id));
+                if (local && (pending || new Date(section.updated_at || 0).getTime() < new Date(local.updated_at || 0).getTime())) return local;
+                return section;
+              });
+              nextSections.push(...storedSections.filter(section => !incomingIds.has(String(section.id)) && queue.some(item =>
+                (item.action === 'CREATE_SECTION' && String(item.data?._tempId) === String(section.id))
+                || (item.action === 'UPDATE_SECTION' && String(item.data?.id) === String(section.id)))));
+              await transaction.clear('sections');
+              for (const section of nextSections) await transaction.put('sections', section);
+            }
+            if (msg.workspaces) {
+              nextWorkspaces = msg.workspaces;
+              await transaction.clear('workspaces');
+              for (const workspace of nextWorkspaces) await transaction.put('workspaces', workspace);
+            }
+            return { todos: nextTodos, projects: nextProjects, sections: nextSections, workspaces: nextWorkspaces, queue, cleanup };
+          },
+        );
+        todos = committed.todos;
+        projects = committed.projects;
+        sections = committed.sections;
+        workspaces = committed.workspaces;
+        setWorkspaces?.(workspaces);
+        renderWorkspaces?.();
+        try {
+          await Promise.all([
+            ...committed.cleanup.attachmentIds.map(attachmentId => attachmentCache.remove(attachmentId)),
+            ...committed.cleanup.todoIds.map(todoId => attachmentCache.removeForTodo(todoId)),
+          ]);
+          await attachmentCache.reconcileAuthoritative?.(todos, committed.queue);
+        } catch (cleanupError) {
+          console.warn('WebSocket metadata committed but attachment cleanup failed', cleanupError);
+        }
+      } else {
       // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
         const serverTodoIds = new Set(msg.todos.map(todo => String(todo.id)));
@@ -497,6 +600,7 @@ async function handleWsMessage(msg) {
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
       }
+      }
       setTodos(todos);
       setProjects(projects);
       setSections(sections);
@@ -564,12 +668,31 @@ async function handleWsMessage(msg) {
       if (msg.payload?.id) {
         const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
         try {
-          const queue = await dbGetAllStrict('syncQueue');
-          const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
-          await attachmentCache.removeForTodo(msg.payload.id);
-          await Promise.all(childOperations.map(item => deleteFromDBStrict('syncQueue', item.id)));
-          await deleteFromDBStrict('todos', msg.payload.id);
+          let remainingQueue = [];
+          if (dbTransactionStrict) {
+            remainingQueue = await dbTransactionStrict(['todos', 'syncQueue'], 'readwrite', async transaction => {
+              const queue = await transaction.getAll('syncQueue');
+              const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
+              for (const item of childOperations) await transaction.delete('syncQueue', item.id);
+              await transaction.delete('todos', msg.payload.id);
+              const removedIds = new Set(childOperations.map(item => String(item.id)));
+              return queue.filter(item => !removedIds.has(String(item.id)));
+            });
+          } else {
+            const queue = await dbGetAllStrict('syncQueue');
+            const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
+            await Promise.all(childOperations.map(item => deleteFromDBStrict('syncQueue', item.id)));
+            await deleteFromDBStrict('todos', msg.payload.id);
+            const removedIds = new Set(childOperations.map(item => String(item.id)));
+            remainingQueue = queue.filter(item => !removedIds.has(String(item.id)));
+          }
           todos = todos.filter(t => t.id !== msg.payload.id);
+          try {
+            await attachmentCache.removeForTodo(msg.payload.id);
+            await attachmentCache.reconcileAuthoritative?.(todos, remainingQueue);
+          } catch (cleanupError) {
+            console.warn('Todo deletion committed but attachment cleanup failed', cleanupError);
+          }
         } finally {
           releaseCommitLock();
         }

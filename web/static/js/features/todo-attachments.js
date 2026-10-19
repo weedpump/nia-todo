@@ -30,6 +30,7 @@ export function createTodoAttachmentsFeature({
   dbGetAllStrict = dbGetAll,
   deleteFromDB = async () => {},
   deleteFromDBStrict = deleteFromDB,
+  dbTransactionStrict = null,
   runSyncQueueMutation = async operation => operation(async () => {}),
   isOnlineForSync,
   syncWithServer = async () => {},
@@ -735,6 +736,53 @@ export function createTodoAttachmentsFeature({
     if (!confirmed) return;
     const todo = getTodos().find(item => String(item.id) === String(todoId));
     if (!todo) return;
+
+    if (dbTransactionStrict) {
+      try {
+        const cancellation = await runSyncQueueMutation(() => dbTransactionStrict(['todos', 'syncQueue'], 'readwrite', async transaction => {
+          const [durableTodo, queue] = await Promise.all([
+            transaction.get('todos', todoId),
+            transaction.getAll('syncQueue'),
+          ]);
+          const pendingCreate = queue.find(item => item.action === 'CREATE_ATTACHMENT'
+            && String(item.data?.todo_id) === String(todoId)
+            && String(item.data?.temp_id) === String(attachmentId));
+          if (!pendingCreate || pendingCreate.data?.upload_started) {
+            return { cancelled: false, pendingCreate, uploadAlreadyStarted: Boolean(pendingCreate?.data?.upload_started) };
+          }
+          const sourceTodo = durableTodo || todo;
+          const updated = {
+            ...sourceTodo,
+            attachments: (sourceTodo.attachments || []).filter(item => String(item.id) !== String(attachmentId)),
+            attachments_count: Math.max(0, Number(sourceTodo.attachments_count ?? sourceTodo.attachments?.length ?? 0) - 1),
+            updated_at: new Date().toISOString(),
+          };
+          await transaction.put('todos', updated);
+          await transaction.delete('syncQueue', pendingCreate.id);
+          return { cancelled: true, updated };
+        }));
+        if (cancellation.cancelled) {
+          setTodos(getTodos().map(item => String(item.id) === String(todoId) ? cancellation.updated : item));
+          try {
+            await attachmentCache.remove(attachmentId);
+          } catch (cleanupError) {
+            console.warn('Pending attachment metadata was cancelled but blob cleanup failed', cleanupError);
+          }
+          if (typeof document !== 'undefined') {
+            renderTodoAttachments(cancellation.updated.attachments || [], cancellation.updated);
+          }
+          renderStats();
+          renderTodos();
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to cancel pending todo attachment', error);
+        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
+        showToast(t('todo.attachments.uploadPending'));
+        return;
+      }
+    }
+
     let pendingCreate = null;
     let uploadAlreadyStarted = false;
     let cancelledPendingCreate = false;

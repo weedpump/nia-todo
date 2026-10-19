@@ -52,6 +52,10 @@ export function createAppStorage({ setDb }) {
     return indexedDb.removeStrict(storeName, id);
   }
 
+  function dbTransactionStrict(storeNames, mode, operation) {
+    return indexedDb.transactionStrict(storeNames, mode, operation);
+  }
+
   async function clearSyncQueue() {
     await syncQueue.clearQueue();
   }
@@ -72,6 +76,7 @@ export function createAppStorage({ setDb }) {
     getFromDB,
     deleteFromDB,
     deleteFromDBStrict,
+    dbTransactionStrict,
     clearSyncQueue,
     addToSyncQueue,
   };

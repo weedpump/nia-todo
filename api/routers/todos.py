@@ -48,6 +48,7 @@ class TodoCreate(BaseModel):
     recurring_rule: Optional[dict] = None
     subtasks: list[TodoSubtaskInput] = Field(default_factory=list)
     confirm_incomplete_subtasks_completion: bool = False
+    client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
 class TodoUpdate(BaseModel):
     title: Optional[str] = Field(default=None, max_length=500)
@@ -96,6 +97,16 @@ FORBIDDEN_LOCATION_COORDINATE_FIELDS = {
 AUTO_REMINDER_SOURCE = "default_due"
 EXPLICIT_REMINDER_SOURCE = "explicit"
 MAX_ATTACHMENTS_PER_TODO = 20
+
+
+def _todo_by_client_mutation(db, user_id: int, client_mutation_id: str | None) -> dict | None:
+    if not client_mutation_id:
+        return None
+    row = db.execute(
+        "SELECT id FROM todos WHERE user_id = ? AND client_mutation_id = ? ORDER BY id LIMIT 1",
+        (user_id, client_mutation_id),
+    ).fetchone()
+    return fetch_todo(db, row['id'], user_id) if row else None
 
 
 def get_user_inbox_project_id(db, user_id: int) -> Optional[int]:
@@ -872,6 +883,10 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     if data.status == 'done' and _has_open_subtasks(subtasks) and not data.confirm_incomplete_subtasks_completion:
         raise HTTPException(409, "Cannot complete todo with open subtasks without confirmation")
     with get_db() as db:
+        client_mutation_id = (data.client_mutation_id or '').strip() or None
+        existing_replay = _todo_by_client_mutation(db, user_id, client_mutation_id)
+        if existing_replay:
+            return existing_replay
         if data.project_id is None and data.section_id is None:
             data.project_id = get_user_inbox_project_id(db, user_id)
         _validate_todo_target(db, data.project_id, data.section_id, user_id)
@@ -880,12 +895,19 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
         recurring_rule = _normalize_recurring_rule(data.recurring_rule)
         if recurring_rule and not data.due_date:
             raise HTTPException(422, "Recurring todos require due_date")
-        c = db.execute(
-            """INSERT INTO todos
-               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, recurring_rule, now, user_id)
-        )
+        try:
+            c = db.execute(
+                """INSERT INTO todos
+                   (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id, client_mutation_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, recurring_rule, now, user_id, client_mutation_id)
+            )
+        except sqlite3.IntegrityError:
+            db.rollback()
+            raced_replay = _todo_by_client_mutation(db, user_id, client_mutation_id)
+            if raced_replay:
+                return raced_replay
+            raise
         todo_id = c.lastrowid
         if subtasks:
             _replace_subtasks(db, todo_id, subtasks)

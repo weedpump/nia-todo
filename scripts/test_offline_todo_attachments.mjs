@@ -31,7 +31,35 @@ function memoryCache(initial = []) {
   };
 }
 
-function syncHarness({ queue, todos, blobs, api, attachmentCache = null, currentUser = null, dbGetAllStrict = null, dbPutStrict = null, dbClearStrict = null, deleteFromDBStrict = null }) {
+function createMemoryTransaction(stores, { fail = null } = {}) {
+  return async (storeNames, _mode, operation) => {
+    const staged = Object.fromEntries(storeNames.map(name => [name, structuredClone(stores[name] || [])]));
+    let operationCount = 0;
+    const maybeFail = () => {
+      operationCount += 1;
+      if (fail?.(operationCount)) throw new Error('injected metadata transaction failure');
+    };
+    const transaction = {
+      getAll: async store => structuredClone(staged[store] || []),
+      get: async (store, id) => structuredClone((staged[store] || []).find(item => String(item.id) === String(id)) || null),
+      put: async (store, item) => {
+        maybeFail();
+        staged[store] = [...(staged[store] || []).filter(existing => String(existing.id) !== String(item.id)), structuredClone(item)];
+        return item;
+      },
+      delete: async (store, id) => {
+        maybeFail();
+        staged[store] = (staged[store] || []).filter(item => String(item.id) !== String(id));
+      },
+      clear: async store => { maybeFail(); staged[store] = []; },
+    };
+    const result = await operation(transaction);
+    for (const name of storeNames) stores[name] = staged[name];
+    return result;
+  };
+}
+
+function syncHarness({ queue, todos, blobs, api, attachmentCache = null, currentUser = null, dbGetAllStrict = null, dbPutStrict = null, dbClearStrict = null, deleteFromDBStrict = null, dbTransactionStrict = null }) {
   const stores = {
     syncQueue: structuredClone(queue),
     todos: structuredClone(todos),
@@ -54,6 +82,7 @@ function syncHarness({ queue, todos, blobs, api, attachmentCache = null, current
     getFromDB: async (store, id) => structuredClone((stores[store] || []).find(item => String(item.id) === String(id)) || null),
     deleteFromDB: async (store, id) => { stores[store] = (stores[store] || []).filter(item => String(item.id) !== String(id)); },
     deleteFromDBStrict: deleteFromDBStrict || (async (store, id) => { stores[store] = (stores[store] || []).filter(item => String(item.id) !== String(id)); }),
+    dbTransactionStrict: dbTransactionStrict || createMemoryTransaction(stores),
     getTodos: () => stores.todos,
     setTodos: next => { stores.todos = structuredClone(next); },
     getProjects: () => stores.projects,
@@ -478,6 +507,51 @@ const refreshHarness = syncHarness({
 await refreshHarness.feature.refreshFromServer({ wsState: 'connected', syncInProgressRef: { value: false } });
 assert.equal(refreshCache.records.has('500'), false, 'REST refresh must purge cached bytes for server attachments removed from an existing todo');
 
+const refreshMetadataFailureCache = memoryCache([
+  { id: '520', todo_id: 52, attachment_id: 520, blob: uploadBlob, pinned: true, offline_explicit: true },
+]);
+const refreshMetadataFailureStores = {
+  syncQueue: [],
+  todos: [{ id: 52, attachments: [{ id: 520 }], attachments_count: 1 }],
+  projects: [], sections: [], workspaces: [],
+};
+const refreshMetadataFailureFeature = createSyncFeature({
+  getDb: () => ({}),
+  dbGetAll: async store => structuredClone(refreshMetadataFailureStores[store] || []),
+  dbGetAllStrict: async store => structuredClone(refreshMetadataFailureStores[store] || []),
+  dbPut: async () => {}, dbPutStrict: async () => {}, dbClear: async () => {}, dbClearStrict: async () => {},
+  getFromDB: async (store, id) => structuredClone((refreshMetadataFailureStores[store] || []).find(item => String(item.id) === String(id)) || null),
+  deleteFromDB: async () => {}, deleteFromDBStrict: async () => {},
+  dbTransactionStrict: createMemoryTransaction(refreshMetadataFailureStores, { fail: count => count === 1 }),
+  getTodos: () => refreshMetadataFailureStores.todos, setTodos: next => { refreshMetadataFailureStores.todos = structuredClone(next); },
+  getProjects: () => [], setProjects: () => {}, getSections: () => [], setSections: () => {}, getWorkspaces: () => [], setWorkspaces: () => {},
+  todosApi: { list: async () => ({ todos: [] }) }, projectsApi: { list: async () => ({ projects: [] }) }, sectionsApi: { listAll: async () => ({ sections: [] }) }, workspacesApi: { list: async () => ({ workspaces: [] }) },
+  attachmentCache: refreshMetadataFailureCache.cache, renderStats: () => {}, renderTodos: () => {},
+});
+await assert.rejects(refreshMetadataFailureFeature.refreshFromServer({ wsState: 'connected', syncInProgressRef: { value: false } }), /injected metadata transaction failure/);
+assert.equal(refreshMetadataFailureStores.todos.length, 1, 'failed REST metadata replacement must roll back the previous todo state');
+assert.equal(refreshMetadataFailureCache.records.has('520'), true, 'failed REST metadata replacement must not delete attachment bytes');
+
+let refreshCleanupAttempts = 0;
+const refreshCleanupFailureCache = memoryCache([
+  { id: '530', todo_id: 53, attachment_id: 530, blob: uploadBlob, pinned: true, offline_explicit: true },
+]);
+const refreshCleanupFailureHarness = syncHarness({
+  queue: [],
+  todos: [{ id: 53, attachments: [{ id: 530 }], attachments_count: 1 }],
+  blobs: [],
+  attachmentCache: {
+    ...refreshCleanupFailureCache.cache,
+    remove: async () => { refreshCleanupAttempts += 1; throw new Error('blob cleanup failed'); },
+    removeForTodo: async () => { refreshCleanupAttempts += 1; throw new Error('blob cleanup failed'); },
+  },
+  api: { list: async () => ({ todos: [] }) },
+});
+await assert.rejects(refreshCleanupFailureHarness.feature.refreshFromServer({ wsState: 'connected', syncInProgressRef: { value: false } }), /blob cleanup failed/);
+assert.equal(refreshCleanupAttempts, 1);
+assert.deepEqual(refreshCleanupFailureHarness.stores.todos, [], 'blob cleanup failure must not roll back committed authoritative REST metadata');
+assert.equal(refreshCleanupFailureCache.records.has('530'), true, 'failed cleanup may leave a retryable orphan');
+
 let refreshListCalls = 0;
 const refreshReadFailureHarness = syncHarness({
   queue: [],
@@ -521,6 +595,7 @@ const websocketClient = createWebSocketClient({
   getFromDB: async (store, id) => structuredClone((websocketStores[store] || []).find(item => String(item.id) === String(id)) || null),
   deleteFromDB: async (store, id) => { websocketStores[store] = (websocketStores[store] || []).filter(item => String(item.id) !== String(id)); },
   deleteFromDBStrict: async (store, id) => { websocketStores[store] = (websocketStores[store] || []).filter(item => String(item.id) !== String(id)); },
+  dbTransactionStrict: createMemoryTransaction(websocketStores),
   getTodos: () => websocketStores.todos, setTodos: next => { websocketStores.todos = structuredClone(next); },
   getProjects: () => websocketStores.projects, setProjects: next => { websocketStores.projects = structuredClone(next); },
   getSections: () => websocketStores.sections, setSections: next => { websocketStores.sections = structuredClone(next); },
@@ -566,6 +641,35 @@ for (const message of [
   assert.equal(strictFailureStores.todos.length, 1, `${message.type} must retain todos when strict queue reads fail`);
   assert.equal(strictFailureStores.syncQueue.length, 1, `${message.type} must retain queue entries when strict queue reads fail`);
   assert.equal(strictFailureCache.records.has('temp-ws-strict'), true, `${message.type} must retain pending blobs when strict queue reads fail`);
+}
+
+for (const message of [
+  { type: 'sync_response', todos: [], projects: [], sections: [], workspaces: [] },
+  { type: 'todo_delete', payload: { id: 24 } },
+]) {
+  const atomicFailureStores = {
+    syncQueue: [{ id: 91, action: 'CREATE_ATTACHMENT', data: { todo_id: 24, temp_id: 'temp-ws-atomic' } }],
+    todos: [{ id: 24, attachments: [{ id: 'temp-ws-atomic', is_pending: true }], attachments_count: 1 }],
+    projects: [], sections: [], workspaces: [],
+  };
+  let blobCleanupCalls = 0;
+  const atomicFailureCache = memoryCache([{ id: 'temp-ws-atomic', todo_id: 24, attachment_id: 'temp-ws-atomic', blob: uploadBlob, pending_upload: true, pinned: true }]);
+  const atomicFailureClient = createWebSocketClient({
+    wsUrl: 'ws://unused.invalid', getAuthToken: () => null, syncWithServer: async () => {}, syncInProgressRef: { value: false }, renderConnectionStatus: () => {},
+    dbGetAll: async store => structuredClone(atomicFailureStores[store] || []), dbGetAllStrict: async store => structuredClone(atomicFailureStores[store] || []),
+    dbPut: async () => {}, dbPutStrict: async () => {}, getFromDB: async (store, id) => structuredClone((atomicFailureStores[store] || []).find(item => String(item.id) === String(id)) || null),
+    deleteFromDB: async () => {}, deleteFromDBStrict: async () => {},
+    dbTransactionStrict: createMemoryTransaction(atomicFailureStores, { fail: count => count === 1 }),
+    getTodos: () => atomicFailureStores.todos, setTodos: next => { atomicFailureStores.todos = structuredClone(next); },
+    getProjects: () => [], setProjects: () => {}, getSections: () => [], setSections: () => {}, getWorkspaces: () => [], setWorkspaces: () => {},
+    renderWorkspaces: () => {}, renderProjects: () => {}, renderStats: () => {}, renderTodos: () => {},
+    attachmentCache: { ...atomicFailureCache.cache, remove: async () => { blobCleanupCalls += 1; }, removeForTodo: async () => { blobCleanupCalls += 1; } },
+  });
+  await assert.rejects(atomicFailureClient.handleWsMessage(message), /injected metadata transaction failure/);
+  assert.equal(atomicFailureStores.todos.length, 1, `${message.type} metadata failure must retain the todo`);
+  assert.equal(atomicFailureStores.syncQueue.length, 1, `${message.type} metadata failure must retain the queue reference`);
+  assert.equal(blobCleanupCalls, 0, `${message.type} metadata failure must not start blob cleanup`);
+  assert.equal(atomicFailureCache.records.has('temp-ws-atomic'), true, `${message.type} metadata failure must retain pending bytes`);
 }
 
 assert.deepEqual(
@@ -646,6 +750,7 @@ const combinedDeleteFeature = createTodoAttachmentsFeature({
   dbPut: async () => {}, dbPutStrict: async () => { throw new Error('todo projection write failed'); },
   dbGetAll: async store => structuredClone(combinedDeleteStores[store] || []), dbGetAllStrict: async store => structuredClone(combinedDeleteStores[store] || []),
   deleteFromDB: async () => {}, deleteFromDBStrict: async (store, id) => { combinedDeleteStores[store] = combinedDeleteStores[store].filter(item => String(item.id) !== String(id)); },
+  dbTransactionStrict: createMemoryTransaction(combinedDeleteStores, { fail: count => count === 1 }),
   runSyncQueueMutation: async operation => operation(async () => { combinedDeleteQueueMutationAttempts += 1; throw new Error('queue reconstruction failed'); }),
   isOnlineForSync: () => false, syncWithServer: async () => {}, todosApi: {}, attachmentCache: combinedDeleteCache.cache,
   renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => true,
@@ -658,6 +763,32 @@ assert.equal(combinedDeleteToasts.at(-1), 'todo.attachments.uploadPending', 'the
 assert.equal(combinedDeleteStores.syncQueue.length, 1);
 assert.equal(combinedDeleteStores.todos[0].attachments.length, 1);
 assert.equal(combinedDeleteCache.records.has('temp-combined-delete'), true, 'a failed cancellation must preserve pending bytes when its queue remains intact');
+
+const cleanupFailureStores = {
+  syncQueue: [{ id: 100, action: 'CREATE_ATTACHMENT', data: { todo_id: 9, temp_id: 'temp-cleanup-failure', blob_id: 'temp-cleanup-failure' } }],
+  todos: [{ id: 9, attachments: [{ id: 'temp-cleanup-failure', is_pending: true }], attachments_count: 1 }],
+};
+const cleanupFailureCache = memoryCache([{ id: 'temp-cleanup-failure', todo_id: 9, attachment_id: 'temp-cleanup-failure', blob: uploadBlob, pending_upload: true, pinned: true }]);
+let postCommitReads = 0;
+const cleanupFailureToasts = [];
+const cleanupFailureFeature = createTodoAttachmentsFeature({
+  getTodos: () => cleanupFailureStores.todos, setTodos: next => { cleanupFailureStores.todos = structuredClone(next); }, getProjects: () => [],
+  getCurrentUser: () => ({ id: 1 }), setCurrentUser: () => {}, getAppInitialized: () => true, getDb: () => ({}),
+  dbPut: async () => {}, dbPutStrict: async () => {}, dbGetAll: async store => structuredClone(cleanupFailureStores[store] || []),
+  dbGetAllStrict: async () => { postCommitReads += 1; throw new Error('post-commit reads are forbidden'); },
+  deleteFromDB: async () => {}, deleteFromDBStrict: async () => {}, dbTransactionStrict: createMemoryTransaction(cleanupFailureStores),
+  runSyncQueueMutation: async operation => operation(async () => {}), isOnlineForSync: () => false, syncWithServer: async () => {}, todosApi: {},
+  attachmentCache: { ...cleanupFailureCache.cache, remove: async () => { throw new Error('blob cleanup failed'); } },
+  renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => true,
+  showToast: message => cleanupFailureToasts.push(message), t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
+  setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
+});
+await cleanupFailureFeature.deleteTodoAttachment(9, 'temp-cleanup-failure');
+assert.equal(cleanupFailureStores.syncQueue.length, 0, 'successful cancellation metadata must remain committed when blob cleanup fails');
+assert.equal(cleanupFailureStores.todos[0].attachments.length, 0, 'successful cancellation must remove the optimistic projection atomically');
+assert.equal(cleanupFailureCache.records.has('temp-cleanup-failure'), true, 'failed post-commit cleanup may leave an orphan blob');
+assert.equal(postCommitReads, 0, 'successful cancellation must not perform mandatory verification reads after commit');
+assert.notEqual(cleanupFailureToasts.at(-1), 'todo.attachments.uploadPending', 'blob cleanup failure must not reconstruct a cancelled upload');
 await feature.deleteTodoAttachment(9, tempAttachment.id);
 assert.equal(uiStores.queue.length, 0, 'deleting a temporary attachment should cancel its create operation');
 assert.equal(uiStores.todos[0].attachments.length, 0);

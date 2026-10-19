@@ -70,7 +70,8 @@ def make_db():
             parent_id INTEGER,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now')),
-            user_id INTEGER
+            user_id INTEGER,
+            client_mutation_id TEXT
         );
         CREATE TABLE todo_subtasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

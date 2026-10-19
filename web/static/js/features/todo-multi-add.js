@@ -494,7 +494,7 @@ export function createTodoMultiAddFeature({
         const nowIso = new Date(now + index).toISOString();
         const newTodo = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: [], subtasks: [] };
         await dbPut('todos', newTodo);
-        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, client_mutation_id: tempId });
         created.push(newTodo);
       }
       setTodos([...getTodos(), ...created]);

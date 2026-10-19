@@ -67,7 +67,8 @@ def make_db():
             parent_id INTEGER,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now')),
-            user_id INTEGER
+            user_id INTEGER,
+            client_mutation_id TEXT
         );
         CREATE TABLE todo_subtasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,6 +102,8 @@ def make_db():
             ON todo_subtasks(todo_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
         CREATE UNIQUE INDEX idx_todo_comments_client_mutation
             ON todo_comments(todo_id, user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
+        CREATE UNIQUE INDEX idx_todos_client_mutation
+            ON todos(user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
         """
     )
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'owner', 'Owner Display', NULL)")
@@ -151,6 +154,39 @@ def main():
     created = owner.post("/api/todos", json={"title": "Document rollout", "project_id": 2})
     assert_true(created.status_code == 200, created.text)
     todo_id = created.json()["id"]
+
+    create_payload = {"title": "Offline idempotent todo", "project_id": 2, "client_mutation_id": "todo-offline-1"}
+    idempotent_create = owner.post("/api/todos", json=create_payload)
+    idempotent_retry = owner.post("/api/todos", json={**create_payload, "title": "Must not duplicate"})
+    assert_true(idempotent_create.status_code == 200, idempotent_create.text)
+    assert_true(idempotent_retry.status_code == 200, idempotent_retry.text)
+    assert_true(idempotent_retry.json()["id"] == idempotent_create.json()["id"], idempotent_retry.json())
+    assert_true(idempotent_retry.json()["title"] == "Offline idempotent todo", idempotent_retry.json())
+    count = db.execute("SELECT COUNT(*) FROM todos WHERE user_id = 1 AND client_mutation_id = 'todo-offline-1'").fetchone()[0]
+    assert_true(count == 1, count)
+
+    member = make_client(db, user_id=2, broadcast_events=broadcast_events)
+    foreign_scope = member.post("/api/todos", json={"title": "Member todo", "project_id": 2, "client_mutation_id": "todo-offline-1"})
+    assert_true(foreign_scope.status_code == 200, foreign_scope.text)
+    assert_true(foreign_scope.json()["id"] != idempotent_create.json()["id"], foreign_scope.json())
+
+    real_lookup = todos_router._todo_by_client_mutation
+    lookup_calls = 0
+
+    def force_unique_insert_race(db_arg, user_id_arg, mutation_id_arg):
+        nonlocal lookup_calls
+        lookup_calls += 1
+        if user_id_arg == 1 and mutation_id_arg == "todo-offline-1" and lookup_calls == 1:
+            return None
+        return real_lookup(db_arg, user_id_arg, mutation_id_arg)
+
+    todos_router._todo_by_client_mutation = force_unique_insert_race
+    try:
+        raced_retry = owner.post("/api/todos", json=create_payload)
+    finally:
+        todos_router._todo_by_client_mutation = real_lookup
+    assert_true(raced_retry.status_code == 200, raced_retry.text)
+    assert_true(raced_retry.json()["id"] == idempotent_create.json()["id"], raced_retry.json())
 
     added = owner.post(f"/api/todos/{todo_id}/comments", json={"body": "First note"})
     assert_true(added.status_code == 200, added.text)

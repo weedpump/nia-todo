@@ -50,6 +50,51 @@ function createHarness({ queue, todos, api, projectApi = {} }) {
 
 console.log('🔁 Running offline todo child sync test...');
 
+const replayedServerTodos = new Map();
+let replayRewriteAttempts = 0;
+const replayHarness = createHarness({
+  queue: [{ id: 900, action: 'CREATE_TODO', data: { title: 'Idempotent parent', _tempId: 'temp-idempotent', client_mutation_id: 'todo-temp-idempotent' } }],
+  todos: [{ id: 'temp-idempotent', title: 'Idempotent parent', comments: [], subtasks: [] }],
+  api: {
+    create: async data => {
+      assert.equal(data.client_mutation_id, 'todo-temp-idempotent', 'CREATE_TODO replay must send its stable mutation ID');
+      if (!replayedServerTodos.has(data.client_mutation_id)) {
+        replayedServerTodos.set(data.client_mutation_id, { id: 9001, title: data.title, comments: [], subtasks: [] });
+      }
+      return structuredClone(replayedServerTodos.get(data.client_mutation_id));
+    },
+  },
+});
+replayHarness.feature = createSyncFeature({
+  getDb: () => ({}),
+  dbGetAll: async store => structuredClone(replayHarness.stores[store] || []),
+  dbGetAllStrict: async store => structuredClone(replayHarness.stores[store] || []),
+  dbPut: async (store, item) => { replayHarness.stores[store] = [...(replayHarness.stores[store] || []).filter(existing => String(existing.id) !== String(item.id)), structuredClone(item)]; },
+  dbPutStrict: async (store, item) => { replayHarness.stores[store] = [...(replayHarness.stores[store] || []).filter(existing => String(existing.id) !== String(item.id)), structuredClone(item)]; },
+  dbClear: async store => { replayHarness.stores[store] = []; }, dbClearStrict: async store => { replayHarness.stores[store] = []; },
+  getFromDB: async (store, id) => structuredClone((replayHarness.stores[store] || []).find(item => String(item.id) === String(id)) || null),
+  deleteFromDB: async (store, id) => { replayHarness.stores[store] = (replayHarness.stores[store] || []).filter(item => String(item.id) !== String(id)); },
+  deleteFromDBStrict: async (store, id) => { replayHarness.stores[store] = (replayHarness.stores[store] || []).filter(item => String(item.id) !== String(id)); },
+  getTodos: () => replayHarness.stores.todos, setTodos: next => { replayHarness.stores.todos = structuredClone(next); },
+  getProjects: () => [], setProjects: () => {}, getSections: () => [], setSections: () => {}, getWorkspaces: () => [], setWorkspaces: () => {},
+  todosApi: { list: async () => ({ todos: [] }), create: async data => {
+    assert.equal(data.client_mutation_id, 'todo-temp-idempotent');
+    if (!replayedServerTodos.has(data.client_mutation_id)) replayedServerTodos.set(data.client_mutation_id, { id: 9001, title: data.title, comments: [], subtasks: [] });
+    return structuredClone(replayedServerTodos.get(data.client_mutation_id));
+  } },
+  projectsApi: { list: async () => ({ projects: [] }) }, sectionsApi: { listAll: async () => ({ sections: [] }) }, workspacesApi: { list: async () => ({ workspaces: [] }) },
+  attachmentCache: { get: async () => null, remove: async () => {}, removeForTodo: async () => {}, rewrite: async () => null, rewriteTodoId: async () => { replayRewriteAttempts += 1; if (replayRewriteAttempts === 1) throw new Error('local rewrite failed'); } },
+  renderStats: () => {}, renderTodos: () => {},
+});
+const firstReplay = await replayHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(firstReplay.failCount, 1, 'local rewrite failure after remote create must remain retryable');
+assert.equal(replayHarness.stores.syncQueue.length, 1);
+const secondReplay = await replayHarness.feature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false } });
+assert.equal(secondReplay.failCount, 0);
+assert.equal(replayedServerTodos.size, 1, 'retrying CREATE_TODO after a local rewrite failure must create only one server todo');
+assert.equal(replayHarness.stores.syncQueue.length, 0);
+assert.equal(replayHarness.stores.todos.some(todo => todo.id === 9001), true);
+
 const calls = [];
 let serverTodo = {
   id: 101,
@@ -118,7 +163,7 @@ const result = await feature.syncWithServer({ wsState: 'connected', syncInProgre
 assert.equal(result.failCount, 0);
 assert.equal(result.successCount, 3);
 assert.deepEqual(calls.map(call => call.slice(0, 3)), [
-  ['createTodo', { title: 'Offline parent', _tempId: 'temp-todo-1' }],
+  ['createTodo', { title: 'Offline parent' }],
   ['createComment', 101, { body: 'Offline draft', client_mutation_id: 'temp-comment-1' }],
   ['updateComment', 101, 201],
 ]);

@@ -138,7 +138,7 @@ export function createToastUndoFeature({
       const existing = todos.find(t => t.id === data.id);
       setTodos(existing ? todos.map(t => t.id === data.id ? data : t) : [...todos, data]);
       const canceledPendingDelete = await cancelPendingTodoDelete(id);
-      if (isOnlineForSync() && !canceledPendingDelete) await enqueue('CREATE_TODO', { ...data, _tempId: data.id });
+      if (isOnlineForSync() && !canceledPendingDelete) await enqueue('CREATE_TODO', { ...data, _tempId: data.id, client_mutation_id: String(data.id) });
     });
     renderStats();
     renderTodos();

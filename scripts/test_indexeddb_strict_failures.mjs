@@ -10,33 +10,63 @@ Object.defineProperty(globalThis, 'navigator', {
 
 let deleteOutcome = 'success';
 let transactionOutcome = 'complete';
-const records = new Map();
+const stores = new Map([
+  ['todos', new Map()],
+  ['syncQueue', new Map()],
+  ['attachmentBlobs', new Map()],
+]);
 const database = {
   objectStoreNames: { contains: () => true },
   close() {},
-  transaction() {
-    const tx = { error: new Error('transaction failed') };
-    tx.objectStore = () => ({
-      put(item) { records.set(item.id, item); },
-      delete(id) { records.delete(id); },
-      clear() { records.clear(); },
+  transaction(storeNames) {
+    const names = Array.isArray(storeNames) ? storeNames : [storeNames];
+    const staged = new Map(names.map(name => [name, new Map(stores.get(name) || [])]));
+    const tx = { error: new Error('transaction failed'), abort() { transactionOutcome = 'abort'; } };
+    tx.objectStore = name => ({
+      put(item) {
+        const request = {};
+        queueMicrotask(() => {
+          staged.get(name).set(item.id, structuredClone(item));
+          request.result = item.id;
+          request.onsuccess?.();
+        });
+        return request;
+      },
+      delete(id) {
+        const request = {};
+        queueMicrotask(() => { staged.get(name).delete(id); request.onsuccess?.(); });
+        return request;
+      },
+      clear() {
+        const request = {};
+        queueMicrotask(() => { staged.get(name).clear(); request.onsuccess?.(); });
+        return request;
+      },
+      get(id) {
+        const request = {};
+        queueMicrotask(() => { request.result = staged.get(name).get(id); request.onsuccess?.(); });
+        return request;
+      },
       getAll() {
         const request = {};
         queueMicrotask(() => {
           if (transactionOutcome === 'request-error') request.onerror?.();
           else {
-            request.result = [...records.values()];
+            request.result = [...staged.get(name).values()];
             request.onsuccess?.();
           }
         });
         return request;
       },
     });
-    queueMicrotask(() => {
-      if (transactionOutcome === 'complete') tx.oncomplete?.();
+    setTimeout(() => {
+      if (transactionOutcome === 'complete') {
+        for (const [name, records] of staged) stores.set(name, records);
+        tx.oncomplete?.();
+      }
       else if (transactionOutcome === 'abort') tx.onabort?.();
       else if (transactionOutcome === 'error') tx.onerror?.();
-    });
+    }, 0);
     return tx;
   },
 };
@@ -70,11 +100,32 @@ transactionOutcome = 'request-error';
 await assert.rejects(indexedDb.getAllStrict('syncQueue'), /transaction failed|Failed to read/);
 transactionOutcome = 'complete';
 
+stores.get('todos').set(1, { id: 1, title: 'Before' });
+stores.get('syncQueue').set(1, { id: 1, action: 'CREATE_ATTACHMENT' });
+transactionOutcome = 'abort';
+await assert.rejects(
+  indexedDb.transactionStrict(['todos', 'syncQueue'], 'readwrite', async transaction => {
+    await transaction.put('todos', { id: 1, title: 'After' });
+    await transaction.delete('syncQueue', 1);
+  }),
+  /transaction failed|aborted/i,
+);
+assert.equal(stores.get('todos').get(1).title, 'Before', 'an aborted multi-store transaction must roll back todo writes');
+assert.equal(stores.get('syncQueue').has(1), true, 'an aborted multi-store transaction must roll back queue deletes');
+transactionOutcome = 'complete';
+await indexedDb.transactionStrict(['todos', 'syncQueue'], 'readwrite', async transaction => {
+  await transaction.put('todos', { id: 1, title: 'Committed' });
+  await transaction.delete('syncQueue', 1);
+});
+assert.equal(stores.get('todos').get(1).title, 'Committed');
+assert.equal(stores.get('syncQueue').has(1), false);
+
 const appStorage = createAppStorage({ setDb() {} });
 assert.equal(typeof appStorage.dbPutStrict, 'function');
 assert.equal(typeof appStorage.dbGetAllStrict, 'function');
 assert.equal(typeof appStorage.deleteFromDBStrict, 'function');
 assert.equal(typeof appStorage.dbClearStrict, 'function');
+assert.equal(typeof appStorage.dbTransactionStrict, 'function');
 
 deleteOutcome = 'error';
 await assert.rejects(indexedDb.closeAndDeleteDatabase(), /delete failed|delete error/i);

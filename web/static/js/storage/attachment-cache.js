@@ -152,6 +152,23 @@ export function createAttachmentCache({
       .map(item => write({ ...item, todo_id: toTodoId })));
   }
 
+  async function reconcileAuthoritative(todos = [], queue = []) {
+    const records = await readAll();
+    const todoIds = new Set(todos.map(todo => String(todo.id)));
+    const attachmentIds = new Set(todos.flatMap(todo => (todo.attachments || []).map(attachment => cacheId(attachment.id))));
+    const pendingBlobIds = new Set(queue
+      .filter(item => item?.action === 'CREATE_ATTACHMENT')
+      .map(item => cacheId(item.data?.blob_id || item.data?.temp_id)));
+    const orphanIds = records
+      .filter((item) => {
+        if (item?.pending_upload) return !pendingBlobIds.has(cacheId(item.id));
+        return !todoIds.has(String(item.todo_id)) || !attachmentIds.has(cacheId(item.id));
+      })
+      .map(item => item.id);
+    for (const id of orphanIds) await discard(id);
+    return orphanIds;
+  }
+
   return {
     get: getRecord,
     put,
@@ -161,6 +178,7 @@ export function createAttachmentCache({
     prune,
     removeForTodo,
     rewriteTodoId,
+    reconcileAuthoritative,
     requestPersistentStorage,
   };
 }

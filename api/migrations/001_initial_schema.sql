@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS todos (
     parent_id INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
+    client_mutation_id TEXT,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
     FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL,
     FOREIGN KEY (parent_id) REFERENCES todos(id) ON DELETE SET NULL
