@@ -18,6 +18,7 @@ export const todosApi = {
   createComment: (todoId, data) => http.post(`/api/todos/${todoId}/comments`, data),
   updateComment: (todoId, commentId, data) => http.patch(`/api/todos/${todoId}/comments/${commentId}`, data),
   deleteComment: (todoId, commentId) => http.del(`/api/todos/${todoId}/comments/${commentId}`),
+  getAttachmentUsage: () => http.get('/api/todos/attachments/usage'),
   listAttachments: (todoId) => http.get(`/api/todos/${todoId}/attachments`),
   async uploadAttachment(todoId, file, options = {}) {
     const headers = getAuthHeaders();

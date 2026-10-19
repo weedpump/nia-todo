@@ -46,6 +46,45 @@ export function createSyncFeature({
     }
     setCurrentUser(next);
   }
+
+  async function markAttachmentCreateFailedPermanently(queueItem, error, syncInProgressRef) {
+    const attachmentId = queueItem.data.temp_id || queueItem.data.blob_id;
+    const syncError = {
+      code: error?.code || `attachment_upload_rejected_${Number(error?.status) || 'unknown'}`,
+      status: Number(error?.status) || null,
+      message: String(error?.message || 'Attachment upload was rejected'),
+    };
+    const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+    try {
+      const localTodo = await getFromDB('todos', queueItem.data.todo_id);
+      if (localTodo) {
+        const updatedTodo = {
+          ...localTodo,
+          attachments: (localTodo.attachments || []).map(attachment => (
+            String(attachment.id) === String(attachmentId)
+              ? { ...attachment, is_pending: true, failed_permanent: true, sync_error: syncError }
+              : attachment
+          )),
+        };
+        await dbPutStrict('todos', updatedTodo);
+        setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+      }
+      await dbPutStrict('syncQueue', {
+        ...queueItem,
+        data: {
+          ...queueItem.data,
+          upload_started: false,
+          failed_permanent: true,
+          sync_error: syncError,
+          local_attachment: queueItem.data.local_attachment
+            ? { ...queueItem.data.local_attachment, is_pending: true, failed_permanent: true, sync_error: syncError }
+            : queueItem.data.local_attachment,
+        },
+      });
+    } finally {
+      releaseCommitLock();
+    }
+  }
   function isOnlineForSync(wsState) {
     // Browser/native offline state must win over a stale WebSocket state.
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
@@ -203,7 +242,7 @@ export function createSyncFeature({
       case 'DELETE_SUBTASK':
         return { ...item, data: { todo_id: data.todo_id, subtask_id: data.subtask_id } };
       case 'CREATE_ATTACHMENT':
-        return { ...item, data: { todo_id: data.todo_id, temp_id: data.temp_id, blob_id: data.blob_id, client_mutation_id: data.client_mutation_id, filename: data.filename, content_type: data.content_type, size_bytes: data.size_bytes, local_attachment: data.local_attachment } };
+        return { ...item, data: { todo_id: data.todo_id, temp_id: data.temp_id, blob_id: data.blob_id, client_mutation_id: data.client_mutation_id, filename: data.filename, content_type: data.content_type, size_bytes: data.size_bytes, local_attachment: data.local_attachment, upload_started: Boolean(data.upload_started), failed_permanent: Boolean(data.failed_permanent), sync_error: data.sync_error } };
       case 'DELETE_ATTACHMENT':
         return { ...item, data: { todo_id: data.todo_id, attachment_id: data.attachment_id } };
       case 'CREATE_PROJECT':
@@ -255,6 +294,7 @@ export function createSyncFeature({
           await deleteFromDB('syncQueue', queuedItem.id);
           continue;
         }
+        if (item.action === 'CREATE_ATTACHMENT' && item.data.failed_permanent) continue;
         if (item.action === 'CREATE_TODO') {
           const undoGraceUntil = Number(item.data.undo_grace_until || 0);
           if (undoGraceUntil && Date.now() < undoGraceUntil) {
@@ -271,10 +311,10 @@ export function createSyncFeature({
               if (localSectionChanged) {
                 res = await todosApi.update(res.id, { section_id: localTempTodo.section_id });
               }
+              await attachmentCache.rewriteTodoId(createData._tempId, res.id);
+              await rewriteQueuedReferences({ todoIdFrom: createData._tempId, todoIdTo: res.id });
               await deleteFromDB('todos', createData._tempId);
               setTodos(getTodos().filter(t => t.id !== createData._tempId));
-              await rewriteQueuedReferences({ todoIdFrom: createData._tempId, todoIdTo: res.id });
-              await attachmentCache.rewriteTodoId(createData._tempId, res.id);
             }
             const createdTodo = localTempTodo ? { ...localTempTodo, ...res, id: res.id } : res;
             await persistTodoWithPending(createdTodo, item.id);
@@ -354,7 +394,7 @@ export function createSyncFeature({
           const cached = await attachmentCache.get(item.data.blob_id || item.data.temp_id, { todoId: item.data.todo_id });
           if (!cached?.blob) {
             const error = new Error('Pending attachment bytes are unavailable');
-            error.status = 422;
+            error.code = 'pending_attachment_blob_missing';
             throw error;
           }
           const response = await todosApi.uploadAttachment(item.data.todo_id, cached.blob, {
@@ -391,10 +431,10 @@ export function createSyncFeature({
           }
           await todosApi.delete(item.data.id);
           await commitQueueItem(item, async () => {
+            await attachmentCache.removeForTodo(item.data.id);
             await deleteFromDB('todos', item.data.id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
             await deleteQueuedTodoOperations(item.data.id);
-            await attachmentCache.removeForTodo(item.data.id);
           }, syncInProgressRef);
           successCount++;
           continue;
@@ -457,26 +497,48 @@ export function createSyncFeature({
         console.error('Sync failed for action', item?.action || 'INVALID_QUEUE_ITEM', err);
         let handledPermanentAbsence = false;
         if (item?.action === 'DELETE_TODO' && err?.status === 404) {
-          await commitQueueItem(item, async () => {
-            await deleteFromDB('todos', item.data.id);
-            setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
-            await deleteQueuedTodoOperations(item.data.id);
-            await attachmentCache.removeForTodo(item.data.id);
-          }, syncInProgressRef);
-          successCount++;
+          try {
+            await commitQueueItem(item, async () => {
+              await attachmentCache.removeForTodo(item.data.id);
+              await deleteFromDB('todos', item.data.id);
+              setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
+              await deleteQueuedTodoOperations(item.data.id);
+            }, syncInProgressRef);
+            successCount++;
+          } catch (commitError) {
+            console.error('Failed to commit missing todo deletion', commitError);
+            failCount++;
+          }
           handledPermanentAbsence = true;
         } else if (item?.action === 'DELETE_ATTACHMENT' && err?.status === 404) {
-          await commitQueueItem(item, () => attachmentCache.remove(item.data.attachment_id), syncInProgressRef);
-          successCount++;
+          try {
+            const usage = await todosApi.getAttachmentUsage();
+            await commitQueueItem(item, async () => {
+              await attachmentCache.remove(item.data.attachment_id);
+              applyAttachmentUsage(usage);
+            }, syncInProgressRef);
+            successCount++;
+          } catch (commitError) {
+            console.error('Failed to commit missing attachment deletion', commitError);
+            failCount++;
+          }
           handledPermanentAbsence = true;
-        } else if (item?.action === 'CREATE_ATTACHMENT' && err?.status === 404) {
+        } else if (item?.action === 'CREATE_ATTACHMENT' && err?.code === 'pending_attachment_blob_missing') {
           await commitQueueItem(item, async () => {
+            const localTodo = await getFromDB('todos', item.data.todo_id);
+            if (localTodo) {
+              const attachmentId = item.data.temp_id || item.data.blob_id;
+              const updatedTodo = {
+                ...localTodo,
+                attachments: (localTodo.attachments || []).filter(attachment => String(attachment.id) !== String(attachmentId)),
+                attachments_count: Math.max(0, Number(localTodo.attachments_count ?? localTodo.attachments?.length ?? 0) - 1),
+              };
+              await dbPutStrict('todos', updatedTodo);
+              setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+            }
             await attachmentCache.remove(item.data.blob_id || item.data.temp_id);
-            await deleteFromDB('todos', item.data.todo_id);
-            setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.todo_id)));
-            await deleteQueuedTodoOperations(item.data.todo_id);
           }, syncInProgressRef);
-          needsAuthoritativeRefresh = true;
+          successCount++;
           handledPermanentAbsence = true;
         } else if (['CREATE_COMMENT', 'CREATE_SUBTASK'].includes(item?.action) && err?.status === 404) {
           await commitQueueItem(item, async () => {
@@ -489,6 +551,19 @@ export function createSyncFeature({
         } else if (['UPDATE_COMMENT', 'DELETE_COMMENT', 'UPDATE_SUBTASK', 'DELETE_SUBTASK'].includes(item?.action) && err?.status === 404) {
           await deleteFromDB('syncQueue', item.id);
           todoIdsNeedingRecovery.add(item.data.todo_id);
+          handledPermanentAbsence = true;
+        } else if (
+          item?.action === 'CREATE_ATTACHMENT'
+          && Number(err?.status) >= 400
+          && Number(err?.status) < 500
+          && ![401, 408, 429].includes(Number(err?.status))
+        ) {
+          try {
+            await markAttachmentCreateFailedPermanently(currentQueuedItem, err, syncInProgressRef);
+          } catch (persistError) {
+            console.error('Failed to persist permanent attachment upload error', persistError);
+            failCount++;
+          }
           handledPermanentAbsence = true;
         } else if (
           ['CREATE_COMMENT', 'UPDATE_COMMENT', 'DELETE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK', 'DELETE_SUBTASK', 'CREATE_ATTACHMENT', 'DELETE_ATTACHMENT'].includes(item?.action)

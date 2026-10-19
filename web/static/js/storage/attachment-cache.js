@@ -1,4 +1,4 @@
-import { getAll, getStrict, putStrict, removeStrict } from './indexed-db.js';
+import { getAllStrict, getStrict, putStrict, removeStrict } from './indexed-db.js';
 
 export const DEFAULT_ATTACHMENT_CACHE_MAX_BYTES = 250 * 1024 * 1024;
 const STORE = 'attachmentBlobs';
@@ -16,7 +16,7 @@ function isQuotaError(error) {
 }
 
 export function createAttachmentCache({
-  getAll: readAll = () => getAll(STORE),
+  getAll: readAll = () => getAllStrict(STORE),
   get: read = id => getStrict(STORE, id),
   put: write = item => putStrict(STORE, item),
   remove: discard = id => removeStrict(STORE, id),

@@ -329,52 +329,38 @@ export function createTodoAttachmentsFeature({
       const pendingById = new Map(pending.map(item => [String(item.tempId), item]));
       const preservedIds = new Set();
       const liveQueueIds = new Set();
+      let rollbackVerified = true;
       let queuedByTempId = new Map();
-      let queueReadFailed = false;
       try {
         queuedByTempId = new Map((await dbGetAllStrict('syncQueue'))
           .filter(item => item.action === 'CREATE_ATTACHMENT' && pendingById.has(String(item.data?.temp_id || item.data?.blob_id)))
           .map(item => [String(item.data?.temp_id || item.data?.blob_id), item]));
       } catch (_cleanupError) {
-        queueReadFailed = true;
+        rollbackVerified = false;
         for (const item of pending) preservedIds.add(String(item.tempId));
       }
 
-      if (!queueReadFailed) {
+      if (rollbackVerified) {
         for (const item of pending) {
-          const queueItem = queuedByTempId.get(String(item.tempId));
+          const id = String(item.tempId);
+          const queueItem = queuedByTempId.get(id);
           if (!queueItem) continue;
           try {
             await deleteFromDBStrict('syncQueue', queueItem.id);
           } catch (_cleanupError) {
-            preservedIds.add(String(item.tempId));
-            liveQueueIds.add(String(item.tempId));
+            preservedIds.add(id);
+            liveQueueIds.add(id);
           }
         }
       }
 
-      const todoWithPreserved = () => {
-        const preserved = pending.filter(item => preservedIds.has(String(item.tempId))).map(item => item.attachment);
-        return {
-          ...todo,
-          attachments: [...(todo.attachments || []), ...preserved],
-          attachments_count: existingCount + preserved.length,
-          updated_at: optimisticTodo?.updated_at || todo.updated_at,
-        };
-      };
-
-      try {
-        await dbPutStrict('todos', todoWithPreserved());
-      } catch (_cleanupError) {
-        for (const item of pending) preservedIds.add(String(item.tempId));
-      }
-
       for (const item of pending) {
-        if (preservedIds.has(String(item.tempId))) continue;
+        const id = String(item.tempId);
+        if (preservedIds.has(id)) continue;
         try {
           await attachmentCache.remove(item.tempId);
         } catch (_cleanupError) {
-          preservedIds.add(String(item.tempId));
+          preservedIds.add(id);
         }
       }
 
@@ -384,24 +370,55 @@ export function createTodoAttachmentsFeature({
         try {
           await runSyncQueueMutation(enqueue => enqueue('CREATE_ATTACHMENT', queueDataFor(item)));
         } catch (_cleanupError) {
-          // Keep the optimistic pending attachment and bytes visible. A later
-          // retry can safely reconstruct the idempotent queue entry.
+          rollbackVerified = false;
         }
       }
 
-      const recoveredTodo = todoWithPreserved();
-      try {
-        await dbPutStrict('todos', recoveredTodo);
-      } catch (_cleanupError) {
-        // The original optimistic write is already durable; do not hide bytes
-        // when rollback durability cannot be proven.
+      const preservedAttachments = pending
+        .filter(item => preservedIds.has(String(item.tempId)))
+        .map(item => item.attachment);
+      const recoveredTodo = {
+        ...todo,
+        attachments: [...(todo.attachments || []), ...preservedAttachments],
+        attachments_count: existingCount + preservedAttachments.length,
+        updated_at: optimisticTodo?.updated_at || todo.updated_at,
+      };
+
+      if (rollbackVerified) {
+        try {
+          await dbPutStrict('todos', recoveredTodo);
+          const [durableQueue, durableTodos, durableBlobs] = await Promise.all([
+            dbGetAllStrict('syncQueue'),
+            dbGetAllStrict('todos'),
+            Promise.all([...preservedIds].map(id => attachmentCache.get(id, { touch: false, todoId }))),
+          ]);
+          const durableQueueIds = new Set(durableQueue
+            .filter(item => item.action === 'CREATE_ATTACHMENT')
+            .map(item => String(item.data?.temp_id || item.data?.blob_id)));
+          const durableTodo = durableTodos.find(item => String(item.id) === String(todoId));
+          const durableAttachmentIds = new Set((durableTodo?.attachments || []).map(item => String(item.id)));
+          rollbackVerified = Boolean(durableTodo)
+            && durableBlobs.every(record => Boolean(record?.blob))
+            && [...preservedIds].every(id => durableQueueIds.has(id) && durableAttachmentIds.has(id))
+            && pending.every(item => preservedIds.has(String(item.tempId)) || !durableAttachmentIds.has(String(item.tempId)));
+        } catch (_cleanupError) {
+          rollbackVerified = false;
+        }
       }
-      setTodos(getTodos().map(item => String(item.id) === String(todoId) ? recoveredTodo : item));
+
       console.error('Failed to queue todo attachment', error);
-      if (preservedIds.size) {
+      if (rollbackVerified && preservedIds.size) {
+        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? recoveredTodo : item));
         showToast(t('todo.attachments.uploadPending'));
         return true;
       }
+
+      try {
+        await dbPutStrict('todos', todo);
+      } catch (_cleanupError) {
+        // Restore the safe in-memory projection even when durable rollback is unavailable.
+      }
+      setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
       showToast(error?.name === 'AttachmentStorageError' ? t('todo.attachments.localStorageFull') : t('todo.attachments.uploadFailed'));
       return false;
     }

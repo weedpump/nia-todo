@@ -35,6 +35,13 @@ function createHarness({ queue, todos, api, projectApi = {} }) {
     projectsApi: { list: async () => ({ projects: [] }), ...projectApi },
     sectionsApi: { listAll: async () => ({ sections: [] }) },
     workspacesApi: { list: async () => ({ workspaces: [] }) },
+    attachmentCache: {
+      get: async () => null,
+      remove: async () => {},
+      removeForTodo: async () => {},
+      rewrite: async () => null,
+      rewriteTodoId: async () => {},
+    },
     renderStats: () => {},
     renderTodos: () => {},
   });
