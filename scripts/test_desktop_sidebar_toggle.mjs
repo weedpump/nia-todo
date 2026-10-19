@@ -109,8 +109,21 @@ try {
     labelDisplay: 'block',
     badgeDisplay: 'flex',
   });
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-desktop-sidebar-mode')), null);
 
   await page.locator('#sidebar-toggle-btn').click();
+  await page.waitForTimeout(250);
+  assert.deepEqual(await snapshot(), {
+    mode: 'rail',
+    width: 76,
+    visibility: 'visible',
+    expanded: 'true',
+    labelDisplay: 'none',
+    badgeDisplay: 'none',
+  });
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-desktop-sidebar-mode')), 'rail');
+  await page.reload();
+  await page.waitForFunction(() => window.sidebarReady === true);
   await page.waitForTimeout(250);
   assert.deepEqual(await snapshot(), {
     mode: 'rail',
@@ -134,11 +147,30 @@ try {
     labelDisplay: 'block',
     badgeDisplay: 'flex',
   });
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-desktop-sidebar-mode')), 'hidden');
+  await page.reload();
+  await page.waitForFunction(() => window.sidebarReady === true);
+  await page.waitForTimeout(250);
+  assert.deepEqual(await snapshot(), {
+    mode: 'hidden',
+    width: 0,
+    visibility: 'hidden',
+    expanded: 'false',
+    labelDisplay: 'block',
+    badgeDisplay: 'flex',
+  });
 
   await page.locator('#sidebar-toggle-btn').click();
   await page.waitForTimeout(250);
   assert.equal((await snapshot()).mode, 'expanded');
   assert.equal((await snapshot()).width, 260);
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-desktop-sidebar-mode')), 'expanded');
+
+  await page.evaluate(() => localStorage.setItem('nia-desktop-sidebar-mode', 'invalid'));
+  await page.reload();
+  await page.waitForFunction(() => window.sidebarReady === true);
+  assert.equal((await snapshot()).mode, 'expanded');
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-desktop-sidebar-mode')), 'invalid');
 
   await page.setViewportSize({ width: 390, height: 800 });
   await page.locator('#sidebar-toggle-btn').click();

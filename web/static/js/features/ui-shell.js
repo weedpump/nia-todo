@@ -3,6 +3,24 @@ import { closeUiLayerNow, openUiLayer, registerUiLayer, requestCloseUiLayer } fr
 import { t } from '../i18n/index.js';
 
 const DESKTOP_SIDEBAR_MODES = ['expanded', 'rail', 'hidden'];
+const DESKTOP_SIDEBAR_MODE_STORAGE_KEY = 'nia-desktop-sidebar-mode';
+
+function loadDesktopSidebarMode() {
+  try {
+    const storedMode = localStorage.getItem(DESKTOP_SIDEBAR_MODE_STORAGE_KEY);
+    return DESKTOP_SIDEBAR_MODES.includes(storedMode) ? storedMode : 'expanded';
+  } catch {
+    return 'expanded';
+  }
+}
+
+function persistDesktopSidebarMode(mode) {
+  try {
+    localStorage.setItem(DESKTOP_SIDEBAR_MODE_STORAGE_KEY, mode);
+  } catch {
+    // Keep the current in-memory mode when storage is unavailable.
+  }
+}
 
 function hideSidebarScrollbars() {
   const sidebar = document.getElementById('sidebar');
@@ -10,7 +28,7 @@ function hideSidebarScrollbars() {
 }
 
 export function createUiShell({ renderMarkdown, showTodoModal }) {
-  let desktopSidebarMode = 'expanded';
+  let desktopSidebarMode = loadDesktopSidebarMode();
 
   function isMobileLayout() {
     return window.matchMedia?.('(max-width: 768px)').matches;
@@ -41,8 +59,9 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     button.setAttribute('title', t(labelKey));
   }
 
-  function setDesktopSidebarMode(mode) {
+  function setDesktopSidebarMode(mode, { persist = false } = {}) {
     desktopSidebarMode = DESKTOP_SIDEBAR_MODES.includes(mode) ? mode : 'expanded';
+    if (persist) persistDesktopSidebarMode(desktopSidebarMode);
     const app = document.getElementById('app');
     if (!app) return;
     app.dataset.desktopSidebarMode = desktopSidebarMode;
@@ -52,7 +71,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
 
   function cycleDesktopSidebarMode() {
     const currentIndex = DESKTOP_SIDEBAR_MODES.indexOf(desktopSidebarMode);
-    setDesktopSidebarMode(DESKTOP_SIDEBAR_MODES[(currentIndex + 1) % DESKTOP_SIDEBAR_MODES.length]);
+    setDesktopSidebarMode(DESKTOP_SIDEBAR_MODES[(currentIndex + 1) % DESKTOP_SIDEBAR_MODES.length], { persist: true });
   }
 
   function closeFloatingMenus() {
