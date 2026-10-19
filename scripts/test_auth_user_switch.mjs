@@ -36,6 +36,7 @@ const { createAuthSessionFeature } = await import('../web/static/js/features/aut
 
 let currentUser = { id: 1, username: 'old-user', token: 'old-token' };
 let clearAttempts = 0;
+let reminderClearAttempts = 0;
 const feature = createAuthSessionFeature({
   authApi: {
     login: async () => ({
@@ -48,6 +49,7 @@ const feature = createAuthSessionFeature({
   getAppInitialized: () => true,
   setCurrentUser: user => { currentUser = user; },
   clearCache: async () => { clearAttempts += 1; throw new Error('IndexedDB cleanup failed'); },
+  clearNativeReminders: async () => { reminderClearAttempts += 1; },
   initApp: async () => {},
   refreshFromServer: async () => {},
   renderUserInfo: () => {},
@@ -55,6 +57,7 @@ const feature = createAuthSessionFeature({
 
 await assert.rejects(feature.login('new-user', 'password'), /IndexedDB cleanup failed/);
 assert.equal(clearAttempts, 1, 'cross-user login must attempt strict local cleanup before activation');
+assert.equal(reminderClearAttempts, 1, 'cross-user login must clear native reminders before activating the new identity');
 assert.equal(localStorage.getItem('jwt_token'), 'old-token', 'cleanup failure must not activate the new JWT');
 assert.equal(localStorage.getItem('csrf_token'), 'old-csrf', 'cleanup failure must not mix the new CSRF token into the old session');
 assert.equal(localStorage.getItem('last_user_id'), '1');
@@ -68,6 +71,7 @@ values.set('last_user_id', '1');
 values.set('cached_user', JSON.stringify({ id: 1, username: 'old-user', display_name: 'Old User' }));
 currentUser = { id: 1, username: 'old-user', token: 'old-token' };
 await assert.rejects(feature.logout(), /IndexedDB cleanup failed/);
+assert.equal(reminderClearAttempts, 2, 'logout must clear native reminders before removing the identity boundary');
 assert.equal(localStorage.getItem('jwt_token'), 'old-token', 'failed logout cleanup must retain the active token');
 assert.equal(localStorage.getItem('last_user_id'), '1', 'failed logout cleanup must retain the old identity marker');
 assert.equal(currentUser.id, 1, 'failed logout cleanup must retain the active in-memory identity');
@@ -75,5 +79,20 @@ await assert.rejects(feature.login('new-user', 'password'), /IndexedDB cleanup f
 assert.equal(localStorage.getItem('jwt_token'), 'old-token');
 assert.equal(localStorage.getItem('last_user_id'), '1');
 assert.equal(currentUser.id, 1);
+
+let failClosedUser = { id: 1, username: 'old-user', token: 'old-token' };
+let failClosedCacheClears = 0;
+const reminderFailureFeature = createAuthSessionFeature({
+  authApi: { login: async () => ({ access_token: 'new-token', user: { id: 2, username: 'new-user' } }) },
+  getAppInitialized: () => true,
+  setCurrentUser: user => { failClosedUser = user; },
+  clearCache: async () => { failClosedCacheClears += 1; },
+  clearNativeReminders: async () => { throw new Error('native reminder cleanup failed'); },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo: () => {},
+});
+await assert.rejects(reminderFailureFeature.login('new-user', 'password'), /native reminder cleanup failed/);
+assert.equal(failClosedCacheClears, 0, 'native reminder cleanup failure must stop before deleting old local data');
+assert.equal(localStorage.getItem('jwt_token'), 'old-token');
+assert.equal(failClosedUser.id, 1);
 
 console.log('✅ Cross-user login fails closed before activating the new identity');

@@ -372,6 +372,7 @@ const authSessionFeature = createAuthSessionFeature({
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
   disconnectRealtime: () => disconnectAuthenticatedRuntime(),
+  clearNativeReminders: () => desktopIntegration?.clearNativeRemindersForPrivacy?.() || Promise.resolve(),
 });
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
 const bindServiceWorkerUpdateButtons = serviceWorkerUpdates.bindServiceWorkerUpdateButtons;

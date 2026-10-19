@@ -38,6 +38,7 @@ function createFeature({ failClear = false } = {}) {
     onHotkeyNewTodo: () => {},
     onHotkeySearch: () => {},
     getCurrentUser: () => null,
+    clearNativeReminders: async () => { events.push('clear:reminders'); },
     clearLocalAuthState: () => { events.push('clear:auth'); },
     clearBrowserAuthCaches: async () => { events.push('clear:browser'); },
     clearCache: async () => {
@@ -51,6 +52,7 @@ try {
   const feature = createFeature();
   await feature.updateServerUrl('https://new.example/');
   assert.deepEqual(events, [
+    'clear:reminders',
     'clear:browser',
     'clear:indexeddb',
     'clear:auth',
@@ -61,6 +63,7 @@ try {
   events.length = 0;
   await feature.resetServerUrl();
   assert.deepEqual(events, [
+    'clear:reminders',
     'clear:browser',
     'clear:indexeddb',
     'clear:auth',
@@ -71,6 +74,7 @@ try {
   events.length = 0;
   await createFeature({ failClear: true }).updateServerUrl('https://blocked.example');
   assert.deepEqual(events, [
+    'clear:reminders',
     'clear:browser',
     'clear:indexeddb',
   ], 'a failed durable cache clear must prevent the server switch without clearing the old identity');
@@ -89,6 +93,7 @@ try {
     onHotkeyNewTodo: () => {},
     onHotkeySearch: () => {},
     getCurrentUser: () => null,
+    clearNativeReminders: async () => { events.push('clear:reminders'); },
     clearLocalAuthState: () => { events.push('clear:auth'); },
     clearBrowserAuthCaches: async () => { events.push('clear:browser'); },
     clearCache: async () => {
@@ -99,9 +104,20 @@ try {
   await realWrapperFeature.updateServerUrl('https://real-wrapper-blocked.example');
   await realWrapperFeature.resetServerUrl();
   assert.deepEqual(events, [
-    'clear:browser', 'clear:indexeddb',
-    'clear:browser', 'clear:indexeddb',
+    'clear:reminders', 'clear:browser', 'clear:indexeddb',
+    'clear:reminders', 'clear:browser', 'clear:indexeddb',
   ], 'real IndexedDB deletion failures must prevent native persistence and reload for update and reset');
+
+  events.length = 0;
+  const reminderFailureFeature = createDesktopIntegration({
+    showToast: () => {}, onHotkeyNewTodo: () => {}, onHotkeySearch: () => {}, getCurrentUser: () => null,
+    clearNativeReminders: async () => { events.push('clear:reminders'); throw new Error('native reminder cleanup failed'); },
+    clearLocalAuthState: () => { events.push('clear:auth'); },
+    clearBrowserAuthCaches: async () => { events.push('clear:browser'); },
+    clearCache: async () => { events.push('clear:indexeddb'); },
+  });
+  await reminderFailureFeature.updateServerUrl('https://reminder-blocked.example');
+  assert.deepEqual(events, ['clear:reminders'], 'native reminder cleanup failures must fail closed before changing server or identity state');
 
   console.log('✅ Native server switches clear scoped browser data before persistence');
 } finally {

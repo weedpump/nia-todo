@@ -238,11 +238,11 @@ export function createTodoAttachmentsFeature({
     }
   }
 
-  async function queueAttachmentFiles(todoId, files = []) {
+  async function queueAttachmentFiles(todoId, files = [], { todo: suppliedTodo = null, queueEntries = [] } = {}) {
     const selected = Array.from(files || []);
     if (!todoId || selected.length === 0 || !getDb()) return selected.length === 0;
-    const todo = getTodos().find(item => String(item.id) === String(todoId));
-    if (!todo) return false;
+    const todo = suppliedTodo || getTodos().find(item => String(item.id) === String(todoId));
+    if (!todo || !dbTransactionStrict) return false;
     const currentUser = getCurrentUser?.();
     if (currentUser?.attachments_enabled === false) {
       showToast(t('todo.attachments.disabled'));
@@ -288,31 +288,31 @@ export function createTodoAttachmentsFeature({
         },
       };
     });
-    let optimisticTodo = null;
+    const updated = {
+      ...todo,
+      attachments: [...(todo.attachments || []), ...pending.map(item => item.attachment)],
+      attachments_count: existingCount + pending.length,
+      updated_at: new Date().toISOString(),
+    };
+    const queueRecord = (action, data) => ({ action, data, timestamp: Date.now(), localUpdatedAt: new Date().toISOString() });
     try {
-      for (const item of pending) {
-        await attachmentCache.put({
-          id: item.tempId,
-          todo_id: todoId,
-          attachment_id: item.tempId,
-          blob: item.file,
-          size_bytes: item.file.size,
-          pending_upload: true,
-          pinned: true,
-        });
-      }
-      await runSyncQueueMutation(async enqueue => {
-        const updated = {
-          ...todo,
-          attachments: [...(todo.attachments || []), ...pending.map(item => item.attachment)],
-          attachments_count: existingCount + pending.length,
-          updated_at: new Date().toISOString(),
-        };
-        await dbPutStrict('todos', updated);
-        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? updated : item));
-        optimisticTodo = updated;
+      await attachmentCache.requestPersistentStorage?.();
+      await runSyncQueueMutation(() => dbTransactionStrict(['todos', 'syncQueue', 'attachmentBlobs'], 'readwrite', async transaction => {
+        await transaction.put('todos', updated);
+        for (const entry of queueEntries) await transaction.put('syncQueue', queueRecord(entry.action, entry.data));
         for (const item of pending) {
-          await enqueue('CREATE_ATTACHMENT', {
+          await transaction.put('attachmentBlobs', {
+            id: String(item.tempId),
+            todo_id: todoId,
+            attachment_id: item.tempId,
+            blob: item.file,
+            size_bytes: Number(item.file.size || 0),
+            pending_upload: true,
+            pinned: true,
+            offline_explicit: false,
+            last_accessed: Date.now(),
+          });
+          await transaction.put('syncQueue', queueRecord('CREATE_ATTACHMENT', {
             todo_id: todoId,
             temp_id: item.tempId,
             blob_id: item.tempId,
@@ -321,120 +321,20 @@ export function createTodoAttachmentsFeature({
             content_type: item.attachment.content_type,
             size_bytes: item.attachment.size_bytes,
             local_attachment: item.attachment,
-          });
+          }));
         }
-      });
-      if (typeof document !== 'undefined') {
-        renderTodoAttachments(getTodos().find(item => String(item.id) === String(todoId))?.attachments || [], getTodos().find(item => String(item.id) === String(todoId)) || null);
-      }
+      }));
+      const known = getTodos().some(item => String(item.id) === String(todoId));
+      setTodos(known
+        ? getTodos().map(item => String(item.id) === String(todoId) ? updated : item)
+        : [...getTodos(), updated]);
+      if (typeof document !== 'undefined') renderTodoAttachments(updated.attachments || [], updated);
       renderStats();
       renderTodos();
       if (isOnlineForSync()) await syncWithServer();
       return true;
     } catch (error) {
-      const queueDataFor = item => ({
-        todo_id: todoId,
-        temp_id: item.tempId,
-        blob_id: item.tempId,
-        client_mutation_id: item.tempId,
-        filename: item.attachment.original_filename,
-        content_type: item.attachment.content_type,
-        size_bytes: item.attachment.size_bytes,
-        local_attachment: item.attachment,
-      });
-      const pendingById = new Map(pending.map(item => [String(item.tempId), item]));
-      const preservedIds = new Set();
-      const liveQueueIds = new Set();
-      let rollbackVerified = true;
-      let queuedByTempId = new Map();
-      try {
-        queuedByTempId = new Map((await dbGetAllStrict('syncQueue'))
-          .filter(item => item.action === 'CREATE_ATTACHMENT' && pendingById.has(String(item.data?.temp_id || item.data?.blob_id)))
-          .map(item => [String(item.data?.temp_id || item.data?.blob_id), item]));
-      } catch (_cleanupError) {
-        rollbackVerified = false;
-        for (const item of pending) preservedIds.add(String(item.tempId));
-      }
-
-      if (rollbackVerified) {
-        for (const item of pending) {
-          const id = String(item.tempId);
-          const queueItem = queuedByTempId.get(id);
-          if (!queueItem) continue;
-          try {
-            await deleteFromDBStrict('syncQueue', queueItem.id);
-          } catch (_cleanupError) {
-            preservedIds.add(id);
-            liveQueueIds.add(id);
-          }
-        }
-      }
-
-      for (const item of pending) {
-        const id = String(item.tempId);
-        if (preservedIds.has(id)) continue;
-        try {
-          await attachmentCache.remove(item.tempId);
-        } catch (_cleanupError) {
-          preservedIds.add(id);
-        }
-      }
-
-      for (const item of pending) {
-        const id = String(item.tempId);
-        if (!preservedIds.has(id) || liveQueueIds.has(id)) continue;
-        try {
-          await runSyncQueueMutation(enqueue => enqueue('CREATE_ATTACHMENT', queueDataFor(item)));
-        } catch (_cleanupError) {
-          rollbackVerified = false;
-        }
-      }
-
-      const preservedAttachments = pending
-        .filter(item => preservedIds.has(String(item.tempId)))
-        .map(item => item.attachment);
-      const recoveredTodo = {
-        ...todo,
-        attachments: [...(todo.attachments || []), ...preservedAttachments],
-        attachments_count: existingCount + preservedAttachments.length,
-        updated_at: optimisticTodo?.updated_at || todo.updated_at,
-      };
-
-      if (rollbackVerified) {
-        try {
-          await dbPutStrict('todos', recoveredTodo);
-          const [durableQueue, durableTodos, durableBlobs] = await Promise.all([
-            dbGetAllStrict('syncQueue'),
-            dbGetAllStrict('todos'),
-            Promise.all([...preservedIds].map(id => attachmentCache.get(id, { touch: false, todoId }))),
-          ]);
-          const durableQueueIds = new Set(durableQueue
-            .filter(item => item.action === 'CREATE_ATTACHMENT')
-            .map(item => String(item.data?.temp_id || item.data?.blob_id)));
-          const durableTodo = durableTodos.find(item => String(item.id) === String(todoId));
-          const durableAttachmentIds = new Set((durableTodo?.attachments || []).map(item => String(item.id)));
-          rollbackVerified = Boolean(durableTodo)
-            && durableBlobs.every(record => Boolean(record?.blob))
-            && [...preservedIds].every(id => durableQueueIds.has(id) && durableAttachmentIds.has(id))
-            && pending.every(item => preservedIds.has(String(item.tempId)) || !durableAttachmentIds.has(String(item.tempId)));
-        } catch (_cleanupError) {
-          rollbackVerified = false;
-        }
-      }
-
       console.error('Failed to queue todo attachment', error);
-      if (rollbackVerified && preservedIds.size) {
-        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? recoveredTodo : item));
-        showToast(t('todo.attachments.uploadPending'));
-        return true;
-      }
-
-      try {
-        await dbPutStrict('todos', todo);
-      } catch (_cleanupError) {
-        // Restore the safe in-memory projection even when durable rollback is unavailable.
-      }
-      setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
       showToast(error?.name === 'AttachmentStorageError' ? t('todo.attachments.localStorageFull') : t('todo.attachments.uploadFailed'));
       return false;
     }
@@ -735,136 +635,48 @@ export function createTodoAttachmentsFeature({
     });
     if (!confirmed) return;
     const todo = getTodos().find(item => String(item.id) === String(todoId));
-    if (!todo) return;
+    if (!todo || !dbTransactionStrict) return;
 
-    if (dbTransactionStrict) {
-      try {
-        const cancellation = await runSyncQueueMutation(() => dbTransactionStrict(['todos', 'syncQueue', 'attachmentBlobs'], 'readwrite', async transaction => {
-          const [durableTodo, queue] = await Promise.all([
-            transaction.get('todos', todoId),
-            transaction.getAll('syncQueue'),
-          ]);
-          const pendingCreate = queue.find(item => item.action === 'CREATE_ATTACHMENT'
-            && String(item.data?.todo_id) === String(todoId)
-            && String(item.data?.temp_id) === String(attachmentId));
-          if (!pendingCreate || pendingCreate.data?.upload_started) {
-            return { cancelled: false, pendingCreate, uploadAlreadyStarted: Boolean(pendingCreate?.data?.upload_started) };
-          }
-          const sourceTodo = durableTodo || todo;
-          const updated = {
-            ...sourceTodo,
-            attachments: (sourceTodo.attachments || []).filter(item => String(item.id) !== String(attachmentId)),
-            attachments_count: Math.max(0, Number(sourceTodo.attachments_count ?? sourceTodo.attachments?.length ?? 0) - 1),
-            updated_at: new Date().toISOString(),
-          };
-          await transaction.put('todos', updated);
-          await transaction.delete('syncQueue', pendingCreate.id);
-          await transaction.delete('attachmentBlobs', String(pendingCreate.data?.blob_id || attachmentId));
-          return { cancelled: true, updated };
-        }));
-        if (cancellation.cancelled) {
-          setTodos(getTodos().map(item => String(item.id) === String(todoId) ? cancellation.updated : item));
-          if (typeof document !== 'undefined') {
-            renderTodoAttachments(cancellation.updated.attachments || [], cancellation.updated);
-          }
-          renderStats();
-          renderTodos();
-          return;
-        }
-      } catch (error) {
-        console.error('Failed to cancel pending todo attachment', error);
-        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
-        showToast(t('todo.attachments.uploadPending'));
-        return;
-      }
-    }
-
-    let pendingCreate = null;
-    let uploadAlreadyStarted = false;
-    let cancelledPendingCreate = false;
-    let todoProjectionUpdated = false;
     try {
-      const queue = await dbGetAllStrict('syncQueue');
-      pendingCreate = queue.find(item => item.action === 'CREATE_ATTACHMENT'
-        && String(item.data?.todo_id) === String(todoId)
-        && String(item.data?.temp_id) === String(attachmentId));
-      uploadAlreadyStarted = Boolean(pendingCreate?.data?.upload_started);
-      await runSyncQueueMutation(async enqueue => {
+      const result = await runSyncQueueMutation(() => dbTransactionStrict(['todos', 'syncQueue', 'attachmentBlobs'], 'readwrite', async transaction => {
+        const [durableTodo, queue] = await Promise.all([
+          transaction.get('todos', todoId),
+          transaction.getAll('syncQueue'),
+        ]);
+        const pendingCreate = queue.find(item => item.action === 'CREATE_ATTACHMENT'
+          && String(item.data?.todo_id) === String(todoId)
+          && String(item.data?.temp_id) === String(attachmentId));
+        const cancelCreate = Boolean(pendingCreate && (!pendingCreate.data?.upload_started || pendingCreate.data?.failed_permanent));
+        const sourceTodo = durableTodo || todo;
         const updated = {
-          ...todo,
-          attachments: (todo.attachments || []).filter(item => String(item.id) !== String(attachmentId)),
-          attachments_count: Math.max(0, Number(todo.attachments_count ?? todo.attachments?.length ?? 0) - 1),
+          ...sourceTodo,
+          attachments: (sourceTodo.attachments || []).filter(item => String(item.id) !== String(attachmentId)),
           updated_at: new Date().toISOString(),
         };
-        await dbPutStrict('todos', updated);
-        todoProjectionUpdated = true;
-        if (pendingCreate && !uploadAlreadyStarted) {
-          await deleteFromDBStrict('syncQueue', pendingCreate.id);
-          cancelledPendingCreate = true;
+        updated.attachments_count = updated.attachments.length;
+        await transaction.put('todos', updated);
+        await transaction.delete('attachmentBlobs', String(pendingCreate?.data?.blob_id || attachmentId));
+        if (cancelCreate) {
+          await transaction.delete('syncQueue', pendingCreate.id);
         } else {
-          await enqueue('DELETE_ATTACHMENT', { todo_id: todoId, attachment_id: attachmentId });
+          await transaction.put('syncQueue', {
+            action: 'DELETE_ATTACHMENT',
+            data: { todo_id: todoId, attachment_id: attachmentId },
+            timestamp: Date.now(),
+            localUpdatedAt: new Date().toISOString(),
+          });
         }
-        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? updated : item));
-      });
-      if (!uploadAlreadyStarted) await attachmentCache.remove(attachmentId);
-      if (pendingCreate && !uploadAlreadyStarted) {
-        const [queueAfterDelete, todosAfterDelete, cachedAfterDelete] = await Promise.all([
-          dbGetAllStrict('syncQueue'),
-          dbGetAllStrict('todos'),
-          attachmentCache.get(attachmentId, { todoId, touch: false }),
-        ]);
-        const queueStillExists = queueAfterDelete.some(item => String(item.id) === String(pendingCreate.id));
-        const todoStillProjectsAttachment = (todosAfterDelete.find(item => String(item.id) === String(todoId))?.attachments || [])
-          .some(item => String(item.id) === String(attachmentId));
-        if (queueStillExists || todoStillProjectsAttachment || cachedAfterDelete) {
-          throw new Error('Pending attachment cancellation could not be verified');
-        }
-      }
-      if (typeof document !== 'undefined') {
-        renderTodoAttachments(getTodos().find(item => String(item.id) === String(todoId))?.attachments || [], getTodos().find(item => String(item.id) === String(todoId)) || null);
-      }
+        return { updated, shouldSync: !cancelCreate };
+      }));
+      setTodos(getTodos().map(item => String(item.id) === String(todoId) ? result.updated : item));
+      if (typeof document !== 'undefined') renderTodoAttachments(result.updated.attachments || [], result.updated);
       renderStats();
       renderTodos();
-      if (isOnlineForSync() && (!pendingCreate || uploadAlreadyStarted)) await syncWithServer();
+      if (result.shouldSync && isOnlineForSync()) await syncWithServer();
     } catch (error) {
-      if (pendingCreate && !uploadAlreadyStarted) {
-        let pendingStateVerified = false;
-        if (cancelledPendingCreate) {
-          try {
-            await runSyncQueueMutation(enqueue => enqueue('CREATE_ATTACHMENT', pendingCreate.data));
-          } catch (_restoreError) {
-            // Preserve the optimistic attachment and bytes even if queue
-            // reconstruction must be retried after storage recovers.
-          }
-        }
-        if (todoProjectionUpdated) {
-          try {
-            await dbPutStrict('todos', todo);
-          } catch (_restoreError) {
-            // Verification below decides whether the original pending state is durable.
-          }
-        }
-        try {
-          const [queueAfterRollback, todosAfterRollback, cachedAfterRollback] = await Promise.all([
-            dbGetAllStrict('syncQueue'),
-            dbGetAllStrict('todos'),
-            attachmentCache.get(attachmentId, { todoId, touch: false }),
-          ]);
-          const queueRestored = queueAfterRollback.some(item => item.action === 'CREATE_ATTACHMENT'
-            && String(item.data?.todo_id) === String(todoId)
-            && String(item.data?.temp_id) === String(attachmentId));
-          const todoRestored = (todosAfterRollback.find(item => String(item.id) === String(todoId))?.attachments || [])
-            .some(item => String(item.id) === String(attachmentId));
-          pendingStateVerified = Boolean(queueRestored && todoRestored && cachedAfterRollback?.pending_upload);
-        } catch (_verificationError) {
-          pendingStateVerified = false;
-        }
-        setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
-        showToast(t(pendingStateVerified ? 'todo.attachments.uploadPending' : 'todo.attachments.deleteFailed'));
-      } else {
-        showToast(t('todo.attachments.deleteFailed'));
-      }
       console.error('Failed to delete todo attachment', error);
+      setTodos(getTodos().map(item => String(item.id) === String(todoId) ? todo : item));
+      showToast(t('todo.attachments.deleteFailed'));
     }
   }
 

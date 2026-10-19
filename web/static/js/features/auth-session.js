@@ -13,6 +13,7 @@ export function createAuthSessionFeature({
   refreshFromServer,
   renderUserInfo,
   disconnectRealtime = null,
+  clearNativeReminders = async () => {},
 }) {
   let loginInProgress = false;
   let loginFormBound = false;
@@ -176,6 +177,7 @@ export function createAuthSessionFeature({
     if (lastUserId && lastUserId !== newUserId) {
       console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
       try {
+        await clearNativeReminders();
         await clearBrowserAuthCaches();
         await clearCache();
       } catch (error) {
@@ -389,6 +391,7 @@ export function createAuthSessionFeature({
   async function logout() {
     const realtimeShutdown = Promise.resolve(disconnectRealtime?.()).catch(() => {});
     await realtimeShutdown;
+    await clearNativeReminders();
     await clearBrowserAuthCaches();
     await clearCache();
 

@@ -8,15 +8,16 @@ function cacheId(value) {
 }
 
 export function getAuthoritativeAttachmentBlobIdsToDelete(records = [], todos = [], queue = []) {
-  const todoIds = new Set(todos.map(todo => String(todo.id)));
-  const attachmentIds = new Set(todos.flatMap(todo => (todo.attachments || []).map(attachment => cacheId(attachment.id))));
-  const pendingBlobIds = new Set(queue
+  const attachmentPairs = new Set(todos.flatMap(todo => (todo.attachments || []).map(attachment => `${String(todo.id)}\u0000${cacheId(attachment.id)}`)));
+  const pendingPairs = new Set(queue
     .filter(item => item?.action === 'CREATE_ATTACHMENT')
-    .map(item => cacheId(item.data?.blob_id || item.data?.temp_id)));
+    .map(item => `${String(item.data?.todo_id)}\u0000${cacheId(item.data?.blob_id || item.data?.temp_id)}`));
   return records
     .filter((item) => {
-      if (item?.pending_upload) return !pendingBlobIds.has(cacheId(item.id));
-      return !todoIds.has(String(item.todo_id)) || !attachmentIds.has(cacheId(item.id));
+      const todoId = String(item?.todo_id);
+      if (item?.pending_upload) return !pendingPairs.has(`${todoId}\u0000${cacheId(item.id)}`);
+      const attachmentId = cacheId(item?.attachment_id ?? item?.id);
+      return !attachmentPairs.has(`${todoId}\u0000${attachmentId}`);
     })
     .map(item => item.id);
 }

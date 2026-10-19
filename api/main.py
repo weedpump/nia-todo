@@ -112,6 +112,12 @@ async def subscription_cleanup_task():
 @app.on_event("startup")
 async def on_startup():
     init_db()
+    from paths import ATTACHMENT_DIR
+    from services.attachments import reconcile_attachment_files
+    with get_db() as db:
+        reconciliation = reconcile_attachment_files(db, attachment_dir=ATTACHMENT_DIR)
+    if reconciliation["errors"]:
+        print(f"[ATTACHMENTS] Reconciliation retained {len(reconciliation['errors'])} files after errors", flush=True)
     from services.setup_token import ensure_setup_token, SETUP_TOKEN_PATH
     with get_db() as db:
         config = db.execute("SELECT setup_complete FROM admin_config WHERE id = 1").fetchone()

@@ -8,6 +8,22 @@ import { createTodoQuickAddFeature } from './todo-quick-add.js';
 import { createTodoMultiAddFeature } from './todo-multi-add.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
+export async function commitLocalTodoDeletion({ todoId, dbTransactionStrict, runSyncQueueMutation }) {
+  if (!dbTransactionStrict) throw new Error('Strict IndexedDB transactions are required for todo deletion');
+  const deleteRecord = {
+    action: 'DELETE_TODO',
+    data: { id: todoId, undo_grace_until: Date.now() + 5000 },
+    timestamp: Date.now(),
+    localUpdatedAt: new Date().toISOString(),
+  };
+  const commit = runSyncQueueMutation || (operation => operation());
+  await commit(() => dbTransactionStrict(['todos', 'syncQueue'], 'readwrite', async transaction => {
+    await transaction.delete('todos', todoId);
+    await transaction.put('syncQueue', deleteRecord);
+  }));
+  return deleteRecord;
+}
+
 export function createTodosFeature({
   getTodos,
   setTodos,
@@ -2807,22 +2823,30 @@ export function createTodosFeature({
         attachments: [],
         attachments_count: 0,
       };
-      await commitQueuedMutation(async enqueue => {
-        await dbPut('todos', newTodo);
-        setTodos([...getTodos(), newTodo]);
-        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, client_mutation_id: tempId });
-        for (const comment of pendingComments) {
-          await enqueue('CREATE_COMMENT', {
+      const initialQueueEntries = [
+        { action: 'CREATE_TODO', data: { ...todoData, _tempId: tempId, client_mutation_id: tempId } },
+        ...pendingComments.map(comment => ({
+          action: 'CREATE_COMMENT',
+          data: {
             todo_id: tempId,
             temp_id: comment.id,
             body: comment.body,
             local_comment: comment,
-          });
-        }
-      });
+          },
+        })),
+      ];
       if (draftAttachmentFiles.length > 0) {
-        const queuedAttachments = await queueAttachmentFiles(tempId, draftAttachmentFiles);
+        const queuedAttachments = await queueAttachmentFiles(tempId, draftAttachmentFiles, {
+          todo: newTodo,
+          queueEntries: initialQueueEntries,
+        });
         if (!queuedAttachments) return;
+      } else {
+        await commitQueuedMutation(async enqueue => {
+          await dbPutStrict('todos', newTodo);
+          setTodos([...getTodos(), newTodo]);
+          for (const entry of initialQueueEntries) await enqueue(entry.action, entry.data);
+        });
       }
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       renderProjects();
@@ -2974,11 +2998,8 @@ export function createTodosFeature({
     if (!confirmed) return;
     const todo = getTodos().find(t => t.id === id);
     if (!todo) return;
-    await commitQueuedMutation(async enqueue => {
-      await deleteFromDB('todos', id);
-      setTodos(getTodos().filter(t => t.id !== id));
-      await enqueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 });
-    });
+    await commitLocalTodoDeletion({ todoId: id, dbTransactionStrict, runSyncQueueMutation: commitQueuedMutation });
+    setTodos(getTodos().filter(t => t.id !== id));
     renderStats();
     renderTodos();
     closeModal('todo-modal');

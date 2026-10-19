@@ -72,20 +72,34 @@ export function createSyncFeature({
     try {
       let updatedTodo = null;
       if (dbTransactionStrict) {
-        updatedTodo = await dbTransactionStrict(['todos', 'syncQueue', 'attachmentBlobs'], 'readwrite', async transaction => {
+        const result = await dbTransactionStrict(['todos', 'syncQueue', 'attachmentBlobs'], 'readwrite', async transaction => {
+          const queue = await transaction.getAll('syncQueue');
+          const dependentDeletes = queue.filter(item => item.action === 'DELETE_ATTACHMENT'
+            && String(item.data?.todo_id) === String(queueItem.data.todo_id)
+            && String(item.data?.attachment_id) === String(attachmentId));
           const localTodo = await transaction.get('todos', queueItem.data.todo_id);
           const nextTodo = localTodo ? {
             ...localTodo,
-            attachments: (localTodo.attachments || []).map(attachment => (
-              String(attachment.id) === String(attachmentId)
-                ? { ...attachment, is_pending: true, failed_permanent: true, sync_error: syncError }
-                : attachment
-            )),
+            attachments: dependentDeletes.length
+              ? (localTodo.attachments || []).filter(attachment => String(attachment.id) !== String(attachmentId))
+              : (localTodo.attachments || []).map(attachment => (
+                String(attachment.id) === String(attachmentId)
+                  ? { ...attachment, is_pending: true, failed_permanent: true, sync_error: syncError }
+                  : attachment
+              )),
           } : null;
+          if (nextTodo) nextTodo.attachments_count = nextTodo.attachments.length;
           if (nextTodo) await transaction.put('todos', nextTodo);
+          if (dependentDeletes.length) {
+            await transaction.delete('syncQueue', queueItem.id);
+            for (const dependent of dependentDeletes) await transaction.delete('syncQueue', dependent.id);
+            await transaction.delete('attachmentBlobs', String(queueItem.data.blob_id || attachmentId));
+            return { updatedTodo: nextTodo, cancelled: true };
+          }
           await transaction.put('syncQueue', failedQueueItem);
-          return nextTodo;
+          return { updatedTodo: nextTodo, cancelled: false };
         });
+        updatedTodo = result.updatedTodo;
       } else {
         const localTodo = await getFromDB('todos', queueItem.data.todo_id);
         updatedTodo = localTodo ? {
@@ -276,6 +290,48 @@ export function createSyncFeature({
         await deleteQueuedTodoOperations(todoId);
       }
       setTodos(getTodos().filter(todo => String(todo.id) !== String(todoId)));
+    } finally {
+      releaseCommitLock();
+    }
+  }
+
+  async function commitAttachmentDeletion(item, responseTodo, syncInProgressRef) {
+    const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+    try {
+      let committedTodo = null;
+      if (dbTransactionStrict) {
+        committedTodo = await dbTransactionStrict(['todos', 'syncQueue', 'attachmentBlobs'], 'readwrite', async transaction => {
+          const queue = await transaction.getAll('syncQueue');
+          const remainingQueue = queue.filter(queued => String(queued.id) !== String(item.id));
+          const localTodo = await transaction.get('todos', item.data.todo_id);
+          const baseTodo = responseTodo || localTodo;
+          let projected = baseTodo ? projectPendingTodoChanges(baseTodo, remainingQueue) : null;
+          if (projected) {
+            projected = {
+              ...projected,
+              attachments: (projected.attachments || []).filter(attachment => String(attachment.id) !== String(item.data.attachment_id)),
+            };
+            projected.attachments_count = projected.attachments.length;
+            await transaction.put('todos', projected);
+          }
+          await transaction.delete('attachmentBlobs', String(item.data.attachment_id));
+          await transaction.delete('syncQueue', item.id);
+          return projected;
+        });
+      } else {
+        const localTodo = responseTodo || await getFromDB('todos', item.data.todo_id);
+        if (localTodo) {
+          committedTodo = {
+            ...localTodo,
+            attachments: (localTodo.attachments || []).filter(attachment => String(attachment.id) !== String(item.data.attachment_id)),
+          };
+          committedTodo.attachments_count = committedTodo.attachments.length;
+          await dbPutStrict('todos', committedTodo);
+        }
+        await attachmentCache.remove(item.data.attachment_id);
+        await deleteFromDBStrict('syncQueue', item.id);
+      }
+      if (committedTodo) upsertTodo(committedTodo);
     } finally {
       releaseCommitLock();
     }
@@ -525,11 +581,8 @@ export function createSyncFeature({
           continue;
         } else if (item.action === 'DELETE_ATTACHMENT') {
           const response = await todosApi.deleteAttachment(item.data.todo_id, item.data.attachment_id);
-          await commitQueueItem(item, async () => {
-            await persistTodoWithPending(response?.todo, item.id);
-            await attachmentCache.remove(item.data.attachment_id);
-            applyAttachmentUsage(response?.usage);
-          }, syncInProgressRef);
+          await commitAttachmentDeletion(item, response?.todo, syncInProgressRef);
+          applyAttachmentUsage(response?.usage);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_TODO') {
@@ -613,10 +666,8 @@ export function createSyncFeature({
         } else if (item?.action === 'DELETE_ATTACHMENT' && err?.status === 404) {
           try {
             const usage = await todosApi.getAttachmentUsage();
-            await commitQueueItem(item, async () => {
-              await attachmentCache.remove(item.data.attachment_id);
-              applyAttachmentUsage(usage);
-            }, syncInProgressRef);
+            applyAttachmentUsage(usage);
+            await commitAttachmentDeletion(item, null, syncInProgressRef);
             successCount++;
           } catch (commitError) {
             console.error('Failed to commit missing attachment deletion', commitError);
@@ -731,10 +782,11 @@ export function createSyncFeature({
     }
 
     const pendingQueue = await dbGetAllStrict('syncQueue');
-    if (pendingQueue.length) {
+    const activePendingQueue = pendingQueue.filter(item => !(item.action === 'CREATE_ATTACHMENT' && item.data?.failed_permanent));
+    if (activePendingQueue.length) {
       await syncWithServer({ wsState, syncInProgressRef });
       const remainingQueue = await dbGetAllStrict('syncQueue');
-      if (remainingQueue.length) {
+      if (remainingQueue.some(item => !(item.action === 'CREATE_ATTACHMENT' && item.data?.failed_permanent))) {
         console.warn('Skipping server refresh while local sync queue still has pending changes');
         return;
       }
@@ -761,22 +813,24 @@ export function createSyncFeature({
           'readwrite',
           async transaction => {
             const queueBeforeCommit = await transaction.getAll('syncQueue');
-            if (queueBeforeCommit.length) return { shouldDrainQueue: true };
+            const activeQueueBeforeCommit = queueBeforeCommit.filter(item => !(item.action === 'CREATE_ATTACHMENT' && item.data?.failed_permanent));
+            if (activeQueueBeforeCommit.length) return { shouldDrainQueue: true };
             const blobRecords = await transaction.getAll('attachmentBlobs');
+            const projectedTodos = nextTodos.map(todo => projectPendingTodoChanges(todo, queueBeforeCommit)).filter(Boolean);
             for (const storeName of ['todos', 'projects', 'sections', 'workspaces']) await transaction.clear(storeName);
-            for (const todo of nextTodos) await transaction.put('todos', todo);
+            for (const todo of projectedTodos) await transaction.put('todos', todo);
             for (const project of nextProjects) await transaction.put('projects', project);
             for (const section of nextSections) await transaction.put('sections', section);
             for (const workspace of nextWorkspaces) await transaction.put('workspaces', workspace);
-            for (const blobId of getAuthoritativeAttachmentBlobIdsToDelete(blobRecords, nextTodos, queueBeforeCommit)) {
+            for (const blobId of getAuthoritativeAttachmentBlobIdsToDelete(blobRecords, projectedTodos, queueBeforeCommit)) {
               await transaction.delete('attachmentBlobs', blobId);
             }
-            return { shouldDrainQueue: false };
+            return { shouldDrainQueue: false, projectedTodos };
           },
         );
         shouldDrainQueue = commit.shouldDrainQueue;
         if (!shouldDrainQueue) {
-          setTodos(nextTodos);
+          setTodos(commit.projectedTodos || nextTodos);
           setProjects(nextProjects);
           setSections(nextSections);
           setWorkspaces(nextWorkspaces);

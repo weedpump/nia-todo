@@ -2,7 +2,11 @@
 
 import json
 import mimetypes
+import os
+import shutil
 import sqlite3
+import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
@@ -55,6 +59,71 @@ ATTACHMENT_CONFIG_KEYS = (
     "attachments_allowed_types",
     "attachments_default_quota_bytes",
 )
+
+
+def reconcile_attachment_files(
+    db,
+    *,
+    attachment_dir: Path,
+    minimum_age_seconds: int = 24 * 60 * 60,
+    now: float | None = None,
+) -> dict[str, list]:
+    """Delete only old, unreferenced regular files below the attachment root."""
+    root = Path(attachment_dir).resolve()
+    current_time = time.time() if now is None else float(now)
+    referenced = {
+        (root / str(row["todo_id"]) / str(row["stored_filename"])).resolve()
+        for row in db.execute("SELECT todo_id, stored_filename FROM todo_attachments").fetchall()
+        if row["stored_filename"]
+    }
+    deleted: list[Path] = []
+    retained: list[Path] = []
+    errors: list[dict[str, object]] = []
+
+    def walk(directory: Path) -> None:
+        try:
+            entries = list(os.scandir(directory))
+        except OSError as exc:
+            errors.append({"path": directory, "error": exc})
+            return
+        for entry in entries:
+            path = Path(entry.path)
+            try:
+                if entry.is_symlink():
+                    retained.append(path)
+                    continue
+                resolved = path.resolve()
+                if resolved == root or root not in resolved.parents:
+                    retained.append(path)
+                    continue
+                if entry.is_dir(follow_symlinks=False):
+                    stat = entry.stat(follow_symlinks=False)
+                    if directory == root and entry.name.startswith(".delete-todo-") \
+                            and current_time - stat.st_mtime >= max(0, minimum_age_seconds):
+                        shutil.rmtree(path)
+                        deleted.append(path)
+                        continue
+                    walk(path)
+                    try:
+                        path.rmdir()
+                    except OSError:
+                        pass
+                    continue
+                if not entry.is_file(follow_symlinks=False):
+                    retained.append(path)
+                    continue
+                stat = entry.stat(follow_symlinks=False)
+                if resolved in referenced or current_time - stat.st_mtime < max(0, minimum_age_seconds):
+                    retained.append(path)
+                    continue
+                path.unlink()
+                deleted.append(path)
+            except OSError as exc:
+                errors.append({"path": path, "error": exc})
+
+    if root.exists():
+        walk(root)
+    return {"deleted": deleted, "retained": retained, "errors": errors}
 
 
 def _parse_bool(value: Any, default: bool = DEFAULT_ATTACHMENTS_ENABLED) -> bool:
