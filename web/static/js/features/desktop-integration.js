@@ -463,6 +463,10 @@ export function createDesktopIntegration({
     if (isNativeApp()) await nativeBridge.clearReminders();
   }
 
+  async function cancelNativeDownloadsForPrivacy() {
+    return nativeBridge.cancelAttachmentDownloadsForPrivacy();
+  }
+
   function resumeNativeRemindersAfterPrivacy() {
     reminderGeneration += 1;
     reminderSchedulingSuspended = false;
@@ -626,6 +630,7 @@ export function createDesktopIntegration({
     notifyReminder,
     syncLocalReminders,
     clearNativeRemindersForPrivacy,
+    cancelNativeDownloadsForPrivacy,
     resumeNativeRemindersAfterPrivacy,
     updateServerUrl,
     resetServerUrl,

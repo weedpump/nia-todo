@@ -81,8 +81,9 @@ export function createAuthSessionFeature({
       }
       const payload = data.payload || {};
       if (data.kind === 'user') {
-        await storeOidcUserSession(payload);
+        const loginResult = await storeOidcUserSession(payload);
         rememberConsumedNativeOidcCode(code);
+        if (loginResult?.identity_reload_required) return;
         hideLoginOverlay();
         if (getAppInitialized()) await refreshFromServer();
         else await initApp();
@@ -186,9 +187,9 @@ export function createAuthSessionFeature({
     return !status || ![401, 403].includes(status) || error.name === 'TypeError';
   }
 
-  function storeUserSession(data) {
+  function storeUserSession(data, { activate = true } = {}) {
     const user = { ...data.user, token: data.access_token, mfa_enrollment_required: Boolean(data.mfa_enrollment_required) };
-    setCurrentUser(user);
+    if (activate) setCurrentUser(user);
     persistCachedUser(user);
     localStorage.setItem('jwt_token', data.access_token);
     localStorage.setItem('nia-mfa-enrollment-required', data.mfa_enrollment_required ? '1' : '0');
@@ -216,7 +217,13 @@ export function createAuthSessionFeature({
 
   async function completeLogin(data) {
     const newUserId = String(data.user.id);
-    await clearCacheIfUserChanged(newUserId);
+    const userChanged = await clearCacheIfUserChanged(newUserId);
+    if (userChanged) {
+      storeUserSession(data, { activate: false });
+      localStorage.setItem('last_user_id', newUserId);
+      location.reload();
+      return { ...data, identity_reload_required: true };
+    }
     storeUserSession(data);
     localStorage.setItem('last_user_id', newUserId);
     resumeNativeReminders();
@@ -411,7 +418,7 @@ export function createAuthSessionFeature({
   }
 
   async function logout() {
-    const realtimeShutdown = Promise.resolve(disconnectRealtime?.()).catch(() => {});
+    const realtimeShutdown = Promise.resolve(disconnectRealtime?.());
     await realtimeShutdown;
     await clearNativeReminders();
     if (getAuthToken()) {
@@ -533,7 +540,8 @@ export function createAuthSessionFeature({
     if (button) button.disabled = true;
     try {
       const data = await authApi.loginWithPasskey();
-      await completeLogin(data);
+      const loginResult = await completeLogin(data);
+      if (loginResult?.identity_reload_required) return;
       resetLoginMfaPanel();
       hideLoginOverlay();
       renderUserInfo();
@@ -561,15 +569,18 @@ export function createAuthSessionFeature({
     if (submitBtn) submitBtn.disabled = true;
 
     try {
+      let loginResult;
       if (pendingMfaChallenge) {
-        await verifyPendingMfaChallenge();
+        loginResult = await verifyPendingMfaChallenge();
       } else {
         const data = await login(username, password);
         if (data?.mfa_required) {
           showLoginMfaPanel(data);
           return;
         }
+        loginResult = data;
       }
+      if (loginResult?.identity_reload_required) return;
       resetLoginMfaPanel();
       hideLoginOverlay();
       renderUserInfo();
@@ -597,7 +608,7 @@ export function createAuthSessionFeature({
     form.addEventListener('submit', handleLogin);
     const oidcBtn = document.getElementById('login-oidc-btn');
     if (oidcBtn) {
-      fetch(`${API}/api/oidc/status`, { credentials: 'include' })
+      serverBoundFetch(`${API}/api/oidc/status`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (!data?.enabled) return;

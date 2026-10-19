@@ -1,5 +1,6 @@
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { attachmentCache as defaultAttachmentCache } from '../storage/attachment-cache.js';
+import { assertAuthenticatedGeneration, captureAuthenticatedGeneration, trackAuthenticatedSideEffect } from '../api/http.js';
 
 export function getAttachmentAvailability(attachment = {}) {
   if (attachment.failed_permanent) {
@@ -166,7 +167,9 @@ export function createTodoAttachmentsFeature({
       if (thumbnail.dataset.thumbnailState) return;
       thumbnail.dataset.thumbnailState = 'loading';
       try {
+        const authGeneration = captureAuthenticatedGeneration();
         const blob = await loadAttachmentBlob(todoId, attachment);
+        assertAuthenticatedGeneration(authGeneration);
         if (renderId !== attachmentThumbnailRenderId) return;
         if (!attachmentIsImagePreview(attachment, blob)) throw new Error('Attachment is not a supported image');
         const objectUrl = URL.createObjectURL(blob);
@@ -174,6 +177,7 @@ export function createTodoAttachmentsFeature({
         thumbnail.dataset.objectUrl = objectUrl;
         thumbnail.src = objectUrl;
       } catch (error) {
+        if (error?.code === 'authenticated_runtime_changed') return;
         if (renderId !== attachmentThumbnailRenderId) return;
         thumbnail.dataset.thumbnailState = 'failed';
         showAttachmentThumbnailFallback(thumbnail, fallback);
@@ -202,36 +206,47 @@ export function createTodoAttachmentsFeature({
   }
 
   async function loadAttachmentBlob(todoId, attachment) {
-    const cached = await attachmentCache.get(attachment?.id, { todoId });
-    if (cached?.blob) return cached.blob;
-    if (!isOnlineForSync()) throw new Error('Attachment is not available offline');
-    const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
-    await attachmentCache.put({
-      id: attachment.id,
-      todo_id: todoId,
-      attachment_id: attachment.id,
-      blob,
-      size_bytes: attachment.size_bytes || blob.size,
-      pending_upload: false,
-      pinned: false,
-      offline_explicit: false,
-    }).catch(error => console.warn('Failed to cache attachment download', error));
-    return blob;
+    return trackAuthenticatedSideEffect(async () => {
+      const generation = captureAuthenticatedGeneration();
+      const cached = await attachmentCache.get(attachment?.id, { todoId });
+      assertAuthenticatedGeneration(generation);
+      if (cached?.blob) return cached.blob;
+      if (!isOnlineForSync()) throw new Error('Attachment is not available offline');
+      const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
+      assertAuthenticatedGeneration(generation);
+      await attachmentCache.put({
+        id: attachment.id,
+        todo_id: todoId,
+        attachment_id: attachment.id,
+        blob,
+        size_bytes: attachment.size_bytes || blob.size,
+        pending_upload: false,
+        pinned: false,
+        offline_explicit: false,
+      }).catch(error => console.warn('Failed to cache attachment download', error));
+      assertAuthenticatedGeneration(generation);
+      return blob;
+    });
   }
 
   async function makeAttachmentAvailableOffline(todoId, attachment) {
     try {
+      const authGeneration = captureAuthenticatedGeneration();
       const blob = await loadAttachmentBlob(todoId, attachment);
+      assertAuthenticatedGeneration(authGeneration);
       const cached = await attachmentCache.get(attachment.id, { touch: false, todoId });
+      assertAuthenticatedGeneration(authGeneration);
       if (!cached) {
         await attachmentCache.put({ id: attachment.id, todo_id: todoId, attachment_id: attachment.id, blob, size_bytes: attachment.size_bytes || blob.size, pinned: true, offline_explicit: true });
       } else {
         await attachmentCache.setPinned(attachment.id, true);
       }
+      assertAuthenticatedGeneration(authGeneration);
       showToast(t('todo.attachments.availableOffline'));
       renderTodoAttachments(getTodos().find(todo => String(todo.id) === String(todoId))?.attachments || [], getTodos().find(todo => String(todo.id) === String(todoId)) || null);
       return true;
     } catch (error) {
+      if (error?.code === 'authenticated_runtime_changed') return false;
       console.error('Failed to cache todo attachment', error);
       showToast(t('todo.attachments.cacheFailed'));
       return false;
@@ -557,7 +572,9 @@ export function createTodoAttachmentsFeature({
     clearAttachmentPreviewState();
     const previewGeneration = attachmentPreviewGeneration;
     try {
+      const authGeneration = captureAuthenticatedGeneration();
       const blob = await loadAttachmentBlob(todoId, attachment);
+      assertAuthenticatedGeneration(authGeneration);
       if (previewGeneration !== attachmentPreviewGeneration) return;
       const objectUrl = URL.createObjectURL(blob);
       if (previewGeneration !== attachmentPreviewGeneration) {
@@ -585,6 +602,7 @@ export function createTodoAttachmentsFeature({
       modal?.classList.add('active');
       if (!alreadyOpen) openUiLayer('attachment-preview-modal');
     } catch (error) {
+      if (error?.code === 'authenticated_runtime_changed') return;
       if (previewGeneration !== attachmentPreviewGeneration) return;
       console.error('Failed to preview todo attachment', error);
       showToast(t('todo.attachments.previewFailed'));
@@ -611,7 +629,9 @@ export function createTodoAttachmentsFeature({
           return;
         }
       }
+      const authGeneration = captureAuthenticatedGeneration();
       const blob = await loadAttachmentBlob(todoId, attachment);
+      assertAuthenticatedGeneration(authGeneration);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -621,6 +641,7 @@ export function createTodoAttachmentsFeature({
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
+      if (error?.code === 'authenticated_runtime_changed') return;
       console.error('Failed to download todo attachment', error);
       showToast(t('todo.attachments.downloadFailed'));
     }

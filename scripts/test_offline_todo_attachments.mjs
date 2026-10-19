@@ -16,6 +16,7 @@ const { createSyncFeature } = await import('../web/static/js/features/sync.js');
 const { createWebSocketClient } = await import('../web/static/js/features/websocket-client.js');
 const { projectPendingTodoChanges, queueItemReferencesTodo } = await import('../web/static/js/features/todo-pending.js');
 const { todosApi } = await import('../web/static/js/api/todos.js');
+const { resumeAuthenticatedRequests, suspendAuthenticatedRequests } = await import('../web/static/js/api/http.js');
 
 function memoryCache(initial = []) {
   const records = new Map(initial.map(item => [item.id, structuredClone(item)]));
@@ -1187,6 +1188,29 @@ await assert.rejects(
   /not available offline/,
   'cached attachment bytes must not cross todo ownership boundaries',
 );
+
+let resolveOldAttachmentBody;
+let staleAttachmentCacheWrites = 0;
+const staleAttachmentFeature = createTodoAttachmentsFeature({
+  getTodos: () => [{ id: 9, attachments: [{ id: 92, size_bytes: 6 }] }], setTodos: () => {}, getProjects: () => [],
+  getCurrentUser: () => ({ id: 1 }), setCurrentUser: () => {}, getAppInitialized: () => true, getDb: () => ({}),
+  dbPut: async () => {}, dbPutStrict: async () => {}, dbGetAll: async () => [], dbGetAllStrict: async () => [],
+  deleteFromDB: async () => {}, deleteFromDBStrict: async () => {}, runSyncQueueMutation: async operation => operation(async () => {}),
+  isOnlineForSync: () => true, syncWithServer: async () => {},
+  todosApi: { getAttachmentBlob: () => new Promise(resolve => { resolveOldAttachmentBody = resolve; }) },
+  attachmentCache: { get: async () => null, put: async () => { staleAttachmentCacheWrites += 1; } },
+  renderStats: () => {}, renderTodos: () => {}, closeModal: () => {}, confirmDanger: async () => true,
+  showToast: () => {}, t: key => key, iconSvg: () => '', escapeHtmlAttr: String,
+  setTodoCollapsibleOpen: () => {}, refreshTodoActionButtonState: () => {}, refreshTodoSaveButtonState: () => {},
+});
+resumeAuthenticatedRequests();
+const staleAttachmentLoad = staleAttachmentFeature.loadAttachmentBlob(9, { id: 92, size_bytes: 6 });
+for (let attempt = 0; attempt < 5 && !resolveOldAttachmentBody; attempt += 1) await new Promise(resolve => setImmediate(resolve));
+suspendAuthenticatedRequests();
+resolveOldAttachmentBody(new Blob(['secret']));
+await assert.rejects(staleAttachmentLoad, error => error?.code === 'authenticated_runtime_changed', 'old attachment bytes must be rejected before a post-boundary cache commit');
+assert.equal(staleAttachmentCacheWrites, 0, 'old attachment bytes must not be written into the post-boundary cache');
+resumeAuthenticatedRequests();
 
 let releaseRacingUpload;
 let signalRacingUpload;

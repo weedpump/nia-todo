@@ -107,6 +107,8 @@ assert(authSessionSource.includes('nativeOidcCodesInFlight.has(code)'), 'native 
 assert(authSessionSource.includes('rememberConsumedNativeOidcCode(code)'), 'native OIDC must mark handoff codes consumed after a successful exchange');
 const nativeOidcCallbackSource = authSessionSource.slice(authSessionSource.indexOf('async function handleNativeOidcCallback'), authSessionSource.indexOf('function bindNativeOidcListener'));
 assert(nativeOidcCallbackSource.indexOf('await storeOidcUserSession(payload)') < nativeOidcCallbackSource.indexOf('rememberConsumedNativeOidcCode(code)'), 'native OIDC must not consume a handoff code before login completion succeeds');
+assert(!authSessionSource.includes("fetch(`${API}/api/oidc/status`"), 'OIDC status must not bypass the server-generation guard with raw fetch');
+assert(authSessionSource.includes("serverBoundFetch(`${API}/api/oidc/status`"), 'OIDC status must use the server-generation guarded fetch path');
 const logoutSource = authSessionSource.slice(authSessionSource.indexOf('async function logout()'), authSessionSource.indexOf('function showLoginOverlay()'));
 assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('disconnectRealtime?.()') < logoutSource.indexOf('authApi.logout({ signal: controller.signal })'), 'logout must close authenticated producers before the reserved revocation request');
 assert(logoutSource.includes('await realtimeShutdown'), 'logout must drain realtime work before clearing IndexedDB');
@@ -145,6 +147,8 @@ assert(!appSource.includes('window.NiaAndroidNative'), 'app core must consume no
 assert(!appSource.includes('markTodoDoneFromNative') && !appSource.includes('startNativeDoneActionPolling'), 'app core must not keep removed native notification done-action polling');
 assert(appSource.includes('activeBackgroundSyncOperations') && appSource.includes('waitForBackgroundSyncOperations'), 'logout must wait for in-flight REST sync work before clearing user data');
 assert(appSource.includes('waitForAuthenticatedSideEffects()'), 'identity transitions must drain native authenticated side effects before cleanup');
+assert(appSource.includes('cancelNativeDownloadsForPrivacy'), 'identity transitions must invalidate Android attachment downloads before cleanup');
+assert(/catch \(error\) \{\s*await resumeAuthenticatedRuntime\(\);\s*throw error;/.test(appSource), 'a bounded side-effect drain failure must restore the old authenticated runtime instead of leaving the app wedged');
 assert(appSource.includes('authSessionFeature.invalidateSessionForPrivacy({ reload: true })'), 'WebSocket session invalidation must use the full privacy cleanup path');
 assert(appSource.includes('return trackBackgroundSyncOperation(() => syncController.syncWithServer())'), 'app sync wrapper must preserve sync results for lifecycle recovery decisions');
 assert(appSource.includes('refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.())'), 'invite refreshes must join the authenticated background-operation drain');
@@ -154,6 +158,11 @@ const todoAttachmentsSource = readFileSync(new URL('../web/static/js/features/to
 assert(todosApiSource.includes('trackAuthenticatedSideEffect(() => nativeBridge.downloadToDownloads'), 'native attachment downloads must join the authenticated side-effect drain');
 const attachmentDownloadSource = todoAttachmentsSource.slice(todoAttachmentsSource.indexOf('async function downloadTodoAttachment'), todoAttachmentsSource.indexOf('async function toggleAttachmentPin'));
 assert(attachmentDownloadSource.indexOf('downloadAttachmentNative') < attachmentDownloadSource.indexOf('const blob = await loadAttachmentBlob'), 'online native download must not fetch the same attachment once in the WebView and again in native code');
+const androidMainActivitySource = readFileSync(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/MainActivity.kt', import.meta.url), 'utf8');
+assert(androidMainActivitySource.includes('nativeAttachmentDownloadGeneration'), 'Android downloads must carry a privacy generation');
+assert(androidMainActivitySource.includes('cancelAttachmentDownloadsForPrivacy'), 'Android must expose privacy invalidation for active attachment downloads');
+assert(androidMainActivitySource.includes('MediaStore.Downloads.IS_PENDING, 1') && androidMainActivitySource.includes('nativeAttachmentDownloadCommitLock'), 'Android must publish downloaded files only under the privacy commit lock');
+assert(androidMainActivitySource.includes('.part'), 'legacy Android downloads must remain hidden in a temporary file until the privacy generation is committed');
 assert(websocketClientSource.includes('activeMessageHandlers') && websocketClientSource.includes('Promise.allSettled([...activeMessageHandlers])'), 'WebSocket disconnect must drain message handlers before logout clears IndexedDB');
 const websocketDisconnectSource = websocketClientSource.slice(websocketClientSource.indexOf('function disconnectWebSocket()'), websocketClientSource.indexOf('function updateConnectionStatus()'));
 assert(websocketDisconnectSource.includes('ws.onmessage = null'), 'WebSocket disconnect must reject queued message delivery before taking the handler-drain snapshot');

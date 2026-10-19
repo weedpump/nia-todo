@@ -441,6 +441,13 @@ export function createNativeBridge() {
     return false;
   }
 
+  async function cancelAttachmentDownloadsForPrivacy() {
+    if (isAndroid() && hasAndroidMethod('cancelAttachmentDownloadsForPrivacy')) {
+      return Boolean(android().cancelAttachmentDownloadsForPrivacy());
+    }
+    return true;
+  }
+
   async function installUpdate() {
     if (!isDesktop() || RUNTIME_PLATFORM !== 'windows') {
       throw new Error('Native in-place updates are currently available on Windows only');
@@ -613,6 +620,7 @@ export function createNativeBridge() {
     passkeyAuthenticate,
     openExternal,
     downloadToDownloads,
+    cancelAttachmentDownloadsForPrivacy,
     androidUpdatePermissionState,
     openAndroidUpdatePermissionSettings,
     installAndroidUpdate,

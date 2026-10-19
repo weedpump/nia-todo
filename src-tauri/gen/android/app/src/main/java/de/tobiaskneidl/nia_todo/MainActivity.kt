@@ -75,6 +75,8 @@ class MainActivity : TauriActivity() {
   private val androidUpdateInFlight = AtomicBoolean(false)
   private val androidUpdateCancelled = AtomicBoolean(false)
   private val notificationIds = AtomicInteger(1000)
+  private val nativeAttachmentDownloadGeneration = AtomicInteger(0)
+  private val nativeAttachmentDownloadCommitLock = Any()
   private var appWebView: WebView? = null
   private var nativeAudioRecorder: MediaRecorder? = null
   private var nativeAudioFile: File? = null
@@ -963,6 +965,7 @@ class MainActivity : TauriActivity() {
 
   private fun startNativeDownloadToDownloads(url: String, filename: String, headersJson: String): String {
     return try {
+      val downloadGeneration = nativeAttachmentDownloadGeneration.get()
       val uri = URI(url)
       val scheme = (uri.scheme ?: "").lowercase(Locale.ROOT)
       if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Unsupported download URL")
@@ -975,6 +978,7 @@ class MainActivity : TauriActivity() {
       val headers = JSONObject(headersJson.ifBlank { "{}" })
       lifecycleScope.launch(Dispatchers.IO) {
         var collectionUri: Uri? = null
+        var legacyPendingFile: File? = null
         try {
           val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -989,6 +993,7 @@ class MainActivity : TauriActivity() {
           connection.connect()
           val status = connection.responseCode
           if (status !in 200..299) throw IllegalStateException("Download failed: HTTP $status")
+          if (downloadGeneration != nativeAttachmentDownloadGeneration.get()) throw IllegalStateException("Download cancelled for privacy transition")
           val mimeType = connection.contentType?.split(";", limit = 2)?.firstOrNull()?.trim()?.ifBlank { null }
             ?: "application/octet-stream"
           val savedLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -1004,14 +1009,25 @@ class MainActivity : TauriActivity() {
             contentResolver.openOutputStream(destinationUri)?.use { output ->
               connection.inputStream.use { input -> input.copyTo(output) }
             } ?: throw IllegalStateException("Could not open download entry")
-            val done = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
-            contentResolver.update(destinationUri, done, null, null)
+            synchronized(nativeAttachmentDownloadCommitLock) {
+              if (downloadGeneration != nativeAttachmentDownloadGeneration.get()) throw IllegalStateException("Download cancelled for privacy transition")
+              val done = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
+              contentResolver.update(destinationUri, done, null, null)
+            }
             "Downloads/nia-todo/$targetName"
           } else {
             val dir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "nia-todo").apply { mkdirs() }
             val target = File(dir, targetName)
-            target.outputStream().use { output ->
+            val pending = File(dir, ".$targetName.$downloadGeneration.part")
+            legacyPendingFile = pending
+            pending.outputStream().use { output ->
               connection.inputStream.use { input -> input.copyTo(output) }
+            }
+            synchronized(nativeAttachmentDownloadCommitLock) {
+              if (downloadGeneration != nativeAttachmentDownloadGeneration.get()) throw IllegalStateException("Download cancelled for privacy transition")
+              if (target.exists() && !target.delete()) throw IllegalStateException("Could not replace existing download")
+              if (!pending.renameTo(target)) throw IllegalStateException("Could not publish download")
+              legacyPendingFile = null
             }
             target.absolutePath
           }
@@ -1020,6 +1036,7 @@ class MainActivity : TauriActivity() {
           }
         } catch (error: Exception) {
           collectionUri?.let { runCatching { contentResolver.delete(it, null, null) } }
+          legacyPendingFile?.let { runCatching { it.delete() } }
           runOnUiThread {
             Toast.makeText(this@MainActivity, "Download fehlgeschlagen: ${error.message ?: error.javaClass.simpleName}", Toast.LENGTH_LONG).show()
           }
@@ -1029,6 +1046,13 @@ class MainActivity : TauriActivity() {
     } catch (error: Exception) {
       JSONObject().put("ok", false).put("error", error.message ?: error.javaClass.simpleName).toString()
     }
+  }
+
+  private fun cancelAttachmentDownloadsForPrivacy(): Boolean {
+    synchronized(nativeAttachmentDownloadCommitLock) {
+      nativeAttachmentDownloadGeneration.incrementAndGet()
+    }
+    return true
   }
 
   inner class AndroidNativeBridge {
@@ -1064,6 +1088,11 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun downloadToDownloads(url: String, filename: String, headersJson: String): String {
       return this@MainActivity.startNativeDownloadToDownloads(url, filename, headersJson)
+    }
+
+    @JavascriptInterface
+    fun cancelAttachmentDownloadsForPrivacy(): Boolean {
+      return this@MainActivity.cancelAttachmentDownloadsForPrivacy()
     }
 
     @JavascriptInterface

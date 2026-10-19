@@ -37,10 +37,15 @@ export function resumeServerBoundRequests() {
   serverBoundRequestsSuspended = false;
 }
 
-function assertAuthenticatedGeneration(generation) {
+export function assertAuthenticatedGeneration(generation) {
   if (authenticatedRequestsSuspended || generation !== authenticatedRuntimeGeneration) {
     throw runtimeBoundaryError();
   }
+}
+
+export function captureAuthenticatedGeneration() {
+  if (authenticatedRequestsSuspended) throw runtimeBoundaryError();
+  return authenticatedRuntimeGeneration;
 }
 
 function assertServerGeneration(generation) {
@@ -95,7 +100,10 @@ export async function serverBoundFetch(input, init) {
 export function trackAuthenticatedSideEffect(operation) {
   if (authenticatedRequestsSuspended) return Promise.reject(runtimeBoundaryError());
   const generation = authenticatedRuntimeGeneration;
-  const task = Promise.resolve().then(operation).then(result => {
+  const task = Promise.resolve().then(() => {
+    assertAuthenticatedGeneration(generation);
+    return operation();
+  }).then(result => {
     assertAuthenticatedGeneration(generation);
     return result;
   });
@@ -107,9 +115,25 @@ export function trackAuthenticatedSideEffect(operation) {
   return task;
 }
 
-export async function waitForAuthenticatedSideEffects() {
-  while (activeAuthenticatedSideEffects.size) {
-    await Promise.allSettled([...activeAuthenticatedSideEffects]);
+export async function waitForAuthenticatedSideEffects(timeoutMs = 65000) {
+  if (!activeAuthenticatedSideEffects.size) return;
+  let timeoutId;
+  const drain = (async () => {
+    while (activeAuthenticatedSideEffects.size) {
+      await Promise.allSettled([...activeAuthenticatedSideEffects]);
+    }
+  })();
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error('Authenticated native side effects did not terminate');
+      error.code = 'authenticated_side_effect_timeout';
+      reject(error);
+    }, timeoutMs);
+  });
+  try {
+    await Promise.race([drain, timeout]);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

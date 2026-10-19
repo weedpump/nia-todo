@@ -370,12 +370,18 @@ async function disconnectAuthenticatedRuntime() {
   authenticatedRuntimeDraining = true;
   suspendAuthenticatedRequests();
   brainDumpLiveFeature.resetForIdentityBoundary();
-  const websocketDrain = disconnectWebSocket();
-  await Promise.allSettled([
-    websocketDrain,
-    waitForBackgroundSyncOperations(),
-    waitForAuthenticatedSideEffects(),
-  ]);
+  try {
+    await desktopIntegration?.cancelNativeDownloadsForPrivacy?.();
+    const websocketDrain = disconnectWebSocket();
+    await Promise.allSettled([
+      websocketDrain,
+      waitForBackgroundSyncOperations(),
+    ]);
+    await waitForAuthenticatedSideEffects();
+  } catch (error) {
+    await resumeAuthenticatedRuntime();
+    throw error;
+  }
 }
 
 async function resumeAuthenticatedRuntime() {

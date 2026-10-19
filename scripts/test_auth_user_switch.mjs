@@ -104,6 +104,8 @@ values.set('last_user_id', '1');
 let resolveRuntimeDrain;
 const runtimeDrain = new Promise(resolve => { resolveRuntimeDrain = resolve; });
 const boundaryEvents = [];
+const boundaryReload = location.reload;
+location.reload = () => { boundaryEvents.push('reload'); };
 const drainedFeature = createAuthSessionFeature({
   authApi: { login: async () => ({ access_token: 'new-token', user: { id: 2, username: 'new-user' } }) },
   getAppInitialized: () => true,
@@ -120,8 +122,10 @@ await Promise.resolve();
 await Promise.resolve();
 assert.deepEqual(boundaryEvents, ['drain:start'], 'cross-user cleanup must drain the old authenticated runtime before deleting old data');
 resolveRuntimeDrain();
-await drainedLogin;
-assert.deepEqual(boundaryEvents, ['drain:start', 'drain:done', 'clear:reminders', 'clear:indexeddb', 'activate:new-user', 'resume:reminders', 'resume:runtime']);
+const drainedResult = await drainedLogin;
+assert.equal(drainedResult.identity_reload_required, true);
+assert.deepEqual(boundaryEvents, ['drain:start', 'drain:done', 'clear:reminders', 'clear:indexeddb', 'reload'], 'cross-user login must persist credentials for a reload without activating user B in user A\'s in-memory app');
+location.reload = boundaryReload;
 
 values.set('last_user_id', '1');
 const sameUserEvents = [];
@@ -287,6 +291,12 @@ const {
 } = await import('../web/static/js/api/http.js');
 let finishNativeDownload;
 resumeAuthenticatedRequests();
+let deferredNativeCallStarted = false;
+const deferredNativeCall = trackAuthenticatedSideEffect(async () => { deferredNativeCallStarted = true; });
+suspendAuthenticatedRequests();
+await assert.rejects(deferredNativeCall, error => error?.code === 'authenticated_runtime_changed', 'a queued native side effect must recheck the boundary before invoking native code');
+assert.equal(deferredNativeCallStarted, false);
+resumeAuthenticatedRequests();
 const nativeDownload = trackAuthenticatedSideEffect(() => new Promise(resolve => { finishNativeDownload = resolve; }));
 await Promise.resolve();
 suspendAuthenticatedRequests();
@@ -300,5 +310,12 @@ await Promise.allSettled([nativeDownload]);
 await sideEffectDrain;
 assert.equal(sideEffectsDrained, true);
 resumeAuthenticatedRequests();
+
+let releaseHungSideEffect;
+const boundedSideEffect = trackAuthenticatedSideEffect(() => new Promise(resolve => { releaseHungSideEffect = resolve; }));
+await Promise.resolve();
+await assert.rejects(waitForAuthenticatedSideEffects(5), error => error?.code === 'authenticated_side_effect_timeout', 'native side-effect drain must fail closed instead of waiting forever');
+releaseHungSideEffect(true);
+await boundedSideEffect;
 
 console.log('✅ Cross-user login fails closed before activating the new identity');
