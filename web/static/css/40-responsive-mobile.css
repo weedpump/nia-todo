@@ -123,25 +123,33 @@
   #online-status {
     justify-self: center;
     align-self: center;
-    width: 30px;
+    width: auto;
+    min-width: 30px;
     height: 30px;
     margin: 0;
   }
   .status-syncing,
   .status-pending-sync {
-    width: 30px;
-    min-width: 30px;
+    width: auto;
+    min-width: 42px;
     height: 28px;
-    padding: 0;
+    padding: 0 8px;
     font-size: 0;
   }
   .status-syncing::before {
-    width: 9px;
-    height: 9px;
+    width: 16px;
+    height: 16px;
     margin-right: 0;
   }
-  .status-pending-sync::after {
-    content: attr(data-count);
+  .status-sync-icon {
+    width: 15px;
+    height: 15px;
+    margin-right: 0;
+  }
+  .status-pending-sync {
+    gap: 5px;
+  }
+  .status-sync-count {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -154,6 +162,9 @@
     font-size: 11px;
     font-weight: 950;
     line-height: 1;
+  }
+  .status-pending-sync::after {
+    content: none;
   }
   .fab-add-todo {
     right: calc(18px + env(safe-area-inset-right, 0px));
@@ -411,7 +422,8 @@
 /* Online Status Indicator */
 #online-status {
   display: none;
-  width: 22px;
+  width: auto;
+  min-width: 22px;
   height: 22px;
   border-radius: 12px;
   margin-right: 0;
@@ -424,16 +436,7 @@
 }
 .status-offline {
   display: inline-flex !important;
-  background: rgba(239, 68, 68, 0.2);
   align-items: center;
   justify-content: center;
-}
-.status-offline::after {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
 }
 
