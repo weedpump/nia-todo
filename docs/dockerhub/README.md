@@ -125,7 +125,6 @@ Useful paths after setup:
 ```text
 /setup      Initial setup
 /admin      Admin panel
-/downloads  Bundled native app downloads
 ```
 
 ## Image mirrors
