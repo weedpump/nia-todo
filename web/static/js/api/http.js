@@ -1,6 +1,60 @@
 import { API, APP_VERSION, RUNTIME_MODE, RUNTIME_PLATFORM } from '../core/config.js';
 import { apiErrorFromResponse } from './errors.js';
 
+let authenticatedRuntimeGeneration = 0;
+let authenticatedRequestsSuspended = false;
+
+function runtimeBoundaryError() {
+  const error = new Error('Authenticated runtime changed while request was in flight');
+  error.code = 'authenticated_runtime_changed';
+  return error;
+}
+
+export function suspendAuthenticatedRequests() {
+  authenticatedRequestsSuspended = true;
+  authenticatedRuntimeGeneration += 1;
+}
+
+export function resumeAuthenticatedRequests() {
+  authenticatedRequestsSuspended = false;
+}
+
+function assertAuthenticatedGeneration(generation) {
+  if (authenticatedRequestsSuspended || generation !== authenticatedRuntimeGeneration) {
+    throw runtimeBoundaryError();
+  }
+}
+
+function guardAuthenticatedResponse(response, generation) {
+  const guardedBodyMethods = new Set(['arrayBuffer', 'blob', 'bytes', 'formData', 'json', 'text']);
+  return new Proxy(response, {
+    get(target, property) {
+      const value = Reflect.get(target, property, target);
+      if (typeof value !== 'function') return value;
+      if (!guardedBodyMethods.has(property)) return value.bind(target);
+      return async (...args) => {
+        assertAuthenticatedGeneration(generation);
+        const result = await value.apply(target, args);
+        assertAuthenticatedGeneration(generation);
+        return result;
+      };
+    },
+  });
+}
+
+export async function authenticatedFetch(input, init) {
+  if (authenticatedRequestsSuspended) throw runtimeBoundaryError();
+  const generation = authenticatedRuntimeGeneration;
+  const response = await fetch(input, init);
+  try {
+    assertAuthenticatedGeneration(generation);
+  } catch (error) {
+    response.body?.cancel?.().catch?.(() => {});
+    throw error;
+  }
+  return guardAuthenticatedResponse(response, generation);
+}
+
 export function getAuthToken() {
   return localStorage.getItem('jwt_token') || localStorage.getItem('auth_token');
 }
@@ -42,7 +96,7 @@ async function request(method, path, body) {
   if (controller) options.signal = controller.signal;
   if (body !== undefined) options.body = JSON.stringify(body);
   try {
-    const r = await fetch(API + path, options);
+    const r = await authenticatedFetch(API + path, options);
     if (!r.ok) await apiErrorFromResponse(r, `${r.status} ${r.statusText}`);
     return r.json();
   } finally {

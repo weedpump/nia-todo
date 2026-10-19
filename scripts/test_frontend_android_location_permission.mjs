@@ -137,6 +137,29 @@ async function testDelayedZeroCountRetriesAndWarns() {
   assert.equal(warnings, 1);
 }
 
+async function testGenerationChangeStopsPermissionContinuation() {
+  let resolvePermission;
+  let current = true;
+  let calls = 0;
+  const operation = scheduleAndroidLocationReminders({
+    nativeBridge: {
+      async scheduleLocationReminders() {
+        calls += 1;
+        return 0;
+      },
+    },
+    reminders: [{ id: 'old-user-location' }],
+    ensurePermission: () => new Promise(resolve => { resolvePermission = resolve; }),
+    isCurrent: () => current,
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls, 1, 'the initial native snapshot write should occur before permission guidance');
+  current = false;
+  resolvePermission(true);
+  assert.equal(await operation, 0);
+  assert.equal(calls, 1, 'a stale permission continuation must not retry the native write');
+}
+
 function testTemporaryEmptyBootstrapDoesNotReplaceNativeReminderSnapshot() {
   const snapshots = createNativeReminderSnapshotState();
   assert.equal(snapshots.accept([], { authoritative: false }), false);
@@ -301,6 +324,7 @@ await testContinueStartsExistingNativeFlow();
 await testDeclinePersistsNativeDecision();
 await testConcurrentSchedulingSharesOnePrompt();
 await testDelayedZeroCountRetriesAndWarns();
+await testGenerationChangeStopsPermissionContinuation();
 testTemporaryEmptyBootstrapDoesNotReplaceNativeReminderSnapshot();
 await testHistoryBackSettlesPromptAndAllowsRetry();
 await testOriginRestrictedLocationBridgeContract();

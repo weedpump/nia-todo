@@ -1,5 +1,5 @@
 import { API } from '../core/config.js';
-import { http, getAuthHeaders } from './http.js';
+import { authenticatedFetch, http, getAuthHeaders } from './http.js';
 import { apiErrorFromResponse } from './errors.js';
 
 async function parseOrThrow(response, fallback = 'Request failed') {
@@ -25,7 +25,7 @@ export const todosApi = {
     delete headers['Content-Type'];
     const filename = options.filename || file.name || 'attachment';
     const contentType = options.contentType || file.type || 'application/octet-stream';
-    const response = await fetch(API + `/api/todos/${todoId}/attachments`, {
+    const response = await authenticatedFetch(API + `/api/todos/${todoId}/attachments`, {
       method: 'POST',
       headers: {
         ...headers,
@@ -39,7 +39,7 @@ export const todosApi = {
     return parseOrThrow(response, 'Attachment upload failed');
   },
   async getAttachmentBlob(todoId, attachmentId) {
-    const response = await fetch(API + `/api/todos/${todoId}/attachments/${attachmentId}/download`, {
+    const response = await authenticatedFetch(API + `/api/todos/${todoId}/attachments/${attachmentId}/download`, {
       headers: getAuthHeaders(),
       credentials: 'include',
     });

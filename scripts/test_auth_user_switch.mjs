@@ -135,4 +135,34 @@ const sameUserFeature = createAuthSessionFeature({
 await sameUserFeature.login('old-user', 'password');
 assert.deepEqual(sameUserEvents, ['activate', 'resume:reminders', 'resume:runtime'], 'successful login must reactivate a runtime intentionally closed by cached-session rejection');
 
+const originalFetch = globalThis.fetch;
+const { http, resumeAuthenticatedRequests, suspendAuthenticatedRequests } = await import('../web/static/js/api/http.js');
+let resolveOldResponse;
+let resolveOldBody;
+let fetchCalls = 0;
+globalThis.fetch = async () => {
+  fetchCalls += 1;
+  if (fetchCalls === 1) return new Promise(resolve => { resolveOldResponse = resolve; });
+  if (fetchCalls === 2) return { ok: true, json: () => new Promise(resolve => { resolveOldBody = resolve; }) };
+  return { ok: true, json: async () => ({ sections: [{ id: 2 }] }) };
+};
+resumeAuthenticatedRequests();
+const oldNavigationRequest = http.get('/api/sections?project_id=1');
+await Promise.resolve();
+suspendAuthenticatedRequests();
+resolveOldResponse({ ok: true, body: { cancel: async () => {} }, json: async () => ({ sections: [{ id: 1 }] }) });
+await assert.rejects(oldNavigationRequest, error => error?.code === 'authenticated_runtime_changed', 'an old REST response must be rejected after the identity boundary changes');
+await assert.rejects(http.get('/api/sections?project_id=1'), error => error?.code === 'authenticated_runtime_changed', 'new authenticated REST work must remain blocked during the drain');
+assert.equal(fetchCalls, 1, 'suspended requests must be rejected before reaching fetch');
+resumeAuthenticatedRequests();
+const oldBodyRead = http.get('/api/sections?project_id=1');
+await Promise.resolve();
+await Promise.resolve();
+suspendAuthenticatedRequests();
+resolveOldBody({ sections: [{ id: 1 }] });
+await assert.rejects(oldBodyRead, error => error?.code === 'authenticated_runtime_changed', 'an identity change during response parsing must reject the old body');
+resumeAuthenticatedRequests();
+assert.deepEqual(await http.get('/api/sections?project_id=2'), { sections: [{ id: 2 }] }, 'authenticated REST must resume for the new identity');
+globalThis.fetch = originalFetch;
+
 console.log('✅ Cross-user login fails closed before activating the new identity');

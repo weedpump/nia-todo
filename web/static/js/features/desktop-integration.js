@@ -132,6 +132,7 @@ export function createDesktopIntegration({
   let reminderScheduleTimer = null;
   let reminderGeneration = 0;
   let reminderSchedulingSuspended = false;
+  let serverSwitchInProgress = false;
   const activeReminderOperations = new Set();
   let settingsControlsBound = false;
   let settingsLoaded = !isNativeApp();
@@ -403,6 +404,7 @@ export function createDesktopIntegration({
           nativeBridge,
           reminders: locationReminders,
           ensurePermission: ensureNativeLocationPermission,
+          isCurrent,
         });
       } catch (error) {
         console.warn('[Native] Failed to schedule local reminders', error);
@@ -464,27 +466,55 @@ export function createDesktopIntegration({
   }
 
   async function updateServerUrl(value) {
-    if (!isNativeApp()) return;
+    if (!isNativeApp()) return false;
+    if (serverSwitchInProgress) return false;
+    serverSwitchInProgress = true;
+    let reloadScheduled = false;
     try {
       const serverUrl = normalizeRuntimeServerUrl(value);
       await clearServerScopedBrowserData();
       settings = mergeSettings(await nativeBridge.setServerUrl(serverUrl));
       setDesktopStatus(t('settings.desktop.server.savedReloading'));
-      setTimeout(() => location.reload(), 250);
+      reloadScheduled = true;
+      setTimeout(() => {
+        try {
+          location.reload();
+        } finally {
+          serverSwitchInProgress = false;
+        }
+      }, 250);
+      return true;
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
+      return false;
+    } finally {
+      if (!reloadScheduled) serverSwitchInProgress = false;
     }
   }
 
   async function resetServerUrl() {
-    if (!isNativeApp()) return;
+    if (!isNativeApp()) return false;
+    if (serverSwitchInProgress) return false;
+    serverSwitchInProgress = true;
+    let reloadScheduled = false;
     try {
       await clearServerScopedBrowserData();
       await nativeBridge.clearServerUrl();
       setDesktopStatus(t('settings.desktop.server.selectionOpening'));
-      setTimeout(() => location.reload(), 250);
+      reloadScheduled = true;
+      setTimeout(() => {
+        try {
+          location.reload();
+        } finally {
+          serverSwitchInProgress = false;
+        }
+      }, 250);
+      return true;
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
+      return false;
+    } finally {
+      if (!reloadScheduled) serverSwitchInProgress = false;
     }
   }
 

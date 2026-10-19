@@ -1,5 +1,5 @@
 import { API } from '../core/config.js';
-import { getAuthHeaders, getAuthToken } from '../api/http.js';
+import { authenticatedFetch, getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
 import { hydrateIcons, iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
@@ -122,7 +122,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     if (state.accessChecked) return;
     state.accessChecked = true;
     try {
-      const response = await fetch(`${API}/api/braindump/v2/access`, {
+      const response = await authenticatedFetch(`${API}/api/braindump/v2/access`, {
         headers: getAuthHeaders(),
         credentials: 'include',
       });
@@ -681,7 +681,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.requestControllers.add(controller);
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      return await fetch(url, { ...options, signal: controller.signal });
+      return await authenticatedFetch(url, { ...options, signal: controller.signal });
     } finally {
       clearTimeout(timeout);
       state.requestControllers.delete(controller);
@@ -877,7 +877,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.createMessage = '';
     render();
     try {
-      const response = await fetch(`${API}/api/braindump/v2/todos`, {
+      const response = await authenticatedFetch(`${API}/api/braindump/v2/todos`, {
         method: 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
         credentials: 'include',

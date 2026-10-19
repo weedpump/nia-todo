@@ -51,14 +51,19 @@ export async function scheduleAndroidLocationReminders({
   nativeBridge,
   reminders,
   ensurePermission,
+  isCurrent = () => true,
   warn = console.warn,
 }) {
   const schedules = Array.isArray(reminders) ? reminders : [];
+  if (!isCurrent()) return 0;
   let count = Number(await nativeBridge?.scheduleLocationReminders?.(schedules)) || 0;
+  if (!isCurrent()) return count;
   if (!schedules.length) return count;
   const granted = await ensurePermission(true);
+  if (!isCurrent()) return count;
   if (!granted || count >= schedules.length) return count;
   count = Number(await nativeBridge?.scheduleLocationReminders?.(schedules)) || 0;
+  if (!isCurrent()) return count;
   if (count < schedules.length) {
     warn('[Native] Some location reminders were not scheduled', { scheduledLocations: count, expected: schedules.length });
   }

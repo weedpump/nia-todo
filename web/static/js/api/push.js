@@ -1,5 +1,5 @@
 import { API } from '../core/config.js';
-import { getAuthHeaders } from './http.js';
+import { authenticatedFetch, getAuthHeaders } from './http.js';
 
 async function request(method, path, body) {
   const options = {
@@ -8,7 +8,7 @@ async function request(method, path, body) {
     credentials: 'include',
   };
   if (body !== undefined) options.body = JSON.stringify(body);
-  const response = await fetch(API + path, options);
+  const response = await authenticatedFetch(API + path, options);
   if (!response.ok) throw new Error(response.status + ' ' + response.statusText);
   return response.json();
 }

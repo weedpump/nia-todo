@@ -1,4 +1,4 @@
-import { getAuthHeaders } from '../api/http.js';
+import { authenticatedFetch, getAuthHeaders } from '../api/http.js';
 import {
   getAvatarIfReady,
   getAvatarWhenReady,
@@ -113,7 +113,7 @@ export async function loadAuthenticatedImage(img, url, {
     let blobPromise = fetchKey ? inFlightFetches.get(fetchKey) : null;
     if (!blobPromise) {
       blobPromise = (async () => {
-        const response = await fetch(url, { headers, credentials: 'include', cache: 'no-store' });
+        const response = await authenticatedFetch(url, { headers, credentials: 'include', cache: 'no-store' });
         if (!response.ok) return null;
         const blob = await response.blob();
         if (id && cacheVersion) {

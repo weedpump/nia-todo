@@ -136,6 +136,27 @@ try {
   assert.deepEqual(events, ['drain:runtime', 'clear:reminders'], 'native reminder cleanup failures must fail closed before changing server or identity state');
 
   events.length = 0;
+  let releaseConcurrentDrain;
+  const concurrentDrain = new Promise(resolve => { releaseConcurrentDrain = resolve; });
+  const concurrentFeature = createDesktopIntegration({
+    showToast: () => {}, onHotkeyNewTodo: () => {}, onHotkeySearch: () => {}, getCurrentUser: () => null,
+    disconnectRealtime: async () => { events.push('drain:runtime'); await concurrentDrain; },
+    clearNativeReminders: async () => { events.push('clear:reminders'); },
+    clearLocalAuthState: () => { events.push('clear:auth'); },
+    clearBrowserAuthCaches: async () => { events.push('clear:browser'); },
+    clearCache: async () => { events.push('clear:indexeddb'); },
+  });
+  const concurrentUpdate = concurrentFeature.updateServerUrl('https://serialized.example');
+  await Promise.resolve();
+  const concurrentReset = await concurrentFeature.resetServerUrl();
+  assert.equal(concurrentReset, false, 'a reset must not overlap an active server update');
+  assert.deepEqual(events, ['drain:runtime']);
+  releaseConcurrentDrain();
+  await concurrentUpdate;
+  assert.equal(events.includes('persist:reset'), false, 'the rejected concurrent reset must not persist');
+  assert.equal(events.filter(event => event === 'clear:indexeddb').length, 1, 'a concurrent switch must run cleanup exactly once');
+
+  events.length = 0;
   let delayedReminderCallback = null;
   globalThis.setTimeout = callback => { delayedReminderCallback = callback; return 42; };
   const privacyFeature = createDesktopIntegration({
