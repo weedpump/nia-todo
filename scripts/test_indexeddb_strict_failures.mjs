@@ -21,11 +21,56 @@ const database = {
   transaction(storeNames) {
     const names = Array.isArray(storeNames) ? storeNames : [storeNames];
     const staged = new Map(names.map(name => [name, new Map(stores.get(name) || [])]));
-    const tx = { error: new Error('transaction failed'), abort() { transactionOutcome = 'abort'; } };
+    let active = true;
+    let aborted = false;
+    let pendingRequests = 0;
+    let finishScheduled = false;
+    const scheduleFinish = () => {
+      if (finishScheduled) return;
+      finishScheduled = true;
+      setTimeout(() => {
+        finishScheduled = false;
+        if (!active || aborted || pendingRequests) return;
+        active = false;
+        if (transactionOutcome === 'complete') {
+          for (const [name, records] of staged) stores.set(name, records);
+          tx.oncomplete?.();
+        } else if (transactionOutcome === 'abort') tx.onabort?.();
+        else if (transactionOutcome === 'error') tx.onerror?.();
+      }, 0);
+    };
+    const runRequest = callback => {
+      pendingRequests += 1;
+      setTimeout(() => {
+        try {
+          if (active) callback();
+        } finally {
+          pendingRequests -= 1;
+          scheduleFinish();
+        }
+      }, 0);
+    };
+    const assertActive = () => {
+      if (!active) {
+        const error = new Error('The transaction is inactive');
+        error.name = 'TransactionInactiveError';
+        throw error;
+      }
+    };
+    const tx = {
+      error: new Error('transaction failed'),
+      abort() {
+        if (!active) throw new Error('The transaction has already finished');
+        aborted = true;
+        active = false;
+        queueMicrotask(() => tx.onabort?.());
+      },
+    };
     tx.objectStore = name => ({
       put(item) {
+        assertActive();
         const request = {};
-        queueMicrotask(() => {
+        runRequest(() => {
           staged.get(name).set(item.id, structuredClone(item));
           request.result = item.id;
           request.onsuccess?.();
@@ -33,23 +78,27 @@ const database = {
         return request;
       },
       delete(id) {
+        assertActive();
         const request = {};
-        queueMicrotask(() => { staged.get(name).delete(id); request.onsuccess?.(); });
+        runRequest(() => { staged.get(name).delete(id); request.onsuccess?.(); });
         return request;
       },
       clear() {
+        assertActive();
         const request = {};
-        queueMicrotask(() => { staged.get(name).clear(); request.onsuccess?.(); });
+        runRequest(() => { staged.get(name).clear(); request.onsuccess?.(); });
         return request;
       },
       get(id) {
+        assertActive();
         const request = {};
-        queueMicrotask(() => { request.result = staged.get(name).get(id); request.onsuccess?.(); });
+        runRequest(() => { request.result = staged.get(name).get(id); request.onsuccess?.(); });
         return request;
       },
       getAll() {
+        assertActive();
         const request = {};
-        queueMicrotask(() => {
+        runRequest(() => {
           if (transactionOutcome === 'request-error') request.onerror?.();
           else {
             request.result = [...staged.get(name).values()];
@@ -59,14 +108,7 @@ const database = {
         return request;
       },
     });
-    setTimeout(() => {
-      if (transactionOutcome === 'complete') {
-        for (const [name, records] of staged) stores.set(name, records);
-        tx.oncomplete?.();
-      }
-      else if (transactionOutcome === 'abort') tx.onabort?.();
-      else if (transactionOutcome === 'error') tx.onerror?.();
-    }, 0);
+    scheduleFinish();
     return tx;
   },
 };
@@ -119,6 +161,24 @@ await indexedDb.transactionStrict(['todos', 'syncQueue'], 'readwrite', async tra
 });
 assert.equal(stores.get('todos').get(1).title, 'Committed');
 assert.equal(stores.get('syncQueue').has(1), false);
+
+stores.get('todos').set(2, { id: 2, title: 'Before delayed rejection' });
+await assert.rejects(
+  indexedDb.transactionStrict(['todos'], 'readwrite', async transaction => {
+    await transaction.put('todos', { id: 2, title: 'Must roll back' });
+    await new Promise((_, reject) => setTimeout(() => reject(new Error('late operation failure')), 20));
+  }),
+  /late operation failure/,
+);
+assert.equal(stores.get('todos').get(2).title, 'Before delayed rejection', 'a delayed operation rejection must abort before writes commit');
+
+stores.get('todos').set(3, { id: 3, title: 'Before delayed commit' });
+await indexedDb.transactionStrict(['todos'], 'readwrite', async transaction => {
+  await transaction.put('todos', { id: 3, title: 'First write' });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  await transaction.put('todos', { id: 3, title: 'Committed after await' });
+});
+assert.equal(stores.get('todos').get(3).title, 'Committed after await', 'the transaction must remain active for requests issued after an asynchronous await');
 
 const appStorage = createAppStorage({ setDb() {} });
 assert.equal(typeof appStorage.dbPutStrict, 'function');

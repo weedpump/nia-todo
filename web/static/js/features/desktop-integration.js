@@ -421,9 +421,9 @@ export function createDesktopIntegration({
   }
 
   async function clearServerScopedBrowserData() {
-    clearLocalAuthState();
     await clearBrowserAuthCaches();
     await clearCache();
+    clearLocalAuthState();
   }
 
   async function updateServerUrl(value) {

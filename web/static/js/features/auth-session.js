@@ -387,28 +387,19 @@ export function createAuthSessionFeature({
   }
 
   async function logout() {
-    setCurrentUser(null);
     const realtimeShutdown = Promise.resolve(disconnectRealtime?.()).catch(() => {});
-
-    let logoutRequest = null;
-    if (getAuthToken()) {
-      try {
-        logoutRequest = Promise.resolve(authApi.logout()).catch(() => {});
-      } catch (e) {
-        // Ignore logout errors; local session cleanup still needs to happen.
-      }
-    }
-    localStorage.removeItem('jwt_token');
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('last_user_id');
-    localStorage.removeItem('csrf_token');
-    localStorage.removeItem('cached_user');
-    localStorage.removeItem('nia-mfa-enrollment-required');
-
-    if (logoutRequest) await logoutRequest;
     await realtimeShutdown;
     await clearBrowserAuthCaches();
     await clearCache();
+
+    if (getAuthToken()) {
+      try {
+        await authApi.logout();
+      } catch (e) {
+        // Ignore logout errors after local privacy cleanup has succeeded.
+      }
+    }
+    clearLocalAuthState();
     location.reload();
   }
 

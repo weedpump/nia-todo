@@ -106,11 +106,14 @@ assert(authSessionSource.includes('nia_consumed_native_oidc_codes'), 'native OID
 assert(authSessionSource.includes('nativeOidcCodesInFlight.has(code)'), 'native OIDC must dedupe simultaneous callback delivery before the one-time handoff is consumed twice');
 assert(authSessionSource.includes('rememberConsumedNativeOidcCode(code)'), 'native OIDC must mark handoff codes consumed after a successful exchange');
 const logoutSource = authSessionSource.slice(authSessionSource.indexOf('async function logout()'), authSessionSource.indexOf('function showLoginOverlay()'));
-assert(logoutSource.includes('setCurrentUser(null)') && logoutSource.indexOf('setCurrentUser(null)') < logoutSource.indexOf('authApi.logout()'), 'logout must clear the in-memory user before starting the server request so authenticated timers stop immediately');
 assert(logoutSource.includes('disconnectRealtime?.()') && logoutSource.indexOf('disconnectRealtime?.()') < logoutSource.indexOf('authApi.logout()'), 'logout must disconnect realtime work before starting the server request');
-assert(logoutSource.indexOf('authApi.logout()') < logoutSource.indexOf("localStorage.removeItem('jwt_token')"), 'logout must start the authenticated server request before clearing its token');
-assert(logoutSource.indexOf("localStorage.removeItem('jwt_token')") < logoutSource.indexOf('await logoutRequest'), 'logout must clear local credentials before waiting for the server response');
 assert(logoutSource.includes('await realtimeShutdown'), 'logout must drain realtime work before clearing IndexedDB');
+assert(logoutSource.indexOf('await clearCache()') < logoutSource.indexOf('clearLocalAuthState()'), 'logout must retain the old identity marker until IndexedDB cleanup succeeds');
+assert(logoutSource.indexOf('await clearCache()') < logoutSource.indexOf('authApi.logout()'), 'logout must not invalidate the old server session before local privacy cleanup succeeds');
+const clearLocalAuthSource = authSessionSource.slice(authSessionSource.indexOf('function clearLocalAuthState()'), authSessionSource.indexOf('function persistCachedUser'));
+for (const key of ['jwt_token', 'auth_token', 'last_user_id', 'csrf_token', 'cached_user', 'nia-mfa-enrollment-required']) {
+  assert(clearLocalAuthSource.includes(`localStorage.removeItem('${key}')`), `successful logout cleanup must explicitly remove ${key}`);
+}
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
 assert(userSettingsSource.includes('hasExistingSecondFactor') && userSettingsSource.includes("&& hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa(t('settings.2fa.purpose.addPasskey'))"), 'passkey enrollment-only setup must not require an existing 2FA code');

@@ -51,26 +51,57 @@ export function transactionStrict(storeNames, mode, operation) {
     let transactionDone = false;
     let operationResult;
     let settled = false;
+    let keepaliveActive = true;
+    const activeRequestQueue = [];
+    const keepaliveStore = tx.objectStore(names[0]);
+    const keepalive = () => {
+      if (!keepaliveActive || settled) return;
+      while (activeRequestQueue.length) activeRequestQueue.shift()();
+      let request;
+      try {
+        request = keepaliveStore.get(-Infinity);
+      } catch (error) {
+        if (!operationDone) fail(error);
+        return;
+      }
+      request.onsuccess = keepalive;
+      request.onerror = () => fail(request.error || tx.error || new Error('IndexedDB transaction keepalive failed'));
+    };
     const fail = error => {
       if (settled) return;
+      keepaliveActive = false;
       settled = true;
       reject(error || tx.error || new Error('IndexedDB transaction failed'));
     };
+    const enqueueRequest = (factory, fallbackMessage, transform = value => value) => new Promise((resolveRequest, rejectRequest) => {
+      activeRequestQueue.push(() => {
+        let request;
+        try {
+          request = factory();
+        } catch (error) {
+          rejectRequest(error);
+          return;
+        }
+        request.onsuccess = () => resolveRequest(transform(request.result));
+        request.onerror = () => rejectRequest(request.error || tx.error || new Error(fallbackMessage));
+      });
+    });
     const finish = () => {
       if (settled || !operationDone || !transactionDone) return;
       settled = true;
       resolve(operationResult);
     };
     const api = {
-      get: (storeName, id) => requestPromise(tx.objectStore(storeName).get(id), `Failed to read ${storeName}`).then(result => result ?? null),
-      getAll: storeName => requestPromise(tx.objectStore(storeName).getAll(), `Failed to read ${storeName}`).then(result => result || []),
-      put: (storeName, item) => requestPromise(tx.objectStore(storeName).put(item), `Failed to write ${storeName}`).then(() => item),
-      delete: (storeName, id) => requestPromise(tx.objectStore(storeName).delete(id), `Failed to delete from ${storeName}`),
-      clear: storeName => requestPromise(tx.objectStore(storeName).clear(), `Failed to clear ${storeName}`),
+      get: (storeName, id) => enqueueRequest(() => tx.objectStore(storeName).get(id), `Failed to read ${storeName}`, result => result ?? null),
+      getAll: storeName => enqueueRequest(() => tx.objectStore(storeName).getAll(), `Failed to read ${storeName}`, result => result || []),
+      put: (storeName, item) => enqueueRequest(() => tx.objectStore(storeName).put(item), `Failed to write ${storeName}`, () => item),
+      delete: (storeName, id) => enqueueRequest(() => tx.objectStore(storeName).delete(id), `Failed to delete from ${storeName}`),
+      clear: storeName => enqueueRequest(() => tx.objectStore(storeName).clear(), `Failed to clear ${storeName}`),
     };
     tx.oncomplete = () => { transactionDone = true; finish(); };
     tx.onerror = () => fail(tx.error || new Error('IndexedDB transaction failed'));
     tx.onabort = () => fail(tx.error || new Error('IndexedDB transaction aborted'));
+    keepalive();
     let result;
     try {
       result = operation(api);
@@ -82,8 +113,10 @@ export function transactionStrict(storeNames, mode, operation) {
     Promise.resolve(result).then((value) => {
       operationResult = value;
       operationDone = true;
+      keepaliveActive = false;
       finish();
     }, (error) => {
+      keepaliveActive = false;
       try { tx.abort(); } catch (_abortError) {}
       fail(error);
     });

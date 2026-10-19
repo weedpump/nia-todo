@@ -62,4 +62,18 @@ assert.deepEqual(JSON.parse(localStorage.getItem('cached_user')), { id: 1, usern
 assert.equal(currentUser.id, 1, 'cleanup failure must not activate the new currentUser');
 assert.equal(currentUser.token, 'old-token');
 
+values.set('jwt_token', 'old-token');
+values.set('csrf_token', 'old-csrf');
+values.set('last_user_id', '1');
+values.set('cached_user', JSON.stringify({ id: 1, username: 'old-user', display_name: 'Old User' }));
+currentUser = { id: 1, username: 'old-user', token: 'old-token' };
+await assert.rejects(feature.logout(), /IndexedDB cleanup failed/);
+assert.equal(localStorage.getItem('jwt_token'), 'old-token', 'failed logout cleanup must retain the active token');
+assert.equal(localStorage.getItem('last_user_id'), '1', 'failed logout cleanup must retain the old identity marker');
+assert.equal(currentUser.id, 1, 'failed logout cleanup must retain the active in-memory identity');
+await assert.rejects(feature.login('new-user', 'password'), /IndexedDB cleanup failed/, 'a later login must still detect and block the cross-user cleanup boundary');
+assert.equal(localStorage.getItem('jwt_token'), 'old-token');
+assert.equal(localStorage.getItem('last_user_id'), '1');
+assert.equal(currentUser.id, 1);
+
 console.log('✅ Cross-user login fails closed before activating the new identity');

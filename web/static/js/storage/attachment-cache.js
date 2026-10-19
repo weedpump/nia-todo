@@ -7,6 +7,20 @@ function cacheId(value) {
   return String(value);
 }
 
+export function getAuthoritativeAttachmentBlobIdsToDelete(records = [], todos = [], queue = []) {
+  const todoIds = new Set(todos.map(todo => String(todo.id)));
+  const attachmentIds = new Set(todos.flatMap(todo => (todo.attachments || []).map(attachment => cacheId(attachment.id))));
+  const pendingBlobIds = new Set(queue
+    .filter(item => item?.action === 'CREATE_ATTACHMENT')
+    .map(item => cacheId(item.data?.blob_id || item.data?.temp_id)));
+  return records
+    .filter((item) => {
+      if (item?.pending_upload) return !pendingBlobIds.has(cacheId(item.id));
+      return !todoIds.has(String(item.todo_id)) || !attachmentIds.has(cacheId(item.id));
+    })
+    .map(item => item.id);
+}
+
 function recordSize(record) {
   return Number(record?.size_bytes ?? record?.blob?.size ?? 0) || 0;
 }
@@ -154,17 +168,7 @@ export function createAttachmentCache({
 
   async function reconcileAuthoritative(todos = [], queue = []) {
     const records = await readAll();
-    const todoIds = new Set(todos.map(todo => String(todo.id)));
-    const attachmentIds = new Set(todos.flatMap(todo => (todo.attachments || []).map(attachment => cacheId(attachment.id))));
-    const pendingBlobIds = new Set(queue
-      .filter(item => item?.action === 'CREATE_ATTACHMENT')
-      .map(item => cacheId(item.data?.blob_id || item.data?.temp_id)));
-    const orphanIds = records
-      .filter((item) => {
-        if (item?.pending_upload) return !pendingBlobIds.has(cacheId(item.id));
-        return !todoIds.has(String(item.todo_id)) || !attachmentIds.has(cacheId(item.id));
-      })
-      .map(item => item.id);
+    const orphanIds = getAuthoritativeAttachmentBlobIdsToDelete(records, todos, queue);
     for (const id of orphanIds) await discard(id);
     return orphanIds;
   }

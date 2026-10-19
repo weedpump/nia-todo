@@ -739,7 +739,7 @@ export function createTodoAttachmentsFeature({
 
     if (dbTransactionStrict) {
       try {
-        const cancellation = await runSyncQueueMutation(() => dbTransactionStrict(['todos', 'syncQueue'], 'readwrite', async transaction => {
+        const cancellation = await runSyncQueueMutation(() => dbTransactionStrict(['todos', 'syncQueue', 'attachmentBlobs'], 'readwrite', async transaction => {
           const [durableTodo, queue] = await Promise.all([
             transaction.get('todos', todoId),
             transaction.getAll('syncQueue'),
@@ -759,15 +759,11 @@ export function createTodoAttachmentsFeature({
           };
           await transaction.put('todos', updated);
           await transaction.delete('syncQueue', pendingCreate.id);
+          await transaction.delete('attachmentBlobs', String(pendingCreate.data?.blob_id || attachmentId));
           return { cancelled: true, updated };
         }));
         if (cancellation.cancelled) {
           setTodos(getTodos().map(item => String(item.id) === String(todoId) ? cancellation.updated : item));
-          try {
-            await attachmentCache.remove(attachmentId);
-          } catch (cleanupError) {
-            console.warn('Pending attachment metadata was cancelled but blob cleanup failed', cleanupError);
-          }
           if (typeof document !== 'undefined') {
             renderTodoAttachments(cancellation.updated.attachments || [], cancellation.updated);
           }

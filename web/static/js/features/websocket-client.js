@@ -1,5 +1,5 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
-import { attachmentCache as defaultAttachmentCache } from '../storage/attachment-cache.js';
+import { attachmentCache as defaultAttachmentCache, getAuthoritativeAttachmentBlobIdsToDelete } from '../storage/attachment-cache.js';
 
 export function createWebSocketClient({
   wsUrl,
@@ -394,21 +394,22 @@ async function handleWsMessage(msg) {
       try {
       if (dbTransactionStrict) {
         const committed = await dbTransactionStrict(
-          ['todos', 'projects', 'sections', 'workspaces', 'syncQueue'],
+          ['todos', 'projects', 'sections', 'workspaces', 'syncQueue', 'attachmentBlobs'],
           'readwrite',
           async transaction => {
-            const [queue, storedTodos, storedProjects, storedSections, storedWorkspaces] = await Promise.all([
+            const [queue, storedTodos, storedProjects, storedSections, storedWorkspaces, blobRecords] = await Promise.all([
               transaction.getAll('syncQueue'),
               transaction.getAll('todos'),
               transaction.getAll('projects'),
               transaction.getAll('sections'),
               transaction.getAll('workspaces'),
+              transaction.getAll('attachmentBlobs'),
             ]);
             let nextTodos = storedTodos;
             let nextProjects = storedProjects;
             let nextSections = storedSections;
             let nextWorkspaces = storedWorkspaces;
-            const cleanup = { attachmentIds: [], todoIds: [] };
+
             if (msg.todos) {
               const localById = new Map(storedTodos.map(todo => [String(todo.id), todo]));
               const incomingIds = new Set(msg.todos.map(todo => String(todo.id)));
@@ -425,17 +426,12 @@ async function handleWsMessage(msg) {
                   if (serverTime < localTime) nextTodo = local;
                 }
                 if (nextTodo) nextTodos.push(nextTodo);
-                if (local) {
-                  const nextAttachmentIds = new Set((nextTodo?.attachments || []).map(attachment => String(attachment.id)));
-                  cleanup.attachmentIds.push(...(local.attachments || [])
-                    .filter(attachment => !attachment?.is_pending && !nextAttachmentIds.has(String(attachment.id)))
-                    .map(attachment => attachment.id));
-                }
+
               }
               for (const local of storedTodos) {
                 if (incomingIds.has(String(local.id))) continue;
                 if (hasPendingTodoChanges(queue, local.id)) nextTodos.push(local);
-                else cleanup.todoIds.push(local.id);
+
               }
               await transaction.clear('todos');
               for (const todo of nextTodos) await transaction.put('todos', todo);
@@ -475,7 +471,10 @@ async function handleWsMessage(msg) {
               await transaction.clear('workspaces');
               for (const workspace of nextWorkspaces) await transaction.put('workspaces', workspace);
             }
-            return { todos: nextTodos, projects: nextProjects, sections: nextSections, workspaces: nextWorkspaces, queue, cleanup };
+            for (const blobId of getAuthoritativeAttachmentBlobIdsToDelete(blobRecords, nextTodos, queue)) {
+              await transaction.delete('attachmentBlobs', blobId);
+            }
+            return { todos: nextTodos, projects: nextProjects, sections: nextSections, workspaces: nextWorkspaces, queue };
           },
         );
         todos = committed.todos;
@@ -484,15 +483,7 @@ async function handleWsMessage(msg) {
         workspaces = committed.workspaces;
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
-        try {
-          await Promise.all([
-            ...committed.cleanup.attachmentIds.map(attachmentId => attachmentCache.remove(attachmentId)),
-            ...committed.cleanup.todoIds.map(todoId => attachmentCache.removeForTodo(todoId)),
-          ]);
-          await attachmentCache.reconcileAuthoritative?.(todos, committed.queue);
-        } catch (cleanupError) {
-          console.warn('WebSocket metadata committed but attachment cleanup failed', cleanupError);
-        }
+
       } else {
       // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
@@ -668,31 +659,26 @@ async function handleWsMessage(msg) {
       if (msg.payload?.id) {
         const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
         try {
-          let remainingQueue = [];
           if (dbTransactionStrict) {
-            remainingQueue = await dbTransactionStrict(['todos', 'syncQueue'], 'readwrite', async transaction => {
-              const queue = await transaction.getAll('syncQueue');
+            await dbTransactionStrict(['todos', 'syncQueue', 'attachmentBlobs'], 'readwrite', async transaction => {
+              const [queue, blobs] = await Promise.all([
+                transaction.getAll('syncQueue'),
+                transaction.getAll('attachmentBlobs'),
+              ]);
               const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
               for (const item of childOperations) await transaction.delete('syncQueue', item.id);
               await transaction.delete('todos', msg.payload.id);
-              const removedIds = new Set(childOperations.map(item => String(item.id)));
-              return queue.filter(item => !removedIds.has(String(item.id)));
+              for (const blob of blobs.filter(record => String(record.todo_id) === String(msg.payload.id))) {
+                await transaction.delete('attachmentBlobs', blob.id);
+              }
             });
           } else {
             const queue = await dbGetAllStrict('syncQueue');
             const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
             await Promise.all(childOperations.map(item => deleteFromDBStrict('syncQueue', item.id)));
             await deleteFromDBStrict('todos', msg.payload.id);
-            const removedIds = new Set(childOperations.map(item => String(item.id)));
-            remainingQueue = queue.filter(item => !removedIds.has(String(item.id)));
           }
           todos = todos.filter(t => t.id !== msg.payload.id);
-          try {
-            await attachmentCache.removeForTodo(msg.payload.id);
-            await attachmentCache.reconcileAuthoritative?.(todos, remainingQueue);
-          } catch (cleanupError) {
-            console.warn('Todo deletion committed but attachment cleanup failed', cleanupError);
-          }
         } finally {
           releaseCommitLock();
         }

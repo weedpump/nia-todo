@@ -51,9 +51,9 @@ try {
   const feature = createFeature();
   await feature.updateServerUrl('https://new.example/');
   assert.deepEqual(events, [
-    'clear:auth',
     'clear:browser',
     'clear:indexeddb',
+    'clear:auth',
     'persist:https://new.example',
     'reload',
   ], 'native server updates must clear browser auth and application data before persisting the new server');
@@ -61,9 +61,9 @@ try {
   events.length = 0;
   await feature.resetServerUrl();
   assert.deepEqual(events, [
-    'clear:auth',
     'clear:browser',
     'clear:indexeddb',
+    'clear:auth',
     'persist:reset',
     'reload',
   ], 'native server reset must clear browser auth and application data before removing the configured server');
@@ -71,10 +71,9 @@ try {
   events.length = 0;
   await createFeature({ failClear: true }).updateServerUrl('https://blocked.example');
   assert.deepEqual(events, [
-    'clear:auth',
     'clear:browser',
     'clear:indexeddb',
-  ], 'a failed durable cache clear must prevent the server switch');
+  ], 'a failed durable cache clear must prevent the server switch without clearing the old identity');
 
   events.length = 0;
   globalThis.indexedDB = {
@@ -100,8 +99,8 @@ try {
   await realWrapperFeature.updateServerUrl('https://real-wrapper-blocked.example');
   await realWrapperFeature.resetServerUrl();
   assert.deepEqual(events, [
-    'clear:auth', 'clear:browser', 'clear:indexeddb',
-    'clear:auth', 'clear:browser', 'clear:indexeddb',
+    'clear:browser', 'clear:indexeddb',
+    'clear:browser', 'clear:indexeddb',
   ], 'real IndexedDB deletion failures must prevent native persistence and reload for update and reset');
 
   console.log('✅ Native server switches clear scoped browser data before persistence');
