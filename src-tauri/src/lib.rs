@@ -182,6 +182,7 @@ impl DesktopHotkeyDescriptions {
   }
 }
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 fn resolved_hotkey_descriptions(settings: &DesktopSettings) -> DesktopHotkeyDescriptions {
   settings
     .hotkey_descriptions
@@ -1038,12 +1039,6 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
   let settings = load_settings(app);
   apply_global_hotkeys_for_settings(app, &settings)
 }
-
-#[cfg(not(desktop))]
-fn apply_global_hotkeys(_app: &AppHandle) -> Result<(), String> {
-  Ok(())
-}
-
 
 #[tauri::command]
 fn desktop_open_url(url: String) -> Result<(), String> {
