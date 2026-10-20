@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
-### Changed
+### Added
 - Replaced platform-native date and time pickers with a unified nia-todo picker across all platforms.
 
 ### Fixed

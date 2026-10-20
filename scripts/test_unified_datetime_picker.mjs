@@ -9,6 +9,7 @@ const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.ur
 const todosSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 const uiShellSource = readFileSync(new URL('../web/static/js/features/ui-shell.js', import.meta.url), 'utf8');
 const styleManifest = readFileSync(new URL('../web/static/style.css', import.meta.url), 'utf8');
+const modalCssSource = readFileSync(new URL('../web/static/css/31-modals.css', import.meta.url), 'utf8');
 const pickerCssSource = readFileSync(new URL('../web/static/css/97-date-time-picker.css', import.meta.url), 'utf8');
 const packageSource = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
 
@@ -43,12 +44,19 @@ await page.route('http://datetime-picker.test/**', async route => {
           'datetimePicker.chooseYear': 'Jahr auswählen',
           'datetimePicker.hour': 'Stunde',
           'datetimePicker.minute': 'Minute',
+          'datetimePicker.day': 'Tag',
+          'datetimePicker.month': 'Monat',
+          'datetimePicker.year': 'Jahr',
+          'datetimePicker.invalidDate': 'Enter a valid date.',
+          'datetimePicker.invalidHour12': 'Enter an hour from 1 to 12.',
+          'datetimePicker.invalidHour24': 'Enter an hour from 0 to 23.',
+          'datetimePicker.invalidMinute': 'Enter minutes from 0 to 59.',
           'datetimePicker.open': '{field} auswählen',
         };
         export function t(key, params = {}) {
           return Object.entries(params).reduce((value, [name, replacement]) => value.replaceAll('{' + name + '}', replacement), labels[key] || key);
         }
-        export function getActiveLocale() { return 'de-DE'; }
+        export function getActiveLocale() { return window.__pickerLocale || 'de-DE'; }
       `,
     });
     return;
@@ -61,6 +69,7 @@ await page.route('http://datetime-picker.test/**', async route => {
     contentType: 'text/html',
     body: `<!doctype html>
       <html lang="de">
+        <head><style>${modalCssSource}\n${pickerCssSource}</style></head>
         <body style="min-height:3000px">
           <div class="modal active" id="todo-modal">
             <label for="todo-due-picker">Deadline</label>
@@ -89,11 +98,21 @@ await page.route('http://datetime-picker.test/**', async route => {
                 </div>
                 <div class="date-time-picker-weekdays" id="date-time-picker-weekdays"></div>
                 <div class="date-time-picker-grid" id="date-time-picker-grid" role="grid"></div>
+                <div class="date-time-picker-date-entry">
+                  <label><span data-datetime-picker-day-label></span><input id="date-time-picker-day" inputmode="numeric" maxlength="2"></label>
+                  <label><span data-datetime-picker-month-label></span><input id="date-time-picker-date-month" inputmode="numeric" maxlength="2"></label>
+                  <label><span data-datetime-picker-year-label></span><input id="date-time-picker-year" inputmode="numeric" maxlength="4"></label>
+                </div>
                 <div class="date-time-picker-time">
                   <label><span data-datetime-picker-hour-label></span><input id="date-time-picker-hour" inputmode="numeric" maxlength="2"></label>
                   <span>:</span>
                   <label><span data-datetime-picker-minute-label></span><input id="date-time-picker-minute" inputmode="numeric" maxlength="2"></label>
+                  <div class="date-time-picker-day-period" id="date-time-picker-day-period" hidden>
+                    <button type="button" data-datetime-picker-day-period="am">AM</button>
+                    <button type="button" data-datetime-picker-day-period="pm">PM</button>
+                  </div>
                 </div>
+                <div class="form-error" id="date-time-picker-error" aria-live="polite"></div>
               </div>
               <div class="date-time-picker-actions">
                 <button type="button" data-datetime-picker-action="today"></button>
@@ -164,6 +183,9 @@ try {
   assert.equal(await page.locator(':focus').getAttribute('data-date'), '2026-10-21', 'ArrowRight must move calendar focus by one day');
 
   await page.click('[data-date="2026-10-22"]');
+  assert.equal(await page.locator('#date-time-picker-day').inputValue(), '22', 'calendar selection must update the direct day field');
+  assert.equal(await page.locator('#date-time-picker-date-month').inputValue(), '10', 'calendar selection must update the direct month field');
+  assert.equal(await page.locator('#date-time-picker-year').inputValue(), '2026', 'calendar selection must update the direct year field');
   await page.fill('#date-time-picker-hour', '7');
   await page.fill('#date-time-picker-minute', '5');
   await page.click('[data-datetime-picker-action="apply"]');
@@ -184,6 +206,108 @@ try {
   assert.equal(await page.locator('#todo-due').inputValue(), '', 'clear must remove the stored value');
   assert.equal(await page.locator('[data-datetime-picker-display]').textContent(), '', 'clear must remove the visible value');
   assert.deepEqual(await page.evaluate(() => ({ input: window.inputEvents, change: window.changeEvents })), { input: 2, change: 2 });
+
+  await page.evaluate(() => {
+    window.__pickerLocale = 'en-US';
+    const input = document.getElementById('todo-due');
+    input.value = '2026-10-20T18:30';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    window.dispatchEvent(new Event('nia-language-change'));
+  });
+  await page.click('[data-datetime-picker-for="todo-due"]');
+  assert.equal(await page.locator('#date-time-picker-hour').inputValue(), '06', 'English must present 18:30 as 6:30 PM');
+  assert.equal(await page.locator('#date-time-picker-day-period').isVisible(), true, 'English must show the AM/PM selector');
+  assert.equal(await page.locator('[data-datetime-picker-day-period="pm"]').getAttribute('aria-pressed'), 'true', 'PM must be selected for evening values');
+  await page.fill('#date-time-picker-hour', '13');
+  await page.click('[data-datetime-picker-action="apply"]');
+  assert.equal(await page.locator('#date-time-picker-modal').getAttribute('aria-hidden'), 'false', 'invalid 12-hour input must keep the picker open');
+  assert.equal(await page.locator('#todo-due').inputValue(), '2026-10-20T18:30', 'invalid 12-hour input must not change the stored value');
+  assert.match(await page.locator('#date-time-picker-error').textContent(), /1 to 12/);
+
+  await page.fill('#date-time-picker-hour', '12');
+  await page.fill('#date-time-picker-minute', '60');
+  await page.click('[data-datetime-picker-action="apply"]');
+  assert.equal(await page.locator('#date-time-picker-modal').getAttribute('aria-hidden'), 'false', 'invalid minutes must keep the picker open');
+  assert.equal(await page.locator('#todo-due').inputValue(), '2026-10-20T18:30', 'invalid minutes must not change the stored value');
+  assert.match(await page.locator('#date-time-picker-error').textContent(), /0 to 59/);
+
+  await page.fill('#date-time-picker-minute', '30');
+  await page.click('[data-datetime-picker-day-period="am"]');
+  await page.click('[data-datetime-picker-action="apply"]');
+  assert.equal(await page.locator('#todo-due').inputValue(), '2026-10-20T00:30', '12:30 AM must persist as 00:30');
+
+  await page.click('[data-datetime-picker-for="todo-due"]');
+  await page.click('[data-datetime-picker-day-period="pm"]');
+  await page.click('[data-datetime-picker-action="apply"]');
+  assert.equal(await page.locator('#todo-due').inputValue(), '2026-10-20T12:30', '12:30 PM must persist as 12:30');
+
+  await page.click('[data-datetime-picker-for="todo-due"]');
+  assert.equal(await page.locator('.date-time-picker-date-entry').isVisible(), true, 'desktop must show direct date entry');
+  assert.equal(await page.evaluate(() => {
+    const body = document.querySelector('.date-time-picker-body');
+    return body.scrollHeight <= body.clientHeight;
+  }), true, 'the desktop picker must not need internal scrolling when the viewport has enough height');
+  await page.setViewportSize({ width: 1024, height: 768 });
+  assert.deepEqual(await page.evaluate(() => {
+    const content = document.querySelector('.date-time-picker-content');
+    const body = document.querySelector('.date-time-picker-body');
+    const rect = content.getBoundingClientRect();
+    return {
+      dateEntryVisible: getComputedStyle(document.querySelector('.date-time-picker-date-entry')).display !== 'none',
+      contentFits: rect.top >= 0 && rect.bottom <= window.innerHeight,
+      bodyFits: body.scrollHeight <= body.clientHeight,
+    };
+  }), { dateEntryVisible: true, contentFits: true, bodyFits: true }, 'a standard desktop viewport must show direct date entry without internal scrolling');
+  await page.fill('#date-time-picker-day', '31');
+  await page.fill('#date-time-picker-date-month', '2');
+  await page.fill('#date-time-picker-year', '2027');
+  await page.click('[data-datetime-picker-action="apply"]');
+  assert.equal(await page.locator('#date-time-picker-modal').getAttribute('aria-hidden'), 'false', 'an impossible direct date must keep the picker open');
+  assert.equal(await page.locator('#todo-due').inputValue(), '2026-10-20T12:30', 'an impossible direct date must not change the stored value');
+  assert.match(await page.locator('#date-time-picker-error').textContent(), /valid date/i);
+  await page.fill('#date-time-picker-day', '25');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'date-time-picker-date-month', 'two entered day digits must advance focus to month');
+  await page.fill('#date-time-picker-date-month', '12');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'date-time-picker-year', 'two entered month digits must advance focus to year');
+  await page.fill('#date-time-picker-year', '2027');
+  assert.equal(await page.locator('[data-date="2027-12-25"]').getAttribute('aria-selected'), 'true', 'a complete valid direct date must update the selected calendar day immediately');
+  assert.match(await page.locator('#date-time-picker-selection').textContent(), /December 25, 2027/, 'a complete valid direct date must update the picker heading immediately');
+  await page.fill('#date-time-picker-hour', '9');
+  await page.fill('#date-time-picker-minute', '45');
+  await page.click('[data-datetime-picker-day-period="pm"]');
+  await page.click('[data-datetime-picker-action="apply"]');
+  assert.equal(await page.locator('#todo-due').inputValue(), '2027-12-25T21:45', 'direct date and time entry must persist without selecting a calendar day');
+
+  await page.evaluate(() => {
+    window.__pickerLocale = 'de-DE';
+    window.dispatchEvent(new Event('nia-language-change'));
+  });
+  await page.click('[data-datetime-picker-for="todo-due"]');
+  assert.equal(await page.locator('#date-time-picker-hour').inputValue(), '21', 'non-English locales must keep the 24-hour input');
+  assert.equal(await page.locator('#date-time-picker-day-period').isHidden(), true, 'non-English locales must hide the AM/PM selector');
+  await page.fill('#date-time-picker-hour', '24');
+  await page.click('[data-datetime-picker-action="apply"]');
+  assert.equal(await page.locator('#date-time-picker-modal').getAttribute('aria-hidden'), 'false', '24-hour input must reject hour 24');
+  assert.equal(await page.locator('#todo-due').inputValue(), '2027-12-25T21:45', 'invalid 24-hour input must not change the stored value');
+  assert.match(await page.locator('#date-time-picker-error').textContent(), /0 to 23/);
+  await page.click('button[data-datetime-picker-action="cancel"]:not(.modal-close-x)');
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 700 }]) {
+    await page.setViewportSize(viewport);
+    await page.click('[data-datetime-picker-for="todo-due"]');
+    assert.equal(await page.locator('.date-time-picker-date-entry').isHidden(), true, `mobile ${viewport.width}px must hide direct date entry`);
+    assert.deepEqual(await page.evaluate(() => {
+      const modal = document.getElementById('date-time-picker-modal');
+      const content = modal.querySelector('.date-time-picker-content');
+      const body = modal.querySelector('.date-time-picker-body');
+      const rect = content.getBoundingClientRect();
+      return {
+        fillsViewport: rect.left === 0 && rect.top === 0 && Math.round(rect.width) === window.innerWidth && Math.round(rect.height) === window.innerHeight,
+        bodyFits: body.scrollHeight <= body.clientHeight,
+      };
+    }), { fillsViewport: true, bodyFits: true }, `mobile ${viewport.width}px must stay fullscreen without an inner scrollbar`);
+    await page.click('button[data-datetime-picker-action="cancel"]:not(.modal-close-x)');
+  }
 } finally {
   await context.close();
   await browser.close();
@@ -221,6 +345,13 @@ const pickerTranslationKeys = [
   'datetimePicker.chooseYear',
   'datetimePicker.hour',
   'datetimePicker.minute',
+  'datetimePicker.day',
+  'datetimePicker.month',
+  'datetimePicker.year',
+  'datetimePicker.invalidDate',
+  'datetimePicker.invalidHour12',
+  'datetimePicker.invalidHour24',
+  'datetimePicker.invalidMinute',
   'datetimePicker.open',
 ];
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {

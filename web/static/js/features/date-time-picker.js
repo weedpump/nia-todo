@@ -63,12 +63,6 @@ function appendGridRows(container, cells, columns) {
   }
 }
 
-function clampInteger(value, minimum, maximum, fallback) {
-  const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(maximum, Math.max(minimum, parsed));
-}
-
 function formatter(locale, options) {
   try {
     return new Intl.DateTimeFormat(locale, options);
@@ -86,11 +80,103 @@ export function createDateTimePickerFeature() {
   let viewMode = 'days';
   let yearRangeStart = null;
   let returnFocusTarget = null;
+  let selectedDayPeriod = 'am';
 
   const modal = () => document.getElementById(PICKER_MODAL_ID);
   const grid = () => document.getElementById('date-time-picker-grid');
   const hourInput = () => document.getElementById('date-time-picker-hour');
   const minuteInput = () => document.getElementById('date-time-picker-minute');
+  const dayInput = () => document.getElementById('date-time-picker-day');
+  const monthInput = () => document.getElementById('date-time-picker-date-month');
+  const yearInput = () => document.getElementById('date-time-picker-year');
+  const validationError = () => document.getElementById('date-time-picker-error');
+  const dayPeriodControl = () => document.getElementById('date-time-picker-day-period');
+
+  function usesTwelveHourTime() {
+    return String(getActiveLocale()).toLowerCase().startsWith('en');
+  }
+
+  function setDayPeriod(period) {
+    selectedDayPeriod = period === 'pm' ? 'pm' : 'am';
+    dayPeriodControl()?.querySelectorAll('[data-datetime-picker-day-period]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.datetimePickerDayPeriod === selectedDayPeriod));
+    });
+  }
+
+  function setTimeInputs(hour, minute) {
+    const twelveHour = usesTwelveHourTime();
+    const control = dayPeriodControl();
+    if (control) control.hidden = !twelveHour;
+    if (twelveHour) {
+      setDayPeriod(hour >= 12 ? 'pm' : 'am');
+      if (hourInput()) hourInput().value = pad2(hour % 12 || 12);
+    } else if (hourInput()) {
+      hourInput().value = pad2(hour);
+    }
+    if (minuteInput()) minuteInput().value = pad2(minute);
+  }
+
+  function setDateInputs(date) {
+    if (dayInput()) dayInput().value = pad2(date.getDate());
+    if (monthInput()) monthInput().value = pad2(date.getMonth() + 1);
+    if (yearInput()) yearInput().value = String(date.getFullYear());
+  }
+
+  function strictInteger(input, minimum, maximum) {
+    const value = String(input?.value || '').trim();
+    if (!/^\d+$/.test(value)) return null;
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
+  }
+
+  function clearValidationError() {
+    if (validationError()) validationError().textContent = '';
+    modal()?.querySelectorAll('[aria-invalid="true"]').forEach(input => input.removeAttribute('aria-invalid'));
+  }
+
+  function showValidationError(key, input) {
+    if (validationError()) validationError().textContent = t(key);
+    input?.setAttribute('aria-invalid', 'true');
+    input?.focus({ preventScroll: true });
+  }
+
+  function directDateValue() {
+    const day = strictInteger(dayInput(), 1, 31);
+    const month = strictInteger(monthInput(), 1, 12);
+    const year = strictInteger(yearInput(), 1900, 9999);
+    if (day === null || month === null || year === null) return null;
+    const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date;
+  }
+
+  function syncCalendarFromDateInputs() {
+    const date = directDateValue();
+    if (!date) return;
+    selectedDate = localDateAtNoon(date);
+    viewDate = new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0);
+    viewMode = 'days';
+    yearRangeStart = null;
+    renderCalendar({ focusDate: selectedDate });
+  }
+
+  function handleDirectDateInput(event) {
+    const input = event.target;
+    const nextInput = input === dayInput()
+      ? monthInput()
+      : input === monthInput()
+        ? yearInput()
+        : input === yearInput()
+          ? hourInput()
+          : null;
+    input.value = input.value.replace(/\D/g, '').slice(0, Number(input.maxLength) || undefined);
+    clearValidationError();
+    syncCalendarFromDateInputs();
+    if (nextInput && input.value.length === Number(input.maxLength) && !String(event.inputType || '').startsWith('delete')) {
+      nextInput.focus({ preventScroll: true });
+      nextInput.select?.();
+    }
+  }
 
   function fieldLabel(trigger = activeTrigger) {
     if (!trigger) return '';
@@ -282,8 +368,14 @@ export function createDateTimePickerFeature() {
     if (next) next.setAttribute('aria-label', t('datetimePicker.nextPeriod'));
     const hourLabel = document.querySelector('[data-datetime-picker-hour-label]');
     const minuteLabel = document.querySelector('[data-datetime-picker-minute-label]');
+    const dayLabel = document.querySelector('[data-datetime-picker-day-label]');
+    const monthLabel = document.querySelector('[data-datetime-picker-month-label]');
+    const yearLabel = document.querySelector('[data-datetime-picker-year-label]');
     if (hourLabel) hourLabel.textContent = t('datetimePicker.hour');
     if (minuteLabel) minuteLabel.textContent = t('datetimePicker.minute');
+    if (dayLabel) dayLabel.textContent = t('datetimePicker.day');
+    if (monthLabel) monthLabel.textContent = t('datetimePicker.month');
+    if (yearLabel) yearLabel.textContent = t('datetimePicker.year');
     const labels = {
       today: 'datetimePicker.today',
       clear: 'common.clear',
@@ -310,8 +402,9 @@ export function createDateTimePickerFeature() {
     viewDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12, 0, 0, 0);
     viewMode = 'days';
     yearRangeStart = null;
-    if (hourInput()) hourInput().value = pad2(initial.getHours());
-    if (minuteInput()) minuteInput().value = pad2(initial.getMinutes());
+    clearValidationError();
+    setDateInputs(selectedDate);
+    setTimeInputs(initial.getHours(), initial.getMinutes());
     updateStaticLabels();
     renderCalendar();
     pickerModal.classList.add('active');
@@ -357,9 +450,28 @@ export function createDateTimePickerFeature() {
 
   function apply() {
     if (!selectedDate) return;
-    const hour = clampInteger(hourInput()?.value, 0, 23, 0);
-    const minute = clampInteger(minuteInput()?.value, 0, 59, 0);
-    if (hourInput()) hourInput().value = pad2(hour);
+    clearValidationError();
+    const directDate = directDateValue();
+    if (!directDate) {
+      showValidationError('datetimePicker.invalidDate', dayInput());
+      return;
+    }
+    const twelveHour = usesTwelveHourTime();
+    const enteredHour = strictInteger(hourInput(), twelveHour ? 1 : 0, twelveHour ? 12 : 23);
+    if (enteredHour === null) {
+      showValidationError(twelveHour ? 'datetimePicker.invalidHour12' : 'datetimePicker.invalidHour24', hourInput());
+      return;
+    }
+    const minute = strictInteger(minuteInput(), 0, 59);
+    if (minute === null) {
+      showValidationError('datetimePicker.invalidMinute', minuteInput());
+      return;
+    }
+    const hour = twelveHour
+      ? (enteredHour % 12) + (selectedDayPeriod === 'pm' ? 12 : 0)
+      : enteredHour;
+    selectedDate = directDate;
+    if (hourInput()) hourInput().value = pad2(enteredHour);
     if (minuteInput()) minuteInput().value = pad2(minute);
     emitValue(`${dateKey(selectedDate)}T${pad2(hour)}:${pad2(minute)}`);
     close();
@@ -372,6 +484,7 @@ export function createDateTimePickerFeature() {
 
   function selectDate(date) {
     selectedDate = localDateAtNoon(date);
+    setDateInputs(selectedDate);
     viewDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12, 0, 0, 0);
     viewMode = 'days';
     yearRangeStart = null;
@@ -530,6 +643,12 @@ export function createDateTimePickerFeature() {
         selectYear(Number(year.dataset.year));
         return;
       }
+      const dayPeriod = event.target?.closest?.('[data-datetime-picker-day-period]')?.dataset?.datetimePickerDayPeriod;
+      if (dayPeriod) {
+        event.preventDefault();
+        setDayPeriod(dayPeriod);
+        return;
+      }
       const action = event.target?.closest?.('[data-datetime-picker-action]')?.dataset?.datetimePickerAction;
       if (!action) return;
       event.preventDefault();
@@ -540,6 +659,13 @@ export function createDateTimePickerFeature() {
       else if (action === 'clear') clear();
       else if (action === 'cancel') close();
       else if (action === 'apply') apply();
+    });
+    modal()?.addEventListener('input', (event) => {
+      if (event.target?.matches?.('#date-time-picker-day, #date-time-picker-date-month, #date-time-picker-year')) {
+        handleDirectDateInput(event);
+      } else if (event.target?.matches?.('#date-time-picker-hour, #date-time-picker-minute')) {
+        clearValidationError();
+      }
     });
     grid()?.addEventListener('keydown', handleGridKeydown);
     document.addEventListener('keydown', (event) => {
