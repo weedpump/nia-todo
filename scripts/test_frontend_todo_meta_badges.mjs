@@ -185,9 +185,19 @@ async function run() {
     await page.locator('button[data-datetime-picker-action="apply"]').last().click();
     await page.waitForFunction(() => !document.getElementById('date-time-picker-modal')?.classList.contains('active'));
     await page.waitForFunction(() => document.activeElement === document.querySelector('.todo-meta-summary-chip[data-meta-edit-target="todo-remind"]'));
-    const liveReminderBadge = await page.locator('.todo-meta-summary-chip[data-meta-edit-target="todo-remind"] strong').textContent();
-    if (!liveReminderBadge?.includes('04:05')) {
-      throw new Error(`Reminder badge did not update after applying the picker value: ${JSON.stringify(liveReminderBadge)}`);
+    const reminderState = await page.evaluate(() => {
+      const value = document.getElementById('todo-remind')?.value || '';
+      const badgeText = document.querySelector('.todo-meta-summary-chip[data-meta-edit-target="todo-remind"] strong')?.textContent || '';
+      const expectedText = value
+        ? new Intl.DateTimeFormat(document.documentElement.lang || navigator.language, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(new Date(value))
+        : '';
+      return { value, badgeText, expectedText };
+    });
+    if (reminderState.value !== '2099-01-02T04:05' || reminderState.badgeText !== reminderState.expectedText) {
+      throw new Error(`Reminder badge did not update after applying the picker value: ${JSON.stringify(reminderState)}`);
     }
     await page.locator('#todo-meta-edit-toggle').click();
     await page.waitForFunction(() => document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'));
