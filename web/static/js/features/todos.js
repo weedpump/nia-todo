@@ -27,6 +27,7 @@ const AUTO_CLOSE_TODO_META_SELECTION_IDS = new Set([
   'todo-status',
   'todo-priority',
 ]);
+const TODO_META_DRAWER_MEDIA_QUERY = '(max-width: 1180px)';
 
 export function bindTodoMetaSummaryUpdates(form, renderSummary) {
   let renderQueued = false;
@@ -324,7 +325,10 @@ export function createTodosFeature({
     const modal = getTodoModal();
     const drawer = ensureTodoMetaDrawer();
     if (!modal || !drawer) return false;
-    badgeOpenedSingleChoiceTarget = isAutoCloseTodoMetaSelection(autoCloseTarget) ? autoCloseTarget : null;
+    const usesDrawerLayout = window.matchMedia?.(TODO_META_DRAWER_MEDIA_QUERY)?.matches === true;
+    badgeOpenedSingleChoiceTarget = usesDrawerLayout && isAutoCloseTodoMetaSelection(autoCloseTarget)
+      ? autoCloseTarget
+      : null;
     modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
     drawer.classList.add('open');
     openUiLayer('todo-meta-drawer');
@@ -503,7 +507,7 @@ export function createTodosFeature({
     modal.classList.add(TODO_MODAL_CLASSES.detail);
     modal.classList.toggle(TODO_MODAL_CLASSES.create, !isExistingTodo);
     modal.classList.remove(TODO_MODAL_CLASSES.editingDescription);
-    const shouldOpenMetaDrawer = !isExistingTodo && !window.matchMedia?.('(max-width: 1180px)')?.matches;
+    const shouldOpenMetaDrawer = !isExistingTodo && !window.matchMedia?.(TODO_META_DRAWER_MEDIA_QUERY)?.matches;
     modal.classList.toggle(TODO_MODAL_CLASSES.editingMeta, shouldOpenMetaDrawer);
     const headerActions = ensureTodoDetailHeaderMenu();
     const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');

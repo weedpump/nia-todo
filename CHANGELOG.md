@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Replaced platform-native date and time pickers with a unified nia-todo picker across all platforms.
 
 ### Changed
-- Made Todo metadata badges update immediately, toggle pinning directly, and close single-choice editors after selection.
+- Made Todo metadata badges update immediately, toggle pinning directly, and close single-choice editors after selection on smaller screens.
 
 ### Fixed
 - Kept button backgrounds and icons visible while pressing controls in the native Android app.
