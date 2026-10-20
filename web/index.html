@@ -647,9 +647,12 @@
         </div>
         <section class="todo-multi-add-panel" id="todo-multi-add-panel" hidden>
           <div class="todo-multi-add-intro">
-            <div>
-              <h4 data-i18n-key="todo.multiAdd.introTitle">Capture thoughts quickly</h4>
-              <p data-i18n-key="todo.multiAdd.introDescription">Press Enter to start the next todo. Pasted bullet lists are split automatically.</p>
+            <div class="todo-multi-add-intro-heading ui-section-heading ui-detail-section-heading">
+              <div class="todo-multi-add-intro-icon ui-section-icon ui-detail-section-icon" data-icon="lightbulb" aria-hidden="true"></div>
+              <div>
+                <h4 data-i18n-key="todo.multiAdd.introTitle">Capture thoughts quickly</h4>
+                <p data-i18n-key="todo.multiAdd.introDescription">Press Enter to start the next todo. Pasted bullet lists are split automatically.</p>
+              </div>
             </div>
             <div class="todo-multi-add-counter" aria-live="polite">
               <strong id="todo-multi-add-count">0 todos</strong>
@@ -664,8 +667,8 @@
             </div>
           </div>
           <section class="todo-multi-add-defaults">
-            <div class="todo-multi-add-defaults-head">
-              <div class="todo-multi-add-defaults-icon" data-icon="sliders-horizontal"></div>
+            <div class="todo-multi-add-defaults-head ui-section-heading ui-detail-section-heading">
+              <div class="todo-multi-add-defaults-icon ui-section-icon ui-detail-section-icon" data-icon="sliders-horizontal"></div>
               <div>
                 <h4 data-i18n-key="todo.multiAdd.defaultsTitle">Apply to all todos</h4>
                 <p data-i18n-key="todo.multiAdd.defaultsDescription">Values entered directly in a line override these defaults.</p>
@@ -930,20 +933,22 @@
   </div>
 
   <!-- Shared Date and Time Picker -->
-  <div class="modal date-time-picker-modal" id="date-time-picker-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="date-time-picker-title">
+  <div class="modal ui-detail-modal ui-detail-view date-time-picker-modal" id="date-time-picker-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="date-time-picker-title">
     <div class="modal-overlay" data-datetime-picker-action="cancel"></div>
-    <div class="modal-content date-time-picker-content">
-      <div class="date-time-picker-header">
+    <div class="modal-content ui-detail-modal-content date-time-picker-content">
+      <div class="date-time-picker-header ui-detail-modal-header">
         <div class="date-time-picker-heading">
-          <div class="date-time-picker-title-icon" data-icon="calendar-days" aria-hidden="true"></div>
+          <div class="date-time-picker-title-icon ui-detail-title-icon" data-icon="calendar-days" aria-hidden="true"></div>
           <div>
             <h3 id="date-time-picker-title"></h3>
             <p id="date-time-picker-selection" aria-live="polite"></p>
           </div>
         </div>
-        <button type="button" class="modal-close-x date-time-picker-close" data-datetime-picker-action="cancel" aria-label="Schließen" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
+        <div class="ui-detail-header-actions">
+          <button type="button" class="modal-close-x date-time-picker-close" data-datetime-picker-action="cancel" aria-label="Schließen" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
+        </div>
       </div>
-      <div class="modal-body date-time-picker-body">
+      <div class="modal-body ui-detail-modal-body date-time-picker-body">
         <div class="date-time-picker-month-nav">
           <button type="button" class="btn btn-secondary btn-icon" data-datetime-picker-action="previous-period"><span data-icon="chevron-left" aria-hidden="true"></span></button>
           <button type="button" class="date-time-picker-period" id="date-time-picker-month" data-datetime-picker-action="zoom-out" aria-live="polite"></button>

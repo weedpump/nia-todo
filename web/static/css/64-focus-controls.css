@@ -129,8 +129,8 @@
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-radius: 14px;
+  border: 0;
+  border-radius: 999px;
   background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10)), var(--bg-primary));
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }

@@ -48,7 +48,7 @@ assert(appDownloadsSource.includes("link.matches?.('[data-external-resource]')")
 assert(appDownloadsSource.includes('nativeBridge.openExternal'), 'native apps must open external documentation with the native browser bridge');
 
 const serviceWorkerSource = read('web/sw.js');
-assert(serviceWorkerSource.includes("const CACHE_REVISION = 'desktop-sidebar-update-dot-103';"), 'the app-shell cache revision must include the desktop sidebar update indicator fix');
+assert(serviceWorkerSource.includes("const CACHE_REVISION = 'scoped-datetime-field-pills-123';"), 'the app-shell cache revision must scope pill-shaped fields to deadline, reminder, date, and time controls');
 assert(serviceWorkerSource.includes("'/static/icons/brands/github-mark.svg'"), 'the official GitHub mark must be available offline');
 
 const aboutCss = read('web/static/css/54-about.css');

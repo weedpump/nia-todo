@@ -9,9 +9,22 @@ const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.ur
 const todosSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 const uiShellSource = readFileSync(new URL('../web/static/js/features/ui-shell.js', import.meta.url), 'utf8');
 const styleManifest = readFileSync(new URL('../web/static/style.css', import.meta.url), 'utf8');
+const baseCssSource = readFileSync(new URL('../web/static/css/00-base.css', import.meta.url), 'utf8');
 const modalCssSource = readFileSync(new URL('../web/static/css/31-modals.css', import.meta.url), 'utf8');
+const detailModalCssSource = readFileSync(new URL('../web/static/css/89-ui-detail-modal.css', import.meta.url), 'utf8');
 const pickerCssSource = readFileSync(new URL('../web/static/css/97-date-time-picker.css', import.meta.url), 'utf8');
 const packageSource = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
+
+assert.match(indexSource, /class="modal ui-detail-modal ui-detail-view date-time-picker-modal"/, 'the picker must use the shared detail-modal root');
+assert.match(indexSource, /class="modal-content ui-detail-modal-content date-time-picker-content"/, 'the picker must use the shared detail-modal shell');
+assert.match(indexSource, /class="date-time-picker-header ui-detail-modal-header"/, 'the picker must use the shared detail-modal header');
+assert.match(indexSource, /class="date-time-picker-title-icon ui-detail-title-icon"/, 'the picker must use the shared detail-modal title icon');
+for (const fieldId of ['date-time-picker-day', 'date-time-picker-date-month', 'date-time-picker-year', 'date-time-picker-hour', 'date-time-picker-minute']) {
+  assert.match(indexSource, new RegExp(`class="ui-field" id="${fieldId}"`), `${fieldId} must use the shared field primitive`);
+}
+assert.match(baseCssSource, /--field-radius:\s*18px;/, 'shared inputs and selects must retain the normal design-system radius');
+assert.match(pickerCssSource, /#todo-due-picker,\s*#todo-remind-picker\s*\{[^}]*border-radius:\s*999px;/s, 'deadline and reminder triggers must opt into the pill radius');
+assert.match(pickerCssSource, /\.date-time-picker-date-entry \.ui-field,\s*\.date-time-picker-time \.ui-field\s*\{[^}]*border-radius:\s*999px;/s, 'date and time entry fields must opt into the pill radius');
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ locale: 'de-DE', viewport: { width: 1280, height: 900 } });
@@ -69,7 +82,7 @@ await page.route('http://datetime-picker.test/**', async route => {
     contentType: 'text/html',
     body: `<!doctype html>
       <html lang="de">
-        <head><style>${modalCssSource}\n${pickerCssSource}</style></head>
+        <head><style>${baseCssSource}\n${modalCssSource}\n${detailModalCssSource}\n${pickerCssSource}</style></head>
         <body style="min-height:3000px">
           <div class="modal active" id="todo-modal">
             <label for="todo-due-picker">Deadline</label>
@@ -80,17 +93,22 @@ await page.route('http://datetime-picker.test/**', async route => {
               </button>
             </div>
           </div>
-          <div class="modal date-time-picker-modal" id="date-time-picker-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="date-time-picker-title">
+          <div class="modal ui-detail-modal ui-detail-view date-time-picker-modal" id="date-time-picker-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="date-time-picker-title">
             <div class="modal-overlay" data-datetime-picker-action="cancel"></div>
-            <div class="modal-content date-time-picker-content">
-              <div class="date-time-picker-header">
-                <div>
-                  <h3 id="date-time-picker-title"></h3>
-                  <p id="date-time-picker-selection"></p>
+            <div class="modal-content ui-detail-modal-content date-time-picker-content">
+              <div class="date-time-picker-header ui-detail-modal-header">
+                <div class="date-time-picker-heading">
+                  <div class="date-time-picker-title-icon ui-detail-title-icon"></div>
+                  <div>
+                    <h3 id="date-time-picker-title"></h3>
+                    <p id="date-time-picker-selection"></p>
+                  </div>
                 </div>
-                <button type="button" data-datetime-picker-action="cancel">×</button>
+                <div class="ui-detail-header-actions">
+                  <button type="button" class="modal-close-x date-time-picker-close" data-datetime-picker-action="cancel">×</button>
+                </div>
               </div>
-              <div class="date-time-picker-body">
+              <div class="modal-body ui-detail-modal-body date-time-picker-body">
                 <div class="date-time-picker-month-nav">
                   <button type="button" data-datetime-picker-action="previous-period">‹</button>
                   <button type="button" class="date-time-picker-period" id="date-time-picker-month" data-datetime-picker-action="zoom-out"></button>
@@ -99,14 +117,14 @@ await page.route('http://datetime-picker.test/**', async route => {
                 <div class="date-time-picker-weekdays" id="date-time-picker-weekdays"></div>
                 <div class="date-time-picker-grid" id="date-time-picker-grid" role="grid"></div>
                 <div class="date-time-picker-date-entry">
-                  <label><span data-datetime-picker-day-label></span><input id="date-time-picker-day" inputmode="numeric" maxlength="2"></label>
-                  <label><span data-datetime-picker-month-label></span><input id="date-time-picker-date-month" inputmode="numeric" maxlength="2"></label>
-                  <label><span data-datetime-picker-year-label></span><input id="date-time-picker-year" inputmode="numeric" maxlength="4"></label>
+                  <label><span data-datetime-picker-day-label></span><input class="ui-field" id="date-time-picker-day" inputmode="numeric" maxlength="2"></label>
+                  <label><span data-datetime-picker-month-label></span><input class="ui-field" id="date-time-picker-date-month" inputmode="numeric" maxlength="2"></label>
+                  <label><span data-datetime-picker-year-label></span><input class="ui-field" id="date-time-picker-year" inputmode="numeric" maxlength="4"></label>
                 </div>
                 <div class="date-time-picker-time">
-                  <label><span data-datetime-picker-hour-label></span><input id="date-time-picker-hour" inputmode="numeric" maxlength="2"></label>
+                  <label><span data-datetime-picker-hour-label></span><input class="ui-field" id="date-time-picker-hour" inputmode="numeric" maxlength="2"></label>
                   <span>:</span>
-                  <label><span data-datetime-picker-minute-label></span><input id="date-time-picker-minute" inputmode="numeric" maxlength="2"></label>
+                  <label><span data-datetime-picker-minute-label></span><input class="ui-field" id="date-time-picker-minute" inputmode="numeric" maxlength="2"></label>
                   <div class="date-time-picker-day-period" id="date-time-picker-day-period" hidden>
                     <button type="button" data-datetime-picker-day-period="am">AM</button>
                     <button type="button" data-datetime-picker-day-period="pm">PM</button>
@@ -114,7 +132,7 @@ await page.route('http://datetime-picker.test/**', async route => {
                 </div>
                 <div class="form-error" id="date-time-picker-error" aria-live="polite"></div>
               </div>
-              <div class="date-time-picker-actions">
+              <div class="modal-actions date-time-picker-actions">
                 <button type="button" data-datetime-picker-action="today"></button>
                 <button type="button" data-datetime-picker-action="clear"></button>
                 <button type="button" data-datetime-picker-action="cancel"></button>
@@ -150,9 +168,59 @@ try {
   await page.locator('#date-time-picker-modal.active').waitFor();
   assert.equal(await page.locator('html').getAttribute('class'), 'date-time-picker-open', 'opening the picker must lock the document against mobile background scrolling');
   assert.equal(await page.locator('#date-time-picker-modal').getAttribute('aria-hidden'), 'false');
+  const designContract = await page.evaluate(() => {
+    const content = document.querySelector('.date-time-picker-content');
+    const icon = document.querySelector('.date-time-picker-title-icon');
+    const close = document.querySelector('.date-time-picker-close');
+    const hour = document.getElementById('date-time-picker-hour');
+    const timeGroup = document.querySelector('.date-time-picker-time');
+    const dayOption = document.querySelector('.date-time-picker-day');
+    const period = document.getElementById('date-time-picker-month');
+    const dateFields = [
+      document.getElementById('date-time-picker-day'),
+      document.getElementById('date-time-picker-date-month'),
+      document.getElementById('date-time-picker-year'),
+    ];
+    return {
+      contentRadius: getComputedStyle(content).borderRadius,
+      iconRadius: getComputedStyle(icon).borderRadius,
+      iconWidth: getComputedStyle(icon).width,
+      closeWidth: getComputedStyle(close).width,
+      closeRadius: getComputedStyle(close).borderRadius,
+      triggerRadius: getComputedStyle(document.getElementById('todo-due-picker')).borderRadius,
+      dateFieldRadii: dateFields.map(field => getComputedStyle(field).borderRadius),
+      hourRadius: getComputedStyle(hour).borderRadius,
+      hourBackground: getComputedStyle(hour).backgroundColor,
+      timeBackground: getComputedStyle(timeGroup).backgroundColor,
+      timeBorderTopStyle: getComputedStyle(timeGroup).borderTopStyle,
+      timeBorderTopWidth: getComputedStyle(timeGroup).borderTopWidth,
+      dayOptionWidth: getComputedStyle(dayOption).width,
+      dayOptionHeight: getComputedStyle(dayOption).height,
+      periodBackground: getComputedStyle(period).backgroundColor,
+    };
+  });
+  assert.deepEqual(designContract, {
+    contentRadius: '26px',
+    iconRadius: '999px',
+    iconWidth: '42px',
+    closeWidth: '40px',
+    closeRadius: '0px',
+    triggerRadius: '999px',
+    dateFieldRadii: ['999px', '999px', '999px'],
+    hourRadius: '999px',
+    hourBackground: 'rgb(36, 36, 66)',
+    timeBackground: 'rgba(0, 0, 0, 0)',
+    timeBorderTopStyle: 'solid',
+    timeBorderTopWidth: '1px',
+    dayOptionWidth: '42px',
+    dayOptionHeight: '42px',
+    periodBackground: 'rgb(36, 36, 66)',
+  }, 'the desktop picker must use the compact detail-modal and shared field geometry');
   assert.match(await page.locator('#date-time-picker-title').textContent(), /Deadline/);
   assert.match(await page.locator('#date-time-picker-selection').textContent(), /Dienstag, 20\. Oktober 2026/);
   assert.match(await page.locator('#date-time-picker-month').textContent(), /Oktober 2026/);
+  assert.equal(await page.locator('#date-time-picker-month').evaluate(element => getComputedStyle(element).borderRadius), '999px', 'the period selector between the arrows must use the pill shape');
+  assert.equal(await page.locator('.date-time-picker-day').first().evaluate(element => getComputedStyle(element).borderRadius), '999px', 'day options must use the circular pill shape');
   assert.equal(await page.locator('.modal-overlay[data-datetime-picker-action="cancel"]').textContent(), '', 'the overlay must stay visually empty');
 
   const weekdayLabels = await page.locator('#date-time-picker-weekdays > *').allTextContents();
@@ -163,6 +231,7 @@ try {
 
   await page.click('[data-datetime-picker-action="zoom-out"]');
   assert.equal(await page.locator('#date-time-picker-grid .date-time-picker-month-option').count(), 12, 'zooming out once must show all twelve months');
+  assert.equal(await page.locator('.date-time-picker-month-option').first().evaluate(element => getComputedStyle(element).borderRadius), '999px', 'month options must use the pill shape');
   assert.equal(await page.locator('#date-time-picker-grid > [role="row"]').count(), 4, 'month selection must expose four accessible rows');
   assert.equal(await page.locator('#date-time-picker-grid [role="gridcell"][aria-selected]').count(), 12, 'month options must expose selection state on grid cells');
   assert.equal(await page.locator('#date-time-picker-weekdays').isHidden(), true, 'weekday headings must hide in month selection');
@@ -170,6 +239,7 @@ try {
 
   await page.click('[data-datetime-picker-action="zoom-out"]');
   assert.equal(await page.locator('#date-time-picker-grid .date-time-picker-year-option').count(), 12, 'zooming out twice must show a twelve-year range');
+  assert.equal(await page.locator('.date-time-picker-year-option').first().evaluate(element => getComputedStyle(element).borderRadius), '999px', 'year options must use the pill shape');
   assert.equal(await page.locator('#date-time-picker-grid > [role="row"]').count(), 4, 'year selection must expose four accessible rows');
   assert.equal(await page.locator('#date-time-picker-grid [role="gridcell"][aria-selected]').count(), 12, 'year options must expose selection state on grid cells');
   await page.click('[data-year="2026"]');
@@ -315,8 +385,9 @@ try {
       return {
         fillsViewport: rect.left === 0 && rect.top === 0 && Math.round(rect.width) === window.innerWidth && Math.round(rect.height) === window.innerHeight,
         bodyFits: body.scrollHeight <= body.clientHeight,
+        timeBorderTopStyle: getComputedStyle(document.querySelector('.date-time-picker-time')).borderTopStyle,
       };
-    }), { fillsViewport: true, bodyFits: true }, `mobile ${viewport.width}px must stay fullscreen without an inner scrollbar`);
+    }), { fillsViewport: true, bodyFits: true, timeBorderTopStyle: 'none' }, `mobile ${viewport.width}px must stay fullscreen without an inner scrollbar or desktop date/time separator`);
     await page.click('button[data-datetime-picker-action="cancel"]:not(.modal-close-x)');
   }
 } finally {

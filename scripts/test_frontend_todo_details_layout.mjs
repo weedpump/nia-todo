@@ -47,6 +47,7 @@ const fixture = `<!doctype html>
             <div class="todo-meta-drawer-body">
               <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
                 <div style="height: 650px">Organize</div>
+                <label class="pin-checkbox-label"><input type="checkbox"><span class="pin-checkbox-box"></span><span>Pinned at top</span></label>
               </section>
               <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
                 <div class="ui-section-heading ui-detail-section-heading"><div><h4>Planning</h4><p>Deadline and reminder.</p></div></div>
@@ -135,6 +136,7 @@ try {
       const modalBody = document.querySelector('.todo-modal-body');
       const drawer = document.querySelector('.todo-meta-edit-drawer');
       const detailsClose = document.querySelector('.todo-meta-drawer-close');
+      const pinControl = document.querySelector('.pin-checkbox-label');
       const contentRect = modalContent.getBoundingClientRect();
       const drawerRect = drawer.getBoundingClientRect();
       const closeRect = detailsClose.getBoundingClientRect();
@@ -148,6 +150,8 @@ try {
             && Math.abs(drawerRect.bottom - contentRect.bottom) <= 1,
           detailsCloseOwnsHit: Boolean(closeTarget?.closest('.todo-meta-drawer-close')),
         },
+        pinControlRadius: getComputedStyle(pinControl).borderRadius,
+        pinControlBorderWidth: getComputedStyle(pinControl).borderTopWidth,
       };
     });
 
@@ -192,6 +196,8 @@ try {
       if (!result.fullscreenDrawer.detailsCloseOwnsHit) throw new Error(`Todo close control wins the details close hit target at ${viewport.label}`);
       console.log(`✓ Fullscreen details header owns its close target at ${viewport.width}×${viewport.height}`);
     }
+    if (result.pinControlRadius !== '999px') throw new Error(`Pinned-at-top control is not pill-shaped at ${viewport.label}: ${result.pinControlRadius}`);
+    if (result.pinControlBorderWidth !== '0px') throw new Error(`Pinned-at-top control still has an outer border at ${viewport.label}: ${result.pinControlBorderWidth}`);
     if (!keyboardFixedResult.intersects) throw new Error(`Fixture error at ${viewport.label}: fixed keyboard toolbar and details drawer do not intersect`);
     if (!keyboardFixedResult.drawerOwnsOverlap) {
       throw new Error(`Fixed keyboard toolbar overlaps the details drawer at ${viewport.label} width (top element: ${keyboardFixedResult.topElement})`);
