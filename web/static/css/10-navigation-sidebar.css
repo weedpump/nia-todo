@@ -45,8 +45,22 @@
   #app[data-desktop-sidebar-mode="rail"] .nav-btn .badge,
   #app[data-desktop-sidebar-mode="rail"] .nav-edit,
   #app[data-desktop-sidebar-mode="rail"] #invites-section,
-  #app[data-desktop-sidebar-mode="rail"] .sidebar-user-meta,
+  #app[data-desktop-sidebar-mode="rail"] .sidebar-user-meta {
+    display: none;
+  }
+
   #app[data-desktop-sidebar-mode="rail"] .server-update-footer {
+    padding: 8px 0 0;
+    pointer-events: none;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .server-update-indicator {
+    width: auto;
+    margin: 0;
+    gap: 0;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .server-update-indicator-text {
     display: none;
   }
 
