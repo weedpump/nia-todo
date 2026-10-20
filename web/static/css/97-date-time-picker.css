@@ -322,6 +322,30 @@ html.date-time-picker-open body {
   outline-offset: 1px;
 }
 
+.date-time-picker-date-entry {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.date-time-picker-date-entry label,
+.date-time-picker-time label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.date-time-picker-date-entry input,
+.date-time-picker-time input {
+  width: 100%;
+  min-height: 40px;
+  text-align: center;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
 .date-time-picker-time {
   margin-top: 4px;
   padding: 12px 14px;
@@ -333,20 +357,8 @@ html.date-time-picker-open body {
   background: var(--bg-primary);
 }
 
-.date-time-picker-time label {
-  display: grid;
-  gap: 5px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.date-time-picker-time input {
-  width: 100%;
-  min-height: 40px;
-  text-align: center;
-  font-size: 16px;
-  font-variant-numeric: tabular-nums;
+.date-time-picker-time:has(.date-time-picker-day-period:not([hidden])) {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
 }
 
 .date-time-picker-time-separator {
@@ -354,6 +366,48 @@ html.date-time-picker-open body {
   color: var(--text-secondary);
   font-size: 21px;
   font-weight: 750;
+}
+
+.date-time-picker-day-period {
+  align-self: end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  min-height: 40px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+}
+
+.date-time-picker-day-period[hidden] {
+  display: none;
+}
+
+.date-time-picker-day-period button {
+  min-width: 42px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.date-time-picker-day-period button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+}
+
+.date-time-picker-day-period button:focus-visible {
+  outline: 3px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.35));
+  outline-offset: 1px;
+}
+
+.date-time-picker-error:empty {
+  display: none;
 }
 
 .date-time-picker-actions {
@@ -371,6 +425,22 @@ html.date-time-picker-open body {
 
 .date-time-picker-clear {
   color: var(--danger);
+}
+
+@media (min-width: 769px) {
+  .date-time-picker-content {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .date-time-picker-body {
+    min-height: 0;
+  }
+
+  .date-time-picker-day {
+    height: 42px;
+    min-height: 42px;
+    aspect-ratio: auto;
+  }
 }
 
 @media (min-width: 769px) and (pointer: coarse) {
@@ -441,6 +511,10 @@ html.date-time-picker-open body {
     width: min(100%, 460px);
     margin: 0 auto;
     padding: 14px 16px;
+  }
+
+  .date-time-picker-date-entry {
+    display: none;
   }
 
   .date-time-picker-grid {

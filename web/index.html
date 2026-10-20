@@ -951,6 +951,20 @@
         </div>
         <div class="date-time-picker-weekdays" id="date-time-picker-weekdays"></div>
         <div class="date-time-picker-grid" id="date-time-picker-grid" role="grid"></div>
+        <div class="date-time-picker-date-entry" role="group">
+          <label>
+            <span data-datetime-picker-day-label></span>
+            <input class="ui-field" id="date-time-picker-day" type="text" inputmode="numeric" maxlength="2" autocomplete="off">
+          </label>
+          <label>
+            <span data-datetime-picker-month-label></span>
+            <input class="ui-field" id="date-time-picker-date-month" type="text" inputmode="numeric" maxlength="2" autocomplete="off">
+          </label>
+          <label>
+            <span data-datetime-picker-year-label></span>
+            <input class="ui-field" id="date-time-picker-year" type="text" inputmode="numeric" maxlength="4" autocomplete="off">
+          </label>
+        </div>
         <div class="date-time-picker-time" role="group">
           <label>
             <span data-datetime-picker-hour-label></span>
@@ -961,7 +975,12 @@
             <span data-datetime-picker-minute-label></span>
             <input class="ui-field" id="date-time-picker-minute" type="text" inputmode="numeric" maxlength="2" autocomplete="off">
           </label>
+          <div class="date-time-picker-day-period" id="date-time-picker-day-period" hidden>
+            <button type="button" data-datetime-picker-day-period="am" aria-pressed="false">AM</button>
+            <button type="button" data-datetime-picker-day-period="pm" aria-pressed="false">PM</button>
+          </div>
         </div>
+        <div class="form-error date-time-picker-error" id="date-time-picker-error" aria-live="polite"></div>
       </div>
       <div class="modal-actions date-time-picker-actions">
         <button type="button" class="btn btn-secondary" data-datetime-picker-action="today"></button>

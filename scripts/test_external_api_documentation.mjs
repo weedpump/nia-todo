@@ -48,7 +48,7 @@ assert(appDownloadsSource.includes("link.matches?.('[data-external-resource]')")
 assert(appDownloadsSource.includes('nativeBridge.openExternal'), 'native apps must open external documentation with the native browser bridge');
 
 const serviceWorkerSource = read('web/sw.js');
-assert(serviceWorkerSource.includes("const CACHE_REVISION = 'unified-datetime-picker-94';"), 'the app-shell cache revision must include the unified date/time picker');
+assert(serviceWorkerSource.includes("const CACHE_REVISION = 'english-datetime-ampm-95';"), 'the app-shell cache revision must include the English AM/PM picker update');
 assert(serviceWorkerSource.includes("'/static/icons/brands/github-mark.svg'"), 'the official GitHub mark must be available offline');
 
 const aboutCss = read('web/static/css/54-about.css');
