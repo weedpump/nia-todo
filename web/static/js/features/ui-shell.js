@@ -263,10 +263,11 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     dateTimePickerBound = true;
 
     document.addEventListener('pointerdown', (event) => {
-      // Mobile browsers already handle native date/time controls well. This
-      // desktop-only assist keeps custom calendar icons from turning into a
-      // dead text-selection target when the native indicator is visually hidden.
-      if (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+      // Android Chromium can lose its native date/time activation when mobile
+      // styles hide the built-in control. Open it explicitly for Android touch,
+      // while iOS keeps its native picker path.
+      const isAndroidTouch = event.pointerType === 'touch' && /Android/i.test(navigator.userAgent);
+      if (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen' && !isAndroidTouch) return;
       const wrap = event.target?.closest?.('.datetime-input-wrap');
       if (!wrap) return;
 

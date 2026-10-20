@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.5.0';
-const CACHE_REVISION = 'workspace-modal-close-92';
+const CACHE_REVISION = 'android-datetime-picker-93';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
