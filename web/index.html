@@ -847,18 +847,24 @@
           </div>
           <div class="ui-field-grid two-columns">
             <div class="form-group">
-              <label data-i18n-key="todo.deadline">Deadline</label>
+              <label for="todo-due-picker" data-i18n-key="todo.deadline">Deadline</label>
               <div class="datetime-input-wrap">
-                <input class="ui-field" type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
-                <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
+                <input class="datetime-picker-native-value" type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60" tabindex="-1" aria-hidden="true">
+                <button type="button" class="ui-field datetime-picker-trigger" id="todo-due-picker" data-datetime-picker-for="todo-due" aria-haspopup="dialog" aria-controls="date-time-picker-modal">
+                  <span data-datetime-picker-display></span>
+                  <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
+                </button>
               </div>
               <div id="todo-due-error" class="form-error compact"></div>
             </div>
             <div class="form-group">
-              <label data-i18n-key="todo.reminder">Erinnerung</label>
+              <label for="todo-remind-picker" data-i18n-key="todo.reminder">Erinnerung</label>
               <div class="datetime-input-wrap">
-                <input class="ui-field" type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
-                <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
+                <input class="datetime-picker-native-value" type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60" tabindex="-1" aria-hidden="true">
+                <button type="button" class="ui-field datetime-picker-trigger" id="todo-remind-picker" data-datetime-picker-for="todo-remind" aria-haspopup="dialog" aria-controls="date-time-picker-modal">
+                  <span data-datetime-picker-display></span>
+                  <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
+                </button>
               </div>
               <div id="todo-remind-error" class="form-error compact"></div>
             </div>
@@ -919,6 +925,50 @@
           </div>
         </section>
       </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared Date and Time Picker -->
+  <div class="modal date-time-picker-modal" id="date-time-picker-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="date-time-picker-title">
+    <div class="modal-overlay" data-datetime-picker-action="cancel"></div>
+    <div class="modal-content date-time-picker-content">
+      <div class="date-time-picker-header">
+        <div class="date-time-picker-heading">
+          <div class="date-time-picker-title-icon" data-icon="calendar-days" aria-hidden="true"></div>
+          <div>
+            <h3 id="date-time-picker-title"></h3>
+            <p id="date-time-picker-selection" aria-live="polite"></p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-x date-time-picker-close" data-datetime-picker-action="cancel" aria-label="Schließen" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
+      </div>
+      <div class="modal-body date-time-picker-body">
+        <div class="date-time-picker-month-nav">
+          <button type="button" class="btn btn-secondary btn-icon" data-datetime-picker-action="previous-period"><span data-icon="chevron-left" aria-hidden="true"></span></button>
+          <button type="button" class="date-time-picker-period" id="date-time-picker-month" data-datetime-picker-action="zoom-out" aria-live="polite"></button>
+          <button type="button" class="btn btn-secondary btn-icon" data-datetime-picker-action="next-period"><span data-icon="chevron-right" aria-hidden="true"></span></button>
+        </div>
+        <div class="date-time-picker-weekdays" id="date-time-picker-weekdays"></div>
+        <div class="date-time-picker-grid" id="date-time-picker-grid" role="grid"></div>
+        <div class="date-time-picker-time" role="group">
+          <label>
+            <span data-datetime-picker-hour-label></span>
+            <input class="ui-field" id="date-time-picker-hour" type="text" inputmode="numeric" maxlength="2" autocomplete="off">
+          </label>
+          <span class="date-time-picker-time-separator" aria-hidden="true">:</span>
+          <label>
+            <span data-datetime-picker-minute-label></span>
+            <input class="ui-field" id="date-time-picker-minute" type="text" inputmode="numeric" maxlength="2" autocomplete="off">
+          </label>
+        </div>
+      </div>
+      <div class="modal-actions date-time-picker-actions">
+        <button type="button" class="btn btn-secondary" data-datetime-picker-action="today"></button>
+        <button type="button" class="btn btn-secondary date-time-picker-clear" data-datetime-picker-action="clear"></button>
+        <span class="date-time-picker-action-spacer"></span>
+        <button type="button" class="btn btn-secondary" data-datetime-picker-action="cancel"></button>
+        <button type="button" class="btn btn-primary" data-datetime-picker-action="apply"></button>
       </div>
     </div>
   </div>

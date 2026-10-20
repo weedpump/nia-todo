@@ -145,6 +145,66 @@ function createHarness({
   const closed = [];
   const uiHistory = createUiHistory(harness);
   uiHistory.registerLayer('todo-modal', payload => closed.push(['todo-modal', payload]));
+  uiHistory.registerLayer('date-time-picker-modal', payload => closed.push(['date-time-picker-modal', payload]));
+  uiHistory.bind();
+  uiHistory.openLayer('todo-modal');
+  uiHistory.openLayer('date-time-picker-modal');
+
+  harness.history.back();
+  assert.deepEqual(closed, [['date-time-picker-modal', { reason: 'history' }]], 'Back from the date picker must close only the picker');
+  assert.deepEqual(harness.history.state.niaTodoUi.layers, ['todo-modal'], 'the todo modal must remain the only history layer after closing the picker');
+
+  harness.history.back();
+  assert.deepEqual(closed, [
+    ['date-time-picker-modal', { reason: 'history' }],
+    ['todo-modal', { reason: 'history' }],
+  ], 'the next Back must close the todo modal without a ghost metadata layer');
+  assert.deepEqual(harness.history.state.niaTodoUi.layers, []);
+}
+
+{
+  const openClasses = {
+    'todo-modal': new Set(['modal', 'active']),
+    'todo-meta-drawer': new Set(['open']),
+    'date-time-picker-modal': new Set(['modal', 'active']),
+  };
+  const document = {
+    getElementById(id) {
+      const classes = openClasses[id];
+      if (!classes) return null;
+      return { id, classList: { contains: name => classes.has(name) } };
+    },
+  };
+  const harness = createHarness({ document });
+  const closed = [];
+  const uiHistory = createUiHistory(harness);
+  uiHistory.registerLayer('todo-modal', payload => closed.push(['todo-modal', payload]));
+  uiHistory.registerLayer('todo-meta-drawer', payload => closed.push(['todo-meta-drawer', payload]));
+  uiHistory.registerLayer('date-time-picker-modal', payload => closed.push(['date-time-picker-modal', payload]));
+  uiHistory.bind();
+  uiHistory.openLayer('todo-modal');
+  uiHistory.openLayer('todo-meta-drawer');
+  uiHistory.openLayer('date-time-picker-modal');
+
+  assert.equal(uiHistory.requestCloseLayer('date-time-picker-modal', { reason: 'ui' }), true);
+  assert.deepEqual(closed, [['date-time-picker-modal', { reason: 'ui' }]], 'closing a picker opened from Details must not close the details drawer');
+  assert.deepEqual(uiHistory.getLayers(), ['todo-modal', 'todo-meta-drawer']);
+  assert.deepEqual(harness.history.state.niaTodoUi.layers, ['todo-modal', 'todo-meta-drawer']);
+
+  assert.equal(uiHistory.requestCloseLayer('todo-meta-drawer', { reason: 'ui' }), true);
+  assert.deepEqual(closed, [
+    ['date-time-picker-modal', { reason: 'ui' }],
+    ['todo-meta-drawer', { reason: 'ui' }],
+  ], 'closing Details must leave the todo modal open');
+  assert.deepEqual(uiHistory.getLayers(), ['todo-modal']);
+  assert.deepEqual(harness.history.state.niaTodoUi.layers, ['todo-modal']);
+}
+
+{
+  const harness = createHarness();
+  const closed = [];
+  const uiHistory = createUiHistory(harness);
+  uiHistory.registerLayer('todo-modal', payload => closed.push(['todo-modal', payload]));
   uiHistory.registerLayer('todo-meta-drawer', payload => closed.push(['todo-meta-drawer', payload]));
   uiHistory.bind();
   uiHistory.openLayer('todo-modal');
@@ -193,8 +253,13 @@ assert.match(userMenuSource, /registerUiLayer\('user-menu'/, 'the user action me
 assert.match(dashboardPreferencesSource, /replaceUiLayer\('user-menu', 'dashboard-preferences-modal'\)/, 'dashboard settings must replace the user-menu history entry');
 assert.match(uiShellSource, /mfa-enrollment-locked[\s\S]*openUiLayer\('settings-modal'\)/, 'MFA-locked settings must restore their history guard');
 assert.match(appDownloadsSource, /native-update-required[\s\S]*openUiLayer\('native-app-update-modal'\)/, 'required native updates must restore their history guard');
+const todoMetaSource = todosSource.slice(todosSource.indexOf('function ensureTodoMetaDrawer'), todosSource.indexOf('function ensureTodoDetailHeaderMenu'));
 assert.match(todosSource, /registerUiLayer\('todo-meta-drawer'/, 'the todo details drawer must be a nested history layer');
 assert.match(todosSource, /openUiLayer\('todo-meta-drawer'\)/, 'opening the todo details drawer must create a nested history entry');
+assert.match(todoMetaSource, /classList\.add\('open'\)/, 'the todo details drawer must expose its open DOM state to history reconciliation');
+assert.match(todoMetaSource, /classList\.remove\('open'\)/, 'closing the todo details drawer must clear its DOM history state');
+const metaEditorSource = todosSource.slice(todosSource.indexOf('function openTodoMetaEditor'), todosSource.indexOf('function renderTodoMetaSummary'));
+assert(metaEditorSource.indexOf('data-datetime-picker-for') < metaEditorSource.indexOf('openTodoMetaDrawer()'), 'date/time summary chips must bypass the metadata drawer before it creates a history layer');
 assert.match(todosSource, /registerUiLayer\('todo-description-editor'/, 'the todo description editor must be a nested history layer');
 assert.match(todosSource, /openUiLayer\('todo-description-editor'\)/, 'opening the todo description editor must create a nested history entry');
 assert.match(todosSource, /event\.key === 'Escape'[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*closeTodoDescriptionEditor\(\)/, 'Escape in the todo description editor must not bubble to the parent modal handler');

@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
+### Changed
+- Replaced platform-native date and time pickers with a unified nia-todo picker across all platforms.
+
 ### Fixed
-- Restored deadline and reminder date/time pickers in Android browsers and the native Android app.
 - Kept button backgrounds and icons visible while pressing controls in the native Android app.
 
 ## [3.5.0] - 2026-10-19
