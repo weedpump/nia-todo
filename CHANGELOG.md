@@ -5,10 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.6.0] - 2026-10-20
 
 ### Added
 - Replaced platform-native date and time pickers with a unified nia-todo picker across all platforms.
+
+### Changed
+- Made Todo metadata badges update immediately, toggle pinning directly, and close single-choice editors after selection.
 
 ### Fixed
 - Kept button backgrounds and icons visible while pressing controls in the native Android app.

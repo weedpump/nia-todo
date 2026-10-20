@@ -259,7 +259,8 @@ assert.match(todosSource, /openUiLayer\('todo-meta-drawer'\)/, 'opening the todo
 assert.match(todoMetaSource, /classList\.add\('open'\)/, 'the todo details drawer must expose its open DOM state to history reconciliation');
 assert.match(todoMetaSource, /classList\.remove\('open'\)/, 'closing the todo details drawer must clear its DOM history state');
 const metaEditorSource = todosSource.slice(todosSource.indexOf('function openTodoMetaEditor'), todosSource.indexOf('function renderTodoMetaSummary'));
-assert(metaEditorSource.indexOf('data-datetime-picker-for') < metaEditorSource.indexOf('openTodoMetaDrawer()'), 'date/time summary chips must bypass the metadata drawer before it creates a history layer');
+assert(metaEditorSource.indexOf('data-datetime-picker-for') < metaEditorSource.indexOf('openTodoMetaDrawer({ autoCloseTarget: controlId })'), 'date/time summary chips must bypass the metadata drawer before it creates a history layer');
+assert(metaEditorSource.indexOf('isDirectTodoMetaToggle(control)') < metaEditorSource.indexOf('openTodoMetaDrawer({ autoCloseTarget: controlId })'), 'direct metadata toggles must bypass the metadata drawer history layer');
 assert.match(todosSource, /registerUiLayer\('todo-description-editor'/, 'the todo description editor must be a nested history layer');
 assert.match(todosSource, /openUiLayer\('todo-description-editor'\)/, 'opening the todo description editor must create a nested history entry');
 assert.match(todosSource, /event\.key === 'Escape'[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*closeTodoDescriptionEditor\(\)/, 'Escape in the todo description editor must not bubble to the parent modal handler');

@@ -43,8 +43,14 @@ async function clickBadgeAndExpectSelect(page, targetId) {
 }
 
 async function dismissSelectAndDrawer(page) {
-  await page.keyboard.press('Escape');
-  await page.locator('.todo-meta-drawer-close').evaluate(element => element.click());
+  const modal = page.locator('#todo-modal');
+  const openTrigger = page.locator('#todo-meta-drawer .ui-select-trigger[aria-expanded="true"]');
+  if (await openTrigger.count()) {
+    await openTrigger.evaluate(element => element.click());
+  }
+  if (await modal.evaluate(element => element.classList.contains('todo-meta-editing'))) {
+    await page.locator('.todo-meta-drawer-close').evaluate(element => element.click());
+  }
   await page.waitForFunction(() => !document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'));
 }
 
@@ -94,7 +100,13 @@ async function run() {
     await openTodoModal();
     await closeMetaDrawer(page);
     await clickBadgeAndExpectSelect(page, 'todo-status');
-    await dismissSelectAndDrawer(page);
+    await page.selectOption('#todo-status', 'in_progress', { force: true });
+    await page.waitForFunction(() => !document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'));
+    const liveStatusBadge = await page.locator('.todo-meta-summary-chip[data-meta-edit-target="todo-status"] strong').textContent();
+    if (!liveStatusBadge?.match(/In progress|In Arbeit/i)) {
+      throw new Error(`Status badge did not update after its single-choice editor closed: ${JSON.stringify(liveStatusBadge)}`);
+    }
+    await page.waitForFunction(() => document.activeElement === document.querySelector('.todo-meta-summary-chip[data-meta-edit-target="todo-status"]'));
     await closeTodoModal(page);
     await page.setViewportSize({ width: 1440, height: 1000 });
 
@@ -102,7 +114,9 @@ async function run() {
     await closeMetaDrawer(page);
     await page.locator('.todo-meta-summary-chip[data-meta-edit-target="todo-pinned"]').click();
     await page.waitForFunction(() => document.getElementById('todo-pinned')?.checked === true);
-    await page.locator('.todo-meta-drawer-close').evaluate(element => element.click());
+    if (await page.locator('#todo-modal').evaluate(element => element.classList.contains('todo-meta-editing'))) {
+      throw new Error('Pinned badge opened the metadata drawer instead of toggling directly');
+    }
     const pinnedValue = await page.locator('.todo-meta-summary-chip[data-meta-edit-target="todo-pinned"] strong').textContent();
     if (!pinnedValue?.trim()) throw new Error('Pinned badge did not update after direct toggle');
     await closeTodoModal(page);
@@ -114,6 +128,12 @@ async function run() {
     await page.selectOption('#todo-recurring-frequency', 'weekly');
     await page.check('#todo-pinned', { force: true });
     await closeMetaDrawer(page);
+    await clickBadgeAndExpectSelect(page, 'todo-recurring-frequency');
+    await page.selectOption('#todo-recurring-frequency', 'weekly', { force: true });
+    if (!(await page.locator('#todo-modal').evaluate(element => element.classList.contains('todo-meta-editing')))) {
+      throw new Error('Recurring selection closed the metadata drawer even though its interval remains editable');
+    }
+    await dismissSelectAndDrawer(page);
     await clickBadgeAndExpectSelect(page, 'todo-location-place');
     await page.keyboard.press('Escape');
     await page.locator('#todo-location-address').evaluate((input, value) => {
@@ -160,9 +180,14 @@ async function run() {
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
     await closeMetaDrawer(page);
     await clickBadgeAndExpectDateTimePicker(page, 'todo-remind');
-    await page.locator('button[data-datetime-picker-action="cancel"]').last().click();
+    await page.fill('#date-time-picker-hour', '04');
+    await page.fill('#date-time-picker-minute', '05');
+    await page.locator('button[data-datetime-picker-action="apply"]').last().click();
     await page.waitForFunction(() => !document.getElementById('date-time-picker-modal')?.classList.contains('active'));
-    await page.waitForFunction(() => document.activeElement === document.querySelector('.todo-meta-summary-chip[data-meta-edit-target="todo-remind"]'));
+    const liveReminderBadge = await page.locator('.todo-meta-summary-chip[data-meta-edit-target="todo-remind"] strong').textContent();
+    if (!liveReminderBadge?.includes('04:05')) {
+      throw new Error(`Reminder badge did not update after applying the picker value: ${JSON.stringify(liveReminderBadge)}`);
+    }
     await page.locator('#todo-meta-edit-toggle').click();
     await page.waitForFunction(() => document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'));
 
