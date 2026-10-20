@@ -67,6 +67,12 @@ try {
                     <button class="user-menu-button" id="user-menu-button" aria-expanded="false" aria-label="User menu"><span class="user-menu-button-avatar">T</span><span class="sidebar-user-meta">Tobi</span></button>
                     <div class="ui-menu user-menu" id="user-menu"></div>
                   </div>
+                  <div class="server-update-footer">
+                    <div class="server-update-indicator" id="server-update-indicator" role="status">
+                      <span class="server-update-indicator-dot" aria-hidden="true"></span>
+                      <span class="server-update-indicator-text">Server update available</span>
+                    </div>
+                  </div>
                 </div>
               </aside>
               <main class="main">
@@ -91,6 +97,16 @@ try {
     const app = document.getElementById('app');
     const sidebar = document.getElementById('sidebar');
     const toggle = document.getElementById('sidebar-toggle-btn');
+    const isVisible = element => {
+      for (let current = element; current; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+      }
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const updateDot = document.querySelector('.server-update-indicator-dot');
+    const updateText = document.querySelector('.server-update-indicator-text');
     return {
       mode: app.dataset.desktopSidebarMode,
       width: Math.round(sidebar.getBoundingClientRect().width),
@@ -98,6 +114,10 @@ try {
       expanded: toggle.getAttribute('aria-expanded'),
       labelDisplay: getComputedStyle(document.querySelector('.nav-label')).display,
       badgeDisplay: getComputedStyle(document.querySelector('.badge')).display,
+      updateDotDisplay: getComputedStyle(updateDot).display,
+      updateTextDisplay: getComputedStyle(updateText).display,
+      updateDotVisible: isVisible(updateDot),
+      updateTextVisible: isVisible(updateText),
     };
   });
 
@@ -108,6 +128,10 @@ try {
     expanded: 'true',
     labelDisplay: 'block',
     badgeDisplay: 'flex',
+    updateDotDisplay: 'block',
+    updateTextDisplay: 'block',
+    updateDotVisible: true,
+    updateTextVisible: true,
   });
   assert.equal(await page.evaluate(() => localStorage.getItem('nia-desktop-sidebar-mode')), null);
 
@@ -120,8 +144,21 @@ try {
     expanded: 'true',
     labelDisplay: 'none',
     badgeDisplay: 'none',
+    updateDotDisplay: 'block',
+    updateTextDisplay: 'none',
+    updateDotVisible: true,
+    updateTextVisible: false,
   });
   assert.equal(await page.evaluate(() => localStorage.getItem('nia-desktop-sidebar-mode')), 'rail');
+  assert.equal(await page.evaluate(() => {
+    const avatarRect = document.querySelector('.user-menu-button-avatar').getBoundingClientRect();
+    const dotRect = document.querySelector('.server-update-indicator-dot').getBoundingClientRect();
+    const avatarCenter = avatarRect.left + (avatarRect.width / 2);
+    const dotCenter = dotRect.left + (dotRect.width / 2);
+    return dotRect.width > 0
+      && dotRect.top >= avatarRect.bottom
+      && Math.abs(dotCenter - avatarCenter) <= 1;
+  }), true, 'the rail update dot must render centered below the account avatar');
   await page.reload();
   await page.waitForFunction(() => window.sidebarReady === true);
   await page.waitForTimeout(250);
@@ -132,6 +169,10 @@ try {
     expanded: 'true',
     labelDisplay: 'none',
     badgeDisplay: 'none',
+    updateDotDisplay: 'block',
+    updateTextDisplay: 'none',
+    updateDotVisible: true,
+    updateTextVisible: false,
   });
   const railUserMenuButton = page.getByRole('button', { name: 'User menu' });
   await assert.doesNotReject(() => railUserMenuButton.click());
@@ -146,6 +187,10 @@ try {
     expanded: 'false',
     labelDisplay: 'block',
     badgeDisplay: 'flex',
+    updateDotDisplay: 'block',
+    updateTextDisplay: 'block',
+    updateDotVisible: false,
+    updateTextVisible: false,
   });
   assert.equal(await page.evaluate(() => localStorage.getItem('nia-desktop-sidebar-mode')), 'hidden');
   await page.reload();
@@ -158,6 +203,10 @@ try {
     expanded: 'false',
     labelDisplay: 'block',
     badgeDisplay: 'flex',
+    updateDotDisplay: 'block',
+    updateTextDisplay: 'block',
+    updateDotVisible: false,
+    updateTextVisible: false,
   });
 
   await page.locator('#sidebar-toggle-btn').click();

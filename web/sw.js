@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.0';
-const CACHE_REVISION = 'todo-meta-drawer-stacking-101';
+const CACHE_REVISION = 'desktop-sidebar-update-dot-103';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
