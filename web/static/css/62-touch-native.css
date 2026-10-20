@@ -80,30 +80,6 @@
   box-shadow: none !important;
 }
 
-.native-android button:active,
-.native-android a:active,
-.native-android [role="button"]:active,
-.native-android button.touch-feedback,
-.native-android a.touch-feedback,
-.native-android [role="button"].touch-feedback,
-.native-android .nav-btn:active,
-.native-android .nav-btn.touch-feedback,
-.native-android .workspace-current-btn:active,
-.native-android .workspace-current-btn.touch-feedback,
-.native-android .user-menu-item:active,
-.native-android .user-menu-item.touch-feedback,
-.native-android .section-name:active,
-.native-android .section-name.touch-feedback,
-.native-android .modal-close-x:active,
-.native-android .modal-close-x.touch-feedback,
-.native-android .ui-select-trigger:active,
-.native-android .ui-select-trigger.touch-feedback {
-  background: transparent !important;
-  box-shadow: none !important;
-  outline: none !important;
-  transform: none !important;
-}
-
 .mobile-swipe-ui .todo-item.swiping {
   transform: translate3d(var(--swipe-x, 0), 0, 0) !important;
 }
