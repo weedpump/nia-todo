@@ -366,7 +366,12 @@ export function createTodosFeature({
     const dateTimeTrigger = document.querySelector(`[data-datetime-picker-for="${CSS.escape(controlId)}"]`);
     if (dateTimeTrigger) {
       if (typeof openDateTimePicker === 'function') {
-        openDateTimePicker(dateTimeTrigger, { returnFocusTarget: sourceElement || dateTimeTrigger });
+        const resolveReturnFocusTarget = sourceElement
+          ? () => document.querySelector(`.todo-meta-summary-chip[data-meta-edit-target="${CSS.escape(controlId)}"]`)
+            || document.getElementById('todo-meta-edit-toggle')
+            || dateTimeTrigger
+          : dateTimeTrigger;
+        openDateTimePicker(dateTimeTrigger, { returnFocusTarget: resolveReturnFocusTarget });
       } else {
         dateTimeTrigger.click();
       }

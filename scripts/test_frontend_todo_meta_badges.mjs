@@ -184,6 +184,7 @@ async function run() {
     await page.fill('#date-time-picker-minute', '05');
     await page.locator('button[data-datetime-picker-action="apply"]').last().click();
     await page.waitForFunction(() => !document.getElementById('date-time-picker-modal')?.classList.contains('active'));
+    await page.waitForFunction(() => document.activeElement === document.querySelector('.todo-meta-summary-chip[data-meta-edit-target="todo-remind"]'));
     const liveReminderBadge = await page.locator('.todo-meta-summary-chip[data-meta-edit-target="todo-remind"] strong').textContent();
     if (!liveReminderBadge?.includes('04:05')) {
       throw new Error(`Reminder badge did not update after applying the picker value: ${JSON.stringify(liveReminderBadge)}`);

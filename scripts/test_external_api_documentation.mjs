@@ -48,7 +48,7 @@ assert(appDownloadsSource.includes("link.matches?.('[data-external-resource]')")
 assert(appDownloadsSource.includes('nativeBridge.openExternal'), 'native apps must open external documentation with the native browser bridge');
 
 const serviceWorkerSource = read('web/sw.js');
-assert(serviceWorkerSource.includes("const CACHE_REVISION = 'todo-meta-badge-actions-98';"), 'the app-shell cache revision must include interactive Todo metadata badge updates');
+assert(serviceWorkerSource.includes("const CACHE_REVISION = 'todo-meta-badge-focus-99';"), 'the app-shell cache revision must include interactive Todo metadata badge updates and focus restoration');
 assert(serviceWorkerSource.includes("'/static/icons/brands/github-mark.svg'"), 'the official GitHub mark must be available offline');
 
 const aboutCss = read('web/static/css/54-about.css');
