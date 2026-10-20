@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v3.6.0';
+const SW_VERSION = 'v3.6.1';
 const CACHE_REVISION = 'scoped-datetime-field-pills-123';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 

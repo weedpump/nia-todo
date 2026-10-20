@@ -1,6 +1,6 @@
 [package]
 name = "nia-todo-desktop"
-version = "3.6.0"
+version = "3.6.1"
 default-run = "nia-todo-desktop"
 description = "Desktop wrapper for nia-todo"
 authors = ["Tobias Kneidl"]
