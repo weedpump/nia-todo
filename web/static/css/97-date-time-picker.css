@@ -37,6 +37,11 @@ html.date-time-picker-open body {
   cursor: pointer;
 }
 
+#todo-due-picker,
+#todo-remind-picker {
+  border-radius: 999px;
+}
+
 .datetime-picker-trigger.is-empty [data-datetime-picker-display]::before {
   content: "—";
   color: var(--text-muted);
@@ -61,8 +66,6 @@ html.date-time-picker-open body {
 }
 
 .date-time-picker-content {
-  width: min(460px, calc(100vw - 32px));
-  max-width: 460px;
   padding: 0;
   overflow: hidden;
   overscroll-behavior: none;
@@ -71,12 +74,7 @@ html.date-time-picker-open body {
 }
 
 .date-time-picker-header {
-  min-height: 82px;
-  padding: 16px 18px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  border-bottom: 1px solid var(--border);
+  min-height: 0;
 }
 
 .date-time-picker-heading {
@@ -84,23 +82,6 @@ html.date-time-picker-open body {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.date-time-picker-title-icon {
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
-.date-time-picker-title-icon .ui-icon {
-  width: 21px;
-  height: 21px;
 }
 
 .date-time-picker-header h3,
@@ -111,7 +92,8 @@ html.date-time-picker-open body {
   font-size: 17px;
 }
 
-#date-time-picker-selection {
+#date-time-picker-modal .date-time-picker-header #date-time-picker-selection {
+  display: block;
   margin: 4px 0 0;
   color: var(--text-secondary);
   font-size: 13px;
@@ -139,8 +121,11 @@ html.date-time-picker-open body {
 .date-time-picker-body {
   display: grid;
   gap: 10px;
-  padding: 16px 18px;
   overflow-y: auto;
+}
+
+#date-time-picker-modal .date-time-picker-body {
+  padding: 16px 18px;
 }
 
 .date-time-picker-month-nav {
@@ -156,8 +141,8 @@ html.date-time-picker-open body {
   min-height: 38px;
   padding: 6px 12px;
   border: 0;
-  border-radius: 10px;
-  background: transparent;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
   color: var(--text-primary);
   text-align: center;
   text-transform: capitalize;
@@ -240,7 +225,7 @@ html.date-time-picker-open body {
   min-width: 0;
   min-height: 56px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--bg-primary);
   color: var(--text-primary);
   font: inherit;
@@ -280,7 +265,7 @@ html.date-time-picker-open body {
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 11px;
+  border-radius: 999px;
   background: transparent;
   color: var(--text-primary);
   font: inherit;
@@ -304,7 +289,7 @@ html.date-time-picker-open body {
   position: absolute;
   inset: 4px;
   border: 1px solid color-mix(in srgb, var(--accent) 62%, transparent);
-  border-radius: 9px;
+  border-radius: 999px;
 }
 
 .date-time-picker-day.is-selected {
@@ -346,6 +331,11 @@ html.date-time-picker-open body {
   font-variant-numeric: tabular-nums;
 }
 
+.date-time-picker-date-entry .ui-field,
+.date-time-picker-time .ui-field {
+  border-radius: 999px;
+}
+
 .date-time-picker-time {
   margin-top: 4px;
   padding: 12px 14px;
@@ -353,8 +343,9 @@ html.date-time-picker-open body {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: end;
   gap: 10px;
-  border-radius: 12px;
-  background: var(--bg-primary);
+  border-top: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .date-time-picker-time:has(.date-time-picker-day-period:not([hidden])) {
@@ -428,8 +419,13 @@ html.date-time-picker-open body {
 }
 
 @media (min-width: 769px) {
-  .date-time-picker-content {
-    max-height: calc(100dvh - 24px);
+  #date-time-picker-modal.ui-detail-modal.ui-detail-view .date-time-picker-content {
+    width: min(460px, calc(100vw - 32px));
+    height: auto;
+    min-height: 0;
+    max-width: 460px;
+    max-height: min(calc(100dvh - 24px), 760px);
+    border-radius: 26px;
   }
 
   .date-time-picker-body {
@@ -437,15 +433,23 @@ html.date-time-picker-open body {
   }
 
   .date-time-picker-day {
+    width: 42px;
     height: 42px;
     min-height: 42px;
-    aspect-ratio: auto;
+    aspect-ratio: 1;
+    justify-self: center;
+  }
+
+  .date-time-picker-time {
+    margin-top: 6px;
+    padding: 16px 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
   }
 }
 
 @media (min-width: 769px) and (pointer: coarse) {
-  .date-time-picker-content {
-    max-height: calc(100dvh - 24px);
+  #date-time-picker-modal.ui-detail-modal.ui-detail-view .date-time-picker-content {
+    max-height: min(calc(100dvh - 24px), 760px);
     overflow: hidden;
   }
 
@@ -454,7 +458,7 @@ html.date-time-picker-open body {
     padding: 12px 16px;
   }
 
-  .date-time-picker-body {
+  #date-time-picker-modal .date-time-picker-body {
     min-height: 0;
     gap: 8px;
     padding: 12px 16px;
@@ -466,14 +470,16 @@ html.date-time-picker-open body {
   }
 
   .date-time-picker-day {
+    width: 42px;
     height: 42px;
     min-height: 42px;
-    aspect-ratio: auto;
+    aspect-ratio: 1;
+    justify-self: center;
   }
 
   .date-time-picker-time {
     margin-top: 0;
-    padding: 9px 12px;
+    padding: 12px 0 0;
   }
 
   .date-time-picker-actions {
@@ -491,7 +497,7 @@ html.date-time-picker-open body {
     touch-action: pan-y;
   }
 
-  .date-time-picker-content {
+  #date-time-picker-modal.ui-detail-modal.ui-detail-view .date-time-picker-content {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -505,7 +511,7 @@ html.date-time-picker-open body {
     padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
   }
 
-  .date-time-picker-body {
+  #date-time-picker-modal .date-time-picker-body {
     flex: 1 1 auto;
     align-content: center;
     width: min(100%, 460px);
@@ -517,12 +523,18 @@ html.date-time-picker-open body {
     display: none;
   }
 
+  .date-time-picker-time {
+    margin-top: 4px;
+    padding: 12px 14px;
+    border-top: 0;
+  }
+
   .date-time-picker-grid {
     gap: 4px;
   }
 
   .date-time-picker-day {
-    border-radius: 10px;
+    border-radius: 999px;
     font-size: 14px;
   }
 
@@ -551,13 +563,13 @@ html.date-time-picker-open body {
     min-height: 68px;
   }
 
-  .date-time-picker-body {
+  #date-time-picker-modal .date-time-picker-body {
     gap: 7px;
     padding-inline: 12px;
   }
 
   .date-time-picker-day {
-    border-radius: 9px;
+    border-radius: 999px;
     font-size: 13px;
   }
 

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - Kept the server-update indicator visible below the profile avatar when the desktop sidebar uses its icon-only layout.
+- Improved date and time picker styling and consistency across desktop and mobile.
+- Refined multiple-Todo creation with clearer sections and consistent headings.
+- Corrected the styling of pinned controls, capture mode, and date and time fields.
 
 ## [3.6.0] - 2026-10-20
 

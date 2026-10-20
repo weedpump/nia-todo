@@ -12,7 +12,7 @@
   gap: 4px;
   width: fit-content;
   padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border: 0;
   border-radius: 999px;
   background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
 }
@@ -76,17 +76,13 @@
   gap: 16px;
 }
 
-.todo-multi-add-intro h4 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 17px;
+.todo-multi-add-intro-heading {
+  min-width: 0;
+  margin-bottom: 0;
 }
 
-.todo-multi-add-intro p {
-  margin: 5px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.45;
+#todo-modal.todo-detail-view .todo-multi-add-panel .ui-detail-section-heading p {
+  display: block;
 }
 
 .todo-multi-add-counter {
@@ -109,12 +105,10 @@
 
 .todo-multi-add-editor {
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border: 0;
   border-radius: 22px;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 22%),
-    color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .03);
+  background: transparent;
+  box-shadow: none;
 }
 
 .todo-multi-add-rows {
@@ -233,8 +227,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
-  background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
+  border: 0;
+  background: transparent;
 }
 
 .todo-multi-add-toolbar-hint {
@@ -243,40 +237,22 @@
 }
 
 .todo-multi-add-defaults {
-  padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+  position: relative;
+  margin-top: 20px;
+  padding: 0;
+  border: 0;
   border-radius: 20px;
-  background: color-mix(in srgb, var(--bg-secondary) 75%, transparent);
+  background: transparent;
 }
 
-.todo-multi-add-defaults-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.todo-multi-add-defaults-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.todo-multi-add-defaults-head h4 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.todo-multi-add-defaults-head p {
-  margin: 3px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
+.todo-multi-add-defaults::before {
+  content: "";
+  position: absolute;
+  top: -20px;
+  left: 0;
+  right: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  pointer-events: none;
 }
 
 .todo-multi-add-defaults-grid {
