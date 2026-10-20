@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Restored deadline and reminder date/time pickers in Android browsers and the native Android app.
+
 ## [3.5.0] - 2026-10-19
 
 ### Added
