@@ -424,7 +424,9 @@ export function createDateTimePickerFeature() {
     document.documentElement.classList.remove('date-time-picker-open');
     const todoModal = document.getElementById('todo-modal');
     if (todoModal?.classList.contains('active')) todoModal.removeAttribute('aria-hidden');
-    const focusTarget = returnFocusTarget;
+    const focusTarget = typeof returnFocusTarget === 'function'
+      ? returnFocusTarget()
+      : returnFocusTarget;
     activeInput = null;
     activeTrigger = null;
     selectedDate = null;

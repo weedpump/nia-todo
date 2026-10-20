@@ -201,6 +201,17 @@ try {
   assert.equal(await page.locator('#todo-due').inputValue(), '2026-10-22T07:05', 'cancel must preserve the stored value');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'todo-due-picker', 'closing the picker must restore focus to the visible trigger');
 
+  await page.evaluate(() => {
+    const replacement = document.createElement('button');
+    replacement.id = 'replacement-focus-target';
+    document.body.appendChild(replacement);
+    window.picker.open(document.getElementById('todo-due-picker'), {
+      returnFocusTarget: () => document.getElementById('replacement-focus-target'),
+    });
+  });
+  await page.click('button[data-datetime-picker-action="cancel"]:not(.modal-close-x)');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'replacement-focus-target', 'closing the picker must resolve a replacement focus target after rerendering');
+
   await page.click('[data-datetime-picker-for="todo-due"]');
   await page.click('[data-datetime-picker-action="clear"]');
   assert.equal(await page.locator('#todo-due').inputValue(), '', 'clear must remove the stored value');

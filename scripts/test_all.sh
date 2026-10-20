@@ -124,6 +124,7 @@ run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_andro
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
+run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summary_live_updates.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
 

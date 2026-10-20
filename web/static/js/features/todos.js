@@ -8,6 +8,48 @@ import { createTodoQuickAddFeature } from './todo-quick-add.js';
 import { createTodoMultiAddFeature } from './todo-multi-add.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
+const TODO_META_SUMMARY_CONTROL_IDS = new Set([
+  'todo-project',
+  'todo-section',
+  'todo-priority',
+  'todo-status',
+  'todo-due',
+  'todo-remind',
+  'todo-location-trigger',
+  'todo-location-place',
+  'todo-location-address',
+  'todo-recurring-frequency',
+  'todo-pinned',
+]);
+const AUTO_CLOSE_TODO_META_SELECTION_IDS = new Set([
+  'todo-project',
+  'todo-section',
+  'todo-status',
+  'todo-priority',
+]);
+
+export function bindTodoMetaSummaryUpdates(form, renderSummary) {
+  let renderQueued = false;
+  const scheduleRender = (event) => {
+    if (!TODO_META_SUMMARY_CONTROL_IDS.has(event.target?.id) || renderQueued) return;
+    renderQueued = true;
+    queueMicrotask(() => {
+      renderQueued = false;
+      renderSummary();
+    });
+  };
+  form.addEventListener('input', scheduleRender);
+  form.addEventListener('change', scheduleRender);
+}
+
+export function isDirectTodoMetaToggle(control) {
+  return control?.id === 'todo-pinned' && control?.type === 'checkbox';
+}
+
+export function isAutoCloseTodoMetaSelection(controlId) {
+  return AUTO_CLOSE_TODO_META_SELECTION_IDS.has(controlId);
+}
+
 export function createTodosFeature({
   getTodos,
   setTodos,
@@ -44,6 +86,8 @@ export function createTodosFeature({
   let todoFormBound = false;
   let savedPlaces = [];
   let todoSaveSnapshot = null;
+  let badgeOpenedSingleChoiceTarget = null;
+  let pendingMetaReturnFocusTarget = null;
   const deletingSubtaskIds = new Set();
   const TODO_MODAL_CLASSES = Object.freeze({
     detail: 'todo-detail-view',
@@ -276,10 +320,11 @@ export function createTodosFeature({
     toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
   }
 
-  function openTodoMetaDrawer() {
+  function openTodoMetaDrawer({ autoCloseTarget = null } = {}) {
     const modal = getTodoModal();
     const drawer = ensureTodoMetaDrawer();
     if (!modal || !drawer) return false;
+    badgeOpenedSingleChoiceTarget = isAutoCloseTodoMetaSelection(autoCloseTarget) ? autoCloseTarget : null;
     modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
     drawer.classList.add('open');
     openUiLayer('todo-meta-drawer');
@@ -287,14 +332,23 @@ export function createTodosFeature({
     return true;
   }
 
-  function closeTodoMetaEditor({ fromHistory = false } = {}) {
+  function closeTodoMetaEditor({ fromHistory = false, returnFocusTarget = null } = {}) {
     const modal = getTodoModal();
+    if (returnFocusTarget) pendingMetaReturnFocusTarget = returnFocusTarget;
     if (modal?.classList.contains(TODO_MODAL_CLASSES.editingMeta)
       && !fromHistory
       && requestCloseUiLayer('todo-meta-drawer', { reason: 'ui' })) return;
     modal?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
     document.getElementById('todo-meta-drawer')?.classList.remove('open');
     renderTodoMetaSummary(getTodoBeingEdited());
+    const focusTarget = pendingMetaReturnFocusTarget;
+    badgeOpenedSingleChoiceTarget = null;
+    pendingMetaReturnFocusTarget = null;
+    if (focusTarget) {
+      window.requestAnimationFrame?.(() => {
+        document.querySelector(`.todo-meta-summary-chip[data-meta-edit-target="${CSS.escape(focusTarget)}"]`)?.focus({ preventScroll: true });
+      });
+    }
   }
 
   registerUiLayer('todo-meta-drawer', () => closeTodoMetaEditor({ fromHistory: true }));
@@ -304,17 +358,27 @@ export function createTodosFeature({
     const control = document.getElementById(controlId);
     if (!modal || !control) return;
 
+    if (isDirectTodoMetaToggle(control)) {
+      control.click();
+      return;
+    }
+
     const dateTimeTrigger = document.querySelector(`[data-datetime-picker-for="${CSS.escape(controlId)}"]`);
     if (dateTimeTrigger) {
       if (typeof openDateTimePicker === 'function') {
-        openDateTimePicker(dateTimeTrigger, { returnFocusTarget: sourceElement || dateTimeTrigger });
+        const resolveReturnFocusTarget = sourceElement
+          ? () => document.querySelector(`.todo-meta-summary-chip[data-meta-edit-target="${CSS.escape(controlId)}"]`)
+            || document.getElementById('todo-meta-edit-toggle')
+            || dateTimeTrigger
+          : dateTimeTrigger;
+        openDateTimePicker(dateTimeTrigger, { returnFocusTarget: resolveReturnFocusTarget });
       } else {
         dateTimeTrigger.click();
       }
       return;
     }
 
-    if (!openTodoMetaDrawer()) return;
+    if (!openTodoMetaDrawer({ autoCloseTarget: controlId })) return;
     const drawerBody = document.querySelector('#todo-meta-drawer .todo-meta-drawer-body');
     const fieldGroup = control.closest('.form-group, .settings-toggle-row') || control;
     if (drawerBody && fieldGroup) {
@@ -333,9 +397,6 @@ export function createTodosFeature({
     }
 
     control.focus({ preventScroll: true });
-    if (control instanceof HTMLInputElement && control.type === 'checkbox') {
-      control.click();
-    }
   }
 
   function renderTodoMetaSummary(todo = null) {
@@ -1530,6 +1591,14 @@ export function createTodosFeature({
     form.addEventListener('submit', saveTodo);
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
+    bindTodoMetaSummaryUpdates(form, () => renderTodoMetaSummary(getTodoBeingEdited()));
+    form.addEventListener('change', (event) => {
+      const controlId = event.target?.id;
+      if (controlId === 'todo-project'
+        || badgeOpenedSingleChoiceTarget !== controlId
+        || !isAutoCloseTodoMetaSelection(controlId)) return;
+      queueMicrotask(() => closeTodoMetaEditor({ returnFocusTarget: controlId }));
+    });
     multiAddFeature.bind();
     bindTodoTitleFieldAutosize();
     bindTodoAttachmentInputs();
@@ -2683,6 +2752,10 @@ export function createTodosFeature({
       console.error('Failed to load sections for project', e);
     } finally {
       refreshTodoSelect('todo-section');
+      renderTodoMetaSummary(getTodoBeingEdited());
+      if (badgeOpenedSingleChoiceTarget === 'todo-project') {
+        closeTodoMetaEditor({ returnFocusTarget: 'todo-project' });
+      }
     }
   }
 
