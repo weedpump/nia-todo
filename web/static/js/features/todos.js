@@ -36,6 +36,8 @@ export function createTodosFeature({
   showToast,
   setupDescPreview,
   renderMarkdown,
+  syncDateTimePickers,
+  openDateTimePicker,
 }) {
   const nativeBridge = createNativeBridge();
   const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
@@ -274,24 +276,45 @@ export function createTodosFeature({
     toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
   }
 
+  function openTodoMetaDrawer() {
+    const modal = getTodoModal();
+    const drawer = ensureTodoMetaDrawer();
+    if (!modal || !drawer) return false;
+    modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
+    drawer.classList.add('open');
+    openUiLayer('todo-meta-drawer');
+    syncTodoMetaToggleLabel();
+    return true;
+  }
+
   function closeTodoMetaEditor({ fromHistory = false } = {}) {
     const modal = getTodoModal();
     if (modal?.classList.contains(TODO_MODAL_CLASSES.editingMeta)
       && !fromHistory
       && requestCloseUiLayer('todo-meta-drawer', { reason: 'ui' })) return;
     modal?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
+    document.getElementById('todo-meta-drawer')?.classList.remove('open');
     renderTodoMetaSummary(getTodoBeingEdited());
   }
 
   registerUiLayer('todo-meta-drawer', () => closeTodoMetaEditor({ fromHistory: true }));
 
-  function openTodoMetaEditor(controlId) {
+  function openTodoMetaEditor(controlId, sourceElement = null) {
     const modal = getTodoModal();
     const control = document.getElementById(controlId);
     if (!modal || !control) return;
-    modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
-    openUiLayer('todo-meta-drawer');
-    syncTodoMetaToggleLabel();
+
+    const dateTimeTrigger = document.querySelector(`[data-datetime-picker-for="${CSS.escape(controlId)}"]`);
+    if (dateTimeTrigger) {
+      if (typeof openDateTimePicker === 'function') {
+        openDateTimePicker(dateTimeTrigger, { returnFocusTarget: sourceElement || dateTimeTrigger });
+      } else {
+        dateTimeTrigger.click();
+      }
+      return;
+    }
+
+    if (!openTodoMetaDrawer()) return;
     const drawerBody = document.querySelector('#todo-meta-drawer .todo-meta-drawer-body');
     const fieldGroup = control.closest('.form-group, .settings-toggle-row') || control;
     if (drawerBody && fieldGroup) {
@@ -312,14 +335,6 @@ export function createTodosFeature({
     control.focus({ preventScroll: true });
     if (control instanceof HTMLInputElement && control.type === 'checkbox') {
       control.click();
-      return;
-    }
-    if (control.matches('input[type="date"], input[type="datetime-local"], input[type="time"]') && typeof control.showPicker === 'function') {
-      try {
-        control.showPicker();
-      } catch {
-        // Focus remains on the matching field when the browser rejects showPicker.
-      }
     }
   }
 
@@ -381,14 +396,10 @@ export function createTodosFeature({
       const modal = getTodoModal();
       if (!modal) return;
       if (modal.classList.contains(TODO_MODAL_CLASSES.editingMeta)) closeTodoMetaEditor();
-      else {
-        modal.classList.add(TODO_MODAL_CLASSES.editingMeta);
-        openUiLayer('todo-meta-drawer');
-        syncTodoMetaToggleLabel();
-      }
+      else openTodoMetaDrawer();
     });
     summary.querySelectorAll('[data-meta-edit-target]').forEach((chip) => {
-      chip.addEventListener('click', () => openTodoMetaEditor(chip.dataset.metaEditTarget));
+      chip.addEventListener('click', () => openTodoMetaEditor(chip.dataset.metaEditTarget, chip));
     });
     syncTodoMetaToggleLabel();
     translatePage(summary);
@@ -2607,6 +2618,7 @@ export function createTodosFeature({
     hydrateTodoSelects();
     updateRecurringControls();
     setupDescPreview();
+    syncDateTimePickers?.();
     bindQuickAddPreview();
     renderQuickAddPreview(null);
     if (!todo) {

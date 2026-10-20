@@ -256,37 +256,6 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     });
   }
 
-  let dateTimePickerBound = false;
-
-  function bindDateTimePickerOpeners() {
-    if (dateTimePickerBound || typeof document === 'undefined') return;
-    dateTimePickerBound = true;
-
-    document.addEventListener('pointerdown', (event) => {
-      // Android Chromium can lose its native date/time activation when mobile
-      // styles hide the built-in control. Open it explicitly for Android touch,
-      // while iOS keeps its native picker path.
-      const isAndroidTouch = event.pointerType === 'touch' && /Android/i.test(navigator.userAgent);
-      if (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen' && !isAndroidTouch) return;
-      const wrap = event.target?.closest?.('.datetime-input-wrap');
-      if (!wrap) return;
-
-      const input = wrap.querySelector('input[type="date"], input[type="datetime-local"], input[type="time"]');
-      if (!input || input.disabled || input.readOnly) return;
-
-      if (typeof input.showPicker === 'function') {
-        event.preventDefault();
-        input.focus({ preventScroll: true });
-        try {
-          input.showPicker();
-        } catch {
-          // Browsers may reject showPicker outside an accepted user activation.
-          // Keeping focus is still the safest fallback.
-        }
-      }
-    });
-  }
-
   function isTypingTarget(element) {
     const tag = element?.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || element?.isContentEditable;
@@ -313,5 +282,5 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     });
   }
 
-  return { openSidebar, toggleSidebar, closeSidebar, closeModal, bindModalCloseControls, setupDescPreview, bindSidebarControls, bindSidebarEdgeSwipe, bindTouchFeedback, bindDateTimePickerOpeners, bindKeyboardShortcuts };
+  return { openSidebar, toggleSidebar, closeSidebar, closeModal, bindModalCloseControls, setupDescPreview, bindSidebarControls, bindSidebarEdgeSwipe, bindTouchFeedback, bindKeyboardShortcuts };
 }

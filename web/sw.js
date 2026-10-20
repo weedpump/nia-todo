@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.5.0';
-const CACHE_REVISION = 'android-datetime-picker-93';
+const CACHE_REVISION = 'unified-datetime-picker-94';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -52,6 +52,7 @@ const PRECACHE_ASSETS = [
   '/static/css/94-todo-detail-header-actions.css',
   '/static/css/95-todo-detail-mobile-viewport.css',
   '/static/css/96-todo-multi-add.css',
+  '/static/css/97-date-time-picker.css',
   '/static/js/main.js',
   '/static/js/features/auto-scrollbars.js',
   '/static/js/app.js',
@@ -135,6 +136,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/theme.js',
   '/static/js/features/ui-history.js',
   '/static/js/features/ui-shell.js',
+  '/static/js/features/date-time-picker.js',
   '/static/js/features/user-menu.js',
   '/static/js/features/user-settings.js',
   '/static/js/features/projects.js',

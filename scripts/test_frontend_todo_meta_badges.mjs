@@ -48,12 +48,15 @@ async function dismissSelectAndDrawer(page) {
   await page.waitForFunction(() => !document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'));
 }
 
-async function clickBadgeAndExpectInput(page, targetId) {
+async function clickBadgeAndExpectDateTimePicker(page, targetId) {
   await page.locator(`.todo-meta-summary-chip[data-meta-edit-target="${targetId}"]`).click();
-  await page.waitForFunction((id) => {
+  await page.waitForFunction(() => {
     const modal = document.getElementById('todo-modal');
-    return modal?.classList.contains('todo-meta-editing') && document.activeElement === document.getElementById(id);
-  }, targetId);
+    const picker = document.getElementById('date-time-picker-modal');
+    return !modal?.classList.contains('todo-meta-editing')
+      && picker?.classList.contains('active')
+      && document.activeElement?.getAttribute('role') === 'gridcell';
+  });
 }
 
 async function run() {
@@ -156,7 +159,12 @@ async function run() {
     await todoItem.click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
     await closeMetaDrawer(page);
-    await clickBadgeAndExpectInput(page, 'todo-remind');
+    await clickBadgeAndExpectDateTimePicker(page, 'todo-remind');
+    await page.locator('button[data-datetime-picker-action="cancel"]').last().click();
+    await page.waitForFunction(() => !document.getElementById('date-time-picker-modal')?.classList.contains('active'));
+    await page.waitForFunction(() => document.activeElement === document.querySelector('.todo-meta-summary-chip[data-meta-edit-target="todo-remind"]'));
+    await page.locator('#todo-meta-edit-toggle').click();
+    await page.waitForFunction(() => document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'));
 
     await page.fill('#todo-due', '', { force: true });
     await page.fill('#todo-remind', '', { force: true });

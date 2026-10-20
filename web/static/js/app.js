@@ -40,6 +40,7 @@ import { createNavigationFeature } from './features/navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
+import { createDateTimePickerFeature } from './features/date-time-picker.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { createOidcNoticeFeature } from './features/oidc-notice.js';
 import { createServerUpdateIndicator } from './features/server-update-indicator.js';
@@ -111,6 +112,7 @@ function persistCachedAvatarMetadata(payload) {
 const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
 const confirmDialogFeature = createConfirmDialogFeature();
+const dateTimePickerFeature = createDateTimePickerFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
 const alertInfo = confirmDialogFeature.alertInfo;
 const appDownloadsFeature = createAppDownloadsFeature();
@@ -284,6 +286,8 @@ const todosFeature = createTodosFeature({
   showToast: (...args) => showToast(...args),
   setupDescPreview: (...args) => setupDescPreview(...args),
   renderMarkdown,
+  syncDateTimePickers: () => dateTimePickerFeature.syncAll(),
+  openDateTimePicker: (trigger, options) => dateTimePickerFeature.open(trigger, options),
 });
 const sharingFeature = createProjectSharingFeature({
   getProjects: () => projects,
@@ -641,7 +645,7 @@ const bindModalCloseControls = uiShell.bindModalCloseControls;
 const bindSidebarControls = uiShell.bindSidebarControls;
 uiShell.bindSidebarEdgeSwipe();
 uiShell.bindTouchFeedback();
-uiShell.bindDateTimePickerOpeners();
+dateTimePickerFeature.bind();
 uiShell.bindKeyboardShortcuts();
 
 // ─── Drag & Drop ─────────────────────────────────────────────────────────────
