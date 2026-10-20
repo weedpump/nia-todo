@@ -27,7 +27,10 @@ const fixture = `<!doctype html>
   <div class="modal ui-detail-modal todo-detail-view todo-desc-editing todo-meta-editing active" id="todo-modal">
     <div class="modal-overlay"></div>
     <div class="modal-content todo-modal-content ui-detail-modal-content">
-      <div class="todo-modal-header ui-detail-modal-header"><div><h3>Edit todo</h3></div></div>
+      <div class="todo-modal-header ui-detail-modal-header">
+        <div><h3>Edit todo</h3></div>
+        <div class="todo-detail-header-actions ui-detail-header-actions"><button class="modal-close-x" data-close-modal="todo-modal">Todo close</button></div>
+      </div>
       <div class="modal-body todo-modal-body ui-detail-modal-body">
         <form class="todo-modal-form todo-editor-shell ui-detail-shell">
           <section class="ui-section-card ui-detail-section ui-detail-title-section todo-section-card todo-editor-section todo-editor-main todo-main-section">
@@ -39,20 +42,20 @@ const fixture = `<!doctype html>
               <div class="todo-desc-rich-editor" contenteditable="true">Description content</div>
             </div>
           </section>
+          <aside class="todo-meta-edit-drawer">
+            <div class="todo-meta-drawer-header"><h4>Edit details</h4><button type="button" class="todo-meta-drawer-close">Details close</button></div>
+            <div class="todo-meta-drawer-body">
+              <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
+                <div style="height: 650px">Organize</div>
+              </section>
+              <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
+                <div class="ui-section-heading ui-detail-section-heading"><div><h4>Planning</h4><p>Deadline and reminder.</p></div></div>
+                <div class="ui-field-grid two-columns"><div class="form-group"><label>Deadline</label><input class="ui-field" id="todo-due"></div></div>
+              </section>
+            </div>
+          </aside>
         </form>
       </div>
-      <aside class="todo-meta-edit-drawer">
-        <div class="todo-meta-drawer-header"><h4>Edit details</h4></div>
-        <div class="todo-meta-drawer-body">
-          <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
-            <div style="height: 650px">Organize</div>
-          </section>
-          <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
-            <div class="ui-section-heading ui-detail-section-heading"><div><h4>Planning</h4><p>Deadline and reminder.</p></div></div>
-            <div class="ui-field-grid two-columns"><div class="form-group"><label>Deadline</label><input class="ui-field" id="todo-due"></div></div>
-          </section>
-        </div>
-      </aside>
     </div>
   </div>
 </body>
@@ -89,6 +92,7 @@ const viewports = [
   { width: 390, height: 844, label: 'common Android' },
   { width: 720, height: 900, label: 'mobile grid boundary' },
   { width: 721, height: 900, label: 'above mobile grid boundary' },
+  { width: 1024, height: 1366, label: 'iPad portrait' },
   { width: 1180, height: 900, label: 'fullscreen drawer boundary' },
   { width: 1181, height: 900, label: 'desktop drawer boundary' },
 ];
@@ -127,7 +131,24 @@ try {
           topElement: topElement?.className || topElement?.tagName || null,
         };
       };
-      return stackingResult();
+      const modalContent = document.querySelector('.todo-modal-content');
+      const modalBody = document.querySelector('.todo-modal-body');
+      const drawer = document.querySelector('.todo-meta-edit-drawer');
+      const detailsClose = document.querySelector('.todo-meta-drawer-close');
+      const contentRect = modalContent.getBoundingClientRect();
+      const drawerRect = drawer.getBoundingClientRect();
+      const closeRect = detailsClose.getBoundingClientRect();
+      const closeTarget = document.elementFromPoint(closeRect.left + closeRect.width / 2, closeRect.top + closeRect.height / 2);
+      return {
+        stacking: stackingResult(),
+        fullscreenDrawer: {
+          drawerPosition: getComputedStyle(drawer).position,
+          bodyOverflowY: getComputedStyle(modalBody).overflowY,
+          fillsModal: Math.abs(drawerRect.top - contentRect.top) <= 1
+            && Math.abs(drawerRect.bottom - contentRect.bottom) <= 1,
+          detailsCloseOwnsHit: Boolean(closeTarget?.closest('.todo-meta-drawer-close')),
+        },
+      };
     });
 
     const keyboardFixedResult = await page.evaluate(() => {
@@ -157,12 +178,19 @@ try {
     });
 
     await page.close();
-    if (!result.intersects) {
+    if (!result.stacking.intersects) {
       console.log(`✓ Toolbar and details drawer do not collide at ${viewport.width}×${viewport.height}`);
-    } else if (!result.drawerOwnsOverlap) {
-      throw new Error(`Rich text toolbar overlaps the details drawer at ${viewport.label} width (top element: ${result.topElement})`);
+    } else if (!result.stacking.drawerOwnsOverlap) {
+      throw new Error(`Rich text toolbar overlaps the details drawer at ${viewport.label} width (top element: ${result.stacking.topElement})`);
     } else {
       console.log(`✓ Details drawer covers the rich text toolbar at ${viewport.width}×${viewport.height}`);
+    }
+    if (viewport.width <= 1180) {
+      if (result.fullscreenDrawer.drawerPosition !== 'absolute') throw new Error(`Fullscreen details drawer is not anchored to the modal shell at ${viewport.label}`);
+      if (result.fullscreenDrawer.bodyOverflowY !== 'visible') throw new Error(`Todo body still clips the fullscreen details drawer at ${viewport.label}`);
+      if (!result.fullscreenDrawer.fillsModal) throw new Error(`Fullscreen details drawer does not fill the modal shell at ${viewport.label}`);
+      if (!result.fullscreenDrawer.detailsCloseOwnsHit) throw new Error(`Todo close control wins the details close hit target at ${viewport.label}`);
+      console.log(`✓ Fullscreen details header owns its close target at ${viewport.width}×${viewport.height}`);
     }
     if (!keyboardFixedResult.intersects) throw new Error(`Fixture error at ${viewport.label}: fixed keyboard toolbar and details drawer do not intersect`);
     if (!keyboardFixedResult.drawerOwnsOverlap) {

@@ -207,8 +207,15 @@
 }
 
 @media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body {
+    overflow: visible;
+    -webkit-overflow-scrolling: auto;
+  }
+
   #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+    position: absolute;
     inset: 0;
+    height: 100%;
     width: 100vw;
     max-width: none;
     margin: 0;
