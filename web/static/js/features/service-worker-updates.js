@@ -1,6 +1,15 @@
 import { APP_VERSION, RUNTIME_CAPABILITIES } from '../core/config.js';
 
+function removeHardReloadMarkerFromVisibleUrl() {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has('hardReload')) return;
+  url.searchParams.delete('hardReload');
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
 export function createServiceWorkerUpdatesFeature({ appVersion = '' } = {}) {
+  removeHardReloadMarkerFromVisibleUrl();
   let swRegistration = null;
   let updateAvailable = false;
   let allowReloadOnControllerChange = false;
