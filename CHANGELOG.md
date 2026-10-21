@@ -31,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added full offline support for creating, editing, and deleting Todo comments and subtasks, with automatic synchronization when the connection returns.
 
 ### Fixed
-- Made manual Web App reloads respond immediately, ignore repeated clicks during navigation, and remove temporary reload markers from the browser URL after startup.
 - Improved connection status badges so confirmed offline state stays stable during reconnect attempts and queued changes show a clear Sync icon and count without startup flicker.
 - Prevented newly created Todos from appearing twice briefly while realtime updates and local synchronization overlap.
 - Closed the workspace dialog reliably after creating a workspace without restoring the previous workspace's filter.

@@ -9,7 +9,6 @@ export function createServiceWorkerUpdatesFeature({ appVersion = '' } = {}) {
   let lastUpdateCheckAt = 0;
   let serviceWorkerInitStarted = false;
   let updateReloadFallbackTimer = null;
-  let forceReloadInFlight = false;
 
   const STARTUP_SW_DELAY_MS = 5000;
   const UPDATE_CHECK_TIMEOUT_MS = 8000;
@@ -136,22 +135,9 @@ export function createServiceWorkerUpdatesFeature({ appVersion = '' } = {}) {
 
   function reloadWithCacheBuster(paramName = 'appUpdated') {
     const url = new URL(window.location.href);
-    url.searchParams.delete('hardReload');
-    url.searchParams.delete('appUpdated');
-    url.searchParams.delete('server-updated');
     url.searchParams.set(paramName, String(Date.now()));
     window.location.replace(url.toString());
   }
-
-  function removeReloadMarkersFromVisibleUrl() {
-    const url = new URL(window.location.href);
-    const markerNames = ['hardReload', 'appUpdated', 'server-updated'];
-    if (!markerNames.some(name => url.searchParams.has(name))) return;
-    markerNames.forEach(name => url.searchParams.delete(name));
-    window.history.replaceState(window.history.state, '', url.toString());
-  }
-
-  removeReloadMarkersFromVisibleUrl();
 
   function isNiaTodoServiceWorkerRegistration(registration) {
     const worker = registration?.active || registration?.waiting || registration?.installing;
@@ -474,19 +460,50 @@ export function createServiceWorkerUpdatesFeature({ appVersion = '' } = {}) {
   }
 
   async function forceReloadApp() {
-    if (forceReloadInFlight) return;
     const buttons = Array.from(document.querySelectorAll('#force-refresh-btn, [data-force-refresh-button]'));
+    const previousTitles = new Map(buttons.map(button => [button, button.title]));
 
     if (navigator.onLine === false || buttons.some(button => button.disabled || button.getAttribute('aria-disabled') === 'true')) {
       console.warn('Forced app reload skipped because the app is offline');
       return;
     }
 
-    forceReloadInFlight = true;
-
     for (const button of buttons) {
       button.disabled = true;
       button.title = 'Web-App wird neu geladen…';
+    }
+
+    try {
+      // This is used by the login-page recovery button and the sidebar reload
+      // action. It must be a real recovery reload, not just location.reload(): a
+      // stale active service worker can otherwise serve the same broken app
+      // shell again. Keep IndexedDB untouched. When a nia-todo service worker is
+      // already active, keep it registered and refresh its app-shell cache in
+      // place. iOS/iPadOS standalone PWAs can lose offline launch after a
+      // hard-reload if the active worker is unregistered during the current
+      // standalone page lifetime. Only use the destructive unregister/cache wipe
+      // fallback when there is no active nia-todo worker to preserve.
+      let hasActiveNiaTodoWorker = false;
+      if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        const niaRegistrations = registrations.filter(isNiaTodoServiceWorkerRegistration);
+        hasActiveNiaTodoWorker = niaRegistrations.some(registration => registration.active || navigator.serviceWorker.controller);
+        if (hasActiveNiaTodoWorker) {
+          await Promise.all(niaRegistrations.map(registration => refreshActiveServiceWorkerAppCache(registration).catch(() => false)));
+        } else {
+          await Promise.all(niaRegistrations.map(registration => registration.unregister().catch(() => false)));
+        }
+      }
+      if (!hasActiveNiaTodoWorker && 'caches' in window && typeof caches.keys === 'function') {
+        const names = await caches.keys();
+        await Promise.all(names
+          .filter(isNiaTodoCacheName)
+          .map(name => caches.delete(name).catch(() => false)));
+      }
+      await fetchHardReloadAssets();
+      await resolveWithTimeout(ensureOfflineServiceWorkerReadyAfterHardReload(), 7000, false);
+    } catch (err) {
+      console.error('Forced app reload cleanup failed:', err);
     }
 
     reloadWithCacheBuster('hardReload');
