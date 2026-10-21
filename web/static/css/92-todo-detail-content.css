@@ -158,21 +158,25 @@
   display: grid;
 }
 
-#todo-modal.todo-detail-view .todo-comment-rich-editor {
-  min-height: 48px;
-  padding: 12px 14px;
+#todo-modal.todo-detail-view .todo-comments-add-group:focus-within .todo-comment-rich-wrap {
   border: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
-  font-size: 14px;
-  line-height: 1.55;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-secondary) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comment-rich-editor {
   transition: min-height 160ms ease, border-radius 160ms ease, background-color 160ms ease;
 }
 
 #todo-modal.todo-detail-view .todo-comments-add-group:focus-within .todo-comment-rich-editor {
   min-height: 112px;
-  border-radius: 0 0 16px 16px;
-  background: color-mix(in srgb, var(--bg-secondary) 34%, transparent);
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 0 0 18px 18px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 #todo-modal.todo-detail-view .todo-comments-add-group .btn {

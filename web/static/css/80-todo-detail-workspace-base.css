@@ -38,13 +38,17 @@
 
 #todo-modal.todo-detail-view .desc-live-preview {
   display: block;
+  cursor: text;
+}
+
+#todo-modal.todo-detail-view .desc-live-preview:not(:empty) {
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+  box-shadow: none;
   font-size: 16px;
   line-height: 1.72;
-  cursor: text;
 }
 
 #todo-modal.todo-detail-view .desc-live-preview:empty::before {

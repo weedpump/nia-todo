@@ -281,7 +281,7 @@ export function createTodoMultiAddFeature({
     }
     const save = saveButton();
     if (save && isActive()) {
-      save.hidden = false;
+      save.hidden = count === 0;
       save.disabled = count === 0 || overLimit || valid.length !== nonEmpty.length;
       save.textContent = t(`todo.multiAdd.create.${count === 1 ? 'one' : 'many'}`, { count });
     }
@@ -393,6 +393,7 @@ export function createTodoMultiAddFeature({
       const input = event.target.closest('.todo-multi-add-input');
       if (!input) return;
       scheduleRowParse(input.closest('.todo-multi-add-row'));
+      updateState();
     });
     rowsContainer()?.addEventListener('paste', (event) => {
       const row = event.target.closest('.todo-multi-add-row');

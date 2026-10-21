@@ -1037,7 +1037,6 @@ export function createTodosFeature({
     const saveButton = document.getElementById('todo-save-btn');
     if (!saveButton) return;
     if (multiAddFeature.isActive()) {
-      saveButton.hidden = false;
       return;
     }
     const current = JSON.stringify(getTodoSaveRelevantState());
