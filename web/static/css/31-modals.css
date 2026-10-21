@@ -47,6 +47,7 @@
   right: 16px;
   background: none;
   border: none;
+  border-radius: 999px;
   color: var(--text-muted);
   font-size: 24px;
   cursor: pointer;
@@ -225,7 +226,7 @@
     0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
 }
 
-.datetime-input-wrap .ui-field {
+.datetime-input-wrap .ui-field:not(.datetime-picker-trigger) {
   padding-right: 36px;
 }
 

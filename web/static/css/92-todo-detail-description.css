@@ -40,12 +40,9 @@
 }
 
 #todo-modal.todo-detail-view .todo-comment-rich-toolbar {
-  border: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
-  border-radius: 14px 14px 0 0;
-}
-
-#todo-modal.todo-detail-view .todo-rich-keyboard-wrap.is-keyboard-toolbar-fixed {
-  padding-top: var(--todo-rich-toolbar-height, 44px);
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  border-radius: 18px 18px 0 0;
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-toolbar.is-keyboard-fixed,

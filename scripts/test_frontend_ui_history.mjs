@@ -80,6 +80,44 @@ function createHarness({
 }
 
 {
+  const harness = createHarness();
+  const closed = [];
+  const uiHistory = createUiHistory(harness);
+  uiHistory.registerLayer('todo-modal', payload => closed.push(['todo-modal', payload]));
+  uiHistory.bind();
+  uiHistory.openLayer('todo-modal');
+  harness.history.back = () => {};
+
+  assert.equal(uiHistory.requestCloseLayer('todo-modal', { reason: 'close-button' }), true);
+  assert.deepEqual(closed, [], 'the close request must still wait briefly for normal browser history');
+  await new Promise(resolve => setTimeout(resolve, 400));
+  assert.deepEqual(closed, [
+    ['todo-modal', { reason: 'close-button' }],
+  ], 'a swallowed history traversal must not leave the Todo close button permanently inert');
+  assert.deepEqual(uiHistory.getLayers(), []);
+}
+
+{
+  const harness = createHarness();
+  const closed = [];
+  const uiHistory = createUiHistory(harness);
+  uiHistory.registerLayer('todo-modal', payload => closed.push(['todo-modal', payload]));
+  uiHistory.registerLayer('todo-meta-drawer', payload => closed.push(['todo-meta-drawer', payload]));
+  uiHistory.bind();
+  uiHistory.openLayer('todo-modal');
+  uiHistory.openLayer('todo-meta-drawer');
+  harness.history.go = () => {};
+
+  assert.equal(uiHistory.requestCloseLayer('todo-modal', { reason: 'close-button' }), true);
+  await new Promise(resolve => setTimeout(resolve, 400));
+  assert.deepEqual(closed, [
+    ['todo-meta-drawer', { reason: 'history' }],
+    ['todo-modal', { reason: 'close-button' }],
+  ], 'a swallowed parent traversal must close nested Todo layers before the modal');
+  assert.deepEqual(uiHistory.getLayers(), []);
+}
+
+{
   const harness = createHarness({ pathname: '/app', search: '?view=focus&project=42' });
   const uiHistory = createUiHistory(harness);
   uiHistory.bind();
@@ -352,7 +390,7 @@ try {
         </div>
         <button class="nav-btn" data-filter="all"></button>
         <button class="nav-btn" data-filter="focus"></button>
-        <div id="todo-modal" class="modal"></div>
+        <div id="todo-modal" class="modal"><button id="todo-modal-close" data-close-modal="todo-modal">Close</button></div>
         <div id="attachment-preview-modal" class="modal"></div>
         <div id="settings-modal" class="modal"></div>
         <div id="native-app-update-modal" class="modal"></div>
@@ -363,11 +401,27 @@ try {
           import { createNavigationFeature } from '/static/js/features/navigation.js';
           import { createAppDownloadsFeature } from '/static/js/features/app-downloads.js';
           const historyCalls = [];
+          let swallowNextHistoryTraversal = false;
           const originalHistoryBack = history.back.bind(history);
           const originalHistoryGo = history.go.bind(history);
-          history.back = () => { historyCalls.push(['back']); return originalHistoryBack(); };
-          history.go = delta => { historyCalls.push(['go', delta]); return originalHistoryGo(delta); };
+          history.back = () => {
+            historyCalls.push(['back']);
+            if (swallowNextHistoryTraversal) {
+              swallowNextHistoryTraversal = false;
+              return;
+            }
+            return originalHistoryBack();
+          };
+          history.go = delta => {
+            historyCalls.push(['go', delta]);
+            if (swallowNextHistoryTraversal) {
+              swallowNextHistoryTraversal = false;
+              return;
+            }
+            return originalHistoryGo(delta);
+          };
           window.getHistoryCalls = () => [...historyCalls];
+          window.swallowNextHistoryClose = () => { swallowNextHistoryTraversal = true; };
           const close = id => document.getElementById(id).classList.remove('active');
           registerUiLayer('todo-modal', () => close('todo-modal'));
           registerUiLayer('attachment-preview-modal', () => close('attachment-preview-modal'));
@@ -376,6 +430,7 @@ try {
           const userMenu = createUserMenuFeature({ getCurrentUser: () => null });
           userMenu.bindUserMenu();
           shell.bindSidebarControls();
+          shell.bindModalCloseControls();
           createAppDownloadsFeature();
           window.openLayer = id => {
             document.getElementById(id).classList.add('active');
@@ -514,6 +569,17 @@ try {
     sidebarOpen: document.getElementById('sidebar').classList.contains('open'),
     layers: history.state.niaTodoUi.layers,
   })), { sidebarOpen: false, layers: [] }, 'Back after sidebar navigation must restore the prior filter without reviving the sidebar');
+
+  await page.evaluate(() => {
+    window.openLayer('todo-modal');
+    window.swallowNextHistoryClose();
+  });
+  await page.dispatchEvent('#todo-modal-close', 'click');
+  await page.waitForFunction(() => (
+    !document.getElementById('todo-modal').classList.contains('active')
+    && (history.state?.niaTodoUi?.layers || []).length === 0
+  ));
+  assert.equal(page.url(), 'http://nia.test/history-test', 'the Todo close fallback must not leave the app route');
 
   assert.deepEqual(await page.evaluate(() => window.runRequiredNativeUpdateBackGuard()), {
     active: true,

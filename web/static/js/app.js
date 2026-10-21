@@ -899,4 +899,5 @@ export function startAppModule() {
   });
 
   bindLoginForm();
+  serviceWorkerUpdates.removeReloadMarkersFromVisibleUrl();
 }

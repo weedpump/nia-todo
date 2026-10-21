@@ -54,7 +54,7 @@
 }
 .braindump-hero h3 { margin: 0; padding: 0; border: 0; color: var(--text-primary); font-size: 20px; line-height: 1.12; }
 .braindump-hero p { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; }
-.braindump-close { display: inline-flex; position: absolute; top: 19px; right: max(28px, calc((100% - 920px) / 2)); width: 40px; height: 40px; align-items: center; justify-content: center; border: 0; border-radius: 0; background: transparent; color: var(--text-muted); }
+.braindump-close { display: inline-flex; position: absolute; top: 19px; right: max(28px, calc((100% - 920px) / 2)); width: 40px; height: 40px; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--text-muted); }
 .braindump-close:hover,
 .braindump-close:focus-visible { color: var(--text-primary); background: transparent; outline: none; }
 .braindump-close svg { width: 20px; height: 20px; }

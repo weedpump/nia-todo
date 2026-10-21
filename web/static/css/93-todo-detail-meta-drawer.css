@@ -245,6 +245,10 @@
     backdrop-filter: none;
   }
 
+  html.native-android #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header {
+    padding-top: 12px;
+  }
+
   #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header h4 {
     margin: 0;
     color: var(--text-muted);

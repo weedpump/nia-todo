@@ -9,6 +9,9 @@
 #todo-modal.todo-detail-view .desc-live-preview {
   max-width: none;
   margin-top: 10px;
+}
+
+#todo-modal.todo-detail-view .desc-live-preview:not(:empty) {
   min-height: 56px;
   color: color-mix(in srgb, var(--text-primary) 88%, var(--text-muted));
 }
@@ -61,12 +64,6 @@
 #todo-modal.todo-detail-view .todo-subtasks-add-row {
   gap: 10px;
 }
-
-#todo-modal.todo-detail-view .todo-subtasks-add-row input {
-  background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
-  border-color: color-mix(in srgb, var(--border) 42%, transparent);
-}
-
 
 #todo-modal.todo-detail-view .todo-editor-shell {
   max-width: 880px;
