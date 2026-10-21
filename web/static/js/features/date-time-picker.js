@@ -667,6 +667,15 @@ export function createDateTimePickerFeature() {
         handleDirectDateInput(event);
       } else if (event.target?.matches?.('#date-time-picker-hour, #date-time-picker-minute')) {
         clearValidationError();
+        if (
+          event.target === hourInput()
+          && /^\d+$/.test(event.target.value)
+          && event.target.value.length === Number(event.target.maxLength)
+          && !String(event.inputType || '').startsWith('delete')
+        ) {
+          minuteInput()?.focus({ preventScroll: true });
+          minuteInput()?.select?.();
+        }
       }
     });
     grid()?.addEventListener('keydown', handleGridKeydown);
