@@ -1,4 +1,5 @@
 const UI_STATE_KEY = 'niaTodoUi';
+const CLOSE_FALLBACK_DELAY_MS = 250;
 
 function cleanAppRoute(location) {
   return `${String(location?.pathname || '/')}${String(location?.search || '')}`;
@@ -58,6 +59,13 @@ export function createUiHistory({
     element?.setAttribute?.('aria-hidden', 'true');
   }
 
+  function takePendingClose(id) {
+    const pending = pendingCloses.get(id);
+    pendingCloses.delete(id);
+    if (pending?.fallbackTimer != null) globalThis.clearTimeout?.(pending.fallbackTimer);
+    return pending;
+  }
+
   function closeRemovedLayers(previousLayers, targetLayers) {
     let shared = 0;
     while (
@@ -68,8 +76,7 @@ export function createUiHistory({
 
     const removed = previousLayers.slice(shared).reverse();
     for (const id of removed) {
-      const pending = pendingCloses.get(id);
-      pendingCloses.delete(id);
+      const pending = takePendingClose(id);
       const payload = pending?.payload ?? { reason: 'history' };
       const handler = closeHandlers.get(id);
       ignoredClosures.add(id);
@@ -89,6 +96,16 @@ export function createUiHistory({
       history?.replaceState?.(nextState(targetLayers), '', cleanAppRoute(location));
     }
     closeRemovedLayers(previousLayers, targetLayers);
+  }
+
+  function closeThroughLayer(layerId) {
+    const index = currentLayers.lastIndexOf(layerId);
+    if (index === -1) return false;
+    const previousLayers = currentLayers;
+    currentLayers = currentLayers.slice(0, index);
+    history?.replaceState?.(nextState(currentLayers), '', cleanAppRoute(location));
+    closeRemovedLayers(previousLayers, currentLayers);
+    return true;
   }
 
   function reconcilePersistedLayers() {
@@ -147,10 +164,16 @@ export function createUiHistory({
     if (pendingCloses.has(layerId)) return true;
     const distance = currentLayers.length - layerIndex;
     if (distance > 1 && typeof history.go !== 'function') return false;
-    pendingCloses.set(layerId, {
+    const pending = {
       payload,
       afterClose: typeof afterClose === 'function' ? afterClose : null,
-    });
+      fallbackTimer: null,
+    };
+    pendingCloses.set(layerId, pending);
+    pending.fallbackTimer = globalThis.setTimeout?.(() => {
+      if (pendingCloses.get(layerId) !== pending) return;
+      closeThroughLayer(layerId);
+    }, CLOSE_FALLBACK_DELAY_MS);
     if (distance === 1) history.back();
     else history.go(-distance);
     return true;
@@ -169,11 +192,13 @@ export function createUiHistory({
     const layerId = String(id || '');
     const index = currentLayers.lastIndexOf(layerId);
     if (index === -1) return false;
+    const pending = takePendingClose(layerId);
     currentLayers = currentLayers.slice(0, index);
     history?.replaceState?.(nextState(currentLayers), '', cleanAppRoute(location));
     const handler = closeHandlers.get(layerId);
     if (handler) handler(payload);
     else fallbackClose(layerId);
+    pending?.afterClose?.();
     return true;
   }
 
