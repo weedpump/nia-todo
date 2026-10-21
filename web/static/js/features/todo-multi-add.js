@@ -64,6 +64,8 @@ export function createTodoMultiAddFeature({
   let bound = false;
   let rowSequence = 0;
   let parseSequence = 0;
+  let saveInFlight = null;
+  let lifecycleGeneration = 0;
 
   const modal = () => document.getElementById('todo-modal');
   const panel = () => document.getElementById('todo-multi-add-panel');
@@ -196,35 +198,53 @@ export function createTodoMultiAddFeature({
     updateState();
   }
 
-  async function parseRow(row) {
+  function reserveRowParse(row) {
+    const sequence = ++parseSequence;
+    row.dataset.parseSequence = String(sequence);
+    return sequence;
+  }
+
+  async function parseRow(row, reservedSequence = null) {
     const input = inputForRow(row);
     const preview = row.querySelector('.todo-multi-add-preview');
     const message = row.querySelector('.todo-multi-add-row-message');
-    if (!input || !preview || !message) return;
+    if (!input || !preview || !message) return false;
+    if (reservedSequence === null) {
+      window.clearTimeout(row._multiParseTimer);
+      row._multiParseTimer = null;
+    }
+    const sequence = reservedSequence ?? reserveRowParse(row);
+    if (row.dataset.parseSequence !== String(sequence)) return false;
     const raw = stripListPrefix(input.value);
-    const sequence = ++parseSequence;
-    row.dataset.parseSequence = String(sequence);
-    preview.innerHTML = '';
-    message.textContent = '';
-    row.classList.remove('is-invalid');
-    input.setAttribute('aria-invalid', 'false');
     if (!raw) {
+      message.textContent = '';
+      row.classList.remove('is-invalid');
+      input.setAttribute('aria-invalid', 'false');
+      preview.replaceChildren();
       row._multiParsed = null;
       updateState();
-      return;
+      return true;
     }
     if (raw.length > 500) {
+      message.textContent = '';
+      row.classList.remove('is-invalid');
+      input.setAttribute('aria-invalid', 'false');
+      preview.replaceChildren();
       row._multiParsed = null;
       row.classList.add('is-invalid');
       input.setAttribute('aria-invalid', 'true');
       message.textContent = t('todo.multiAdd.tooLong', { count: raw.length - 500 });
       updateState();
-      return;
+      return true;
     }
     const projectId = document.getElementById('todo-multi-project')?.value || null;
     const result = await parseQuickAddTitle(raw, getCurrentProjectId(), projectId);
-    if (row.dataset.parseSequence !== String(sequence)) return;
+    if (row.dataset.parseSequence !== String(sequence) || stripListPrefix(input.value) !== raw) return false;
+    message.textContent = '';
+    row.classList.remove('is-invalid');
+    input.setAttribute('aria-invalid', 'false');
     row._multiParsed = result;
+    const previewContent = document.createDocumentFragment();
     const validationKey = getMultiTodoValidationKey(result.changes || {});
     if (validationKey) {
       row.classList.add('is-invalid');
@@ -240,14 +260,20 @@ export function createTodoMultiAddFeature({
       const value = document.createElement('strong');
       value.textContent = match.value || match.token || '';
       chip.append(label, value);
-      preview.appendChild(chip);
+      previewContent.appendChild(chip);
     }
+    preview.replaceChildren(previewContent);
     updateState();
+    return true;
   }
 
   function scheduleRowParse(row) {
     window.clearTimeout(row._multiParseTimer);
-    row._multiParseTimer = window.setTimeout(() => void parseRow(row), 90);
+    const sequence = reserveRowParse(row);
+    row._multiParseTimer = window.setTimeout(() => {
+      row._multiParseTimer = null;
+      void parseRow(row, sequence);
+    }, 90);
   }
 
   function updateState() {
@@ -267,9 +293,12 @@ export function createTodoMultiAddFeature({
         row.querySelector('.todo-multi-add-row-message').textContent = '';
       }
     });
-    const valid = nonEmpty.filter(({ row }) => !row.classList.contains('is-invalid') && row._multiParsed?.title?.trim());
-    const count = valid.length;
-    const overLimit = nonEmpty.length > MAX_MULTI_TODOS;
+    const count = nonEmpty.length;
+    const overLimit = count > MAX_MULTI_TODOS;
+    const hasKnownInvalidRow = nonEmpty.some(({ row }) => (
+      row.classList.contains('is-invalid')
+      || (row._multiParsed && !row._multiParsed.title?.trim())
+    ));
     const countElement = document.getElementById('todo-multi-add-count');
     if (countElement) countElement.textContent = t(`todo.multiAdd.count.${count === 1 ? 'one' : 'many'}`, { count });
     const limitElement = document.getElementById('todo-multi-add-limit');
@@ -282,7 +311,7 @@ export function createTodoMultiAddFeature({
     const save = saveButton();
     if (save && isActive()) {
       save.hidden = count === 0;
-      save.disabled = count === 0 || overLimit || valid.length !== nonEmpty.length;
+      save.disabled = count === 0 || overLimit || hasKnownInvalidRow;
       save.textContent = t(`todo.multiAdd.create.${count === 1 ? 'one' : 'many'}`, { count });
     }
     const more = document.getElementById('todo-multi-add-more');
@@ -331,6 +360,7 @@ export function createTodoMultiAddFeature({
   }
 
   function reset({ editing = false } = {}) {
+    invalidateSaveLifecycle();
     const switcher = document.getElementById('todo-create-mode-switch');
     if (switcher) switcher.hidden = editing;
     modal()?.classList.remove('todo-multi-add-mode');
@@ -430,11 +460,65 @@ export function createTodoMultiAddFeature({
     });
   }
 
-  async function save() {
-    if (!isActive() || !getAppInitialized() || !getDb()) return false;
+  function isSaveLifecycleCurrent(generation) {
+    return generation === lifecycleGeneration;
+  }
+
+  function captureSaveSnapshot(rows, generation) {
+    return {
+      generation,
+      rows: rows.map(({ row, raw }) => ({
+        row,
+        raw,
+        parseSequence: row.dataset.parseSequence || '',
+      })),
+      projectId: document.getElementById('todo-multi-project')?.value || '',
+      sectionId: document.getElementById('todo-multi-section')?.value || '',
+      priority: document.getElementById('todo-multi-priority')?.value || '3',
+    };
+  }
+
+  function isSaveSnapshotCurrent(snapshot) {
+    const currentRows = normalizedRows().filter(item => item.raw);
+    return isSaveLifecycleCurrent(snapshot.generation)
+      && currentRows.length === snapshot.rows.length
+      && currentRows.every(({ row, raw }, index) => {
+        const saved = snapshot.rows[index];
+        return row === saved.row
+          && raw === saved.raw
+          && (row.dataset.parseSequence || '') === saved.parseSequence;
+      })
+      && (document.getElementById('todo-multi-project')?.value || '') === snapshot.projectId
+      && (document.getElementById('todo-multi-section')?.value || '') === snapshot.sectionId
+      && (document.getElementById('todo-multi-priority')?.value || '3') === snapshot.priority;
+  }
+
+  function setSaveInProgress(active) {
+    panel()?.toggleAttribute('inert', active);
+    modal()?.toggleAttribute('aria-busy', active);
+    document.querySelectorAll('[data-todo-create-mode]').forEach(button => {
+      button.disabled = active;
+    });
+    const save = saveButton();
+    if (save && active) save.disabled = true;
+  }
+
+  function invalidateSaveLifecycle() {
+    lifecycleGeneration += 1;
+    saveInFlight = null;
+    setSaveInProgress(false);
+  }
+
+  async function performSave(generation) {
+    if (!isActive() || !isSaveLifecycleCurrent(generation) || !getAppInitialized() || !getDb()) return false;
     const rows = normalizedRows().filter(item => item.raw);
     if (!rows.length || rows.length > MAX_MULTI_TODOS) return true;
-    await Promise.all(rows.map(({ row }) => parseRow(row)));
+    const parseResults = await Promise.all(rows.map(({ row }) => parseRow(row)));
+    if (parseResults.some(applied => !applied)) {
+      updateState();
+      return true;
+    }
+    if (!isSaveLifecycleCurrent(generation)) return true;
     if (rows.some(({ row }) => row.classList.contains('is-invalid') || !row._multiParsed?.title?.trim())) {
       updateState();
       return true;
@@ -442,7 +526,12 @@ export function createTodoMultiAddFeature({
     const projectId = document.getElementById('todo-multi-project')?.value;
     const sectionId = document.getElementById('todo-multi-section')?.value;
     const priority = Number(document.getElementById('todo-multi-priority')?.value || 3);
+    const saveSnapshot = captureSaveSnapshot(rows, generation);
     const sections = await loadSectionsForQuickAdd();
+    if (!isSaveSnapshotCurrent(saveSnapshot)) {
+      updateState();
+      return true;
+    }
     const prepared = [];
     let hasValidationError = false;
     for (const { row } of rows) {
@@ -487,9 +576,18 @@ export function createTodoMultiAddFeature({
       updateState();
       return true;
     }
+    if (!isSaveSnapshotCurrent(saveSnapshot)) {
+      updateState();
+      return true;
+    }
     const now = Date.now();
     const created = [];
+    let commitAborted = false;
     await commitQueuedMutation(async enqueue => {
+      if (!isSaveSnapshotCurrent(saveSnapshot)) {
+        commitAborted = true;
+        return;
+      }
       for (const [index, { todoData }] of prepared.entries()) {
         const tempId = `temp-${now}-${index}`;
         const nowIso = new Date(now + index).toISOString();
@@ -500,6 +598,10 @@ export function createTodoMultiAddFeature({
       }
       setTodos([...getTodos(), ...created]);
     });
+    if (commitAborted) {
+      updateState();
+      return true;
+    }
     renderProjects();
     renderStats();
     renderTodos();
@@ -512,6 +614,20 @@ export function createTodoMultiAddFeature({
       renderTodos();
     }
     return true;
+  }
+
+  function save() {
+    if (saveInFlight) return saveInFlight;
+    const generation = lifecycleGeneration;
+    setSaveInProgress(true);
+    const currentSave = performSave(generation).finally(() => {
+      if (saveInFlight !== currentSave) return;
+      saveInFlight = null;
+      setSaveInProgress(false);
+      if (isActive()) updateState();
+    });
+    saveInFlight = currentSave;
+    return currentSave;
   }
 
   return { bind, reset, isActive, save };

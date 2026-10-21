@@ -116,6 +116,7 @@ run_step "Avatar Offline Cache" node scripts/test_avatar_cache.mjs
 run_step "Avatar Realtime Updates" node scripts/test_avatar_realtime.mjs
 run_step "Todo Attachment Thumbnails" node scripts/test_todo_attachment_thumbnails.mjs
 run_step "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
+run_step "Frontend Multi Todo Add" node scripts/test_frontend_multi_todo_add.mjs
 run_step "Frontend Project Counters" node scripts/test_frontend_project_counters.mjs
 run_step "Frontend Security" node scripts/test_frontend_security.mjs
 run_step "Frontend Rich Text Editor" node scripts/test_frontend_rich_text_editor.mjs
