@@ -204,7 +204,7 @@ try {
     iconRadius: '999px',
     iconWidth: '42px',
     closeWidth: '40px',
-    closeRadius: '0px',
+    closeRadius: '999px',
     triggerRadius: '999px',
     dateFieldRadii: ['999px', '999px', '999px'],
     hourRadius: '999px',

@@ -7,9 +7,9 @@ const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator
 try {
   const cleanedUrls = [];
   const location = {
-    href: 'https://todo.example.test/?filter=today&hardReload=old-value#focus',
+    href: 'https://todo.example.test/?filter=today&hardReload=old-value&appUpdated=old-version#focus',
     origin: 'https://todo.example.test',
-    search: '?filter=today&hardReload=old-value',
+    search: '?filter=today&hardReload=old-value&appUpdated=old-version',
   };
   globalThis.window = {
     location,
@@ -28,13 +28,20 @@ try {
   });
 
   const { createServiceWorkerUpdatesFeature } = await import('../web/static/js/features/service-worker-updates.js');
-  createServiceWorkerUpdatesFeature();
+  const feature = createServiceWorkerUpdatesFeature();
 
-  assert.equal(cleanedUrls.length, 1, 'startup must remove a stale hardReload marker from the visible URL');
+  assert.equal(cleanedUrls.length, 0, 'creating the feature must not remove reload markers before app bootstrap succeeds');
+  feature.removeReloadMarkersFromVisibleUrl();
+
+  assert.equal(cleanedUrls.length, 1, 'successful startup must remove reload markers from the visible URL');
   const cleanedUrl = new URL(location.href);
   assert.equal(cleanedUrl.searchParams.has('hardReload'), false, 'the cleanup must remove hardReload');
+  assert.equal(cleanedUrl.searchParams.has('appUpdated'), false, 'the cleanup must remove appUpdated');
   assert.equal(cleanedUrl.searchParams.get('filter'), 'today', 'the cleanup must preserve unrelated query parameters');
   assert.equal(cleanedUrl.hash, '#focus', 'the cleanup must preserve the current URL fragment');
+
+  const appSource = await import('node:fs/promises').then(({ readFile }) => readFile(new URL('../web/static/js/app.js', import.meta.url), 'utf8'));
+  assert.match(appSource, /bindLoginForm\(\);\s*serviceWorkerUpdates\.removeReloadMarkersFromVisibleUrl\(\);\s*\}/, 'app startup must clean reload markers only after bootstrap bindings complete');
 
   console.log('Frontend reload URL cleanup regression test passed');
 } finally {

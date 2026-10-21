@@ -1,15 +1,15 @@
 import { APP_VERSION, RUNTIME_CAPABILITIES } from '../core/config.js';
 
-function removeHardReloadMarkerFromVisibleUrl() {
+function removeReloadMarkersFromVisibleUrl() {
   if (typeof window === 'undefined' || !window.history?.replaceState) return;
   const url = new URL(window.location.href);
-  if (!url.searchParams.has('hardReload')) return;
-  url.searchParams.delete('hardReload');
+  const markerNames = ['hardReload', 'appUpdated'];
+  if (!markerNames.some(name => url.searchParams.has(name))) return;
+  markerNames.forEach(name => url.searchParams.delete(name));
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
 export function createServiceWorkerUpdatesFeature({ appVersion = '' } = {}) {
-  removeHardReloadMarkerFromVisibleUrl();
   let swRegistration = null;
   let updateAvailable = false;
   let allowReloadOnControllerChange = false;
@@ -522,6 +522,7 @@ export function createServiceWorkerUpdatesFeature({ appVersion = '' } = {}) {
     initServiceWorker,
     triggerUpdate,
     forceReloadApp,
+    removeReloadMarkersFromVisibleUrl,
     bindServiceWorkerUpdateButtons,
     isUpdateAvailable: () => updateAvailable,
     refreshUpdateStatus,
