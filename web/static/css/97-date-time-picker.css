@@ -323,9 +323,7 @@ html.date-time-picker-open body {
 .date-time-picker-date-entry input,
 .date-time-picker-time input {
   width: 100%;
-  min-height: 40px;
   text-align: center;
-  font-size: 16px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -511,7 +509,7 @@ html.date-time-picker-open body {
 
   #date-time-picker-modal .date-time-picker-body {
     flex: 1 1 auto;
-    align-content: center;
+    align-content: start;
     width: min(100%, 460px);
     margin: 0 auto;
     padding: 14px 16px;
