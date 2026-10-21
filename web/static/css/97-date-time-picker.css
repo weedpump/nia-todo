@@ -26,12 +26,10 @@ html.date-time-picker-open body {
 
 .datetime-picker-trigger {
   width: 100%;
-  min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 12px;
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
