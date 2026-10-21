@@ -10,7 +10,7 @@
   gap: 7px;
   min-width: 92px;
   border: 0;
-  background: var(--bg-secondary);
+  background: transparent;
   color: var(--text-secondary);
   border-radius: 999px;
   padding: 8px 12px;
