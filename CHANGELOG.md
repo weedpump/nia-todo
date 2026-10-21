@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [3.6.2] - 2026-10-21
+
+### Fixed
+- Restored reliable manual app reloads without leaving a reload marker in the visible URL.
+- Made Todo details and nested dialogs close reliably from their close buttons.
+- Improved consistency across Todo entry and detail fields, including comments, descriptions, subtasks, and multiple-Todo creation.
+- Refined date and time controls with consistent field sizing and a more compact mobile fullscreen layout.
+- Polished modal close feedback and inactive top-bar controls across desktop, mobile, and dark mode.
+
 ## [3.6.1] - 2026-10-20
 
 ### Fixed
