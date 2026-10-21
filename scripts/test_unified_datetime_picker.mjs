@@ -351,9 +351,17 @@ try {
   await page.fill('#date-time-picker-date-month', '12');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'date-time-picker-year', 'two entered month digits must advance focus to year');
   await page.fill('#date-time-picker-year', '2027');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'date-time-picker-hour', 'four entered year digits must advance focus to hour');
   assert.equal(await page.locator('[data-date="2027-12-25"]').getAttribute('aria-selected'), 'true', 'a complete valid direct date must update the selected calendar day immediately');
   assert.match(await page.locator('#date-time-picker-selection').textContent(), /December 25, 2027/, 'a complete valid direct date must update the picker heading immediately');
-  await page.fill('#date-time-picker-hour', '9');
+  await page.fill('#date-time-picker-hour', 'ab');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'date-time-picker-hour', 'two non-digit hour characters must not advance focus');
+  await page.fill('#date-time-picker-hour', '09');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'date-time-picker-minute', 'two entered hour digits must advance focus to minute');
+  assert.deepEqual(await page.evaluate(() => {
+    const input = document.getElementById('date-time-picker-minute');
+    return [input.selectionStart, input.selectionEnd, input.value.length];
+  }), [0, 2, 2], 'focus advancement must select the complete minute value');
   await page.fill('#date-time-picker-minute', '45');
   await page.click('[data-datetime-picker-day-period="pm"]');
   await page.click('[data-datetime-picker-action="apply"]');
