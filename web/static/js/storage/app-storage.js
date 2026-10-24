@@ -41,6 +41,10 @@ export function createAppStorage({ setDb }) {
     return syncQueue.enqueue(action, data);
   }
 
+  function commitTodoUpdatesWithQueue(updates) {
+    return indexedDb.commitTodoUpdatesWithQueue(updates);
+  }
+
   return {
     openDB,
     clearIndexedDB,
@@ -51,5 +55,6 @@ export function createAppStorage({ setDb }) {
     deleteFromDB,
     clearSyncQueue,
     addToSyncQueue,
+    commitTodoUpdatesWithQueue,
   };
 }

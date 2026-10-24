@@ -1,11 +1,11 @@
-export function createAndroidLocationPermissionFlow({ nativeBridge, promptUser }) {
+export function createAndroidLocationPermissionFlow({ nativeBridge, promptUser, declinePermission }) {
   let promptInFlight = null;
 
   async function ensurePermission(required = false) {
     if (!required) return true;
     const state = String(await nativeBridge?.locationPermissionGuidanceState?.() || 'unsupported');
     if (state === 'granted') return true;
-    if (state === 'declined' || state === 'unsupported') return false;
+    if (state === 'unsupported') return false;
     if (promptInFlight) return promptInFlight;
 
     promptInFlight = (async () => {
@@ -13,7 +13,8 @@ export function createAndroidLocationPermissionFlow({ nativeBridge, promptUser }
       const mode = String(await nativeBridge?.backgroundLocationPermissionMode?.() || 'unsupported');
       const choice = await promptUser(state, optionLabel, mode);
       if (choice !== 'continue') {
-        await nativeBridge?.declineLocationPermissionGuidance?.();
+        if (choice !== 'decline') return false;
+        await declinePermission?.();
         return false;
       }
       const requested = String(await nativeBridge?.requestLocationPermission?.() || state);
@@ -76,7 +77,7 @@ export function createAndroidLocationPermissionPrompt({
   let pendingResolve = null;
   let bound = false;
 
-  function settle(choice = 'decline') {
+  function settle(choice = 'dismiss') {
     const modal = document?.getElementById?.(layerId);
     modal?.classList?.remove?.('active');
     modal?.setAttribute?.('aria-hidden', 'true');
@@ -85,7 +86,7 @@ export function createAndroidLocationPermissionPrompt({
     resolve?.(choice);
   }
 
-  function close(choice = 'decline') {
+  function close(choice = 'dismiss') {
     if (!pendingResolve) return;
     const requested = requestCloseLayer?.(layerId, { reason: 'permission-choice', choice });
     if (!requested) settle(choice);
@@ -94,23 +95,23 @@ export function createAndroidLocationPermissionPrompt({
   function bind() {
     if (bound) return;
     bound = true;
-    registerLayer?.(layerId, payload => settle(payload?.choice || 'decline'));
+    registerLayer?.(layerId, payload => settle(payload?.choice || 'dismiss'));
     document?.getElementById?.('android-location-permission-decline')?.addEventListener?.('click', () => close('decline'));
     document?.getElementById?.('android-location-permission-continue')?.addEventListener?.('click', () => close('continue'));
-    document?.getElementById?.(layerId)?.querySelector?.('.modal-overlay')?.addEventListener?.('click', () => close('decline'));
+    document?.getElementById?.(layerId)?.querySelector?.('.modal-overlay')?.addEventListener?.('click', () => close('dismiss'));
     document?.addEventListener?.('keydown', (event) => {
       if (event.key !== 'Escape' || !pendingResolve) return;
       event.preventDefault?.();
-      close('decline');
+      close('dismiss');
     });
   }
 
   function show(state, nativeOptionLabel = '', mode = 'settings') {
-    if (pendingResolve) return Promise.resolve('decline');
+    if (pendingResolve) return Promise.resolve('dismiss');
     const modal = document?.getElementById?.(layerId);
     const message = document?.getElementById?.('android-location-permission-message');
     const continueButton = document?.getElementById?.('android-location-permission-continue');
-    if (!modal || !message || !continueButton) return Promise.resolve('decline');
+    if (!modal || !message || !continueButton) return Promise.resolve('dismiss');
     bind();
     const option = nativeOptionLabel || translate('todo.location.permission.optionLabel');
     let messageKey = 'todo.location.permission.body';

@@ -41,7 +41,7 @@ async function testGrantedStateSkipsPrompt() {
   assert.equal(prompts, 0);
 }
 
-async function testDeclinedStateStaysQuiet() {
+async function testDeclinedStatePromptsAgainWhileRemindersExist() {
   let prompts = 0;
   let requests = 0;
   const flow = createAndroidLocationPermissionFlow({
@@ -53,8 +53,8 @@ async function testDeclinedStateStaysQuiet() {
   });
 
   assert.equal(await flow.ensurePermission(true), false);
-  assert.equal(prompts, 0);
-  assert.equal(requests, 0);
+  assert.equal(prompts, 1);
+  assert.equal(requests, 1);
 }
 
 async function testContinueStartsExistingNativeFlow() {
@@ -75,21 +75,91 @@ async function testContinueStartsExistingNativeFlow() {
   assert.equal(requested, 1);
 }
 
-async function testDeclinePersistsNativeDecision() {
-  let declined = 0;
+async function testDeclineRemovesLocationReminders() {
+  let removals = 0;
   let requested = 0;
   const flow = createAndroidLocationPermissionFlow({
     nativeBridge: {
       locationPermissionGuidanceState: () => 'foreground_only',
-      declineLocationPermissionGuidance: () => { declined += 1; return true; },
       requestLocationPermission: () => { requested += 1; return 'background_settings'; },
     },
     promptUser: async () => 'decline',
+    declinePermission: async () => { removals += 1; },
   });
 
   assert.equal(await flow.ensurePermission(true), false);
-  assert.equal(declined, 1);
+  assert.equal(removals, 1);
   assert.equal(requested, 0);
+}
+
+async function testForegroundGrantPromptsAgainForBackgroundAccess() {
+  const states = ['prompt', 'foreground_only'];
+  const prompts = [];
+  let requests = 0;
+  const flow = createAndroidLocationPermissionFlow({
+    nativeBridge: {
+      locationPermissionGuidanceState: () => states.shift(),
+      backgroundLocationPermissionOptionLabel: () => 'Allow all the time',
+      backgroundLocationPermissionMode: () => 'settings',
+      requestLocationPermission: () => { requests += 1; return requests === 1 ? 'prompt' : 'background_settings'; },
+    },
+    promptUser: async state => { prompts.push(state); return 'continue'; },
+  });
+
+  assert.equal(await flow.ensurePermission(true), false);
+  assert.equal(await flow.ensurePermission(true), false);
+  assert.deepEqual(prompts, ['prompt', 'foreground_only']);
+  assert.equal(requests, 2);
+}
+
+
+async function testDeclineKeepsPromptActiveWhenRemovalFails() {
+  let prompts = 0;
+  const flow = createAndroidLocationPermissionFlow({
+    nativeBridge: {
+      locationPermissionGuidanceState: () => 'foreground_only',
+    },
+    promptUser: async () => { prompts += 1; return 'decline'; },
+    declinePermission: async () => { throw new Error('remove failed'); },
+  });
+
+  await assert.rejects(flow.ensurePermission(true), /remove failed/);
+  await assert.rejects(flow.ensurePermission(true), /remove failed/);
+  assert.equal(prompts, 2);
+}
+
+async function testCancelledRemovalKeepsPromptActive() {
+  let prompts = 0;
+  let removals = 0;
+  const flow = createAndroidLocationPermissionFlow({
+    nativeBridge: {
+      locationPermissionGuidanceState: () => 'foreground_only',
+    },
+    promptUser: async () => { prompts += 1; return 'decline'; },
+    declinePermission: async () => { removals += 1; return false; },
+  });
+
+  assert.equal(await flow.ensurePermission(true), false);
+  assert.equal(await flow.ensurePermission(true), false);
+  assert.equal(prompts, 2);
+  assert.equal(removals, 2);
+}
+
+async function testDismissDoesNotStartOptOut() {
+  let optOuts = 0;
+  let requests = 0;
+  const flow = createAndroidLocationPermissionFlow({
+    nativeBridge: {
+      locationPermissionGuidanceState: () => 'foreground_only',
+      requestLocationPermission: () => { requests += 1; return 'background_settings'; },
+    },
+    promptUser: async () => 'dismiss',
+    declinePermission: async () => { optOuts += 1; },
+  });
+
+  assert.equal(await flow.ensurePermission(true), false);
+  assert.equal(optOuts, 0);
+  assert.equal(requests, 0);
 }
 
 async function testConcurrentSchedulingSharesOnePrompt() {
@@ -151,6 +221,8 @@ function testTemporaryEmptyBootstrapDoesNotReplaceNativeReminderSnapshot() {
 
 async function testHistoryBackSettlesPromptAndAllowsRetry() {
   const modal = createElement();
+  const overlay = createElement();
+  modal.querySelector = selector => selector === '.modal-overlay' ? overlay : null;
   const message = createElement();
   const continueButton = createElement();
   const declineButton = createElement();
@@ -207,7 +279,7 @@ async function testHistoryBackSettlesPromptAndAllowsRetry() {
   const first = prompt.show('prompt', 'Allow all the time', 'settings');
   assert.deepEqual(history.state.niaTodoUi.layers, ['android-location-permission-modal']);
   history.back();
-  assert.equal(await first, 'decline');
+  assert.equal(await first, 'dismiss');
 
   const second = prompt.show('foreground_only', 'Allow all the time', 'settings');
   continueButton.click();
@@ -216,7 +288,15 @@ async function testHistoryBackSettlesPromptAndAllowsRetry() {
 
   const third = prompt.show('prompt', 'Allow all the time', 'settings');
   for (const handler of documentListeners.get('keydown') || []) handler({ key: 'Escape', preventDefault() {} });
-  assert.equal(await third, 'decline');
+  assert.equal(await third, 'dismiss');
+
+  const fourth = prompt.show('prompt', 'Allow all the time', 'settings');
+  overlay.click();
+  assert.equal(await fourth, 'dismiss');
+
+  const fifth = prompt.show('prompt', 'Allow all the time', 'settings');
+  declineButton.click();
+  assert.equal(await fifth, 'decline');
 }
 
 async function testOriginRestrictedLocationBridgeContract() {
@@ -296,9 +376,13 @@ async function testOriginRestrictedLocationBridgeContract() {
 }
 
 await testGrantedStateSkipsPrompt();
-await testDeclinedStateStaysQuiet();
+await testDeclinedStatePromptsAgainWhileRemindersExist();
 await testContinueStartsExistingNativeFlow();
-await testDeclinePersistsNativeDecision();
+await testDeclineRemovesLocationReminders();
+await testForegroundGrantPromptsAgainForBackgroundAccess();
+await testDeclineKeepsPromptActiveWhenRemovalFails();
+await testCancelledRemovalKeepsPromptActive();
+await testDismissDoesNotStartOptOut();
 await testConcurrentSchedulingSharesOnePrompt();
 await testDelayedZeroCountRetriesAndWarns();
 testTemporaryEmptyBootstrapDoesNotReplaceNativeReminderSnapshot();
@@ -325,6 +409,12 @@ for (const id of [
 }
 assert(desktop.includes('createAndroidLocationPermissionFlow'), 'desktop reminder scheduling must use the guided location permission flow');
 assert(desktop.includes('createAndroidLocationPermissionPrompt'), 'desktop integration must use the history-aware location permission guidance modal');
+assert(desktop.includes('removeAllLocationReminders()'), 'explicit opt-out must remove location reminders from the current post-confirmation todo state');
+assert(app.includes('removeAllLocationReminders: () => todosFeature.removeAllLocationReminders()'), 'desktop opt-out must use the atomic current-state todo batch operation');
+assert(todos.includes('async function removeAllLocationReminders()') && todos.includes('.filter(todo => todo?.location_reminder || todo?.location_reminders?.some?.(Boolean))'), 'location opt-out must select every reminder from the current todo state after confirmation');
+assert(todos.includes('commitTodoUpdatesWithQueue(async persist => {') && todos.includes('const currentTodos = getTodos()'), 'location opt-out must build and apply its current todo snapshot inside the sync-queue write reservation');
+assert(todos.includes('location_reminders: []'), 'location opt-out must clear normalized reminder state');
+assert(desktop.includes('await syncTodoChanges?.()'), 'location opt-out must synchronize the complete queued batch once');
 assert(bridge.includes('locationPermissionGuidanceState'), 'native bridge must expose the persisted guidance state');
 assert(bridge.includes('declineLocationPermissionGuidance'), 'native bridge must persist an explicit decline');
 assert(bridge.includes('backgroundLocationPermissionOptionLabel'), 'native bridge must expose Android’s localized background-location option label');

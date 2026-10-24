@@ -108,6 +108,38 @@ export function put(storeName, item) {
   });
 }
 
+export function commitTodoUpdatesWithQueue(updates, {
+  database = db,
+  timestamp = Date.now(),
+  localUpdatedAt = new Date().toISOString(),
+} = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  return new Promise((resolve, reject) => {
+    let tx;
+    try {
+      tx = database.transaction(['todos', 'syncQueue'], 'readwrite');
+      const todosStore = tx.objectStore('todos');
+      const queueStore = tx.objectStore('syncQueue');
+      for (const update of updates) {
+        todosStore.put(update.todo);
+        queueStore.put({
+          action: 'UPDATE_TODO',
+          data: { id: update.todo.id, changes: update.changes },
+          timestamp,
+          localUpdatedAt,
+        });
+      }
+    } catch (error) {
+      tx?.abort?.();
+      reject(error);
+      return;
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Failed to commit todo updates'));
+    tx.onabort = () => reject(tx.error || new Error('Todo update transaction was aborted'));
+  });
+}
+
 export function clear(storeName) {
   return new Promise((resolve) => {
     if (!db) { resolve(); return; }

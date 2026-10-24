@@ -118,10 +118,7 @@ class MainActivity : TauriActivity() {
 
   override fun onResume() {
     super.onResume()
-    if (LocationReminderReceiver.consumeLocationPermissionSettingsRoundTrip(this)) {
-      val granted = LocationReminderReceiver.locationPermissionState(this) == "granted"
-      LocationReminderReceiver.setLocationPermissionGuidanceDeclined(this, !granted)
-    }
+    LocationReminderReceiver.consumeLocationPermissionSettingsRoundTrip(this)
     LocationReminderReceiver.rescheduleStoredLocationReminders(this)
     handleReturnedAndroidInstaller()
   }

@@ -216,6 +216,14 @@ async function runSyncQueueMutation(operation) {
     finishQueueWrite();
   }
 }
+async function commitTodoUpdatesWithQueue(operation) {
+  const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
+  try {
+    return await operation(updates => appStorage.commitTodoUpdatesWithQueue(updates));
+  } finally {
+    finishQueueWrite();
+  }
+}
 const syncInProgressRef = { value: syncInProgress };
 const activeBackgroundSyncOperations = new Set();
 
@@ -273,6 +281,7 @@ const todosFeature = createTodosFeature({
   deleteFromDB,
   addToSyncQueue,
   runSyncQueueMutation,
+  commitTodoUpdatesWithQueue,
   isOnlineForSync,
   syncWithServer,
   todosApi,
@@ -471,6 +480,9 @@ desktopIntegration = createDesktopIntegration({
     openMobileSearch();
   },
   getCurrentUser: () => currentUser,
+  confirmDanger,
+  removeAllLocationReminders: () => todosFeature.removeAllLocationReminders(),
+  syncTodoChanges: () => isOnlineForSync() ? syncWithServer() : Promise.resolve(),
 });
 
 
