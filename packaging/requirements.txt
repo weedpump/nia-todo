@@ -21,7 +21,7 @@ multidict==6.9.1
 pillow==13.0.0
 pillow_heif==1.8.1
 propcache==0.5.4
-py-vapid==1.9.4
+py-vapid==1.9.6
 pycparser==3.11
 pydantic==2.14.1
 PyJWT==2.15.1
