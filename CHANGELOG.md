@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Kept Android location-permission guidance active until background access is granted, and made opting out remove all affected location reminders after confirmation.
+
 ## [3.6.3] - 2026-10-21
 
 ### Fixed

@@ -29,7 +29,8 @@ assert(!mainActivity.includes('@JavascriptInterface\n    fun declineLocationPerm
 assert(!mainActivity.includes('@JavascriptInterface\n    fun scheduleLocationReminders'), 'location schedules must use the origin-restricted WebMessage bridge');
 assert(receiver.includes('PREFS_SETTINGS_PENDING') && receiver.includes('PREFS_SETTINGS_WAS_PAUSED'), 'Android must persist the settings round trip across activity or process recreation');
 assert(receiver.includes('beginLocationPermissionSettingsRoundTrip') && receiver.includes('consumeLocationPermissionSettingsRoundTrip'), 'Android must complete a persisted settings round trip exactly once');
-assert(mainActivity.includes('setLocationPermissionGuidanceDeclined(this, true)') && mainActivity.includes('setLocationPermissionGuidanceDeclined(this, !granted)'), 'Android must suppress future automatic prompts after denial or an unsuccessful settings return');
+assert(mainActivity.includes('setLocationPermissionGuidanceDeclined(this, true)'), 'Android must record explicit runtime-permission denial');
+assert(!mainActivity.includes('val granted = LocationReminderReceiver.locationPermissionState(this) == "granted"'), 'returning from settings without background access must not be evaluated as an opt-out');
 assert(receiver.includes('PREFS_GUIDANCE_DECLINED'), 'location permission guidance choice must survive app restarts');
 assert(!receiver.includes('resetDeclinedGuidanceForScheduleChange'), 'ordinary schedule synchronization must never clear the persisted opt-out');
 assert(mainActivity.includes('resetLocationPermissionGuidance') && mainActivity.includes('"resetGuidance"'), 'only an explicit user-intent bridge action may reactivate guidance');

@@ -66,6 +66,7 @@ export function createTodosFeature({
   deleteFromDB,
   addToSyncQueue,
   runSyncQueueMutation,
+  commitTodoUpdatesWithQueue,
   isOnlineForSync,
   syncWithServer,
   todosApi,
@@ -2917,7 +2918,7 @@ export function createTodosFeature({
     }
   }
 
-  async function updateTodoFields(id, changes, toastMessage = null) {
+  async function updateTodoFields(id, changes, toastMessage = null, { sync = true } = {}) {
     if (!getAppInitialized() || !getDb()) return;
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo) return;
@@ -2939,7 +2940,35 @@ export function createTodosFeature({
       }));
       showToast(toastMessage, { type: 'fields', id: todo.id, changes: previousChanges });
     }
-    if (isOnlineForSync()) await syncWithServer();
+    if (sync && isOnlineForSync()) await syncWithServer();
+    return updatedTodo;
+  }
+
+  async function removeAllLocationReminders() {
+    if (!getAppInitialized() || !getDb()) return [];
+    const updates = await commitTodoUpdatesWithQueue(async persist => {
+      const currentTodos = getTodos();
+      const nowIso = new Date().toISOString();
+      const pendingUpdates = currentTodos
+        .filter(todo => todo?.location_reminder || todo?.location_reminders?.some?.(Boolean))
+        .map(todo => ({
+          todo: {
+            ...todo,
+            location_reminder: null,
+            location_reminders: [],
+            updated_at: nowIso,
+          },
+          changes: { location_reminder: null },
+        }));
+      if (!pendingUpdates.length) return [];
+      await persist(pendingUpdates);
+      const updatedById = new Map(pendingUpdates.map(update => [String(update.todo.id), update.todo]));
+      setTodos(currentTodos.map(todo => updatedById.get(String(todo.id)) || todo));
+      return pendingUpdates;
+    });
+    renderStats();
+    renderTodos();
+    return updates.map(update => update.todo);
   }
 
   async function toggleTodoPin(id) {
@@ -3137,5 +3166,5 @@ export function createTodosFeature({
     document.getElementById('todo-project')?.addEventListener('change', onProjectChange);
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

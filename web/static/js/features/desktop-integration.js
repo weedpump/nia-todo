@@ -115,7 +115,7 @@ function setDesktopStatus(text, danger = false) {
   });
 }
 
-export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch, getCurrentUser }) {
+export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch, getCurrentUser, confirmDanger, removeAllLocationReminders, syncTodoChanges }) {
   const nativeBridge = createNativeBridge();
   let settings = { ...DEFAULT_SETTINGS };
   let latestTodos = [];
@@ -134,6 +134,26 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   const locationPermissionFlow = createAndroidLocationPermissionFlow({
     nativeBridge,
     promptUser: locationPermissionPrompt.show,
+    declinePermission: async () => {
+      const affected = latestTodos.filter(todo => {
+        if (todo?.location_reminder) return true;
+        return Array.isArray(todo?.location_reminders) && todo.location_reminders.some(Boolean);
+      });
+      if (!affected.length) return true;
+      const confirmed = await confirmDanger?.({
+        title: t('todo.location.permission.removeTitle'),
+        message: t('todo.location.permission.removeMessage', { count: affected.length }),
+        confirmText: t('todo.location.permission.removeConfirm'),
+      });
+      if (!confirmed) return false;
+      const updated = await removeAllLocationReminders();
+      const updatedById = new Map(updated.map(todo => [String(todo.id), todo]));
+      latestTodos = latestTodos.map(todo => updatedById.get(String(todo.id)) || todo);
+      reminderSnapshots.accept(latestTodos);
+      await nativeBridge.scheduleLocationReminders?.([]);
+      await syncTodoChanges?.();
+      return true;
+    },
   });
 
   function bindAndroidLocationPermissionActions() {
