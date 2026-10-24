@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
+### Changed
+- Updated application, build, packaging, and CI dependencies to their current compatible releases.
+
 ### Fixed
 - Kept Android location-permission guidance active until background access is granted, and made opting out remove all affected location reminders after confirmation.
 
