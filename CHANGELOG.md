@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Changed
+- Renamed the visible product from nia-todo to Nia across the web app, native clients, setup, administration, notifications, and system emails while preserving existing technical application identities.
 - Updated application, build, packaging, and CI dependencies to their current compatible releases.
 
 ### Fixed

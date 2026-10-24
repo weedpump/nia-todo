@@ -18,7 +18,7 @@ LOGO_PATH = BASE_DIR / "web" / "static" / "icons" / "icon-192.png"
 
 def _sender(config: dict) -> str:
     address = config.get("mail_from_address") or ""
-    name = config.get("mail_from_name") or "nia-todo"
+    name = config.get("mail_from_name") or "Nia"
     return formataddr((name, address)) if name else address
 
 

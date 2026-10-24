@@ -73,7 +73,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
-  <title>nia-todo</title>
+  <title>Nia</title>
   <style>
     :root {{
       color-scheme: dark;
@@ -248,15 +248,15 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
   <div id="oidc-native-return-data" data-callback-url="{safe_callback_href}" hidden></div>
   <main class="login-box" aria-labelledby="return-title">
     <div class="login-brand">
-      <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
-      <h1 id="return-title" class="login-title" data-i18n-key="auth.oidc.return.title">nia-todo</h1>
+      <img src="/static/icons/icon-192.png" class="login-logo" alt="Nia">
+      <h1 id="return-title" class="login-title" data-i18n-key="auth.oidc.return.title">Nia</h1>
       <p class="login-subtitle" data-i18n-key="auth.oidc.return.subtitle">…</p>
     </div>
     <div class="return-status" role="status" aria-live="polite">
       <span class="return-spinner" aria-hidden="true"></span>
       <span data-i18n-key="auth.oidc.return.body">…</span>
     </div>
-    <a class="btn btn-primary" href="{safe_callback_href}" data-i18n-key="auth.oidc.return.open">nia-todo</a>
+    <a class="btn btn-primary" href="{safe_callback_href}" data-i18n-key="auth.oidc.return.open">Nia</a>
     <p class="hint" data-i18n-key="auth.oidc.return.hint">…</p>
   </main>
   </div>
@@ -300,7 +300,7 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>nia-todo</title>
+  <title>Nia</title>
 </head>
 <body>
   <div id="oidc-completion-data" data-payload="{safe_payload_attr}" data-kind="{safe_kind_attr}" data-redirect-to="{safe_redirect_attr}" hidden></div>

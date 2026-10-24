@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title data-i18n-key="admin.pageTitle">nia-todo Admin</title>
+<title data-i18n-key="admin.pageTitle">Nia Admin</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/css/72-admin.css">
 
@@ -11,7 +11,7 @@
 <body>
 <div class="admin-container">
   <div class="admin-header">
-    <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
+    <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">Nia Admin</span></h1>
     <div class="admin-nav">
       <button class="btn btn-secondary btn-icon login-theme-cycle-btn admin-theme-cycle-btn" type="button" data-theme-cycle data-admin-action="cycleAdminTheme" title="System"><span data-theme-cycle-icon data-icon="monitor"></span></button>
       <div class="admin-status-actions" id="admin-header-actions" hidden>
@@ -64,11 +64,11 @@
   <div class="login-box admin-login-box" id="admin-login-card">
     <div class="login-brand">
       <div class="admin-login-logo-wrap">
-        <img src="/static/icons/icon-192.png" class="login-logo admin-login-logo" alt="nia-todo">
+        <img src="/static/icons/icon-192.png" class="login-logo admin-login-logo" alt="Nia">
         <span class="admin-login-logo-badge" data-icon="shield"></span>
       </div>
       <div class="login-title" data-i18n-key="admin.login.title">Admin sign-in</div>
-      <div class="login-subtitle">nia-todo Admin</div>
+      <div class="login-subtitle">Nia Admin</div>
     </div>
     <form id="admin-login-form" autocomplete="on" data-admin-submit="doAdminLogin">
       <label class="admin-visually-hidden" for="admin-login-username">Admin username</label>
@@ -340,7 +340,7 @@
       </div>
       <div class="admin-config-field">
         <label for="email-from-name" data-i18n-key="admin.email.fromName">From-Name</label>
-        <input class="ui-field" type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
+        <input class="ui-field" type="text" id="email-from-name" placeholder="Nia" autocomplete="off">
       </div>
       <div class="admin-config-field">
         <label for="email-reply-to">Reply-To optional</label>
@@ -375,7 +375,7 @@
       <div class="admin-config-field full"><label for="oidc-issuer-url" data-i18n-key="admin.oidc.issuerUrl">Issuer / provider URL</label><input class="ui-field" type="url" id="oidc-issuer-url" placeholder="https://id.example.org"></div>
       <div class="admin-config-field"><label for="oidc-client-id" data-i18n-key="admin.oidc.clientId">Client ID</label><input class="ui-field" type="text" id="oidc-client-id" autocomplete="off"></div>
       <div class="admin-config-field"><label for="oidc-client-secret" data-i18n-key="admin.oidc.clientSecret">Client secret</label><input class="ui-field" type="password" id="oidc-client-secret" data-i18n-placeholder-key="admin.oidc.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password"><div class="admin-secret-note" id="oidc-client-secret-note"></div></div>
-      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-public-client"><label for="oidc-public-client" data-i18n-key="admin.oidc.publicClient">Advanced: use public client</label><div class="admin-help" data-i18n-key="admin.oidc.publicClientHelp">Usually leave this off. Enable it only when the OIDC provider registered this client explicitly as a public client without a secret. With a client secret, nia-todo is a confidential client.</div></div>
+      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-public-client"><label for="oidc-public-client" data-i18n-key="admin.oidc.publicClient">Advanced: use public client</label><div class="admin-help" data-i18n-key="admin.oidc.publicClientHelp">Usually leave this off. Enable it only when the OIDC provider registered this client explicitly as a public client without a secret. With a client secret, Nia is a confidential client.</div></div>
       <div class="admin-config-field"><label for="oidc-token-auth-method" data-i18n-key="admin.oidc.tokenAuthMethod">Token endpoint auth</label><select class="ui-field" id="oidc-token-auth-method"><option value="auto" data-i18n-key="admin.oidc.tokenAuth.auto">Auto</option><option value="client_secret_basic">client_secret_basic</option><option value="client_secret_post">client_secret_post</option></select><div class="admin-help" data-i18n-key="admin.oidc.tokenAuthHelp">Auto is usually right for Pocket ID.</div></div>
       <div class="admin-config-field"><label for="oidc-scopes" data-i18n-key="admin.oidc.scopes">Scopes</label><input class="ui-field" type="text" id="oidc-scopes" value="openid email profile"></div>
       <div class="admin-config-field full"><label data-i18n-key="admin.oidc.redirectUri">Redirect URI</label><code id="oidc-redirect-uri">/api/oidc/callback</code></div>
@@ -476,13 +476,13 @@
       <div class="admin-config-field">
         <label for="braindump-system-prompt-mode" data-i18n-key="admin.braindump.systemPrompt">System prompt</label>
         <select class="ui-field" id="braindump-system-prompt-mode">
-          <option value="default" data-i18n-key="admin.braindump.systemPrompt.default">Use nia-todo default</option>
+          <option value="default" data-i18n-key="admin.braindump.systemPrompt.default">Use Nia default</option>
           <option value="append" data-i18n-key="admin.braindump.systemPrompt.append">Append custom instructions</option>
           <option value="replace" data-i18n-key="admin.braindump.systemPrompt.replace">Replace default prompt</option>
         </select>
       </div>
       <div class="admin-config-field full">
-        <label for="braindump-default-system-prompt" data-i18n-key="admin.braindump.defaultSystemPrompt">Current nia-todo default extraction prompt</label>
+        <label for="braindump-default-system-prompt" data-i18n-key="admin.braindump.defaultSystemPrompt">Current Nia default extraction prompt</label>
         <textarea id="braindump-default-system-prompt" class="admin-config-textarea readonly ui-field" rows="12" readonly spellcheck="false"></textarea>
         <div class="admin-help" data-i18n-key="admin.braindump.defaultSystemPromptHelp">Loaded from the backend's active default prompt definition. Use it as reference before appending or replacing instructions.</div>
       </div>

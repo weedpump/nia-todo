@@ -125,8 +125,8 @@ def test_branded_email_templates():
         purpose="reset",
         expires_hours=24,
     )
-    assert_true(subject == "nia-todo Passwort zurücksetzen", "password reset subject mismatch")
-    assert_true("Passwort zurücksetzen" in html and "nia-todo" in html, "branded password HTML missing content")
+    assert_true(subject == "Nia Passwort zurücksetzen", "password reset subject mismatch")
+    assert_true("Passwort zurücksetzen" in html and "Nia" in html, "branded password HTML missing content")
     assert_true("https://todo.example.invalid/set-password?token=abc" in text, "plain text reset link missing")
     assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
     assert_true("Falls der Link nicht funktioniert" in html, "Outlook fallback link hint missing")
