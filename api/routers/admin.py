@@ -143,7 +143,7 @@ class EmailConfigRequest(BaseModel):
     smtp_username: str = ""
     smtp_password_secret: Optional[str] = None
     mail_from_address: str = ""
-    mail_from_name: str = "nia-todo"
+    mail_from_name: str = "Nia"
     mail_reply_to: str = ""
     password_link_ttl_hours: int = 24
 

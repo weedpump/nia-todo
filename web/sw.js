@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'datetime-hour-focus-125';
+const CACHE_REVISION = 'nia-product-branding-126';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -174,7 +174,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nia-todo - Offline</title>
+<title>Nia - Offline</title>
 <style>
 body { background:#0f172a; color:#e2e8f0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center; padding:20px; }
 .offline-state { max-width:400px; }
@@ -311,7 +311,7 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data.json();
   } catch (e) {
-    data = { title: 'nia-todo', body: 'New notification', tag: 'default' };
+    data = { title: 'Nia', body: 'New notification', tag: 'default' };
   }
 
   // Ignore silent health check pushes from server
@@ -319,7 +319,7 @@ self.addEventListener('push', (event) => {
     return;
   }
 
-  const title = data.title || 'nia-todo';
+  const title = data.title || 'Nia';
   const body = data.body || '';
   const tag = data.tag || ('push-' + Date.now());
   const url = data.url || '/';

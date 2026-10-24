@@ -108,6 +108,7 @@ run_step "Update Analytics Admin Static" python3 scripts/test_update_analytics_a
 run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
+run_step "Product Branding" node scripts/test_product_branding.mjs
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
 run_step "Service Worker Avatar Privacy" node scripts/test_sw_avatar_privacy.mjs
 run_step "Workspace Modal Lifecycle" node scripts/test_frontend_workspace_modal_lifecycle.mjs

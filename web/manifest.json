@@ -1,6 +1,6 @@
 {
-  "name": "nia-todo",
-  "short_name": "nia-todo",
+  "name": "Nia",
+  "short_name": "Nia",
   "description": "Selfhosted Todo-System von Nia",
   "start_url": "/",
   "display": "standalone",

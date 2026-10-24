@@ -20,7 +20,7 @@ DEFAULT_EMAIL_CONFIG: dict[str, Any] = {
     "smtp_username": "",
     "smtp_password_secret": "",
     "mail_from_address": "",
-    "mail_from_name": "nia-todo",
+    "mail_from_name": "Nia",
     "mail_reply_to": "",
     "password_link_ttl_hours": 24,
 }
@@ -116,7 +116,7 @@ def normalize_email_config_update(data: dict[str, Any], *, existing_secret: str 
 
     from_address = _validate_email_or_empty(data.get("mail_from_address") or "", field="From-Adresse")
     reply_to = _validate_email_or_empty(data.get("mail_reply_to") or "", field="Reply-To")
-    from_name = str(data.get("mail_from_name") or "nia-todo").strip() or "nia-todo"
+    from_name = str(data.get("mail_from_name") or "Nia").strip() or "Nia"
     ttl = _parse_int(data.get("password_link_ttl_hours", 24), field="Link validity", min_value=1, max_value=168)
 
     if smtp_enabled:

@@ -462,7 +462,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       return;
     }
     try {
-      const title = 'nia-todo';
+      const title = 'Nia';
       const body = t('settings.desktop.notifications.testBody');
       const sent = await nativeBridge.notify(title, body);
       setDesktopStatus(sent ? t('settings.desktop.notifications.testSent') : t('settings.desktop.notifications.permissionMissing'), !sent);

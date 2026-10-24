@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "nia-todo",
+        "title": "Nia",
         "width": 1180,
         "height": 820,
         "minWidth": 380,
@@ -34,8 +34,8 @@
     "copyright": "Copyright © 2026 Tobias Kneidl",
     "targets": ["nsis", "msi", "deb"],
     "category": "Productivity",
-    "shortDescription": "Native desktop app for nia-todo",
-    "longDescription": "nia-todo is a self-hosted task manager with native desktop integration for quick actions, reminders, tray support and offline access.",
+    "shortDescription": "Native desktop app for Nia",
+    "longDescription": "Nia is a self-hosted task manager with native desktop integration for quick actions, reminders, tray support and offline access.",
     "icon": [
       "../web/static/icons/icon-192.png",
       "../web/static/icons/icon-512.png"
