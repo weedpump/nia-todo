@@ -143,7 +143,8 @@ export function createBrainDumpLiveFeature(options = {}) {
     updateLauncherLabel(fab);
     fab.innerHTML = iconSvg('mic');
     fab.addEventListener('click', open);
-    document.body.appendChild(fab);
+    const launcherRoot = options.getLauncherRoot?.() || document.body;
+    launcherRoot.appendChild(fab);
   }
 
   function updateLauncherLabel(fab = document.getElementById('braindump-fab')) {

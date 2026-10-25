@@ -464,12 +464,19 @@ def repair_todo_child_idempotency_migration(conn):
     conn.commit()
 
 
+def repair_workspace_hidden_modules_migration(conn):
+    """Make migration 057 idempotent for partially-added workspace visibility state."""
+    add_column_if_missing(conn, "workspaces", "hidden_modules_json", "TEXT NOT NULL DEFAULT '[]'")
+    conn.commit()
+
+
 POST_APPLY_REPAIRS = {
     48: repair_todo_subtasks_migration,
     49: repair_todo_comments_migration,
     50: repair_todo_attachments_migration,
     54: repair_dashboard_preferences_sync_migration,
     55: repair_todo_child_idempotency_migration,
+    57: repair_workspace_hidden_modules_migration,
 }
 
 def get_migration_files():
@@ -587,6 +594,11 @@ def run_migrations():
                 elif version == 54 and ("duplicate column" in error_msg or "already exists" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - dashboard preference sync schema partially exists, repairing remaining schema")
                     repair_dashboard_preferences_sync_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 57 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - workspace module visibility schema partially exists, repairing remaining schema")
+                    repair_workspace_hidden_modules_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif version in POST_APPLY_REPAIRS and ("duplicate column" in error_msg or "already exists" in error_msg):

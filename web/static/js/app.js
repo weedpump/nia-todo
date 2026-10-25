@@ -74,11 +74,24 @@ let desktopIntegration = null;
 let syncController = null;
 let dashboardPreferencesSyncFeature = null;
 let moduleShell = null;
+let moduleSwitcher = null;
+
+function getCurrentWorkspace() {
+  return workspaces.find(workspace => String(workspace.id) === String(currentWorkspaceId)) || null;
+}
+
+function setWorkspacesState(next) {
+  workspaces = next;
+  moduleShell?.applyWorkspace(getCurrentWorkspace());
+  moduleSwitcher?.render();
+}
 
 function setCurrentWorkspaceState(next) {
   currentWorkspaceId = next;
   dashboardPreferences = loadDashboardPreferences(localStorage, currentWorkspaceId);
   showProjectWidget = dashboardPreferences.showProjectWidgets;
+  moduleShell?.applyWorkspace(getCurrentWorkspace());
+  moduleSwitcher?.render();
 }
 
 const {
@@ -142,6 +155,7 @@ const brainDumpLiveFeature = createBrainDumpLiveFeature({
   getProjects: () => projects,
   getSections: () => sections,
   getCurrentWorkspaceId: () => currentWorkspaceId,
+  getLauncherRoot: () => document.querySelector('[data-module-panel="tasks"][data-module-slot="floating"]'),
   placesApi,
 });
 const viewPreferences = createViewPreferencesFeature({
@@ -261,7 +275,7 @@ const syncFeature = createSyncFeature({
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
-  setWorkspaces: (next) => { workspaces = next; },
+  setWorkspaces: setWorkspacesState,
   todosApi,
   projectsApi,
   sectionsApi,
@@ -425,7 +439,7 @@ const wsClient = createWebSocketClient({
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
-  setWorkspaces: (next) => { workspaces = next; },
+  setWorkspaces: setWorkspacesState,
   renderWorkspaces: () => renderWorkspaces(),
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
@@ -571,7 +585,7 @@ const renderInvites = appRendering.renderInvites;
 workspacesFeature = createWorkspacesFeature({
   workspacesApi,
   getWorkspaces: () => workspaces,
-  setWorkspaces: (next) => { workspaces = next; },
+  setWorkspaces: setWorkspacesState,
   getCurrentWorkspaceId: () => currentWorkspaceId,
   setCurrentWorkspaceId: setCurrentWorkspaceState,
   dbPut,
@@ -581,6 +595,11 @@ workspacesFeature = createWorkspacesFeature({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
+  onWorkspaceModulesChange: workspace => {
+    if (String(workspace?.id) !== String(currentWorkspaceId)) return;
+    moduleShell?.applyWorkspace(workspace);
+    moduleSwitcher?.render();
+  },
   closeSidebar: (options) => closeSidebar(options),
   confirmDanger,
   showToast: (...args) => showToast(...args),
@@ -656,11 +675,12 @@ const uiShell = createUiShell({
   renderMarkdown,
   showTodoModal: () => moduleShell?.getActiveModule?.() === 'tasks' ? showTodoModal() : undefined,
 });
-let moduleSwitcher = null;
 moduleShell = createModuleShell({
   onActiveModuleChange: moduleId => moduleSwitcher?.syncActiveModule(moduleId),
+  getWorkspace: getCurrentWorkspace,
 });
 moduleSwitcher = createModuleSwitcher({
+  getModules: () => moduleShell.getVisibleModules(),
   onModuleChange: moduleId => {
     moduleShell.navigateToModule(moduleId);
     uiShell.closeSidebar({ preserveHistory: true });
@@ -807,7 +827,7 @@ const appLifecycle = createAppLifecycle({
   setTodos: setTodosState,
   setProjects: (next) => { projects = next; },
   setSections: (next) => { sections = next; },
-  setWorkspaces: (next) => { workspaces = next; },
+  setWorkspaces: setWorkspacesState,
   setCurrentFilter: (next) => { currentFilter = next; },
   setCurrentProjectId: (next) => { currentProjectId = next; },
   setCurrentWorkspaceId: setCurrentWorkspaceState,

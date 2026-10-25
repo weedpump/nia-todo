@@ -6,7 +6,7 @@ function currentModule(moduleId) {
   return getModule(moduleId);
 }
 
-export function createModuleSwitcher({ onModuleChange } = {}) {
+export function createModuleSwitcher({ onModuleChange, getModules = () => MODULES } = {}) {
   let activeModuleId = readStoredModule();
   let bound = false;
 
@@ -35,7 +35,7 @@ export function createModuleSwitcher({ onModuleChange } = {}) {
         <div><strong>Nia</strong><span>${t('moduleSwitcher.change')}</span></div>
       </div>
       <div class="module-switcher-options" role="none">
-        ${MODULES.map(module => `
+        ${getModules().map(module => `
           <button type="button" class="module-switcher-option${module.id === active.id ? ' active' : ''}" data-module-action="select" data-module-id="${module.id}" role="menuitemradio" aria-checked="${module.id === active.id}">
             <span class="module-switcher-option-icon" aria-hidden="true">${niaIconSvg(module.icon)}</span>
             <span class="module-switcher-option-copy"><strong>${t(module.labelKey)}</strong><small>${t(module.descriptionKey)}</small></span>
@@ -47,7 +47,7 @@ export function createModuleSwitcher({ onModuleChange } = {}) {
   }
 
   function setActiveModule(moduleId) {
-    if (!isModuleId(moduleId)) return;
+    if (!isModuleId(moduleId) || !getModules().some(module => module.id === moduleId)) return;
     activeModuleId = moduleId;
     persistModule(activeModuleId);
     onModuleChange?.(activeModuleId);

@@ -24,7 +24,7 @@ export function createEmptyModule(definition) {
   }
 
   return Object.freeze({
-    searchEnabled: false,
+    searchEnabled: true,
     searchPlaceholderKey: 'module.placeholder.search',
     ...definition,
     mount({ slots }) {

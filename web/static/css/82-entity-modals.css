@@ -158,6 +158,31 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+#workspace-modal .workspace-module-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#workspace-modal .workspace-module-row {
+  min-width: 0;
+  margin: 0;
+}
+
+.workspace-module-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 650;
+}
+
+.workspace-module-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+}
+
 #project-modal #project-display-workspace-group[style*="display:none"] + .form-group,
 #project-modal #project-display-workspace-group[style*="display: none"] + .form-group {
   grid-column: 1 / -1;
@@ -167,6 +192,10 @@
   #project-modal .project-appearance-grid,
   #project-modal .project-organization-grid,
   #workspace-modal .workspace-appearance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #workspace-modal .workspace-module-list {
     grid-template-columns: 1fr;
   }
 

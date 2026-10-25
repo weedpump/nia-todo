@@ -2,11 +2,19 @@ import { recipesModule } from './recipes.js';
 import { shoppingModule } from './shopping.js';
 import { tasksModule } from './tasks.js';
 
-export const MODULES = Object.freeze([
-  tasksModule,
-  shoppingModule,
-  recipesModule,
+export const REGISTERED_MODULE_IDS = Object.freeze(["tasks", "shopping", "recipes"]);
+
+const MODULE_DEFINITIONS = new Map([
+  [tasksModule.id, tasksModule],
+  [shoppingModule.id, shoppingModule],
+  [recipesModule.id, recipesModule],
 ]);
+
+export const MODULES = Object.freeze(REGISTERED_MODULE_IDS.map(moduleId => {
+  const module = MODULE_DEFINITIONS.get(moduleId);
+  if (!module) throw new Error(`Missing registered module definition: ${moduleId}`);
+  return module;
+}));
 
 export const MODULE_STORAGE_KEY = 'nia-active-module';
 export const LEGACY_MODULE_STORAGE_KEY = 'nia-active-module-preview';

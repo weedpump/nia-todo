@@ -1,8 +1,11 @@
 export const TASK_SETTINGS_NAV_HTML = `
+<div class="settings-nav-module-group" data-module-settings-group="tasks">
+<div class="settings-nav-module-heading"><span data-icon="check-circle"></span><span data-i18n-key="module.tasks.label">Aufgaben</span></div>
 <button type="button" data-settings-section="settings-section-default-reminder"><span data-icon="bell"></span><span data-i18n-key="settings.defaultReminder.title">Default reminder</span></button>
 <button type="button" data-settings-section="settings-section-attachments"><span data-icon="paperclip"></span><span data-i18n-key="settings.attachments.title">Anhänge</span></button>
 <button type="button" data-settings-section="settings-section-places"><span data-icon="map-pin"></span><span data-i18n-key="settings.places.title">Places</span></button>
 <button type="button" data-settings-section="settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></button>
+</div>
 `;
 
 export const TASK_SETTINGS_HTML = `
