@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { chromium } from 'playwright';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
@@ -10,7 +11,7 @@ const githubUrl = 'https://github.com/weedpump/nia-todo';
 const issueUrl = 'https://github.com/weedpump/nia-todo/issues/new';
 
 const indexSource = read('web/index.html');
-assert(indexSource.includes('class="about-resources ui-detail-section"'), 'the About dialog must use the shared detail-section structure for resources');
+assert(indexSource.includes('class="about-resources ui-detail-section ui-section-divider"'), 'the About resources must use the shared divided detail-section structure');
 assert(indexSource.includes('class="ui-section-heading ui-detail-section-heading is-title-only"'), 'the title-only resources heading must use the shared centering modifier');
 assert(indexSource.includes('class="about-resource-actions"'), 'the About resource actions must use the responsive action container');
 assert.equal((indexSource.match(/class="btn btn-secondary about-resource-link"/g) || []).length, 4, 'the About resources must expose exactly four shared secondary buttons');
@@ -48,7 +49,7 @@ assert(appDownloadsSource.includes("link.matches?.('[data-external-resource]')")
 assert(appDownloadsSource.includes('nativeBridge.openExternal'), 'native apps must open external documentation with the native browser bridge');
 
 const serviceWorkerSource = read('web/sw.js');
-assert(serviceWorkerSource.includes("const CACHE_REVISION = 'nia-v4-module-platform-preview-140';"), 'the app-shell cache revision must deliver the V4 module platform');
+assert(serviceWorkerSource.includes("const CACHE_REVISION = 'nia-v4-module-platform-preview-183';"), 'the app-shell cache revision must deliver the current V4 modal platform');
 assert(serviceWorkerSource.includes("'/static/icons/brands/github-mark.svg'"), 'the official GitHub mark must be available offline');
 
 const aboutCss = read('web/static/css/54-about.css');
@@ -63,10 +64,8 @@ assert(
 );
 assert(!aboutCss.includes('#about-modal .ui-detail-modal-header {'), 'the About dialog must not override the shared detail-modal header geometry');
 assert(!aboutCss.includes('#about-modal .ui-detail-header-actions {'), 'the About dialog must not override the shared detail-modal header actions');
-assert(
-  /\.about-actions\s*\{[\s\S]*?padding-top: 18px;[\s\S]*?border-top: 1px solid/.test(aboutCss),
-  'the About actions must render as a separated footer',
-);
+assert(indexSource.includes('class="about-actions ui-detail-action-row ui-section-divider"'), 'the About actions must use the global section divider');
+assert(!/\.about-actions\s*\{[^}]*border-top:/.test(aboutCss), 'the About actions must not retain a competing local divider');
 
 const githubMarkSource = read('web/static/icons/brands/github-mark.svg');
 assert(githubMarkSource.includes('viewBox="0 0 16 16"'), 'the GitHub mark must retain the official 16px viewBox');
@@ -79,6 +78,24 @@ assert(
   /\.ui-detail-modal\.ui-detail-view \.ui-detail-modal-header,[\s\S]*?border-bottom: 1px solid color-mix/.test(detailModalCss),
   'the shared detail-modal header must own its inset divider',
 );
+
+const sectionPrimitivesCss = read('web/static/css/99-ui-primitives.css');
+const browser = await chromium.launch({ headless: true });
+try {
+  const page = await browser.newPage();
+  await page.setContent(`<style>:root { --border: #333; --text-muted: #777; } ${sectionPrimitivesCss}</style><div class="ui-detail-shell"><div class="about-overview"></div><section class="about-resources ui-section-divider"></section></div>`);
+  const divider = await page.locator('.about-resources').evaluate(element => {
+    const style = getComputedStyle(element);
+    return {
+      marginTop: style.marginTop,
+      paddingTop: style.paddingTop,
+      borderTopWidth: style.borderTopWidth,
+    };
+  });
+  assert.deepEqual(divider, { marginTop: '22px', paddingTop: '22px', borderTopWidth: '2px' }, 'About resources must retain the global divider after preceding overview content');
+} finally {
+  await browser.close();
+}
 
 const mainSource = read('api/main.py');
 assert(!mainSource.includes('def _api_docs_html'), 'the server must not generate API documentation HTML');

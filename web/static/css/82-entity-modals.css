@@ -48,9 +48,6 @@
   gap: 14px;
 }
 
-.entity-modal-form + .project-sharing-card {
-  margin-top: 14px;
-}
 
 .entity-modal-actions {
   flex: 0 0 auto;
@@ -131,7 +128,7 @@
 }
 
 /* Entity modal polish: compact forms, no empty mobile fullscreen gaps */
-.entity-modal-body .ui-section-card {
+.entity-modal-body .ui-section-card:not(.ui-section-divider) {
   padding: 16px;
 }
 
@@ -144,9 +141,6 @@
 }
 
 /* Project-specific detail modal layout */
-#project-modal .entity-modal-form + .project-sharing-card {
-  margin-top: 24px;
-}
 
 #project-modal .project-sharing-card {
   margin-bottom: 2px;
@@ -212,7 +206,7 @@
     overflow-y: auto;
   }
 
-  .entity-modal-body .ui-section-card {
+  .entity-modal-body .ui-section-card:not(.ui-section-divider) {
     padding: 14px;
   }
 

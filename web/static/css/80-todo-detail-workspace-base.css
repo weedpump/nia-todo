@@ -8,9 +8,11 @@
 #todo-modal.todo-detail-view .todo-subtasks-card { grid-area: subtasks; }
 #todo-modal.todo-detail-view .todo-attachments-card { grid-area: attachments; }
 #todo-modal.todo-detail-view .todo-comments-card { grid-area: comments; }
+#todo-modal.todo-detail-view #todo-organize-panel { grid-area: organize; }
+#todo-modal.todo-detail-view #todo-schedule-panel { grid-area: schedule; }
+#todo-modal.todo-detail-view #todo-recurring-panel { grid-area: recurring; }
+#todo-modal.todo-detail-view #todo-location-reminder-panel { grid-area: location; }
 #todo-modal.todo-detail-view .todo-editor-section {
-  padding: 0;
-  border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;

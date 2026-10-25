@@ -274,9 +274,13 @@ export function createTodosFeature({
 
   function ensureTodoMetaDrawer() {
     const form = document.getElementById('todo-form');
-    const organize = document.getElementById('todo-organize-panel');
-    const schedule = document.getElementById('todo-schedule-panel');
-    if (!form || !organize || !schedule) return null;
+    const panels = [
+      'todo-organize-panel',
+      'todo-schedule-panel',
+      'todo-recurring-panel',
+      'todo-location-reminder-panel',
+    ].map(id => document.getElementById(id));
+    if (!form || panels.some(panel => !panel)) return null;
     let drawer = document.getElementById('todo-meta-drawer');
     if (!drawer) {
       drawer = document.createElement('aside');
@@ -297,8 +301,9 @@ export function createTodosFeature({
       form.appendChild(drawer);
     }
     const body = drawer.querySelector('.todo-meta-drawer-body') || drawer;
-    if (organize.parentElement !== body) body.appendChild(organize);
-    if (schedule.parentElement !== body) body.appendChild(schedule);
+    panels.forEach(panel => {
+      if (panel.parentElement !== body) body.appendChild(panel);
+    });
     return drawer;
   }
 

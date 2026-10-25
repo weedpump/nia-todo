@@ -73,7 +73,7 @@
 .ui-detail-modal.todo-detail-view .ui-detail-modal-body {
   --ui-detail-modal-body-pad-y: clamp(22px, 2.5vw, 38px);
   --ui-detail-modal-body-pad-x: clamp(24px, 3vw, 44px);
-  padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x);
+  padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x) clamp(36px, 6vh, 72px);
   background: transparent;
 }
 
@@ -88,17 +88,12 @@
 
 .ui-detail-modal.ui-detail-view .ui-detail-section,
 .ui-detail-modal.todo-detail-view .ui-detail-section {
-  padding: 18px 0 0;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.ui-detail-modal.ui-detail-view .ui-detail-section:first-of-type,
 .ui-detail-modal.ui-detail-view .ui-detail-title-section,
-.ui-detail-modal.todo-detail-view .ui-detail-section:first-of-type,
 .ui-detail-modal.todo-detail-view .ui-detail-title-section {
   padding-top: 0;
   border-top: 0;
@@ -110,13 +105,24 @@
   background: transparent;
 }
 
-.ui-detail-modal.ui-detail-view .ui-detail-section-heading,
-.ui-detail-modal.todo-detail-view .ui-detail-section-heading {
-  align-items: flex-start;
-  margin-bottom: 18px;
+.ui-detail-modal.ui-detail-view .ui-detail-section-heading {
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
 }
 
-.ui-detail-modal.ui-detail-view .ui-detail-section-heading.is-title-only,
+.ui-detail-modal.todo-detail-view .ui-detail-section-heading {
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-section-heading.is-title-only {
+  align-items: center;
+}
+
 .ui-detail-modal.todo-detail-view .ui-detail-section-heading.is-title-only {
   align-items: center;
 }
@@ -460,12 +466,10 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x) clamp(14px, 3vw, 18px);
+    padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x) clamp(36px, 6vh, 72px);
   }
 
-  .ui-detail-modal.ui-detail-view .ui-detail-section:first-of-type,
   .ui-detail-modal.ui-detail-view .ui-detail-title-section,
-  .ui-detail-modal.todo-detail-view .ui-detail-section:first-of-type,
   .ui-detail-modal.todo-detail-view .ui-detail-title-section {
     padding-top: 0;
   }

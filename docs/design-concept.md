@@ -55,11 +55,10 @@ This document is the UI design reference for nia-todo. New UI work should follow
 - Standard modals become fullscreen.
 - Content scrolls inside the modal body, not behind it.
 - Header/close controls and footer actions must not create competing scroll containers.
-- Section navigation with many entries uses one horizontal row:
-  - `overflow-x: auto`
-  - `flex-wrap: nowrap`
-  - touch scrolling enabled
-- Verify `body.scrollWidth === window.innerWidth` for mobile UI work.
+- Mobile settings use a compact vertical page chooser rather than a horizontal chip rail.
+- Show all page targets in the chooser and reveal subsection targets only for the currently active page.
+- The navigation wrapper stays transparent so the fullscreen modal gradient remains continuous; contrast belongs to the toggle and opened menu surface.
+- No horizontal body overflow.
 
 ## Cards and Sections
 
@@ -86,6 +85,16 @@ Guidelines:
 - Use only icon names available in `web/static/js/icons/lucide-icons.js`; unknown icons are user-facing bugs.
 - Keep hints short; one sentence is enough.
 - Use nested subcards only for dense areas such as security, 2FA, native app, or integrations.
+
+### Section Heading Contract
+
+Section headings with an icon, title, and short hint use one shared visual rhythm:
+
+- Center the icon vertically against the complete title-and-hint copy block, not against the title line alone.
+- Separate the heading from its controls with the same subtle `1px` line used by modal headers.
+- Keep `16px` between the copy block and the line and another `16px` between the line and the first control.
+- Apply this pattern consistently in settings and detail modals such as Todo, Project, Workspace, About, and Dashboard Preferences.
+- Apply the inner heading divider to every section title, whether or not a hint is present.
 
 ## Buttons
 
@@ -405,9 +414,10 @@ Desktop:
 
 Mobile:
 
-- Prefer horizontal scrollable chips.
-- Do not wrap many navigation chips into multiple rows unless content is extremely short.
-- Nav itself scrolls horizontally instead of widening the page.
+- Use the compact vertical page chooser for multi-page settings.
+- Show page targets for General and registered modules.
+- Reveal subsection targets only beneath the active page.
+- Keep the chooser bounded and vertically scrollable when necessary; never flatten the complete hierarchy into a horizontal chip rail.
 
 ## BrainDump UX
 

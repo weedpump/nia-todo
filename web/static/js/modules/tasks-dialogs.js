@@ -18,7 +18,7 @@ export const TASK_DIALOGS_HTML = `
       </div>
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="dashboard-preferences-form" class="entity-modal-form dashboard-preferences-shell ui-detail-shell">
-          <section class="ui-section-card ui-detail-section dashboard-preferences-sync-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider dashboard-preferences-sync-section">
             <div class="ui-section-heading ui-detail-section-heading dashboard-preferences-sync-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="cloud"></div>
               <div>
@@ -32,7 +32,7 @@ export const TASK_DIALOGS_HTML = `
             </div>
           </section>
 
-          <section class="ui-section-card ui-detail-section dashboard-preferences-workspace-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider dashboard-preferences-workspace-section">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="briefcase"></div>
               <div>
@@ -46,7 +46,7 @@ export const TASK_DIALOGS_HTML = `
             </div>
           </section>
 
-          <section class="ui-section-card ui-detail-section ui-detail-title-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
               <div>
@@ -80,7 +80,7 @@ export const TASK_DIALOGS_HTML = `
             </div>
           </section>
 
-          <section class="ui-section-card ui-detail-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="folder-tree"></div>
               <div>
@@ -104,7 +104,7 @@ export const TASK_DIALOGS_HTML = `
             </div>
           </section>
 
-          <section class="ui-section-card ui-detail-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="chart-no-axes-column"></div>
               <div>
@@ -121,7 +121,7 @@ export const TASK_DIALOGS_HTML = `
             <div class="settings-field-error" id="dashboard-preferences-error" role="alert"></div>
           </section>
 
-          <section class="ui-section-card ui-detail-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="target"></div>
               <div>
@@ -141,7 +141,7 @@ export const TASK_DIALOGS_HTML = `
             </label>
           </section>
 
-          <section class="ui-section-card ui-detail-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="folders"></div>
               <div>
@@ -219,7 +219,7 @@ export const TASK_DIALOGS_HTML = `
               <button type="button" class="btn btn-secondary" id="todo-multi-add-more"><span data-icon="plus"></span> <span data-i18n-key="todo.multiAdd.addRow">Add another line</span></button>
             </div>
           </div>
-          <section class="todo-multi-add-defaults">
+          <section class="todo-multi-add-defaults ui-section-divider">
             <div class="todo-multi-add-defaults-head ui-section-heading ui-detail-section-heading">
               <div class="todo-multi-add-defaults-icon ui-section-icon ui-detail-section-icon" data-icon="sliders-horizontal"></div>
               <div>
@@ -250,7 +250,7 @@ export const TASK_DIALOGS_HTML = `
             </div>
           </section>
         </section>
-        <section class="ui-section-card ui-detail-section ui-detail-title-section todo-section-card todo-editor-section todo-editor-main todo-main-section">
+        <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section todo-section-card todo-editor-section todo-editor-main todo-main-section">
           <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
             <div>
@@ -271,7 +271,7 @@ export const TASK_DIALOGS_HTML = `
           </div>
         </section>
 
-        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
+        <details class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
           <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
             <div>
@@ -295,7 +295,7 @@ export const TASK_DIALOGS_HTML = `
         </details>
 
 
-        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
+        <details class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
           <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="notebook-pen"></div>
             <div>
@@ -320,7 +320,7 @@ export const TASK_DIALOGS_HTML = `
           </div>
         </details>
 
-        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
+        <details class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
           <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="paperclip"></div>
             <div>
@@ -346,7 +346,7 @@ export const TASK_DIALOGS_HTML = `
         </details>
 
 
-        <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
+        <section class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
           <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="settings"></div>
             <div>
@@ -393,7 +393,7 @@ export const TASK_DIALOGS_HTML = `
           </div>
         </section>
 
-        <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
+        <section class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
           <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="calendar-days"></div>
             <div>
@@ -425,11 +425,13 @@ export const TASK_DIALOGS_HTML = `
               <div id="todo-remind-error" class="form-error compact"></div>
             </div>
           </div>
-          <div class="todo-recurring-subsection">
-            <div class="todo-recurring-heading">
-              <span data-icon="repeat"></span>
+        </section>
+
+        <section class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-recurring-panel">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="repeat"></div>
               <div>
-                <strong data-i18n-key="todo.recurring">Wiederholung</strong>
+                <h4 data-i18n-key="todo.recurring">Wiederholung</h4>
                 <p id="todo-recurring-hint" data-i18n-key="todo.recurring.hint">Optional regelmäßig neu erstellen.</p>
               </div>
             </div>
@@ -449,12 +451,13 @@ export const TASK_DIALOGS_HTML = `
                 <input class="ui-field" type="number" id="todo-recurring-interval" min="1" max="999" step="1" value="1" inputmode="numeric">
               </div>
             </div>
-          </div>
-          <div class="todo-recurring-subsection todo-location-subsection">
-            <div class="todo-recurring-heading">
-              <span data-icon="map-pin"></span>
+        </section>
+
+        <section class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-editor-meta-panel todo-location-subsection" id="todo-location-reminder-panel">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="map-pin"></div>
               <div>
-                <strong data-i18n-key="todo.location.title">Location reminder</strong>
+                <h4 data-i18n-key="todo.location.title">Location reminder</h4>
                 <p data-i18n-key="todo.location.hint">Funktioniert nur in der Android-App. Web/PWA kann ortsbezogene Erinnerungen nur anlegen und verwalten.</p>
               </div>
             </div>
@@ -478,7 +481,6 @@ export const TASK_DIALOGS_HTML = `
               </div>
             </div>
             <div id="todo-location-error" class="form-error compact"></div>
-          </div>
         </section>
       </form>
       </div>
@@ -508,13 +510,13 @@ export const TASK_DIALOGS_HTML = `
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="project-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="project-id">
-          <section class="ui-section-card ui-detail-section ui-detail-title-section project-title-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section project-title-section">
             <div class="form-group project-title-group ui-detail-title-group">
               <label data-i18n-key="common.name">Name</label>
               <input class="ui-field ui-detail-title-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
             </div>
           </section>
-          <section class="ui-section-card ui-detail-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="folder"></div>
               <div>
@@ -535,7 +537,7 @@ export const TASK_DIALOGS_HTML = `
               </div>
             </div>
           </section>
-          <section class="ui-section-card ui-detail-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
               <div>
@@ -558,7 +560,7 @@ export const TASK_DIALOGS_HTML = `
           </section>
         </form>
 
-        <section id="project-sharing-section" class="ui-section-card ui-detail-section project-sharing-card ui-detail-shell" style="display:none;">
+        <section id="project-sharing-section" class="ui-section-card ui-detail-section ui-section-divider project-sharing-card ui-detail-shell" style="display:none;">
           <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="share-2"></div>
             <div>

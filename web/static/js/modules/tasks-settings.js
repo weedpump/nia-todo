@@ -1,15 +1,18 @@
 export const TASK_SETTINGS_NAV_HTML = `
-<div class="settings-nav-module-group" data-module-settings-group="tasks">
-<div class="settings-nav-module-heading"><span data-icon="check-circle"></span><span data-i18n-key="module.tasks.label">Aufgaben</span></div>
+<div class="settings-nav-module-group" data-module-settings-group="tasks" data-settings-nav-page="tasks">
+<button type="button" data-settings-page-target="tasks"><span data-icon="check-circle"></span><span data-i18n-key="module.tasks.label">Aufgaben</span></button>
+<div class="settings-nav-page-sections">
 <button type="button" data-settings-section="settings-section-default-reminder"><span data-icon="bell"></span><span data-i18n-key="settings.defaultReminder.title">Default reminder</span></button>
 <button type="button" data-settings-section="settings-section-attachments"><span data-icon="paperclip"></span><span data-i18n-key="settings.attachments.title">Anhänge</span></button>
 <button type="button" data-settings-section="settings-section-places"><span data-icon="map-pin"></span><span data-i18n-key="settings.places.title">Places</span></button>
 <button type="button" data-settings-section="settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></button>
 </div>
+</div>
 `;
 
 export const TASK_SETTINGS_HTML = `
-<section class="settings-section-card" id="settings-section-default-reminder">
+<div class="settings-page" data-settings-page="tasks" hidden>
+<section class="settings-section-card ui-section-divider" id="settings-section-default-reminder">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="bell"></div>
               <div>
@@ -47,7 +50,7 @@ export const TASK_SETTINGS_HTML = `
             </div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-attachments">
+          <section class="settings-section-card ui-section-divider" id="settings-section-attachments">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="paperclip"></div>
               <div>
@@ -69,7 +72,7 @@ export const TASK_SETTINGS_HTML = `
             </div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-places">
+          <section class="settings-section-card ui-section-divider" id="settings-section-places">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="map-pin"></div>
               <div>
@@ -94,7 +97,7 @@ export const TASK_SETTINGS_HTML = `
             <div id="settings-places-list" class="settings-device-list"></div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-braindump">
+          <section class="settings-section-card ui-section-divider" id="settings-section-braindump">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="sparkles"></div>
               <div>
@@ -118,6 +121,7 @@ export const TASK_SETTINGS_HTML = `
               <div id="settings-braindump-success" class="settings-field-success"></div>
             </div>
           </section>
+</div>
 `;
 
 export const TASK_DESKTOP_HOTKEYS_HTML = `

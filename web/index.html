@@ -210,7 +210,7 @@
               <p class="about-update-note" id="about-update-note" hidden></p>
               <div class="about-row"><span class="about-label" id="about-client-version-label">App-Version</span><span class="about-version-value"><strong id="about-client-version">–</strong><span class="about-version-status" id="about-client-version-status" role="img" hidden></span></span></div>
             </div>
-            <section class="about-resources ui-detail-section" aria-labelledby="about-resources-title">
+            <section class="about-resources ui-detail-section ui-section-divider" aria-labelledby="about-resources-title">
               <div class="ui-section-heading ui-detail-section-heading is-title-only">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="link"></div>
                 <div><h4 id="about-resources-title" data-i18n-key="resource.section">Ressourcen</h4></div>
@@ -222,7 +222,7 @@
                 <a class="btn btn-secondary about-resource-link" href="https://github.com/weedpump/nia-todo/issues/new" target="_blank" rel="noopener noreferrer" data-external-resource><span data-icon="bug"></span><span data-i18n-key="resource.reportIssue">Problem melden</span><span class="about-resource-chevron" data-icon="chevron-right"></span></a>
               </div>
             </section>
-            <div class="about-actions ui-detail-action-row">
+            <div class="about-actions ui-detail-action-row ui-section-divider">
               <button type="button" class="btn btn-secondary" id="about-reload-btn" data-force-refresh-button><span data-icon="refresh-cw"></span><span data-i18n-key="about.reloadWebApp">Web-App neu laden</span></button>
               <button type="button" class="btn btn-primary" id="about-downloads-btn" data-about-action="downloads"><span data-icon="download"></span><span data-i18n-key="appDownloads.title">Apps herunterladen</span></button>
             </div>
@@ -246,7 +246,7 @@
         </div>
         <div class="modal-body ui-detail-modal-body">
           <div class="shortcuts-shell ui-detail-shell">
-            <section class="ui-section-card ui-detail-section shortcuts-section" aria-labelledby="shortcuts-general-title">
+            <section class="ui-section-card ui-detail-section ui-section-divider shortcuts-section" aria-labelledby="shortcuts-general-title">
               <div class="ui-section-heading ui-detail-section-heading is-title-only">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="keyboard"></div>
                 <div><h4 id="shortcuts-general-title" data-i18n-key="shortcuts.section.general">Allgemein</h4></div>
@@ -503,18 +503,34 @@
         </div>
       </div>
       <div class="modal-body settings-modal-body">
-        <nav class="settings-nav" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
-          <button type="button" data-settings-section="settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></button>
-          <button type="button" data-settings-section="settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></button>
-          <div class="module-slot-root module-slot-root-inline" id="module-settings-nav-slot"></div>
-          <button type="button" data-settings-section="settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></button>
-          <button type="button" data-settings-section="settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></button>
-          <button type="button" data-settings-section="settings-section-notifications" id="settings-nav-notifications"><span data-icon="bell"></span><span data-i18n-key="settings.section.notifications">Benachrichtigungen</span></button>
-          <button type="button" data-settings-section="settings-section-app" id="settings-nav-app"><span data-icon="smartphone"></span><span data-i18n-key="settings.desktop.title">App</span></button>
-        </nav>
+        <div class="settings-nav-shell">
+          <button type="button" class="settings-mobile-nav-toggle" aria-expanded="false" aria-controls="settings-section-navigation" data-user-settings-action="toggle-settings-navigation">
+            <span data-icon="list"></span>
+            <span data-i18n-key="settings.nav.chooseSection">Bereich wählen</span>
+            <span class="settings-mobile-nav-chevron" data-icon="chevron-down"></span>
+          </button>
+          <nav class="settings-nav" id="settings-section-navigation" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
+            <div class="settings-nav-general-group" data-settings-nav-page="general">
+              <button type="button" data-settings-page-target="general"><span data-icon="sliders-horizontal"></span><span data-i18n-key="settings.group.general">Allgemein</span></button>
+              <div class="settings-nav-page-sections">
+                <button type="button" data-settings-section="settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></button>
+                <button type="button" data-settings-section="settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></button>
+                <button type="button" data-settings-section="settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></button>
+                <button type="button" data-settings-section="settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></button>
+                <button type="button" data-settings-section="settings-section-notifications" id="settings-nav-notifications"><span data-icon="bell"></span><span data-i18n-key="settings.section.notifications">Benachrichtigungen</span></button>
+                <button type="button" data-settings-section="settings-section-app" id="settings-nav-app"><span data-icon="smartphone"></span><span data-i18n-key="settings.desktop.title">App</span></button>
+              </div>
+            </div>
+            <div class="settings-nav-modules-group">
+              <div class="settings-nav-group-heading"><span data-i18n-key="settings.group.modules">Module</span></div>
+              <div class="module-slot-root module-slot-root-inline" id="module-settings-nav-slot"></div>
+            </div>
+          </nav>
+        </div>
 
         <div class="settings-sections">
-          <section class="settings-section-card settings-profile-section" id="settings-section-profile">
+          <div class="settings-page" data-settings-page="general">
+          <section class="settings-section-card ui-section-divider settings-profile-section" id="settings-section-profile">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="user"></div>
               <div>
@@ -554,7 +570,7 @@
             <div id="settings-avatar-success" class="settings-field-success"></div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-language">
+          <section class="settings-section-card ui-section-divider" id="settings-section-language">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="book-open"></div>
               <div>
@@ -583,9 +599,7 @@
             <div id="settings-language-success" class="settings-field-success"></div>
           </section>
 
-          <div class="module-slot-root module-slot-root-inline" id="module-settings-slot"></div>
-
-          <section class="settings-section-card" id="settings-section-security">
+          <section class="settings-section-card ui-section-divider" id="settings-section-security">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="shield"></div>
               <div>
@@ -675,7 +689,7 @@
             </div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-api">
+          <section class="settings-section-card ui-section-divider" id="settings-section-api">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="key-round"></div>
               <div>
@@ -701,7 +715,7 @@
             <div id="api-key-error" class="settings-field-error"></div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-notifications">
+          <section class="settings-section-card ui-section-divider" id="settings-section-notifications">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="bell"></div>
               <div>
@@ -723,7 +737,7 @@
             </div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-app">
+          <section class="settings-section-card ui-section-divider" id="settings-section-app">
             <div id="desktop-settings-section" style="display:none;">
               <div class="settings-section-heading">
                 <div class="settings-section-icon" data-icon="smartphone"></div>
@@ -767,6 +781,9 @@
               <div id="desktop-settings-status" class="settings-help-text" data-desktop-settings-status></div>
             </div>
           </section>
+          </div>
+
+          <div class="module-slot-root module-slot-root-inline" id="module-settings-slot"></div>
         </div>
       </div>
       <div class="modal-actions settings-modal-actions">
@@ -797,13 +814,13 @@
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="workspace-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="workspace-id">
-          <section class="ui-section-card ui-detail-section ui-detail-title-section workspace-title-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section workspace-title-section">
             <div class="form-group workspace-title-group ui-detail-title-group">
               <label data-i18n-key="common.name">Name</label>
               <input class="ui-field ui-detail-title-field" type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
             </div>
           </section>
-          <section class="ui-section-card ui-detail-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="palette"></div>
               <div>
@@ -825,7 +842,7 @@
             </div>
             <div id="workspace-error" class="settings-field-error"></div>
           </section>
-          <section class="ui-section-card ui-detail-section workspace-modules-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider workspace-modules-section">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-grid"></div>
               <div>

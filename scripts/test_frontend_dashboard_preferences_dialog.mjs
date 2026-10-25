@@ -28,7 +28,7 @@ assert.match(taskDialogsSource, /class="modal-content entity-modal-content ui-de
 assert.match(taskDialogsSource, /id="dashboard-preferences-form"/);
 assert.match(taskDialogsSource, /id="dashboard-preferences-workspace"[^>]*data-ui-select/, 'dashboard preferences need a shared workspace selector');
 assert.match(taskDialogsSource, /id="dashboard-preferences-sync-enabled"/, 'dashboard preferences need an account sync opt-in');
-assert.match(taskDialogsSource, /class="ui-section-card ui-detail-section dashboard-preferences-sync-section"/, 'account sync needs its own global section');
+assert.match(taskDialogsSource, /class="ui-section-card ui-detail-section ui-section-divider dashboard-preferences-sync-section"/, 'account sync needs its own globally divided section');
 assert.ok(
   taskDialogsSource.indexOf('dashboard-preferences-sync-section') < taskDialogsSource.indexOf('dashboard-preferences-workspace-section'),
   'account sync must be presented before and outside the workspace-specific section',
@@ -89,6 +89,7 @@ const layoutCss = [
   '31-modals.css',
   '82-entity-modals.css',
   '89-ui-detail-modal.css',
+  '99-ui-primitives.css',
 ].map(file => readFileSync(new URL(`../web/static/css/${file}`, import.meta.url), 'utf8')).join('\n');
 const modalFixture = taskDialogsSource.slice(
   taskDialogsSource.lastIndexOf('<!-- Dashboard Preferences Modal -->'),
