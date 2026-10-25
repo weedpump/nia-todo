@@ -1956,5 +1956,7 @@
   "todo.multiAdd.pasteOmitted.one": "一次最多可添加 {max} 个待办事项。未添加粘贴内容中的 {count} 行。",
   "todo.multiAdd.pasteOmitted.many": "一次最多可添加 {max} 个待办事项。未添加粘贴内容中的 {count} 行。",
   "dashboard.preferences.layout.compact": "紧凑显示",
-  "dashboard.preferences.layout.groupByStatus": "按状态分组"
+  "dashboard.preferences.layout.groupByStatus": "按状态分组",
+  "module.placeholder.body": "此模块已接入。具体功能将在后续步骤中单独实现。",
+  "module.placeholder.search": "搜索功能将随模块后续提供"
 }

@@ -40,6 +40,7 @@ import { createNavigationFeature } from './features/navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
+import { createModuleShell } from './features/module-shell.js';
 import { createModuleSwitcher } from './features/module-switcher.js';
 import { createDateTimePickerFeature } from './features/date-time-picker.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
@@ -72,6 +73,7 @@ let minimalTodos = localStorage.getItem('nia-minimal-todos') === 'true';
 let desktopIntegration = null;
 let syncController = null;
 let dashboardPreferencesSyncFeature = null;
+let moduleShell = null;
 
 function setCurrentWorkspaceState(next) {
   currentWorkspaceId = next;
@@ -298,6 +300,7 @@ const todosFeature = createTodosFeature({
   renderMarkdown,
   syncDateTimePickers: () => dateTimePickerFeature.syncAll(),
   openDateTimePicker: (trigger, options) => dateTimePickerFeature.open(trigger, options),
+  getActiveModule: () => moduleShell?.getActiveModule?.() || 'tasks',
 });
 const sharingFeature = createProjectSharingFeature({
   getProjects: () => projects,
@@ -466,18 +469,20 @@ const {
   bindMobileSearchEvents,
   bindTodayFocusHotkey,
 } = createMobileSearchFeature({
-  renderStats: () => renderStats(),
-  renderTodos: () => renderTodos(),
+  onSearch: value => moduleShell?.handleSearch?.(value),
   toggleTodayFocus: () => toggleTodayFocus(),
   toggleMinimalTodos: () => toggleMinimalTodos(),
+  getActiveModule: () => moduleShell?.getActiveModule?.() || 'tasks',
 });
 
 desktopIntegration = createDesktopIntegration({
   showToast: (...args) => showToast(...args),
   onHotkeyNewTodo: async () => {
+    if (moduleShell?.getActiveModule?.() !== 'tasks') return;
     await showTodoModal();
   },
   onHotkeySearch: () => {
+    if (moduleShell?.getActiveModule?.() !== 'tasks') return;
     openMobileSearch();
   },
   getCurrentUser: () => currentUser,
@@ -649,9 +654,37 @@ const deleteTodo = todosFeature.deleteTodo;
 
 const uiShell = createUiShell({
   renderMarkdown,
-  showTodoModal: () => showTodoModal(),
+  showTodoModal: () => moduleShell?.getActiveModule?.() === 'tasks' ? showTodoModal() : undefined,
 });
-const moduleSwitcher = createModuleSwitcher();
+let moduleSwitcher = null;
+moduleShell = createModuleShell({
+  onActiveModuleChange: moduleId => moduleSwitcher?.syncActiveModule(moduleId),
+});
+moduleSwitcher = createModuleSwitcher({
+  onModuleChange: moduleId => {
+    moduleShell.navigateToModule(moduleId);
+    uiShell.closeSidebar({ preserveHistory: true });
+  },
+});
+const refreshTasksModule = () => {
+  renderProjects();
+  renderStats();
+  renderTodos();
+  updateToggleDoneButton();
+  updateSortButton();
+  updateProjectWidgetButton();
+  updateTodayFocusButton();
+  updateMinimalTodosButton();
+};
+moduleShell.registerController('tasks', {
+  onActivate: refreshTasksModule,
+  onDeactivate: () => todosFeature.resetTodoShortcutTarget(),
+  onLanguageChange: refreshTasksModule,
+  onSearch: () => {
+    renderStats();
+    renderTodos();
+  },
+});
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
 const setupDescPreview = uiShell.setupDescPreview;
@@ -823,6 +856,8 @@ export function startAppModule() {
     return;
   }
   startupBound = true;
+  moduleShell.bind();
+  moduleSwitcher.bind();
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
@@ -847,7 +882,6 @@ export function startAppModule() {
   bindDashboardPreferencesActions();
   window.addEventListener('online', () => dashboardPreferencesSyncFeature.refresh());
   bindTodayFocusHotkey();
-  moduleSwitcher.bind();
   bindSidebarControls();
   bindModalCloseControls();
   bindToastControls();
@@ -871,18 +905,12 @@ export function startAppModule() {
   window.addEventListener('nia-language-change', () => {
     translatePage(document);
     applyTheme(localStorage.getItem('theme') || 'system');
-    renderProjects();
     renderWorkspaces();
-    renderStats();
-    renderTodos();
-    updateToggleDoneButton();
-    updateSortButton();
-    updateProjectWidgetButton();
-    updateTodayFocusButton();
-    updateMinimalTodosButton();
     hydrateIcons(document);
   });
-  setInterval(() => renderStats(), 30 * 1000);
+  setInterval(() => {
+    if (moduleShell.getActiveModule() === 'tasks') renderStats();
+  }, 30 * 1000);
 
   // Expose runtime globals needed by native integrations and cross-module callbacks.
   exposeRuntimeGlobals({

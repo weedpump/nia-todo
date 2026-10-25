@@ -389,7 +389,7 @@ testTemporaryEmptyBootstrapDoesNotReplaceNativeReminderSnapshot();
 await testHistoryBackSettlesPromptAndAllowsRetry();
 await testOriginRestrictedLocationBridgeContract();
 
-const index = await readFile(new URL('../web/index.html', import.meta.url), 'utf8');
+const taskDialogs = await readFile(new URL('../web/static/js/modules/tasks-dialogs.js', import.meta.url), 'utf8');
 const app = await readFile(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 const lifecycle = await readFile(new URL('../web/static/js/features/app-lifecycle.js', import.meta.url), 'utf8');
 const desktop = await readFile(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
@@ -405,7 +405,7 @@ for (const id of [
   'android-location-permission-decline',
   'android-location-permission-continue',
 ]) {
-  assert(index.includes(`id="${id}"`), `missing Android location guidance element ${id}`);
+  assert(taskDialogs.includes(`id="${id}"`), `missing Android location guidance element ${id}`);
 }
 assert(desktop.includes('createAndroidLocationPermissionFlow'), 'desktop reminder scheduling must use the guided location permission flow');
 assert(desktop.includes('createAndroidLocationPermissionPrompt'), 'desktop integration must use the history-aware location permission guidance modal');

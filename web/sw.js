@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'nia-v4-global-icon-i18n-preview-131';
+const CACHE_REVISION = 'nia-v4-module-platform-preview-136';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -13,6 +13,7 @@ const PRECACHE_ASSETS = [
   '/static/css/09-module-switcher.css',
   '/static/css/10-navigation-sidebar.css',
   '/static/css/11-main-shell.css',
+  '/static/css/14-module-content.css',
   '/static/css/12-overview-dashboard.css',
   '/static/css/13-calendar-view.css',
   '/static/css/20-todos-list.css',
@@ -121,6 +122,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/dashboard-preferences-sync.js',
   '/static/js/features/dashboard-drilldown.js',
   '/static/js/features/app-lifecycle.js',
+  '/static/js/features/module-shell.js',
   '/static/js/features/module-switcher.js',
   '/static/js/features/calendar-view.js',
   '/static/js/features/desktop-integration.js',
@@ -135,6 +137,14 @@ const PRECACHE_ASSETS = [
   '/static/js/features/connection-status.js',
   '/static/js/features/confirm-dialog.js',
   '/static/js/features/mobile-search.js',
+  '/static/js/modules/module-factory.js',
+  '/static/js/modules/tasks-dialogs.js',
+  '/static/js/modules/tasks-settings.js',
+  '/static/js/modules/tasks-shortcuts.js',
+  '/static/js/modules/tasks.js',
+  '/static/js/modules/shopping.js',
+  '/static/js/modules/recipes.js',
+  '/static/js/modules/registry.js',
   '/static/js/features/focus-filters.js',
   '/static/js/features/drag-drop.js',
   '/static/js/features/runtime-globals.js',

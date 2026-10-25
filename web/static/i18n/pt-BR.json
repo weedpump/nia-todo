@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "{count} tarefas criadas",
   "todo.multiAdd.recurringNeedsDue": "Uma tarefa recorrente precisa de uma data de vencimento.",
   "todo.multiAdd.pasteOmitted.one": "É possível adicionar no máximo {max} tarefas de uma vez. {count} linha colada não foi adicionada.",
-  "todo.multiAdd.pasteOmitted.many": "É possível adicionar no máximo {max} tarefas de uma vez. {count} linhas coladas não foram adicionadas."
+  "todo.multiAdd.pasteOmitted.many": "É possível adicionar no máximo {max} tarefas de uma vez. {count} linhas coladas não foram adicionadas.",
+  "module.placeholder.body": "Este módulo está conectado. As funções específicas virão em uma etapa separada.",
+  "module.placeholder.search": "A busca virá com o módulo"
 }

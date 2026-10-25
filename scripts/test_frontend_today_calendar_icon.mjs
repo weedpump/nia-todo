@@ -4,12 +4,12 @@ import { readFileSync } from 'node:fs';
 
 console.log('📅 Running Today calendar icon regression test...');
 
-const html = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+const tasksModuleSource = readFileSync(new URL('../web/static/js/modules/tasks.js', import.meta.url), 'utf8');
 const focusCss = readFileSync(new URL('../web/static/css/64-focus-controls.css', import.meta.url), 'utf8');
 const mobileCss = readFileSync(new URL('../web/static/css/40-responsive-mobile.css', import.meta.url), 'utf8');
 const workspaceCss = readFileSync(new URL('../web/static/css/61-workspace-confirm-icons.css', import.meta.url), 'utf8');
 
-const todayButtonMarkup = html.match(/<button[^>]*id="today-focus-btn"[^>]*>[\s\S]*?<\/button>/)?.[0] || '';
+const todayButtonMarkup = tasksModuleSource.match(/<button[^>]*id="today-focus-btn"[^>]*>[\s\S]*?<\/button>/)?.[0] || '';
 assert.match(todayButtonMarkup, /<span class="today-calendar-icon" aria-hidden="true"><\/span>/);
 assert.doesNotMatch(todayButtonMarkup, /data-icon="calendar-days"/);
 assert.match(focusCss, /\.today-focus-btn \.ui-icon,[\s\S]*?width: 19px;[\s\S]*?height: 19px;/);

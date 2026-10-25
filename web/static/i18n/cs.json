@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "Vytvořeno {count} úkolů",
   "todo.multiAdd.recurringNeedsDue": "Opakovaný úkol potřebuje termín.",
   "todo.multiAdd.pasteOmitted.one": "Najednou lze přidat nejvýše {max} úkolů. Nebyl přidán {count} vložený řádek.",
-  "todo.multiAdd.pasteOmitted.many": "Najednou lze přidat nejvýše {max} úkolů. Nebylo přidáno {count} vložených řádků."
+  "todo.multiAdd.pasteOmitted.many": "Najednou lze přidat nejvýše {max} úkolů. Nebylo přidáno {count} vložených řádků.",
+  "module.placeholder.body": "Tento modul je připojen. Jeho funkce budou doplněny v samostatném kroku.",
+  "module.placeholder.search": "Vyhledávání bude doplněno s modulem"
 }

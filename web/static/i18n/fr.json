@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "{count} tâches créées",
   "todo.multiAdd.recurringNeedsDue": "Une tâche récurrente nécessite une date d’échéance.",
   "todo.multiAdd.pasteOmitted.one": "Vous pouvez ajouter au maximum {max} tâches à la fois. {count} ligne collée n’a pas été ajoutée.",
-  "todo.multiAdd.pasteOmitted.many": "Vous pouvez ajouter au maximum {max} tâches à la fois. {count} lignes collées n’ont pas été ajoutées."
+  "todo.multiAdd.pasteOmitted.many": "Vous pouvez ajouter au maximum {max} tâches à la fois. {count} lignes collées n’ont pas été ajoutées.",
+  "module.placeholder.body": "Ce module est raccordé. Ses fonctionnalités métier suivront dans une étape distincte.",
+  "module.placeholder.search": "La recherche suivra avec le module"
 }

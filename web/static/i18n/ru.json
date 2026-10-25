@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "Создано задач: {count}",
   "todo.multiAdd.recurringNeedsDue": "Для повторяющейся задачи нужна дата выполнения.",
   "todo.multiAdd.pasteOmitted.one": "За один раз можно добавить не более {max} задач. Не добавлена {count} вставленная строка.",
-  "todo.multiAdd.pasteOmitted.many": "За один раз можно добавить не более {max} задач. Не добавлено вставленных строк: {count}."
+  "todo.multiAdd.pasteOmitted.many": "За один раз можно добавить не более {max} задач. Не добавлено вставленных строк: {count}.",
+  "module.placeholder.body": "Этот модуль подключён. Его функции будут добавлены отдельным этапом.",
+  "module.placeholder.search": "Поиск появится вместе с модулем"
 }

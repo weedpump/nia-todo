@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "Utworzono {count} zadań",
   "todo.multiAdd.recurringNeedsDue": "Zadanie cykliczne wymaga terminu.",
   "todo.multiAdd.pasteOmitted.one": "Jednocześnie można dodać maksymalnie {max} zadań. Nie dodano {count} wklejonego wiersza.",
-  "todo.multiAdd.pasteOmitted.many": "Jednocześnie można dodać maksymalnie {max} zadań. Nie dodano {count} wklejonych wierszy."
+  "todo.multiAdd.pasteOmitted.many": "Jednocześnie można dodać maksymalnie {max} zadań. Nie dodano {count} wklejonych wierszy.",
+  "module.placeholder.body": "Ten moduł jest podłączony. Jego funkcje zostaną dodane w osobnym kroku.",
+  "module.placeholder.search": "Wyszukiwanie pojawi się wraz z modułem"
 }

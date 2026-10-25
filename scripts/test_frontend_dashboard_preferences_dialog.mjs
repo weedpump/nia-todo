@@ -5,7 +5,8 @@ import { extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const indexHtml = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+const taskDialogsSource = readFileSync(new URL('../web/static/js/modules/tasks-dialogs.js', import.meta.url), 'utf8');
+const tasksModuleSource = readFileSync(new URL('../web/static/js/modules/tasks.js', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 const renderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
 const dialogSource = readFileSync(new URL('../web/static/js/features/dashboard-preferences-dialog.js', import.meta.url), 'utf8');
@@ -19,42 +20,42 @@ const localeDictionaries = readdirSync(new URL('../web/static/i18n/', import.met
 
 console.log('🎛️ Running dashboard preferences dialog contract test...');
 
-assert.match(indexHtml, /id="dashboard-preferences-modal"/);
-assert.match(indexHtml, /id="dashboard-preferences-menu-btn"[^>]*data-dashboard-preferences-action="open"/, 'dashboard customization must remain accessible through the user menu');
+assert.match(taskDialogsSource, /id="dashboard-preferences-modal"/);
+assert.match(tasksModuleSource, /id="dashboard-preferences-menu-btn"[^>]*data-dashboard-preferences-action="open"/, 'dashboard customization must remain accessible through the tasks module user menu');
 assert.doesNotMatch(renderingSource, /overview-dashboard-customize|data-dashboard-preferences-action="open"/, 'the dashboard widget must not contain a customization button');
-assert.match(indexHtml, /class="modal ui-detail-modal ui-detail-view dashboard-preferences-modal"/);
-assert.match(indexHtml, /class="modal-content entity-modal-content ui-detail-modal-content dashboard-preferences-modal-content"/);
-assert.match(indexHtml, /id="dashboard-preferences-form"/);
-assert.match(indexHtml, /id="dashboard-preferences-workspace"[^>]*data-ui-select/, 'dashboard preferences need a shared workspace selector');
-assert.match(indexHtml, /id="dashboard-preferences-sync-enabled"/, 'dashboard preferences need an account sync opt-in');
-assert.match(indexHtml, /class="ui-section-card ui-detail-section dashboard-preferences-sync-section"/, 'account sync needs its own global section');
+assert.match(taskDialogsSource, /class="modal ui-detail-modal ui-detail-view dashboard-preferences-modal"/);
+assert.match(taskDialogsSource, /class="modal-content entity-modal-content ui-detail-modal-content dashboard-preferences-modal-content"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-form"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-workspace"[^>]*data-ui-select/, 'dashboard preferences need a shared workspace selector');
+assert.match(taskDialogsSource, /id="dashboard-preferences-sync-enabled"/, 'dashboard preferences need an account sync opt-in');
+assert.match(taskDialogsSource, /class="ui-section-card ui-detail-section dashboard-preferences-sync-section"/, 'account sync needs its own global section');
 assert.ok(
-  indexHtml.indexOf('dashboard-preferences-sync-section') < indexHtml.indexOf('dashboard-preferences-workspace-section'),
+  taskDialogsSource.indexOf('dashboard-preferences-sync-section') < taskDialogsSource.indexOf('dashboard-preferences-workspace-section'),
   'account sync must be presented before and outside the workspace-specific section',
 );
-assert.match(indexHtml, /id="dashboard-preferences-sync-enabled"[^>]*role="switch"/, 'account sync must use an accessible switch control');
-assert.doesNotMatch(indexHtml, /id="dashboard-preferences-mode"/);
-assert.match(indexHtml, /id="dashboard-preferences-compact-display"/);
-assert.match(indexHtml, /id="dashboard-preferences-group-by-status"/);
-assert.doesNotMatch(indexHtml, /id="dashboard-preferences-show-subtitle"/);
-assert.match(indexHtml, /id="dashboard-preferences-project-scope"/);
-assert.doesNotMatch(indexHtml, /id="dashboard-preferences-include-unassigned"/);
-assert.match(indexHtml, /id="dashboard-preferences-projects"/);
-assert.match(indexHtml, /class="dashboard-preferences-project-controls"/, 'project scope and project multi-select need a shared responsive row');
-assert.match(indexHtml, /data-i18n-key="focus\.projects">Projekte</, 'project multi-select needs a visible localized field label');
-assert.match(indexHtml, /id="dashboard-preferences-stats"/);
-assert.match(indexHtml, /id="dashboard-preferences-focus-items"/);
-assert.match(indexHtml, /id="dashboard-preferences-save"/);
-assert.match(indexHtml, /id="dashboard-preferences-reset"[^>]*data-dashboard-preferences-action="reset"/);
-assert.match(indexHtml, /data-i18n-aria-label-key="dashboard.preferences.close"/);
-assert.match(indexHtml, /class="entity-modal-header dashboard-preferences-modal-header ui-detail-modal-header"/);
-assert.match(indexHtml, /<button type="submit" form="dashboard-preferences-form" class="btn btn-primary" id="dashboard-preferences-save"/);
-assert.match(indexHtml, /id="dashboard-preferences-save"[\s\S]*id="dashboard-preferences-reset"[\s\S]*data-dashboard-preferences-action="cancel"/, 'reset action must sit between save and close');
-assert.doesNotMatch(indexHtml, /class="modal-actions dashboard-preferences-actions"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-sync-enabled"[^>]*role="switch"/, 'account sync must use an accessible switch control');
+assert.doesNotMatch(taskDialogsSource, /id="dashboard-preferences-mode"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-compact-display"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-group-by-status"/);
+assert.doesNotMatch(taskDialogsSource, /id="dashboard-preferences-show-subtitle"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-project-scope"/);
+assert.doesNotMatch(taskDialogsSource, /id="dashboard-preferences-include-unassigned"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-projects"/);
+assert.match(taskDialogsSource, /class="dashboard-preferences-project-controls"/, 'project scope and project multi-select need a shared responsive row');
+assert.match(taskDialogsSource, /data-i18n-key="focus\.projects">Projekte</, 'project multi-select needs a visible localized field label');
+assert.match(taskDialogsSource, /id="dashboard-preferences-stats"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-focus-items"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-save"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-reset"[^>]*data-dashboard-preferences-action="reset"/);
+assert.match(taskDialogsSource, /data-i18n-aria-label-key="dashboard.preferences.close"/);
+assert.match(taskDialogsSource, /class="entity-modal-header dashboard-preferences-modal-header ui-detail-modal-header"/);
+assert.match(taskDialogsSource, /<button type="submit" form="dashboard-preferences-form" class="btn btn-primary" id="dashboard-preferences-save"/);
+assert.match(taskDialogsSource, /id="dashboard-preferences-save"[\s\S]*id="dashboard-preferences-reset"[\s\S]*data-dashboard-preferences-action="cancel"/, 'reset action must sit between save and close');
+assert.doesNotMatch(taskDialogsSource, /class="modal-actions dashboard-preferences-actions"/);
 
-const modalHtml = indexHtml.slice(
-  indexHtml.indexOf('id="dashboard-preferences-modal"'),
-  indexHtml.indexOf('<!-- Todo Modal -->'),
+const modalHtml = taskDialogsSource.slice(
+  taskDialogsSource.indexOf('id="dashboard-preferences-modal"'),
+  taskDialogsSource.indexOf('<!-- Todo Modal -->'),
 );
 const modalSelects = [...modalHtml.matchAll(/<select\b([^>]*)>/g)];
 assert.equal(modalSelects.length, 8, 'dashboard preferences must expose the workspace selector plus seven configuration selects');
@@ -67,7 +68,7 @@ assert.match(dialogSource, /focus-project-dropdown/);
 assert.match(dialogSource, /focus-project-option/);
 assert.match(dialogSource, /ui-select-search-input/);
 assert.doesNotMatch(dialogSource, /data-dashboard-project-id[^\n]*:checked/);
-assert.doesNotMatch(indexHtml, /data-dashboard-content-option=/);
+assert.doesNotMatch(taskDialogsSource, /data-dashboard-content-option=/);
 assert.match(dialogSource, /renderDashboard\?\.\(\)/, 'saving dashboard preferences must refresh the visible dashboard immediately');
 assert.match(dialogSource, /setSyncEnabled\?\.\(/, 'saving dashboard preferences must persist the account sync choice');
 assert.match(appSource, /createDashboardPreferencesSync/, 'the production entrypoint must wire account-wide dashboard synchronization');
@@ -89,9 +90,9 @@ const layoutCss = [
   '82-entity-modals.css',
   '89-ui-detail-modal.css',
 ].map(file => readFileSync(new URL(`../web/static/css/${file}`, import.meta.url), 'utf8')).join('\n');
-const modalFixture = indexHtml.slice(
-  indexHtml.lastIndexOf('<!-- Dashboard Preferences Modal -->'),
-  indexHtml.indexOf('<!-- Todo Modal -->'),
+const modalFixture = taskDialogsSource.slice(
+  taskDialogsSource.lastIndexOf('<!-- Dashboard Preferences Modal -->'),
+  taskDialogsSource.indexOf('<!-- Todo Modal -->'),
 );
 const browser = await chromium.launch({ headless: true });
 try {

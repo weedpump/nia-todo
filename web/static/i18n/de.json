@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "{count} Todos wurden erstellt",
   "todo.multiAdd.recurringNeedsDue": "Ein wiederkehrendes Todo benötigt ein Fälligkeitsdatum.",
   "todo.multiAdd.pasteOmitted.one": "Es können höchstens {max} Todos auf einmal hinzugefügt werden. {count} eingefügte Zeile wurde nicht übernommen.",
-  "todo.multiAdd.pasteOmitted.many": "Es können höchstens {max} Todos auf einmal hinzugefügt werden. {count} eingefügte Zeilen wurden nicht übernommen."
+  "todo.multiAdd.pasteOmitted.many": "Es können höchstens {max} Todos auf einmal hinzugefügt werden. {count} eingefügte Zeilen wurden nicht übernommen.",
+  "module.placeholder.body": "Dieses Modul ist eingehängt. Die Fachfunktionen folgen in einem eigenen Schritt.",
+  "module.placeholder.search": "Suche folgt mit dem Modul"
 }

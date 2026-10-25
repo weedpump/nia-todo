@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "{count} taken aangemaakt",
   "todo.multiAdd.recurringNeedsDue": "Een terugkerende taak heeft een vervaldatum nodig.",
   "todo.multiAdd.pasteOmitted.one": "Er kunnen maximaal {max} taken tegelijk worden toegevoegd. {count} geplakte regel is niet toegevoegd.",
-  "todo.multiAdd.pasteOmitted.many": "Er kunnen maximaal {max} taken tegelijk worden toegevoegd. {count} geplakte regels zijn niet toegevoegd."
+  "todo.multiAdd.pasteOmitted.many": "Er kunnen maximaal {max} taken tegelijk worden toegevoegd. {count} geplakte regels zijn niet toegevoegd.",
+  "module.placeholder.body": "Deze module is aangesloten. De inhoudelijke functies volgen in een afzonderlijke stap.",
+  "module.placeholder.search": "Zoeken volgt met de module"
 }

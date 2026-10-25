@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "{count} todos created",
   "todo.multiAdd.recurringNeedsDue": "A recurring todo needs a due date.",
   "todo.multiAdd.pasteOmitted.one": "Only {max} todos can be added at once. {count} pasted line was not added.",
-  "todo.multiAdd.pasteOmitted.many": "Only {max} todos can be added at once. {count} pasted lines were not added."
+  "todo.multiAdd.pasteOmitted.many": "Only {max} todos can be added at once. {count} pasted lines were not added.",
+  "module.placeholder.body": "This module is connected. Its product features will follow in a separate step.",
+  "module.placeholder.search": "Search will follow with the module"
 }

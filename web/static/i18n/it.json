@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "{count} attività create",
   "todo.multiAdd.recurringNeedsDue": "Un’attività ricorrente richiede una data di scadenza.",
   "todo.multiAdd.pasteOmitted.one": "È possibile aggiungere al massimo {max} attività alla volta. {count} riga incollata non è stata aggiunta.",
-  "todo.multiAdd.pasteOmitted.many": "È possibile aggiungere al massimo {max} attività alla volta. {count} righe incollate non sono state aggiunte."
+  "todo.multiAdd.pasteOmitted.many": "È possibile aggiungere al massimo {max} attività alla volta. {count} righe incollate non sono state aggiunte.",
+  "module.placeholder.body": "Questo modulo è collegato. Le sue funzioni specifiche arriveranno in un passaggio separato.",
+  "module.placeholder.search": "La ricerca arriverà con il modulo"
 }

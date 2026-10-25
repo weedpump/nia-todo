@@ -82,12 +82,14 @@ export function createTodosFeature({
   renderMarkdown,
   syncDateTimePickers,
   openDateTimePicker,
+  getActiveModule = () => 'tasks',
 }) {
   const nativeBridge = createNativeBridge();
   const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
   let todoFormBound = false;
   let savedPlaces = [];
   let todoSaveSnapshot = null;
+  let hoveredTodoId = null;
   let badgeOpenedSingleChoiceTarget = null;
   let pendingMetaReturnFocusTarget = null;
   const deletingSubtaskIds = new Set();
@@ -2527,9 +2529,8 @@ export function createTodosFeature({
   function bindTodoHoverKeyboardShortcuts() {
     if (document.documentElement.dataset.todoHoverKeyboardBound === '1') return;
     document.documentElement.dataset.todoHoverKeyboardBound = '1';
-    let hoveredTodoId = null;
-
     document.addEventListener('pointerover', (event) => {
+      if (getActiveModule() !== 'tasks') return;
       const item = event.target?.closest?.('.todo-item[data-id]');
       if (item) hoveredTodoId = item.dataset.id;
     }, { passive: true });
@@ -2552,6 +2553,7 @@ export function createTodosFeature({
       const isSpace = event.key === ' ' || event.key === 'Spacebar';
       const isDelete = event.key === 'Delete';
       if (!isSpace && !isDelete) return;
+      if (getActiveModule() !== 'tasks') return;
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
       if (isInteractiveTarget(document.activeElement)) return;
       if (document.querySelector('.modal.active')) return;
@@ -2561,6 +2563,10 @@ export function createTodosFeature({
       if (isDelete) await deleteTodo(Number(todoId));
       else await toggleTodo(todoId);
     });
+  }
+
+  function resetTodoShortcutTarget() {
+    hoveredTodoId = null;
   }
 
   bindTodoItemClickBehavior();
@@ -3166,5 +3172,5 @@ export function createTodosFeature({
     document.getElementById('todo-project')?.addEventListener('change', onProjectChange);
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, resetTodoShortcutTarget, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

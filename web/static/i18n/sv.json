@@ -1956,5 +1956,7 @@
   "todo.multiAdd.created.many": "{count} uppgifter skapade",
   "todo.multiAdd.recurringNeedsDue": "En återkommande uppgift behöver ett förfallodatum.",
   "todo.multiAdd.pasteOmitted.one": "Högst {max} uppgifter kan läggas till samtidigt. {count} inklistrad rad lades inte till.",
-  "todo.multiAdd.pasteOmitted.many": "Högst {max} uppgifter kan läggas till samtidigt. {count} inklistrade rader lades inte till."
+  "todo.multiAdd.pasteOmitted.many": "Högst {max} uppgifter kan läggas till samtidigt. {count} inklistrade rader lades inte till.",
+  "module.placeholder.body": "Modulen är ansluten. Dess funktioner kommer i ett separat steg.",
+  "module.placeholder.search": "Sökning kommer med modulen"
 }

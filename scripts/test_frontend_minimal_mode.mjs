@@ -183,9 +183,9 @@ assert.match(minimalCss, /data-priority="1"/, 'minimal mode must preserve very-h
 assert.match(minimalCss, /data-priority="2"/, 'minimal mode must preserve high-priority signals');
 assert.match(minimalCss, /\.todo-meta-chip:not\(\.minimal-attention\)/, 'minimal mode must hide secondary metadata while retaining urgent dates');
 
-const indexHtml = fs.readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
-assert.match(indexHtml, /id="today-focus-btn"[^>]*>[\s\S]*?data-icon="calendar-days"/, 'the Today button must use a calendar icon');
-assert.match(indexHtml, /id="minimal-todos-btn"[^>]*>[\s\S]*?data-icon="leaf"/, 'the Calm button must use a quiet leaf icon');
+const tasksModuleSource = fs.readFileSync(new URL('../web/static/js/modules/tasks.js', import.meta.url), 'utf8');
+assert.match(tasksModuleSource, /id="today-focus-btn"[^>]*>[\s\S]*?class="today-calendar-icon"/, 'the tasks module Today button must use the live calendar icon');
+assert.match(tasksModuleSource, /id="minimal-todos-btn"[^>]*>[\s\S]*?data-icon="leaf"/, 'the tasks module Calm button must use a quiet leaf icon');
 
 const de = JSON.parse(fs.readFileSync(new URL('../web/static/i18n/de.json', import.meta.url), 'utf8'));
 const en = JSON.parse(fs.readFileSync(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8'));
