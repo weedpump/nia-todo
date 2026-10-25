@@ -18,6 +18,9 @@
   --accent-hover-rgb: 129, 140, 248;
   --accent-intensity: 1;
   --accent-strength: 100%;
+  --nia-icon-head: #7c4dff;
+  --nia-icon-mid: #5368ff;
+  --nia-icon-tail: #0797f6;
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;

@@ -22,7 +22,7 @@ assert.equal(manifest.start_url, '/', 'The existing PWA identity boundary must r
 const indexHtml = read('web/index.html');
 assert.match(indexHtml, /<title>Nia<\/title>/, 'The main document title must use Nia');
 assert.match(indexHtml, /class="login-title">Nia<\/div>/, 'The login surface must use Nia');
-assert.match(indexHtml, /class="logo-text">Nia<\/span>/, 'The authenticated shell must use Nia');
+assert.match(indexHtml, /class="module-switcher-app-name">Nia<\/span>/, 'The authenticated shell must use Nia');
 assert.doesNotMatch(indexHtml, /alt="nia-todo"/, 'Visible logo alternatives must use the new product name');
 
 for (const page of ['web/setup.html', 'web/admin.html', 'web/set-password.html']) {

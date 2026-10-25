@@ -40,6 +40,7 @@ import { createNavigationFeature } from './features/navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
+import { createModuleSwitcher } from './features/module-switcher.js';
 import { createDateTimePickerFeature } from './features/date-time-picker.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { createOidcNoticeFeature } from './features/oidc-notice.js';
@@ -650,6 +651,7 @@ const uiShell = createUiShell({
   renderMarkdown,
   showTodoModal: () => showTodoModal(),
 });
+const moduleSwitcher = createModuleSwitcher();
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
 const setupDescPreview = uiShell.setupDescPreview;
@@ -845,6 +847,7 @@ export function startAppModule() {
   bindDashboardPreferencesActions();
   window.addEventListener('online', () => dashboardPreferencesSyncFeature.refresh());
   bindTodayFocusHotkey();
+  moduleSwitcher.bind();
   bindSidebarControls();
   bindModalCloseControls();
   bindToastControls();

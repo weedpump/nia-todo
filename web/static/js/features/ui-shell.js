@@ -75,6 +75,8 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
   }
 
   function closeFloatingMenus() {
+    document.getElementById('module-switcher-menu')?.classList.remove('open');
+    document.getElementById('module-switcher-button')?.setAttribute('aria-expanded', 'false');
     const userMenu = document.getElementById('user-menu');
     const userButton = document.getElementById('user-menu-button');
     userMenu?.classList.remove('active');

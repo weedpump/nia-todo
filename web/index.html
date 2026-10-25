@@ -6,6 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Nia</title>
 <link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
 <meta name="theme-color" content="#0f172a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -86,9 +88,16 @@
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-      <div class="logo">
-        <img src="/static/icons/icon-192.png" class="logo-icon" alt="Nia">
-        <span class="logo-text">Nia</span>
+      <div class="module-switcher" id="module-switcher">
+        <button type="button" class="module-switcher-button" id="module-switcher-button" data-module-action="toggle" aria-haspopup="menu" aria-expanded="false" aria-label="Nia-Bereich wechseln" data-i18n-aria-label-key="moduleSwitcher.toggle">
+          <span class="module-switcher-current-icon" id="module-switcher-current-icon" aria-hidden="true"></span>
+          <span class="module-switcher-copy">
+            <strong class="module-switcher-current-name" id="module-switcher-current-name" data-i18n-key="module.tasks.label">Aufgaben</strong>
+            <span class="module-switcher-app-name">Nia</span>
+          </span>
+          <svg class="module-switcher-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="module-switcher-menu" id="module-switcher-menu" role="menu" aria-label="Nia-Bereiche" data-i18n-aria-label-key="moduleSwitcher.menuLabel"></div>
       </div>
 
       <div class="sidebar-scroll-region">

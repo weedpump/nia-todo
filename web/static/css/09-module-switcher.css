@@ -1,0 +1,284 @@
+/* Nia module identity and switcher */
+
+.module-switcher {
+  position: relative;
+  flex: 0 0 auto;
+  margin-bottom: 24px;
+}
+
+.module-switcher-button {
+  width: 100%;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+
+[data-theme="light"] .module-switcher-button {
+  background: transparent;
+  box-shadow: none;
+}
+
+.module-switcher-button:hover,
+.module-switcher-button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--bg-hover) 62%, transparent);
+}
+
+.module-switcher-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * .18));
+}
+
+.module-switcher-button:active {
+  transform: scale(.992);
+}
+
+.module-switcher-current-icon {
+  width: 28px;
+  height: 28px;
+  display: block;
+  border-radius: 50%;
+  filter: none;
+}
+
+.nia-product-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.module-switcher-copy {
+  min-width: 0;
+  display: block;
+}
+
+.module-switcher-current-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-switcher-app-name {
+  display: none;
+}
+
+.module-switcher-chevron {
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+  transition: transform .15s ease, color .15s ease;
+}
+
+.module-switcher-button[aria-expanded="true"] .module-switcher-chevron {
+  color: var(--accent-hover);
+  transform: rotate(180deg);
+}
+
+.module-switcher-menu {
+  display: none;
+  position: absolute;
+  z-index: 360;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 16% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 45%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--bg-secondary) 98%, var(--bg-primary)) 0%,
+      color-mix(in srgb, var(--bg-secondary) 88%, var(--bg-primary)) 100%);
+  box-shadow:
+    0 24px 54px rgba(0,0,0,.38),
+    0 6px 18px rgba(0,0,0,.18),
+    inset 0 1px 0 color-mix(in srgb, white 9%, transparent);
+}
+
+[data-theme="light"] .module-switcher-menu {
+  background:
+    radial-gradient(circle at 16% -10%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 46%),
+    linear-gradient(180deg, rgba(255,255,255,.99), color-mix(in srgb, var(--bg-secondary) 55%, white));
+  box-shadow: 0 24px 54px rgba(15,23,42,.18), 0 6px 18px rgba(15,23,42,.08), inset 0 1px 0 white;
+}
+
+.module-switcher-menu.open {
+  display: block;
+}
+
+.module-switcher-menu-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 10px;
+}
+
+.module-switcher-menu-brand .nia-brand-icon {
+  width: 30px;
+  height: 30px;
+  display: block;
+  border-radius: 50%;
+}
+
+.module-switcher-menu-brand div {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.module-switcher-menu-brand strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.15;
+}
+
+.module-switcher-menu-brand span {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.module-switcher-options {
+  display: grid;
+  gap: 5px;
+}
+
+.module-switcher-option {
+  width: 100%;
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 17px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background .15s ease, transform .1s ease;
+}
+
+.module-switcher-option:hover,
+.module-switcher-option:focus-visible {
+  outline: none;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 15%, var(--bg-tertiary)) 0%,
+      color-mix(in srgb, var(--accent-hover) 7%, var(--bg-tertiary)) 100%);
+}
+
+.module-switcher-option:active {
+  transform: scale(.988);
+}
+
+.module-switcher-option.active {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 18%, transparent) 0%,
+      color-mix(in srgb, var(--accent-hover) 8%, transparent) 100%);
+}
+
+.module-switcher-option-icon {
+  width: 42px;
+  height: 42px;
+  display: block;
+  border-radius: 50%;
+}
+
+.module-switcher-option-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.module-switcher-option-copy strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-switcher-option-copy small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-switcher-option-state {
+  width: 9px;
+  height: 9px;
+  justify-self: center;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.module-switcher-option.active .module-switcher-option-state {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(var(--accent-rgb), calc(var(--accent-intensity) * .14));
+}
+
+@media (min-width: 769px) {
+  #app[data-desktop-sidebar-mode="rail"] .module-switcher {
+    margin-bottom: 16px;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .module-switcher-button {
+    width: 44px;
+    min-height: 44px;
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-inline: auto;
+    padding: 6px;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .module-switcher-current-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .module-switcher-copy,
+  #app[data-desktop-sidebar-mode="rail"] .module-switcher-chevron {
+    display: none;
+  }
+
+  #app[data-desktop-sidebar-mode="rail"] .module-switcher-menu {
+    top: 0;
+    left: 56px;
+    width: 227px;
+  }
+}
+
+@media (max-width: 768px) {
+  .module-switcher-button {
+    min-height: 40px;
+  }
+
+  .module-switcher-option {
+    min-height: 58px;
+  }
+}

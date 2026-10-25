@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'nia-product-branding-126';
+const CACHE_REVISION = 'nia-v4-global-icon-i18n-preview-131';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -10,6 +10,7 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/static/style.css',
   '/static/css/00-base.css',
+  '/static/css/09-module-switcher.css',
   '/static/css/10-navigation-sidebar.css',
   '/static/css/11-main-shell.css',
   '/static/css/12-overview-dashboard.css',
@@ -89,7 +90,12 @@ const PRECACHE_ASSETS = [
   '/static/js/sync/queue.js',
   '/static/js/icons/lucide-icons.js',
   '/static/js/icons/lucide-generated.js',
+  '/static/js/icons/nia-product-icons.js',
   '/static/icons/brands/github-mark.svg',
+  '/static/icons/nia-app.svg',
+  '/static/icons/module-tasks.svg',
+  '/static/icons/module-shopping.svg',
+  '/static/icons/module-recipes.svg',
   '/static/js/i18n/index.js',
   '/static/js/ui/dropdowns.js',
   '/static/js/ui/color-picker.js',
@@ -115,6 +121,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/dashboard-preferences-sync.js',
   '/static/js/features/dashboard-drilldown.js',
   '/static/js/features/app-lifecycle.js',
+  '/static/js/features/module-switcher.js',
   '/static/js/features/calendar-view.js',
   '/static/js/features/desktop-integration.js',
   '/static/js/features/desktop-hotkey-descriptions.js',
@@ -164,6 +171,8 @@ const PRECACHE_ASSETS = [
   '/static/vendor/qrcode-generator.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
+  '/static/icons/icon-badge.png',
+  '/favicon.ico',
   '/static/icons/platform/android.svg',
   '/static/icons/platform/windows.svg'
 ];

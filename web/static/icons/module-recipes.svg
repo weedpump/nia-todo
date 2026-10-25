@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Rezepte</title>
+  <defs>
+    <linearGradient id="nia-recipes-gradient" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7c4dff"/>
+      <stop offset="0.52" stop-color="#5368ff"/>
+      <stop offset="1" stop-color="#0797f6"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#nia-recipes-gradient)"/>
+  <path d="M14 20.5A4.5 4.5 0 0 1 18.5 16H30c3.2 0 5.8 1.2 8 3.2 2.2-2 4.8-3.2 8-3.2h.5A4.5 4.5 0 0 1 51 20.5v25a3.5 3.5 0 0 1-3.5 3.5H46c-3.7 0-7.2 1.1-10 3.1-2.8-2-6.3-3.1-10-3.1h-8.5a3.5 3.5 0 0 1-3.5-3.5v-25Z" fill="#fff"/>
+  <path d="M32 21v25.5M38 19.5v26" fill="none" stroke="url(#nia-recipes-gradient)" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M20.5 27h6M20.5 34h6M41.5 27h4M41.5 34h4" fill="none" stroke="url(#nia-recipes-gradient)" stroke-width="3.4" stroke-linecap="round"/>
+</svg>
