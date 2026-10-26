@@ -74,6 +74,11 @@ run_step "Security Tauri Vendor Sync" node scripts/test_tauri_vendor_sync.mjs
 run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py
+run_step "Household Entity Access" python3 scripts/test_household_entity_access.py
+run_step "Household API" python3 scripts/test_household_api.py
+run_step "Project Household Access" python3 scripts/test_project_household_access.py
+run_step "Household Access Regressions" python3 scripts/test_household_access_regressions.py
+run_step "Dashboard Preferences Sync" python3 scripts/test_dashboard_preferences_sync.py
 run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
 run_step "Android CLI Workflow Contract" python3 scripts/test_android_cli_workflow.py
 run_step "Playwright Workflow Contract" python3 scripts/test_playwright_workflow.py
@@ -129,6 +134,7 @@ run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summary_live_updates.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
+run_step "WebSocket Access Snapshot" node scripts/test_frontend_access_snapshot.mjs
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
 
 frontend_suite_active=0

@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 
 from db import get_db, now_iso
 from routers.auth import require_auth
+from routers.websocket import broadcast_sync_to_users
+from services.entity_access import get_entity_ownership, register_personal_entity
+from services.sharing import get_project_boundary_user_ids, get_project_participant_user_ids
 from services.utils import sanitize_text
 from services.appearance import normalize_color, normalize_icon
 from services.workspace_visibility import (
@@ -39,7 +42,7 @@ class WorkspaceUpdate(BaseModel):
     hidden_modules: Optional[list[str]] = Field(default=None, max_length=MAX_WORKSPACE_MODULE_IDS)
 
 
-def ensure_default_workspace(db, user_id: int) -> int:
+def ensure_default_workspace(db, user_id: int, *, commit: bool = True) -> int:
     row = db.execute(
         "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
         (user_id,),
@@ -50,26 +53,38 @@ def ensure_default_workspace(db, user_id: int) -> int:
         "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, ?)",
         ("Personal", "#10b981", "home", user_id, now_iso()),
     )
-    db.execute("UPDATE projects SET workspace_id = ? WHERE user_id = ? AND workspace_id IS NULL", (c.lastrowid, user_id))
-    db.commit()
+    db.execute(
+        """UPDATE projects SET workspace_id = ?
+           WHERE workspace_id IS NULL AND id IN (
+               SELECT entity_id FROM entity_access
+               WHERE entity_type = 'project' AND owner_user_id = ?
+           )""",
+        (c.lastrowid, user_id),
+    )
+    if commit:
+        db.commit()
     return c.lastrowid
 
 
 def ensure_workspace_inbox(db, user_id: int, workspace_id: int) -> int:
     row = db.execute(
-        """SELECT id FROM projects
-           WHERE user_id = ? AND workspace_id = ? AND COALESCE(is_inbox, 0) = 1
-           ORDER BY id LIMIT 1""",
+        """SELECT p.id FROM projects p
+           JOIN entity_access ea ON ea.entity_type = 'project' AND ea.entity_id = p.id
+           WHERE ea.owner_user_id = ? AND p.workspace_id = ? AND COALESCE(p.is_inbox, 0) = 1
+           ORDER BY p.id LIMIT 1""",
         (user_id, workspace_id),
     ).fetchone()
     if row:
+        if not get_entity_ownership(db, "project", row["id"]):
+            register_personal_entity(db, "project", row["id"], user_id)
         return row["id"]
-    c = db.execute(
+    cursor = db.execute(
         """INSERT INTO projects (name, color, icon, sort_order, user_id, workspace_id, is_inbox, updated_at)
            VALUES ('Inbox', '#64748b', 'inbox', 0, ?, ?, 1, ?)""",
         (user_id, workspace_id, now_iso()),
     )
-    return c.lastrowid
+    register_personal_entity(db, "project", cursor.lastrowid, user_id)
+    return cursor.lastrowid
 
 
 @router.get("")
@@ -163,28 +178,37 @@ async def delete_workspace(workspace_id: int, user_id: int = Depends(require_aut
         default_id = ensure_default_workspace(db, user_id)
         default_inbox_id = ensure_workspace_inbox(db, user_id, default_id)
         source_inbox_id = ensure_workspace_inbox(db, user_id, workspace_id)
+        source_recipient_ids = get_project_boundary_user_ids(db, source_inbox_id)
 
         db.execute(
-            "UPDATE todos SET project_id = ?, section_id = NULL WHERE user_id = ? AND project_id = ?",
-            (default_inbox_id, user_id, source_inbox_id),
+            "UPDATE todos SET project_id = ?, section_id = NULL WHERE project_id = ?",
+            (default_inbox_id, source_inbox_id),
         )
         db.execute("DELETE FROM sections WHERE project_id = ?", (source_inbox_id,))
-        db.execute("DELETE FROM projects WHERE id = ? AND user_id = ?", (source_inbox_id, user_id))
+        db.execute("DELETE FROM entity_access WHERE entity_type = 'project' AND entity_id = ?", (source_inbox_id,))
+        db.execute("DELETE FROM projects WHERE id = ?", (source_inbox_id,))
 
         projects = db.execute(
-            """SELECT id FROM projects
-               WHERE user_id = ? AND workspace_id = ?
-               ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, parent_id, sort_order, id""",
+            """SELECT p.id FROM projects p
+               JOIN entity_access ea ON ea.entity_type = 'project' AND ea.entity_id = p.id
+               WHERE ea.owner_user_id = ? AND p.workspace_id = ?
+               ORDER BY CASE WHEN p.parent_id IS NULL THEN 0 ELSE 1 END, p.parent_id, p.sort_order, p.id""",
             (user_id, workspace_id),
         ).fetchall()
         for project in projects:
             db.execute(
-                "UPDATE projects SET workspace_id = ?, updated_at = ? WHERE id = ? AND user_id = ?",
-                (default_id, now_iso(), project["id"], user_id),
+                "UPDATE projects SET workspace_id = ?, updated_at = ? WHERE id = ?",
+                (default_id, now_iso(), project["id"]),
             )
+        db.execute(
+            "UPDATE project_members SET workspace_id = ?, updated_at = ? WHERE user_id = ? AND workspace_id = ?",
+            (default_id, now_iso(), user_id, workspace_id),
+        )
 
         db.execute("DELETE FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id))
         db.commit()
+        destination_recipient_ids = get_project_participant_user_ids(db, default_inbox_id)
         result = {"deleted": workspace_id, "moved_projects_to": default_id, "moved_projects": [dict(p) for p in projects]}
         await broadcast_change("workspace_delete", result, user_id)
+        await broadcast_sync_to_users(source_recipient_ids | destination_recipient_ids)
         return result

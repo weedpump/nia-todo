@@ -29,6 +29,7 @@ from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
 from services.utils import normalize_email, password_within_bcrypt_limit, sanitize_text, validate_email, validate_password
 from services.websocket import broadcast_change
+from services.sharing import get_project_access_flags, get_project_ids_for_user
 from errors import api_error, validation_api_error
 from paths import AVATAR_DIR
 
@@ -96,18 +97,23 @@ def _visible_project_ids_for_workspace(db, user_id: int, workspace_id: int) -> s
         (user_id,),
     ).fetchone()
     default_workspace_id = default["id"] if default else None
-    rows = db.execute(
-        """
-        SELECT id FROM projects WHERE user_id = ? AND workspace_id = ?
-        UNION
-        SELECT p.id
-        FROM projects p
-        JOIN project_members pm ON pm.project_id = p.id
-        WHERE pm.user_id = ? AND pm.status = 'accepted' AND COALESCE(pm.workspace_id, ?) = ?
-        """,
-        (user_id, workspace_id, user_id, default_workspace_id, workspace_id),
-    ).fetchall()
-    return {int(row["id"]) for row in rows}
+    visible = set()
+    for project_id in get_project_ids_for_user(db, user_id):
+        project = db.execute("SELECT workspace_id FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project:
+            continue
+        flags = get_project_access_flags(db, project_id, user_id)
+        ownership = flags["ownership"] or {}
+        direct_member = flags["direct_member"]
+        if flags["can_manage"] and ownership.get("owner_user_id") == user_id:
+            display_workspace_id = project["workspace_id"]
+        elif direct_member and direct_member["workspace_id"] is not None:
+            display_workspace_id = direct_member["workspace_id"]
+        else:
+            display_workspace_id = default_workspace_id
+        if display_workspace_id == workspace_id:
+            visible.add(int(project_id))
+    return visible
 
 
 def _validate_dashboard_preferences(db, user_id: int, workspace_id: int, value: dict) -> dict:

@@ -46,6 +46,28 @@ def make_db():
             status TEXT DEFAULT 'accepted',
             workspace_id INTEGER
         );
+        CREATE TABLE households (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            owner_user_id INTEGER NOT NULL
+        );
+        CREATE TABLE household_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            household_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            status TEXT NOT NULL
+        );
+        CREATE TABLE entity_access (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            owner_user_id INTEGER,
+            owner_household_id INTEGER
+        );
+        CREATE TABLE entity_access_grants (
+            entity_access_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL
+        );
         CREATE TABLE sections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
@@ -147,6 +169,10 @@ def make_db():
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (3, 'Haushalt', 1, 0, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (4, 'Inbox', 1, 1, 2)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (5, 'IT', 1, 0, 2)")
+    db.executemany(
+        "INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', ?, 1)",
+        [(project_id,) for project_id in range(1, 6)],
+    )
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (9, 1, 'Keller')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (10, 2, 'Obst und Gemüse')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (11, 2, 'Milchprodukte')")

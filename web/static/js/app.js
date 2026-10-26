@@ -426,6 +426,8 @@ const wsClient = createWebSocketClient({
   getAuthToken: () => getAuthToken(),
   syncWithServer: () => syncWithServer(),
   syncInProgressRef,
+  hasUnsettledSync: () => activeBackgroundSyncOperations.size > 0,
+  waitForSyncSettlement: () => waitForBackgroundSyncOperations(),
   refreshFromServer: () => refreshFromServer(),
   renderConnectionStatus: (state) => updateConnectionStatusView(state),
   dbGetAll,
@@ -455,6 +457,10 @@ const wsClient = createWebSocketClient({
   },
   onServerUpdateStatus: (status) => serverUpdateIndicator.applyStatus(status),
   onDashboardPreferencesUpdate: payload => dashboardPreferencesSyncFeature?.applyRemote(payload),
+  onAccessSnapshot: snapshot => {
+    window.niaAccessSnapshot = snapshot;
+    window.dispatchEvent(new CustomEvent('nia:access-snapshot', { detail: snapshot }));
+  },
   onAvatarUpdate: async payload => {
     if (!currentUser) return;
     const previousAvatarUrl = currentUser.avatar_url;

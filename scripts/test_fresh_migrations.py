@@ -81,6 +81,23 @@ def main():
             workspace_columns = {row[1] for row in db.execute("PRAGMA table_info(workspaces)")}
             assert "hidden_modules_json" in workspace_columns, workspace_columns
 
+            for table_name in ("households", "household_members", "entity_access", "entity_access_grants"):
+                table = db.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+                    (table_name,),
+                ).fetchone()
+                assert table == (table_name,), table
+
+            entity_access_columns = {row[1] for row in db.execute("PRAGMA table_info(entity_access)")}
+            assert {"entity_type", "entity_id", "owner_user_id", "owner_household_id"}.issubset(entity_access_columns), entity_access_columns
+            entity_access_indexes = {row[1] for row in db.execute("PRAGMA index_list(entity_access)")}
+            assert {"idx_entity_access_user_owner", "idx_entity_access_household_owner"}.issubset(entity_access_indexes), entity_access_indexes
+            household_member_indexes = {row[1] for row in db.execute("PRAGMA index_list(household_members)")}
+            assert {
+                "idx_household_members_active_user",
+                "idx_household_members_household_status",
+            }.issubset(household_member_indexes), household_member_indexes
+
         with sqlite3.connect(db_path) as db:
             db.execute("DROP TABLE dashboard_preferences")
             db.execute("UPDATE schema_version SET version = 53")

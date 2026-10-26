@@ -17,6 +17,9 @@ import hashlib
 import secrets
 
 from db import get_db, now_iso
+from services.attachments import AttachmentCleanupBatch, commit_with_attachment_recovery
+from services.sharing import get_project_participant_user_ids
+from routers.websocket import broadcast_sync_to_users
 from services.auth import create_admin_jwt_token, invalidate_all_user_tokens, revoke_all_user_sessions, verify_admin_token
 from services.utils import normalize_email, password_within_bcrypt_limit, sanitize_text, validate_admin_password, validate_email, validate_password
 from services.audit import log_audit
@@ -27,6 +30,7 @@ from services.oidc_config import get_oidc_config, update_oidc_config
 from services.email import send_email, send_test_email
 from services.two_factor import clear_recovery_codes, get_two_factor_required, list_user_device_sessions, revoke_device_session, revoke_trusted_devices, set_two_factor_required
 from services.email_templates import password_setup_email
+from services.entity_access import register_personal_entity
 from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
 from services.server_updates import get_update_progress, get_update_status, install_latest_deb_update, perform_update_check
@@ -563,6 +567,8 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             "INSERT INTO users (username, display_name, email, password_hash, is_admin, language, braindump_enabled) VALUES (?, ?, ?, ?, 0, ?, ?)",
             (data.username, data.display_name, data.email, unusable_password_hash, 'zh-CN' if data.language == 'zh-cn' else ('pt-BR' if data.language == 'pt-br' else data.language), 1 if data.braindump_enabled else 0)
         )
+        if c.lastrowid is None:
+            raise RuntimeError("User insert did not return an id")
         user_id = c.lastrowid
 
         # Create default workspace and projects for the new user
@@ -578,10 +584,13 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             ('Shopping', '#f59e0b', None, 3, 0),
         ]
         for name, color, icon, sort_order, is_inbox in default_projects:
-            db.execute(
+            project = db.execute(
                 "INSERT INTO projects (name, color, icon, sort_order, user_id, is_inbox, workspace_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
-                (name, color, icon, sort_order, user_id, is_inbox, workspace_id)
+                (name, color, icon, sort_order, user_id, is_inbox, workspace_id),
             )
+            if project.lastrowid is None:
+                raise RuntimeError("Project insert did not return an id")
+            register_personal_entity(db, "project", project.lastrowid, user_id)
 
         token = create_password_setup_token(db, user_id, "invite")
         link = _make_password_setup_link(request, token)
@@ -745,21 +754,104 @@ def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool
         return {"id": user_id, "username": username if username is not None else user["username"], "display_name": display_name, "braindump_enabled": bool(data.braindump_enabled) if data.braindump_enabled is not None else bool(user["braindump_enabled"]), "attachment_quota_bytes": attachment_quota, **result}
 
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, _: bool = Depends(require_admin)):
+async def delete_user(user_id: int, _: bool = Depends(require_admin)):
+    sync_user_ids = set()
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         user = db.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise api_error(404, "user.notFound", "User not found")
         if user['is_admin']:
             raise api_error(400, "user.adminDeleteForbidden", "Cannot delete admin user")
-        db.execute("DELETE FROM api_keys WHERE user_id = ?", (user_id,))
-        db.execute("DELETE FROM reminders WHERE todo_id IN (SELECT id FROM todos WHERE user_id = ?)", (user_id,))
-        db.execute("DELETE FROM sections WHERE user_id = ?", (user_id,))
-        db.execute("DELETE FROM todos WHERE user_id = ?", (user_id,))
-        db.execute("DELETE FROM projects WHERE user_id = ? AND COALESCE(is_inbox, 0) = 0", (user_id,))
-        db.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        db.commit()
-        return {"deleted": user_id}
+        household_relationships = db.execute(
+            """SELECT household_id FROM household_members
+               WHERE user_id = ? AND status IN ('pending', 'accepted')""",
+            (user_id,),
+        ).fetchall()
+        for relationship in household_relationships:
+            household_id = relationship["household_id"]
+            household_owner = db.execute(
+                "SELECT owner_user_id FROM households WHERE id = ?",
+                (household_id,),
+            ).fetchone()
+            if household_owner:
+                sync_user_ids.add(household_owner["owner_user_id"])
+            sync_user_ids.update(
+                row["user_id"] for row in db.execute(
+                    """SELECT user_id FROM household_members
+                       WHERE household_id = ? AND status IN ('pending', 'accepted')""",
+                    (household_id,),
+                ).fetchall()
+            )
+        project_relationships = db.execute(
+            """SELECT project_id, invited_by FROM project_members
+               WHERE user_id = ? AND status IN ('pending', 'accepted')""",
+            (user_id,),
+        ).fetchall()
+        for relationship in project_relationships:
+            sync_user_ids.update(get_project_participant_user_ids(db, relationship["project_id"]))
+            if relationship["invited_by"] is not None:
+                sync_user_ids.add(relationship["invited_by"])
+        owned_household = db.execute("SELECT id FROM households WHERE owner_user_id = ?", (user_id,)).fetchone()
+        if owned_household:
+            raise api_error(409, "user.householdTransferRequired", "Transfer or dissolve the owned household first")
+        unsupported_personal_entity = db.execute(
+            "SELECT entity_type FROM entity_access WHERE owner_user_id = ? AND entity_type != 'project' LIMIT 1",
+            (user_id,),
+        ).fetchone()
+        if unsupported_personal_entity:
+            raise api_error(409, "user.entityTransferRequired", "Transfer or delete personal entities first")
+        personal_projects = db.execute(
+            "SELECT entity_id FROM entity_access WHERE entity_type = 'project' AND owner_user_id = ?",
+            (user_id,),
+        ).fetchall()
+        project_ids = [row["entity_id"] for row in personal_projects]
+        for project_id in project_ids:
+            sync_user_ids.update(get_project_participant_user_ids(db, project_id))
+        if project_ids:
+            project_placeholders = ",".join("?" for _ in project_ids)
+            personal_todo_rows = db.execute(
+                f"SELECT id FROM todos WHERE project_id IN ({project_placeholders}) OR (project_id IS NULL AND user_id = ?)",
+                (*project_ids, user_id),
+            ).fetchall()
+        else:
+            personal_todo_rows = db.execute(
+                "SELECT id FROM todos WHERE project_id IS NULL AND user_id = ?",
+                (user_id,),
+            ).fetchall()
+        personal_todo_ids = [row["id"] for row in personal_todo_rows]
+        required_todo_ids = set()
+        if personal_todo_ids:
+            todo_placeholders = ",".join("?" for _ in personal_todo_ids)
+            required_todo_ids = {
+                row["todo_id"] for row in db.execute(
+                    f"SELECT DISTINCT todo_id FROM todo_attachments WHERE todo_id IN ({todo_placeholders})",
+                    tuple(personal_todo_ids),
+                ).fetchall()
+            }
+        with AttachmentCleanupBatch(personal_todo_ids, required_todo_ids=required_todo_ids) as cleanup:
+            db.execute("DELETE FROM api_keys WHERE user_id = ?", (user_id,))
+            db.execute("DELETE FROM reminders WHERE user_id = ?", (user_id,))
+            if personal_todo_ids:
+                todo_placeholders = ",".join("?" for _ in personal_todo_ids)
+                db.execute(f"DELETE FROM reminders WHERE todo_id IN ({todo_placeholders})", tuple(personal_todo_ids))
+                db.execute(f"DELETE FROM todo_comments WHERE todo_id IN ({todo_placeholders})", tuple(personal_todo_ids))
+                db.execute(f"DELETE FROM todo_attachments WHERE todo_id IN ({todo_placeholders})", tuple(personal_todo_ids))
+                db.execute(f"DELETE FROM todos WHERE id IN ({todo_placeholders})", tuple(personal_todo_ids))
+            if project_ids:
+                placeholders = ",".join("?" for _ in project_ids)
+                db.execute(f"DELETE FROM sections WHERE project_id IN ({placeholders})", tuple(project_ids))
+                db.execute(
+                    f"DELETE FROM entity_access WHERE entity_type = 'project' AND entity_id IN ({placeholders})",
+                    tuple(project_ids),
+                )
+                db.execute(f"DELETE FROM projects WHERE id IN ({placeholders})", tuple(project_ids))
+            db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            commit_with_attachment_recovery(db, cleanup)
+    sync_user_ids.discard(user_id)
+    if sync_user_ids:
+        await broadcast_sync_to_users(sync_user_ids)
+    return {"deleted": user_id}
 
 
 # ─── Password Management ──────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ from routers.auth import require_auth
 from services.utils import sanitize_text
 from services.websocket import broadcast_change
 from routers.todos import fetch_todo
+from services.sharing import can_access_todo
 
 router = APIRouter(prefix="/api/places")
 
@@ -121,23 +122,31 @@ async def update_place(place_id: int, data: PlaceUpdate, user_id: int = Depends(
                     (place_id, user_id),
                 ).fetchall()
                 linked_todo_ids = [row["todo_id"] for row in linked_todo_rows]
+            accessible_todo_ids = []
+            for todo_id in linked_todo_ids:
+                todo_access = db.execute(
+                    "SELECT project_id, user_id FROM todos WHERE id = ?",
+                    (todo_id,),
+                ).fetchone()
+                if todo_access and can_access_todo(db, todo_access, user_id):
+                    accessible_todo_ids.append(todo_id)
             set_clause = ", ".join(f"{field}=:{field}" for field in updates)
             db.execute(f"UPDATE saved_places SET {set_clause} WHERE id = :id AND user_id = :user_id", {**updates, "id": place_id, "user_id": user_id})
-            if "address" in updates and linked_todo_ids:
-                placeholders = ",".join("?" for _ in linked_todo_ids)
+            if "address" in updates and accessible_todo_ids:
+                placeholders = ",".join("?" for _ in accessible_todo_ids)
                 db.execute(
                     f"""UPDATE location_reminders
                         SET address = ?, updated_at = ?
                         WHERE place_id = ? AND user_id = ? AND todo_id IN ({placeholders})""",
-                    [updates["address"], updated_at, place_id, user_id, *linked_todo_ids],
+                    [updates["address"], updated_at, place_id, user_id, *accessible_todo_ids],
                 )
                 db.execute(
                     f"UPDATE todos SET updated_at = ? WHERE id IN ({placeholders})",
-                    [updated_at, *linked_todo_ids],
+                    [updated_at, *accessible_todo_ids],
                 )
             db.commit()
             row = db.execute("SELECT * FROM saved_places WHERE id = ?", (place_id,)).fetchone()
-            for todo_id in linked_todo_ids:
+            for todo_id in accessible_todo_ids:
                 todo = fetch_todo(db, todo_id, user_id)
                 if todo:
                     todos_to_broadcast.append(todo)

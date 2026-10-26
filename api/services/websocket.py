@@ -5,6 +5,7 @@ from typing import Optional
 
 from db import get_db, row_to_dict, now_iso
 from services.auth import get_current_user
+from services.sharing import get_project_access_flags, get_project_participant_user_ids
 from rate_limit import rate_limiter, get_client_ip_ws
 
 
@@ -99,40 +100,63 @@ manager = ConnectionManager()
 
 
 def get_project_view_for_user(db, project_id: int, viewer_user_id: int) -> dict | None:
-    """Return the project row as the given viewer should see it.
-
-    Owners see projects.workspace_id. Shared members see their own
-    project_members.workspace_id as display workspace and the owner's real
-    workspace as owner_workspace_id.
-    """
-    own = db.execute(
-        "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE id = ? AND user_id = ?",
-        (project_id, viewer_user_id),
-    ).fetchone()
-    if own:
-        return dict(own)
-
+    row = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+    if not row:
+        return None
+    flags = get_project_access_flags(db, project_id, viewer_user_id)
+    if not flags["can_view"]:
+        return None
+    ownership = flags["ownership"] or {}
+    member = flags["direct_member"]
+    project = dict(row)
     default_workspace = db.execute(
         "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
         (viewer_user_id,),
     ).fetchone()
-    default_workspace_id = default_workspace['id'] if default_workspace else None
-    shared = db.execute(
-        """
-        SELECT p.id, p.name, p.color, p.sort_order, p.created_at,
-               max(p.updated_at, COALESCE(pm.updated_at, p.updated_at)) as updated_at,
-               p.parent_id, p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
-               COALESCE(pm.workspace_id, ?) as workspace_id,
-               1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
-               u.username as owner_username, u.display_name as owner_display_name
-        FROM projects p
-        JOIN project_members pm ON pm.project_id = p.id
-        JOIN users u ON u.id = p.user_id
-        WHERE p.id = ? AND pm.user_id = ? AND pm.status = 'accepted'
-        """,
-        (default_workspace_id, project_id, viewer_user_id),
-    ).fetchone()
-    return dict(shared) if shared else None
+    default_workspace_id = default_workspace["id"] if default_workspace else None
+    if flags["can_manage"] and ownership.get("owner_user_id") == viewer_user_id:
+        workspace_id = row["workspace_id"]
+    elif member and member["workspace_id"] is not None:
+        workspace_id = member["workspace_id"]
+    else:
+        workspace_id = default_workspace_id
+    project["workspace_id"] = workspace_id
+    project["owner_workspace_id"] = row["workspace_id"]
+    project["owner_user_id"] = ownership.get("owner_user_id")
+    project["owner_household_id"] = ownership.get("owner_household_id")
+    project["ownership_type"] = "household" if ownership.get("owner_household_id") is not None else "user"
+    project["is_shared"] = 0 if flags["can_manage"] else 1
+    project["is_owner"] = 1 if flags["can_manage"] else 0
+    if flags["can_manage"]:
+        member_rows = db.execute(
+            """SELECT pm.*, u.username, u.display_name
+               FROM project_members pm
+               JOIN users u ON u.id = pm.user_id
+               WHERE pm.project_id = ? AND pm.status IN ('pending', 'accepted')
+               ORDER BY CASE pm.status WHEN 'accepted' THEN 0 ELSE 1 END, u.username""",
+            (project_id,),
+        ).fetchall()
+        project["members"] = [dict(member_row) for member_row in member_rows]
+    if member:
+        project["member_id"] = member["id"]
+        project["member_status"] = member["status"]
+    if ownership.get("owner_user_id") is not None:
+        owner = db.execute(
+            "SELECT username, display_name FROM users WHERE id = ?",
+            (ownership["owner_user_id"],),
+        ).fetchone()
+        project["owner_username"] = owner["username"] if owner else None
+        project["owner_display_name"] = owner["display_name"] if owner else None
+        project["household_name"] = None
+    else:
+        household = db.execute(
+            "SELECT name FROM households WHERE id = ?",
+            (ownership.get("owner_household_id"),),
+        ).fetchone()
+        project["owner_username"] = None
+        project["owner_display_name"] = None
+        project["household_name"] = household["name"] if household else None
+    return project
 
 
 async def broadcast_project_updates(project_ids: list[int], actor_user_id: int):
@@ -148,18 +172,9 @@ async def broadcast_project_updates(project_ids: list[int], actor_user_id: int):
 
     try:
         with get_db() as db:
-            placeholders = ','.join('?' for _ in unique_project_ids)
-            owner_rows = db.execute(
-                f"SELECT DISTINCT user_id FROM projects WHERE id IN ({placeholders}) AND user_id IS NOT NULL",
-                tuple(unique_project_ids),
-            ).fetchall()
-            member_rows = db.execute(
-                f"SELECT DISTINCT user_id FROM project_members WHERE project_id IN ({placeholders}) AND status = 'accepted'",
-                tuple(unique_project_ids),
-            ).fetchall()
             recipients = {actor_user_id}
-            recipients.update(row['user_id'] for row in owner_rows)
-            recipients.update(row['user_id'] for row in member_rows)
+            for project_id in unique_project_ids:
+                recipients.update(get_project_participant_user_ids(db, project_id))
 
             messages = []
             for uid in recipients:
@@ -187,14 +202,7 @@ async def broadcast_change(event_type: str, payload: dict, user_id: int, project
     if project_id is not None:
         try:
             with get_db() as db:
-                project = db.execute("SELECT user_id FROM projects WHERE id = ?", (project_id,)).fetchone()
-                if project and project[0] is not None:
-                    recipients.add(project[0])
-                rows = db.execute(
-                    "SELECT user_id FROM project_members WHERE project_id = ? AND status = 'accepted'",
-                    (project_id,),
-                ).fetchall()
-                recipients.update(r[0] for r in rows)
+                recipients.update(get_project_participant_user_ids(db, project_id))
         except Exception:
             pass
 
