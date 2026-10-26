@@ -125,6 +125,7 @@ async function testNativeAboutChangelogBadgeOpensWebsiteOnce() {
     if (href !== 'https://nia-todo.homelabdiary.dev/changelog/') {
       throw new Error(`Expected public website changelog URL, got ${href}`);
     }
+    const pathBeforeClick = await page.evaluate(() => location.pathname);
     await badge.dispatchEvent('click');
     await page.waitForFunction(() => {
       const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
@@ -132,8 +133,10 @@ async function testNativeAboutChangelogBadgeOpensWebsiteOnce() {
     }, null, { timeout: 10_000 });
     const opened = await page.evaluate(() => window.__nativeOpenedUrls || []);
     if (opened.length !== 1) throw new Error(`Expected exactly one native openExternal call, got ${opened.length}`);
-    const path = await page.evaluate(() => location.pathname);
-    if (path !== '/') throw new Error(`Native About changelog click must not navigate inside app, got ${path}`);
+    const pathAfterClick = await page.evaluate(() => location.pathname);
+    if (pathAfterClick !== pathBeforeClick) {
+      throw new Error(`Native About changelog click must not navigate inside app, got ${pathBeforeClick} -> ${pathAfterClick}`);
+    }
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
@@ -160,13 +163,16 @@ async function testNativeDocumentationOpensExternally() {
     await page.click('#user-menu-button');
     await page.click('#menu-settings-btn');
     await page.locator('#settings-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+    const pathBeforeClick = await page.evaluate(() => location.pathname);
     await page.locator('#settings-modal [data-external-resource]').dispatchEvent('click');
     await page.waitForFunction(() => {
       const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
       return opened.length === 1 && opened[0] === 'https://nia-todo.homelabdiary.dev/docs/api/';
     }, null, { timeout: 10_000 });
-    const apiDocsPath = await page.evaluate(() => location.pathname);
-    if (apiDocsPath !== '/') throw new Error(`Native API documentation click must not navigate inside app, got ${apiDocsPath}`);
+    const pathAfterClick = await page.evaluate(() => location.pathname);
+    if (pathAfterClick !== pathBeforeClick) {
+      throw new Error(`Native API documentation click must not navigate inside app, got ${pathBeforeClick} -> ${pathAfterClick}`);
+    }
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
