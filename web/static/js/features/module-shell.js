@@ -113,7 +113,7 @@ export function createModuleShell({ onActiveModuleChange, getWorkspace = () => n
       getModule(previousModuleId).deactivate?.();
       controllers.get(previousModuleId)?.onDeactivate?.();
     }
-    renderActiveModule();
+    if (normalize || previousModuleId !== activeModuleId) renderActiveModule();
   }
 
   function navigate(path, { replace = false } = {}) {

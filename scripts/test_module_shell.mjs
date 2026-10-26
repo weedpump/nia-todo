@@ -101,6 +101,7 @@ assert(shellSource.includes('getModule(previousModuleId).deactivate?.()'), 'self
 assert(shellSource.includes('getModule(activeModuleId).onSearch?.(value)'), 'self-contained modules must receive shared search events');
 assert(shellSource.includes('controllers.get(activeModuleId)?.onSearch?.(value)'), 'module shell must route search to the active controller');
 assert(shellSource.includes("window.addEventListener('popstate'"), 'module shell must react to browser history');
+assert(shellSource.includes('if (normalize || previousModuleId !== activeModuleId) renderActiveModule();'), 'same-module UI history changes must not reactivate and rerender the active module');
 assert(shellSource.includes('history.pushState('), 'module navigation must create browser history entries');
 assert(shellSource.includes('history.replaceState('), 'startup must normalize the module URL without adding history');
 assert(shellSource.includes("const PERSISTENT_MODULE_SLOTS = new Set(['settingsNav', 'settings', 'desktopHotkeys'])"), 'registered module settings must remain available independently of the active module');
