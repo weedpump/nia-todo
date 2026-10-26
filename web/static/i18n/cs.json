@@ -114,6 +114,9 @@
   "webInstall.ios.mock.add": "Přidat",
   "appDownloads.sidebarSubtitle": "Nainstalujte si desktopovou aplikaci nebo aplikaci pro Android.",
   "settings.title": "Nastavení",
+  "settings.group.general": "Obecné",
+  "settings.group.modules": "Moduly",
+  "settings.nav.chooseSection": "Vybrat oblast",
   "settings.profile.username": "Uživatelské jméno",
   "settings.profile.displayName": "Zobrazovaný název",
   "settings.profile.email": "Email",
@@ -290,7 +293,7 @@
   "workspace.nameRequired": "Zadejte jméno.",
   "workspace.onlineOnlyUpdate": "Změna pracovních prostorů momentálně funguje pouze online.",
   "workspace.onlineOnlyDelete": "Mazání pracovních prostorů momentálně funguje pouze online.",
-  "workspace.saved": "Pracovní prostor přejmenován.",
+  "workspace.saved": "Pracovní prostor uložen.",
   "workspace.created": "Pracovní prostor vytvořen.",
   "workspace.deleteTitle": "Smazat pracovní prostor?",
   "workspace.deleteConfirm": "Smazat pracovní prostor",
@@ -1681,6 +1684,9 @@
   "workspace.modalHint": "Uspořádejte projekty podle kontextu, týmu nebo oblasti.",
   "workspace.details": "Podrobnosti",
   "workspace.detailsHint": "Název, barva a ikona tohoto pracovního prostoru.",
+  "workspace.modules": "Viditelné moduly",
+  "workspace.modulesHint": "Vyberte moduly, které se zobrazí v nabídce modulů tohoto pracovního prostoru.",
+  "workspace.modulesRequired": "Alespoň jeden modul musí zůstat viditelný.",
   "project.modalHint": "Strukturujte úkoly pomocí barvy, ikony a volitelné hierarchie.",
   "project.details": "Podrobnosti",
   "project.detailsHint": "Barva a ikona pro tento projekt.",
@@ -1956,5 +1962,7 @@
   "todo.multiAdd.created.many": "Vytvořeno {count} úkolů",
   "todo.multiAdd.recurringNeedsDue": "Opakovaný úkol potřebuje termín.",
   "todo.multiAdd.pasteOmitted.one": "Najednou lze přidat nejvýše {max} úkolů. Nebyl přidán {count} vložený řádek.",
-  "todo.multiAdd.pasteOmitted.many": "Najednou lze přidat nejvýše {max} úkolů. Nebylo přidáno {count} vložených řádků."
+  "todo.multiAdd.pasteOmitted.many": "Najednou lze přidat nejvýše {max} úkolů. Nebylo přidáno {count} vložených řádků.",
+  "module.placeholder.body": "Tento modul je připojen. Jeho funkce budou doplněny v samostatném kroku.",
+  "module.placeholder.search": "Vyhledávání bude doplněno s modulem"
 }

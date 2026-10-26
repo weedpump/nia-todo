@@ -8,6 +8,7 @@
 @import url("/static/css/09-module-switcher.css");
 @import url("/static/css/10-navigation-sidebar.css");
 @import url("/static/css/11-main-shell.css");
+@import url("/static/css/14-module-content.css");
 @import url("/static/css/12-overview-dashboard.css");
 @import url("/static/css/20-todos-list.css");
 @import url("/static/css/30-buttons-empty.css");
@@ -49,3 +50,4 @@
 @import url("/static/css/95-todo-detail-mobile-viewport.css");
 @import url("/static/css/96-todo-multi-add.css");
 @import url("/static/css/97-date-time-picker.css");
+@import url("/static/css/99-ui-primitives.css");

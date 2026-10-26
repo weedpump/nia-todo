@@ -114,6 +114,9 @@
   "webInstall.ios.mock.add": "Lägg till",
   "appDownloads.sidebarSubtitle": "Installera skrivbords- eller Android-appen.",
   "settings.title": "Inställningar",
+  "settings.group.general": "Allmänt",
+  "settings.group.modules": "Moduler",
+  "settings.nav.chooseSection": "Välj avsnitt",
   "settings.profile.username": "Användarnamn",
   "settings.profile.displayName": "Visningsnamn",
   "settings.profile.email": "E-post",
@@ -290,7 +293,7 @@
   "workspace.nameRequired": "Vänligen ange ett namn.",
   "workspace.onlineOnlyUpdate": "Att byta arbetsytor fungerar för närvarande bara online.",
   "workspace.onlineOnlyDelete": "Att ta bort arbetsytor fungerar för närvarande bara online.",
-  "workspace.saved": "Arbetsytan har bytt namn.",
+  "workspace.saved": "Arbetsytan har sparats.",
   "workspace.created": "Arbetsyta skapad.",
   "workspace.deleteTitle": "Ta bort arbetsyta?",
   "workspace.deleteConfirm": "Ta bort arbetsyta",
@@ -1681,6 +1684,9 @@
   "workspace.modalHint": "Organisera projekt efter sammanhang, team eller område.",
   "workspace.details": "Detaljer",
   "workspace.detailsHint": "Namn, färg och ikon för denna arbetsyta.",
+  "workspace.modules": "Synliga moduler",
+  "workspace.modulesHint": "Välj vilka moduler som visas i den här arbetsytans modulmeny.",
+  "workspace.modulesRequired": "Minst en modul måste vara synlig.",
   "project.modalHint": "Strukturera uppgifter med en färg, ikon och valfri hierarki.",
   "project.details": "Detaljer",
   "project.detailsHint": "Färg och ikon för detta projekt.",
@@ -1956,5 +1962,7 @@
   "todo.multiAdd.created.many": "{count} uppgifter skapade",
   "todo.multiAdd.recurringNeedsDue": "En återkommande uppgift behöver ett förfallodatum.",
   "todo.multiAdd.pasteOmitted.one": "Högst {max} uppgifter kan läggas till samtidigt. {count} inklistrad rad lades inte till.",
-  "todo.multiAdd.pasteOmitted.many": "Högst {max} uppgifter kan läggas till samtidigt. {count} inklistrade rader lades inte till."
+  "todo.multiAdd.pasteOmitted.many": "Högst {max} uppgifter kan läggas till samtidigt. {count} inklistrade rader lades inte till.",
+  "module.placeholder.body": "Modulen är ansluten. Dess funktioner kommer i ett separat steg.",
+  "module.placeholder.search": "Sökning kommer med modulen"
 }

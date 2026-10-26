@@ -114,6 +114,9 @@
   "webInstall.ios.mock.add": "添加",
   "appDownloads.sidebarSubtitle": "安装桌面或 Android 应用程序。",
   "settings.title": "设置",
+  "settings.group.general": "常规",
+  "settings.group.modules": "模块",
+  "settings.nav.chooseSection": "选择区域",
   "settings.profile.username": "用户名",
   "settings.profile.displayName": "显示名称",
   "settings.profile.email": "电子邮件",
@@ -290,7 +293,7 @@
   "workspace.nameRequired": "请输入姓名。",
   "workspace.onlineOnlyUpdate": "更改工作空间目前只能在线进行。",
   "workspace.onlineOnlyDelete": "目前，删除工作区只能在线进行。",
-  "workspace.saved": "工作区已重命名。",
+  "workspace.saved": "工作区已保存。",
   "workspace.created": "工作区已创建。",
   "workspace.deleteTitle": "删除工作区？",
   "workspace.deleteConfirm": "删除工作区",
@@ -1679,6 +1682,9 @@
   "workspace.modalHint": "按背景、团队或区域组织项目。",
   "workspace.details": "详情",
   "workspace.detailsHint": "此工作区的名称、颜色和图标。",
+  "workspace.modules": "可见模块",
+  "workspace.modulesHint": "选择要在此工作区的模块菜单中显示的模块。",
+  "workspace.modulesRequired": "必须至少保留一个可见模块。",
   "project.modalHint": "使用颜色、图标和可选层次结构构建待办事项。",
   "project.details": "详情",
   "project.detailsHint": "该项目的颜色和图标。",
@@ -1956,5 +1962,7 @@
   "todo.multiAdd.pasteOmitted.one": "一次最多可添加 {max} 个待办事项。未添加粘贴内容中的 {count} 行。",
   "todo.multiAdd.pasteOmitted.many": "一次最多可添加 {max} 个待办事项。未添加粘贴内容中的 {count} 行。",
   "dashboard.preferences.layout.compact": "紧凑显示",
-  "dashboard.preferences.layout.groupByStatus": "按状态分组"
+  "dashboard.preferences.layout.groupByStatus": "按状态分组",
+  "module.placeholder.body": "此模块已接入。具体功能将在后续步骤中单独实现。",
+  "module.placeholder.search": "搜索功能将随模块后续提供"
 }

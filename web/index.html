@@ -92,7 +92,7 @@
         <button type="button" class="module-switcher-button" id="module-switcher-button" data-module-action="toggle" aria-haspopup="menu" aria-expanded="false" aria-label="Nia-Bereich wechseln" data-i18n-aria-label-key="moduleSwitcher.toggle">
           <span class="module-switcher-current-icon" id="module-switcher-current-icon" aria-hidden="true"></span>
           <span class="module-switcher-copy">
-            <strong class="module-switcher-current-name" id="module-switcher-current-name" data-i18n-key="module.tasks.label">Aufgaben</strong>
+            <strong class="module-switcher-current-name" id="module-switcher-current-name">Aufgaben</strong>
             <span class="module-switcher-app-name">Nia</span>
           </span>
           <svg class="module-switcher-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -101,46 +101,7 @@
       </div>
 
       <div class="sidebar-scroll-region">
-        <nav class="nav-section">
-          <div class="nav-title" data-i18n-key="nav.view">Ansicht</div>
-          <button class="nav-btn ui-nav-pill" data-filter="all" aria-label="Dashboard" data-i18n-aria-label-key="nav.dashboard" title="Dashboard" data-i18n-title-key="nav.dashboard">
-            <span data-icon="layout-dashboard"></span> <span data-i18n-key="nav.dashboard">Dashboard</span>
-            <span class="badge" id="count-all">0</span>
-          </button>
-          <button class="nav-btn ui-nav-pill" data-filter="focus" aria-label="Filter" data-i18n-aria-label-key="nav.focus" title="Filter" data-i18n-title-key="nav.focus">
-            <span data-icon="funnel"></span> <span data-i18n-key="nav.focus">Filter</span>
-            <span class="badge" id="count-focus">0</span>
-          </button>
-          <button class="nav-btn ui-nav-pill" data-filter="calendar" aria-label="Calendar" data-i18n-aria-label-key="nav.calendar" title="Calendar" data-i18n-title-key="nav.calendar">
-            <span data-icon="calendar-days"></span> <span data-i18n-key="nav.calendar">Kalender</span>
-            <span class="badge" id="count-calendar">0</span>
-          </button>
-          <button class="nav-btn ui-nav-pill" data-filter="in_progress" aria-label="In progress" data-i18n-aria-label-key="nav.inProgress" title="In progress" data-i18n-title-key="nav.inProgress">
-            <span data-icon="flame"></span> <span data-i18n-key="nav.inProgress">In progress</span>
-            <span class="badge" id="count-in_progress">0</span>
-          </button>
-          <button class="nav-btn ui-nav-pill" data-filter="done" aria-label="Done" data-i18n-aria-label-key="nav.done" title="Done" data-i18n-title-key="nav.done">
-            <span data-icon="check-circle"></span> <span data-i18n-key="nav.done">Erledigt</span>
-            <span class="badge" id="count-done">0</span>
-          </button>
-        </nav>
-
-        <nav class="nav-section">
-          <div class="nav-title" data-i18n-key="nav.projects">Projects</div>
-          <div id="project-list"></div>
-          <div class="project-tree-item add-project-tree-item">
-            <div class="nav-item-with-action">
-              <button class="nav-btn ui-nav-pill add-btn" data-nav-action="new-project" aria-label="Add project" data-i18n-aria-label-key="nav.addProject" title="Add project" data-i18n-title-key="nav.addProject">
-                <span class="entity-icon add-project-icon" data-icon="plus"></span><span data-i18n-key="nav.addProject">Add project</span>
-              </button>
-            </div>
-          </div>
-        </nav>
-
-        <nav class="nav-section" id="invites-section" style="display:none;">
-          <div class="nav-title" data-i18n-key="nav.invitations">Einladungen</div>
-          <div id="invites-list"></div>
-        </nav>
+        <div class="module-slot-root module-sidebar-slot" id="module-sidebar-slot"></div>
       </div>
 
       <div class="sidebar-footer">
@@ -163,9 +124,7 @@
             <button type="button" class="ui-menu-item user-menu-item" id="theme-toggle-btn" data-user-menu-action="theme" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
             <button type="button" class="ui-menu-item user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
-            <button type="button" class="ui-menu-item user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
-            <button type="button" class="ui-menu-item user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
-            <button type="button" class="ui-menu-item user-menu-item" id="dashboard-preferences-menu-btn" data-dashboard-preferences-action="open" role="menuitem"><span class="menu-item-icon" data-icon="sliders-horizontal"></span><span class="menu-item-label" data-i18n-key="dashboard.preferences.open">Dashboard anpassen</span></button>
+            <div class="module-slot-root module-slot-root-inline" id="module-user-menu-slot"></div>
             <button type="button" class="ui-menu-item user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
             <button type="button" class="ui-menu-item user-menu-item shortcut-help-menu-item" data-user-menu-action="shortcuts" role="menuitem"><span data-icon="keyboard"></span><span data-i18n-key="menu.shortcuts">Tastaturkürzel</span></button>
             <button type="button" class="ui-menu-item user-menu-item" data-user-menu-action="about" role="menuitem"><span data-icon="info"></span><span data-i18n-key="about.menu">Über Nia</span></button>
@@ -223,19 +182,6 @@
       </div>
     </div>
 
-    <div class="modal web-update-modal" id="android-location-permission-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="android-location-permission-title">
-      <div class="modal-overlay web-update-backdrop"></div>
-      <div class="modal-content web-update-content">
-        <div class="web-update-icon" aria-hidden="true" data-icon="map-pin"></div>
-        <h3 id="android-location-permission-title" data-i18n-key="todo.location.permission.title">Standortzugriff einrichten</h3>
-        <p id="android-location-permission-message" data-i18n-key="todo.location.permission.body">Damit ortsbezogene Erinnerungen auch bei geschlossener App funktionieren, benötigt Nia dauerhaften Standortzugriff. Erlaube zuerst den genauen Standort. Wähle anschließend in den Android-App-Einstellungen „Immer zulassen“ und kehre zu Nia zurück.</p>
-        <div class="web-update-actions">
-          <button type="button" class="btn btn-secondary" id="android-location-permission-decline" data-i18n-key="todo.location.permission.decline">Nicht verwenden</button>
-          <button type="button" class="btn btn-primary" id="android-location-permission-continue" data-i18n-key="todo.location.permission.continue">Berechtigungen einrichten</button>
-        </div>
-      </div>
-    </div>
-
     <div class="modal ui-detail-modal ui-detail-view" id="about-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="about-modal-title">
       <div class="modal-overlay" data-close-modal="about-modal"></div>
       <div class="modal-content ui-detail-modal-content">
@@ -264,7 +210,7 @@
               <p class="about-update-note" id="about-update-note" hidden></p>
               <div class="about-row"><span class="about-label" id="about-client-version-label">App-Version</span><span class="about-version-value"><strong id="about-client-version">–</strong><span class="about-version-status" id="about-client-version-status" role="img" hidden></span></span></div>
             </div>
-            <section class="about-resources ui-detail-section" aria-labelledby="about-resources-title">
+            <section class="about-resources ui-detail-section ui-section-divider" aria-labelledby="about-resources-title">
               <div class="ui-section-heading ui-detail-section-heading is-title-only">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="link"></div>
                 <div><h4 id="about-resources-title" data-i18n-key="resource.section">Ressourcen</h4></div>
@@ -276,7 +222,7 @@
                 <a class="btn btn-secondary about-resource-link" href="https://github.com/weedpump/nia-todo/issues/new" target="_blank" rel="noopener noreferrer" data-external-resource><span data-icon="bug"></span><span data-i18n-key="resource.reportIssue">Problem melden</span><span class="about-resource-chevron" data-icon="chevron-right"></span></a>
               </div>
             </section>
-            <div class="about-actions ui-detail-action-row">
+            <div class="about-actions ui-detail-action-row ui-section-divider">
               <button type="button" class="btn btn-secondary" id="about-reload-btn" data-force-refresh-button><span data-icon="refresh-cw"></span><span data-i18n-key="about.reloadWebApp">Web-App neu laden</span></button>
               <button type="button" class="btn btn-primary" id="about-downloads-btn" data-about-action="downloads"><span data-icon="download"></span><span data-i18n-key="appDownloads.title">Apps herunterladen</span></button>
             </div>
@@ -300,42 +246,18 @@
         </div>
         <div class="modal-body ui-detail-modal-body">
           <div class="shortcuts-shell ui-detail-shell">
-            <section class="ui-section-card ui-detail-section shortcuts-section" aria-labelledby="shortcuts-general-title">
+            <section class="ui-section-card ui-detail-section ui-section-divider shortcuts-section" aria-labelledby="shortcuts-general-title">
               <div class="ui-section-heading ui-detail-section-heading is-title-only">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="keyboard"></div>
                 <div><h4 id="shortcuts-general-title" data-i18n-key="shortcuts.section.general">Allgemein</h4></div>
               </div>
               <div class="shortcuts-list">
                 <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.openHelp">Tastaturkürzel öffnen</span><span class="shortcuts-keys"><kbd>?</kbd></span></div>
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.newTodo">Neues Todo erstellen</span><span class="shortcuts-keys"><kbd>N</kbd></span></div>
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.todayView">Heute-Ansicht umschalten</span><span class="shortcuts-keys"><kbd>T</kbd></span></div>
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.calmView">Ruhige Ansicht umschalten</span><span class="shortcuts-keys"><kbd>C</kbd></span></div>
                 <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.switchWorkspace">Workspace 1 bis 6 öffnen</span><span class="shortcuts-keys"><kbd>Alt</kbd><span>+</span><kbd>1–6</kbd></span></div>
                 <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.closeDialog">Dialog oder Menü schließen</span><span class="shortcuts-keys"><kbd>Esc</kbd></span></div>
               </div>
             </section>
-            <section class="ui-section-card ui-detail-section shortcuts-section" aria-labelledby="shortcuts-todo-list-title">
-              <div class="ui-section-heading ui-detail-section-heading is-title-only">
-                <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
-                <div><h4 id="shortcuts-todo-list-title" data-i18n-key="shortcuts.section.todoList">Todo-Liste</h4></div>
-              </div>
-              <div class="shortcuts-list">
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.cycleStatus">Status des fokussierten Todos weiterschalten</span><span class="shortcuts-keys"><kbd>Space</kbd></span></div>
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.deleteTodo">Fokussiertes Todo löschen</span><span class="shortcuts-keys"><kbd>Delete</kbd></span></div>
-              </div>
-            </section>
-            <section class="ui-section-card ui-detail-section shortcuts-section" aria-labelledby="shortcuts-editor-title">
-              <div class="ui-section-heading ui-detail-section-heading is-title-only">
-                <div class="ui-section-icon ui-detail-section-icon" data-icon="pencil"></div>
-                <div><h4 id="shortcuts-editor-title" data-i18n-key="shortcuts.section.editor">Todo-Editor</h4></div>
-              </div>
-              <div class="shortcuts-list">
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.saveTodo">Todo aus dem Titelfeld speichern</span><span class="shortcuts-keys"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd><span class="shortcuts-key-alternative" aria-hidden="true">/</span><span class="visually-hidden" data-i18n-key="shortcuts.or">oder</span><kbd>⌘</kbd><span>+</span><kbd>Enter</kbd></span></div>
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.multiAddNext">Mehrfachanlage: neue Zeile</span><span class="shortcuts-keys"><kbd>Enter</kbd></span></div>
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.multiAddRemove">Mehrfachanlage: leere Zeile entfernen</span><span class="shortcuts-keys"><kbd>Backspace</kbd></span></div>
-                <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.multiAddSave">Mehrfachanlage speichern</span><span class="shortcuts-keys"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd><span class="shortcuts-key-alternative" aria-hidden="true">/</span><span class="visually-hidden" data-i18n-key="shortcuts.or">oder</span><kbd>⌘</kbd><span>+</span><kbd>Enter</kbd></span></div>
-              </div>
-            </section>
+            <div class="module-slot-root" id="module-shortcuts-slot"></div>
           </div>
         </div>
       </div>
@@ -425,8 +347,7 @@
       <!-- Top bar -->
       <div class="topbar">
         <button type="button" class="hamburger" id="sidebar-toggle-btn" data-sidebar-toggle aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu" title="Open menu" data-i18n-title-key="topbar.openMenu" aria-expanded="false"><span data-icon="sidebar"></span></button>
-        <button type="button" class="today-focus-btn" id="today-focus-btn" title="Heute-Ansicht" data-i18n-title-key="todayFocus.toggleTitle"><span class="today-calendar-icon" aria-hidden="true"></span><span data-i18n-key="todayFocus.short">Heute</span></button>
-        <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" title="Ruhige Ansicht" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="leaf"></span><span data-i18n-key="minimalTodos.short">Ruhe</span></button>
+        <div class="module-slot-root module-slot-root-inline" id="module-topbar-slot"></div>
         <div class="search-box" id="search-box">
           <button type="button" class="btn btn-secondary btn-icon search-toggle-btn" id="search-toggle-btn" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
           <input type="search" class="ui-field" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo">
@@ -444,501 +365,9 @@
         </div>
       </div>
 
-      <button class="fab-add-todo" type="button" data-todo-action="new" aria-label="Create new todo" data-i18n-aria-label-key="todo.create" title="New todo" data-i18n-title-key="todo.new">
-        <span>+</span>
-      </button>
-
-      <!-- Stats -->
-      <div class="stats-bar" id="stats-bar"></div>
-
-      <!-- Todos -->
-      <div class="todo-list" id="todo-list"></div>
+      <div class="module-slot-root module-slot-root-inline" id="module-floating-slot"></div>
+      <section class="module-slot-root module-main-slot" id="module-main-slot"></section>
     </main>
-  </div>
-
-  <!-- Dashboard Preferences Modal -->
-  <div class="modal ui-detail-modal ui-detail-view dashboard-preferences-modal" id="dashboard-preferences-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dashboard-preferences-modal-title">
-    <div class="modal-overlay" data-dashboard-preferences-action="cancel"></div>
-    <div class="modal-content entity-modal-content ui-detail-modal-content dashboard-preferences-modal-content">
-      <div class="entity-modal-header dashboard-preferences-modal-header ui-detail-modal-header">
-        <div class="entity-modal-title-icon ui-detail-title-icon" data-icon="sliders-horizontal"></div>
-        <div>
-          <h3 id="dashboard-preferences-modal-title" data-i18n-key="dashboard.preferences.title">Dashboard anpassen</h3>
-          <p data-i18n-key="dashboard.preferences.subtitle">Blende Unwichtiges aus und richte das Dashboard auf deinen Alltag aus.</p>
-        </div>
-        <div class="ui-detail-header-actions">
-          <button type="submit" form="dashboard-preferences-form" class="btn btn-primary" id="dashboard-preferences-save" aria-label="Speichern" data-i18n-aria-label-key="common.save"><span class="dashboard-preferences-save-icon" data-icon="check" aria-hidden="true"></span><span class="dashboard-preferences-save-label" data-i18n-key="common.save">Speichern</span></button>
-          <button type="button" class="btn btn-secondary btn-icon" id="dashboard-preferences-reset" data-dashboard-preferences-action="reset" title="Zurücksetzen" aria-label="Zurücksetzen" data-i18n-title-key="focus.reset" data-i18n-aria-label-key="focus.reset"><span data-icon="rotate-ccw"></span></button>
-          <button type="button" class="modal-close-x" data-dashboard-preferences-action="cancel" aria-label="Dashboard-Anpassung schließen" data-i18n-aria-label-key="dashboard.preferences.close"><span data-icon="x"></span></button>
-        </div>
-      </div>
-      <div class="modal-body entity-modal-body ui-detail-modal-body">
-        <form id="dashboard-preferences-form" class="entity-modal-form dashboard-preferences-shell ui-detail-shell">
-          <section class="ui-section-card ui-detail-section dashboard-preferences-sync-section">
-            <div class="ui-section-heading ui-detail-section-heading dashboard-preferences-sync-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="cloud"></div>
-              <div>
-                <h4 id="dashboard-preferences-sync-label" data-i18n-key="dashboard.preferences.sync.label">Über meinen Account synchronisieren</h4>
-                <p data-i18n-key="dashboard.preferences.sync.hint">Gleicht diese Einstellungen zwischen allen angemeldeten Apps und Browsern ab.</p>
-              </div>
-              <label class="dashboard-preferences-switch-control" for="dashboard-preferences-sync-enabled">
-                <input type="checkbox" id="dashboard-preferences-sync-enabled" role="switch" aria-labelledby="dashboard-preferences-sync-label">
-                <span class="dashboard-preferences-switch-track" aria-hidden="true"><span></span></span>
-              </label>
-            </div>
-          </section>
-
-          <section class="ui-section-card ui-detail-section dashboard-preferences-workspace-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="briefcase"></div>
-              <div>
-                <h4 data-i18n-key="dashboard.preferences.workspace.label">Workspace</h4>
-                <p data-i18n-key="dashboard.preferences.workspace.hint">Jeder Workspace verwendet seine eigene Dashboard-Konfiguration.</p>
-              </div>
-            </div>
-            <div class="form-group dashboard-preferences-workspace-field">
-              <label for="dashboard-preferences-workspace" data-i18n-key="dashboard.preferences.workspace.select">Workspace auswählen</label>
-              <select class="ui-field" id="dashboard-preferences-workspace" data-ui-select></select>
-            </div>
-          </section>
-
-          <section class="ui-section-card ui-detail-section ui-detail-title-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
-              <div>
-                <h4 data-i18n-key="dashboard.preferences.layout.title">Darstellung</h4>
-                <p data-i18n-key="dashboard.preferences.layout.hint">Bestimme, wie ausführlich dein Dashboard sein soll.</p>
-              </div>
-            </div>
-            <div class="dashboard-preferences-layout-controls">
-              <div class="dashboard-preferences-toggle-list" aria-label="Dashboard-Inhalte" data-i18n-aria-label-key="dashboard.preferences.content.title">
-                <label class="dashboard-preferences-toggle">
-                  <span data-i18n-key="dashboard.preferences.layout.compact">Kompakte Darstellung</span>
-                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-compact-display"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
-                </label>
-                <label class="dashboard-preferences-toggle">
-                  <span data-i18n-key="dashboard.preferences.layout.groupByStatus">Nach Status gruppieren</span>
-                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-group-by-status"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
-                </label>
-                <label class="dashboard-preferences-toggle">
-                  <span data-i18n-key="dashboard.preferences.content.focus">„Jetzt relevant“ anzeigen</span>
-                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-show-focus"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
-                </label>
-                <label class="dashboard-preferences-toggle">
-                  <span data-i18n-key="dashboard.preferences.content.projects">Aktive Projekte anzeigen</span>
-                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-show-active-projects"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
-                </label>
-                <label class="dashboard-preferences-toggle">
-                  <span data-i18n-key="dashboard.preferences.content.projectWidgets">Projekt-Widgets anzeigen</span>
-                  <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-show-project-widgets"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
-                </label>
-              </div>
-            </div>
-          </section>
-
-          <section class="ui-section-card ui-detail-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="folder-tree"></div>
-              <div>
-                <h4 data-i18n-key="dashboard.preferences.projects.title">Berücksichtigte Projekte</h4>
-                <p data-i18n-key="dashboard.preferences.projects.hint">Diese Auswahl gilt nur für das Dashboard.</p>
-              </div>
-            </div>
-            <div class="dashboard-preferences-project-controls">
-              <div class="form-group">
-                <label for="dashboard-preferences-project-scope" data-i18n-key="dashboard.preferences.projects.mode">Auswahl</label>
-                <select class="ui-field" id="dashboard-preferences-project-scope" data-ui-select>
-                  <option value="all" data-i18n-key="dashboard.preferences.projects.all">Alle Projekte</option>
-                  <option value="include" data-i18n-key="dashboard.preferences.projects.include">Nur ausgewählte Projekte</option>
-                  <option value="exclude" data-i18n-key="dashboard.preferences.projects.exclude">Ausgewählte Projekte ausschließen</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <span class="form-label" id="dashboard-preferences-projects-label" data-i18n-key="focus.projects">Projekte</span>
-                <div class="dashboard-preferences-projects" id="dashboard-preferences-projects" aria-labelledby="dashboard-preferences-projects-label"></div>
-              </div>
-            </div>
-          </section>
-
-          <section class="ui-section-card ui-detail-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="chart-no-axes-column"></div>
-              <div>
-                <h4 data-i18n-key="dashboard.preferences.stats.title">Kennzahlen</h4>
-                <p data-i18n-key="dashboard.preferences.stats.hint">Wähle vier unterschiedliche Kacheln und ihre Reihenfolge.</p>
-              </div>
-            </div>
-            <div class="dashboard-preferences-stat-grid" id="dashboard-preferences-stats">
-              <div class="form-group"><label for="dashboard-preferences-stat-1" data-i18n-key="dashboard.preferences.stats.slot1">Kachel 1</label><select class="ui-field" id="dashboard-preferences-stat-1" data-ui-select data-dashboard-stat-slot="0"></select></div>
-              <div class="form-group"><label for="dashboard-preferences-stat-2" data-i18n-key="dashboard.preferences.stats.slot2">Kachel 2</label><select class="ui-field" id="dashboard-preferences-stat-2" data-ui-select data-dashboard-stat-slot="1"></select></div>
-              <div class="form-group"><label for="dashboard-preferences-stat-3" data-i18n-key="dashboard.preferences.stats.slot3">Kachel 3</label><select class="ui-field" id="dashboard-preferences-stat-3" data-ui-select data-dashboard-stat-slot="2"></select></div>
-              <div class="form-group"><label for="dashboard-preferences-stat-4" data-i18n-key="dashboard.preferences.stats.slot4">Kachel 4</label><select class="ui-field" id="dashboard-preferences-stat-4" data-ui-select data-dashboard-stat-slot="3"></select></div>
-            </div>
-            <div class="settings-field-error" id="dashboard-preferences-error" role="alert"></div>
-          </section>
-
-          <section class="ui-section-card ui-detail-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="target"></div>
-              <div>
-                <h4 data-i18n-key="dashboard.preferences.focus.title">Jetzt relevant</h4>
-                <p data-i18n-key="dashboard.preferences.focus.hint">Lege fest, welche handlungsrelevanten Gruppen erscheinen.</p>
-              </div>
-            </div>
-            <div class="dashboard-preferences-choice-grid" id="dashboard-preferences-focus-items">
-              <label class="dashboard-preferences-choice"><span class="ui-checkbox-label"><input type="checkbox" value="overdue" data-dashboard-focus-item><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span><span data-i18n-key="dashboard.preferences.focus.overdue">Überfällig</span></label>
-              <label class="dashboard-preferences-choice"><span class="ui-checkbox-label"><input type="checkbox" value="due_today" data-dashboard-focus-item><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span><span data-i18n-key="dashboard.preferences.focus.today">Heute fällig</span></label>
-              <label class="dashboard-preferences-choice"><span class="ui-checkbox-label"><input type="checkbox" value="due_week" data-dashboard-focus-item><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span><span data-i18n-key="dashboard.preferences.focus.week">Nächste 7 Tage</span></label>
-              <label class="dashboard-preferences-choice"><span class="ui-checkbox-label"><input type="checkbox" value="high_priority" data-dashboard-focus-item><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span><span data-i18n-key="dashboard.preferences.focus.priority">Hohe Priorität</span></label>
-            </div>
-            <label class="dashboard-preferences-toggle dashboard-preferences-empty-focus">
-              <span data-i18n-key="dashboard.preferences.focus.hideEmpty">Leere Gruppen ausblenden</span>
-              <span class="ui-checkbox-label"><input type="checkbox" id="dashboard-preferences-hide-empty-focus"><span class="ui-checkbox-box" aria-hidden="true"><span data-icon="check"></span></span></span>
-            </label>
-          </section>
-
-          <section class="ui-section-card ui-detail-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="folders"></div>
-              <div>
-                <h4 data-i18n-key="dashboard.preferences.activeProjects.title">Aktive Projekte</h4>
-                <p data-i18n-key="dashboard.preferences.activeProjects.hint">Bestimme Anzahl und Sortierung der Projektliste.</p>
-              </div>
-            </div>
-            <div class="ui-field-grid two-columns dashboard-preferences-grid">
-              <div class="form-group">
-                <label for="dashboard-preferences-project-limit" data-i18n-key="dashboard.preferences.activeProjects.limit">Anzahl</label>
-                <select class="ui-field" id="dashboard-preferences-project-limit" data-ui-select><option value="2">2</option><option value="4">4</option><option value="6">6</option></select>
-              </div>
-              <div class="form-group">
-                <label for="dashboard-preferences-project-sort" data-i18n-key="dashboard.preferences.activeProjects.sort">Sortierung</label>
-                <select class="ui-field" id="dashboard-preferences-project-sort" data-ui-select>
-                  <option value="recent" data-i18n-key="dashboard.preferences.activeProjects.recent">Zuletzt verwendet</option>
-                  <option value="alphabetical" data-i18n-key="dashboard.preferences.activeProjects.alphabetical">Alphabetisch</option>
-                  <option value="open_count" data-i18n-key="dashboard.preferences.activeProjects.openCount">Meiste offene Todos</option>
-                </select>
-              </div>
-            </div>
-          </section>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- Todo Modal -->
-  <div class="modal ui-detail-modal" id="todo-modal">
-    <div class="modal-overlay" data-close-modal="todo-modal"></div>
-    <div class="modal-content todo-modal-content ui-detail-modal-content">
-      <div class="todo-modal-header ui-detail-modal-header">
-        <div class="todo-modal-title-icon ui-detail-title-icon" data-icon="check-circle"></div>
-        <div>
-          <h3 id="todo-modal-title" data-i18n-key="todo.new">New todo</h3>
-          <p id="todo-modal-subtitle" data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
-        </div>
-        <div class="todo-detail-header-actions ui-detail-header-actions" id="todo-detail-header-actions">
-          <button type="submit" form="todo-form" class="btn btn-primary" id="todo-save-btn" data-i18n-key="common.save">Save</button>
-          <details class="todo-detail-header-menu-toggle ui-detail-header-menu-toggle">
-            <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
-            <div class="todo-detail-header-menu ui-detail-header-menu ui-menu" role="menu">
-              <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem"><span data-icon="copy"></span><span data-i18n-key="todo.duplicate">Duplicate</span></button>
-              <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem"><span data-icon="trash-2"></span><span data-i18n-key="todo.delete">Delete</span></button>
-            </div>
-          </details>
-          <button class="modal-close-x" data-close-modal="todo-modal"><span data-icon="x"></span></button>
-        </div>
-      </div>
-      <div class="modal-body todo-modal-body ui-detail-modal-body">
-      <form id="todo-form" class="todo-modal-form todo-editor-shell ui-detail-shell">
-        <input type="hidden" id="todo-id">
-        <div class="todo-create-mode-switch" id="todo-create-mode-switch" role="group" aria-label="Capture mode" data-i18n-aria-label-key="todo.multiAdd.modeLabel" hidden>
-          <button type="button" class="todo-create-mode-btn active" data-todo-create-mode="single" aria-pressed="true" data-i18n-key="todo.multiAdd.modeSingle">One todo</button>
-          <button type="button" class="todo-create-mode-btn" data-todo-create-mode="multi" aria-pressed="false" data-i18n-key="todo.multiAdd.modeMultiple">Multiple todos</button>
-        </div>
-        <section class="todo-multi-add-panel" id="todo-multi-add-panel" hidden>
-          <div class="todo-multi-add-intro">
-            <div class="todo-multi-add-intro-heading ui-section-heading ui-detail-section-heading">
-              <div class="todo-multi-add-intro-icon ui-section-icon ui-detail-section-icon" data-icon="lightbulb" aria-hidden="true"></div>
-              <div>
-                <h4 data-i18n-key="todo.multiAdd.introTitle">Capture thoughts quickly</h4>
-                <p data-i18n-key="todo.multiAdd.introDescription">Press Enter to start the next todo. Pasted bullet lists are split automatically.</p>
-              </div>
-            </div>
-            <div class="todo-multi-add-counter" aria-live="polite">
-              <strong id="todo-multi-add-count">0 todos</strong>
-              <span id="todo-multi-add-limit">50 lines available</span>
-            </div>
-          </div>
-          <div class="todo-multi-add-editor">
-            <div class="todo-multi-add-rows" id="todo-multi-add-rows"></div>
-            <div class="todo-multi-add-toolbar">
-              <span class="todo-multi-add-toolbar-hint" data-i18n-key="todo.multiAdd.quickAddHint">Quick Add works per line: tomorrow, #Project, /Section, !high …</span>
-              <button type="button" class="btn btn-secondary" id="todo-multi-add-more"><span data-icon="plus"></span> <span data-i18n-key="todo.multiAdd.addRow">Add another line</span></button>
-            </div>
-          </div>
-          <section class="todo-multi-add-defaults">
-            <div class="todo-multi-add-defaults-head ui-section-heading ui-detail-section-heading">
-              <div class="todo-multi-add-defaults-icon ui-section-icon ui-detail-section-icon" data-icon="sliders-horizontal"></div>
-              <div>
-                <h4 data-i18n-key="todo.multiAdd.defaultsTitle">Apply to all todos</h4>
-                <p data-i18n-key="todo.multiAdd.defaultsDescription">Values entered directly in a line override these defaults.</p>
-              </div>
-            </div>
-            <div class="todo-multi-add-defaults-grid">
-              <div class="form-group">
-                <label for="todo-multi-project" data-i18n-key="todo.project">Project</label>
-                <select class="ui-field" id="todo-multi-project"></select>
-              </div>
-              <div class="form-group">
-                <label for="todo-multi-section" data-i18n-key="todo.section">Section</label>
-                <select class="ui-field" id="todo-multi-section" disabled>
-                  <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="todo-multi-priority" data-i18n-key="todo.priority">Priority</label>
-                <select class="ui-field" id="todo-multi-priority">
-                  <option value="1" data-option-color="#ef4444" data-i18n-key="todo.priority.veryHigh">Very high</option>
-                  <option value="2" data-option-color="#f59e0b" data-i18n-key="todo.priority.high">High</option>
-                  <option value="3" data-option-color="#10b981" selected data-i18n-key="todo.priority.medium">Medium</option>
-                  <option value="4" data-option-color="#94a3b8" data-i18n-key="todo.priority.low">Low</option>
-                </select>
-              </div>
-            </div>
-          </section>
-        </section>
-        <section class="ui-section-card ui-detail-section ui-detail-title-section todo-section-card todo-editor-section todo-editor-main todo-main-section">
-          <div class="ui-section-heading ui-detail-section-heading">
-            <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
-            <div>
-              <h4 data-i18n-key="todo.section.content">Inhalt</h4>
-              <p data-i18n-key="todo.section.contentHint">Titel und optionale Beschreibung.</p>
-            </div>
-          </div>
-          <div class="form-group todo-title-group ui-detail-title-group">
-            <label data-i18n-key="todo.title">Titel</label>
-            <textarea class="ui-field ui-detail-title-field" id="todo-title" rows="1" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder"></textarea>
-            <div class="quick-add-hint" data-i18n-key="quickAdd.hint">Tipp: „Milch morgen 18:00 erinnerung:17:30 wiederholung:wöchentlich ort:Zuhause #Einkauf /Kühlung !hoch“ erkennt Deadline, Erinnerung, Wiederholung, Ort, Projekt, Abschnitt und Priorität.</div>
-            <div class="quick-add-preview" id="quick-add-preview" aria-live="polite" hidden></div>
-          </div>
-          <div class="form-group">
-            <label data-i18n-key="todo.description">Beschreibung</label>
-            <textarea class="ui-field" id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)" data-i18n-placeholder-key="todo.descriptionPlaceholder"></textarea>
-            <div id="todo-desc-preview" class="ui-field desc-live-preview"></div>
-          </div>
-        </section>
-
-        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
-          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
-            <div>
-              <h4 data-i18n-key="todo.subtasks">Subtasks</h4>
-              <p data-i18n-key="todo.subtasks.hint">Add checklist items for this todo.</p>
-            </div>
-            <span class="todo-collapsible-spacer"></span>
-            <span id="todo-subtasks-count" class="todo-meta-chip todo-subtasks-progress" aria-live="polite">0/0</span>
-            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
-          </summary>
-          <div class="todo-subtasks-editor">
-            <div id="todo-subtasks-list" class="todo-subtasks-list"></div>
-            <div class="form-group todo-subtasks-add-group">
-              <label for="todo-subtask-new-title" data-i18n-key="todo.subtasks.newLabel">New subtask</label>
-              <div class="todo-subtasks-add-row todo-detail-action-row">
-                <input class="ui-field" type="text" id="todo-subtask-new-title" maxlength="500" placeholder="Nächster Schritt…" data-i18n-placeholder-key="todo.subtasks.placeholder">
-                <button type="button" id="todo-subtask-add-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="add-subtask"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
-              </div>
-            </div>
-          </div>
-        </details>
-
-
-        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
-          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon ui-detail-section-icon" data-icon="notebook-pen"></div>
-            <div>
-              <h4 data-i18n-key="todo.comments">Comments</h4>
-              <p data-i18n-key="todo.comments.hint">Add comments to this todo.</p>
-            </div>
-            <span class="todo-collapsible-spacer"></span>
-            <span id="todo-comments-count" class="todo-meta-chip todo-comments-progress" aria-live="polite">0</span>
-            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
-          </summary>
-          <div class="todo-comments-editor">
-            <div id="todo-comments-list" class="todo-comments-list"></div>
-            <p id="todo-comments-empty" class="todo-comments-empty" data-i18n-key="todo.comments.empty">No comments yet.</p>
-            <div class="form-group todo-comments-add-group">
-              <label for="todo-comment-new-editor" data-i18n-key="todo.comments.newLabel">New comment</label>
-              <div class="todo-comment-rich-wrap">
-                <div class="todo-desc-rich-toolbar todo-comment-rich-toolbar" data-i18n-aria-label-key="todo.comments.formatToolbar"></div>
-                <div id="todo-comment-new-editor" class="ui-field todo-comment-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder=""></div>
-              </div>
-              <button type="button" id="todo-comment-add-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="add-comment"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
-            </div>
-          </div>
-        </details>
-
-        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
-          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon ui-detail-section-icon" data-icon="paperclip"></div>
-            <div>
-              <h4 data-i18n-key="todo.attachments">Attachments</h4>
-              <p data-i18n-key="todo.attachments.hint">Attach files or photos to this todo.</p>
-            </div>
-            <span class="todo-collapsible-spacer"></span>
-            <span id="todo-attachments-count" class="todo-meta-chip todo-attachments-progress" aria-live="polite">0</span>
-            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
-          </summary>
-          <div class="todo-attachments-editor">
-            <div id="todo-attachments-list" class="todo-attachments-list"></div>
-            <p id="todo-attachments-empty" class="todo-attachments-empty" data-i18n-key="todo.attachments.empty">No attachments yet.</p>
-            <div class="form-group todo-attachments-add-group">
-              <label for="todo-attachment-file" data-i18n-key="todo.attachments.newLabel">Add attachment</label>
-              <div class="todo-attachments-add-row todo-detail-action-row has-drop-hint">
-                <input type="file" id="todo-attachment-file" class="visually-hidden" multiple>
-                <button type="button" class="todo-attachment-picker btn btn-secondary todo-detail-action-btn" data-todo-action="choose-attachment"><span data-icon="paperclip"></span> <span id="todo-attachment-file-name" data-i18n-key="todo.attachments.chooseFile">Datei auswählen</span></button>
-                <button type="button" id="todo-attachment-upload-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="upload-attachment"><span data-icon="upload"></span> <span data-i18n-key="todo.attachments.upload">Upload</span></button>
-              </div>
-            </div>
-          </div>
-        </details>
-
-
-        <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
-          <div class="ui-section-heading ui-detail-section-heading">
-            <div class="ui-section-icon ui-detail-section-icon" data-icon="settings"></div>
-            <div>
-              <h4 data-i18n-key="todo.section.organize">Einordnen</h4>
-              <p data-i18n-key="todo.section.organizeHint">Priorität, Status, Projekt und Section.</p>
-            </div>
-          </div>
-          <div class="ui-field-grid two-columns">
-            <div class="form-group">
-              <label data-i18n-key="todo.priority">Priority</label>
-              <select class="ui-field" id="todo-priority">
-                <option value="1" data-option-color="#ef4444" data-i18n-key="todo.priority.veryHigh">Sehr hoch</option>
-                <option value="2" data-option-color="#f59e0b" data-i18n-key="todo.priority.high">Hoch</option>
-                <option value="3" data-option-color="#10b981" selected data-i18n-key="todo.priority.medium">Mittel</option>
-                <option value="4" data-option-color="#94a3b8" data-i18n-key="todo.priority.low">Niedrig</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="todo.status">Status</label>
-              <select class="ui-field" id="todo-status">
-                <option value="pending" data-option-icon="clock" data-i18n-key="todo.status.pending">Offen</option>
-                <option value="in_progress" data-option-icon="flame" data-i18n-key="todo.status.inProgress">In progress</option>
-                <option value="done" data-option-icon="check-circle" data-i18n-key="todo.status.done">Erledigt</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="todo.project">Project</label>
-              <select class="ui-field" id="todo-project"></select>
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="todo.section">Section</label>
-              <select class="ui-field" id="todo-section" disabled>
-                <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group checkbox-row pin-checkbox-row todo-pin-row">
-            <label class="pin-checkbox-heading" for="todo-pinned" data-i18n-key="todo.pin">Anpinnen</label>
-            <label class="pin-checkbox-label">
-              <input type="checkbox" id="todo-pinned">
-              <span class="pin-checkbox-box" aria-hidden="true"></span>
-              <span data-i18n-key="todo.pinned">Oben anpinnen</span>
-            </label>
-          </div>
-        </section>
-
-        <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
-          <div class="ui-section-heading ui-detail-section-heading">
-            <div class="ui-section-icon ui-detail-section-icon" data-icon="calendar-days"></div>
-            <div>
-              <h4 data-i18n-key="todo.section.schedule">Planung</h4>
-              <p data-i18n-key="todo.section.scheduleHint">Deadline und Erinnerung, falls diese Aufgabe zeitkritisch ist.</p>
-            </div>
-          </div>
-          <div class="ui-field-grid two-columns">
-            <div class="form-group">
-              <label for="todo-due-picker" data-i18n-key="todo.deadline">Deadline</label>
-              <div class="datetime-input-wrap">
-                <input class="datetime-picker-native-value" type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60" tabindex="-1" aria-hidden="true">
-                <button type="button" class="ui-field datetime-picker-trigger" id="todo-due-picker" data-datetime-picker-for="todo-due" aria-haspopup="dialog" aria-controls="date-time-picker-modal">
-                  <span data-datetime-picker-display></span>
-                  <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
-                </button>
-              </div>
-              <div id="todo-due-error" class="form-error compact"></div>
-            </div>
-            <div class="form-group">
-              <label for="todo-remind-picker" data-i18n-key="todo.reminder">Erinnerung</label>
-              <div class="datetime-input-wrap">
-                <input class="datetime-picker-native-value" type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60" tabindex="-1" aria-hidden="true">
-                <button type="button" class="ui-field datetime-picker-trigger" id="todo-remind-picker" data-datetime-picker-for="todo-remind" aria-haspopup="dialog" aria-controls="date-time-picker-modal">
-                  <span data-datetime-picker-display></span>
-                  <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
-                </button>
-              </div>
-              <div id="todo-remind-error" class="form-error compact"></div>
-            </div>
-          </div>
-          <div class="todo-recurring-subsection">
-            <div class="todo-recurring-heading">
-              <span data-icon="repeat"></span>
-              <div>
-                <strong data-i18n-key="todo.recurring">Wiederholung</strong>
-                <p id="todo-recurring-hint" data-i18n-key="todo.recurring.hint">Optional regelmäßig neu erstellen.</p>
-              </div>
-            </div>
-            <div class="ui-field-grid two-columns">
-              <div class="form-group">
-                <label data-i18n-key="todo.recurring.frequency">Wiederholung</label>
-                <select class="ui-field" id="todo-recurring-frequency">
-                  <option value="none" selected data-option-icon="ban" data-i18n-key="todo.recurring.none">Keine Wiederholung</option>
-                  <option value="daily" data-option-icon="repeat" data-i18n-key="todo.recurring.daily">Täglich</option>
-                  <option value="weekly" data-option-icon="repeat" data-i18n-key="todo.recurring.weekly">Wöchentlich</option>
-                  <option value="monthly" data-option-icon="repeat" data-i18n-key="todo.recurring.monthly">Monatlich</option>
-                  <option value="yearly" data-option-icon="repeat" data-i18n-key="todo.recurring.yearly">Jährlich</option>
-                </select>
-              </div>
-              <div class="form-group" id="todo-recurring-interval-group">
-                <label data-i18n-key="todo.recurring.interval">Intervall</label>
-                <input class="ui-field" type="number" id="todo-recurring-interval" min="1" max="999" step="1" value="1" inputmode="numeric">
-              </div>
-            </div>
-          </div>
-          <div class="todo-recurring-subsection todo-location-subsection">
-            <div class="todo-recurring-heading">
-              <span data-icon="map-pin"></span>
-              <div>
-                <strong data-i18n-key="todo.location.title">Location reminder</strong>
-                <p data-i18n-key="todo.location.hint">Funktioniert nur in der Android-App. Web/PWA kann ortsbezogene Erinnerungen nur anlegen und verwalten.</p>
-              </div>
-            </div>
-            <div id="todo-location-fields" class="ui-field-grid two-columns todo-location-fields is-disabled">
-              <div class="form-group">
-                <label for="todo-location-trigger" data-i18n-key="todo.location.trigger">Trigger</label>
-                <select class="ui-field" id="todo-location-trigger">
-                  <option value="arrival" data-i18n-key="todo.location.arrival">When arriving</option>
-                  <option value="departure" data-i18n-key="todo.location.departure">When leaving</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="todo-location-place" data-i18n-key="todo.location.savedPlace">Saved place</label>
-                <select class="ui-field" id="todo-location-place">
-                  <option value="" data-i18n-key="todo.location.manualAddress">Enter address manually</option>
-                </select>
-              </div>
-              <div class="form-group" id="todo-location-address-group">
-                <label for="todo-location-address" data-i18n-key="todo.location.address">Address</label>
-                <input class="ui-field" type="text" id="todo-location-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="todo.location.addressPlaceholder">
-              </div>
-            </div>
-            <div id="todo-location-error" class="form-error compact"></div>
-          </div>
-        </section>
-      </form>
-      </div>
-    </div>
   </div>
 
   <!-- Shared Date and Time Picker -->
@@ -1074,21 +503,34 @@
         </div>
       </div>
       <div class="modal-body settings-modal-body">
-        <nav class="settings-nav" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
-          <button type="button" data-settings-section="settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></button>
-          <button type="button" data-settings-section="settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></button>
-          <button type="button" data-settings-section="settings-section-default-reminder"><span data-icon="bell"></span><span data-i18n-key="settings.defaultReminder.title">Default reminder</span></button>
-          <button type="button" data-settings-section="settings-section-attachments"><span data-icon="paperclip"></span><span data-i18n-key="settings.attachments.title">Anhänge</span></button>
-          <button type="button" data-settings-section="settings-section-places"><span data-icon="map-pin"></span><span data-i18n-key="settings.places.title">Places</span></button>
-          <button type="button" data-settings-section="settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></button>
-          <button type="button" data-settings-section="settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></button>
-          <button type="button" data-settings-section="settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></button>
-          <button type="button" data-settings-section="settings-section-notifications" id="settings-nav-notifications"><span data-icon="bell"></span><span data-i18n-key="settings.section.notifications">Benachrichtigungen</span></button>
-          <button type="button" data-settings-section="settings-section-app" id="settings-nav-app"><span data-icon="smartphone"></span><span data-i18n-key="settings.desktop.title">App</span></button>
-        </nav>
+        <div class="settings-nav-shell">
+          <button type="button" class="settings-mobile-nav-toggle" aria-expanded="false" aria-controls="settings-section-navigation" data-user-settings-action="toggle-settings-navigation">
+            <span data-icon="list"></span>
+            <span data-i18n-key="settings.nav.chooseSection">Bereich wählen</span>
+            <span class="settings-mobile-nav-chevron" data-icon="chevron-down"></span>
+          </button>
+          <nav class="settings-nav" id="settings-section-navigation" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
+            <div class="settings-nav-general-group" data-settings-nav-page="general">
+              <button type="button" data-settings-page-target="general"><span data-icon="sliders-horizontal"></span><span data-i18n-key="settings.group.general">Allgemein</span></button>
+              <div class="settings-nav-page-sections">
+                <button type="button" data-settings-section="settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></button>
+                <button type="button" data-settings-section="settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></button>
+                <button type="button" data-settings-section="settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></button>
+                <button type="button" data-settings-section="settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></button>
+                <button type="button" data-settings-section="settings-section-notifications" id="settings-nav-notifications"><span data-icon="bell"></span><span data-i18n-key="settings.section.notifications">Benachrichtigungen</span></button>
+                <button type="button" data-settings-section="settings-section-app" id="settings-nav-app"><span data-icon="smartphone"></span><span data-i18n-key="settings.desktop.title">App</span></button>
+              </div>
+            </div>
+            <div class="settings-nav-modules-group">
+              <div class="settings-nav-group-heading"><span data-i18n-key="settings.group.modules">Module</span></div>
+              <div class="module-slot-root module-slot-root-inline" id="module-settings-nav-slot"></div>
+            </div>
+          </nav>
+        </div>
 
         <div class="settings-sections">
-          <section class="settings-section-card settings-profile-section" id="settings-section-profile">
+          <div class="settings-page" data-settings-page="general">
+          <section class="settings-section-card ui-section-divider settings-profile-section" id="settings-section-profile">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="user"></div>
               <div>
@@ -1128,7 +570,7 @@
             <div id="settings-avatar-success" class="settings-field-success"></div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-language">
+          <section class="settings-section-card ui-section-divider" id="settings-section-language">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="book-open"></div>
               <div>
@@ -1157,117 +599,7 @@
             <div id="settings-language-success" class="settings-field-success"></div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-default-reminder">
-            <div class="settings-section-heading">
-              <div class="settings-section-icon" data-icon="bell"></div>
-              <div>
-                <h4 data-i18n-key="settings.defaultReminder.title">Default reminder</h4>
-                <p data-i18n-key="settings.defaultReminder.hint">Automatically create a reminder when a todo gets a deadline and no explicit reminder is set.</p>
-              </div>
-            </div>
-            <div class="settings-subcard">
-              <label for="settings-default-reminder" data-i18n-key="settings.defaultReminder.label">Automatic reminder for deadlines</label>
-              <select class="ui-field" id="settings-default-reminder" data-user-settings-input="default-reminder">
-                <option value="off" data-i18n-key="settings.defaultReminder.off">Off</option>
-                <option value="0" data-i18n-key="settings.defaultReminder.atDeadline">At deadline</option>
-                <option value="15" data-i18n-key="settings.defaultReminder.before15m">15 minutes before</option>
-                <option value="60" data-i18n-key="settings.defaultReminder.before1h">1 hour before</option>
-                <option value="1440" data-i18n-key="settings.defaultReminder.before1d">1 day before</option>
-                <option value="custom" data-i18n-key="settings.defaultReminder.custom">Custom...</option>
-              </select>
-              <div id="settings-default-reminder-custom-row" class="settings-default-reminder-custom-row" hidden>
-                <div class="form-group settings-default-reminder-custom-field">
-                  <label for="settings-default-reminder-custom" data-i18n-key="settings.defaultReminder.customAmountLabel">Amount</label>
-                  <input class="ui-field" type="number" id="settings-default-reminder-custom" min="1" max="8760" step="1" inputmode="numeric" placeholder="Amount" data-i18n-placeholder-key="settings.defaultReminder.customPlaceholder">
-                </div>
-                <div class="form-group settings-default-reminder-custom-field">
-                  <label for="settings-default-reminder-custom-unit" data-i18n-key="settings.defaultReminder.customUnitLabel">Unit</label>
-                  <select class="ui-field" id="settings-default-reminder-custom-unit" data-i18n-aria-label-key="settings.defaultReminder.customUnitLabel">
-                    <option value="hours" data-i18n-key="settings.defaultReminder.customHours">Hours before</option>
-                    <option value="days" data-i18n-key="settings.defaultReminder.customDays">Days before</option>
-                  </select>
-                </div>
-                <button type="button" class="btn btn-secondary" data-user-settings-action="save-custom-default-reminder" data-i18n-key="common.save">Save</button>
-              </div>
-              <div class="settings-help-text" data-i18n-key="settings.defaultReminder.help">Explicit reminders are kept and never overwritten.</div>
-              <div id="settings-default-reminder-error" class="settings-field-error"></div>
-              <div id="settings-default-reminder-success" class="settings-field-success"></div>
-            </div>
-          </section>
-
-          <section class="settings-section-card" id="settings-section-attachments">
-            <div class="settings-section-heading">
-              <div class="settings-section-icon" data-icon="paperclip"></div>
-              <div>
-                <h4 data-i18n-key="settings.attachments.title">Anhänge</h4>
-                <p data-i18n-key="settings.attachments.hint">Speichernutzung deiner Todo-Anhänge.</p>
-              </div>
-            </div>
-            <div class="settings-subcard settings-attachments-usage-card">
-              <div class="settings-field-row">
-                <div class="settings-field-label" data-i18n-key="settings.attachments.status">Status</div>
-                <div id="settings-attachments-status" class="settings-readonly-value">–</div>
-              </div>
-              <div class="settings-field-row">
-                <div class="settings-field-label" data-i18n-key="settings.attachments.usage">Belegt</div>
-                <div id="settings-attachments-usage" class="settings-readonly-value">–</div>
-              </div>
-              <div class="settings-attachments-meter"><span id="settings-attachments-meter-fill"></span></div>
-              <div class="settings-help-text" id="settings-attachments-remaining">–</div>
-            </div>
-          </section>
-
-          <section class="settings-section-card" id="settings-section-places">
-            <div class="settings-section-heading">
-              <div class="settings-section-icon" data-icon="map-pin"></div>
-              <div>
-                <h4 data-i18n-key="settings.places.title">Saved places</h4>
-                <p data-i18n-key="settings.places.hint">Save labels like Home or Work with an address. BrainDump and location reminders use these places.</p>
-              </div>
-            </div>
-            <div class="settings-place-form settings-place-add-row">
-              <div class="form-group settings-place-name-group">
-                <label for="settings-place-name" data-i18n-key="settings.places.nameLabel">Label</label>
-                <input class="ui-field" type="text" id="settings-place-name" maxlength="120" placeholder="e.g. Home" data-i18n-placeholder-key="settings.places.namePlaceholder">
-              </div>
-              <div class="form-group settings-place-address-group">
-                <label for="settings-place-address" data-i18n-key="settings.places.addressLabel">Address</label>
-                <input class="ui-field" type="text" id="settings-place-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="settings.places.addressPlaceholder">
-              </div>
-              <button type="button" class="btn btn-secondary settings-place-save-btn" data-user-settings-action="save-place" disabled><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
-              <button type="button" class="btn btn-secondary settings-place-cancel-btn" id="settings-place-cancel-edit" data-user-settings-action="cancel-place-edit" hidden data-i18n-key="common.cancel">Cancel</button>
-            </div>
-            <div id="settings-places-error" class="settings-field-error"></div>
-            <div id="settings-places-success" class="settings-field-success"></div>
-            <div id="settings-places-list" class="settings-device-list"></div>
-          </section>
-
-          <section class="settings-section-card" id="settings-section-braindump">
-            <div class="settings-section-heading">
-              <div class="settings-section-icon" data-icon="sparkles"></div>
-              <div>
-                <h4 data-i18n-key="settings.braindump.title">BrainDump</h4>
-                <p data-i18n-key="settings.braindump.hint">Lokale Lernfunktion für Projekt- und Section-Zuordnungen.</p>
-              </div>
-            </div>
-            <div class="settings-subcard">
-              <label class="settings-toggle-row settings-toggle-feature settings-switch-row">
-                <span data-i18n-key="settings.braindump.learning.label">BrainDump merkt sich passende Listen</span>
-                <input type="checkbox" class="settings-switch" id="settings-braindump-learning" data-user-settings-input="braindump-learning">
-              </label>
-              <div class="settings-help-text" data-i18n-key="settings.braindump.learning.help">
-                Wenn du Aufgaben in eine andere Liste oder Section verschiebst, merkt sich BrainDump diese Entscheidung für dein Konto und schlägt sie beim nächsten Mal eher vor. Audio und gesprochener Text werden dafür nicht gespeichert.
-              </div>
-              <div class="settings-help-text" id="settings-braindump-learning-count"></div>
-              <div class="settings-card-actions">
-                <button type="button" class="btn btn-secondary" data-user-settings-action="reset-braindump-learning" data-i18n-key="settings.braindump.learning.reset">Gelernte Zuordnungen zurücksetzen</button>
-              </div>
-              <div id="settings-braindump-error" class="settings-field-error"></div>
-              <div id="settings-braindump-success" class="settings-field-success"></div>
-            </div>
-          </section>
-
-          <section class="settings-section-card" id="settings-section-security">
+          <section class="settings-section-card ui-section-divider" id="settings-section-security">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="shield"></div>
               <div>
@@ -1357,7 +689,7 @@
             </div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-api">
+          <section class="settings-section-card ui-section-divider" id="settings-section-api">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="key-round"></div>
               <div>
@@ -1383,7 +715,7 @@
             <div id="api-key-error" class="settings-field-error"></div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-notifications">
+          <section class="settings-section-card ui-section-divider" id="settings-section-notifications">
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="bell"></div>
               <div>
@@ -1405,7 +737,7 @@
             </div>
           </section>
 
-          <section class="settings-section-card" id="settings-section-app">
+          <section class="settings-section-card ui-section-divider" id="settings-section-app">
             <div id="desktop-settings-section" style="display:none;">
               <div class="settings-section-heading">
                 <div class="settings-section-icon" data-icon="smartphone"></div>
@@ -1443,19 +775,15 @@
                     <label data-i18n-key="settings.desktop.hotkeys.toggleApp">App anzeigen/verstecken</label>
                     <input class="hotkey-capture-input" type="text" id="desktop-hotkey-toggle-app" inputmode="none" autocomplete="off" aria-label="Hotkey to show or hide the app" data-i18n-aria-label-key="settings.desktop.hotkeys.toggleAppAria">
                   </div>
-                  <div class="form-group">
-                    <label data-i18n-key="settings.desktop.hotkeys.newTodo">Open a new todo directly</label>
-                    <input class="hotkey-capture-input" type="text" id="desktop-hotkey-new-todo" inputmode="none" autocomplete="off" aria-label="Hotkey for new todo" data-i18n-aria-label-key="settings.desktop.hotkeys.newTodoAria">
-                  </div>
-                  <div class="form-group">
-                    <label data-i18n-key="settings.desktop.hotkeys.search">Suche fokussieren</label>
-                    <input class="hotkey-capture-input" type="text" id="desktop-hotkey-search" inputmode="none" autocomplete="off" aria-label="Hotkey for search" data-i18n-aria-label-key="settings.desktop.hotkeys.searchAria">
-                  </div>
+                  <div class="module-slot-root module-slot-root-inline" id="module-desktop-hotkeys-slot"></div>
                 </div>
               </div>
               <div id="desktop-settings-status" class="settings-help-text" data-desktop-settings-status></div>
             </div>
           </section>
+          </div>
+
+          <div class="module-slot-root module-slot-root-inline" id="module-settings-slot"></div>
         </div>
       </div>
       <div class="modal-actions settings-modal-actions">
@@ -1486,13 +814,13 @@
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="workspace-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="workspace-id">
-          <section class="ui-section-card ui-detail-section ui-detail-title-section workspace-title-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section workspace-title-section">
             <div class="form-group workspace-title-group ui-detail-title-group">
               <label data-i18n-key="common.name">Name</label>
               <input class="ui-field ui-detail-title-field" type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
             </div>
           </section>
-          <section class="ui-section-card ui-detail-section">
+          <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="palette"></div>
               <div>
@@ -1514,129 +842,21 @@
             </div>
             <div id="workspace-error" class="settings-field-error"></div>
           </section>
+          <section class="ui-section-card ui-detail-section ui-section-divider workspace-modules-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-grid"></div>
+              <div>
+                <h4 data-i18n-key="workspace.modules">Sichtbare Module</h4>
+                <p data-i18n-key="workspace.modulesHint">Wähle, welche Module in diesem Workspace im Modulmenü erscheinen.</p>
+              </div>
+            </div>
+            <div class="workspace-module-list" id="workspace-module-list"></div>
+          </section>
         </form>
       </div>
     </div>
   </div>
 
-  <div class="modal ui-detail-modal ui-detail-view" id="project-modal">
-    <div class="modal-overlay" data-close-modal="project-modal"></div>
-    <div class="modal-content entity-modal-content project-modal-content ui-detail-modal-content">
-      <div class="entity-modal-header project-modal-header ui-detail-modal-header">
-        <div class="entity-modal-title-icon ui-detail-title-icon" data-icon="folder"></div>
-        <div>
-          <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
-          <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
-        </div>
-        <div class="ui-detail-header-actions">
-          <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
-          <details class="ui-detail-header-menu-toggle" id="project-detail-header-menu" hidden>
-            <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
-            <div class="ui-detail-header-menu ui-menu" role="menu">
-              <button type="button" class="ui-menu-item danger" id="project-delete-btn" data-project-action="delete-from-modal" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
-            </div>
-          </details>
-          <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
-        </div>
-      </div>
-      <div class="modal-body entity-modal-body ui-detail-modal-body">
-        <form id="project-form" class="entity-modal-form ui-detail-shell">
-          <input type="hidden" id="project-id">
-          <section class="ui-section-card ui-detail-section ui-detail-title-section project-title-section">
-            <div class="form-group project-title-group ui-detail-title-group">
-              <label data-i18n-key="common.name">Name</label>
-              <input class="ui-field ui-detail-title-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
-            </div>
-          </section>
-          <section class="ui-section-card ui-detail-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="folder"></div>
-              <div>
-                <h4 data-i18n-key="project.details">Details</h4>
-                <p data-i18n-key="project.detailsHint">Farbe und Icon für dieses Projekt.</p>
-              </div>
-            </div>
-            <div class="ui-field-grid two-columns project-appearance-grid">
-              <div class="form-group">
-                <label data-i18n-key="common.color">Farbe</label>
-                <input type="color" id="project-color" value="#6366f1">
-                <div id="project-color-picker" class="color-picker" aria-label="Choose project color" data-i18n-aria-label-key="project.chooseColor"></div>
-              </div>
-              <div class="form-group">
-                <label data-i18n-key="project.icon">Icon (optional)</label>
-                <input type="hidden" id="project-icon">
-                <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
-              </div>
-            </div>
-          </section>
-          <section class="ui-section-card ui-detail-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
-              <div>
-                <h4 data-i18n-key="project.organization">Einordnung</h4>
-                <p data-i18n-key="project.organizationHint">Workspace und Parent-Projekt bestimmen, wo das Projekt erscheint.</p>
-              </div>
-            </div>
-            <div class="ui-field-grid two-columns project-organization-grid">
-              <div class="form-group" id="project-display-workspace-group" style="display:none;">
-                <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
-                <select class="ui-field" id="project-display-workspace-id"></select>
-              </div>
-              <div class="form-group">
-                <label data-i18n-key="project.parent">Parent project (optional)</label>
-                <select class="ui-field" id="project-parent-id">
-                  <option value="" data-i18n-key="project.noParent">-- No parent project --</option>
-                </select>
-              </div>
-            </div>
-          </section>
-        </form>
-
-        <section id="project-sharing-section" class="ui-section-card ui-detail-section project-sharing-card ui-detail-shell" style="display:none;">
-          <div class="ui-section-heading ui-detail-section-heading">
-            <div class="ui-section-icon ui-detail-section-icon" data-icon="share-2"></div>
-            <div>
-              <h4 data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
-              <p data-i18n-key="project.share.hint">Lade andere Nutzer zu diesem Projekt ein oder verwalte bestehende Mitglieder.</p>
-            </div>
-          </div>
-          <div id="project-owner-info" class="project-owner-info" style="display:none;"><span class="project-owner-label" data-i18n-key="project.share.ownerLabel">Geteilt von</span><span class="project-owner-name"></span></div>
-          <div id="project-sharing-content">
-            <div id="project-members-list"></div>
-            <div id="project-share-row" class="form-group project-share-row">
-              <label data-i18n-key="project.share.inviteUser">Invite user</label>
-              <div class="project-share-inline">
-                <input id="project-share-username" type="text" class="ui-field" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
-                <button type="button" class="btn btn-primary" data-project-sharing-action="invite" data-i18n-key="project.share.invite">Einladen</button>
-              </div>
-              <div id="project-share-error" class="form-error"></div>
-            </div>
-          </div>
-          <div id="project-share-start-row" class="project-share-start-row ui-detail-action-row">
-            <button type="button" class="btn btn-secondary" data-project-sharing-action="show-share-input"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
-          </div>
-          <div class="project-share-start-row ui-detail-action-row" id="project-leave-row" style="display:none;">
-            <button type="button" class="btn btn-secondary" id="project-leave-btn" data-project-sharing-action="leave" data-i18n-key="project.share.leave">Leave project</button>
-          </div>
-        </section>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal" id="attachment-preview-modal">
-    <div class="modal-overlay" data-todo-action="close-attachment-preview"></div>
-    <div class="modal-content attachment-preview-modal-content">
-      <button class="modal-close-x" data-todo-action="close-attachment-preview"><span data-icon="x"></span></button>
-      <div class="modal-header">
-        <h3 id="attachment-preview-title" data-i18n-key="todo.attachments.preview">Vorschau</h3>
-      </div>
-      <div class="modal-body attachment-preview-body" id="attachment-preview-body"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" data-todo-action="close-attachment-preview" data-i18n-key="common.close">Schließen</button>
-        <button type="button" class="btn btn-primary" id="attachment-preview-download-btn" data-todo-action="download-preview-attachment"><span data-icon="download"></span> <span data-i18n-key="todo.attachments.download">Download</span></button>
-      </div>
-    </div>
-  </div>
 
   <!-- Undo Toast -->
   <div class="toast-container" id="toast-container" style="display:none;">

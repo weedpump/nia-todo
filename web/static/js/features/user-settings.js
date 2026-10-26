@@ -565,7 +565,33 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     }
   }
 
+  function closeSettingsNavigation() {
+    document.querySelector('.settings-nav-shell')?.classList.remove('is-open');
+    document.querySelector('.settings-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+  }
+
+  function showSettingsPage(pageId = 'general') {
+    const page = document.querySelector(`[data-settings-page="${pageId}"]`)
+      || document.querySelector('[data-settings-page="general"]');
+    if (!page) return;
+    document.querySelectorAll('[data-settings-page]').forEach(candidate => {
+      candidate.hidden = candidate !== page;
+    });
+    document.querySelectorAll('[data-settings-nav-page]').forEach(group => {
+      group.classList.toggle('is-active', group.dataset.settingsNavPage === page.dataset.settingsPage);
+    });
+    document.querySelectorAll('[data-settings-page-target]').forEach(button => {
+      const active = button.dataset.settingsPageTarget === page.dataset.settingsPage;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-current', active ? 'page' : 'false');
+    });
+    const sections = document.querySelector('.settings-sections');
+    if (sections) sections.scrollTop = 0;
+  }
+
   async function openSettingsModal() {
+    closeSettingsNavigation();
+    showSettingsPage('general');
     document.getElementById('settings-old-password').value = '';
     document.getElementById('settings-new-password').value = '';
     document.getElementById('settings-confirm-password').value = '';
@@ -1339,17 +1365,33 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (userSettingsActionsBound) return;
     userSettingsActionsBound = true;
     document.addEventListener('click', async (event) => {
+      const pageButton = event.target?.closest?.('[data-settings-page-target]');
+      if (pageButton) {
+        event.preventDefault();
+        showSettingsPage(pageButton.dataset.settingsPageTarget);
+        closeSettingsNavigation();
+        return;
+      }
       const sectionButton = event.target?.closest?.('[data-settings-section]');
       if (sectionButton) {
         event.preventDefault();
-        document.getElementById(sectionButton.dataset.settingsSection)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const section = document.getElementById(sectionButton.dataset.settingsSection);
+        const page = section?.closest?.('[data-settings-page]');
+        if (page) showSettingsPage(page.dataset.settingsPage);
+        closeSettingsNavigation();
+        requestAnimationFrame(() => section?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
         return;
       }
       const target = event.target?.closest?.('[data-user-settings-action]');
       if (!target) return;
       const action = target.dataset.userSettingsAction;
       event.preventDefault();
-      if (action === 'start-totp') {
+      if (action === 'toggle-settings-navigation') {
+        const shell = target.closest('.settings-nav-shell');
+        const open = !shell?.classList.contains('is-open');
+        shell?.classList.toggle('is-open', open);
+        target.setAttribute('aria-expanded', open ? 'true' : 'false');
+      } else if (action === 'start-totp') {
         await startTwoFactorTotp();
       } else if (action === 'add-passkey') {
         await addPasskey();

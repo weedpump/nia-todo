@@ -1,7 +1,4 @@
 /* Todo detail layout, panels, and meta summary */
-#todo-modal.todo-detail-view #todo-organize-panel { grid-area: organize; }
-#todo-modal.todo-detail-view #todo-schedule-panel { grid-area: schedule; }
-
 #todo-modal.todo-detail-view .todo-editor-main {
   max-width: none;
 }
@@ -22,34 +19,29 @@
 }
 
 
-#todo-modal.todo-detail-view #todo-organize-panel,
-#todo-modal.todo-detail-view #todo-schedule-panel {
-  border-color: color-mix(in srgb, var(--border) 44%, transparent);
-}
 
 #todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
-#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-recurring-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-location-reminder-panel .ui-field-grid {
   gap: 12px 14px;
 }
 
 #todo-modal.todo-detail-view #todo-organize-panel .form-group,
-#todo-modal.todo-detail-view #todo-schedule-panel .form-group {
+#todo-modal.todo-detail-view #todo-schedule-panel .form-group,
+#todo-modal.todo-detail-view #todo-recurring-panel .form-group,
+#todo-modal.todo-detail-view #todo-location-reminder-panel .form-group {
   margin-bottom: 10px;
 }
 
 #todo-modal.todo-detail-view #todo-organize-panel label,
-#todo-modal.todo-detail-view #todo-schedule-panel label {
+#todo-modal.todo-detail-view #todo-schedule-panel label,
+#todo-modal.todo-detail-view #todo-recurring-panel label,
+#todo-modal.todo-detail-view #todo-location-reminder-panel label {
   font-size: 11px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: .055em;
-}
-
-#todo-modal.todo-detail-view .todo-location-panel,
-#todo-modal.todo-detail-view .recurring-panel {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
 }
 
 #todo-modal.todo-detail-view .todo-subtask-row {
@@ -74,18 +66,19 @@
     "attachments"
     "comments"
     "organize"
-    "schedule";
+    "schedule"
+    "recurring"
+    "location";
   gap: 24px;
 }
 
 
 #todo-modal.todo-detail-view #todo-organize-panel,
-#todo-modal.todo-detail-view #todo-schedule-panel {
+#todo-modal.todo-detail-view #todo-schedule-panel,
+#todo-modal.todo-detail-view #todo-recurring-panel,
+#todo-modal.todo-detail-view #todo-location-reminder-panel {
   grid-column: auto;
   grid-row: auto;
-  padding: 18px 0 0;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -98,7 +91,9 @@
 }
 
 #todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
-#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-recurring-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-location-reminder-panel .ui-field-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -110,14 +105,18 @@
 
 @media (max-width: 720px) {
   #todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
-  #todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+  #todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid,
+  #todo-modal.todo-detail-view #todo-recurring-panel .ui-field-grid,
+  #todo-modal.todo-detail-view #todo-location-reminder-panel .ui-field-grid {
     grid-template-columns: 1fr;
   }
 }
 
 /* Todo detail view-mode meta summary */
 #todo-modal.todo-detail-view #todo-organize-panel,
-#todo-modal.todo-detail-view #todo-schedule-panel {
+#todo-modal.todo-detail-view #todo-schedule-panel,
+#todo-modal.todo-detail-view #todo-recurring-panel,
+#todo-modal.todo-detail-view #todo-location-reminder-panel {
   display: none;
 }
 

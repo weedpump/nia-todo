@@ -45,7 +45,9 @@
     "attachments"
     "comments"
     "organize"
-    "schedule";
+    "schedule"
+    "recurring"
+    "location";
 }
 
 #todo-modal.todo-multi-add-mode .todo-editor-shell {
@@ -66,7 +68,7 @@
 .todo-multi-add-panel {
   grid-area: multi;
   display: grid;
-  gap: 18px;
+  gap: 0;
 }
 
 .todo-multi-add-intro {
@@ -74,6 +76,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 18px;
 }
 
 .todo-multi-add-intro-heading {
@@ -215,24 +218,6 @@
   font-size: 12px;
 }
 
-.todo-multi-add-defaults {
-  position: relative;
-  margin-top: 20px;
-  padding: 0;
-  border: 0;
-  border-radius: 20px;
-  background: transparent;
-}
-
-.todo-multi-add-defaults::before {
-  content: "";
-  position: absolute;
-  top: -20px;
-  left: 0;
-  right: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
-  pointer-events: none;
-}
 
 .todo-multi-add-defaults-grid {
   display: grid;

@@ -144,9 +144,6 @@
     height: auto;
   }
 
-  #shortcuts-modal .shortcuts-section + .shortcuts-section {
-    margin-top: 24px;
-  }
 
   .shortcuts-list {
     display: grid;

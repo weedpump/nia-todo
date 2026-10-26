@@ -95,9 +95,9 @@
   top: calc(100% + 8px);
   left: 0;
   width: 100%;
-  padding: 8px;
+  padding: 6px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 15px;
   background:
     radial-gradient(circle at 16% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 45%),
     linear-gradient(180deg,
@@ -123,13 +123,13 @@
 .module-switcher-menu-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 6px 10px;
+  gap: 8px;
+  padding: 3px 5px 7px;
 }
 
 .module-switcher-menu-brand .nia-brand-icon {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   display: block;
   border-radius: 50%;
 }
@@ -154,19 +154,19 @@
 
 .module-switcher-options {
   display: grid;
-  gap: 5px;
+  gap: 3px;
 }
 
 .module-switcher-option {
   width: 100%;
-  min-height: 62px;
+  min-height: 52px;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 18px;
+  grid-template-columns: 34px minmax(0, 1fr) 16px;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
+  gap: 9px;
+  padding: 7px 8px;
   border: 0;
-  border-radius: 17px;
+  border-radius: 14px;
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
@@ -196,8 +196,8 @@
 }
 
 .module-switcher-option-icon {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   display: block;
   border-radius: 50%;
 }
@@ -205,12 +205,12 @@
 .module-switcher-option-copy {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .module-switcher-option-copy strong {
   overflow: hidden;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -220,7 +220,7 @@
 .module-switcher-option-copy small {
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -269,7 +269,7 @@
   #app[data-desktop-sidebar-mode="rail"] .module-switcher-menu {
     top: 0;
     left: 56px;
-    width: 227px;
+    width: 210px;
   }
 }
 
@@ -279,6 +279,6 @@
   }
 
   .module-switcher-option {
-    min-height: 58px;
+    min-height: 50px;
   }
 }

@@ -98,7 +98,8 @@ import { isTauri } from '../../vendor/tauri-api/core.js';
       '/static/css/92-todo-detail-description.css',
       '/static/css/93-todo-detail-meta-drawer.css',
       '/static/css/94-todo-detail-header-actions.css',
-      '/static/css/95-todo-detail-mobile-viewport.css'
+      '/static/css/95-todo-detail-mobile-viewport.css',
+      '/static/css/99-ui-primitives.css'
     ];
     var fallbackAssets = ['/', '/index.html', '/manifest.json', '/static/style.css'].concat(cssModuleAssets, ['/static/js/main.js']);
     function parsePrecacheAssets(source) {

@@ -114,6 +114,9 @@
   "webInstall.ios.mock.add": "Aggiungi",
   "appDownloads.sidebarSubtitle": "Installa l'app desktop o Android.",
   "settings.title": "Impostazioni",
+  "settings.group.general": "Generale",
+  "settings.group.modules": "Moduli",
+  "settings.nav.chooseSection": "Scegli sezione",
   "settings.profile.username": "Nome utente",
   "settings.profile.displayName": "Nome visualizzato",
   "settings.profile.email": "E-mail",
@@ -290,7 +293,7 @@
   "workspace.nameRequired": "Inserisci un nome.",
   "workspace.onlineOnlyUpdate": "La modifica delle aree di lavoro attualmente funziona solo online.",
   "workspace.onlineOnlyDelete": "L'eliminazione degli spazi di lavoro attualmente funziona solo online.",
-  "workspace.saved": "Area di lavoro rinominata.",
+  "workspace.saved": "Area di lavoro salvata.",
   "workspace.created": "Area di lavoro creata.",
   "workspace.deleteTitle": "Eliminare l'area di lavoro?",
   "workspace.deleteConfirm": "Elimina l'area di lavoro",
@@ -1681,6 +1684,9 @@
   "workspace.modalHint": "Organizza i progetti per contesto, team o area.",
   "workspace.details": "Dettagli",
   "workspace.detailsHint": "Nome, colore e icona per questa area di lavoro.",
+  "workspace.modules": "Moduli visibili",
+  "workspace.modulesHint": "Scegli quali moduli mostrare nel menu dei moduli di questo spazio di lavoro.",
+  "workspace.modulesRequired": "Almeno un modulo deve rimanere visibile.",
   "project.modalHint": "Struttura le cose da fare con un colore, un'icona e una gerarchia opzionale.",
   "project.details": "Dettagli",
   "project.detailsHint": "Colore e icona per questo progetto.",
@@ -1956,5 +1962,7 @@
   "todo.multiAdd.created.many": "{count} attività create",
   "todo.multiAdd.recurringNeedsDue": "Un’attività ricorrente richiede una data di scadenza.",
   "todo.multiAdd.pasteOmitted.one": "È possibile aggiungere al massimo {max} attività alla volta. {count} riga incollata non è stata aggiunta.",
-  "todo.multiAdd.pasteOmitted.many": "È possibile aggiungere al massimo {max} attività alla volta. {count} righe incollate non sono state aggiunte."
+  "todo.multiAdd.pasteOmitted.many": "È possibile aggiungere al massimo {max} attività alla volta. {count} righe incollate non sono state aggiunte.",
+  "module.placeholder.body": "Questo modulo è collegato. Le sue funzioni specifiche arriveranno in un passaggio separato.",
+  "module.placeholder.search": "La ricerca arriverà con il modulo"
 }

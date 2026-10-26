@@ -112,6 +112,7 @@ run_step "Product Branding" node scripts/test_product_branding.mjs
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
 run_step "Service Worker Avatar Privacy" node scripts/test_sw_avatar_privacy.mjs
 run_step "Workspace Modal Lifecycle" node scripts/test_frontend_workspace_modal_lifecycle.mjs
+run_step "Settings Navigation Lifecycle" node scripts/test_frontend_settings_navigation_lifecycle.mjs
 run_step "Avatar IndexedDB" node scripts/test_avatar_indexeddb.mjs
 run_step "Avatar Offline Cache" node scripts/test_avatar_cache.mjs
 run_step "Avatar Realtime Updates" node scripts/test_avatar_realtime.mjs

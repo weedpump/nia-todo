@@ -1,0 +1,89 @@
+/* Shared module slots and empty module surfaces */
+
+.module-slot-root-inline,
+.module-main-slot,
+.module-slot-panel-topbar,
+.module-slot-panel-main,
+.module-slot-panel-floating,
+.module-slot-panel-userMenu {
+  display: contents;
+}
+
+.module-slot-panel-shortcuts,
+.module-slot-panel-settingsNav,
+.module-slot-panel-settings,
+.module-slot-panel-desktopHotkeys {
+  display: contents;
+}
+
+.module-slot-panel[hidden] {
+  display: none !important;
+}
+
+
+.module-slot-panel-sidebar {
+  min-width: 0;
+}
+
+.module-page {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  padding: 42px 32px max(118px, calc(96px + env(safe-area-inset-bottom, 0px)));
+}
+
+.module-page-eyebrow {
+  margin: 0 0 3px;
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.module-empty-page {
+  min-height: calc(100dvh - 150px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 120px;
+  text-align: center;
+}
+
+.module-empty-icon {
+  width: 82px;
+  height: 82px;
+  flex: 0 0 82px;
+  margin-bottom: 22px;
+  border-radius: 50%;
+}
+
+.module-empty-page h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(27px, 3vw, 36px);
+  line-height: 1.08;
+}
+
+.module-empty-page > p:last-child {
+  max-width: 480px;
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .module-page {
+    padding: 24px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .module-empty-page {
+    min-height: calc(100dvh - 120px);
+    padding-inline: 26px;
+  }
+
+  .module-empty-page h1 {
+    font-size: 25px;
+  }
+}

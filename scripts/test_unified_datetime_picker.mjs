@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 const pickerSource = readFileSync(new URL('../web/static/js/features/date-time-picker.js', import.meta.url), 'utf8');
 const uiHistorySource = readFileSync(new URL('../web/static/js/features/ui-history.js', import.meta.url), 'utf8');
 const indexSource = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+const taskDialogsSource = readFileSync(new URL('../web/static/js/modules/tasks-dialogs.js', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 const todosSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 const uiShellSource = readFileSync(new URL('../web/static/js/features/ui-shell.js', import.meta.url), 'utf8');
@@ -403,12 +404,12 @@ try {
   await browser.close();
 }
 
-assert.match(indexSource, /data-datetime-picker-for="todo-due"/, 'deadline must use the shared datetime picker trigger');
-assert.match(indexSource, /data-datetime-picker-for="todo-remind"/, 'reminder must use the shared datetime picker trigger');
-assert.match(indexSource, /<label for="todo-due-picker"[^>]*data-i18n-key="todo\.deadline"/, 'the deadline label must target the visible picker trigger');
-assert.match(indexSource, /<label for="todo-remind-picker"[^>]*data-i18n-key="todo\.reminder"/, 'the reminder label must target the visible picker trigger');
-assert.match(indexSource, /id="todo-due-picker"[^>]*data-datetime-picker-for="todo-due"/, 'the deadline picker trigger must expose the label target id');
-assert.match(indexSource, /id="todo-remind-picker"[^>]*data-datetime-picker-for="todo-remind"/, 'the reminder picker trigger must expose the label target id');
+assert.match(taskDialogsSource, /data-datetime-picker-for="todo-due"/, 'deadline must use the shared datetime picker trigger');
+assert.match(taskDialogsSource, /data-datetime-picker-for="todo-remind"/, 'reminder must use the shared datetime picker trigger');
+assert.match(taskDialogsSource, /<label for="todo-due-picker"[^>]*data-i18n-key="todo\.deadline"/, 'the deadline label must target the visible picker trigger');
+assert.match(taskDialogsSource, /<label for="todo-remind-picker"[^>]*data-i18n-key="todo\.reminder"/, 'the reminder label must target the visible picker trigger');
+assert.match(taskDialogsSource, /id="todo-due-picker"[^>]*data-datetime-picker-for="todo-due"/, 'the deadline picker trigger must expose the label target id');
+assert.match(taskDialogsSource, /id="todo-remind-picker"[^>]*data-datetime-picker-for="todo-remind"/, 'the reminder picker trigger must expose the label target id');
 assert.match(indexSource, /id="date-time-picker-modal"/, 'the shared datetime picker dialog must be shipped in the app shell');
 assert.match(appSource, /createDateTimePickerFeature/, 'the app entrypoint must create the shared datetime picker');
 assert.match(appSource, /dateTimePickerFeature\.bind\(\)/, 'the app entrypoint must bind the shared datetime picker');

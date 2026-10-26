@@ -8,6 +8,7 @@ from services.auth import get_current_user
 from services.sharing import get_project_ids_for_user
 from services.server_updates import get_public_update_status
 from services.websocket import manager
+from services.workspace_visibility import workspace_payload
 from rate_limit import rate_limiter, get_client_ip_ws
 
 
@@ -183,7 +184,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "todos": todos_out,
                         "projects": [dict(r) for r in own_projects] + [dict(r) for r in shared_projects],
                         "sections": [dict(r) for r in sections_rows],
-                        "workspaces": [dict(r) for r in workspaces_rows]
+                        "workspaces": [workspace_payload(r) for r in workspaces_rows]
                     }, websocket)
     except Exception:
         pass

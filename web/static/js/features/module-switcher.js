@@ -1,52 +1,13 @@
 import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { t } from '../i18n/index.js';
-
-const MODULES = [
-  {
-    id: 'tasks',
-    labelKey: 'module.tasks.label',
-    descriptionKey: 'module.tasks.description',
-    icon: 'tasks',
-  },
-  {
-    id: 'shopping',
-    labelKey: 'module.shopping.label',
-    descriptionKey: 'module.shopping.description',
-    icon: 'shopping',
-  },
-  {
-    id: 'recipes',
-    labelKey: 'module.recipes.label',
-    descriptionKey: 'module.recipes.description',
-    icon: 'recipes',
-  },
-];
-
-const STORAGE_KEY = 'nia-active-module-preview';
-
-function loadActiveModule() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return MODULES.some(module => module.id === stored) ? stored : 'tasks';
-  } catch {
-    return 'tasks';
-  }
-}
-
-function persistActiveModule(moduleId) {
-  try {
-    localStorage.setItem(STORAGE_KEY, moduleId);
-  } catch {
-    // Keep the current module in memory when storage is unavailable.
-  }
-}
+import { getModule, isModuleId, MODULES, persistModule, readStoredModule } from '../modules/registry.js';
 
 function currentModule(moduleId) {
-  return MODULES.find(module => module.id === moduleId) || MODULES[0];
+  return getModule(moduleId);
 }
 
-export function createModuleSwitcher({ onModuleChange } = {}) {
-  let activeModuleId = loadActiveModule();
+export function createModuleSwitcher({ onModuleChange, getModules = () => MODULES } = {}) {
+  let activeModuleId = readStoredModule();
   let bound = false;
 
   function close() {
@@ -74,7 +35,7 @@ export function createModuleSwitcher({ onModuleChange } = {}) {
         <div><strong>Nia</strong><span>${t('moduleSwitcher.change')}</span></div>
       </div>
       <div class="module-switcher-options" role="none">
-        ${MODULES.map(module => `
+        ${getModules().map(module => `
           <button type="button" class="module-switcher-option${module.id === active.id ? ' active' : ''}" data-module-action="select" data-module-id="${module.id}" role="menuitemradio" aria-checked="${module.id === active.id}">
             <span class="module-switcher-option-icon" aria-hidden="true">${niaIconSvg(module.icon)}</span>
             <span class="module-switcher-option-copy"><strong>${t(module.labelKey)}</strong><small>${t(module.descriptionKey)}</small></span>
@@ -86,13 +47,19 @@ export function createModuleSwitcher({ onModuleChange } = {}) {
   }
 
   function setActiveModule(moduleId) {
-    if (!MODULES.some(module => module.id === moduleId)) return;
+    if (!isModuleId(moduleId) || !getModules().some(module => module.id === moduleId)) return;
     activeModuleId = moduleId;
-    persistActiveModule(activeModuleId);
-    render();
-    close();
+    persistModule(activeModuleId);
     onModuleChange?.(activeModuleId);
     document.getElementById('module-switcher-button')?.focus();
+  }
+
+  function syncActiveModule(moduleId) {
+    if (!isModuleId(moduleId)) return;
+    activeModuleId = moduleId;
+    persistModule(activeModuleId);
+    render();
+    close();
   }
 
   function toggle(event) {
@@ -123,5 +90,5 @@ export function createModuleSwitcher({ onModuleChange } = {}) {
     window.addEventListener('nia-language-change', render);
   }
 
-  return { bind, close, render, setActiveModule, getActiveModule: () => activeModuleId };
+  return { bind, close, render, setActiveModule, syncActiveModule, getActiveModule: () => activeModuleId };
 }

@@ -101,16 +101,60 @@
   overflow-y: auto;
 }
 
-.settings-nav {
+.settings-nav-shell {
   grid-column: 2;
   position: sticky;
   top: 0;
   align-self: start;
+  min-width: 0;
+}
+
+.settings-mobile-nav-toggle {
+  display: none;
+}
+
+.settings-nav {
   display: grid;
-  gap: 6px;
+  gap: 12px;
   padding: 24px 18px 24px 0;
   border-right: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
   background: transparent;
+}
+
+.settings-nav-general-group,
+.settings-nav-modules-group,
+.settings-nav-module-group {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settings-nav-group-heading,
+.settings-nav-module-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.settings-nav-module-heading {
+  padding-left: 12px;
+  font-size: 10px;
+}
+
+.settings-nav-module-heading .ui-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+}
+
+.settings-nav-module-group > button {
+  padding-left: 24px;
 }
 
 .settings-nav button[hidden] {
@@ -155,9 +199,55 @@
   grid-column: 3;
   display: grid;
   gap: 24px;
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: max-content;
   padding: clamp(22px, 2.5vw, 38px) 0 clamp(22px, 2.5vw, 38px) clamp(24px, 3vw, 44px);
   overflow: visible;
   scroll-behavior: smooth;
+}
+
+.settings-page {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.settings-page[hidden] {
+  display: none !important;
+}
+
+.settings-page {
+  padding-bottom: clamp(36px, 6vh, 72px);
+}
+
+.settings-page > .settings-section-card:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.settings-nav-page-sections {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-nav-page-sections > button {
+  padding-left: 24px;
+}
+
+.settings-nav [data-settings-page-target] {
+  width: 100%;
+  color: var(--text-primary);
+  font-weight: 750;
+}
+
+.settings-nav [data-settings-page-target].is-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.settings-nav [data-settings-nav-page]:not(.is-active) .settings-nav-page-sections {
+  display: none;
 }
 
 /* Settings aliases share the generic card/section primitives. */
@@ -171,18 +261,11 @@
 }
 
 #settings-modal .settings-section-card {
-  padding: 18px 0 0;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
-#settings-modal .settings-section-card:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
 
 .settings-subcard,
 .settings-notification-panel {
@@ -206,6 +289,7 @@
   border-top: 0;
 }
 
+
 .settings-section-card {
   scroll-margin-top: 16px;
 }
@@ -213,10 +297,16 @@
 .settings-section-heading,
 .ui-section-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   margin-bottom: 16px;
 }
+
+#settings-modal .settings-section-heading {
+  padding-bottom: 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+}
+
 
 .settings-section-icon,
 .ui-section-icon {
@@ -621,19 +711,79 @@
 
 @media (max-width: 900px) {
   .settings-modal-body { grid-template-columns: 1fr; }
-  .settings-nav,
+  .settings-nav-shell,
   .settings-sections {
     grid-column: 1;
   }
-  .settings-nav {
+  .settings-nav-shell {
     position: relative;
-    display: flex;
-    overflow-x: auto;
-    border-right: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    padding: 12px;
+    top: auto;
+    z-index: 5;
+    width: 100%;
+    padding: 10px 12px;
+    background: transparent;
   }
-  .settings-nav button { white-space: nowrap; }
+  .settings-mobile-nav-toggle {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-tertiary) 54%, transparent);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+  .settings-mobile-nav-toggle > .ui-icon {
+    width: 17px;
+    height: 17px;
+    color: var(--accent);
+  }
+  .settings-mobile-nav-chevron {
+    display: inline-flex;
+    margin-left: auto;
+    color: var(--text-muted);
+    transition: transform .18s ease;
+  }
+  .settings-nav-shell.is-open .settings-mobile-nav-chevron {
+    transform: rotate(180deg);
+  }
+  .settings-nav {
+    display: none;
+    position: absolute;
+    top: calc(100% - 6px);
+    left: 12px;
+    right: 12px;
+    max-height: min(62vh, 520px);
+    overflow-y: auto;
+    gap: 14px;
+    padding: 14px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--bg-secondary);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, .28);
+  }
+  .settings-nav-shell.is-open .settings-nav {
+    display: grid;
+  }
+  .settings-nav-page-sections {
+    display: grid;
+  }
+  .settings-nav [data-settings-nav-page]:not(.is-active) .settings-nav-page-sections {
+    display: none;
+  }
+  .settings-nav-group-heading {
+    padding-bottom: 2px;
+  }
+  .settings-nav-module-group > button {
+    padding-left: 12px;
+  }
   .settings-password-grid,
   .settings-hotkey-grid { grid-template-columns: 1fr; }
 }
@@ -676,13 +826,10 @@
     flex-direction: column;
     overflow: hidden;
   }
-  .settings-nav {
+  .settings-nav-shell {
     flex: 0 0 auto;
-    padding: 10px 12px;
-    background: var(--bg-secondary);
   }
-  .settings-nav button {
-    padding: 8px 10px;
+  .settings-mobile-nav-toggle {
     font-size: 12px;
   }
   .settings-sections {
@@ -691,8 +838,10 @@
     padding: 12px;
     gap: 12px;
   }
+  .settings-page {
+    gap: 0;
+  }
   #settings-modal .settings-section-card {
-    padding: 14px 0 0;
     border-radius: 0;
   }
 
@@ -735,31 +884,6 @@
   #settings-modal .settings-place-add-row .btn {
     width: 100%;
     min-height: 42px;
-  }
-}
-
-/* Settings redesign mobile fixes */
-@media (max-width: 768px) {
-  .settings-nav {
-    display: flex;
-    flex-wrap: nowrap;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    overflow-x: auto;
-    overflow-y: hidden;
-    gap: 8px;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
-  .settings-nav button {
-    flex: 0 0 auto;
-    min-width: max-content;
-    justify-content: center;
-    white-space: nowrap;
-    scroll-snap-align: start;
   }
 }
 

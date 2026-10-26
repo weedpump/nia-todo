@@ -78,6 +78,8 @@ def main():
             comment_indexes = {row[1] for row in db.execute("PRAGMA index_list(todo_comments)")}
             assert "idx_todo_subtasks_client_mutation" in subtask_indexes, subtask_indexes
             assert "idx_todo_comments_client_mutation" in comment_indexes, comment_indexes
+            workspace_columns = {row[1] for row in db.execute("PRAGMA table_info(workspaces)")}
+            assert "hidden_modules_json" in workspace_columns, workspace_columns
 
         with sqlite3.connect(db_path) as db:
             db.execute("DROP TABLE dashboard_preferences")
@@ -102,6 +104,8 @@ def main():
             assert table == ("dashboard_preferences",), table
             indexes = {row[1] for row in db.execute("PRAGMA index_list(dashboard_preferences)")}
             assert "idx_dashboard_preferences_user" in indexes, indexes
+            workspace_columns = {row[1] for row in db.execute("PRAGMA table_info(workspaces)")}
+            assert "hidden_modules_json" in workspace_columns, workspace_columns
 
     print("✅ Fresh migration test passed")
 

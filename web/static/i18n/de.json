@@ -114,6 +114,9 @@
   "webInstall.ios.mock.add": "Hinzufügen",
   "appDownloads.sidebarSubtitle": "Desktop- oder Android-App installieren.",
   "settings.title": "Einstellungen",
+  "settings.group.general": "Allgemein",
+  "settings.group.modules": "Module",
+  "settings.nav.chooseSection": "Bereich wählen",
   "settings.profile.username": "Username",
   "settings.profile.displayName": "Anzeigename",
   "settings.profile.email": "E-Mail",
@@ -290,7 +293,7 @@
   "workspace.nameRequired": "Bitte einen Namen eingeben.",
   "workspace.onlineOnlyUpdate": "Workspace ändern geht aktuell nur online.",
   "workspace.onlineOnlyDelete": "Workspace löschen geht aktuell nur online.",
-  "workspace.saved": "Workspace umbenannt.",
+  "workspace.saved": "Workspace gespeichert.",
   "workspace.created": "Workspace angelegt.",
   "workspace.deleteTitle": "Workspace löschen?",
   "workspace.deleteConfirm": "Workspace löschen",
@@ -1681,6 +1684,9 @@
   "workspace.modalHint": "Organisiere Projekte nach Kontext, Team oder Bereich.",
   "workspace.details": "Details",
   "workspace.detailsHint": "Name, Farbe und Icon für diesen Workspace.",
+  "workspace.modules": "Sichtbare Module",
+  "workspace.modulesHint": "Wähle, welche Module in diesem Workspace im Modulmenü erscheinen.",
+  "workspace.modulesRequired": "Mindestens ein Modul muss sichtbar bleiben.",
   "project.modalHint": "Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.",
   "project.details": "Details",
   "project.detailsHint": "Farbe und Icon für dieses Projekt.",
@@ -1956,5 +1962,7 @@
   "todo.multiAdd.created.many": "{count} Todos wurden erstellt",
   "todo.multiAdd.recurringNeedsDue": "Ein wiederkehrendes Todo benötigt ein Fälligkeitsdatum.",
   "todo.multiAdd.pasteOmitted.one": "Es können höchstens {max} Todos auf einmal hinzugefügt werden. {count} eingefügte Zeile wurde nicht übernommen.",
-  "todo.multiAdd.pasteOmitted.many": "Es können höchstens {max} Todos auf einmal hinzugefügt werden. {count} eingefügte Zeilen wurden nicht übernommen."
+  "todo.multiAdd.pasteOmitted.many": "Es können höchstens {max} Todos auf einmal hinzugefügt werden. {count} eingefügte Zeilen wurden nicht übernommen.",
+  "module.placeholder.body": "Dieses Modul ist eingehängt. Die Fachfunktionen folgen in einem eigenen Schritt.",
+  "module.placeholder.search": "Suche folgt mit dem Modul"
 }

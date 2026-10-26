@@ -114,6 +114,9 @@
   "webInstall.ios.mock.add": "Добавить",
   "appDownloads.sidebarSubtitle": "Установите настольное приложение или приложение для Android.",
   "settings.title": "Настройки",
+  "settings.group.general": "Общие",
+  "settings.group.modules": "Модули",
+  "settings.nav.chooseSection": "Выбрать раздел",
   "settings.profile.username": "Имя пользователя",
   "settings.profile.displayName": "Отображаемое имя",
   "settings.profile.email": "электронная почта",
@@ -290,7 +293,7 @@
   "workspace.nameRequired": "Пожалуйста, введите имя.",
   "workspace.onlineOnlyUpdate": "Смена рабочих пространств в настоящее время работает только онлайн.",
   "workspace.onlineOnlyDelete": "Удаление рабочих пространств в настоящее время работает только в Интернете.",
-  "workspace.saved": "Рабочая область переименована.",
+  "workspace.saved": "Рабочее пространство сохранено.",
   "workspace.created": "Рабочая область создана.",
   "workspace.deleteTitle": "Удалить рабочую область?",
   "workspace.deleteConfirm": "Удалить рабочую область",
@@ -1681,6 +1684,9 @@
   "workspace.modalHint": "Организуйте проекты по контексту, команде или области.",
   "workspace.details": "Подробности",
   "workspace.detailsHint": "Имя, цвет и значок этой рабочей области.",
+  "workspace.modules": "Видимые модули",
+  "workspace.modulesHint": "Выберите модули, которые отображаются в меню этого рабочего пространства.",
+  "workspace.modulesRequired": "Хотя бы один модуль должен оставаться видимым.",
   "project.modalHint": "Структурируйте задачи с помощью цвета, значка и дополнительной иерархии.",
   "project.details": "Подробности",
   "project.detailsHint": "Цвет и значок для этого проекта.",
@@ -1956,5 +1962,7 @@
   "todo.multiAdd.created.many": "Создано задач: {count}",
   "todo.multiAdd.recurringNeedsDue": "Для повторяющейся задачи нужна дата выполнения.",
   "todo.multiAdd.pasteOmitted.one": "За один раз можно добавить не более {max} задач. Не добавлена {count} вставленная строка.",
-  "todo.multiAdd.pasteOmitted.many": "За один раз можно добавить не более {max} задач. Не добавлено вставленных строк: {count}."
+  "todo.multiAdd.pasteOmitted.many": "За один раз можно добавить не более {max} задач. Не добавлено вставленных строк: {count}.",
+  "module.placeholder.body": "Этот модуль подключён. Его функции будут добавлены отдельным этапом.",
+  "module.placeholder.search": "Поиск появится вместе с модулем"
 }
