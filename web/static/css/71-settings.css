@@ -887,3 +887,74 @@
   }
 }
 
+.user-menu-notification-badge,
+.settings-nav-notification-dot {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.settings-nav-notification-dot:empty {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+}
+
+.settings-household-panel,
+.settings-household-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+[data-settings-page="household"] [hidden] {
+  display: none;
+}
+
+.settings-household-create-row,
+.settings-household-name-row,
+.settings-household-invite-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.settings-household-list { display: grid; gap: 8px; }
+
+.settings-household-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
+}
+
+.settings-household-row > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.settings-household-row span { color: var(--text-muted); font-size: 12px; }
+.settings-household-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.settings-household-lifecycle,
+.settings-household-danger { display: grid; gap: 10px; margin-top: 18px; }
+.settings-household-danger { padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); }
+.settings-household-danger p { margin: 0; color: var(--text-muted); font-size: 13px; }
+
+@media (max-width: 640px) {
+  .settings-household-create-row,
+  .settings-household-name-row,
+  .settings-household-invite-row { grid-template-columns: 1fr; align-items: stretch; }
+  .settings-household-row { align-items: flex-start; flex-direction: column; }
+  .settings-household-actions { width: 100%; justify-content: flex-start; }
+}
+

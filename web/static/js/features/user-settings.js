@@ -648,8 +648,10 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
   }
 
   async function openSettingsModal() {
+    const pageId = arguments[0] || 'general';
     closeSettingsNavigation();
-    showSettingsPage('general');
+    if (pageId === 'general') showSettingsPage('general');
+    else showSettingsPage(pageId);
     document.getElementById('settings-old-password').value = '';
     document.getElementById('settings-new-password').value = '';
     document.getElementById('settings-confirm-password').value = '';
@@ -680,6 +682,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     resetPlaceForm();
     document.getElementById('settings-modal')?.classList.add('active');
     openUiLayer('settings-modal');
+    window.dispatchEvent(new CustomEvent('nia:settings-opened'));
     updateSettingsEnrollmentLock();
     await refreshCurrentUser().catch(() => {});
     updateSettingsEnrollmentLock();
@@ -1614,5 +1617,6 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     editSettingsPlace,
     cancelSettingsPlaceEdit,
     deleteSettingsPlace,
+    showSettingsPage,
   };
 }

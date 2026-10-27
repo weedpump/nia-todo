@@ -56,6 +56,72 @@ with tempfile.TemporaryDirectory() as tmp:
     project_id = personal["id"]
     assert personal["ownership_type"] == "user", personal
 
+    with get_db() as db:
+        default_workspace_id = db.execute(
+            "SELECT id FROM workspaces WHERE user_id = ? AND is_default = 1",
+            (owner_id,),
+        ).fetchone()["id"]
+        special_workspace_id = db.execute(
+            """INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at)
+               VALUES ('Work', '#6366f1', 'briefcase', 1, ?, 0, datetime('now'))""",
+            (owner_id,),
+        ).lastrowid
+        db.commit()
+    household_in_special_workspace = asyncio.run(
+        create_project(
+            ProjectCreate(
+                name="Household default workspace",
+                household_id=household_id,
+                workspace_id=special_workspace_id,
+            ),
+            owner_id,
+        )
+    )
+    with get_db() as db:
+        stored_workspace_id = db.execute(
+            "SELECT workspace_id FROM projects WHERE id = ?",
+            (household_in_special_workspace["id"],),
+        ).fetchone()["workspace_id"]
+    assert stored_workspace_id == default_workspace_id, stored_workspace_id
+    assert household_in_special_workspace["workspace_id"] == default_workspace_id, household_in_special_workspace
+
+    personal_in_special_workspace = asyncio.run(
+        create_project(
+            ProjectCreate(name="Personal work project", workspace_id=special_workspace_id),
+            owner_id,
+        )
+    )
+    personal_child_in_special_workspace = asyncio.run(
+        create_project(
+            ProjectCreate(
+                name="Personal work child",
+                parent_id=personal_in_special_workspace["id"],
+                workspace_id=special_workspace_id,
+            ),
+            owner_id,
+        )
+    )
+    special_workspace_transfer = asyncio.run(
+        transfer_project_to_household_endpoint(
+            personal_in_special_workspace["id"],
+            ProjectHouseholdTransfer(household_id=household_id),
+            owner_id,
+        )
+    )
+    transferred_views = special_workspace_transfer.get("transferred_projects", [])
+    assert {project["id"] for project in transferred_views} == {
+        personal_in_special_workspace["id"],
+        personal_child_in_special_workspace["id"],
+    }, special_workspace_transfer
+    assert all(project["ownership_type"] == "household" for project in transferred_views), transferred_views
+    assert all(project["workspace_id"] == default_workspace_id for project in transferred_views), transferred_views
+    with get_db() as db:
+        transferred_workspace_id = db.execute(
+            "SELECT workspace_id FROM projects WHERE id = ?",
+            (personal_in_special_workspace["id"],),
+        ).fetchone()["workspace_id"]
+    assert transferred_workspace_id == default_workspace_id, transferred_workspace_id
+
     transferred = asyncio.run(
         transfer_project_to_household_endpoint(
             project_id,

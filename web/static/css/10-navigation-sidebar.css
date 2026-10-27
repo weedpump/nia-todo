@@ -221,6 +221,20 @@
   width: 100%;
 }
 
+.project-household-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
+  opacity: .78;
+}
+
+.project-household-badge .ui-icon {
+  width: 13px;
+  height: 13px;
+}
+
 .project-drop-target.drag-over {
   background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12));
   box-shadow: inset 0 0 0 2px var(--accent);

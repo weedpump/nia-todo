@@ -1,7 +1,7 @@
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
 import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL, apiResourceUrl } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
-import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
+import { authApi, householdsApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -12,6 +12,7 @@ import { createServiceWorkerUpdatesFeature } from './features/service-worker-upd
 import { applyTheme, bindSystemThemeListener, bindThemeOptionButtons, cycleTheme, initTheme, toggleAccentPresetMenu } from './features/theme.js';
 import { createUserSettingsFeature } from './features/user-settings.js';
 import { createUserMenuFeature } from './features/user-menu.js';
+import { createHouseholdsFeature } from './features/households.js';
 import { createProjectsFeature } from './features/projects.js';
 import { createWorkspacesFeature } from './features/workspaces.js';
 import { createProjectSharingFeature } from './features/project-sharing.js';
@@ -51,6 +52,7 @@ import { createShortcutHelpFeature } from './features/shortcut-help.js';
 import { bindUiHistory } from './features/ui-history.js';
 import { exposeRuntimeGlobals } from './features/runtime-globals.js';
 import { removeCachedAvatar } from './core/authenticated-image.js';
+import { promptSecurityText } from './features/security-dialogs.js';
 import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
 let todos = [];
@@ -347,11 +349,14 @@ const projectsFeature = createProjectsFeature({
   projectsApi,
   sharingFeature,
   getCurrentUser: () => currentUser,
+  getAccessSnapshot: () => window.niaAccessSnapshot || { household: null, householdInvites: [] },
 });
 let workspacesFeature = null;
+let householdsFeature = null;
 const userMenuFeature = createUserMenuFeature({
   getCurrentUser: () => currentUser,
   openSettingsModal: () => openSettingsModal(),
+  openHouseholdSettings: () => openHouseholdSettings(),
   openShortcutHelpModal: options => shortcutHelpFeature.openShortcutHelpModal(options),
   openAboutModal: options => aboutFeature.openAboutModal(options),
   cycleTheme: () => cycleTheme(),
@@ -410,9 +415,23 @@ const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
 const bindUserSettingsActions = userSettingsFeature.bindUserSettingsActions;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
+const showSettingsPage = userSettingsFeature.showSettingsPage;
 const loadSavedPlaces = userSettingsFeature.loadSavedPlaces;
 const updateUserMenu = userMenuFeature.updateUserMenu;
 const bindUserMenu = userMenuFeature.bindUserMenu;
+householdsFeature = createHouseholdsFeature({
+  householdsApi,
+  getCurrentUser: () => currentUser,
+  getAccessSnapshot: () => window.niaAccessSnapshot || { household: null, householdInvites: [] },
+  setAccessSnapshot: snapshot => { window.niaAccessSnapshot = snapshot; },
+  showSettingsPage,
+  confirmDanger,
+  promptText: promptSecurityText,
+  onChanged: () => refreshFromServer(),
+});
+const openHouseholdSettings = async () => {
+  await openSettingsModal('household');
+};
 // ─── API Keys ────────────────────────────────────────────────────────────────
 
 const resetApiKeyUi = apiKeysFeature.resetApiKeyUi;
@@ -896,6 +915,7 @@ export function startAppModule() {
   appLifecycle.bindDomReady();
   bindUserMenu();
   bindUserSettingsActions();
+  householdsFeature.bind();
   bindApiKeyActions();
   bindPushActions();
   desktopIntegration?.bindDesktopActions?.();

@@ -1219,6 +1219,7 @@ with tempfile.TemporaryDirectory() as tmp:
             former_member_id,
         )
     )
+    assert workspace_household_project["workspace_id"] != former_workspace["id"], workspace_household_project
     with get_db() as db:
         source_inbox_id = db.execute(
             "SELECT id FROM projects WHERE user_id = ? AND workspace_id = ? AND is_inbox = 1",
@@ -1239,7 +1240,7 @@ with tempfile.TemporaryDirectory() as tmp:
             "SELECT workspace_id FROM projects WHERE id = ?",
             (workspace_household_project["id"],),
         ).fetchone()
-        assert unchanged_household_project["workspace_id"] == former_workspace["id"], unchanged_household_project
+        assert unchanged_household_project["workspace_id"] == workspace_household_project["workspace_id"], unchanged_household_project
         assert db.execute(
             "SELECT 1 FROM entity_access WHERE entity_type = 'project' AND entity_id = ?",
             (source_inbox_id,),

@@ -5,22 +5,22 @@ import contextlib
 import io
 import os
 import sys
-import uuid
+import tempfile
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[1]
 API_DIR = BASE / "api"
-TEST_DB_NAME = f"nia-todo-email-test-{uuid.uuid4().hex}.db"
-TEST_DB_PATH = API_DIR / "data" / TEST_DB_NAME
+TEST_DATA_CONTEXT = tempfile.TemporaryDirectory()
+TEST_DATA_DIR = Path(TEST_DATA_CONTEXT.name)
 
-os.environ["NIA_TODO_DATA_DIR"] = str(API_DIR / "data")
-os.environ["NIA_TODO_DB"] = TEST_DB_NAME
+os.environ["NIA_TODO_DATA_DIR"] = str(TEST_DATA_DIR)
+os.environ["NIA_TODO_DB"] = "nia-todo.db"
 sys.path.insert(0, str(API_DIR))
 
 from migrate import run_migrations  # noqa: E402
 from services.email_config import get_email_config, update_email_config  # noqa: E402
 from services.email import send_email, send_test_email  # noqa: E402
-from services.email_templates import email_verification_email, password_setup_email, project_share_invite_email, test_email, two_factor_code_email  # noqa: E402
+from services.email_templates import EMAIL_COPY, email_verification_email, household_invite_email, password_setup_email, project_share_invite_email, test_email, two_factor_code_email  # noqa: E402
 import services.email as email_service  # noqa: E402
 
 
@@ -176,6 +176,7 @@ def test_all_system_email_templates_use_split_layout():
         password_setup_email(display_name="Tobi", username="tobi", link="https://todo.example.invalid/set-password?token=abc", purpose="invite", expires_hours=24),
         email_verification_email(display_name="Tobi", username="tobi", link="https://todo.example.invalid/verify?token=abc", expires_hours=24),
         project_share_invite_email(display_name="", username="moni", project_name="Urlaub", inviter_name="Tobi", link="https://todo.example.invalid/project"),
+        household_invite_email(display_name="", username="moni", household_name="Zuhause", inviter_name="Tobi", link="https://todo.example.invalid/"),
         two_factor_code_email(display_name="", username="tobi", code="123456", purpose="login"),
         test_email(),
     ]
@@ -188,6 +189,22 @@ def test_all_system_email_templates_use_split_layout():
         assert_true("modern-hero" in html and "hero-shell" in html, "modern hero layout missing")
         assert_true("v:roundrect" in html and "mso-style-textfill-fill-color:#ffffff" in html, "Outlook hero fallback missing")
         assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
+
+
+def test_household_invite_email_is_localized_for_every_supported_language():
+    for language in EMAIL_COPY:
+        subject, text, html = household_invite_email(
+            display_name="Moni",
+            username="moni",
+            household_name="Home",
+            inviter_name="Tobi",
+            link="https://todo.example.invalid/",
+            language=language,
+        )
+        copy = EMAIL_COPY[language]
+        assert_true(copy["household_invite_title"] in html, f"{language}: household title missing")
+        assert_true(copy["household_invite_action"] in text, f"{language}: household action missing")
+        assert_true("Home" in subject and "Tobi" in text, f"{language}: household invite context missing")
 
 
 def test_render_system_email_handles_empty_paragraphs():
@@ -242,15 +259,13 @@ def main():
         test_starttls_auth_send()
         test_branded_email_templates()
         test_all_system_email_templates_use_split_layout()
+        test_household_invite_email_is_localized_for_every_supported_language()
         test_render_system_email_handles_empty_paragraphs()
         test_send_test_email_uses_branded_template()
         test_tls_ssl_send_without_starttls()
         print("✅ Email service tests passed")
     finally:
-        try:
-            TEST_DB_PATH.unlink()
-        except FileNotFoundError:
-            pass
+        TEST_DATA_CONTEXT.cleanup()
 
 
 if __name__ == "__main__":

@@ -173,7 +173,11 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
     data.icon = normalize_icon(data.icon)
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        workspace_id = data.workspace_id or get_user_default_workspace_id(db, user_id)
+        workspace_id = (
+            get_user_default_workspace_id(db, user_id)
+            if data.household_id is not None
+            else (data.workspace_id or get_user_default_workspace_id(db, user_id))
+        )
         workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         if not workspace:
             raise HTTPException(404, "Workspace not found")
@@ -238,20 +242,31 @@ async def transfer_project_to_household_endpoint(
             if not ownership or ownership["owner_user_id"] != user_id:
                 raise HTTPException(403, "Only a fully personal project tree can be transferred")
         try:
+            default_workspace_id = get_user_default_workspace_id(db, user_id)
             if project["parent_id"] is not None:
                 db.execute(
                     "UPDATE projects SET parent_id = NULL, updated_at = ? WHERE id = ?",
                     (now_iso(), project_id),
                 )
             for target_id in to_transfer:
+                db.execute(
+                    "UPDATE projects SET workspace_id = ?, updated_at = ? WHERE id = ?",
+                    (default_workspace_id, now_iso(), target_id),
+                )
                 transfer_entity_to_household(db, "project", target_id, user_id, data.household_id)
             db.commit()
         except PermissionError as exc:
             raise HTTPException(403, str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
-        row = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
-        result = _project_view_for_user(db, row, user_id)
+        transferred_projects = []
+        for target_id in to_transfer:
+            row = db.execute("SELECT * FROM projects WHERE id = ?", (target_id,)).fetchone()
+            view = _project_view_for_user(db, row, user_id)
+            if view is not None:
+                transferred_projects.append(view)
+        result = dict(next(project for project in transferred_projects if project["id"] == project_id))
+        result["transferred_projects"] = transferred_projects
         await broadcast_project_updates(to_transfer, user_id)
         current_participant_ids = set()
         for target_id in to_transfer:

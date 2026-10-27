@@ -27,7 +27,9 @@ export function createProjectSharingFeature({
 
   function isOwner(project) {
     if (!project) return false;
-    if (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1') return true;
+    if (Object.prototype.hasOwnProperty.call(project, 'is_owner')) {
+      return project.is_owner === true || project.is_owner === 1 || project.is_owner === '1';
+    }
     if (project.is_shared) return false;
     return !!project.user_id;
   }
@@ -302,6 +304,7 @@ export function createProjectSharingFeature({
   function applyProjectModalState(project, canEdit, shared) {
     currentProject = project;
     const isOwn = isOwner(project);
+    const householdProject = Boolean(project?.owner_household_id || project?.ownership_type === 'household');
     const sharingSection = document.getElementById('project-sharing-section');
     const sharingContent = document.getElementById('project-sharing-content');
     const shareStartRow = document.getElementById('project-share-start-row');
@@ -315,7 +318,7 @@ export function createProjectSharingFeature({
     const saveBtn = document.getElementById('project-save-btn');
 
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
-    if (leaveRow) leaveRow.style.display = shared && !isOwn ? '' : 'none';
+    if (leaveRow) leaveRow.style.display = shared && !isOwn && !householdProject ? '' : 'none';
     if (leaveBtn) leaveBtn.style.display = '';
     if (ownerInfo) {
       if (project && shared && !isOwn) {
@@ -363,8 +366,8 @@ export function createProjectSharingFeature({
         if (el.tagName === 'SELECT') refreshSelect(el);
       }
     }
-    const canMoveSharedDisplay = !!project && shared && !isOwn;
-    const canMoveOwnProject = !!project && isOwn && !project.is_inbox;
+    const canMoveSharedDisplay = !!project && shared && !isOwn && !householdProject;
+    const canMoveOwnProject = !!project && isOwn && !project.is_inbox && !householdProject;
     if (displayWorkspace) {
       displayWorkspace.disabled = !(canMoveSharedDisplay || canMoveOwnProject);
       refreshSelect(displayWorkspace);

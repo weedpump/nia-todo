@@ -103,6 +103,12 @@ export function createAppRenderingFeature({
     return getWorkspaceTodos().filter(todo => todo.project_id === pid && todo.status !== 'done').length;
   }
 
+  function householdProjectBadge(project) {
+    if (!(project?.owner_household_id || project?.ownership_type === 'household')) return '';
+    const title = t('project.householdBadge', { name: project.household_name || '' });
+    return `<span class="project-household-badge" title="${escapeHtmlAttr(title)}" aria-label="${escapeHtmlAttr(title)}">${iconSvg('house-heart')}</span>`;
+  }
+
   function renderProjects() {
     const el = document.getElementById('project-list');
     if (!el) return;
@@ -142,6 +148,7 @@ export function createAppRenderingFeature({
       html += `<button class="nav-btn ui-nav-pill project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}" aria-label="${escapeHtmlAttr(project.name)}" title="${escapeHtmlAttr(project.name)}">`;
       html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
       html += `<span class="nav-label">${escapeHtml(project.name)}</span>`;
+      html += householdProjectBadge(project);
       html += `<span class="badge">${countByProject(project.id)}</span>`;
       html += `</button>`;
       html += `<button class="nav-edit" data-project-action="edit" data-project-id="${escapeHtmlAttr(project.id)}" title="${escapeHtmlAttr(t('common.edit'))}">`;

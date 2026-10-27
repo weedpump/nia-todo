@@ -5,6 +5,7 @@ import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } fro
 export function createUserMenuFeature({
   getCurrentUser,
   openSettingsModal = null,
+  openHouseholdSettings = null,
   openShortcutHelpModal = null,
   openAboutModal = null,
   cycleTheme = null,
@@ -116,6 +117,10 @@ export function createUserMenuFeature({
     }
     if (action === 'settings') {
       openFromUserMenu('settings-modal', () => openSettingsModal?.());
+      return;
+    }
+    if (action === 'household') {
+      openFromUserMenu('settings-modal', () => openHouseholdSettings?.());
       return;
     }
     if (action === 'shortcuts') {
