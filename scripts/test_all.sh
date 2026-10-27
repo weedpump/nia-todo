@@ -47,9 +47,10 @@ run_step_retry() {
   if run_test_command "$@"; then
     echo "✅ OK: $label"
     return 0
+  else
+    code=$?
   fi
 
-  code=$?
   echo "⚠️  FAILED: $label"
   echo "   Exit code: $code"
   echo "   Retrying once to catch Playwright/realtime timing flakes..."
@@ -169,6 +170,7 @@ run_frontend_step_retry() {
 }
 
 run_frontend_shared_step_retry() {
+  sudo -n systemctl restart "${NIA_TODO_SERVICE:-nia-todo}"
   NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_step_retry "$@"
 }
 
