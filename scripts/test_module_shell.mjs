@@ -143,6 +143,8 @@ assert(!moduleCss.includes('.shopping-item'), 'shopping-specific component styli
 assert(!indexSource.includes('id="workspace-module-list"'), 'module visibility must not be configured in workspace settings');
 assert(!workspacesSource.includes('hidden_modules'), 'workspace payloads must not persist module visibility');
 assert(indexSource.includes('id="settings-section-modules"'), 'account module visibility must live in settings');
+assert(indexSource.includes('data-settings-section="settings-section-modules"><span data-icon="blocks"'), 'module settings navigation must use the bundled Lucide blocks icon');
+assert(!indexSource.includes('data-icon="layout-grid"'), 'module settings navigation must not use an icon missing from the bundled Lucide set');
 assert(registrySource.includes('REGISTERED_MODULE_IDS = Object.freeze(["tasks", "shopping", "recipes"])'), 'the central registry must expose server-readable authoritative module ids');
 assert(taskSettingsSource.includes('data-module-settings-group="tasks"'), 'task settings must be visibly grouped as module-specific settings');
 assert(shellSource.includes('const searchValues = new Map()'), 'the shell must preserve search state per module');
