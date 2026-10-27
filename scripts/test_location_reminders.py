@@ -30,8 +30,10 @@ def make_db():
     db.executescript(
         """
         CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, display_name TEXT);
-        CREATE TABLE projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, user_id INTEGER, is_inbox INTEGER DEFAULT 0);
+        CREATE TABLE projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, user_id INTEGER, parent_id INTEGER, is_inbox INTEGER DEFAULT 0);
         CREATE TABLE project_members (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT DEFAULT 'accepted');
+        CREATE TABLE entity_access (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL, entity_id INTEGER NOT NULL, owner_user_id INTEGER, owner_household_id INTEGER);
+        CREATE TABLE entity_access_grants (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_access_id INTEGER NOT NULL, user_id INTEGER NOT NULL);
         CREATE TABLE sections (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, name TEXT NOT NULL);
         CREATE TABLE todos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,6 +108,7 @@ def make_db():
     db.execute("INSERT INTO users (id, username, display_name) VALUES (1, 'tobi', 'Tobi')")
     db.execute("INSERT INTO users (id, username) VALUES (2, 'moni')")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
+    db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (1, 2, 'accepted')")
     db.commit()
     return db
