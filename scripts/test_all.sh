@@ -11,6 +11,12 @@ export NIA_TODO_UPDATE_RELEASE_API_URL="http://127.0.0.1:9/releases/latest"
 export NIA_TODO_UPDATE_UMAMI_URL="http://127.0.0.1:9"
 export NIA_TODO_UPDATE_UMAMI_WEBSITE_ID=""
 
+TEST_STEP_TIMEOUT_SECONDS="${NIA_TODO_TEST_STEP_TIMEOUT_SECONDS:-300}"
+
+run_test_command() {
+  timeout --foreground "${TEST_STEP_TIMEOUT_SECONDS}" "$@"
+}
+
 step() {
   echo
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -22,7 +28,7 @@ run_step() {
   local label="$1"
   shift
   step "$label"
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK: $label"
   else
     local code=$?
@@ -38,7 +44,7 @@ run_step_retry() {
   local code
   shift
   step "$label"
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK: $label"
     return 0
   fi
@@ -48,7 +54,7 @@ run_step_retry() {
   echo "   Exit code: $code"
   echo "   Retrying once to catch Playwright/realtime timing flakes..."
 
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK after retry: $label"
   else
     code=$?
