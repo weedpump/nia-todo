@@ -32,6 +32,21 @@ assert.match(sharingSource, /function isHouseholdProject\(project\)[\s\S]*owner_
 assert.match(sharingSource, /canMoveSharedDisplay = [^;]*!householdProject/, 'household projects must not regain workspace movement through sharing state');
 assert.match(iconsSource, /"house-heart"/, 'house-heart must be bundled');
 
+const transferWarningTerms = {
+  de: /direkte Freigaben.*Einladungen/,
+  en: /direct shares.*invitations/,
+  cs: /přímá sdílení.*pozvánky/,
+  fr: /partages directs.*invitations/,
+  it: /condivisioni dirette.*inviti/,
+  nl: /directe toegang.*uitnodigingen/,
+  pl: /bezpośrednie udostępnienia.*zaproszenia/,
+  'pt-BR': /compartilhamentos diretos.*convites/,
+  ru: /Прямой доступ.*приглашения/,
+  sv: /direktdelningar.*inbjudningar/,
+  es: /accesos compartidos directos.*invitaciones/,
+  'zh-CN': /直接共享.*邀请/,
+};
+
 for (const locale of ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'es', 'zh-CN']) {
   const messages = JSON.parse(readFileSync(new URL(`../web/static/i18n/${locale}.json`, import.meta.url), 'utf8'));
   for (const key of [
@@ -55,7 +70,7 @@ for (const locale of ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', '
   ]) assert.equal(typeof messages[key], 'string', `${locale} must define ${key}`);
   assert.match(
     messages['project.transferHousehold.message'],
-    locale === 'de' ? /direkte Freigaben.*Einladungen/ : /direct shares.*invitations/,
+    transferWarningTerms[locale],
     `${locale} transfer warning must explain that direct sharing is removed`,
   );
 }
@@ -71,8 +86,10 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
   const testHtml = `<!doctype html><html><head><link rel="stylesheet" href="/static/css/71-settings.css"></head><body>
+    <div id="app" data-desktop-sidebar-mode="expanded"><button id="sidebar-toggle-btn"><span id="sidebar-toggle-household-indicator" class="sidebar-toggle-household-indicator" hidden></span></button></div>
     <button id="household-nav" data-settings-page-target="household"><span id="settings-household-nav-badge" class="settings-nav-notification-dot" hidden></span></button>
-    <button id="user-menu-household" data-user-menu-action="household"><span id="user-menu-household-badge" class="user-menu-notification-badge" hidden></span></button>
+    <button id="user-menu-button"><span id="user-menu-button-avatar">U</span><span id="user-menu-household-indicator" class="user-menu-household-indicator" hidden></span></button>
+    <button id="user-menu-household" data-user-menu-action="household" hidden><span id="user-menu-household-badge" class="user-menu-notification-badge" hidden></span></button>
     <div data-settings-page="general"></div>
     <div data-settings-page="household" hidden>
       <div id="settings-household-loading"></div>
@@ -84,11 +101,11 @@ try {
         <div id="settings-household-owner"></div>
         <input id="settings-household-invite-identifier"><button data-household-action="invite">invite</button>
         <div id="settings-household-members"></div>
-        <div id="settings-household-outgoing"></div>
+        <div id="settings-household-outgoing-section"><div id="settings-household-outgoing"></div></div>
         <button id="settings-household-leave" data-household-action="leave">leave</button>
         <div id="settings-household-dissolve-wrap"><button id="settings-household-dissolve" data-household-action="dissolve">dissolve</button></div>
       </div>
-      <div id="settings-household-incoming"></div>
+      <div id="settings-household-incoming-section"><div id="settings-household-incoming"></div></div>
     </div>
     <div id="project-modal"><form id="project-form">
       <input id="project-id"><input id="project-name"><input id="project-color" value="#6366f1"><input id="project-icon">
@@ -225,8 +242,15 @@ try {
   await page.goto('http://nia.test/');
   await page.waitForFunction(() => Boolean(window.test));
 
-  assert.equal(await page.locator('#user-menu-household-badge').textContent(), '1', 'pending invite count must be rendered');
+  assert.equal(await page.locator('#user-menu-household-badge').textContent(), '', 'single household invitation indicator must not render a count');
   assert.equal(await page.locator('#user-menu-household-badge').isHidden(), false, 'pending invite badge must be visible');
+  assert.equal(await page.locator('#user-menu-household').isHidden(), false, 'household user-menu entry must appear for a pending invitation');
+  assert.equal(await page.locator('#user-menu-household-indicator').isHidden(), false, 'sidebar user button must expose the hidden invitation');
+  assert.equal(await page.locator('#sidebar-toggle-household-indicator').evaluate(element => element.hidden), false, 'navbar sidebar button must receive the invitation state');
+  assert.equal(await page.locator('#sidebar-toggle-household-indicator').evaluate(element => getComputedStyle(element).display), 'none', 'navbar indicator must stay hidden while the desktop sidebar is expanded');
+  await page.evaluate(() => { document.getElementById('app').dataset.desktopSidebarMode = 'hidden'; });
+  assert.notEqual(await page.locator('#sidebar-toggle-household-indicator').evaluate(element => getComputedStyle(element).display), 'none', 'navbar indicator must appear when the desktop sidebar is hidden');
+  await page.evaluate(() => { document.getElementById('app').dataset.desktopSidebarMode = 'expanded'; });
   assert.equal(await page.locator('#settings-household-loading').evaluate(element => getComputedStyle(element).display), 'none', 'inactive loading state must not remain visually rendered');
 
   await page.evaluate(() => window.test.households.openSettings());
@@ -250,10 +274,14 @@ try {
     ],
   }, householdInvites: [] }));
   assert.equal(await page.locator('#user-menu-household-badge').evaluate(element => getComputedStyle(element).display), 'none', 'user menu must not show a permanent household dot without invitations');
+  assert.equal(await page.locator('#user-menu-household').evaluate(element => getComputedStyle(element).display), 'none', 'household user-menu entry must disappear without an incoming invitation');
+  assert.equal(await page.locator('#user-menu-household-indicator').evaluate(element => getComputedStyle(element).display), 'none', 'sidebar user button must not show a permanent household indicator');
+  assert.equal(await page.locator('#sidebar-toggle-household-indicator').evaluate(element => getComputedStyle(element).display), 'none', 'navbar sidebar button must not show a permanent household indicator');
   assert.equal(await page.locator('#settings-household-nav-badge').evaluate(element => getComputedStyle(element).display), 'none', 'settings navigation must not show a permanent household dot without invitations');
   assert.equal(await page.locator('[data-household-action="remove-member"]').count(), 1, 'owner must be able to remove accepted members');
   assert.equal(await page.locator('[data-household-action="transfer-owner"]').count(), 1, 'owner must be able to transfer leadership');
   assert.equal(await page.locator('#settings-household-outgoing [data-household-status="pending"]').count(), 1, 'pending outgoing invites must be listed');
+  assert.equal(await page.locator('#settings-household-incoming-section').evaluate(element => getComputedStyle(element).display), 'none', 'incoming invitation section cannot appear for an existing household');
   assert.equal(await page.locator('#settings-household-leave').isHidden(), true, 'owner cannot leave before transferring leadership');
   assert.equal(await page.locator('#settings-household-leave').evaluate(element => getComputedStyle(element).display), 'none', 'owner leave action must not remain visually rendered');
 
@@ -266,6 +294,19 @@ try {
   assert.equal(await page.locator('#settings-household-leave').isHidden(), false, 'normal members may leave');
   assert.equal(await page.locator('#settings-household-dissolve-wrap').evaluate(element => element.hidden), true, 'normal members must not see owner-only dissolution controls');
   assert.equal(await page.locator('#settings-household-dissolve-wrap').evaluate(element => getComputedStyle(element).display), 'none', 'owner-only dissolution controls must not remain visually rendered for members');
+
+  await page.evaluate(() => window.test.setSnapshot({ household: {
+    id: 7, name: 'Family Home', owner_user_id: 1, owner_username: 'me', role: 'owner', members: [],
+  }, householdInvites: [] }));
+  assert.equal(await page.locator('#settings-household-outgoing-section').evaluate(element => getComputedStyle(element).display), 'none', 'empty outgoing invitation section must collapse');
+
+  await page.evaluate(() => window.test.setSnapshot({ household: null, householdInvites: [] }));
+  assert.equal(await page.locator('#settings-household-incoming-section').evaluate(element => getComputedStyle(element).display), 'none', 'empty incoming invitation section must collapse');
+
+  await page.evaluate(() => window.test.setSnapshot({ household: {
+    id: 7, name: 'Family Home', owner_user_id: 9, owner_username: 'owner', role: 'member',
+    members: [{ id: 10, user_id: 1, username: 'me', display_name: 'Me', status: 'accepted' }],
+  }, householdInvites: [] }));
 
   await page.evaluate(() => {
     window.test.setProjects([

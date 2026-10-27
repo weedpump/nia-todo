@@ -47,16 +47,22 @@ export function createHouseholdsFeature({
   }
 
   function renderInviteBadge(invites) {
+    const hasInvite = invites.length > 0;
     const badges = [
       document.getElementById('user-menu-household-badge'),
       document.getElementById('settings-household-nav-badge'),
     ].filter(Boolean);
-    const count = invites.length;
     badges.forEach(badge => {
-      badge.hidden = count === 0;
-      badge.textContent = count ? String(count) : '';
-      badge.setAttribute('aria-label', t('settings.household.pendingInviteCount', { count }));
+      badge.hidden = !hasInvite;
+      badge.textContent = '';
+      badge.setAttribute('aria-label', t('settings.household.pendingInviteCount', { count: invites.length }));
     });
+    const menuEntry = document.getElementById('user-menu-household');
+    if (menuEntry) menuEntry.hidden = !hasInvite;
+    const sidebarIndicator = document.getElementById('user-menu-household-indicator');
+    if (sidebarIndicator) sidebarIndicator.hidden = !hasInvite;
+    const sidebarToggleIndicator = document.getElementById('sidebar-toggle-household-indicator');
+    if (sidebarToggleIndicator) sidebarToggleIndicator.hidden = !hasInvite;
   }
 
   function memberName(member) {
@@ -66,14 +72,17 @@ export function createHouseholdsFeature({
   function renderIncoming(invites) {
     const container = document.getElementById('settings-household-incoming');
     if (!container) return;
-    container.innerHTML = invites.length ? invites.map(invite => `
+    const section = document.getElementById('settings-household-incoming-section');
+    const visibleInvites = snapshot().household ? [] : invites;
+    if (section) section.hidden = visibleInvites.length === 0;
+    container.innerHTML = visibleInvites.map(invite => `
       <div class="settings-household-row" data-household-invite-id="${escapeAttr(invite.id)}">
         <div><strong>${escapeHtml(invite.household_name)}</strong><span>${escapeHtml(t('settings.household.invitedBy', { name: invite.invited_by_display_name || invite.invited_by_username || '–' }))}</span></div>
         <div class="settings-household-actions">
           <button type="button" class="btn btn-primary btn-small" data-household-action="respond-invite" data-household-id="${escapeAttr(invite.household_id)}" data-invite-id="${escapeAttr(invite.id)}" data-accept="true">${escapeHtml(t('settings.household.accept'))}</button>
           <button type="button" class="btn btn-secondary btn-small" data-household-action="respond-invite" data-household-id="${escapeAttr(invite.household_id)}" data-invite-id="${escapeAttr(invite.id)}" data-accept="false">${escapeHtml(t('settings.household.decline'))}</button>
         </div>
-      </div>`).join('') : `<div class="settings-device-note">${escapeHtml(t('settings.household.noIncomingInvites'))}</div>`;
+      </div>`).join('');
   }
 
   function renderHousehold(household) {
@@ -111,7 +120,9 @@ export function createHouseholdsFeature({
         </div>`).join('');
     }
     const outgoing = document.getElementById('settings-household-outgoing');
-    if (outgoing) outgoing.innerHTML = pending.length ? pending.map(member => `<div class="settings-household-row" data-household-status="pending"><div><strong>${escapeHtml(memberName(member))}</strong><span>${escapeHtml(t('settings.household.pending'))}</span></div></div>`).join('') : `<div class="settings-device-note">${escapeHtml(t('settings.household.noOutgoingInvites'))}</div>`;
+    const outgoingSection = document.getElementById('settings-household-outgoing-section');
+    if (outgoingSection) outgoingSection.hidden = pending.length === 0;
+    if (outgoing) outgoing.innerHTML = pending.map(member => `<div class="settings-household-row" data-household-status="pending"><div><strong>${escapeHtml(memberName(member))}</strong><span>${escapeHtml(t('settings.household.pending'))}</span></div></div>`).join('');
 
     const leave = document.getElementById('settings-household-leave');
     const dissolve = document.getElementById('settings-household-dissolve');
@@ -123,8 +134,8 @@ export function createHouseholdsFeature({
 
   function render(state = snapshot()) {
     renderInviteBadge(state.householdInvites || []);
-    renderIncoming(state.householdInvites || []);
     renderHousehold(state.household || null);
+    renderIncoming(state.householdInvites || []);
     const loadingEl = document.getElementById('settings-household-loading');
     if (loadingEl) loadingEl.hidden = !loading;
   }
