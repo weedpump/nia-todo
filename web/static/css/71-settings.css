@@ -903,6 +903,11 @@
   font-weight: 800;
 }
 
+.user-menu-notification-badge[hidden],
+.settings-nav-notification-dot[hidden] {
+  display: none;
+}
+
 .settings-nav-notification-dot:empty {
   min-width: 8px;
   width: 8px;

@@ -136,6 +136,18 @@
   margin-top: 16px;
 }
 
+.nav-title.household-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-title.household-title .ui-icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
 .nav-btn .badge {
   margin-left: auto;
   min-width: 20px;
@@ -219,20 +231,6 @@
 /* Project Tree */
 .project-tree-item {
   width: 100%;
-}
-
-.project-household-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  color: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
-  opacity: .78;
-}
-
-.project-household-badge .ui-icon {
-  width: 13px;
-  height: 13px;
 }
 
 .project-drop-target.drag-over {

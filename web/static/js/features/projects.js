@@ -170,10 +170,13 @@ export function createProjectsFeature({
     const parentSelect = document.getElementById('project-parent-id');
     if (!parentSelect) return;
     parentSelect.innerHTML = `<option value="" data-i18n-key="project.noParent">${t('project.noParent')}</option>`;
-    const targetWorkspaceId = workspaceId || getCurrentWorkspaceId?.();
     const selectedHouseholdId = document.getElementById('project-household-id')?.value || (isHouseholdProject(project) ? String(project.owner_household_id || '') : '');
+    const defaultWorkspaceId = getWorkspaces?.().find(workspace => workspace.is_default)?.id;
+    const targetWorkspaceId = selectedHouseholdId
+      ? (defaultWorkspaceId || workspaceId || getCurrentWorkspaceId?.())
+      : (workspaceId || getCurrentWorkspaceId?.());
     const projects = getProjects().filter(p => {
-      if (p.is_shared) return false;
+      if (p.is_shared && !selectedHouseholdId) return false;
       if (selectedHouseholdId && String(p.owner_household_id || '') !== String(selectedHouseholdId)) return false;
       if (!selectedHouseholdId && isHouseholdProject(p)) return false;
       if (targetWorkspaceId && String(p.workspace_id || '') !== String(targetWorkspaceId)) return false;

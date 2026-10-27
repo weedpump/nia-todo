@@ -26,7 +26,7 @@ assert.match(dialogsSource, /data-i18n-key="project.for"/, 'project ownership fi
 assert.match(apiIndexSource, /householdsApi/, 'household API must be exported');
 assert.match(projectsApiSource, /transferToHousehold/, 'projects API must expose household transfer');
 assert.match(appSource, /householdsApi/, 'household API must be wired into the app');
-assert.match(renderingSource, /house-heart/, 'household projects must render the bundled house-heart badge');
+assert.match(renderingSource, /house-heart/, 'household project section must render the bundled house-heart icon');
 assert.match(syncSource, /const projectFields = \[[^\]]*'household_id'/, 'offline CREATE_PROJECT sanitization must retain household_id');
 assert.match(sharingSource, /const householdProject = Boolean\(project\?\.owner_household_id \|\| project\?\.ownership_type === 'household'\)/, 'sharing modal state must identify household projects');
 assert.match(sharingSource, /canMoveSharedDisplay = [^;]*!householdProject/, 'household projects must not regain workspace movement through sharing state');
@@ -66,8 +66,8 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
   const testHtml = `<!doctype html><html><head><link rel="stylesheet" href="/static/css/71-settings.css"></head><body>
-    <button id="household-nav" data-settings-page-target="household"></button>
-    <button id="user-menu-household" data-user-menu-action="household"><span id="user-menu-household-badge" hidden></span></button>
+    <button id="household-nav" data-settings-page-target="household"><span id="settings-household-nav-badge" class="settings-nav-notification-dot" hidden></span></button>
+    <button id="user-menu-household" data-user-menu-action="household"><span id="user-menu-household-badge" class="user-menu-notification-badge" hidden></span></button>
     <div data-settings-page="general"></div>
     <div data-settings-page="household" hidden>
       <div id="settings-household-loading"></div>
@@ -231,6 +231,8 @@ try {
       { id: 11, user_id: 3, username: 'pending', display_name: 'Pat', status: 'pending' },
     ],
   }, householdInvites: [] }));
+  assert.equal(await page.locator('#user-menu-household-badge').evaluate(element => getComputedStyle(element).display), 'none', 'user menu must not show a permanent household dot without invitations');
+  assert.equal(await page.locator('#settings-household-nav-badge').evaluate(element => getComputedStyle(element).display), 'none', 'settings navigation must not show a permanent household dot without invitations');
   assert.equal(await page.locator('[data-household-action="remove-member"]').count(), 1, 'owner must be able to remove accepted members');
   assert.equal(await page.locator('[data-household-action="transfer-owner"]').count(), 1, 'owner must be able to transfer leadership');
   assert.equal(await page.locator('#settings-household-outgoing [data-household-status="pending"]').count(), 1, 'pending outgoing invites must be listed');
@@ -246,6 +248,15 @@ try {
   assert.equal(await page.locator('#settings-household-leave').isHidden(), false, 'normal members may leave');
   assert.equal(await page.locator('#settings-household-dissolve-wrap').evaluate(element => element.hidden), true, 'normal members must not see owner-only dissolution controls');
   assert.equal(await page.locator('#settings-household-dissolve-wrap').evaluate(element => getComputedStyle(element).display), 'none', 'owner-only dissolution controls must not remain visually rendered for members');
+
+  await page.evaluate(() => {
+    window.test.setProjects([
+      { id: 41, name: 'Existing household parent', color: '#123456', icon: null, parent_id: null, workspace_id: 10, user_id: 2, is_owner: 0, is_shared: 1, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
+    ]);
+    window.test.projectFeature.showProjectModal();
+  });
+  await page.selectOption('#project-household-id', '7');
+  assert.equal(await page.locator('#project-parent-id option', { hasText: 'Existing household parent' }).count(), 1, 'ordinary members creating household projects must be able to choose existing household projects as parents');
 
   await page.evaluate(() => {
     window.test.setSnapshot({ household: { id: 7, name: 'Family Home', owner_user_id: 1, owner_username: 'me', role: 'owner', members: [] }, householdInvites: [] });
@@ -267,6 +278,8 @@ try {
 
   await page.evaluate(() => { window.test.projectFeature.showProjectModal(); });
   assert.equal(await page.locator('#project-household-id').inputValue(), '', 'every new project opening must reset to personal');
+  await page.selectOption('#project-household-id', '7');
+  assert.equal(await page.locator('#project-parent-id option', { hasText: 'Family chores' }).count(), 1, 'new household projects must offer existing household projects as parents even when another workspace is active');
 
   await page.evaluate(() => {
     window.test.clearCalls();
@@ -310,7 +323,15 @@ try {
   assert.equal((await page.evaluate(() => window.test.getProjects().find(project => project.id === 46)?.ownership_type)), 'household', 'complete transfer response must reconcile transferred descendants despite a local persistence failure');
 
   await page.evaluate(() => {
-    window.test.setProjects([{ id: 45, name: 'Household board', color: '#123456', icon: null, parent_id: null, workspace_id: 10, user_id: 1, is_owner: 0, is_shared: 0, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' }]);
+    window.test.setProjects([
+      { id: 45, name: 'Household board', color: '#123456', icon: null, parent_id: null, workspace_id: 10, user_id: 2, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
+      { id: 47, name: 'Household notes', color: '#654321', icon: null, parent_id: null, workspace_id: 10, user_id: 1, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
+    ]);
+    window.test.projectFeature.showProjectModal(window.test.getProjects()[1]);
+  });
+  assert.equal(await page.locator('#project-parent-id option', { hasText: 'Household board' }).count(), 1, 'editing a household project must offer other household projects as parents to the household owner');
+  await page.evaluate(() => {
+    window.test.setProjects([{ id: 48, name: 'Member-created household project', color: '#abcdef', icon: null, parent_id: null, workspace_id: 10, user_id: 1, is_owner: 0, is_shared: 1, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' }]);
     window.test.projectFeature.showProjectModal(window.test.getProjects()[0]);
   });
   assert.equal(await page.locator('#project-household-id').isDisabled(), true, 'normal members must not change household project ownership');
@@ -321,11 +342,17 @@ try {
 
   await page.evaluate(() => window.test.renderProjectList([
     { id: 1, name: 'Personal', color: '#111111', parent_id: null, workspace_id: 10, ownership_type: 'user' },
-    { id: 2, name: 'Family', color: '#222222', parent_id: null, workspace_id: 10, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
+    { id: 2, name: 'Family owner view', color: '#222222', parent_id: null, workspace_id: 10, is_shared: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
+    { id: 3, name: 'Family member view', color: '#333333', parent_id: 2, workspace_id: 10, is_shared: 1, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
+    { id: 4, name: 'Direct share', color: '#444444', parent_id: null, workspace_id: 10, is_shared: 1, ownership_type: 'user' },
   ]));
-  assert.equal(await page.locator('[data-project-id="1"] .project-household-badge').count(), 0, 'personal projects must remain unbadged');
-  assert.equal(await page.locator('[data-project-id="2"] .project-household-badge').count(), 1, 'household projects must show a badge');
-  assert.equal(await page.locator('[data-project-id="2"] .project-household-badge').getAttribute('title'), 'Household: Family Home');
+  assert.equal(await page.locator('[data-project-section="personal"] .nav-btn[data-project-id="1"]').count(), 1, 'personal projects must remain in the personal section');
+  assert.equal(await page.locator('[data-project-section="household"] .household-title .ui-icon').count(), 1, 'household section must have a house icon');
+  assert.equal(await page.locator('[data-project-section="household"] .nav-btn[data-project-id="2"]').count(), 1, 'household projects must use the household section for the household owner');
+  assert.equal(await page.locator('[data-project-section="household"] .nav-btn[data-project-id="3"]').count(), 1, 'household projects must use the household section for ordinary members');
+  assert.equal(await page.locator('[data-project-section="shared"] .nav-btn[data-project-id="4"]').count(), 1, 'direct project shares must remain in the shared-project section');
+  assert.equal(await page.locator('[data-project-section="shared"] .nav-btn[data-project-id="3"]').count(), 0, 'household projects must not also appear as direct shares');
+  assert.equal(await page.locator('.project-household-badge').count(), 0, 'household projects must not repeat a household badge on every row');
 } finally {
   await browser.close();
 }
