@@ -778,6 +778,21 @@ def apply_household_entity_access_migration(conn, sql: str):
         conn.execute("PRAGMA foreign_keys = ON")
 
 
+def repair_login_rate_limit_migration(conn):
+    """Restore migration 051 when it was added below an existing DB version."""
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS login_rate_limit_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bucket TEXT NOT NULL,
+        bucket_key TEXT NOT NULL,
+        attempted_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_login_rate_limit_attempts_lookup
+        ON login_rate_limit_attempts(bucket, bucket_key, attempted_at);
+    """)
+    conn.commit()
+
+
 POST_APPLY_REPAIRS = {
     48: repair_todo_subtasks_migration,
     49: repair_todo_comments_migration,
@@ -819,6 +834,9 @@ def run_migrations():
     
     init_migrations_table(conn)
     current_version = get_db_version(conn)
+    if current_version >= 51 and not table_exists(conn, "login_rate_limit_attempts"):
+        print("[MIGRATION] Repairing missing login rate-limit schema from version 51...")
+        repair_login_rate_limit_migration(conn)
     migrations = get_migration_files()
     
     if not migrations:

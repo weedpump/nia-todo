@@ -820,16 +820,7 @@ async def delete_user(user_id: int, _: bool = Depends(require_admin)):
                 (user_id,),
             ).fetchall()
         personal_todo_ids = [row["id"] for row in personal_todo_rows]
-        required_todo_ids = set()
-        if personal_todo_ids:
-            todo_placeholders = ",".join("?" for _ in personal_todo_ids)
-            required_todo_ids = {
-                row["todo_id"] for row in db.execute(
-                    f"SELECT DISTINCT todo_id FROM todo_attachments WHERE todo_id IN ({todo_placeholders})",
-                    tuple(personal_todo_ids),
-                ).fetchall()
-            }
-        with AttachmentCleanupBatch(personal_todo_ids, required_todo_ids=required_todo_ids) as cleanup:
+        with AttachmentCleanupBatch(personal_todo_ids) as cleanup:
             db.execute("DELETE FROM api_keys WHERE user_id = ?", (user_id,))
             db.execute("DELETE FROM reminders WHERE user_id = ?", (user_id,))
             if personal_todo_ids:

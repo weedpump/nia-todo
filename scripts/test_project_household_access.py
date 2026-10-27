@@ -338,6 +338,17 @@ with tempfile.TemporaryDirectory() as tmp:
         assert can_access_project(db, created_for_household["id"], owner_id)
 
     personal_only = asyncio.run(create_project(ProjectCreate(name="Disposable personal project"), personal_user_id))
+    personal_todo = asyncio.run(
+        create_todo(TodoCreate(title="Disposable attachment metadata", project_id=personal_only["id"]), personal_user_id)
+    )
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO todo_attachments
+               (todo_id, user_id, original_filename, stored_filename, content_type, size_bytes)
+               VALUES (?, ?, 'missing.txt', 'missing.txt', 'text/plain', 7)""",
+            (personal_todo["id"], personal_user_id),
+        )
+        db.commit()
     asyncio.run(delete_user(personal_user_id, True))
     with get_db() as db:
         assert db.execute("SELECT 1 FROM users WHERE id = ?", (personal_user_id,)).fetchone() is None

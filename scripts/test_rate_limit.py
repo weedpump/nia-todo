@@ -15,6 +15,8 @@ TEST_DATA_DIR = tempfile.TemporaryDirectory(prefix="nia-todo-rate-limit-")
 os.environ["NIA_TODO_DATA_DIR"] = TEST_DATA_DIR.name
 
 import rate_limit as module  # noqa: E402
+from migrate import run_migrations  # noqa: E402
+from paths import DB_PATH  # noqa: E402
 from rate_limit import RateLimiter  # noqa: E402
 
 conn = sqlite3.connect(":memory:")
@@ -81,9 +83,26 @@ def test_prune_expired_removes_stale_memory_and_database_state():
     assert conn.execute("SELECT COUNT(*) FROM login_rate_limit_attempts").fetchone()[0] == 0
 
 
+def test_migrations_repair_missing_historical_rate_limit_table():
+    run_migrations()
+    with sqlite3.connect(DB_PATH) as db:
+        db.execute("DROP TABLE login_rate_limit_attempts")
+        db.execute("DELETE FROM schema_version")
+        db.execute("INSERT INTO schema_version(version) VALUES (58)")
+        db.commit()
+
+    run_migrations()
+
+    with sqlite3.connect(DB_PATH) as db:
+        assert db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'login_rate_limit_attempts'"
+        ).fetchone()
+
+
 if __name__ == "__main__":
     test_success_cannot_clear_other_account()
     test_global_account_backstop()
     test_successes_do_not_consume_budget()
     test_prune_expired_removes_stale_memory_and_database_state()
+    test_migrations_repair_missing_historical_rate_limit_table()
     print("✅ Login rate-limit regression tests passed")
