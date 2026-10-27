@@ -228,7 +228,7 @@ def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
         return None
     identifier = (username or "").strip()
     row = db.execute(
-        """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, avatar_updated_at, password_hash, is_admin, token_version,
+        """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, avatar_updated_at, password_hash, is_admin, token_version, disabled_modules_json,
                   COALESCE(braindump_enabled, 0) AS braindump_enabled, COALESCE(braindump_learning_enabled, 1) AS braindump_learning_enabled
            FROM users
            WHERE username = ?

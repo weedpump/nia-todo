@@ -110,7 +110,8 @@ def login(data: LoginRequest, request: Request, response: Response):
                     "avatar_updated_at": user.get('avatar_updated_at'),
                     "braindump_enabled": bool(user.get('braindump_enabled', False)),
                     "braindump_learning_enabled": bool(user.get('braindump_learning_enabled', True)),
-                    "is_admin": bool(user.get('is_admin', False))
+                    "is_admin": bool(user.get('is_admin', False)),
+                    **module_preferences_payload(user),
                 },
                 "state": state,
             }
@@ -134,7 +135,8 @@ def login(data: LoginRequest, request: Request, response: Response):
                 "avatar_updated_at": user.get('avatar_updated_at'),
                 "braindump_enabled": bool(user.get('braindump_enabled', False)),
                 "braindump_learning_enabled": bool(user.get('braindump_learning_enabled', True)),
-                "is_admin": bool(user.get('is_admin', False))
+                "is_admin": bool(user.get('is_admin', False)),
+                **module_preferences_payload(user),
             },
             "csrf_token": csrf_token,
             "mfa_enrollment_required": bool(mfa_required and not (state.get('has_totp') or state.get('has_passkey') or state.get('has_recovery_codes') or state.get('has_email_fallback'))) if mfa_required and not remembered else False

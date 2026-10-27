@@ -384,6 +384,10 @@ const authSessionFeature = createAuthSessionFeature({
   authApi,
   getAppInitialized: () => appInitialized,
   setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
+  onCurrentUserChange: () => {
+    moduleShell?.applyModulePreferences();
+    moduleSwitcher?.render();
+  },
   clearCache: () => clearIndexedDB(),
   initApp: () => initApp(),
   refreshFromServer: () => refreshFromServer(),

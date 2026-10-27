@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "api"))
 
 from routers import me
 from routers.me import ModulePreferencesUpdate, update_module_preferences
+from routers.two_factor import login_user_payload
 from services.module_visibility import (
     has_enabled_registered_module,
     module_preferences_payload,
@@ -50,6 +51,20 @@ def main():
         "disabled_modules_json": json.dumps(["future-module", "tasks", "shopping", "recipes"]),
     })
     assert repaired == {"disabled_modules": ["future-module", "shopping", "recipes"]}
+
+    login_payload = login_user_payload({
+        "id": 1,
+        "username": "tester",
+        "display_name": "Tester",
+        "email": "tester@example.invalid",
+        "email_verified_at": None,
+        "email_trust_source": None,
+        "avatar_url": None,
+        "avatar_updated_at": None,
+        "is_admin": 0,
+        "disabled_modules_json": json.dumps(["shopping", "future-module"]),
+    })
+    assert login_payload["disabled_modules"] == ["shopping", "future-module"]
 
     db = sqlite3.connect(":memory:")
     db.row_factory = sqlite3.Row
@@ -102,6 +117,13 @@ def main():
     workspace_source = (ROOT / "api" / "routers" / "workspaces.py").read_text()
     assert "hidden_modules" not in workspace_source
     assert "workspace_visibility" not in workspace_source
+
+    auth_source = (ROOT / "api" / "routers" / "auth.py").read_text()
+    auth_service_source = (ROOT / "api" / "services" / "auth.py").read_text()
+    oidc_source = (ROOT / "api" / "services" / "oidc.py").read_text()
+    assert auth_source.count("**module_preferences_payload(user)") >= 3
+    assert "token_version, disabled_modules_json" in auth_service_source
+    assert "**module_preferences_payload(user)" in oidc_source
 
     print("✅ Account module visibility contract passed")
 
