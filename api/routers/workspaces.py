@@ -1,12 +1,11 @@
 """nia-todo: Workspace endpoints"""
 
-import json
 import sqlite3
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from errors import api_error
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from db import get_db, now_iso
 from routers.auth import require_auth
@@ -15,12 +14,6 @@ from services.entity_access import get_entity_ownership, register_personal_entit
 from services.sharing import get_project_boundary_user_ids, get_project_participant_user_ids
 from services.utils import sanitize_text
 from services.appearance import normalize_color, normalize_icon
-from services.workspace_visibility import (
-    MAX_WORKSPACE_MODULE_IDS,
-    has_visible_registered_module,
-    normalize_hidden_modules,
-    workspace_payload,
-)
 from services.websocket import broadcast_change
 
 router = APIRouter(prefix="/api/workspaces")
@@ -31,7 +24,6 @@ class WorkspaceCreate(BaseModel):
     color: str = "#6366f1"
     icon: Optional[str] = None
     sort_order: int = 0
-    hidden_modules: list[str] = Field(default_factory=list, max_length=MAX_WORKSPACE_MODULE_IDS)
 
 
 class WorkspaceUpdate(BaseModel):
@@ -39,7 +31,6 @@ class WorkspaceUpdate(BaseModel):
     color: Optional[str] = None
     icon: Optional[str] = None
     sort_order: Optional[int] = None
-    hidden_modules: Optional[list[str]] = Field(default=None, max_length=MAX_WORKSPACE_MODULE_IDS)
 
 
 def ensure_default_workspace(db, user_id: int, *, commit: bool = True) -> int:
@@ -96,7 +87,7 @@ def list_workspaces(user_id: int = Depends(require_auth)):
             "SELECT * FROM workspaces WHERE user_id = ? ORDER BY COALESCE(is_default, 0) DESC, sort_order, name, id",
             (user_id,),
         ).fetchall()
-        return {"workspaces": [workspace_payload(r) for r in rows]}
+        return {"workspaces": [dict(r) for r in rows]}
 
 
 @router.post("")
@@ -104,17 +95,14 @@ async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require
     data.name = sanitize_text(data.name)
     data.color = normalize_color(data.color)
     data.icon = normalize_icon(data.icon)
-    data.hidden_modules = normalize_hidden_modules(data.hidden_modules)
-    if data.hidden_modules and not has_visible_registered_module(data.hidden_modules):
-        raise api_error(422, "workspace.modulesRequired", "At least one registered module must remain visible")
     if not data.name:
         raise api_error(422, "workspace.nameRequired", "Workspace name required")
     with get_db() as db:
         ensure_default_workspace(db, user_id)
         try:
             c = db.execute(
-                "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, hidden_modules_json, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
-                (data.name, data.color, data.icon, data.sort_order, user_id, json.dumps(data.hidden_modules, separators=(",", ":")), now_iso()),
+                "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?)",
+                (data.name, data.color, data.icon, data.sort_order, user_id, now_iso()),
             )
             workspace_id = c.lastrowid
             ensure_workspace_inbox(db, user_id, workspace_id)
@@ -122,7 +110,7 @@ async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require
         except sqlite3.IntegrityError:
             raise api_error(409, "workspace.alreadyExists", "Workspace already exists")
         row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
-        workspace = workspace_payload(row)
+        workspace = dict(row)
         await broadcast_change("workspace_create", workspace, user_id)
         return workspace
 
@@ -138,10 +126,6 @@ async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: in
         data.color = normalize_color(data.color)
     if "icon" in fields_set:
         data.icon = normalize_icon(data.icon)
-    if "hidden_modules" in fields_set:
-        data.hidden_modules = normalize_hidden_modules(data.hidden_modules)
-        if data.hidden_modules and not has_visible_registered_module(data.hidden_modules):
-            raise api_error(422, "workspace.modulesRequired", "At least one registered module must remain visible")
     with get_db() as db:
         existing = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         if not existing:
@@ -150,8 +134,6 @@ async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: in
         for field in ["name", "color", "icon", "sort_order"]:
             if field in fields_set:
                 updates[field] = getattr(data, field)
-        if "hidden_modules" in fields_set:
-            updates["hidden_modules_json"] = json.dumps(data.hidden_modules, separators=(",", ":"))
         if updates:
             updates["updated_at"] = now_iso()
             set_clause = ", ".join(f"{key}=:{key}" for key in updates)
@@ -161,7 +143,7 @@ async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: in
             except sqlite3.IntegrityError:
                 raise api_error(409, "workspace.alreadyExists", "Workspace already exists")
         row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
-        workspace = workspace_payload(row)
+        workspace = dict(row)
         await broadcast_change("workspace_update", workspace, user_id)
         return workspace
 

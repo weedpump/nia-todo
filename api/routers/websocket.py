@@ -10,7 +10,7 @@ from services.entity_access import get_user_household
 from services.sharing import get_project_ids_for_user, get_todo_reminder_recipient_user_id
 from services.server_updates import get_public_update_status
 from services.websocket import manager, get_project_view_for_user
-from services.workspace_visibility import workspace_payload
+from services.module_visibility import module_preferences_payload
 from rate_limit import rate_limiter, get_client_ip_ws
 
 
@@ -144,6 +144,10 @@ def get_sync_payload(db, user_id: int) -> dict:
         "SELECT * FROM workspaces WHERE user_id = ? ORDER BY COALESCE(is_default, 0) DESC, sort_order, name, id",
         (user_id,),
     ).fetchall()
+    user_module_row = db.execute(
+        "SELECT disabled_modules_json FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
     household = get_user_household(db, user_id)
     household_payload = None
     if household:
@@ -193,7 +197,8 @@ def get_sync_payload(db, user_id: int) -> dict:
         "todos": get_sync_todo_payloads(db, user_id),
         "projects": projects,
         "sections": [dict(row) for row in sections_rows],
-        "workspaces": [workspace_payload(r) for r in workspaces_rows],
+        "workspaces": [dict(r) for r in workspaces_rows],
+        "module_preferences": module_preferences_payload(user_module_row or {}),
         "household": household_payload,
         "household_invites": [dict(row) for row in household_invite_rows],
         "project_invites": [dict(row) for row in project_invite_rows],

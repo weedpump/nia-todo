@@ -1,6 +1,6 @@
 import { t, translatePage } from '../i18n/index.js';
 import { getModule, MODULES, moduleDefaultPath, moduleFromPath, persistModule, readStoredModule } from '../modules/registry.js';
-import { resolveWorkspaceModuleId, visibleModulesForWorkspace } from '../modules/visibility.js';
+import { enabledModulesForUser, resolveEnabledModuleId } from '../modules/visibility.js';
 
 const SLOT_ROOT_IDS = Object.freeze({
   sidebar: 'module-sidebar-slot',
@@ -20,12 +20,12 @@ function cleanModulePath(path) {
   return value.startsWith('/') ? value : `/${value}`;
 }
 
-export function createModuleShell({ onActiveModuleChange, getWorkspace = () => null } = {}) {
+export function createModuleShell({ onActiveModuleChange, getUser = () => null } = {}) {
   const controllers = new Map();
   const instances = new Map();
   const searchValues = new Map();
   let activeModuleId = 'tasks';
-  let visibleModules = MODULES;
+  let enabledModules = MODULES;
   let mounted = false;
   let bound = false;
 
@@ -81,10 +81,16 @@ export function createModuleShell({ onActiveModuleChange, getWorkspace = () => n
     app.dataset.activeModule = active.id;
     for (const [moduleId, instance] of instances) {
       const isActive = moduleId === active.id;
+      const isEnabled = enabledModules.some(module => module.id === moduleId);
       for (const [slotName, panel] of Object.entries(instance.slots)) {
-        panel.hidden = !PERSISTENT_MODULE_SLOTS.has(slotName) && !isActive;
+        panel.hidden = PERSISTENT_MODULE_SLOTS.has(slotName) ? !isEnabled : !isActive;
       }
     }
+
+    const workspaceSwitcher = document.getElementById('workspace-switcher');
+    if (workspaceSwitcher) workspaceSwitcher.hidden = active.capabilities?.workspaces !== true;
+    const moduleSwitcher = document.getElementById('module-switcher');
+    if (moduleSwitcher) moduleSwitcher.hidden = enabledModules.length <= 1;
 
     active.render?.();
     setSearchContract(active);
@@ -100,8 +106,8 @@ export function createModuleShell({ onActiveModuleChange, getWorkspace = () => n
     const previousModuleId = activeModuleId;
     const search = document.getElementById('search-input');
     if (search) searchValues.set(previousModuleId, search.value);
-    visibleModules = visibleModulesForWorkspace(getWorkspace());
-    activeModuleId = resolveWorkspaceModuleId(pathModule || readStoredModule(), getWorkspace());
+    enabledModules = enabledModulesForUser(getUser());
+    activeModuleId = resolveEnabledModuleId(pathModule || readStoredModule(), getUser());
     persistModule(activeModuleId);
 
     if ((pathModule && pathModule !== activeModuleId) || (!pathModule && normalize)) {
@@ -118,8 +124,8 @@ export function createModuleShell({ onActiveModuleChange, getWorkspace = () => n
 
   function navigate(path, { replace = false } = {}) {
     const nextPath = cleanModulePath(path);
-    const requestedModuleId = moduleFromPath(nextPath) || visibleModules[0].id;
-    const nextModuleId = resolveWorkspaceModuleId(requestedModuleId, getWorkspace());
+    const requestedModuleId = moduleFromPath(nextPath) || enabledModules[0].id;
+    const nextModuleId = resolveEnabledModuleId(requestedModuleId, getUser());
     const resolvedPath = requestedModuleId === nextModuleId ? nextPath : moduleDefaultPath(nextModuleId);
     const previousModuleId = activeModuleId;
     const search = document.getElementById('search-input');
@@ -142,10 +148,10 @@ export function createModuleShell({ onActiveModuleChange, getWorkspace = () => n
     navigate(moduleDefaultPath(moduleId));
   }
 
-  function applyWorkspace(workspace = getWorkspace()) {
+  function applyModulePreferences() {
     const previousModuleId = activeModuleId;
-    visibleModules = visibleModulesForWorkspace(workspace);
-    activeModuleId = resolveWorkspaceModuleId(activeModuleId, workspace);
+    enabledModules = enabledModulesForUser(getUser());
+    activeModuleId = resolveEnabledModuleId(activeModuleId, getUser());
     if (previousModuleId !== activeModuleId) {
       getModule(previousModuleId).deactivate?.();
       controllers.get(previousModuleId)?.onDeactivate?.();
@@ -190,9 +196,9 @@ export function createModuleShell({ onActiveModuleChange, getWorkspace = () => n
     registerController,
     handleSearch,
     render: renderActiveModule,
-    applyWorkspace,
+    applyModulePreferences,
     getActiveModule: () => activeModuleId,
-    getVisibleModules: () => visibleModules,
+    getEnabledModules: () => enabledModules,
   };
   return api;
 }

@@ -14,6 +14,7 @@ let projects = [];
 let sections = [];
 let workspaces = [];
 let accessSnapshot = null;
+let modulePreferences = null;
 const syncInProgressRef = { value: false };
 
 const client = createWebSocketClient({
@@ -45,6 +46,7 @@ const client = createWebSocketClient({
   renderStats: () => {},
   renderTodos: () => {},
   onAccessSnapshot: snapshot => { accessSnapshot = snapshot; },
+  onModulePreferencesUpdate: payload => { modulePreferences = payload; },
 });
 
 await client.handleWsMessage({
@@ -58,6 +60,7 @@ await client.handleWsMessage({
   }],
   sections: [],
   workspaces: [],
+  module_preferences: { disabled_modules: ['shopping'] },
   household: { id: 3, name: 'Home', members: [] },
   household_invites: [{ id: 11, household_id: 4, status: 'pending' }],
   project_invites: [{ id: 12, project_id: 8, status: 'pending' }],
@@ -69,6 +72,13 @@ assert.deepEqual(accessSnapshot, {
   projectInvites: [{ id: 12, project_id: 8, status: 'pending' }],
 });
 assert.deepEqual(stores.projects[0].members, [{ id: 13, user_id: 2, status: 'pending' }]);
+assert.deepEqual(modulePreferences, { disabled_modules: ['shopping'] });
+
+await client.handleWsMessage({
+  type: 'module_preferences_update',
+  payload: { disabled_modules: ['recipes'] },
+});
+assert.deepEqual(modulePreferences, { disabled_modules: ['recipes'] });
 
 await client.handleWsMessage({
   type: 'sync_response',

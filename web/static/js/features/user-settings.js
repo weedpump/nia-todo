@@ -3,6 +3,9 @@ import { loadAuthenticatedImage, releaseAuthenticatedImage, removeCachedAvatar }
 import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { niaIconSvg } from '../icons/nia-product-icons.js';
+import { MODULES } from '../modules/registry.js';
+import { MAX_DISABLED_MODULE_IDS, storedDisabledModuleIdsForUser } from '../modules/visibility.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import qrcode from '../../vendor/qrcode-generator.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
@@ -49,9 +52,10 @@ function isHeicFile(file) {
   return type.includes('heic') || type.includes('heif') || name.endsWith('.heic') || name.endsWith('.heif');
 }
 
-export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, setCurrentUser, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
+export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, setCurrentUser, onModulePreferencesChange, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
   let lastTwoFactorState = null;
   let trustedDeviceRevokeInFlight = false;
+  let modulePreferencesInFlight = false;
   const cropState = {
     file: null,
     image: null,
@@ -228,6 +232,59 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     renderDefaultReminderSetting(currentUser);
     renderAttachmentUsage(currentUser);
     renderBrainDumpLearningSetting(currentUser);
+    renderModuleSettings(currentUser);
+  }
+
+  function renderModuleSettings(user = getCurrentUser()) {
+    const container = document.getElementById('settings-module-list');
+    if (!container) return;
+    const disabled = new Set(storedDisabledModuleIdsForUser(user));
+    container.innerHTML = MODULES.map(module => `
+      <label class="settings-toggle-row settings-toggle-feature settings-switch-row settings-module-row">
+        <span class="settings-module-identity">
+          <span class="settings-module-icon" aria-hidden="true">${niaIconSvg(module.icon)}</span>
+          <span><strong>${escapeHtml(t(module.labelKey))}</strong><small>${escapeHtml(t(module.descriptionKey))}</small></span>
+        </span>
+        <input type="checkbox" class="settings-switch" data-user-settings-module-id="${escapeHtmlAttr(module.id)}" ${disabled.has(module.id) ? '' : 'checked'}>
+      </label>
+    `).join('');
+  }
+
+  async function changeModulePreference(toggle) {
+    if (modulePreferencesInFlight) {
+      renderModuleSettings(getCurrentUser());
+      return;
+    }
+    const toggles = [...document.querySelectorAll('[data-user-settings-module-id]')];
+    const errorEl = document.getElementById('settings-modules-error');
+    const successEl = document.getElementById('settings-modules-success');
+    if (!toggles.some(candidate => candidate.checked)) {
+      toggle.checked = true;
+      if (errorEl) errorEl.textContent = t('settings.modules.oneRequired');
+      return;
+    }
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    const knownIds = new Set(MODULES.map(module => module.id));
+    const disabledKnown = toggles.filter(candidate => !candidate.checked).map(candidate => candidate.dataset.userSettingsModuleId);
+    const preservedUnknown = storedDisabledModuleIdsForUser(getCurrentUser())
+      .filter(moduleId => !knownIds.has(moduleId))
+      .slice(0, Math.max(0, MAX_DISABLED_MODULE_IDS - disabledKnown.length));
+    modulePreferencesInFlight = true;
+    toggles.forEach(candidate => { candidate.disabled = true; });
+    try {
+      const payload = await authApi.updateModules([...preservedUnknown, ...disabledKnown]);
+      const nextUser = { ...getCurrentUser(), disabled_modules: payload.disabled_modules || [] };
+      setCurrentUser(nextUser);
+      onModulePreferencesChange?.(nextUser);
+      renderModuleSettings(nextUser);
+      if (successEl) successEl.textContent = t('settings.modules.saved');
+    } catch (error) {
+      renderModuleSettings(getCurrentUser());
+      if (errorEl) errorEl.textContent = error.message || t('settings.modules.saveFailed');
+    } finally {
+      modulePreferencesInFlight = false;
+    }
   }
 
   let savedPlaces = [];
@@ -376,6 +433,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const token = freshUser.access_token || getCurrentUser()?.token;
     const mfaEnrollmentRequired = Boolean(freshUser.mfa_enrollment_required || getCurrentUser()?.mfa_enrollment_required);
     setCurrentUser({ ...freshUser, token, mfa_enrollment_required: mfaEnrollmentRequired });
+    onModulePreferencesChange?.(getCurrentUser());
     localStorage.setItem('nia-mfa-enrollment-required', mfaEnrollmentRequired ? '1' : '0');
     if (freshUser.access_token) localStorage.setItem('jwt_token', freshUser.access_token);
     if (freshUser.csrf_token) localStorage.setItem('csrf_token', freshUser.csrf_token);
@@ -1364,6 +1422,10 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
   function bindUserSettingsActions() {
     if (userSettingsActionsBound) return;
     userSettingsActionsBound = true;
+    document.addEventListener('change', async (event) => {
+      const toggle = event.target?.closest?.('[data-user-settings-module-id]');
+      if (toggle) await changeModulePreference(toggle);
+    });
     document.addEventListener('click', async (event) => {
       const pageButton = event.target?.closest?.('[data-settings-page-target]');
       if (pageButton) {

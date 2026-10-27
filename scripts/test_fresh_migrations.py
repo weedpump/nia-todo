@@ -79,7 +79,9 @@ def main():
             assert "idx_todo_subtasks_client_mutation" in subtask_indexes, subtask_indexes
             assert "idx_todo_comments_client_mutation" in comment_indexes, comment_indexes
             workspace_columns = {row[1] for row in db.execute("PRAGMA table_info(workspaces)")}
-            assert "hidden_modules_json" in workspace_columns, workspace_columns
+            user_columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
+            assert "hidden_modules_json" not in workspace_columns, workspace_columns
+            assert "disabled_modules_json" in user_columns, user_columns
 
             for table_name in ("households", "household_members", "entity_access", "entity_access_grants"):
                 table = db.execute(
@@ -122,7 +124,9 @@ def main():
             indexes = {row[1] for row in db.execute("PRAGMA index_list(dashboard_preferences)")}
             assert "idx_dashboard_preferences_user" in indexes, indexes
             workspace_columns = {row[1] for row in db.execute("PRAGMA table_info(workspaces)")}
-            assert "hidden_modules_json" in workspace_columns, workspace_columns
+            user_columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
+            assert "hidden_modules_json" not in workspace_columns, workspace_columns
+            assert "disabled_modules_json" in user_columns, user_columns
 
     print("✅ Fresh migration test passed")
 

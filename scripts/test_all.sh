@@ -78,6 +78,7 @@ run_step "Household Entity Access" python3 scripts/test_household_entity_access.
 run_step "Household API" python3 scripts/test_household_api.py
 run_step "Project Household Access" python3 scripts/test_project_household_access.py
 run_step "Household Access Regressions" python3 scripts/test_household_access_regressions.py
+run_step "Account Module Visibility" python3 scripts/test_account_module_visibility.py
 run_step "Dashboard Preferences Sync" python3 scripts/test_dashboard_preferences_sync.py
 run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
 run_step "Android CLI Workflow Contract" python3 scripts/test_android_cli_workflow.py
@@ -114,9 +115,11 @@ run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
 run_step "Product Branding" node scripts/test_product_branding.mjs
+run_step "Module Shell" node scripts/test_module_shell.mjs
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
 run_step "Service Worker Avatar Privacy" node scripts/test_sw_avatar_privacy.mjs
 run_step "Workspace Modal Lifecycle" node scripts/test_frontend_workspace_modal_lifecycle.mjs
+run_step "Account Module Settings" node scripts/test_frontend_module_settings.mjs
 run_step "Settings Navigation Lifecycle" node scripts/test_frontend_settings_navigation_lifecycle.mjs
 run_step "Avatar IndexedDB" node scripts/test_avatar_indexeddb.mjs
 run_step "Avatar Offline Cache" node scripts/test_avatar_cache.mjs

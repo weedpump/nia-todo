@@ -32,6 +32,7 @@ export function createWebSocketClient({
   onSessionInvalidated = () => {},
   onServerUpdateStatus = () => {},
   onDashboardPreferencesUpdate = () => {},
+  onModulePreferencesUpdate = () => {},
   onAvatarUpdate = () => {},
   onAccessSnapshot = () => {},
 }) {
@@ -372,6 +373,9 @@ async function handleWsMessage(msg) {
     case 'dashboard_preferences_update':
       onDashboardPreferencesUpdate(msg.payload || {});
       break;
+    case 'module_preferences_update':
+      onModulePreferencesUpdate(msg.payload || {});
+      break;
     case 'avatar_update':
       await onAvatarUpdate(msg.payload || {});
       break;
@@ -489,6 +493,9 @@ async function handleWsMessage(msg) {
         workspaces = await dbGetAll('workspaces');
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
+      }
+      if (msg.module_preferences) {
+        onModulePreferencesUpdate(msg.module_preferences);
       }
       if (
         Object.prototype.hasOwnProperty.call(msg, 'household') ||

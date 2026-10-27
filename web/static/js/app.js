@@ -82,7 +82,6 @@ function getCurrentWorkspace() {
 
 function setWorkspacesState(next) {
   workspaces = next;
-  moduleShell?.applyWorkspace(getCurrentWorkspace());
   moduleSwitcher?.render();
 }
 
@@ -90,7 +89,6 @@ function setCurrentWorkspaceState(next) {
   currentWorkspaceId = next;
   dashboardPreferences = loadDashboardPreferences(localStorage, currentWorkspaceId);
   showProjectWidget = dashboardPreferences.showProjectWidgets;
-  moduleShell?.applyWorkspace(getCurrentWorkspace());
   moduleSwitcher?.render();
 }
 
@@ -368,6 +366,10 @@ const userSettingsFeature = createUserSettingsFeature({
   placesApi,
   getCurrentUser: () => currentUser,
   setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
+  onModulePreferencesChange: () => {
+    moduleShell?.applyModulePreferences();
+    moduleSwitcher?.render();
+  },
   resetApiKeyUi: () => resetApiKeyUi(),
   loadApiKeys: () => loadApiKeys(),
   updatePushSettingsUI: () => updatePushSettingsUI(),
@@ -457,6 +459,13 @@ const wsClient = createWebSocketClient({
   },
   onServerUpdateStatus: (status) => serverUpdateIndicator.applyStatus(status),
   onDashboardPreferencesUpdate: payload => dashboardPreferencesSyncFeature?.applyRemote(payload),
+  onModulePreferencesUpdate: payload => {
+    if (!currentUser) return;
+    currentUser = { ...currentUser, disabled_modules: payload.disabled_modules || [] };
+    moduleShell?.applyModulePreferences();
+    moduleSwitcher?.render();
+    renderUserInfo();
+  },
   onAccessSnapshot: snapshot => {
     window.niaAccessSnapshot = snapshot;
     window.dispatchEvent(new CustomEvent('nia:access-snapshot', { detail: snapshot }));
@@ -601,11 +610,6 @@ workspacesFeature = createWorkspacesFeature({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
-  onWorkspaceModulesChange: workspace => {
-    if (String(workspace?.id) !== String(currentWorkspaceId)) return;
-    moduleShell?.applyWorkspace(workspace);
-    moduleSwitcher?.render();
-  },
   closeSidebar: (options) => closeSidebar(options),
   confirmDanger,
   showToast: (...args) => showToast(...args),
@@ -683,10 +687,10 @@ const uiShell = createUiShell({
 });
 moduleShell = createModuleShell({
   onActiveModuleChange: moduleId => moduleSwitcher?.syncActiveModule(moduleId),
-  getWorkspace: getCurrentWorkspace,
+  getUser: () => currentUser,
 });
 moduleSwitcher = createModuleSwitcher({
-  getModules: () => moduleShell.getVisibleModules(),
+  getModules: () => moduleShell.getEnabledModules(),
   onModuleChange: moduleId => {
     moduleShell.navigateToModule(moduleId);
     uiShell.closeSidebar({ preserveHistory: true });
