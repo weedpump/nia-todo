@@ -117,9 +117,10 @@ export function createProjectsFeature({
         workspaceInput.value = String(project.workspace_id || '');
       }
     }
-    [nameInput, colorInput, iconInput, parentInput, workspaceInput].forEach(input => {
+    [nameInput, colorInput, iconInput, workspaceInput].forEach(input => {
       if (input) input.disabled = transferMode;
     });
+    if (parentInput) parentInput.disabled = false;
     const iconPicker = document.getElementById('project-icon-picker');
     const colorPicker = document.getElementById('project-color-picker');
     if (iconPicker && iconInput) {
@@ -409,8 +410,22 @@ export function createProjectsFeature({
         confirmText: t('project.transferHousehold.confirm'),
         cancelText: t('project.transferHousehold.cancel'),
       });
-      if (!confirmed) return;
-      const transferred = await projectsApi.transferToHousehold(existing.id, selectedHouseholdId);
+      if (!confirmed) {
+        const householdSelect = document.getElementById('project-household-id');
+        if (householdSelect) {
+          householdSelect.value = '';
+          refreshSelect(householdSelect);
+        }
+        renderParentProjectSelect(existing, existing.parent_id || null, existing.workspace_id);
+        applyHouseholdTransferMode(existing);
+        refreshProjectSaveButtonState();
+        return;
+      }
+      const transferred = await projectsApi.transferToHousehold(
+        existing.id,
+        selectedHouseholdId,
+        parentIdVal ? parseInt(parentIdVal) : null,
+      );
       const transferredProjects = Array.isArray(transferred?.transferred_projects)
         ? transferred.transferred_projects
         : [transferred];

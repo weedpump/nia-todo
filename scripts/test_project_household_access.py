@@ -30,6 +30,18 @@ with tempfile.TemporaryDirectory() as tmp:
         transfer_project_to_household_endpoint,
         update_project,
     )
+    from routers.sharing import (
+        AcceptInviteRequest,
+        RestoreMemberRequest,
+        ShareProjectRequest,
+        list_project_members,
+        remove_member,
+        respond_to_invite,
+        restore_member,
+        share_project,
+        undo_leave_project,
+    )
+    from routers.websocket import get_sync_payload
     from routers.sections import SectionCreate, SectionUpdate, create_section, update_section
     from routers.todos import TodoCreate, create_todo
     from services.entity_access import (
@@ -85,6 +97,100 @@ with tempfile.TemporaryDirectory() as tmp:
     assert stored_workspace_id == default_workspace_id, stored_workspace_id
     assert household_in_special_workspace["workspace_id"] == default_workspace_id, household_in_special_workspace
 
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO project_members (project_id, user_id, invited_by, status)
+               VALUES (?, ?, ?, 'pending')""",
+            (household_in_special_workspace["id"], outsider_id, owner_id),
+        )
+        db.commit()
+        assert get_sync_payload(db, outsider_id)["project_invites"] == []
+
+    for operation in (
+        lambda: asyncio.run(
+            share_project(
+                household_in_special_workspace["id"],
+                ShareProjectRequest(username="outsider"),
+                None,
+                owner_id,
+            )
+        ),
+        lambda: list_project_members(household_in_special_workspace["id"], owner_id),
+    ):
+        try:
+            operation()
+            raise AssertionError("household project unexpectedly exposed direct sharing")
+        except HTTPException as error:
+            assert error.status_code == 409, error
+
+    for operation in (
+        lambda: asyncio.run(
+            share_project(
+                household_in_special_workspace["id"],
+                ShareProjectRequest(username="member"),
+                None,
+                outsider_id,
+            )
+        ),
+        lambda: list_project_members(household_in_special_workspace["id"], outsider_id),
+    ):
+        try:
+            operation()
+            raise AssertionError("outsider unexpectedly inspected household project sharing policy")
+        except HTTPException as error:
+            assert error.status_code == 403, error
+
+    with get_db() as db:
+        stale_member = db.execute(
+            "SELECT id FROM project_members WHERE project_id = ? AND user_id = ?",
+            (household_in_special_workspace["id"], outsider_id),
+        ).fetchone()
+        stale_member_id = stale_member["id"]
+
+    for operation in (
+        lambda: asyncio.run(
+            respond_to_invite(
+                household_in_special_workspace["id"],
+                stale_member_id,
+                AcceptInviteRequest(accept=True),
+                outsider_id,
+            )
+        ),
+        lambda: asyncio.run(
+            remove_member(household_in_special_workspace["id"], outsider_id, outsider_id)
+        ),
+    ):
+        try:
+            operation()
+            raise AssertionError("stale household project membership exposed sharing policy")
+        except HTTPException as error:
+            assert error.status_code == 403, error
+
+    with get_db() as db:
+        db.execute("UPDATE project_members SET status = 'removed' WHERE id = ?", (stale_member_id,))
+        db.commit()
+    try:
+        asyncio.run(
+            restore_member(
+                household_in_special_workspace["id"],
+                outsider_id,
+                RestoreMemberRequest(status="accepted"),
+                outsider_id,
+            )
+        )
+        raise AssertionError("stale removed household membership exposed sharing policy")
+    except HTTPException as error:
+        assert error.status_code == 403, error
+
+    with get_db() as db:
+        db.execute("UPDATE project_members SET status = 'left' WHERE id = ?", (stale_member_id,))
+        db.commit()
+    try:
+        asyncio.run(undo_leave_project(household_in_special_workspace["id"], outsider_id))
+        raise AssertionError("stale left household membership exposed sharing policy")
+    except HTTPException as error:
+        assert error.status_code == 403, error
+
     personal_in_special_workspace = asyncio.run(
         create_project(
             ProjectCreate(name="Personal work project", workspace_id=special_workspace_id),
@@ -138,19 +244,65 @@ with tempfile.TemporaryDirectory() as tmp:
     )
     with get_db() as db:
         grant_entity_access(db, "project", personal_parent["id"], owner_id, outsider_id)
+        grant_entity_access(db, "project", personal_child["id"], owner_id, outsider_id)
+        db.execute(
+            """INSERT INTO project_members (project_id, user_id, invited_by, status, workspace_id)
+               VALUES (?, ?, ?, 'accepted', ?)""",
+            (personal_child["id"], outsider_id, owner_id, default_workspace_id),
+        )
+        db.execute(
+            """INSERT INTO project_members (project_id, user_id, invited_by, status)
+               VALUES (?, ?, ?, 'pending')""",
+            (personal_child["id"], personal_user_id, owner_id),
+        )
         db.commit()
         assert can_access_project(db, personal_child["id"], outsider_id)
+    try:
+        asyncio.run(
+            transfer_project_to_household_endpoint(
+                personal_child["id"],
+                ProjectHouseholdTransfer(
+                    household_id=household_id,
+                    parent_id=personal_parent["id"],
+                ),
+                owner_id,
+            )
+        )
+        raise AssertionError("household transfer accepted a personal parent")
+    except HTTPException as error:
+        assert error.status_code == 400, error
+    with get_db() as db:
+        assert can_access_project(db, personal_child["id"], outsider_id)
+        assert db.execute(
+            "SELECT COUNT(*) AS count FROM project_members WHERE project_id = ?",
+            (personal_child["id"],),
+        ).fetchone()["count"] == 2
     transferred_child = asyncio.run(
         transfer_project_to_household_endpoint(
             personal_child["id"],
-            ProjectHouseholdTransfer(household_id=household_id),
+            ProjectHouseholdTransfer(
+                household_id=household_id,
+                parent_id=household_in_special_workspace["id"],
+            ),
             owner_id,
         )
     )
-    assert transferred_child["parent_id"] is None, transferred_child
+    assert transferred_child["parent_id"] == household_in_special_workspace["id"], transferred_child
     with get_db() as db:
         assert not can_access_project(db, personal_child["id"], outsider_id)
         assert can_access_project(db, personal_parent["id"], outsider_id)
+        assert db.execute(
+            "SELECT COUNT(*) AS count FROM project_members WHERE project_id = ?",
+            (personal_child["id"],),
+        ).fetchone()["count"] == 0
+        entity_access_id = db.execute(
+            "SELECT id FROM entity_access WHERE entity_type = 'project' AND entity_id = ?",
+            (personal_child["id"],),
+        ).fetchone()["id"]
+        assert db.execute(
+            "SELECT COUNT(*) AS count FROM entity_access_grants WHERE entity_access_id = ?",
+            (entity_access_id,),
+        ).fetchone()["count"] == 0
 
     transfer_race_root = asyncio.run(create_project(ProjectCreate(name="Transfer race root"), owner_id))
     with get_db() as db:
@@ -161,10 +313,10 @@ with tempfile.TemporaryDirectory() as tmp:
     continue_transfer = threading.Event()
     transfer_errors = []
     child_create_errors = []
-    original_participant_lookup = projects_router.get_project_participant_user_ids
+    original_boundary_lookup = projects_router.get_project_boundary_user_ids
 
     def pause_after_subtree_enumeration(db, target_id):
-        participants = original_participant_lookup(db, target_id)
+        participants = original_boundary_lookup(db, target_id)
         if target_id == transfer_race_root["id"] and not transfer_enumerated.is_set():
             transfer_enumerated.set()
             assert continue_transfer.wait(timeout=5)
@@ -193,7 +345,7 @@ with tempfile.TemporaryDirectory() as tmp:
         except Exception as error:
             child_create_errors.append(error)
 
-    projects_router.get_project_participant_user_ids = pause_after_subtree_enumeration
+    projects_router.get_project_boundary_user_ids = pause_after_subtree_enumeration
     transfer_thread = threading.Thread(target=run_transfer)
     child_thread = threading.Thread(target=create_concurrent_child)
     try:
@@ -207,7 +359,7 @@ with tempfile.TemporaryDirectory() as tmp:
         child_thread.join(timeout=5)
     finally:
         continue_transfer.set()
-        projects_router.get_project_participant_user_ids = original_participant_lookup
+        projects_router.get_project_boundary_user_ids = original_boundary_lookup
     assert not transfer_thread.is_alive() and not child_thread.is_alive()
     assert not transfer_errors, transfer_errors
     assert child_create_errors, "concurrent personal child unexpectedly committed"

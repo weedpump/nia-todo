@@ -58,6 +58,7 @@ class ProjectCreate(BaseModel):
 
 class ProjectHouseholdTransfer(BaseModel):
     household_id: int
+    parent_id: Optional[int] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -234,21 +235,30 @@ async def transfer_project_to_household_endpoint(
             to_transfer.append(current_id)
             children = db.execute("SELECT id FROM projects WHERE parent_id = ?", (current_id,)).fetchall()
             queue.extend(child["id"] for child in children)
+        if data.parent_id is not None:
+            if data.parent_id in to_transfer:
+                raise HTTPException(400, "Household parent cannot be inside the transferred project tree")
+            parent = db.execute("SELECT id FROM projects WHERE id = ?", (data.parent_id,)).fetchone()
+            parent_ownership = get_entity_ownership(db, "project", data.parent_id) if parent else None
+            if not parent or not can_access_project(db, data.parent_id, user_id):
+                raise HTTPException(404, "Parent project not found")
+            if not parent_ownership or parent_ownership["owner_household_id"] != data.household_id:
+                raise HTTPException(400, "Parent project belongs to another owner")
         previous_participant_ids = set()
         for target_id in to_transfer:
-            previous_participant_ids.update(get_project_participant_user_ids(db, target_id))
+            previous_participant_ids.update(get_project_boundary_user_ids(db, target_id))
         for target_id in to_transfer:
             ownership = get_entity_ownership(db, "project", target_id)
             if not ownership or ownership["owner_user_id"] != user_id:
                 raise HTTPException(403, "Only a fully personal project tree can be transferred")
         try:
             default_workspace_id = get_user_default_workspace_id(db, user_id)
-            if project["parent_id"] is not None:
-                db.execute(
-                    "UPDATE projects SET parent_id = NULL, updated_at = ? WHERE id = ?",
-                    (now_iso(), project_id),
-                )
+            db.execute(
+                "UPDATE projects SET parent_id = ?, updated_at = ? WHERE id = ?",
+                (data.parent_id, now_iso(), project_id),
+            )
             for target_id in to_transfer:
+                db.execute("DELETE FROM project_members WHERE project_id = ?", (target_id,))
                 db.execute(
                     "UPDATE projects SET workspace_id = ?, updated_at = ? WHERE id = ?",
                     (default_workspace_id, now_iso(), target_id),

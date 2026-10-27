@@ -2011,7 +2011,7 @@
   "project.forHousehold": "Haushalt „{name}“",
   "project.householdBadge": "Haushalt: {name}",
   "project.transferHousehold.title": "Projekt zum Haushaltsprojekt machen?",
-  "project.transferHousehold.message": "„{project}“ und alle enthaltenen Todos werden für alle Mitglieder von „{household}“ sichtbar und bearbeitbar. Das Projekt kann danach nicht zurück in einen persönlichen Workspace verschoben werden.",
+  "project.transferHousehold.message": "„{project}“ und alle enthaltenen Todos werden für alle Mitglieder von „{household}“ sichtbar und bearbeitbar. Bestehende direkte Freigaben und offene Einladungen werden entfernt. Das Projekt kann danach nicht zurück in einen persönlichen Workspace verschoben werden.",
   "project.transferHousehold.confirm": "Zum Haushaltsprojekt machen",
   "project.transferHousehold.cancel": "Persönlich lassen"
 }

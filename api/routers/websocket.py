@@ -187,8 +187,9 @@ def get_sync_payload(db, user_id: int) -> dict:
                   u.username AS invited_by_username, u.display_name AS invited_by_display_name
            FROM project_members pm
            JOIN projects p ON p.id = pm.project_id
+           JOIN entity_access ea ON ea.entity_type = 'project' AND ea.entity_id = p.id
            LEFT JOIN users u ON u.id = pm.invited_by
-           WHERE pm.user_id = ? AND pm.status = 'pending'
+           WHERE pm.user_id = ? AND pm.status = 'pending' AND ea.owner_household_id IS NULL
            ORDER BY pm.created_at, pm.id""",
         (user_id,),
     ).fetchall()

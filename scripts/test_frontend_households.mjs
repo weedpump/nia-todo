@@ -28,7 +28,7 @@ assert.match(projectsApiSource, /transferToHousehold/, 'projects API must expose
 assert.match(appSource, /householdsApi/, 'household API must be wired into the app');
 assert.match(renderingSource, /house-heart/, 'household project section must render the bundled house-heart icon');
 assert.match(syncSource, /const projectFields = \[[^\]]*'household_id'/, 'offline CREATE_PROJECT sanitization must retain household_id');
-assert.match(sharingSource, /const householdProject = Boolean\(project\?\.owner_household_id \|\| project\?\.ownership_type === 'household'\)/, 'sharing modal state must identify household projects');
+assert.match(sharingSource, /function isHouseholdProject\(project\)[\s\S]*owner_household_id[\s\S]*ownership_type === 'household'/, 'sharing modal state must identify household projects');
 assert.match(sharingSource, /canMoveSharedDisplay = [^;]*!householdProject/, 'household projects must not regain workspace movement through sharing state');
 assert.match(iconsSource, /"house-heart"/, 'house-heart must be bundled');
 
@@ -53,6 +53,11 @@ for (const locale of ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', '
     'project.transferHousehold.title', 'project.transferHousehold.message',
     'project.transferHousehold.confirm', 'project.transferHousehold.cancel',
   ]) assert.equal(typeof messages[key], 'string', `${locale} must define ${key}`);
+  assert.match(
+    messages['project.transferHousehold.message'],
+    locale === 'de' ? /direkte Freigaben.*Einladungen/ : /direct shares.*invitations/,
+    `${locale} transfer warning must explain that direct sharing is removed`,
+  );
 }
 
 const householdsSourceUrl = new URL('../web/static/js/features/households.js', import.meta.url);
@@ -131,10 +136,23 @@ try {
       households.applyAccessSnapshot(snapshot);
 
       const projectsApi = {
-        listMembers: async () => ({ members: [] }),
-        transferToHousehold: async (id, householdId) => {
-          calls.push(['project-transfer', id, householdId]);
-          authoritativeProjects = projects.map(project => ({ ...project, owner_household_id: householdId, ownership_type: 'household', household_name: snapshot.household.name, workspace_id: 10, is_shared: 0, is_owner: 1 }));
+        listMembers: async id => { calls.push(['project-list-members', id]); return { members: [] }; },
+        transferToHousehold: async (id, householdId, parentId) => {
+          calls.push(['project-transfer', id, householdId, parentId]);
+          const transferredIds = new Set([id]);
+          let changed = true;
+          while (changed) {
+            changed = false;
+            projects.forEach(project => {
+              if (project.parent_id != null && transferredIds.has(project.parent_id) && !transferredIds.has(project.id)) {
+                transferredIds.add(project.id);
+                changed = true;
+              }
+            });
+          }
+          authoritativeProjects = projects
+            .filter(project => transferredIds.has(project.id))
+            .map(project => ({ ...project, parent_id: project.id === id ? parentId : project.parent_id, owner_household_id: householdId, ownership_type: 'household', household_name: snapshot.household.name, workspace_id: 10, is_shared: 0, is_owner: 1 }));
           return { ...authoritativeProjects.find(project => project.id === id), transferred_projects: authoritativeProjects };
         },
       };
@@ -286,6 +304,7 @@ try {
     window.test.setProjects([
       { id: 44, name: 'Personal plan', color: '#123456', icon: null, parent_id: null, workspace_id: 20, user_id: 1, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'user', owner_household_id: null },
       { id: 46, name: 'Personal child', color: '#654321', icon: null, parent_id: 44, workspace_id: 20, user_id: 1, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'user', owner_household_id: null },
+      { id: 49, name: 'Household parent', color: '#abcdef', icon: null, parent_id: null, workspace_id: 10, user_id: 1, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
     ]);
     window.test.projectFeature.showProjectModal(window.test.getProjects()[0]);
   });
@@ -299,18 +318,25 @@ try {
   await page.selectOption('#project-household-id', '7');
   assert.equal(await page.locator('#project-name').inputValue(), 'Personal plan', 'selecting household transfer must visibly discard unrelated pending edits before submission');
   assert.equal(await page.locator('#project-name').isDisabled(), true, 'household transfer mode must prevent concurrent metadata edits');
-  assert.equal(await page.locator('#project-parent-id').isDisabled(), true, 'household transfer mode must prevent concurrent placement edits');
+  assert.equal(await page.locator('#project-parent-id').isDisabled(), false, 'household transfer mode must allow placement inside the target household');
+  assert.equal(await page.locator('#project-parent-id option', { hasText: 'Household parent' }).count(), 1, 'household transfer mode must offer parents from the target household');
   assert.equal(await page.locator('#project-display-workspace-id').isDisabled(), true, 'household transfer mode must prevent concurrent workspace edits');
   assert.equal(await page.locator('#project-display-workspace-id').inputValue(), '10', 'household transfer mode must visibly show the personal default workspace destination');
   assert.equal(await page.locator('#project-color-picker').evaluate(element => getComputedStyle(element).pointerEvents), 'none', 'household transfer mode must disable the custom color picker');
   assert.equal(await page.locator('#project-color-picker .color-picker-current-name').textContent(), '#123456', 'household transfer mode must visibly revert the custom color picker');
   assert.equal(await page.locator('#project-icon-picker [data-value=""]').getAttribute('aria-selected'), 'true', 'household transfer mode must visibly revert the custom icon picker');
   assert.equal(await page.locator('#project-icon-picker [data-value="star"]').getAttribute('aria-selected'), 'false', 'stale custom icon selection must be cleared');
-  await page.selectOption('#project-household-id', '');
-  assert.equal(await page.locator('#project-display-workspace-id').inputValue(), '20', 'leaving household transfer mode must restore the persisted workspace');
-  assert.equal(await page.locator('#project-parent-id').inputValue(), '', 'leaving household transfer mode must restore the persisted parent');
-  assert.equal(await page.locator('#project-save-btn').evaluate(element => element.hidden), true, 'leaving transfer mode without edits must clear the dirty save action');
+  await page.evaluate(() => window.test.confirmQueue.push(false));
+  await page.selectOption('#project-parent-id', '49');
+  await page.click('#project-save-btn');
+  assert.equal(await page.locator('#project-household-id').inputValue(), '', 'canceling household transfer confirmation must restore personal ownership');
+  assert.equal(await page.locator('#project-display-workspace-id').inputValue(), '20', 'canceling household transfer confirmation must restore the persisted workspace');
+  assert.equal(await page.locator('#project-parent-id').inputValue(), '', 'canceling household transfer confirmation must restore the persisted parent');
+  assert.equal(await page.locator('#project-name').isDisabled(), false, 'canceling household transfer confirmation must restore editable metadata');
+  assert.equal(await page.locator('#project-save-btn').evaluate(element => element.hidden), true, 'canceling transfer without edits must clear the dirty save action');
+  assert.equal((await page.evaluate(() => window.test.calls)).some(call => call[0] === 'project-transfer'), false, 'canceling transfer must not call the transfer endpoint');
   await page.selectOption('#project-household-id', '7');
+  await page.selectOption('#project-parent-id', '49');
   await page.click('#project-save-btn');
   await page.waitForFunction(() => window.test.calls.some(call => call[0] === 'project-transfer'));
   const projectCalls = await page.evaluate(() => window.test.calls);
@@ -318,11 +344,12 @@ try {
   assert.equal(confirmation.title, 'project.transferHousehold.title');
   assert.match(confirmation.message, /project\.transferHousehold\.message/);
   assert.equal(confirmation.confirmText, 'project.transferHousehold.confirm');
-  assert.deepEqual(projectCalls.find(call => call[0] === 'project-transfer'), ['project-transfer', 44, 7]);
+  assert.deepEqual(projectCalls.find(call => call[0] === 'project-transfer'), ['project-transfer', 44, 7, 49]);
   assert.ok(!projectCalls.some(call => call[0] === 'refresh-projects'), 'complete transfer response must not depend on a queue-blockable full refresh');
   assert.equal((await page.evaluate(() => window.test.getProjects().find(project => project.id === 46)?.ownership_type)), 'household', 'complete transfer response must reconcile transferred descendants despite a local persistence failure');
 
   await page.evaluate(() => {
+    window.test.clearCalls();
     window.test.setProjects([
       { id: 45, name: 'Household board', color: '#123456', icon: null, parent_id: null, workspace_id: 10, user_id: 2, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
       { id: 47, name: 'Household notes', color: '#654321', icon: null, parent_id: null, workspace_id: 10, user_id: 1, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
@@ -330,6 +357,8 @@ try {
     window.test.projectFeature.showProjectModal(window.test.getProjects()[1]);
   });
   assert.equal(await page.locator('#project-parent-id option', { hasText: 'Household board' }).count(), 1, 'editing a household project must offer other household projects as parents to the household owner');
+  assert.equal(await page.locator('#project-sharing-section').isHidden(), true, 'household projects must not expose direct sharing controls to the household owner');
+  assert.equal((await page.evaluate(() => window.test.calls)).some(call => call[0] === 'project-list-members'), false, 'household project dialogs must not call the direct-members endpoint');
   await page.evaluate(() => {
     window.test.setProjects([{ id: 48, name: 'Member-created household project', color: '#abcdef', icon: null, parent_id: null, workspace_id: 10, user_id: 1, is_owner: 0, is_shared: 1, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' }]);
     window.test.projectFeature.showProjectModal(window.test.getProjects()[0]);
@@ -338,6 +367,7 @@ try {
   assert.equal(await page.locator('#project-display-workspace-group').isHidden(), true, 'household projects cannot move workspace');
   assert.equal(await page.locator('#project-name').isDisabled(), true, 'normal members cannot edit household project fields');
   assert.equal(await page.locator('#project-save-btn').evaluate(element => element.hidden), true, 'normal members do not get a project save action');
+  assert.equal(await page.locator('#project-sharing-section').isHidden(), true, 'household projects must not expose direct sharing controls to normal members');
   assert.equal(await page.locator('#project-share-start-row').isHidden(), true, 'explicit non-owner household creators must not receive sharing controls');
 
   await page.evaluate(() => window.test.renderProjectList([

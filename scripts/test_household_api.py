@@ -434,7 +434,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert removed["status"] == "removed", removed
     assert get_current_household(outsider_id)["household"] is None
     outsider_sync = [message for message in outsider_socket.messages if message.get("type") == "sync_response"]
-    assert household_project["id"] in {project["id"] for project in outsider_sync[-1]["projects"]}
+    assert household_project["id"] not in {project["id"] for project in outsider_sync[-1]["projects"]}
     assert outsider_sync[-1]["household"] is None
     member_sync = [message for message in member_socket.messages if message.get("type") == "sync_response"]
     assert len(member_sync) > member_sync_before_removal
@@ -463,11 +463,15 @@ with tempfile.TemporaryDirectory() as tmp:
         ).fetchone()
         assert ownership["owner_user_id"] == member_id, ownership
         assert ownership["owner_household_id"] is None, ownership
+        assert db.execute(
+            "SELECT COUNT(*) AS count FROM project_members WHERE project_id = ?",
+            (household_project["id"],),
+        ).fetchone()["count"] == 0
     assert get_current_household(member_id)["household"] is None
     member_sync = [message for message in member_socket.messages if message.get("type") == "sync_response"]
     outsider_sync = [message for message in outsider_socket.messages if message.get("type") == "sync_response"]
     assert next(project for project in member_sync[-1]["projects"] if project["id"] == household_project["id"])["is_owner"] == 1
-    assert household_project["id"] in {project["id"] for project in outsider_sync[-1]["projects"]}
+    assert household_project["id"] not in {project["id"] for project in outsider_sync[-1]["projects"]}
     assert outsider_sync[-1]["household_invites"] == []
     assert member_sync[-1]["household"] is None
 

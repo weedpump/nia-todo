@@ -2011,7 +2011,7 @@
   "project.forHousehold": "Household “{name}”",
   "project.householdBadge": "Household: {name}",
   "project.transferHousehold.title": "Make this a household project?",
-  "project.transferHousehold.message": "“{project}” and every contained task will become visible and editable to all members of “{household}”. This cannot be moved back to a personal workspace.",
+  "project.transferHousehold.message": "“{project}” and every contained task will become visible and editable to all members of “{household}”. Existing direct shares and pending invitations will be removed. This cannot be moved back to a personal workspace.",
   "project.transferHousehold.confirm": "Make household project",
   "project.transferHousehold.cancel": "Keep personal"
 }

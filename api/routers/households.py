@@ -21,7 +21,7 @@ from services.entity_access import (
     respond_to_household_invite,
     transfer_household_ownership,
 )
-from services.sharing import get_project_participant_user_ids
+from services.sharing import get_project_boundary_user_ids, get_project_participant_user_ids
 from services.instance_config import get_public_base_url
 
 
@@ -371,7 +371,17 @@ async def dissolve_household_endpoint(
         )
         project_ids = [row["entity_id"] for row in entities if row["entity_type"] == "project"]
         for project_id in project_ids:
-            sync_user_ids.update(get_project_participant_user_ids(db, project_id))
+            sync_user_ids.update(get_project_boundary_user_ids(db, project_id))
+
+        for project_id in project_ids:
+            db.execute("DELETE FROM project_members WHERE project_id = ?", (project_id,))
+        db.execute(
+            """DELETE FROM entity_access_grants
+               WHERE entity_access_id IN (
+                   SELECT id FROM entity_access WHERE owner_household_id = ?
+               )""",
+            (household_id,),
+        )
 
         db.execute(
             """UPDATE entity_access

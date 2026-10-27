@@ -24,6 +24,9 @@ def get_project_ancestor_ids(db, project_id: int) -> list[int]:
 
 def _accepted_project_member(db, project_ids: list[int], user_id: int):
     for project_id in project_ids:
+        ownership = get_entity_ownership(db, "project", project_id)
+        if ownership and ownership["owner_household_id"] is not None:
+            continue
         row = db.execute(
             "SELECT * FROM project_members WHERE project_id = ? AND user_id = ? AND status = 'accepted'",
             (project_id, user_id),
@@ -85,6 +88,9 @@ def get_project_participant_user_ids(db, project_id: int) -> set[int]:
     recipients = set()
     for ancestor_id in get_project_ancestor_ids(db, project_id):
         recipients.update(get_entity_participant_user_ids(db, "project", ancestor_id))
+        ownership = get_entity_ownership(db, "project", ancestor_id)
+        if ownership and ownership["owner_household_id"] is not None:
+            continue
         rows = db.execute(
             "SELECT user_id FROM project_members WHERE project_id = ? AND status = 'accepted'",
             (ancestor_id,),

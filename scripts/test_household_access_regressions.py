@@ -1403,10 +1403,26 @@ with tempfile.TemporaryDirectory() as tmp:
             owner_id,
         )
     )
+    try:
+        asyncio.run(
+            create_todo(
+                TodoCreate(title="Revoked legacy direct share", project_id=legacy_project["id"]),
+                recipient_id,
+            )
+        )
+    except HTTPException as error:
+        assert error.status_code == 403, error
+    else:
+        raise AssertionError("former direct project member retained access after household transfer")
+    with get_db() as db:
+        household_editor_id = db.execute(
+            "SELECT owner_user_id FROM households WHERE id = ?",
+            (household_id,),
+        ).fetchone()["owner_user_id"]
     legacy_shared_todo = asyncio.run(
         create_todo(
             TodoCreate(title="Legacy shared deletion boundary", project_id=legacy_project["id"]),
-            recipient_id,
+            household_editor_id,
         )
     )
     with get_db() as db:
@@ -1448,7 +1464,7 @@ with tempfile.TemporaryDirectory() as tmp:
     finally:
         websocket_service.manager.broadcast_to_user = original_broadcast_to_user
     for inherited_user_id in (recipient_id, migration_extra_user_id):
-        assert any(
+        assert not any(
             message.get("type") == "project_update"
             and message.get("payload", {}).get("id") == inherited_child["id"]
             for message in inherited_project_payloads.get(inherited_user_id, [])
@@ -1470,15 +1486,15 @@ with tempfile.TemporaryDirectory() as tmp:
     finally:
         websocket_service.manager.broadcast_to_user = original_broadcast_to_user
     for inherited_user_id in (recipient_id, migration_extra_user_id):
-        assert any(
+        assert not any(
             message.get("type") == "todo_create"
             and message.get("payload", {}).get("id") == inherited_todo["id"]
             for message in inherited_todo_payloads.get(inherited_user_id, [])
         ), inherited_todo_payloads
     with get_db() as db:
         for inherited_user_id in (recipient_id, migration_extra_user_id):
-            assert can_access_project(db, inherited_child["id"], inherited_user_id)
-            assert inherited_child["id"] in get_project_ids_for_user(db, inherited_user_id)
+            assert not can_access_project(db, inherited_child["id"], inherited_user_id)
+            assert inherited_child["id"] not in get_project_ids_for_user(db, inherited_user_id)
     with get_db() as db:
         transfer_household_ownership(db, household_id, owner_id, successor_id)
         db.commit()
@@ -1495,27 +1511,26 @@ with tempfile.TemporaryDirectory() as tmp:
             "SELECT invited_by, status FROM project_members WHERE project_id = ? AND user_id = ?",
             (legacy_project["id"], recipient_id),
         ).fetchone()
-        assert membership and membership["invited_by"] is None and membership["status"] == "accepted", membership
+        assert membership is None, membership
         shared = get_shared_projects_for_user(db, recipient_id)
-        shared_project = next(project for project in shared if project["id"] == legacy_project["id"])
-        assert inherited_child["id"] in {project["id"] for project in shared}, shared
-        assert inherited_child["id"] in {
+        assert legacy_project["id"] not in {project["id"] for project in shared}, shared
+        assert inherited_child["id"] not in {project["id"] for project in shared}, shared
+        assert inherited_child["id"] not in {
             project["id"] for project in get_shared_projects_for_user(db, migration_extra_user_id)
         }
-        assert shared_project["user_id"] == successor_id, shared_project
-        assert shared_project["owner_username"] == "successor", shared_project
 
-    updated_view = asyncio.run(
-        update_project(
-            legacy_project["id"],
-            ProjectUpdate(workspace_id=recipient_workspace_id),
-            recipient_id,
+    try:
+        asyncio.run(
+            update_project(
+                legacy_project["id"],
+                ProjectUpdate(workspace_id=recipient_workspace_id),
+                recipient_id,
+            )
         )
-    )
-    assert updated_view["owner_user_id"] is None, updated_view
-    assert updated_view["owner_household_id"] == household_id, updated_view
-    assert updated_view["household_name"] == "Home", updated_view
-    assert updated_view["workspace_id"] == recipient_workspace_id, updated_view
+    except HTTPException as error:
+        assert error.status_code == 403, error
+    else:
+        raise AssertionError("former direct project member updated a household project")
 
     transfer_gain_root = asyncio.run(create_project(ProjectCreate(name="Transfer gain root"), successor_id))
     transfer_gain_child = asyncio.run(
@@ -1582,22 +1597,11 @@ with tempfile.TemporaryDirectory() as tmp:
         )
     finally:
         websocket_service.manager.broadcast_to_user = original_broadcast_to_user
-    for revoked_user_id in (recipient_id, migration_extra_user_id):
-        move_syncs = [
-            message for message in project_move_payloads.get(revoked_user_id, [])
-            if message.get("type") == "sync_response"
-        ]
-        assert move_syncs, project_move_payloads
-        assert inherited_child["id"] not in {
-            project["id"] for project in move_syncs[-1]["projects"]
-        }
-    gained_move_syncs = [
-        message for message in project_move_payloads.get(ancestor_gain_id, [])
-        if message.get("type") == "sync_response"
-    ]
-    assert gained_move_syncs, project_move_payloads
-    assert inherited_child["id"] in {project["id"] for project in gained_move_syncs[-1]["projects"]}
-    assert inherited_todo["id"] in {todo["id"] for todo in gained_move_syncs[-1]["todos"]}
+    for stale_grant_user_id in (recipient_id, migration_extra_user_id, ancestor_gain_id):
+        assert stale_grant_user_id not in project_move_payloads, project_move_payloads
+    with get_db() as db:
+        for stale_grant_user_id in (recipient_id, migration_extra_user_id, ancestor_gain_id):
+            assert not can_access_project(db, inherited_child["id"], stale_grant_user_id)
 
     todo_move_payloads = {}
 
@@ -1616,17 +1620,16 @@ with tempfile.TemporaryDirectory() as tmp:
         )
     finally:
         websocket_service.manager.broadcast_to_user = original_broadcast_to_user
-    for revoked_user_id in (recipient_id, migration_extra_user_id):
-        move_syncs = [
-            message for message in todo_move_payloads.get(revoked_user_id, [])
-            if message.get("type") == "sync_response"
-        ]
-        assert move_syncs, todo_move_payloads
-        assert legacy_shared_todo["id"] not in {
-            todo["id"] for todo in move_syncs[-1]["todos"]
-        }
+    for stale_grant_user_id in (recipient_id, migration_extra_user_id, ancestor_gain_id):
+        assert stale_grant_user_id not in todo_move_payloads, todo_move_payloads
 
     with get_db() as db:
+        db.execute(
+            """INSERT INTO project_members
+               (project_id, user_id, invited_by, status, workspace_id)
+               VALUES (?, ?, ?, 'accepted', ?)""",
+            (legacy_project["id"], recipient_id, successor_id, recipient_workspace_id),
+        )
         original_schema = db.execute(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'project_members'"
         ).fetchone()["sql"]

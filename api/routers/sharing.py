@@ -80,6 +80,14 @@ def get_project_with_owner(db, project_id: int) -> Optional[dict]:
     ).fetchone()
     return dict(row) if row else None
 
+
+def require_personal_project_sharing(db, project: dict, user_id: int) -> None:
+    if project.get("owner_household_id") is not None:
+        if not can_access_project(db, project["id"], user_id):
+            raise HTTPException(403, "Not authorized to manage project sharing")
+        raise HTTPException(409, "Household projects cannot be shared directly")
+
+
 def get_project_member(db, project_id: int, user_id: int) -> Optional[dict]:
     row = db.execute(
         """SELECT pm.*, u.username, u.display_name
@@ -179,8 +187,9 @@ def get_pending_invites_for_user(db, user_id: int) -> list:
                   u.username as invited_by_username, u.display_name as invited_by_display_name
            FROM project_members pm
            JOIN projects p ON pm.project_id = p.id
+           JOIN entity_access ea ON ea.entity_type = 'project' AND ea.entity_id = p.id
            LEFT JOIN users u ON pm.invited_by = u.id
-           WHERE pm.user_id = ? AND pm.status = 'pending'""",
+           WHERE pm.user_id = ? AND pm.status = 'pending' AND ea.owner_household_id IS NULL""",
         (user_id,)
     ).fetchall()
     return [dict(r) for r in rows]
@@ -220,8 +229,9 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
         project = get_project_with_owner(db, project_id)
         if not project:
             raise HTTPException(404, "Project not found")
-        if project['owner_id'] != user_id:
+        if not can_edit_project(db, project_id, user_id):
             raise HTTPException(403, "Only the project owner can share this project")
+        require_personal_project_sharing(db, project, user_id)
 
         identifier = data.username.strip()
         email_identifier = is_email_identifier(identifier)
@@ -296,10 +306,11 @@ async def restore_member(project_id: int, member_user_id: int, data: RestoreMemb
         if not member:
             raise HTTPException(404, "Member not found")
 
-        is_owner = project['owner_id'] == user_id
+        is_owner = can_edit_project(db, project_id, user_id)
         is_self = member_user_id == user_id
         if not is_owner and not is_self:
             raise HTTPException(403, "Only the owner or the member can restore this membership")
+        require_personal_project_sharing(db, project, user_id)
         if is_self and member['status'] != 'left':
             raise HTTPException(403, "Members can only undo their own leave action")
         if is_owner and member['status'] not in ('removed', 'left', 'declined'):
@@ -363,6 +374,7 @@ async def respond_to_invite(project_id: int, invite_id: int, data: AcceptInviteR
         project = get_project_with_owner(db, project_id)
         if not invite or not project:
             raise HTTPException(404, "Invite not found")
+        require_personal_project_sharing(db, project, user_id)
         if invite['status'] != 'pending':
             raise HTTPException(400, "Invite is not pending")
 
@@ -393,18 +405,18 @@ async def remove_member(project_id: int, member_user_id: int, user_id: int = Dep
         if not project:
             raise HTTPException(404, "Project not found")
 
-        # Owner can remove anyone, member can only remove self
-        is_owner = project['owner_id'] == user_id
-        is_self = member_user_id == user_id
-        if not is_owner and not is_self:
-            raise HTTPException(403, "Only the owner can remove members")
-
         member = db.execute(
             "SELECT * FROM project_members WHERE project_id = ? AND user_id = ?",
             (project_id, member_user_id)
         ).fetchone()
         if not member:
             raise HTTPException(404, "Member not found")
+        # Owner can remove anyone, member can only remove self
+        is_owner = can_edit_project(db, project_id, user_id)
+        is_self = member_user_id == user_id
+        if not is_owner and not is_self:
+            raise HTTPException(403, "Only the owner can remove members")
+        require_personal_project_sharing(db, project, user_id)
         if member['status'] not in ('pending', 'accepted'):
             raise HTTPException(400, "Member is not active")
         sync_user_ids = (
@@ -459,7 +471,10 @@ async def leave_project(project_id: int, user_id: int = Depends(require_auth)):
         project = get_project_with_owner(db, project_id)
         if not project:
             raise HTTPException(404, "Project not found")
-        if project['owner_id'] == user_id:
+        if not can_access_project(db, project_id, user_id):
+            raise HTTPException(403, "Not authorized to leave this project")
+        require_personal_project_sharing(db, project, user_id)
+        if can_edit_project(db, project_id, user_id):
             raise HTTPException(400, "Owner cannot leave their own project. Delete it instead.")
 
         member = db.execute(
@@ -495,8 +510,6 @@ async def undo_leave_project(project_id: int, user_id: int = Depends(require_aut
         project = get_project_with_owner(db, project_id)
         if not project:
             raise HTTPException(404, "Project not found")
-        if project['owner_id'] == user_id:
-            raise HTTPException(400, "Owner cannot leave their own project")
 
         member = db.execute(
             "SELECT * FROM project_members WHERE project_id = ? AND user_id = ?",
@@ -504,6 +517,9 @@ async def undo_leave_project(project_id: int, user_id: int = Depends(require_aut
         ).fetchone()
         if not member or member['status'] != 'left':
             raise HTTPException(400, "No leave action to undo")
+        if can_edit_project(db, project_id, user_id):
+            raise HTTPException(400, "Owner cannot leave their own project")
+        require_personal_project_sharing(db, project, user_id)
 
         if not transition_member_status(db, member['id'], 'left', 'accepted'):
             db.rollback()
@@ -526,9 +542,10 @@ def list_project_members(project_id: int, user_id: int = Depends(require_auth)):
             raise HTTPException(404, "Project not found")
 
         # Check access through ownership, household membership, or direct sharing.
-        is_owner = can_edit_project(db, project_id, user_id)
         if not can_access_project(db, project_id, user_id):
             raise HTTPException(403, "Not authorized to view members")
+        require_personal_project_sharing(db, project, user_id)
+        is_owner = can_edit_project(db, project_id, user_id)
 
         # Owners must see their own pending invites so they can revoke them even
         # after a reload. Non-owners still only see accepted members to avoid
@@ -544,8 +561,9 @@ async def update_member_color(project_id: int, member_user_id: int, data: Member
         project = get_project_with_owner(db, project_id)
         if not project:
             raise HTTPException(404, "Project not found")
-        if project['owner_id'] != user_id:
+        if not can_edit_project(db, project_id, user_id):
             raise HTTPException(403, "Only the owner can change member colors")
+        require_personal_project_sharing(db, project, user_id)
 
         db.execute(
             """UPDATE project_members

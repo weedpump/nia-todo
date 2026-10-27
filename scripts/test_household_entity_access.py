@@ -87,23 +87,24 @@ with tempfile.TemporaryDirectory() as tmp:
         personal = resolve_entity_access(db, "project", 7, member_id)
         assert personal.sources == ("owner",), personal
         assert personal.can_manage_access, personal
+        grant_entity_access(db, "project", 7, member_id, outsider_id)
+        assert resolve_entity_access(db, "project", 7, outsider_id).sources == ("direct",)
 
         transfer_entity_to_household(db, "project", 7, member_id, household_id)
         transferred_member = resolve_entity_access(db, "project", 7, member_id)
         assert transferred_member.sources == ("household",), transferred_member
         assert transferred_member.can_edit_content and not transferred_member.can_manage_access, transferred_member
         assert resolve_entity_access(db, "project", 7, owner_id).sources == ("household_owner",)
+        assert resolve_entity_access(db, "project", 7, outsider_id).sources == ()
 
-        # Household membership and direct sharing are independent access sources.
-        grant_entity_access(db, "project", 7, owner_id, member_id)
-        additive = resolve_entity_access(db, "project", 7, member_id)
-        assert additive.sources == ("household", "direct"), additive
-
-        grant_entity_access(db, "project", 7, owner_id, outsider_id)
-        direct = resolve_entity_access(db, "project", 7, outsider_id)
-        assert direct.sources == ("direct",), direct
-        assert direct.can_view and direct.can_edit_content, direct
-        assert not direct.can_manage_access and not direct.can_delete, direct
+        # Household ownership is the only access boundary; direct grants are forbidden.
+        for target_user_id in (member_id, outsider_id):
+            try:
+                grant_entity_access(db, "project", 7, owner_id, target_user_id)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("household entity unexpectedly accepted a direct grant")
 
         try:
             grant_entity_access(db, "project", 7, member_id, other_id)
@@ -114,8 +115,8 @@ with tempfile.TemporaryDirectory() as tmp:
 
         remove_household_member(db, household_id, owner_id, member_id)
         assert resolve_entity_access(db, "shopping_list", 42, member_id).sources == ()
-        assert resolve_entity_access(db, "project", 7, member_id).sources == ("direct",)
-        assert resolve_entity_access(db, "project", 7, outsider_id).sources == ("direct",)
+        assert resolve_entity_access(db, "project", 7, member_id).sources == ()
+        assert resolve_entity_access(db, "project", 7, outsider_id).sources == ()
 
         second_invite_id = invite_household_member(db, household_id, owner_id, member_id)
         respond_to_household_invite(db, second_invite_id, member_id, accept=True)
@@ -131,11 +132,7 @@ with tempfile.TemporaryDirectory() as tmp:
         personal_again = resolve_entity_access(db, "project", 7, owner_id)
         assert personal_again.sources == ("owner",), personal_again
         assert personal_again.can_manage_metadata and personal_again.can_delete, personal_again
-        assert resolve_entity_access(db, "project", 7, member_id).sources == ("direct",)
-
-        revoke_entity_access(db, "project", 7, owner_id, member_id)
         assert resolve_entity_access(db, "project", 7, member_id).sources == ()
-        revoke_entity_access(db, "project", 7, owner_id, outsider_id)
         assert resolve_entity_access(db, "project", 7, outsider_id).sources == ()
 
 print("✅ Household ownership and entity permissions are explicit and stable")

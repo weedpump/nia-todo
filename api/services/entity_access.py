@@ -345,6 +345,10 @@ def transfer_entity_to_household(
     if not is_household_participant(db, household_id, actor_user_id):
         raise PermissionError("Entity owner does not belong to household")
     db.execute(
+        "DELETE FROM entity_access_grants WHERE entity_access_id = ?",
+        (access["id"],),
+    )
+    db.execute(
         """
         UPDATE entity_access
         SET owner_user_id = NULL, owner_household_id = ?, updated_at = ?
@@ -369,6 +373,10 @@ def transfer_household_entity_to_user(
         raise PermissionError("Only the household owner can transfer household entities")
     if not is_household_participant(db, household["id"], target_user_id):
         raise ValueError("Target user must belong to the household")
+    db.execute(
+        "DELETE FROM entity_access_grants WHERE entity_access_id = ?",
+        (access["id"],),
+    )
     db.execute(
         """
         UPDATE entity_access
@@ -399,11 +407,12 @@ def get_entity_participant_user_ids(db, entity_type: str, entity_id: int) -> set
             (access["owner_household_id"],),
         ).fetchall()
         user_ids.update(row["user_id"] for row in rows)
-    grants = db.execute(
-        "SELECT user_id FROM entity_access_grants WHERE entity_access_id = ?",
-        (access["id"],),
-    ).fetchall()
-    user_ids.update(row["user_id"] for row in grants)
+    if access["owner_user_id"] is not None:
+        grants = db.execute(
+            "SELECT user_id FROM entity_access_grants WHERE entity_access_id = ?",
+            (access["id"],),
+        ).fetchall()
+        user_ids.update(row["user_id"] for row in grants)
     return user_ids
 
 
@@ -417,6 +426,8 @@ def grant_entity_access(
     access = _get_entity_access(db, entity_type, entity_id)
     if _entity_manager_user_id(db, access) != actor_user_id:
         raise PermissionError("Only the entity manager can grant access")
+    if access["owner_household_id"] is not None:
+        raise ValueError("Household entities cannot be shared directly")
     if target_user_id == actor_user_id:
         raise ValueError("Entity manager already has access")
     _require_user(db, target_user_id)
@@ -468,7 +479,7 @@ def resolve_entity_access(db, entity_type: str, entity_id: int, user_id: int) ->
         db, access["owner_household_id"], user_id
     ):
         sources.append("household")
-    if db.execute(
+    if access["owner_household_id"] is None and db.execute(
         "SELECT 1 FROM entity_access_grants WHERE entity_access_id = ? AND user_id = ?",
         (access["id"], user_id),
     ).fetchone():
