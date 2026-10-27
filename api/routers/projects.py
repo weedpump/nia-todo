@@ -403,7 +403,7 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
                 updated_view = _project_view_for_user(db, updated_row, user_id)
                 if updated_view:
                     updated_projects.append(updated_view)
-        project = updated_projects[0] if updated_projects else _project_view_for_user(db, existing, user_id)
+        project = dict(updated_projects[0]) if updated_projects else _project_view_for_user(db, existing, user_id)
         if project is None:
             raise HTTPException(403, "Not authorized")
         if len(updated_projects) > 1:

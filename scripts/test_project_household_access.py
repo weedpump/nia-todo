@@ -2,6 +2,7 @@
 """Todo projects can become household-owned without changing their contents."""
 
 import asyncio
+import json
 import os
 import sys
 import tempfile
@@ -79,6 +80,31 @@ with tempfile.TemporaryDirectory() as tmp:
             (owner_id,),
         ).lastrowid
         db.commit()
+
+    workspace_move_root = asyncio.run(create_project(ProjectCreate(name="Workspace move root"), owner_id))
+    workspace_move_child = asyncio.run(
+        create_project(
+            ProjectCreate(
+                name="Workspace move child",
+                parent_id=workspace_move_root["id"],
+                workspace_id=workspace_move_root["workspace_id"],
+            ),
+            owner_id,
+        )
+    )
+    workspace_move_result = asyncio.run(
+        update_project(
+            workspace_move_root["id"],
+            ProjectUpdate(workspace_id=special_workspace_id),
+            owner_id,
+        )
+    )
+    assert workspace_move_result["workspace_id"] == special_workspace_id, workspace_move_result
+    assert {
+        project["id"] for project in workspace_move_result.get("updated_projects", [])
+    } == {workspace_move_root["id"], workspace_move_child["id"]}, workspace_move_result
+    json.dumps(workspace_move_result)
+
     household_in_special_workspace = asyncio.run(
         create_project(
             ProjectCreate(
