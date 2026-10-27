@@ -476,6 +476,28 @@ releaseCommitLock();
 await blockedQueueWrite;
 assert.equal(queueWriteStarted, true);
 
+const originalWebSocket = globalThis.WebSocket;
+const websocketMessages = [];
+class FakeWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSED = 3;
+
+  constructor() {
+    this.readyState = FakeWebSocket.CONNECTING;
+    FakeWebSocket.instance = this;
+  }
+
+  send(payload) {
+    websocketMessages.push(JSON.parse(payload));
+  }
+
+  close() {
+    this.readyState = FakeWebSocket.CLOSED;
+  }
+}
+globalThis.WebSocket = FakeWebSocket;
+
 const websocketStores = {
   syncQueue: [],
   todos: [{ id: 901, title: 'Committed server todo', comments: [{ id: 99, body: 'Saved' }], subtasks: [], updated_at: '2026-10-18T00:00:01Z' }],
@@ -484,13 +506,11 @@ const websocketStores = {
   workspaces: [],
 };
 const websocketSyncRef = { value: true };
-let authoritativeRefreshes = 0;
 const websocketClient = createWebSocketClient({
   wsUrl: 'ws://unused.invalid',
-  getAuthToken: () => null,
+  getAuthToken: () => 'test-token',
   syncWithServer: async () => {},
   syncInProgressRef: websocketSyncRef,
-  refreshFromServer: async () => { authoritativeRefreshes++; },
   renderConnectionStatus: () => {},
   dbGetAll: async store => structuredClone(websocketStores[store] || []),
   dbPut: async (store, item) => {
@@ -511,6 +531,8 @@ const websocketClient = createWebSocketClient({
   renderStats: () => {},
   renderTodos: () => {},
 });
+websocketClient.connectWebSocket();
+FakeWebSocket.instance.readyState = FakeWebSocket.OPEN;
 const staleSyncResponse = websocketClient.handleWsMessage({
   type: 'sync_response',
   todos: [{ id: 901, title: 'Stale server todo', comments: [{ id: 'temp-c', body: 'Saved', is_pending: true }], subtasks: [], updated_at: '2026-10-18T00:00:00Z' }],
@@ -519,10 +541,10 @@ const staleSyncResponse = websocketClient.handleWsMessage({
   workspaces: [],
 });
 await new Promise(resolve => setTimeout(resolve, 20));
-assert.equal(authoritativeRefreshes, 0, 'a full-sync payload received during replay must wait for the queue drain');
+assert.equal(websocketMessages.length, 0, 'a full-sync payload received during replay must wait for the queue drain');
 websocketSyncRef.value = false;
 await staleSyncResponse;
-assert.equal(authoritativeRefreshes, 1, 'a stale full-sync payload must be replaced with a fresh authoritative fetch');
+assert.deepEqual(websocketMessages, [{ type: 'sync_request' }], 'a stale full-sync payload must request a fresh WebSocket snapshot');
 assert.equal(websocketStores.todos[0].comments[0].id, 99, 'the stale payload must not restore a temporary child ID');
 
 websocketSyncRef.value = true;
@@ -535,11 +557,15 @@ const staleDuringRefresh = websocketClient.handleWsMessage({
   workspaces: [],
 });
 await new Promise(resolve => setTimeout(resolve, 20));
-assert.equal(authoritativeRefreshes, 1, 'a full-sync payload received during REST refresh must wait');
+assert.equal(websocketMessages.length, 1, 'a full-sync payload received during REST refresh must wait');
 websocketSyncRef.value = false;
 websocketSyncRef.refreshing = false;
 await staleDuringRefresh;
-assert.equal(authoritativeRefreshes, 2, 'a stale payload received during REST refresh must trigger a newer authoritative fetch');
+assert.deepEqual(
+  websocketMessages,
+  [{ type: 'sync_request' }, { type: 'sync_request' }],
+  'a stale payload received during REST refresh must request a newer WebSocket snapshot',
+);
 assert.equal(websocketStores.todos[0].comments[0].id, 99);
 
 websocketStores.syncQueue = [{ id: 60, action: 'CREATE_TODO', data: { title: 'Local create', _tempId: 'temp-own-create' } }];
@@ -560,5 +586,8 @@ websocketStores.todos = [{ id: 902, title: 'Local create', comments: [], subtask
 websocketSyncRef.value = false;
 await realtimeOwnCreate;
 assert.deepEqual(websocketStores.todos.map(todo => todo.id), [902]);
+
+await websocketClient.disconnectWebSocket();
+globalThis.WebSocket = originalWebSocket;
 
 console.log('✅ Offline todo child sync test passed');
