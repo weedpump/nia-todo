@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="web/static/icons/icon-512.png" width="128" alt="nia-todo">
+<img src="web/static/icons/icon-512.png" width="128" alt="Nia">
 
-# nia-todo
+# Nia
 
-**Your tasks. Your server. Your data.**
+**Everyday life. Simply organized.**
 
-A modern, self-hosted todo app with offline support, collaboration, native clients, and no external service dependency.
+A modern, self-hosted app for organizing everyday life, with offline support, collaboration, native clients, and no external service dependency.
 
 [![License](https://img.shields.io/github/license/weedpump/nia-todo?color=blue)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/weedpump/nia-todo)](https://github.com/weedpump/nia-todo/releases/latest)
@@ -20,7 +20,7 @@ A modern, self-hosted todo app with offline support, collaboration, native clien
 
 ---
 
-nia-todo keeps personal and shared work in one place while leaving you in control of the infrastructure. The FastAPI server stores its data in SQLite and serves the responsive web app, offline-capable PWA, and downloads for the bundled native clients from your own instance.
+Nia keeps personal and shared everyday organization in one place while leaving you in control of the infrastructure. The FastAPI server stores its data in SQLite and serves the responsive web app, offline-capable PWA, and downloads for the bundled native clients from your own instance.
 
 ## A quick look
 
@@ -41,7 +41,7 @@ nia-todo keeps personal and shared work in one place while leaving you in contro
 
 ## Languages
 
-nia-todo is available in:
+Nia is available in:
 
 🇩🇪 **German** (`de`) · 🇬🇧 **English** (`en`) · 🇨🇿 **Czech** (`cs`) · 🇫🇷 **French** (`fr`) · 🇮🇹 **Italian** (`it`) · 🇳🇱 **Dutch** (`nl`) · 🇵🇱 **Polish** (`pl`) · 🇧🇷 **Brazilian Portuguese** (`pt-BR`) · 🇷🇺 **Russian** (`ru`) · 🇸🇪 **Swedish** (`sv`) · 🇪🇸 **Spanish** (`es`) · 🇨🇳 **Simplified Chinese** (`zh-CN`)
 
