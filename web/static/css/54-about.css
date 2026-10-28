@@ -35,6 +35,10 @@
   max-width: 680px !important;
 }
 
+#about-modal .about-shell {
+  row-gap: 24px;
+}
+
 .about-logo {
   width: 58px;
   height: 58px;
@@ -44,17 +48,13 @@
   margin: 0 auto;
   border-radius: 18px;
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
   text-decoration: none;
 }
 
-.about-logo:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.about-logo img {
+.about-logo-icon {
   width: 42px;
   height: 42px;
+  display: block;
   border-radius: 12px;
 }
 
