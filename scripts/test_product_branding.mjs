@@ -78,7 +78,10 @@ assert.match(oidcRouter, /<title>Nia<\/title>/, 'Native OIDC return pages must u
 
 const emailTemplates = read('api/services/email_templates.py');
 assert.match(emailTemplates, /BRAND_NAME = "Nia"/, 'System emails must use the visible product name');
-assert.match(emailTemplates, /LOGO_CID = "nia-todo-logo"/, 'The existing inline email asset identity must remain unchanged');
+assert.match(emailTemplates, /def _logo_src\(\) -> str:/, 'System emails must expose the direct logo embedding helper');
+assert.match(emailTemplates, /base64\.b64encode\(LOGO_PATH\.read_bytes\(\)\)/, 'System emails must encode the tracked logo bytes directly');
+assert.match(emailTemplates, /return f"data:image\/png;base64,\{encoded\}"/, 'System emails must embed the logo as a PNG data URL');
+assert.doesNotMatch(emailTemplates, /LOGO_CID/, 'System emails must not retain the removed CID logo contract');
 const emailConfig = read('api/services/email_config.py');
 assert.match(emailConfig, /"mail_from_name": "Nia"/, 'Fresh email configuration must default to Nia');
 assert.match(read('api/migrations/056_rebrand_default_mail_sender.sql'), /WHERE key = 'mail_from_name'[\s\S]*value = 'nia-todo'/, 'Existing untouched default sender names must migrate to Nia');

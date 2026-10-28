@@ -5,5 +5,4 @@ export const shoppingModule = createEmptyModule({
   labelKey: 'module.shopping.label',
   descriptionKey: 'module.shopping.description',
   icon: 'shopping',
-  defaultPath: '/shopping',
 });

@@ -178,7 +178,6 @@ const feature = createTodoAttachmentsFeature({
   t: (key) => key,
   iconSvg: (name) => `<svg data-icon="${name}"></svg>`,
   escapeHtmlAttr: (value) => String(value),
-  setTodoCollapsibleOpen: () => {},
   refreshTodoActionButtonState: () => {},
   refreshTodoSaveButtonState: () => {},
 });

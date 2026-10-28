@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import base64
 from html import escape
+from pathlib import Path
 
 BRAND_NAME = "Nia"
 TEXT_COLOR = "#0f172a"
 MUTED_COLOR = "#64748b"
 LINK_COLOR = "#4f46e5"
-LOGO_CID = "nia-todo-logo"
+BASE_DIR = Path(__file__).resolve().parents[2]
+LOGO_PATH = BASE_DIR / "web" / "static" / "icons" / "icon-192.png"
 MAX_SUBJECT_LENGTH = 140
 
 
@@ -19,7 +22,7 @@ EMAIL_COPY = {
         "link_fallback": "Falls der Link nicht funktioniert, kopiere diese Adresse:",
         "greeting": "Hallo {name},",
         "greeting_default": "du",
-        "tagline": "Deine Aufgaben. Klar sortiert.",
+        "tagline": "Alltag. Einfach organisiert.",
         "system_mail": "System-E-Mail",
         "unexpected": "Wenn du diese E-Mail nicht erwartet hast, kannst du sie ignorieren.",
         "project_share_subject": "Projektfreigabe: {project_name}",
@@ -72,7 +75,7 @@ EMAIL_COPY = {
         "link_fallback": "If the link does not work, copy this address:",
         "greeting": "Hi {name},",
         "greeting_default": "there",
-        "tagline": "Your tasks. Clearly organized.",
+        "tagline": "Everyday life. Simply organized.",
         "system_mail": "System email",
         "unexpected": "If you did not expect this email, you can ignore it.",
         "project_share_subject": "Project share: {project_name}",
@@ -125,7 +128,7 @@ EMAIL_COPY = {
         "link_fallback": "Pokud odkaz nefunguje, zkopíruj tuto adresu:",
         "greeting": "Ahoj {name},",
         "greeting_default": "tam",
-        "tagline": "Tvé úkoly. Přehledně uspořádané.",
+        "tagline": "Každodenní život. Jednoduše uspořádaný.",
         "system_mail": "Systémový e-mail",
         "unexpected": "Pokud jsi tento e-mail nečekal/a, můžeš ho ignorovat.",
         "project_share_subject": "Sdílení projektu: {project_name}",
@@ -178,7 +181,7 @@ EMAIL_COPY = {
         "link_fallback": "Si le lien ne fonctionne pas, copie cette adresse :",
         "greeting": "Bonjour {name},",
         "greeting_default": "toi",
-        "tagline": "Tes tâches. Clairement organisées.",
+        "tagline": "Le quotidien. Simplement organisé.",
         "system_mail": "E-mail système",
         "unexpected": "Si tu n’attendais pas cet e-mail, tu peux l’ignorer.",
         "project_share_subject": "Partage de projet : {project_name}",
@@ -231,7 +234,7 @@ EMAIL_COPY = {
         "link_fallback": "Se il link non funziona, copia questo indirizzo:",
         "greeting": "Ciao {name},",
         "greeting_default": "lì",
-        "tagline": "Le tue attività. Organizzate chiaramente.",
+        "tagline": "La vita quotidiana. Organizzata con semplicità.",
         "system_mail": "E-mail di sistema",
         "unexpected": "Se non ti aspettavi questa e-mail, puoi ignorarla.",
         "project_share_subject": "Condivisione progetto: {project_name}",
@@ -284,7 +287,7 @@ EMAIL_COPY = {
         "link_fallback": "Als de link niet werkt, kopieer dan dit adres:",
         "greeting": "Hoi {name},",
         "greeting_default": "daar",
-        "tagline": "Je taken. Helder georganiseerd.",
+        "tagline": "Het dagelijks leven. Eenvoudig georganiseerd.",
         "system_mail": "Systeem-e-mail",
         "unexpected": "Als je deze e-mail niet verwachtte, kun je hem negeren.",
         "project_share_subject": "Project delen: {project_name}",
@@ -337,7 +340,7 @@ EMAIL_COPY = {
         "link_fallback": "Jeśli link nie działa, skopiuj ten adres:",
         "greeting": "Cześć {name},",
         "greeting_default": "tam",
-        "tagline": "Twoje zadania. Jasno uporządkowane.",
+        "tagline": "Codzienność. Prosto zorganizowana.",
         "system_mail": "E-mail systemowy",
         "unexpected": "Jeśli nie spodziewałeś/spodziewałaś się tego e-maila, możesz go zignorować.",
         "project_share_subject": "Udostępnienie projektu: {project_name}",
@@ -390,7 +393,7 @@ EMAIL_COPY = {
         "link_fallback": "Se o link não funcionar, copie este endereço:",
         "greeting": "Olá {name},",
         "greeting_default": "aí",
-        "tagline": "Suas tarefas. Claramente organizadas.",
+        "tagline": "O dia a dia. Organizado com simplicidade.",
         "system_mail": "E-mail do sistema",
         "unexpected": "Se você não esperava este e-mail, pode ignorá-lo.",
         "project_share_subject": "Compartilhamento de projeto: {project_name}",
@@ -443,7 +446,7 @@ EMAIL_COPY = {
         "link_fallback": "Если ссылка не работает, скопируйте этот адрес:",
         "greeting": "Здравствуйте, {name},",
         "greeting_default": "пользователь",
-        "tagline": "Ваши задачи. Чётко организованы.",
+        "tagline": "Повседневная жизнь. Просто организована.",
         "system_mail": "Системное письмо",
         "unexpected": "Если вы не ожидали это письмо, его можно проигнорировать.",
         "project_share_subject": "Доступ к проекту: {project_name}",
@@ -496,7 +499,7 @@ EMAIL_COPY = {
         "link_fallback": "Om länken inte fungerar, kopiera den här adressen:",
         "greeting": "Hej {name},",
         "greeting_default": "där",
-        "tagline": "Dina uppgifter. Tydligt organiserade.",
+        "tagline": "Vardagen. Enkelt organiserad.",
         "system_mail": "Systemmeddelande",
         "unexpected": "Om du inte väntade dig det här e-postmeddelandet kan du ignorera det.",
         "project_share_subject": "Projektdelning: {project_name}",
@@ -549,7 +552,7 @@ EMAIL_COPY = {
         "link_fallback": "Si el enlace no funciona, copia esta dirección:",
         "greeting": "Hola {name},",
         "greeting_default": "ahí",
-        "tagline": "Tus tareas. Claramente organizadas.",
+        "tagline": "El día a día. Organizado de forma sencilla.",
         "system_mail": "E-mail del sistema",
         "unexpected": "Si no esperabas este e-mail, puedes ignorarlo.",
         "project_share_subject": "Proyecto compartido: {project_name}",
@@ -602,7 +605,7 @@ EMAIL_COPY = {
         "link_fallback": "如果链接无法使用，请复制此地址：",
         "greeting": "你好，{name}，",
         "greeting_default": "你好",
-        "tagline": "你的任务，清晰有序。",
+        "tagline": "日常生活，轻松有序。",
         "system_mail": "系统邮件",
         "unexpected": "如果你没有预期收到这封邮件，可以忽略它。",
         "project_share_subject": "项目共享：{project_name}",
@@ -680,8 +683,9 @@ def _clean_subject(value: str) -> str:
 
 
 def _logo_src() -> str:
-    """Prefer CID logos because most mail clients block remote images and dislike data URIs."""
-    return f"cid:{LOGO_CID}"
+    """Embed the original logo bytes directly in the HTML document."""
+    encoded = base64.b64encode(LOGO_PATH.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def _text_email(*, greeting: str, paragraphs: list[str], action_label: str | None = None, action_url: str | None = None, details: list[str] | None = None, inline_code: str | None = None, language: str = "de") -> str:

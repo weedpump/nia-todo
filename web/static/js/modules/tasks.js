@@ -7,7 +7,6 @@ export const tasksModule = Object.freeze({
   labelKey: 'module.tasks.label',
   descriptionKey: 'module.tasks.description',
   icon: 'tasks',
-  defaultPath: '/tasks',
   searchEnabled: true,
   searchPlaceholderKey: 'topbar.searchTodo',
   capabilities: Object.freeze({ workspaces: true }),

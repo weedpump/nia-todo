@@ -17,25 +17,44 @@ export function createModuleSwitcher({ onModuleChange, getModules = () => MODULE
 
   function render() {
     const active = currentModule(activeModuleId);
+    const modules = getModules();
+    const switchingAvailable = modules.length > 1;
+    const root = document.getElementById('module-switcher');
+    const button = document.getElementById('module-switcher-button');
     const buttonIcon = document.getElementById('module-switcher-current-icon');
     const name = document.getElementById('module-switcher-current-name');
+    const chevron = document.querySelector('.module-switcher-chevron');
     const menu = document.getElementById('module-switcher-menu');
     const app = document.getElementById('app');
-    if (!buttonIcon || !name || !menu || !app) return;
+    if (!root || !button || !buttonIcon || !name || !chevron || !menu || !app) return;
 
     app.dataset.activeModule = active.id;
+    root.hidden = false;
+    root.dataset.switchingAvailable = String(switchingAvailable);
     buttonIcon.innerHTML = niaIconSvg(active.icon);
     name.textContent = t(active.labelKey);
-    const button = document.getElementById('module-switcher-button');
-    button?.setAttribute('aria-label', t('moduleSwitcher.toggle'));
+    button.disabled = !switchingAvailable;
+    chevron.toggleAttribute('hidden', !switchingAvailable);
+    menu.toggleAttribute('hidden', !switchingAvailable);
     menu.setAttribute('aria-label', t('moduleSwitcher.menuLabel'));
+    if (!switchingAvailable) {
+      button.removeAttribute('aria-haspopup');
+      button.removeAttribute('aria-label');
+      button.removeAttribute('data-i18n-aria-label-key');
+      close();
+      menu.innerHTML = '';
+      return;
+    }
+    button.setAttribute('aria-haspopup', 'menu');
+    button.setAttribute('aria-label', t('moduleSwitcher.toggle'));
+    button.setAttribute('data-i18n-aria-label-key', 'moduleSwitcher.toggle');
     menu.innerHTML = `
       <div class="module-switcher-menu-brand">
         <span class="nia-brand-icon" aria-hidden="true">${niaIconSvg('nia')}</span>
         <div><strong>Nia</strong><span>${t('moduleSwitcher.change')}</span></div>
       </div>
       <div class="module-switcher-options" role="none">
-        ${getModules().map(module => `
+        ${modules.map(module => `
           <button type="button" class="module-switcher-option${module.id === active.id ? ' active' : ''}" data-module-action="select" data-module-id="${module.id}" role="menuitemradio" aria-checked="${module.id === active.id}">
             <span class="module-switcher-option-icon" aria-hidden="true">${niaIconSvg(module.icon)}</span>
             <span class="module-switcher-option-copy"><strong>${t(module.labelKey)}</strong><small>${t(module.descriptionKey)}</small></span>
@@ -66,7 +85,7 @@ export function createModuleSwitcher({ onModuleChange, getModules = () => MODULE
     event?.stopPropagation?.();
     const menu = document.getElementById('module-switcher-menu');
     const button = document.getElementById('module-switcher-button');
-    if (!menu || !button) return;
+    if (!menu || !button || button.disabled) return;
     const open = !menu.classList.contains('open');
     menu.classList.toggle('open', open);
     button.setAttribute('aria-expanded', String(open));

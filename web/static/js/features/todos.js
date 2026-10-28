@@ -127,7 +127,6 @@ export function createTodosFeature({
     t,
     iconSvg,
     escapeHtmlAttr,
-    setTodoCollapsibleOpen,
     refreshTodoActionButtonState,
     refreshTodoSaveButtonState,
     nativeBridge,
@@ -196,12 +195,6 @@ export function createTodosFeature({
     return normalizeSubtasks(subtasks).filter(subtask => !subtask.is_done).length;
   }
 
-  function setTodoCollapsibleOpen(panelId, shouldOpen) {
-    const panel = document.getElementById(panelId);
-    if (!panel) return;
-    panel.open = Boolean(shouldOpen);
-  }
-
   function getTodoModal() {
     return document.getElementById('todo-modal');
   }
@@ -230,19 +223,6 @@ export function createTodosFeature({
       titleField.form?.requestSubmit();
     });
   }
-
-
-  function updateTodoMetaPanelsOpenState(todo = null) {
-    const existingTodo = Boolean(todo?.id);
-    setTodoCollapsibleOpen('todo-subtasks-panel', existingTodo);
-    setTodoCollapsibleOpen('todo-comments-panel', existingTodo);
-    setTodoCollapsibleOpen('todo-attachments-panel', existingTodo);
-    if (existingTodo) return;
-    setTodoCollapsibleOpen('todo-subtasks-panel', true);
-    setTodoCollapsibleOpen('todo-comments-panel', true);
-    setTodoCollapsibleOpen('todo-attachments-panel', true);
-  }
-
   function formatTodoMetaDate(value) {
     if (!value) return '';
     const date = new Date(value);
@@ -1284,7 +1264,6 @@ export function createTodosFeature({
       .sort((a, b) => Number(a.sort_order) - Number(b.sort_order));
     normalized.forEach(subtask => addTodoSubtaskRow(subtask));
     updateSubtaskEditorCount();
-    setTodoCollapsibleOpen('todo-subtasks-panel', normalized.length > 0);
   }
 
   async function addTodoSubtaskFromInput() {
@@ -1351,7 +1330,6 @@ export function createTodosFeature({
     cleanupRichEditors(list);
     list.innerHTML = '';
     if (count) count.textContent = String(normalized.length);
-    setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
     if (empty) {
       empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.draftEmpty');
       empty.hidden = normalized.length > 0;
@@ -2613,7 +2591,6 @@ export function createTodosFeature({
     renderTodoSubtaskEditor([]);
     renderTodoComments([], null);
     renderTodoAttachments([], null);
-    updateTodoMetaPanelsOpenState(null);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
       modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
@@ -2679,7 +2656,6 @@ export function createTodosFeature({
       renderTodoSubtaskEditor(todo.subtasks || []);
       renderTodoComments(todo.comments || [], todo);
       renderTodoAttachments(todo.attachments || [], todo);
-      updateTodoMetaPanelsOpenState(todo);
       renderTodoMetaSummary(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
@@ -2694,7 +2670,6 @@ export function createTodosFeature({
       resizeTodoTitleField();
       document.getElementById('todo-project').value = getCurrentProjectId() || inboxProject?.id || '';
       await onProjectChange(null);
-      updateTodoMetaPanelsOpenState(null);
     }
 
     multiAddFeature.reset({ editing: Boolean(todo) });

@@ -19,7 +19,6 @@ export function createTodoAttachmentsFeature({
   t,
   iconSvg,
   escapeHtmlAttr,
-  setTodoCollapsibleOpen,
   refreshTodoActionButtonState,
   refreshTodoSaveButtonState,
   nativeBridge = null,
@@ -197,7 +196,6 @@ export function createTodoAttachmentsFeature({
     resetAttachmentThumbnails();
     list.innerHTML = '';
     if (count) count.textContent = String(normalized.length);
-    setTodoCollapsibleOpen('todo-attachments-panel', Boolean(todoId));
     if (empty) {
       empty.textContent = todoId ? t('todo.attachments.empty') : t('todo.attachments.draftEmpty');
       empty.hidden = normalized.length > 0;

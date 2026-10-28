@@ -1,5 +1,5 @@
 import { t, translatePage } from '../i18n/index.js';
-import { getModule, MODULES, moduleDefaultPath, moduleFromPath, persistModule, readStoredModule } from '../modules/registry.js';
+import { getModule, isModuleId, MODULES, persistModule, readStoredModule } from '../modules/registry.js';
 import { enabledModulesForUser, resolveEnabledModuleId } from '../modules/visibility.js';
 
 const SLOT_ROOT_IDS = Object.freeze({
@@ -15,9 +15,23 @@ const SLOT_ROOT_IDS = Object.freeze({
 });
 const PERSISTENT_MODULE_SLOTS = new Set(['settingsNav', 'settings', 'desktopHotkeys']);
 
-function cleanModulePath(path) {
-  const value = String(path || '/');
-  return value.startsWith('/') ? value : `/${value}`;
+export function appBaseUrl(location = globalThis.location) {
+  const search = String(location?.search || '');
+  return search ? `/${search.startsWith('?') ? search : `?${search}`}` : '/';
+}
+
+export function moduleIdFromNavigation({
+  state = globalThis.history?.state,
+  storage = globalThis.localStorage,
+} = {}) {
+  const stateModuleId = state?.niaModuleRoute === true && isModuleId(state.moduleId)
+    ? state.moduleId
+    : null;
+  return stateModuleId || readStoredModule(storage);
+}
+
+function moduleHistoryState(moduleId, state = globalThis.history?.state) {
+  return { ...(state || {}), niaModuleRoute: true, moduleId };
 }
 
 export function createModuleShell({ onActiveModuleChange, getUser = () => null } = {}) {
@@ -90,7 +104,7 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
     const workspaceSwitcher = document.getElementById('workspace-switcher');
     if (workspaceSwitcher) workspaceSwitcher.hidden = active.capabilities?.workspaces !== true;
     const moduleSwitcher = document.getElementById('module-switcher');
-    if (moduleSwitcher) moduleSwitcher.hidden = enabledModules.length <= 1;
+    if (moduleSwitcher) moduleSwitcher.hidden = false;
 
     active.render?.();
     setSearchContract(active);
@@ -101,18 +115,18 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
     onActiveModuleChange?.(active.id);
   }
 
-  function applyLocation({ normalize = false } = {}) {
-    const pathModule = moduleFromPath(location.pathname);
+  function applyLocation({ normalize = false, state = history.state } = {}) {
     const previousModuleId = activeModuleId;
     const search = document.getElementById('search-input');
     if (search) searchValues.set(previousModuleId, search.value);
     enabledModules = enabledModulesForUser(getUser());
-    activeModuleId = resolveEnabledModuleId(pathModule || readStoredModule(), getUser());
+    activeModuleId = resolveEnabledModuleId(moduleIdFromNavigation({ state }), getUser());
     persistModule(activeModuleId);
 
-    if ((pathModule && pathModule !== activeModuleId) || (!pathModule && normalize)) {
-      const path = moduleDefaultPath(activeModuleId);
-      history.replaceState({ ...(history.state || {}), niaModuleRoute: true, moduleId: activeModuleId }, '', path);
+    const stateNeedsNormalization = state?.niaModuleRoute !== true || state?.moduleId !== activeModuleId;
+    const visibleUrlNeedsCleanup = location.pathname !== '/' || Boolean(location.hash);
+    if (normalize || stateNeedsNormalization || visibleUrlNeedsCleanup) {
+      history.replaceState(moduleHistoryState(activeModuleId, state), '', appBaseUrl(location));
     }
 
     if (previousModuleId !== activeModuleId) {
@@ -122,11 +136,9 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
     if (normalize || previousModuleId !== activeModuleId) renderActiveModule();
   }
 
-  function navigate(path, { replace = false } = {}) {
-    const nextPath = cleanModulePath(path);
-    const requestedModuleId = moduleFromPath(nextPath) || enabledModules[0].id;
+  function navigateToModule(moduleId, { replace = false } = {}) {
+    const requestedModuleId = isModuleId(moduleId) ? moduleId : enabledModules[0].id;
     const nextModuleId = resolveEnabledModuleId(requestedModuleId, getUser());
-    const resolvedPath = requestedModuleId === nextModuleId ? nextPath : moduleDefaultPath(nextModuleId);
     const previousModuleId = activeModuleId;
     const search = document.getElementById('search-input');
     if (search) searchValues.set(previousModuleId, search.value);
@@ -138,14 +150,10 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
 
     activeModuleId = nextModuleId;
     persistModule(activeModuleId);
-    const state = { ...(history.state || {}), niaModuleRoute: true, moduleId: activeModuleId };
-    if (replace) history.replaceState(state, '', resolvedPath);
-    else history.pushState(state, '', resolvedPath);
+    const state = moduleHistoryState(activeModuleId);
+    if (replace) history.replaceState(state, '', appBaseUrl(location));
+    else history.pushState(state, '', appBaseUrl(location));
     renderActiveModule();
-  }
-
-  function navigateToModule(moduleId) {
-    navigate(moduleDefaultPath(moduleId));
   }
 
   function applyModulePreferences() {
@@ -155,7 +163,7 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
     if (previousModuleId !== activeModuleId) {
       getModule(previousModuleId).deactivate?.();
       controllers.get(previousModuleId)?.onDeactivate?.();
-      history.replaceState({ ...(history.state || {}), niaModuleRoute: true, moduleId: activeModuleId }, '', moduleDefaultPath(activeModuleId));
+      history.replaceState(moduleHistoryState(activeModuleId), '', appBaseUrl(location));
       persistModule(activeModuleId);
     }
     renderActiveModule();
@@ -185,13 +193,12 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
     bound = true;
     mountModules();
     applyLocation({ normalize: true });
-    window.addEventListener('popstate', () => applyLocation());
+    window.addEventListener('popstate', event => applyLocation({ state: event.state }));
     window.addEventListener('nia-language-change', handleLanguageChange);
   }
 
   const api = {
     bind,
-    navigate,
     navigateToModule,
     registerController,
     handleSearch,

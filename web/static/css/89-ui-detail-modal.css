@@ -99,8 +99,8 @@
   border-top: 0;
 }
 
-.ui-detail-modal.ui-detail-view .ui-detail-section:hover,
-.ui-detail-modal.todo-detail-view .ui-detail-section:hover {
+.ui-detail-modal.ui-detail-view .ui-detail-section:not(.ui-section-divider):hover,
+.ui-detail-modal.todo-detail-view .ui-detail-section:not(.ui-section-divider):hover {
   border-color: color-mix(in srgb, var(--border) 44%, transparent);
   background: transparent;
 }

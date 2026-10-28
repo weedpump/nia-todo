@@ -49,7 +49,7 @@ assert(appDownloadsSource.includes("link.matches?.('[data-external-resource]')")
 assert(appDownloadsSource.includes('nativeBridge.openExternal'), 'native apps must open external documentation with the native browser bridge');
 
 const serviceWorkerSource = read('web/sw.js');
-assert(serviceWorkerSource.includes("const CACHE_REVISION = 'nia-v4-module-platform-preview-183';"), 'the app-shell cache revision must deliver the current V4 modal platform');
+assert(serviceWorkerSource.includes("const CACHE_REVISION = 'nia-v4-module-platform-preview-191';"), 'the app-shell cache revision must deliver the current V4 polish');
 assert(serviceWorkerSource.includes("'/static/icons/brands/github-mark.svg'"), 'the official GitHub mark must be available offline');
 
 const aboutCss = read('web/static/css/54-about.css');
@@ -72,6 +72,7 @@ assert(githubMarkSource.includes('viewBox="0 0 16 16"'), 'the GitHub mark must r
 assert(githubMarkSource.includes('<path'), 'the GitHub mark must contain its official vector path');
 
 const detailModalCss = read('web/static/css/89-ui-detail-modal.css');
+const todoCommentsActionsCss = read('web/static/css/92-todo-detail-comments-actions.css');
 assert(detailModalCss.includes('.ui-detail-section-heading.is-title-only'), 'the shared detail-modal CSS must define title-only heading alignment');
 assert(detailModalCss.includes('align-items: center;'), 'title-only detail headings must center their contents structurally');
 assert(
@@ -83,7 +84,7 @@ const sectionPrimitivesCss = read('web/static/css/99-ui-primitives.css');
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
-  await page.setContent(`<style>:root { --border: #333; --text-muted: #777; } ${sectionPrimitivesCss}</style><div class="ui-detail-shell"><div class="about-overview"></div><section class="about-resources ui-section-divider"></section></div>`);
+  await page.setContent(`<style>:root { --border: #333; --text-muted: #777; } ${detailModalCss}\n${todoCommentsActionsCss}\n${sectionPrimitivesCss}</style><div class="ui-detail-shell"><div class="about-overview"></div><section class="about-resources ui-section-divider"></section></div><div class="ui-detail-modal ui-detail-view"><section class="ui-detail-section ui-section-divider"><div class="ui-detail-section-heading"><h4>Details</h4></div></section></div><div id="todo-modal" class="ui-detail-modal todo-detail-view"><details class="ui-detail-section ui-section-divider todo-subtasks-card"><summary><h4>Subtasks</h4></summary></details></div>`);
   const divider = await page.locator('.about-resources').evaluate(element => {
     const style = getComputedStyle(element);
     return {
@@ -93,6 +94,18 @@ try {
     };
   });
   assert.deepEqual(divider, { marginTop: '22px', paddingTop: '22px', borderTopWidth: '2px' }, 'About resources must retain the global divider after preceding overview content');
+
+  const interactiveDivider = page.locator('.ui-detail-modal.ui-detail-view .ui-section-divider');
+  const baselineDividerColor = await interactiveDivider.evaluate(element => getComputedStyle(element).borderTopColor);
+  await interactiveDivider.locator('h4').hover();
+  const hoveredDividerColor = await interactiveDivider.evaluate(element => getComputedStyle(element).borderTopColor);
+  assert.equal(hoveredDividerColor, baselineDividerColor, 'holding or hovering a section heading must not mute its shared divider');
+
+  const todoDivider = page.locator('#todo-modal .todo-subtasks-card');
+  const baselineTodoDividerColor = await todoDivider.evaluate(element => getComputedStyle(element).borderTopColor);
+  await todoDivider.locator('h4').hover();
+  const hoveredTodoDividerColor = await todoDivider.evaluate(element => getComputedStyle(element).borderTopColor);
+  assert.equal(hoveredTodoDividerColor, baselineTodoDividerColor, 'holding a Todo section heading must not mute its shared divider');
 } finally {
   await browser.close();
 }
