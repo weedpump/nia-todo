@@ -123,7 +123,8 @@ assert(shellSource.includes('history.replaceState('), 'startup must normalize th
 assert(shellSource.includes('appBaseUrl(location)'), 'module history must keep the visible URL at the app root');
 assert(shellSource.includes("const PERSISTENT_MODULE_SLOTS = new Set(['settingsNav', 'settings', 'desktopHotkeys'])"), 'registered module settings must remain available independently of the active module');
 assert(shellSource.includes('resolveEnabledModuleId('), 'module navigation must resolve disabled modules against account preferences');
-assert(switcherSource.includes('getModules().map('), 'module switcher must render only account-enabled modules');
+assert(switcherSource.includes('const modules = getModules()') && switcherSource.includes('modules.map('), 'module switcher must render only account-enabled modules');
+assert.match(indexSource, /class="module-switcher-chevron"[^>]*aria-hidden="true" hidden/, 'the module chevron must start hidden until multiple enabled modules are rendered');
 assert(tasksSource.includes('workspaces: true'), 'tasks must declare workspace capability');
 assert(!shoppingSource.includes('workspaces: true'), 'shopping must not declare workspace capability');
 assert(!recipesSource.includes('workspaces: true'), 'recipes must not declare workspace capability');

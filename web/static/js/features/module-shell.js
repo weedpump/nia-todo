@@ -104,7 +104,7 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
     const workspaceSwitcher = document.getElementById('workspace-switcher');
     if (workspaceSwitcher) workspaceSwitcher.hidden = active.capabilities?.workspaces !== true;
     const moduleSwitcher = document.getElementById('module-switcher');
-    if (moduleSwitcher) moduleSwitcher.hidden = enabledModules.length <= 1;
+    if (moduleSwitcher) moduleSwitcher.hidden = false;
 
     active.render?.();
     setSearchContract(active);
