@@ -38,10 +38,10 @@ async function installRealtimeProbe(page) {
 async function waitForRealtimeReady(page, label) {
   await page.waitForFunction(() => {
     const probe = window.__niaRealtimeProbe;
-    return probe?.authOk >= 1;
+    return probe?.authOk >= 1 && probe?.outboundSyncRequests >= 1 && probe?.syncResponses >= 1;
   }, null, { timeout: 15000 }).catch(async error => {
     const probe = await page.evaluate(() => window.__niaRealtimeProbe || null).catch(() => null);
-    throw new Error(`${label} WebSocket auth not ready after login: ${JSON.stringify(probe)} (${error.message})`);
+    throw new Error(`${label} WebSocket access snapshot not ready after login: ${JSON.stringify(probe)} (${error.message})`);
   });
 }
 
@@ -80,10 +80,15 @@ async function run() {
     await pageB.locator('#online-status').waitFor({ state: 'hidden', timeout: 10000 });
     await waitForRealtimeReady(pageB, 'Client B');
 
-    const startupProbeA = await pageA.evaluate(() => window.__niaRealtimeProbe);
-    const startupProbeB = await pageB.evaluate(() => window.__niaRealtimeProbe);
-    if (startupProbeA.outboundSyncRequests || startupProbeB.outboundSyncRequests) {
-      throw new Error(`Normal WebSocket startup must not request full sync: A=${JSON.stringify(startupProbeA)} B=${JSON.stringify(startupProbeB)}`);
+    await pageA.waitForTimeout(100);
+    await pageB.waitForTimeout(100);
+    const startupProbeA = await pageA.evaluate(() => ({ ...window.__niaRealtimeProbe }));
+    const startupProbeB = await pageB.evaluate(() => ({ ...window.__niaRealtimeProbe }));
+    for (const [label, probe] of [['A', startupProbeA], ['B', startupProbeB]]) {
+      const requestCount = probe.outboundSyncRequests;
+      if (requestCount < 1 || requestCount > 2 || probe.syncResponses !== requestCount) {
+        throw new Error(`Normal WebSocket startup must settle after one access snapshot and at most one refresh: ${label}=${JSON.stringify(probe)}`);
+      }
     }
 
     await openTodoModal();
