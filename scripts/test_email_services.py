@@ -128,7 +128,7 @@ def test_branded_email_templates():
     assert_true(subject == "Nia Passwort zurücksetzen", "password reset subject mismatch")
     assert_true("Passwort zurücksetzen" in html and "Nia" in html, "branded password HTML missing content")
     assert_true("https://todo.example.invalid/set-password?token=abc" in text, "plain text reset link missing")
-    assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
+    assert_true("Alltag. Einfach organisiert." in html, "brand tagline missing")
     assert_true("Falls der Link nicht funktioniert" in html, "Outlook fallback link hint missing")
     assert_true("Falls der Button nicht funktioniert" in html, "modern fallback link hint missing")
 
@@ -183,12 +183,13 @@ def test_all_system_email_templates_use_split_layout():
     for subject, text, html in templates:
         assert_true(subject, "template subject missing")
         assert_true(text, "plain text template missing")
-        assert_true('src="cid:nia-todo-logo"' in html, "template logo does not use CID")
+        assert_true('src="data:image/png;base64,' in html, "template logo is not embedded directly")
+        assert_true('src="cid:' not in html, "template logo still triggers CID loading")
         assert_true("<!--[if mso]>" in html, "Outlook/MSO layout missing")
         assert_true("<!--[if !mso]><!-->" in html, "modern layout missing")
         assert_true("modern-hero" in html and "hero-shell" in html, "modern hero layout missing")
         assert_true("v:roundrect" in html and "mso-style-textfill-fill-color:#ffffff" in html, "Outlook hero fallback missing")
-        assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
+        assert_true("Alltag. Einfach organisiert." in html, "brand tagline missing")
 
 
 def test_household_invite_email_is_localized_for_every_supported_language():
@@ -231,11 +232,10 @@ def test_send_test_email_uses_branded_template():
     rendered = "\n".join(html_parts)
     image_parts = [part for part in smtp.message.walk() if part.get_content_maintype() == "image"]
     assert_true("SMTP funktioniert" in rendered, "test email did not use branded template")
-    assert_true("Deine Aufgaben. Klar sortiert." in rendered, "test email brand tagline missing")
-    assert_true('src="cid:nia-todo-logo"' in rendered, "test email logo does not use CID source")
-    assert_true(len(image_parts) == 1, "test email did not attach exactly one inline image")
-    assert_true(image_parts[0]["Content-ID"] == "<nia-todo-logo>", "inline logo Content-ID mismatch")
-    assert_true(image_parts[0].get_content_disposition() == "inline", "inline logo should not be a regular attachment")
+    assert_true("Alltag. Einfach organisiert." in rendered, "test email brand tagline missing")
+    assert_true('src="data:image/png;base64,' in rendered, "test email logo is not embedded directly")
+    assert_true('src="cid:' not in rendered, "test email logo still triggers CID loading")
+    assert_true(len(image_parts) == 0, "test email should not attach a second logo image")
 
 
 def test_tls_ssl_send_without_starttls():
