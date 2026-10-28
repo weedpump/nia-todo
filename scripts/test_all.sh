@@ -183,12 +183,36 @@ run_frontend_step_retry() {
 }
 
 run_frontend_shared_step_retry() {
-  sudo -n systemctl restart "${NIA_TODO_SERVICE:-nia-todo}"
-  NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_step_retry "$@"
+  local label="$1"
+  local code
+  shift
+  step "$label"
+
+  node scripts/frontend_db_suite.mjs prepare-shared
+  if NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_test_command "$@"; then
+    echo "✅ OK: $label"
+    return 0
+  else
+    code=$?
+  fi
+
+  echo "⚠️  FAILED: $label"
+  echo "   Exit code: $code"
+  echo "   Resetting the shared frontend DB before one retry..."
+
+  node scripts/frontend_db_suite.mjs prepare-shared
+  if NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_test_command "$@"; then
+    echo "✅ OK after isolated retry: $label"
+  else
+    code=$?
+    echo "❌ FAILED: $label"
+    echo "   Exit code: $code"
+    echo "   Aborting — check the error above."
+    exit "$code"
+  fi
 }
 
 step "Frontend Shared DB"
-node scripts/frontend_db_suite.mjs prepare-shared
 run_frontend_shared_step_retry "Frontend Smoke" node scripts/test_frontend_smoke.mjs
 run_frontend_shared_step_retry "Frontend App Core" node scripts/test_frontend_app.mjs
 run_frontend_shared_step_retry "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
