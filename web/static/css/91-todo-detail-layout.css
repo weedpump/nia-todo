@@ -13,7 +13,9 @@
   color: color-mix(in srgb, var(--text-primary) 88%, var(--text-muted));
 }
 
-#todo-modal.todo-detail-view .todo-collapsible-summary {
+#todo-modal.todo-detail-view .todo-subtasks-card > .ui-section-heading,
+#todo-modal.todo-detail-view .todo-comments-card > .ui-section-heading,
+#todo-modal.todo-detail-view .todo-attachments-card > .ui-section-heading {
   border-top: 0;
   padding-top: 0;
 }

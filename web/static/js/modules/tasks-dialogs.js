@@ -271,17 +271,16 @@ export const TASK_DIALOGS_HTML = `
           </div>
         </section>
 
-        <details class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
-          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+        <section class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-subtasks-card" id="todo-subtasks-panel">
+          <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
             <div>
               <h4 data-i18n-key="todo.subtasks">Subtasks</h4>
               <p data-i18n-key="todo.subtasks.hint">Add checklist items for this todo.</p>
             </div>
-            <span class="todo-collapsible-spacer"></span>
+            <span class="todo-section-heading-spacer"></span>
             <span id="todo-subtasks-count" class="todo-meta-chip todo-subtasks-progress" aria-live="polite">0/0</span>
-            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
-          </summary>
+          </div>
           <div class="todo-subtasks-editor">
             <div id="todo-subtasks-list" class="todo-subtasks-list"></div>
             <div class="form-group todo-subtasks-add-group">
@@ -292,20 +291,19 @@ export const TASK_DIALOGS_HTML = `
               </div>
             </div>
           </div>
-        </details>
+        </section>
 
 
-        <details class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
-          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+        <section class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-comments-card" id="todo-comments-panel">
+          <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="notebook-pen"></div>
             <div>
               <h4 data-i18n-key="todo.comments">Comments</h4>
               <p data-i18n-key="todo.comments.hint">Add comments to this todo.</p>
             </div>
-            <span class="todo-collapsible-spacer"></span>
+            <span class="todo-section-heading-spacer"></span>
             <span id="todo-comments-count" class="todo-meta-chip todo-comments-progress" aria-live="polite">0</span>
-            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
-          </summary>
+          </div>
           <div class="todo-comments-editor">
             <div id="todo-comments-list" class="todo-comments-list"></div>
             <p id="todo-comments-empty" class="todo-comments-empty" data-i18n-key="todo.comments.empty">No comments yet.</p>
@@ -318,19 +316,18 @@ export const TASK_DIALOGS_HTML = `
               <button type="button" id="todo-comment-add-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="add-comment"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
             </div>
           </div>
-        </details>
+        </section>
 
-        <details class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
-          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+        <section class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-attachments-card" id="todo-attachments-panel">
+          <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="paperclip"></div>
             <div>
               <h4 data-i18n-key="todo.attachments">Attachments</h4>
               <p data-i18n-key="todo.attachments.hint">Attach files or photos to this todo.</p>
             </div>
-            <span class="todo-collapsible-spacer"></span>
+            <span class="todo-section-heading-spacer"></span>
             <span id="todo-attachments-count" class="todo-meta-chip todo-attachments-progress" aria-live="polite">0</span>
-            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
-          </summary>
+          </div>
           <div class="todo-attachments-editor">
             <div id="todo-attachments-list" class="todo-attachments-list"></div>
             <p id="todo-attachments-empty" class="todo-attachments-empty" data-i18n-key="todo.attachments.empty">No attachments yet.</p>
@@ -343,7 +340,7 @@ export const TASK_DIALOGS_HTML = `
               </div>
             </div>
           </div>
-        </details>
+        </section>
 
 
         <section class="ui-section-card ui-detail-section ui-section-divider todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">

@@ -58,14 +58,6 @@
   color: var(--text-muted);
 }
 
-#todo-modal.todo-detail-view .todo-collapsible-summary {
-  cursor: default;
-}
-
-#todo-modal.todo-detail-view .todo-collapsible-chevron {
-  display: none;
-}
-
 #todo-modal.todo-detail-view .ui-section-heading p {
   display: none;
 }
