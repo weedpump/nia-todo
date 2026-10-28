@@ -14,7 +14,20 @@ export NIA_TODO_UPDATE_UMAMI_WEBSITE_ID=""
 TEST_STEP_TIMEOUT_SECONDS="${NIA_TODO_TEST_STEP_TIMEOUT_SECONDS:-300}"
 
 run_test_command() {
-  timeout --foreground "${TEST_STEP_TIMEOUT_SECONDS}" "$@"
+  local code
+  if python3 scripts/run_with_timeout.py "${TEST_STEP_TIMEOUT_SECONDS}" "$@"; then
+    return 0
+  else
+    code=$?
+  fi
+  if [[ "$code" == "124" || "$code" == "137" ]]; then
+    echo "⏱️  Test step timed out or required forced termination; checking for interrupted backend test state..."
+    if ! python3 scripts/test_backend.py --recover-interrupted; then
+      echo "❌ Failed to recover state after the timed-out test step."
+      return 125
+    fi
+  fi
+  return "$code"
 }
 
 step() {
