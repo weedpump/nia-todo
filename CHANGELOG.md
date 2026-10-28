@@ -8,13 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
-- Added the modular Nia application shell with Tasks, Shopping, and Recipes navigation, per-workspace module visibility, and module-specific settings surfaces.
+- Added the modular Nia application shell with Tasks, Shopping, and Recipes navigation, account-wide module visibility settings that apply on every signed-in device, and module-specific settings.
+- Added Households with creation, member invitations, membership management, leadership transfer, leaving, and dissolution.
+- Added household-owned projects that are available to all household members and remain with the household when other members leave, are removed, or delete their accounts. Dissolving a household transfers its projects to the household leader.
+- Added a dedicated Household section in each member's default personal workspace for household projects. Household projects cannot be shared directly.
+- Added localized household invitation emails and in-app invitation indicators, with invitations available from the account menu and Household settings.
 
 ### Changed
+- Transferring a personal project and its nested projects to a household now removes existing direct shares and pending project invitations.
 - Renamed the visible product from nia-todo to Nia across the web app, native clients, setup, administration, notifications, and system emails while preserving existing technical application identities.
 - Updated application, build, packaging, and CI dependencies to their current compatible releases.
 
 ### Fixed
+- Fixed sign-in and reconnect refreshes so each user receives current project access and invitations, complete Todo details, and the reminders and location details available to them.
+- Fixed server errors when moving a project with nested projects between workspaces.
+- Fixed account deletion failing when attachment files had already been removed.
 - Kept Android location-permission guidance active until background access is granted, and made opting out remove all affected location reminders after confirmation.
 
 ## [3.6.3] - 2026-10-21
