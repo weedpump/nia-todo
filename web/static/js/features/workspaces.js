@@ -1,8 +1,5 @@
 import { t } from '../i18n/index.js';
 import { hydrateIcons, iconSvg, markerHtml, renderIconPicker } from '../icons/lucide-icons.js';
-import { niaIconSvg } from '../icons/nia-product-icons.js';
-import { MODULES } from '../modules/registry.js';
-import { MAX_WORKSPACE_MODULE_IDS, hiddenModuleIdsForWorkspace, normalizeHiddenModuleIds, storedHiddenModuleIdsForWorkspace } from '../modules/visibility.js';
 import { renderColorPicker } from '../ui/color-picker.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
@@ -19,7 +16,6 @@ export function createWorkspacesFeature({
   renderProjects,
   renderStats,
   renderTodos,
-  onWorkspaceModulesChange,
   closeSidebar,
   confirmDanger,
   showToast,
@@ -36,39 +32,7 @@ export function createWorkspacesFeature({
       name: (document.getElementById('workspace-name')?.value || '').trim(),
       color: document.getElementById('workspace-color')?.value || '#6366f1',
       icon: document.getElementById('workspace-icon')?.value || '',
-      hiddenModules: getSelectedHiddenModules(),
     };
-  }
-
-  function getSelectedHiddenModules() {
-    const workspace = editingWorkspaceId
-      ? getWorkspaces().find(item => String(item.id) === String(editingWorkspaceId))
-      : null;
-    const knownIds = new Set(MODULES.map(module => module.id));
-    const selected = normalizeHiddenModuleIds(
-      MODULES
-        .filter(module => !document.querySelector(`[data-workspace-module-id="${module.id}"]`)?.checked)
-        .map(module => module.id),
-    );
-    const preserved = storedHiddenModuleIdsForWorkspace(workspace)
-      .filter(moduleId => !knownIds.has(moduleId))
-      .slice(0, Math.max(0, MAX_WORKSPACE_MODULE_IDS - selected.length));
-    return [...preserved, ...selected];
-  }
-
-  function renderWorkspaceModules(workspace) {
-    const container = document.getElementById('workspace-module-list');
-    if (!container) return;
-    const hidden = new Set(hiddenModuleIdsForWorkspace(workspace));
-    container.innerHTML = MODULES.map(module => `
-      <label class="settings-toggle-row settings-toggle-feature settings-switch-row workspace-module-row">
-        <span class="workspace-module-identity">
-          <span class="workspace-module-icon" aria-hidden="true">${niaIconSvg(module.icon)}</span>
-          <span>${t(module.labelKey)}</span>
-        </span>
-        <input type="checkbox" class="settings-switch" data-workspace-module-id="${module.id}" ${hidden.has(module.id) ? '' : 'checked'}>
-      </label>
-    `).join('');
   }
 
   function canSaveWorkspace() {
@@ -98,18 +62,7 @@ export function createWorkspacesFeature({
     form.addEventListener('submit', saveWorkspace);
     form.addEventListener('input', refreshWorkspaceSaveButtonState);
     form.addEventListener('change', refreshWorkspaceSaveButtonState);
-    form.addEventListener('change', (event) => {
-      const toggle = event.target?.closest?.('[data-workspace-module-id]');
-      const error = document.getElementById('workspace-error');
-      if (!toggle) return;
-      if (!form.querySelectorAll('[data-workspace-module-id]:checked').length) {
-        toggle.checked = true;
-        if (error) error.textContent = t('workspace.modulesRequired');
-      } else if (error?.textContent === t('workspace.modulesRequired')) {
-        error.textContent = '';
-      }
-      refreshWorkspaceSaveButtonState();
-    });
+
     document.getElementById('workspace-icon-picker')?.addEventListener('click', (event) => {
       if (!event.target?.closest?.('.icon-picker-option')) return;
       window.setTimeout(refreshWorkspaceSaveButtonState, 0);
@@ -297,7 +250,7 @@ export function createWorkspacesFeature({
     document.getElementById('workspace-name').value = workspace?.name || '';
     document.getElementById('workspace-color').value = workspace?.color || '#6366f1';
     document.getElementById('workspace-icon').value = workspace?.icon || '';
-    renderWorkspaceModules(workspace);
+
     renderIconPicker({
       container: document.getElementById('workspace-icon-picker'),
       input: document.getElementById('workspace-icon'),
@@ -356,7 +309,6 @@ export function createWorkspacesFeature({
     const name = document.getElementById('workspace-name')?.value?.trim();
     const color = document.getElementById('workspace-color')?.value || '#6366f1';
     const icon = document.getElementById('workspace-icon')?.value || null;
-    const hidden_modules = getSelectedHiddenModules();
     const error = document.getElementById('workspace-error');
     if (error) error.textContent = '';
     if (!name) {
@@ -370,14 +322,14 @@ export function createWorkspacesFeature({
 
     try {
       if (editingWorkspaceId) {
-        const updated = await workspacesApi.update(editingWorkspaceId, { name, color, icon, hidden_modules });
+        const updated = await workspacesApi.update(editingWorkspaceId, { name, color, icon });
         await dbPut('workspaces', updated);
         setWorkspaces(getWorkspaces().map(w => String(w.id) === String(updated.id) ? updated : w));
-        onWorkspaceModulesChange?.(updated);
+
         showToast?.(t('workspace.saved')); 
         closeWorkspaceModal();
       } else {
-        const workspace = await workspacesApi.create({ name, color, icon, hidden_modules, sort_order: getWorkspaces().length });
+        const workspace = await workspacesApi.create({ name, color, icon, sort_order: getWorkspaces().length });
         await dbPut('workspaces', workspace);
         setWorkspaces([...getWorkspaces(), workspace]);
         await new Promise((resolve, reject) => {

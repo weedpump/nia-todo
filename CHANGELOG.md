@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
-- Added the modular Nia application shell with Tasks, Shopping, and Recipes navigation, per-workspace module visibility, and module-specific settings surfaces.
+- Added account-wide module settings and Households for inviting members, managing membership, and organizing shared household projects with synchronized access across devices.
 
 ### Changed
 - Renamed the visible product from nia-todo to Nia across the web app, native clients, setup, administration, notifications, and system emails while preserving existing technical application identities.

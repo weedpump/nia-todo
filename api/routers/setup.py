@@ -7,6 +7,7 @@ import bcrypt
 
 from db import get_db, now_iso
 from services.auth import create_admin_jwt_token
+from services.entity_access import register_personal_entity
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from services.setup_token import consume_setup_token, validate_setup_token
@@ -92,6 +93,8 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
                VALUES (?, ?, ?, ?, 1, datetime('now'), 'setup_first_user')""",
             (data.username, data.display_name, data.email, password_hash)
         )
+        if c.lastrowid is None:
+            raise RuntimeError("User insert did not return an id")
         user_id = c.lastrowid
         workspace = db.execute(
             "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, datetime('now'))",
@@ -99,6 +102,9 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
         )
         workspace_id = workspace.lastrowid
         db.execute("UPDATE projects SET user_id = ?, workspace_id = ?, is_inbox = CASE WHEN id = 1 THEN 1 ELSE COALESCE(is_inbox, 0) END WHERE user_id IS NULL", (user_id, workspace_id))
+        project_rows = db.execute("SELECT id FROM projects WHERE user_id = ?", (user_id,)).fetchall()
+        for project in project_rows:
+            register_personal_entity(db, "project", project["id"], user_id)
         db.execute("UPDATE todos SET user_id = ? WHERE user_id IS NULL", (user_id,))
         db.execute("UPDATE sections SET user_id = ? WHERE user_id IS NULL", (user_id,))
         completed = db.execute(

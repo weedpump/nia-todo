@@ -8,6 +8,7 @@ export function createAuthSessionFeature({
   authApi,
   getAppInitialized,
   setCurrentUser,
+  onCurrentUserChange = null,
   clearCache,
   initApp,
   refreshFromServer,
@@ -23,6 +24,11 @@ export function createAuthSessionFeature({
   const nativeBridge = createNativeBridge();
   const nativeOidcCodesInFlight = new Set();
   const consumedNativeOidcCodesKey = 'nia_consumed_native_oidc_codes';
+
+  function hydrateCurrentUser(user) {
+    setCurrentUser(user);
+    onCurrentUserChange?.(user);
+  }
 
   function getConsumedNativeOidcCodes() {
     try {
@@ -51,7 +57,7 @@ export function createAuthSessionFeature({
     if (payload.user) {
       localStorage.setItem('cached_user', JSON.stringify(payload.user));
       localStorage.setItem('last_user_id', String(payload.user.id));
-      setCurrentUser({ ...payload.user, token: payload.access_token });
+      hydrateCurrentUser({ ...payload.user, token: payload.access_token });
     }
   }
 
@@ -159,7 +165,7 @@ export function createAuthSessionFeature({
 
   function storeUserSession(data) {
     const user = { ...data.user, token: data.access_token, mfa_enrollment_required: Boolean(data.mfa_enrollment_required) };
-    setCurrentUser(user);
+    hydrateCurrentUser(user);
     persistCachedUser(user);
     localStorage.setItem('jwt_token', data.access_token);
     localStorage.setItem('nia-mfa-enrollment-required', data.mfa_enrollment_required ? '1' : '0');
@@ -327,7 +333,7 @@ export function createAuthSessionFeature({
     if (preferCached) {
       const cachedUser = readCachedUser(token);
       if (cachedUser) {
-        setCurrentUser(cachedUser);
+        hydrateCurrentUser(cachedUser);
         return true;
       }
     }
@@ -343,7 +349,7 @@ export function createAuthSessionFeature({
       const refreshedToken = user.access_token || token;
       if (user.access_token) localStorage.setItem('jwt_token', user.access_token);
       if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);
-      setCurrentUser({ ...user, token: refreshedToken });
+      hydrateCurrentUser({ ...user, token: refreshedToken });
       persistCachedUser({ ...user, token: refreshedToken });
       await maybeVerifyEmailFromUrl();
 
@@ -363,7 +369,7 @@ export function createAuthSessionFeature({
         const cachedUser = readCachedUser(token);
         if (cachedUser) {
           console.log('Auth check unavailable; keeping cached offline session');
-          setCurrentUser(cachedUser);
+          hydrateCurrentUser(cachedUser);
           return true;
         }
       }

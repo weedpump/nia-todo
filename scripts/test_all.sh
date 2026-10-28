@@ -11,6 +11,25 @@ export NIA_TODO_UPDATE_RELEASE_API_URL="http://127.0.0.1:9/releases/latest"
 export NIA_TODO_UPDATE_UMAMI_URL="http://127.0.0.1:9"
 export NIA_TODO_UPDATE_UMAMI_WEBSITE_ID=""
 
+TEST_STEP_TIMEOUT_SECONDS="${NIA_TODO_TEST_STEP_TIMEOUT_SECONDS:-300}"
+
+run_test_command() {
+  local code
+  if python3 scripts/run_with_timeout.py "${TEST_STEP_TIMEOUT_SECONDS}" "$@"; then
+    return 0
+  else
+    code=$?
+  fi
+  if [[ "$code" == "124" || "$code" == "137" ]]; then
+    echo "⏱️  Test step timed out or required forced termination; checking for interrupted backend test state..."
+    if ! python3 scripts/test_backend.py --recover-interrupted; then
+      echo "❌ Failed to recover state after the timed-out test step."
+      return 125
+    fi
+  fi
+  return "$code"
+}
+
 step() {
   echo
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -22,7 +41,7 @@ run_step() {
   local label="$1"
   shift
   step "$label"
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK: $label"
   else
     local code=$?
@@ -38,17 +57,18 @@ run_step_retry() {
   local code
   shift
   step "$label"
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK: $label"
     return 0
+  else
+    code=$?
   fi
 
-  code=$?
   echo "⚠️  FAILED: $label"
   echo "   Exit code: $code"
   echo "   Retrying once to catch Playwright/realtime timing flakes..."
 
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK after retry: $label"
   else
     code=$?
@@ -74,6 +94,12 @@ run_step "Security Tauri Vendor Sync" node scripts/test_tauri_vendor_sync.mjs
 run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py
+run_step "Household Entity Access" python3 scripts/test_household_entity_access.py
+run_step "Household API" python3 scripts/test_household_api.py
+run_step "Project Household Access" python3 scripts/test_project_household_access.py
+run_step "Household Access Regressions" python3 scripts/test_household_access_regressions.py
+run_step "Account Module Visibility" python3 scripts/test_account_module_visibility.py
+run_step "Dashboard Preferences Sync" python3 scripts/test_dashboard_preferences_sync.py
 run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
 run_step "Android CLI Workflow Contract" python3 scripts/test_android_cli_workflow.py
 run_step "Playwright Workflow Contract" python3 scripts/test_playwright_workflow.py
@@ -109,9 +135,12 @@ run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
 run_step "Product Branding" node scripts/test_product_branding.mjs
+run_step "Module Shell" node scripts/test_module_shell.mjs
+run_step "Auth Module Hydration" node scripts/test_frontend_auth_module_hydration.mjs
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
 run_step "Service Worker Avatar Privacy" node scripts/test_sw_avatar_privacy.mjs
 run_step "Workspace Modal Lifecycle" node scripts/test_frontend_workspace_modal_lifecycle.mjs
+run_step "Account Module Settings" node scripts/test_frontend_module_settings.mjs
 run_step "Settings Navigation Lifecycle" node scripts/test_frontend_settings_navigation_lifecycle.mjs
 run_step "Avatar IndexedDB" node scripts/test_avatar_indexeddb.mjs
 run_step "Avatar Offline Cache" node scripts/test_avatar_cache.mjs
@@ -129,6 +158,7 @@ run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summary_live_updates.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
+run_step "WebSocket Access Snapshot" node scripts/test_frontend_access_snapshot.mjs
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
 
 frontend_suite_active=0
@@ -153,6 +183,7 @@ run_frontend_step_retry() {
 }
 
 run_frontend_shared_step_retry() {
+  sudo -n systemctl restart "${NIA_TODO_SERVICE:-nia-todo}"
   NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_step_retry "$@"
 }
 

@@ -28,7 +28,12 @@ def make_db():
     db.row_factory = sqlite3.Row
     db.executescript(
         """
-        CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, display_name TEXT);
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            display_name TEXT,
+            disabled_modules_json TEXT
+        );
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -42,7 +47,47 @@ def make_db():
             workspace_id INTEGER,
             icon TEXT
         );
-        CREATE TABLE project_members (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT DEFAULT 'accepted', workspace_id INTEGER, updated_at TEXT DEFAULT (datetime('now')));
+        CREATE TABLE project_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            status TEXT DEFAULT 'accepted',
+            workspace_id INTEGER,
+            invited_by INTEGER,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE households (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            owner_user_id INTEGER NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE household_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            household_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            invited_by_user_id INTEGER,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE entity_access (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            owner_user_id INTEGER,
+            owner_household_id INTEGER,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE entity_access_grants (
+            entity_access_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            granted_by_user_id INTEGER,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE sections (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, name TEXT NOT NULL, sort_order REAL DEFAULT 0);
         CREATE TABLE workspaces (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL, is_default INTEGER DEFAULT 0, sort_order REAL DEFAULT 0);
         CREATE TABLE todos (
@@ -81,6 +126,15 @@ def make_db():
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE todo_attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            original_filename TEXT NOT NULL,
+            content_type TEXT NOT NULL,
+            size_bytes INTEGER NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, todo_id INTEGER NOT NULL, remind_at TEXT NOT NULL, sent_at TEXT, user_id INTEGER);
         CREATE TABLE saved_places (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL, address TEXT NOT NULL, icon TEXT DEFAULT 'pin');
         CREATE TABLE location_reminders (
@@ -100,6 +154,7 @@ def make_db():
     )
     db.execute("INSERT INTO users (id, username, display_name) VALUES (1, 'tobi', 'Tobi')")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
+    db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")
     db.execute("INSERT INTO todos (id, title, project_id, user_id, updated_at) VALUES (2, 'Hhhh', 1, 1, '2026-06-04T12:33:27.461673+00:00')")
     db.execute("""INSERT INTO location_reminders (id, todo_id, user_id, trigger_type, address, enabled, created_at, updated_at)
                   VALUES (6, 2, 1, 'arrival', 'Johanneck 24 85307 paunzhausen', 1, '2026-06-04T12:33:27.461619+00:00', '2026-06-04T12:33:27.461619+00:00')""")

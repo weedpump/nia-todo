@@ -10,6 +10,7 @@ export const tasksModule = Object.freeze({
   defaultPath: '/tasks',
   searchEnabled: true,
   searchPlaceholderKey: 'topbar.searchTodo',
+  capabilities: Object.freeze({ workspaces: true }),
 
   mount({ slots }) {
     slots.sidebar.innerHTML = `

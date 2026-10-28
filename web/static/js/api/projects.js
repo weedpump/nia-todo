@@ -14,4 +14,8 @@ export const projectsApi = {
   undoLeaveProject: (projectId) => http.post(`/api/projects/${projectId}/leave/undo`, {}),
   listInvites: () => http.get('/api/projects/invites'),
   respondInvite: (projectId, inviteId, accept) => http.post(`/api/projects/${projectId}/invites/${inviteId}`, { accept }),
+  transferToHousehold: (projectId, householdId, parentId = null) => http.post(`/api/projects/${projectId}/household`, {
+    household_id: householdId,
+    parent_id: parentId,
+  }),
 };

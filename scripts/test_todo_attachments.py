@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
 import routers.todos as todos_router  # noqa: E402
+import services.attachments as attachments_service  # noqa: E402
 from routers.auth import require_auth  # noqa: E402
 from services.attachments import normalize_allowed_attachment_types  # noqa: E402
 
@@ -41,6 +42,7 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             user_id INTEGER,
+            parent_id INTEGER,
             is_inbox INTEGER DEFAULT 0
         );
         CREATE TABLE project_members (
@@ -115,11 +117,14 @@ def make_db():
         );
         """
     )
+    db.executescript((ROOT / "api" / "migrations" / "058_add_household_entity_access.sql").read_text())
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (1, 'owner', 'Owner Display', NULL, NULL)")
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (2, 'member', 'Member Display', NULL, NULL)")
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (3, 'stranger', 'Stranger Display', NULL, NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared', 1, 0)")
+    db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")
+    db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 2, 1)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
     db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_enabled', '1')")
     db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_allowed_types', '[\".png\",\".jpg\",\".jpeg\",\".gif\",\".webp\",\".pdf\",\".txt\"]')")
@@ -151,7 +156,12 @@ def make_client(db, user_id=1, broadcast_events=None):
 
     @contextlib.contextmanager
     def fake_get_db():
-        yield db
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
     todos_router.get_db = fake_get_db
     todos_router.broadcast_change = make_broadcast_collector(broadcast_events) if broadcast_events is not None else noop_broadcast
@@ -167,6 +177,7 @@ def main():
     broadcast_events = []
     with tempfile.TemporaryDirectory() as tmp:
         todos_router.ATTACHMENT_DIR = Path(tmp)
+        attachments_service.ATTACHMENT_DIR = Path(tmp)
         owner = make_client(db, user_id=1, broadcast_events=broadcast_events)
 
         created = owner.post("/api/todos", json={"title": "Collect documents", "project_id": 2})
@@ -187,6 +198,36 @@ def main():
         assert_true(body["todo"]["attachments"][0]["uploader_display_name"] == "Owner Display", body)
         assert_true(broadcast_events[-1]["event_type"] == "todo_attachment_create", broadcast_events[-1])
         assert_true("stored_filename" not in broadcast_events[-1]["payload"]["attachment"], broadcast_events[-1])
+
+        original_publish = attachments_service.AttachmentUploadStaging.publish
+
+        def fail_publish(_staging):
+            raise OSError("upload publish blocked")
+
+        attachments_service.AttachmentUploadStaging.publish = fail_publish
+        try:
+            try:
+                owner.post(
+                    f"/api/todos/{todo_id}/attachments",
+                    content=b"recover upload",
+                    headers={"content-type": "text/plain", "x-nia-filename": "recover.txt"},
+                )
+            except OSError as error:
+                assert_true(str(error) == "upload publish blocked", error)
+            else:
+                raise AssertionError("post-commit upload publish failure was hidden")
+        finally:
+            attachments_service.AttachmentUploadStaging.publish = original_publish
+        recover_row = db.execute(
+            "SELECT id, todo_id, stored_filename FROM todo_attachments WHERE original_filename = 'recover.txt'"
+        ).fetchone()
+        assert_true(recover_row is not None, "upload metadata did not commit before publish")
+        recover_path = Path(tmp) / str(todo_id) / recover_row["stored_filename"]
+        assert_true(not recover_path.exists(), "failed publish unexpectedly created live file")
+        attachments_service.cleanup_stale_attachment_quarantine(db)
+        assert_true(recover_path.read_bytes() == b"recover upload", "startup reconciliation did not publish upload")
+        recovered_delete = owner.delete(f"/api/todos/{todo_id}/attachments/{recover_row['id']}")
+        assert_true(recovered_delete.status_code == 200, recovered_delete.text)
 
         listed = owner.get("/api/todos")
         assert_true(listed.status_code == 200, listed.text)

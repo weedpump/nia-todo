@@ -1,11 +1,19 @@
 """Attachment policy and usage helpers."""
 
 import json
+import fcntl
+import errno
 import mimetypes
+import os
+import secrets
+import shutil
 import sqlite3
+import stat
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
+from paths import ATTACHMENT_DIR
 
 DEFAULT_ATTACHMENTS_ENABLED = True
 DEFAULT_ALLOWED_ATTACHMENT_TYPES = [
@@ -55,6 +63,410 @@ ATTACHMENT_CONFIG_KEYS = (
     "attachments_allowed_types",
     "attachments_default_quota_bytes",
 )
+
+
+def _attachment_storage_path(todo_id: int, stored_filename: str) -> Path:
+    filename = str(stored_filename)
+    if not filename or filename in {".", ".."} or Path(filename).name != filename:
+        raise RuntimeError("Invalid stored attachment filename")
+    return ATTACHMENT_DIR / str(int(todo_id)) / filename
+
+
+class AttachmentUploadTempLease:
+    """Cross-process lease protecting an upload temp file from reconciliation."""
+
+    def __init__(self, tmp_path: Path):
+        self.tmp_path = Path(tmp_path)
+        self.lock_path = self.tmp_path.with_name(f"{self.tmp_path.name}.lock")
+        self.handle = None
+
+    def __enter__(self):
+        while True:
+            self.tmp_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                handle = self.lock_path.open("a+b")
+            except FileNotFoundError:
+                continue
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            if _locked_descriptor_matches_path(handle, self.lock_path):
+                self.handle = handle
+                return self
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            handle.close()
+
+    def __exit__(self, exc_type, exc, traceback):
+        if self.handle is not None:
+            if _locked_descriptor_matches_path(self.handle, self.lock_path):
+                self.lock_path.unlink(missing_ok=True)
+            fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
+            self.handle.close()
+            self.handle = None
+        _remove_directory_if_empty(self.tmp_path.parent)
+        return False
+
+
+def _locked_descriptor_matches_path(handle, path: Path) -> bool:
+    descriptor_stat = os.fstat(handle.fileno())
+    try:
+        path_stat = path.stat()
+    except FileNotFoundError:
+        return False
+    return (descriptor_stat.st_dev, descriptor_stat.st_ino) == (path_stat.st_dev, path_stat.st_ino)
+
+
+def _remove_directory_if_empty(path: Path):
+    try:
+        path.rmdir()
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        if error.errno in {errno.ENOTEMPTY, errno.EEXIST}:
+            return
+        raise
+
+
+def _cleanup_upload_temp_files(upload_temp_root: Path):
+    try:
+        entries = list(upload_temp_root.iterdir())
+    except FileNotFoundError:
+        return
+    existing_entries = []
+    for entry in entries:
+        try:
+            entry_mode = entry.lstat().st_mode
+        except FileNotFoundError:
+            continue
+        if not stat.S_ISREG(entry_mode):
+            raise RuntimeError("Unexpected attachment upload temp entry")
+        existing_entries.append(entry)
+    temp_paths = [entry for entry in existing_entries if not entry.name.endswith(".lock")]
+    for tmp_path in temp_paths:
+        lock_path = tmp_path.with_name(f"{tmp_path.name}.lock")
+        try:
+            lock_handle = lock_path.open("a+b")
+        except FileNotFoundError:
+            continue
+        with lock_handle:
+            try:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                continue
+            if not _locked_descriptor_matches_path(lock_handle, lock_path):
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                continue
+            tmp_path.unlink(missing_ok=True)
+            lock_path.unlink(missing_ok=True)
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+    for lock_path in list(upload_temp_root.glob("*.lock")):
+        try:
+            lock_handle = lock_path.open("a+b")
+        except FileNotFoundError:
+            continue
+        with lock_handle:
+            try:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                continue
+            if not _locked_descriptor_matches_path(lock_handle, lock_path):
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                continue
+            lock_path.unlink(missing_ok=True)
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+    _remove_directory_if_empty(upload_temp_root)
+
+
+def cleanup_stale_attachment_quarantine(db):
+    """Reconcile crash leftovers while excluding live writer transactions."""
+    if db.in_transaction:
+        raise RuntimeError("Attachment reconciliation requires its own transaction")
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        _cleanup_stale_attachment_quarantine_locked(db)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+
+def _cleanup_stale_attachment_quarantine_locked(db):
+    """Reconcile crash leftovers against committed todo state."""
+    upload_temp_root = ATTACHMENT_DIR / ".upload-temp"
+    _cleanup_upload_temp_files(upload_temp_root)
+    quarantine_root = ATTACHMENT_DIR / ".cleanup-quarantine"
+    if not quarantine_root.exists():
+        return
+    for batch_dir in quarantine_root.iterdir():
+        if not batch_dir.is_dir():
+            raise RuntimeError("Unexpected attachment quarantine entry")
+        manifest_path = batch_dir / ".manifest.json"
+        if manifest_path.exists():
+            records = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not isinstance(records, list):
+                raise RuntimeError("Invalid attachment quarantine manifest")
+            seen_attachment_ids = set()
+            seen_targets = set()
+            for record in records:
+                if not isinstance(record, dict) or set(record) != {"attachment_id", "todo_id", "stored_filename"}:
+                    raise RuntimeError("Invalid attachment quarantine file record")
+                attachment_id = int(record["attachment_id"])
+                todo_id = int(record["todo_id"])
+                stored_filename = str(record["stored_filename"])
+                target_identity = (todo_id, stored_filename)
+                if attachment_id in seen_attachment_ids or target_identity in seen_targets:
+                    raise RuntimeError("Duplicate attachment quarantine record")
+                seen_attachment_ids.add(attachment_id)
+                seen_targets.add(target_identity)
+                staged_path = batch_dir / f"attachment-{attachment_id}"
+                attachment_row = db.execute(
+                    "SELECT todo_id, stored_filename FROM todo_attachments WHERE id = ?",
+                    (attachment_id,),
+                ).fetchone()
+                live_path = _attachment_storage_path(todo_id, stored_filename)
+                if not staged_path.exists():
+                    if attachment_row is not None and not live_path.exists():
+                        raise RuntimeError("Attachment quarantine file is missing")
+                    if attachment_row is None and live_path.exists():
+                        raise RuntimeError("Untracked live attachment conflicts with quarantine state")
+                    continue
+                if attachment_row is None:
+                    staged_path.unlink()
+                    continue
+                if int(attachment_row["todo_id"]) != todo_id or attachment_row["stored_filename"] != stored_filename:
+                    raise RuntimeError("Attachment quarantine metadata conflicts with the database")
+                if live_path.exists():
+                    raise RuntimeError("Attachment quarantine conflicts with a live attachment file")
+                live_path.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(staged_path, live_path)
+            manifest_path.unlink()
+            batch_dir.rmdir()
+            continue
+        for entry in batch_dir.iterdir():
+            if not entry.is_dir():
+                raise RuntimeError("Unexpected attachment quarantine todo entry")
+            try:
+                todo_id = int(entry.name)
+            except ValueError as error:
+                raise RuntimeError("Invalid attachment quarantine todo id") from error
+            todo_exists = db.execute("SELECT 1 FROM todos WHERE id = ?", (todo_id,)).fetchone() is not None
+            live_path = ATTACHMENT_DIR / str(todo_id)
+            if todo_exists:
+                if live_path.exists():
+                    raise RuntimeError("Attachment quarantine conflicts with a live todo directory")
+                os.replace(entry, live_path)
+            elif entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+        batch_dir.rmdir()
+    quarantine_root.rmdir()
+
+
+class AttachmentUploadStaging:
+    """Durably stage one upload until its metadata transaction commits."""
+
+    def __init__(self, tmp_path: Path, attachment):
+        self.tmp_path = Path(tmp_path)
+        self.record = {
+            "attachment_id": int(attachment["id"]),
+            "todo_id": int(attachment["todo_id"]),
+            "stored_filename": str(attachment["stored_filename"]),
+        }
+        self.quarantine_root = ATTACHMENT_DIR / ".cleanup-quarantine"
+        self.batch_dir = self.quarantine_root / secrets.token_hex(16)
+        self.manifest_path = self.batch_dir / ".manifest.json"
+        self.staged_path = self.batch_dir / f"attachment-{self.record['attachment_id']}"
+        self.preserve_for_recovery = False
+
+    def stage(self):
+        if not self.tmp_path.is_file():
+            raise RuntimeError("Attachment upload temporary file is missing")
+        target_path = _attachment_storage_path(self.record["todo_id"], self.record["stored_filename"])
+        if target_path.exists():
+            raise RuntimeError("Attachment upload target already exists")
+        try:
+            self.batch_dir.mkdir(parents=True, exist_ok=False)
+            self.manifest_path.write_text(json.dumps([self.record]), encoding="utf-8")
+            os.replace(self.tmp_path, self.staged_path)
+        except Exception:
+            self.rollback()
+            raise
+
+    def rollback(self):
+        if self.staged_path.exists():
+            self.staged_path.unlink()
+        if self.manifest_path.exists():
+            self.manifest_path.unlink()
+        if self.batch_dir.exists():
+            self.batch_dir.rmdir()
+        if self.quarantine_root.exists() and not any(self.quarantine_root.iterdir()):
+            self.quarantine_root.rmdir()
+
+    def publish(self):
+        target_path = _attachment_storage_path(self.record["todo_id"], self.record["stored_filename"])
+        if target_path.exists():
+            raise RuntimeError("Attachment upload target already exists")
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(self.staged_path, target_path)
+        self.manifest_path.unlink()
+        self.batch_dir.rmdir()
+        if self.quarantine_root.exists() and not any(self.quarantine_root.iterdir()):
+            self.quarantine_root.rmdir()
+
+
+class AttachmentFileCleanupBatch:
+    """Stage individual attachment files reversibly until DB commit."""
+
+    def __init__(self, attachments):
+        self.records = [
+            {
+                "attachment_id": int(attachment["id"]),
+                "todo_id": int(attachment["todo_id"]),
+                "stored_filename": str(attachment["stored_filename"]),
+            }
+            for attachment in attachments
+        ]
+        self.quarantine_root = ATTACHMENT_DIR / ".cleanup-quarantine"
+        self.batch_dir = self.quarantine_root / secrets.token_hex(16)
+        self.manifest_path = self.batch_dir / ".manifest.json"
+        self.staged: list[tuple[Path, Path]] = []
+        self.preserve_for_recovery = False
+
+    def __enter__(self):
+        try:
+            if not self.records:
+                return self
+            self.batch_dir.mkdir(parents=True, exist_ok=True)
+            self.manifest_path.write_text(json.dumps(self.records), encoding="utf-8")
+            for record in self.records:
+                source = _attachment_storage_path(record["todo_id"], record["stored_filename"])
+                if not source.is_file():
+                    raise RuntimeError("Expected attachment file is missing")
+                destination = self.batch_dir / f"attachment-{record['attachment_id']}"
+                os.replace(source, destination)
+                self.staged.append((source, destination))
+        except Exception:
+            self.restore()
+            raise
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        if exc_type is not None:
+            if not self.preserve_for_recovery:
+                self.restore()
+            return False
+        self.finalize()
+        return False
+
+    def restore(self):
+        restore_error = None
+        for source, destination in reversed(self.staged):
+            if not destination.exists():
+                continue
+            try:
+                if source.exists():
+                    raise RuntimeError("Cannot restore attachment over an existing file")
+                source.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(destination, source)
+            except Exception as error:
+                restore_error = restore_error or error
+        if restore_error is None:
+            if self.manifest_path.exists():
+                self.manifest_path.unlink()
+            if self.batch_dir.exists():
+                self.batch_dir.rmdir()
+            if self.quarantine_root.exists() and not any(self.quarantine_root.iterdir()):
+                self.quarantine_root.rmdir()
+        if restore_error is not None:
+            raise restore_error
+
+    def finalize(self):
+        for _, destination in self.staged:
+            if destination.exists():
+                destination.unlink()
+        if self.manifest_path.exists():
+            self.manifest_path.unlink()
+        if self.batch_dir.exists():
+            self.batch_dir.rmdir()
+        if self.quarantine_root.exists() and not any(self.quarantine_root.iterdir()):
+            self.quarantine_root.rmdir()
+
+
+class AttachmentCleanupBatch:
+    """Stage attachment directories reversibly until the DB transaction commits."""
+
+    def __init__(self, todo_ids, *, required_todo_ids=()):
+        self.todo_ids = list(dict.fromkeys(int(todo_id) for todo_id in todo_ids))
+        self.required_todo_ids = {int(todo_id) for todo_id in required_todo_ids}
+        self.quarantine_root = ATTACHMENT_DIR / ".cleanup-quarantine"
+        self.batch_dir = self.quarantine_root / secrets.token_hex(16)
+        self.staged: list[tuple[Path, Path]] = []
+        self.preserve_for_recovery = False
+
+    def __enter__(self):
+        try:
+            for todo_id in self.todo_ids:
+                source = ATTACHMENT_DIR / str(todo_id)
+                if not source.exists():
+                    if todo_id in self.required_todo_ids:
+                        raise RuntimeError("Expected todo attachment directory is missing")
+                    continue
+                self.batch_dir.mkdir(parents=True, exist_ok=True)
+                destination = self.batch_dir / str(todo_id)
+                os.replace(source, destination)
+                self.staged.append((source, destination))
+        except Exception:
+            self.restore()
+            raise
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        if exc_type is not None:
+            if not self.preserve_for_recovery:
+                self.restore()
+            return False
+        self.finalize()
+        return False
+
+    def restore(self):
+        restore_error = None
+        for source, destination in reversed(self.staged):
+            if not destination.exists():
+                continue
+            try:
+                source.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(destination, source)
+            except Exception as error:
+                restore_error = restore_error or error
+        self._remove_empty_quarantine_dirs()
+        if restore_error:
+            raise restore_error
+
+    def finalize(self):
+        if self.batch_dir.exists():
+            shutil.rmtree(self.batch_dir)
+        self._remove_empty_quarantine_dirs()
+
+    def _remove_empty_quarantine_dirs(self):
+        for directory in (self.batch_dir, self.quarantine_root):
+            try:
+                directory.rmdir()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
+
+
+def commit_with_attachment_recovery(db, staging):
+    """Preserve staged files when the durable outcome of commit is ambiguous."""
+    try:
+        db.commit()
+    except Exception:
+        staging.preserve_for_recovery = True
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def _parse_bool(value: Any, default: bool = DEFAULT_ATTACHMENTS_ENABLED) -> bool:

@@ -546,6 +546,11 @@ export const TASK_DIALOGS_HTML = `
               </div>
             </div>
             <div class="ui-field-grid two-columns project-organization-grid">
+              <div class="form-group" id="project-household-group" style="display:none;">
+                <label for="project-household-id" data-i18n-key="project.for">Projekt für</label>
+                <select class="ui-field" id="project-household-id"></select>
+                <div id="project-household-readonly" class="settings-readonly-value" hidden></div>
+              </div>
               <div class="form-group" id="project-display-workspace-group" style="display:none;">
                 <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
                 <select class="ui-field" id="project-display-workspace-id"></select>

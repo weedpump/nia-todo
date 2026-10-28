@@ -13,11 +13,11 @@ import {
 } from '../web/static/js/modules/registry.js';
 import { createEmptyModule } from '../web/static/js/modules/module-factory.js';
 import {
-  hiddenModuleIdsForWorkspace,
-  normalizeHiddenModuleIds,
-  resolveWorkspaceModuleId,
-  storedHiddenModuleIdsForWorkspace,
-  visibleModulesForWorkspace,
+  disabledModuleIdsForUser,
+  enabledModulesForUser,
+  normalizeDisabledModuleIds,
+  resolveEnabledModuleId,
+  storedDisabledModuleIdsForUser,
 } from '../web/static/js/modules/visibility.js';
 
 const root = new URL('../', import.meta.url);
@@ -47,13 +47,13 @@ assert.equal(moduleFromPath('/shopping'), 'shopping');
 assert.equal(moduleFromPath('/recipes'), 'recipes');
 assert.equal(moduleFromPath('/'), null);
 assert.equal(moduleFromPath('/unknown'), null);
-assert.deepEqual(normalizeHiddenModuleIds(['recipes', 'tasks', 'recipes', 'unknown']), ['tasks', 'recipes']);
-assert.deepEqual(normalizeHiddenModuleIds(['tasks', 'shopping', 'recipes']), ['shopping', 'recipes'], 'at least one module must remain visible');
-assert.deepEqual(hiddenModuleIdsForWorkspace({ hidden_modules: '["tasks"]' }), ['tasks']);
-assert.deepEqual(storedHiddenModuleIdsForWorkspace({ hidden_modules: ['future-module', 'tasks', 'future-module'] }), ['future-module', 'tasks']);
-assert.deepEqual(visibleModulesForWorkspace({ hidden_modules: ['tasks'] }).map(module => module.id), ['shopping', 'recipes']);
-assert.equal(resolveWorkspaceModuleId('tasks', { hidden_modules: ['tasks'] }), 'shopping');
-assert.equal(resolveWorkspaceModuleId('recipes', { hidden_modules: ['tasks'] }), 'recipes');
+assert.deepEqual(normalizeDisabledModuleIds(['recipes', 'tasks', 'recipes', 'unknown']), ['tasks', 'recipes']);
+assert.deepEqual(normalizeDisabledModuleIds(['tasks', 'shopping', 'recipes']), ['shopping', 'recipes'], 'at least one module must remain enabled');
+assert.deepEqual(disabledModuleIdsForUser({ disabled_modules: '["tasks"]' }), ['tasks']);
+assert.deepEqual(storedDisabledModuleIdsForUser({ disabled_modules: ['future-module', 'tasks', 'future-module'] }), ['future-module', 'tasks']);
+assert.deepEqual(enabledModulesForUser({ disabled_modules: ['tasks'] }).map(module => module.id), ['shopping', 'recipes']);
+assert.equal(resolveEnabledModuleId('tasks', { disabled_modules: ['tasks'] }), 'shopping');
+assert.equal(resolveEnabledModuleId('recipes', { disabled_modules: ['tasks'] }), 'recipes');
 
 const values = new Map([[LEGACY_MODULE_STORAGE_KEY, 'shopping']]);
 const storage = {
@@ -105,8 +105,12 @@ assert(shellSource.includes('if (normalize || previousModuleId !== activeModuleI
 assert(shellSource.includes('history.pushState('), 'module navigation must create browser history entries');
 assert(shellSource.includes('history.replaceState('), 'startup must normalize the module URL without adding history');
 assert(shellSource.includes("const PERSISTENT_MODULE_SLOTS = new Set(['settingsNav', 'settings', 'desktopHotkeys'])"), 'registered module settings must remain available independently of the active module');
-assert(shellSource.includes('resolveWorkspaceModuleId('), 'module navigation must resolve hidden modules against the current workspace');
-assert(switcherSource.includes('getModules().map('), 'module switcher must render only the modules exposed by the current workspace');
+assert(shellSource.includes('resolveEnabledModuleId('), 'module navigation must resolve disabled modules against account preferences');
+assert(switcherSource.includes('getModules().map('), 'module switcher must render only account-enabled modules');
+assert(tasksSource.includes('workspaces: true'), 'tasks must declare workspace capability');
+assert(!shoppingSource.includes('workspaces: true'), 'shopping must not declare workspace capability');
+assert(!recipesSource.includes('workspaces: true'), 'recipes must not declare workspace capability');
+assert(shellSource.includes("document.getElementById('workspace-switcher')"), 'the shell must control workspace switcher visibility');
 
 for (const slotId of ['module-sidebar-slot', 'module-topbar-slot', 'module-main-slot', 'module-floating-slot', 'module-user-menu-slot', 'module-shortcuts-slot', 'module-settings-nav-slot', 'module-settings-slot', 'module-desktop-hotkeys-slot']) {
   assert(indexSource.includes(`id="${slotId}"`), `shared shell must expose ${slotId}`);
@@ -136,8 +140,11 @@ assert(recipesSource.includes('createEmptyModule'), 'recipes must remain an empt
 assert(!existsSync(new URL('web/static/js/modules/shopping-preview.js', root)), 'shopping feature implementation must not exist yet');
 assert(!indexSource.includes('shopping-list-modal'), 'shopping-specific dialogs must not exist yet');
 assert(!moduleCss.includes('.shopping-item'), 'shopping-specific component styling must not exist yet');
-assert(indexSource.includes('id="workspace-module-list"'), 'module visibility must be configured in workspace settings');
-assert(workspacesSource.includes('hidden_modules'), 'workspace create and update payloads must persist module visibility');
+assert(!indexSource.includes('id="workspace-module-list"'), 'module visibility must not be configured in workspace settings');
+assert(!workspacesSource.includes('hidden_modules'), 'workspace payloads must not persist module visibility');
+assert(indexSource.includes('id="settings-section-modules"'), 'account module visibility must live in settings');
+assert(indexSource.includes('data-settings-section="settings-section-modules"><span data-icon="blocks"'), 'module settings navigation must use the bundled Lucide blocks icon');
+assert(!indexSource.includes('data-icon="layout-grid"'), 'module settings navigation must not use an icon missing from the bundled Lucide set');
 assert(registrySource.includes('REGISTERED_MODULE_IDS = Object.freeze(["tasks", "shopping", "recipes"])'), 'the central registry must expose server-readable authoritative module ids');
 assert(taskSettingsSource.includes('data-module-settings-group="tasks"'), 'task settings must be visibly grouped as module-specific settings');
 assert(shellSource.includes('const searchValues = new Map()'), 'the shell must preserve search state per module');
@@ -146,7 +153,7 @@ assert(appSource.includes("moduleShell?.getActiveModule?.() !== 'tasks'"), 'nati
 assert(todosSource.includes("if (getActiveModule() !== 'tasks') return;"), 'todo list shortcuts must be inactive outside the tasks module');
 assert(appSource.includes('onDeactivate: () => todosFeature.resetTodoShortcutTarget()'), 'leaving tasks must clear the todo shortcut target');
 
-const requiredKeys = ['module.placeholder.body', 'module.placeholder.search', 'workspace.modules', 'workspace.modulesHint', 'workspace.modulesRequired'];
+const requiredKeys = ['module.placeholder.body', 'module.placeholder.search', 'settings.modules.title', 'settings.modules.hint', 'settings.modules.oneRequired'];
 const forbiddenKeys = ['shopping.searchPlaceholder', 'recipes.searchPlaceholder', 'shopping.list.new', 'shopping.item.add', 'shopping.sample.weekly'];
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
   const dictionary = JSON.parse(read(`web/static/i18n/${locale}.json`));

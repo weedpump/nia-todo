@@ -5,6 +5,10 @@ export function createWebSocketClient({
   getAuthToken,
   syncWithServer,
   syncInProgressRef,
+  hasUnsettledSync = () => Boolean(syncInProgressRef?.value),
+  waitForSyncSettlement = async () => {
+    while (syncInProgressRef?.value) await new Promise(resolve => setTimeout(resolve, 10));
+  },
   refreshFromServer = null,
   renderConnectionStatus,
   dbGetAll,
@@ -28,7 +32,9 @@ export function createWebSocketClient({
   onSessionInvalidated = () => {},
   onServerUpdateStatus = () => {},
   onDashboardPreferencesUpdate = () => {},
+  onModulePreferencesUpdate = () => {},
   onAvatarUpdate = () => {},
+  onAccessSnapshot = () => {},
 }) {
 let ws = null;
 let wsState = 'disconnected'; // connected, connecting, reconnecting, disconnected
@@ -39,6 +45,7 @@ let pingInterval = null;
 let reconnectTimer = null;
 let wsIntentionalClose = false;
 const activeMessageHandlers = new Set();
+let initialSyncPromise = Promise.resolve();
 
 function mergeTodoPayloadWithLocalSubtasks(incoming, local = null) {
   if (!incoming || typeof incoming !== 'object') return incoming;
@@ -99,14 +106,16 @@ function connectWebSocket() {
         wsSend({ type: 'auth', token: token });
       }
 
-      // FIRST: Push local changes (if queue exists). Full cache refreshes are
-      // intentionally owned by REST (`refreshFromServer`) so WebSocket startup
-      // cannot race the authoritative startup pull.
-      try {
-        await syncWithServer();
-      } catch (e) {
-        console.error('Pre-sync failed', e);
-      }
+      // FIRST: Push local changes (if queue exists). After authentication the
+      // server sends auth_ok, which triggers a recipient-specific full snapshot.
+      initialSyncPromise = (async () => {
+        try {
+          await syncWithServer();
+        } catch (e) {
+          console.error('Pre-sync failed', e);
+        }
+      })();
+      await initialSyncPromise;
 
       if (wsIntentionalClose || !getAuthToken()) return;
       // Start ping interval
@@ -348,6 +357,9 @@ async function handleWsMessage(msg) {
   switch (msg.type) {
     case 'auth_ok':
       onAuthOk(msg);
+      // Snapshot after local mutations were pushed so it cannot already be stale.
+      await initialSyncPromise;
+      wsSend({ type: 'sync_request' });
       break;
     case 'auth_fail':
       console.warn('[WS] Auth failed');
@@ -361,6 +373,9 @@ async function handleWsMessage(msg) {
     case 'dashboard_preferences_update':
       onDashboardPreferencesUpdate(msg.payload || {});
       break;
+    case 'module_preferences_update':
+      onModulePreferencesUpdate(msg.payload || {});
+      break;
     case 'avatar_update':
       await onAvatarUpdate(msg.payload || {});
       break;
@@ -371,12 +386,12 @@ async function handleWsMessage(msg) {
       onReminderDue(msg.payload || msg);
       break;
     case 'sync_response': {
-      const deferredForActiveSync = Boolean(syncInProgressRef?.value);
-      while (syncInProgressRef?.value) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
-      if (deferredForActiveSync && refreshFromServer) {
-        await refreshFromServer();
+      const arrivedDuringLocalSync = Boolean(syncInProgressRef?.value) || hasUnsettledSync();
+      if (arrivedDuringLocalSync) {
+        // The payload may predate mutations that just committed. Discard it and
+        // request a snapshot generated after the local queue has settled.
+        await waitForSyncSettlement();
+        wsSend({ type: 'sync_request' });
         break;
       }
       const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
@@ -478,6 +493,20 @@ async function handleWsMessage(msg) {
         workspaces = await dbGetAll('workspaces');
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
+      }
+      if (msg.module_preferences) {
+        onModulePreferencesUpdate(msg.module_preferences);
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(msg, 'household') ||
+        Object.prototype.hasOwnProperty.call(msg, 'household_invites') ||
+        Object.prototype.hasOwnProperty.call(msg, 'project_invites')
+      ) {
+        onAccessSnapshot({
+          household: msg.household ?? null,
+          householdInvites: Array.isArray(msg.household_invites) ? msg.household_invites : [],
+          projectInvites: Array.isArray(msg.project_invites) ? msg.project_invites : [],
+        });
       }
       setTodos(todos);
       setProjects(projects);

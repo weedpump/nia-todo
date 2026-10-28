@@ -27,9 +27,15 @@ export function createProjectSharingFeature({
 
   function isOwner(project) {
     if (!project) return false;
-    if (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1') return true;
+    if (Object.prototype.hasOwnProperty.call(project, 'is_owner')) {
+      return project.is_owner === true || project.is_owner === 1 || project.is_owner === '1';
+    }
     if (project.is_shared) return false;
     return !!project.user_id;
+  }
+
+  function isHouseholdProject(project) {
+    return Boolean(project?.owner_household_id || project?.ownership_type === 'household');
   }
 
   async function loadMembers(projectId) {
@@ -53,6 +59,14 @@ export function createProjectSharingFeature({
     const shareStartRow = document.getElementById('project-share-start-row');
     const inviteRow = document.getElementById('project-share-row');
     if (!currentProject) return;
+    if (isHouseholdProject(currentProject)) {
+      const sharingSection = document.getElementById('project-sharing-section');
+      if (sharingSection) sharingSection.style.display = 'none';
+      if (sharingContent) sharingContent.style.display = 'none';
+      if (shareStartRow) shareStartRow.style.display = 'none';
+      if (inviteRow) inviteRow.style.display = 'none';
+      return;
+    }
 
     const hasMembers = currentMembers.some(member => member?.status === 'accepted' || member?.status === 'pending') || !!currentProject.has_sharing_activity;
     const own = isOwner(currentProject);
@@ -124,11 +138,18 @@ export function createProjectSharingFeature({
   async function setProject(project) {
     currentProject = project;
     if (!project) return;
+    if (isHouseholdProject(project)) {
+      currentMembers = [];
+      renderMembers();
+      updateSharingVisibility();
+      return;
+    }
     await loadMembers(project.id);
   }
 
   async function inviteByUsername() {
     if (!currentProject) return;
+    if (isHouseholdProject(currentProject)) return;
     const input = document.getElementById('project-share-username');
     if (!input) return;
     const username = input.value.trim();
@@ -290,6 +311,7 @@ export function createProjectSharingFeature({
   }
 
   function showShareInput() {
+    if (isHouseholdProject(currentProject)) return;
     const content = document.getElementById('project-sharing-content');
     const startRow = document.getElementById('project-share-start-row');
     const inviteRow = document.getElementById('project-share-row');
@@ -302,6 +324,7 @@ export function createProjectSharingFeature({
   function applyProjectModalState(project, canEdit, shared) {
     currentProject = project;
     const isOwn = isOwner(project);
+    const householdProject = isHouseholdProject(project);
     const sharingSection = document.getElementById('project-sharing-section');
     const sharingContent = document.getElementById('project-sharing-content');
     const shareStartRow = document.getElementById('project-share-start-row');
@@ -314,11 +337,11 @@ export function createProjectSharingFeature({
     const iconPicker = document.getElementById('project-icon-picker');
     const saveBtn = document.getElementById('project-save-btn');
 
-    if (sharingSection) sharingSection.style.display = project ? '' : 'none';
-    if (leaveRow) leaveRow.style.display = shared && !isOwn ? '' : 'none';
+    if (sharingSection) sharingSection.style.display = project && !householdProject ? '' : 'none';
+    if (leaveRow) leaveRow.style.display = shared && !isOwn && !householdProject ? '' : 'none';
     if (leaveBtn) leaveBtn.style.display = '';
     if (ownerInfo) {
-      if (project && shared && !isOwn) {
+      if (project && shared && !isOwn && !householdProject) {
         const ownerName = project.owner_display_name || project.owner_username || 'Unbekannt';
         const ownerUser = project.owner_username && project.owner_username !== ownerName ? ` (${project.owner_username})` : '';
         const nameEl = ownerInfo.querySelector('.project-owner-name');
@@ -333,7 +356,7 @@ export function createProjectSharingFeature({
     }
     setShareError('');
 
-    if (!project) {
+    if (!project || householdProject) {
       if (sharingContent) sharingContent.style.display = 'none';
       if (shareStartRow) shareStartRow.style.display = 'none';
       if (inviteRow) inviteRow.style.display = 'none';
@@ -363,8 +386,8 @@ export function createProjectSharingFeature({
         if (el.tagName === 'SELECT') refreshSelect(el);
       }
     }
-    const canMoveSharedDisplay = !!project && shared && !isOwn;
-    const canMoveOwnProject = !!project && isOwn && !project.is_inbox;
+    const canMoveSharedDisplay = !!project && shared && !isOwn && !householdProject;
+    const canMoveOwnProject = !!project && isOwn && !project.is_inbox && !householdProject;
     if (displayWorkspace) {
       displayWorkspace.disabled = !(canMoveSharedDisplay || canMoveOwnProject);
       refreshSelect(displayWorkspace);
@@ -375,7 +398,7 @@ export function createProjectSharingFeature({
       iconPicker.setAttribute('aria-disabled', canEdit ? 'false' : 'true');
     }
     if (saveBtn) saveBtn.style.display = (canEdit || canMoveSharedDisplay || canMoveOwnProject) ? '' : 'none';
-    if (project?.id) loadMembers(project.id).catch(() => {});
+    if (project?.id && !householdProject) loadMembers(project.id).catch(() => {});
   }
 
   return {

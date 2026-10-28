@@ -136,6 +136,18 @@
   margin-top: 16px;
 }
 
+.nav-title.household-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-title.household-title .ui-icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
 .nav-btn .badge {
   margin-left: auto;
   min-width: 20px;

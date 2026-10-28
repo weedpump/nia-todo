@@ -103,6 +103,10 @@ export function createAppRenderingFeature({
     return getWorkspaceTodos().filter(todo => todo.project_id === pid && todo.status !== 'done').length;
   }
 
+  function isHouseholdProject(project) {
+    return Boolean(project?.owner_household_id || project?.ownership_type === 'household');
+  }
+
   function renderProjects() {
     const el = document.getElementById('project-list');
     if (!el) return;
@@ -110,26 +114,28 @@ export function createAppRenderingFeature({
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
 
-    const ownProjects = projects.filter(p => !p.is_shared);
-    const sharedProjects = projects.filter(p => p.is_shared);
+    const personalProjects = projects.filter(project => !isHouseholdProject(project) && !project.is_shared);
+    const householdProjects = projects.filter(isHouseholdProject);
+    const sharedProjects = projects.filter(project => !isHouseholdProject(project) && project.is_shared);
 
-    const projectMap = new Map();
-    ownProjects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    function buildProjectTree(items) {
+      const projectMap = new Map();
+      items.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
+      const roots = [];
+      projectMap.forEach(project => {
+        const parent = project.parent_id == null ? null : projectMap.get(project.parent_id);
+        if (parent) parent.children.push(project);
+        else roots.push(project);
+      });
+      roots.sort((a, b) => {
+        if (!!a.is_inbox !== !!b.is_inbox) return a.is_inbox ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      return roots;
+    }
 
-    const rootProjects = [];
-    projectMap.forEach(p => {
-      if (p.parent_id === null || p.parent_id === undefined) {
-        rootProjects.push(p);
-      } else {
-        const parent = projectMap.get(p.parent_id);
-        if (parent) parent.children.push(p);
-      }
-    });
-
-    rootProjects.sort((a, b) => {
-      if (!!a.is_inbox !== !!b.is_inbox) return a.is_inbox ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
+    const personalRoots = buildProjectTree(personalProjects);
+    const householdRoots = buildProjectTree(householdProjects);
 
     function renderProjectTree(project, depth = 0) {
       const indent = depth * 16;
@@ -159,14 +165,20 @@ export function createAppRenderingFeature({
     }
 
     let html = '';
-    if (rootProjects.length) {
-      html += rootProjects.map(p => renderProjectTree(p)).join('');
+    if (personalRoots.length) {
+      html += `<div data-project-section="personal">${personalRoots.map(project => renderProjectTree(project)).join('')}</div>`;
+    }
+    if (householdRoots.length) {
+      html += `<div data-project-section="household"><div class="nav-title shared-title household-title">${iconSvg('house-heart')}<span>${escapeHtml(t('menu.household'))}</span></div>`;
+      html += householdRoots.map(project => renderProjectTree(project)).join('');
+      html += `</div>`;
     }
     if (sharedProjects.length) {
-      html += `<div class="nav-title shared-title">${escapeHtml(t('project.sharedProjects'))}</div>`;
+      html += `<div data-project-section="shared"><div class="nav-title shared-title">${escapeHtml(t('project.sharedProjects'))}</div>`;
       for (const project of sharedProjects) {
         html += renderProjectTree({ ...project, children: [] });
       }
+      html += `</div>`;
     }
     el.innerHTML = html;
   }

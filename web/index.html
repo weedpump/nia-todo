@@ -108,6 +108,7 @@
         <div class="user-menu-wrap sidebar-user-menu-wrap">
           <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" aria-label="User menu" data-i18n-aria-label-key="menu.userMenu" title="User menu" data-i18n-title-key="menu.userMenu">
             <span class="user-menu-button-avatar" id="user-menu-button-avatar">U</span>
+            <span class="user-menu-household-indicator" id="user-menu-household-indicator" hidden></span>
             <span class="sidebar-user-meta">
               <span class="sidebar-user-name" id="sidebar-user-name">User</span>
               <span class="sidebar-user-email" id="sidebar-user-email">–</span>
@@ -125,6 +126,7 @@
             <button type="button" class="ui-menu-item user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
             <div class="module-slot-root module-slot-root-inline" id="module-user-menu-slot"></div>
+            <button type="button" class="ui-menu-item user-menu-item" id="user-menu-household" data-user-menu-action="household" role="menuitem" hidden><span data-icon="house-heart"></span><span data-i18n-key="menu.household">Haushalt</span><span class="user-menu-notification-badge" id="user-menu-household-badge" hidden></span></button>
             <button type="button" class="ui-menu-item user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
             <button type="button" class="ui-menu-item user-menu-item shortcut-help-menu-item" data-user-menu-action="shortcuts" role="menuitem"><span data-icon="keyboard"></span><span data-i18n-key="menu.shortcuts">Tastaturkürzel</span></button>
             <button type="button" class="ui-menu-item user-menu-item" data-user-menu-action="about" role="menuitem"><span data-icon="info"></span><span data-i18n-key="about.menu">Über Nia</span></button>
@@ -346,7 +348,7 @@
     <main class="main">
       <!-- Top bar -->
       <div class="topbar">
-        <button type="button" class="hamburger" id="sidebar-toggle-btn" data-sidebar-toggle aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu" title="Open menu" data-i18n-title-key="topbar.openMenu" aria-expanded="false"><span data-icon="sidebar"></span></button>
+        <button type="button" class="hamburger" id="sidebar-toggle-btn" data-sidebar-toggle aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu" title="Open menu" data-i18n-title-key="topbar.openMenu" aria-expanded="false"><span data-icon="sidebar"></span><span class="sidebar-toggle-household-indicator" id="sidebar-toggle-household-indicator" hidden></span></button>
         <div class="module-slot-root module-slot-root-inline" id="module-topbar-slot"></div>
         <div class="search-box" id="search-box">
           <button type="button" class="btn btn-secondary btn-icon search-toggle-btn" id="search-toggle-btn" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
@@ -515,11 +517,15 @@
               <div class="settings-nav-page-sections">
                 <button type="button" data-settings-section="settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></button>
                 <button type="button" data-settings-section="settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></button>
+                <button type="button" data-settings-section="settings-section-modules"><span data-icon="blocks"></span><span data-i18n-key="settings.modules.title">Module</span></button>
                 <button type="button" data-settings-section="settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></button>
                 <button type="button" data-settings-section="settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></button>
                 <button type="button" data-settings-section="settings-section-notifications" id="settings-nav-notifications"><span data-icon="bell"></span><span data-i18n-key="settings.section.notifications">Benachrichtigungen</span></button>
                 <button type="button" data-settings-section="settings-section-app" id="settings-nav-app"><span data-icon="smartphone"></span><span data-i18n-key="settings.desktop.title">App</span></button>
               </div>
+            </div>
+            <div class="settings-nav-general-group" data-settings-nav-page="household">
+              <button type="button" data-settings-page-target="household"><span data-icon="house-heart"></span><span data-i18n-key="settings.household.title">Haushalt</span><span class="settings-nav-notification-dot" id="settings-household-nav-badge" hidden></span></button>
             </div>
             <div class="settings-nav-modules-group">
               <div class="settings-nav-group-heading"><span data-i18n-key="settings.group.modules">Module</span></div>
@@ -597,6 +603,19 @@
             </div>
             <div id="settings-language-error" class="settings-field-error"></div>
             <div id="settings-language-success" class="settings-field-success"></div>
+          </section>
+
+          <section class="settings-section-card ui-section-divider" id="settings-section-modules">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="blocks"></div>
+              <div>
+                <h4 data-i18n-key="settings.modules.title">Module</h4>
+                <p data-i18n-key="settings.modules.hint">Lege fest, welche Produktbereiche in deinem Account sichtbar sind.</p>
+              </div>
+            </div>
+            <div class="settings-module-list" id="settings-module-list"></div>
+            <div id="settings-modules-error" class="settings-field-error"></div>
+            <div id="settings-modules-success" class="settings-field-success"></div>
           </section>
 
           <section class="settings-section-card ui-section-divider" id="settings-section-security">
@@ -783,6 +802,47 @@
           </section>
           </div>
 
+          <div class="settings-page" data-settings-page="household" hidden>
+            <section class="settings-section-card ui-section-divider" id="settings-section-household">
+              <div class="settings-section-heading">
+                <div class="settings-section-icon" data-icon="house-heart"></div>
+                <div>
+                  <h4 data-i18n-key="settings.household.title">Haushalt</h4>
+                  <p data-i18n-key="settings.household.hint">Verwalte gemeinsame Projekte, Mitglieder und Einladungen.</p>
+                </div>
+              </div>
+              <div id="settings-household-loading" class="settings-device-note" hidden data-i18n-key="common.loading">Lade...</div>
+              <div id="settings-household-error" class="settings-field-error"></div>
+              <div id="settings-household-success" class="settings-field-success"></div>
+              <div id="settings-household-create" class="settings-household-panel">
+                <div class="settings-subcard-heading"><h5 data-i18n-key="settings.household.create">Haushalt erstellen</h5></div>
+                <p class="settings-help-text" data-i18n-key="settings.household.createHint">Erstelle einen Haushalt, um Projekte mit allen Mitgliedern zu teilen.</p>
+                <div class="settings-household-create-row">
+                  <input class="ui-field" id="settings-household-create-name" maxlength="120" data-i18n-placeholder-key="settings.household.namePlaceholder" placeholder="Name des Haushalts">
+                  <button type="button" class="btn btn-primary" data-household-action="create" data-i18n-key="settings.household.create">Haushalt erstellen</button>
+                </div>
+              </div>
+              <div id="settings-household-current" class="settings-household-panel" hidden>
+                <div class="settings-household-name-row">
+                  <div class="form-group"><label for="settings-household-name" data-i18n-key="settings.household.name">Name</label><input class="ui-field" id="settings-household-name" maxlength="120"></div>
+                  <button type="button" class="btn btn-secondary" data-household-action="rename" data-i18n-key="common.save">Speichern</button>
+                </div>
+                <div class="settings-field-row"><div class="settings-field-label" data-i18n-key="settings.household.owner">Leitung</div><div id="settings-household-owner" class="settings-readonly-value">–</div></div>
+                <div class="settings-household-invite-row">
+                  <div class="form-group"><label for="settings-household-invite-identifier" data-i18n-key="settings.household.inviteLabel">Mitglied einladen</label><input class="ui-field" id="settings-household-invite-identifier" autocomplete="off" data-i18n-placeholder-key="settings.household.invitePlaceholder" placeholder="Benutzername oder E-Mail"></div>
+                  <button type="button" class="btn btn-primary" data-household-action="invite" data-i18n-key="settings.household.invite">Einladen</button>
+                </div>
+                <div class="settings-household-section"><h5 data-i18n-key="settings.household.members">Mitglieder</h5><div id="settings-household-members" class="settings-household-list"></div></div>
+                <div class="settings-household-section" id="settings-household-outgoing-section" hidden><h5 data-i18n-key="settings.household.outgoingInvites">Ausstehende Einladungen</h5><div id="settings-household-outgoing" class="settings-household-list"></div></div>
+                <div class="settings-household-lifecycle">
+                  <button type="button" class="btn btn-secondary" id="settings-household-leave" data-household-action="leave" data-i18n-key="settings.household.leave">Haushalt verlassen</button>
+                  <div class="settings-household-danger" id="settings-household-dissolve-wrap"><strong data-i18n-key="settings.household.dissolve">Haushalt auflösen</strong><p data-i18n-key="settings.household.dissolveProjectsTransfer">Haushaltsprojekte werden an die bisherige Leitung übertragen und nicht gelöscht.</p><button type="button" class="btn btn-danger" id="settings-household-dissolve" data-household-action="dissolve" data-i18n-key="settings.household.dissolve">Haushalt auflösen</button></div>
+                </div>
+              </div>
+              <div class="settings-household-section" id="settings-household-incoming-section" hidden><h5 data-i18n-key="settings.household.incomingInvites">Einladungen</h5><div id="settings-household-incoming" class="settings-household-list"></div></div>
+            </section>
+          </div>
+
           <div class="module-slot-root module-slot-root-inline" id="module-settings-slot"></div>
         </div>
       </div>
@@ -841,16 +901,6 @@
               </div>
             </div>
             <div id="workspace-error" class="settings-field-error"></div>
-          </section>
-          <section class="ui-section-card ui-detail-section ui-section-divider workspace-modules-section">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-grid"></div>
-              <div>
-                <h4 data-i18n-key="workspace.modules">Sichtbare Module</h4>
-                <p data-i18n-key="workspace.modulesHint">Wähle, welche Module in diesem Workspace im Modulmenü erscheinen.</p>
-              </div>
-            </div>
-            <div class="workspace-module-list" id="workspace-module-list"></div>
           </section>
         </form>
       </div>

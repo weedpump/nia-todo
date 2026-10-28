@@ -887,3 +887,136 @@
   }
 }
 
+.user-menu-notification-badge,
+.settings-nav-notification-dot {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.user-menu-notification-badge[hidden],
+.settings-nav-notification-dot[hidden] {
+  display: none;
+}
+
+.user-menu-notification-badge:empty,
+.settings-nav-notification-dot:empty {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+}
+
+.user-menu-button {
+  position: relative;
+}
+
+.user-menu-household-indicator {
+  position: absolute;
+  top: 7px;
+  left: 38px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--bg-secondary);
+  border-radius: 999px;
+  background: var(--accent);
+  box-sizing: content-box;
+  pointer-events: none;
+}
+
+.user-menu-household-indicator[hidden] {
+  display: none;
+}
+
+.sidebar-toggle-household-indicator {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--bg-primary);
+  border-radius: 999px;
+  background: var(--accent);
+  box-sizing: content-box;
+  pointer-events: none;
+}
+
+.sidebar-toggle-household-indicator[hidden],
+#app:not([data-desktop-sidebar-mode="hidden"]) .sidebar-toggle-household-indicator {
+  display: none;
+}
+
+#sidebar-toggle-btn {
+  position: relative;
+}
+
+@media (min-width: 769px) {
+  #app[data-desktop-sidebar-mode="rail"] .user-menu-household-indicator {
+    top: 5px;
+    left: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  #app .sidebar-toggle-household-indicator:not([hidden]) {
+    display: block;
+  }
+}
+
+.settings-household-panel,
+.settings-household-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+[data-settings-page="household"] [hidden] {
+  display: none;
+}
+
+.settings-household-create-row,
+.settings-household-name-row,
+.settings-household-invite-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.settings-household-list { display: grid; gap: 8px; }
+
+.settings-household-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
+}
+
+.settings-household-row > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.settings-household-row span { color: var(--text-muted); font-size: 12px; }
+.settings-household-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.settings-household-lifecycle,
+.settings-household-danger { display: grid; gap: 10px; margin-top: 18px; }
+.settings-household-danger { padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); }
+.settings-household-danger p { margin: 0; color: var(--text-muted); font-size: 13px; }
+
+@media (max-width: 640px) {
+  .settings-household-create-row,
+  .settings-household-name-row,
+  .settings-household-invite-row { grid-template-columns: 1fr; align-items: stretch; }
+  .settings-household-row { align-items: flex-start; flex-direction: column; }
+  .settings-household-actions { width: 100%; justify-content: flex-start; }
+}
+

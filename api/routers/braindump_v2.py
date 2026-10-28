@@ -28,6 +28,7 @@ from routers.todos import (
     _validate_todo_dates,
     _validate_todo_status,
     _validate_todo_target,
+    broadcast_todo_change,
     fetch_todo,
     get_user_inbox_project_id,
 )
@@ -42,8 +43,8 @@ from services.braindump_v2 import (
     get_session,
 )
 from services.ops_stats import increment_duration_metric, increment_endpoint_counter, increment_llm_usage_metrics
+from services.sharing import get_project_access_flags, get_project_ids_for_user
 from services.utils import sanitize_text
-from services.websocket import broadcast_change
 
 
 router = APIRouter(prefix="/api/braindump/v2")
@@ -596,29 +597,39 @@ def _workspace_inbox_project_id(db, user_id: int, workspace_id: int | None) -> i
 
 
 def _accessible_project_rows(db, user_id: int, *, workspace_id: int | None = None, limit: int | None = None):
-    limit_sql = f"LIMIT {int(limit)}" if limit else ""
     default_workspace_id = _user_default_workspace_id(db, user_id)
-    params: list[int] = [user_id, default_workspace_id or 0, user_id, user_id, default_workspace_id or 0, user_id]
-    workspace_filter = ""
-    if workspace_id is not None:
-        workspace_filter = "AND CASE WHEN p.user_id = ? THEN p.workspace_id ELSE COALESCE(pm.workspace_id, ?) END = ?"
-        params.extend([user_id, default_workspace_id or 0, workspace_id])
-    return db.execute(
-        f"""
-        SELECT p.id, p.name, COALESCE(p.is_inbox, 0) AS is_inbox,
-               p.parent_id,
-               CASE WHEN p.user_id = ? THEN p.workspace_id ELSE COALESCE(pm.workspace_id, ?) END AS workspace_id,
-               w.name AS workspace_name
-        FROM projects p
-        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ? AND pm.status = 'accepted'
-        LEFT JOIN workspaces w ON w.id = CASE WHEN p.user_id = ? THEN p.workspace_id ELSE COALESCE(pm.workspace_id, ?) END
-        WHERE (p.user_id = ? OR pm.id IS NOT NULL)
-          {workspace_filter}
-        ORDER BY COALESCE(p.is_inbox, 0) DESC, p.sort_order, p.id
-        {limit_sql}
-        """,
-        params,
-    ).fetchall()
+    rows = []
+    for project_id in get_project_ids_for_user(db, user_id):
+        project = db.execute(
+            "SELECT id, name, is_inbox, parent_id, workspace_id FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+        if not project:
+            continue
+        flags = get_project_access_flags(db, project_id, user_id)
+        ownership = flags["ownership"] or {}
+        member = flags["direct_member"]
+        if flags["can_manage"] and ownership.get("owner_user_id") == user_id:
+            display_workspace_id = project["workspace_id"]
+        elif member and member["workspace_id"] is not None:
+            display_workspace_id = member["workspace_id"]
+        else:
+            display_workspace_id = default_workspace_id
+        if workspace_id is not None and display_workspace_id != workspace_id:
+            continue
+        workspace = db.execute("SELECT name FROM workspaces WHERE id = ?", (display_workspace_id,)).fetchone()
+        rows.append(
+            {
+                "id": project["id"],
+                "name": project["name"],
+                "is_inbox": project["is_inbox"],
+                "parent_id": project["parent_id"],
+                "workspace_id": display_workspace_id,
+                "workspace_name": workspace["name"] if workspace else None,
+            }
+        )
+    rows.sort(key=lambda row: (-int(bool(row["is_inbox"])), row["id"]))
+    return rows[:limit] if limit else rows
 
 
 def _saved_places_context(db, user_id: int) -> list[dict]:
@@ -1471,6 +1482,8 @@ async def create_todos_from_braindump(request: Request, data: BrainDumpCreateTod
         with get_db() as db:
             created = _create_todos_from_braindump_candidates(db, user_id, data.candidates, data.workspace_id)
             db.commit()
+            for todo in created:
+                await broadcast_todo_change(db, "todo_create", todo["id"], user_id, todo.get("project_id"))
     except HTTPException as exc:
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=exc.status_code)
         raise
@@ -1478,8 +1491,6 @@ async def create_todos_from_braindump(request: Request, data: BrainDumpCreateTod
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=500)
         raise
     increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=200)
-    for todo in created:
-        await broadcast_change("todo_create", todo, user_id, todo.get("project_id"))
     return {"todos": created}
 
 

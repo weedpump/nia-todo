@@ -464,9 +464,332 @@ def repair_todo_child_idempotency_migration(conn):
     conn.commit()
 
 
-def repair_workspace_hidden_modules_migration(conn):
-    """Make migration 057 idempotent for partially-added workspace visibility state."""
-    add_column_if_missing(conn, "workspaces", "hidden_modules_json", "TEXT NOT NULL DEFAULT '[]'")
+def repair_user_module_preferences_migration(conn):
+    """Make migration 057 idempotent for partially-added account module state."""
+    add_column_if_missing(conn, "users", "disabled_modules_json", "TEXT NOT NULL DEFAULT '[]'")
+    conn.commit()
+
+
+def execute_transactional_schema_script(conn, script: str):
+    """Execute a DDL script without sqlite3.executescript's implicit commit."""
+    statement = ""
+    for line in script.splitlines():
+        statement += f"{line}\n"
+        if sqlite3.complete_statement(statement):
+            sql = statement.strip()
+            if sql:
+                conn.execute(sql)
+            statement = ""
+    if statement.strip():
+        raise sqlite3.OperationalError("Incomplete schema statement")
+
+
+def recover_interrupted_table_rebuild(conn, table: str, backup_table: str):
+    """Merge both copies left by an interrupted table rebuild without losing rows."""
+    table_config = {
+        ("project_members", "project_members_old_058"): (
+            (
+                "id", "project_id", "user_id", "invited_by", "status", "user_color",
+                "created_at", "updated_at", "workspace_id", "invite_identifier_type",
+            ),
+            ("project_id", "user_id"),
+            "updated_at",
+            (),
+        ),
+        ("todo_comments", "todo_comments_old_058"): (
+            ("id", "todo_id", "user_id", "body", "created_at", "updated_at", "client_mutation_id"),
+            ("id",),
+            "updated_at",
+            ("todo_id", "user_id", "body", "created_at", "client_mutation_id"),
+        ),
+        ("todo_attachments", "todo_attachments_old_058"): (
+            (
+                "id", "todo_id", "user_id", "original_filename", "stored_filename",
+                "content_type", "size_bytes", "created_at",
+            ),
+            ("id",),
+            None,
+            (
+                "todo_id", "user_id", "original_filename", "stored_filename",
+                "content_type", "size_bytes", "created_at",
+            ),
+        ),
+    }
+    config = table_config.get((table, backup_table))
+    if config is None:
+        raise ValueError("Unsupported migration table rebuild")
+    if not table_exists(conn, backup_table):
+        return
+
+    owns_transaction = not conn.in_transaction
+    if owns_transaction:
+        conn.execute("BEGIN IMMEDIATE")
+    try:
+        if not table_exists(conn, table):
+            conn.execute(f"ALTER TABLE {backup_table} RENAME TO {table}")
+            if owns_transaction:
+                conn.commit()
+            return
+
+        columns, identity_columns, updated_at_column, collision_columns = config
+        column_list = ", ".join(columns)
+        current_rows = [dict(zip(columns, row)) for row in conn.execute(f"SELECT {column_list} FROM {table}").fetchall()]
+        backup_rows = [dict(zip(columns, row)) for row in conn.execute(f"SELECT {column_list} FROM {backup_table}").fetchall()]
+        backup_ids = {row["id"] for row in backup_rows}
+        backup_by_identity = {
+            tuple(row[column] for column in identity_columns): row
+            for row in backup_rows
+        }
+        backup_comments_by_mutation = {
+            (row["todo_id"], row["user_id"], row["client_mutation_id"]): row
+            for row in backup_rows
+            if (
+                table == "todo_comments"
+                and row.get("todo_id") is not None
+                and row.get("user_id") is not None
+                and row.get("client_mutation_id") is not None
+            )
+        }
+
+        for row in current_rows:
+            identity = tuple(row[column] for column in identity_columns)
+            backup_row = backup_by_identity.get(identity)
+            mutation_identity = None
+            if (
+                table == "todo_comments"
+                and row.get("todo_id") is not None
+                and row.get("user_id") is not None
+                and row.get("client_mutation_id") is not None
+            ):
+                mutation_identity = (row["todo_id"], row["user_id"], row["client_mutation_id"])
+                mutation_backup_row = backup_comments_by_mutation.get(mutation_identity)
+                if mutation_backup_row is not None:
+                    backup_row = mutation_backup_row
+                    identity = tuple(backup_row[column] for column in identity_columns)
+            same_comment_mutation = (
+                table == "todo_comments"
+                and backup_row is not None
+                and row.get("user_id") is not None
+                and row.get("client_mutation_id") is not None
+                and row.get("client_mutation_id") == backup_row.get("client_mutation_id")
+                and row.get("todo_id") == backup_row.get("todo_id")
+                and row.get("user_id") == backup_row.get("user_id")
+            )
+            if backup_row is not None and not same_comment_mutation and collision_columns and any(
+                backup_row[column] != row[column] for column in collision_columns
+            ):
+                # Two independently inserted rows can share a numeric primary key
+                # after an interrupted rebuild. They are not the same logical row.
+                backup_row = None
+            if backup_row is not None:
+                current_is_newer = updated_at_column is None
+                membership_status_pair = {row.get("status"), backup_row.get("status")}
+                if table == "project_members" and membership_status_pair == {"accepted", "pending"}:
+                    current_is_newer = row.get("status") == "accepted"
+                elif updated_at_column is not None:
+                    timestamps = conn.execute(
+                        "SELECT julianday(?), julianday(?)",
+                        (row[updated_at_column], backup_row[updated_at_column]),
+                    ).fetchone()
+                    current_timestamp, backup_timestamp = timestamps[0], timestamps[1]
+                    if current_timestamp is not None and backup_timestamp is not None:
+                        current_is_newer = current_timestamp > backup_timestamp
+                if current_is_newer:
+                    update_columns = columns[1:]
+                    set_clause = ", ".join(f"{column} = ?" for column in update_columns)
+                    conn.execute(
+                        f"UPDATE {backup_table} SET {set_clause} WHERE id = ?",
+                        (*[row[column] for column in update_columns], backup_row["id"]),
+                    )
+                    merged_row = dict(row)
+                    merged_row["id"] = backup_row["id"]
+                    backup_by_identity[identity] = merged_row
+                    if mutation_identity is not None:
+                        backup_comments_by_mutation[mutation_identity] = merged_row
+                continue
+            insert_columns = columns if row["id"] not in backup_ids else columns[1:]
+            placeholders = ", ".join("?" for _ in insert_columns)
+            cursor = conn.execute(
+                f"INSERT INTO {backup_table} ({', '.join(insert_columns)}) VALUES ({placeholders})",
+                tuple(row[column] for column in insert_columns),
+            )
+            backup_ids.add(row["id"] if "id" in insert_columns else cursor.lastrowid)
+            inserted_row = dict(row)
+            if "id" not in insert_columns:
+                inserted_row["id"] = cursor.lastrowid
+            backup_by_identity[identity] = inserted_row
+            if mutation_identity is not None:
+                backup_comments_by_mutation[mutation_identity] = inserted_row
+
+        conn.execute(f"DROP TABLE {table}")
+        conn.execute(f"ALTER TABLE {backup_table} RENAME TO {table}")
+        if owns_transaction:
+            conn.commit()
+    except Exception:
+        if owns_transaction:
+            conn.rollback()
+        raise
+
+
+def repair_household_entity_access_migration(conn, *, manage_transaction: bool = True):
+    """Preserve shared-content authorship and accepted shares after user deletion."""
+    if manage_transaction:
+        conn.commit()
+        conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        if manage_transaction:
+            conn.execute("BEGIN IMMEDIATE")
+        elif not conn.in_transaction:
+            raise sqlite3.OperationalError("Migration 58 repair requires an active transaction")
+        recover_interrupted_table_rebuild(conn, "project_members", "project_members_old_058")
+        recover_interrupted_table_rebuild(conn, "todo_comments", "todo_comments_old_058")
+        recover_interrupted_table_rebuild(conn, "todo_attachments", "todo_attachments_old_058")
+        if table_exists(conn, "project_members"):
+            execute_transactional_schema_script(conn, """
+            DROP TABLE IF EXISTS project_members_old_058;
+            ALTER TABLE project_members RENAME TO project_members_old_058;
+            CREATE TABLE project_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                invited_by INTEGER,
+                status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'declined', 'left', 'removed')),
+                user_color TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                workspace_id INTEGER,
+                invite_identifier_type TEXT CHECK(invite_identifier_type IN ('username', 'email')),
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE SET NULL,
+                UNIQUE(project_id, user_id)
+            );
+            INSERT INTO project_members (
+                id, project_id, user_id, invited_by, status, user_color,
+                created_at, updated_at, workspace_id, invite_identifier_type
+            )
+            SELECT id, project_id, user_id, invited_by, status, user_color,
+                   created_at, updated_at, workspace_id, invite_identifier_type
+            FROM project_members_old_058;
+            DROP TABLE project_members_old_058;
+            CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
+            CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
+            CREATE INDEX IF NOT EXISTS idx_project_members_status ON project_members(status);
+            CREATE INDEX IF NOT EXISTS idx_project_members_workspace ON project_members(workspace_id);
+            CREATE INDEX IF NOT EXISTS idx_project_members_invite_identifier_type ON project_members(invite_identifier_type);
+            """)
+        if table_exists(conn, "todo_comments"):
+            execute_transactional_schema_script(conn, """
+            DROP TABLE IF EXISTS todo_comments_old_058;
+            ALTER TABLE todo_comments RENAME TO todo_comments_old_058;
+            CREATE TABLE todo_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                todo_id INTEGER NOT NULL,
+                user_id INTEGER,
+                body TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                client_mutation_id TEXT,
+                FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+            INSERT INTO todo_comments (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
+            SELECT id, todo_id, user_id, body, created_at, updated_at, client_mutation_id
+            FROM todo_comments_old_058;
+            DROP TABLE todo_comments_old_058;
+            CREATE INDEX IF NOT EXISTS idx_todo_comments_todo ON todo_comments(todo_id, created_at, id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_comments_client_mutation
+                ON todo_comments(todo_id, user_id, client_mutation_id)
+                WHERE client_mutation_id IS NOT NULL;
+            """)
+        if table_exists(conn, "todo_attachments"):
+            execute_transactional_schema_script(conn, """
+            DROP TABLE IF EXISTS todo_attachments_old_058;
+            ALTER TABLE todo_attachments RENAME TO todo_attachments_old_058;
+            CREATE TABLE todo_attachments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                todo_id INTEGER NOT NULL,
+                user_id INTEGER,
+                original_filename TEXT NOT NULL,
+                stored_filename TEXT NOT NULL,
+                content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+                size_bytes INTEGER NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+            INSERT INTO todo_attachments (
+                id, todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at
+            )
+            SELECT id, todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at
+            FROM todo_attachments_old_058;
+            DROP TABLE todo_attachments_old_058;
+            CREATE INDEX IF NOT EXISTS idx_todo_attachments_todo ON todo_attachments(todo_id, created_at, id);
+            CREATE INDEX IF NOT EXISTS idx_todo_attachments_user ON todo_attachments(user_id);
+            """)
+        if table_exists(conn, "entity_access_grants"):
+            execute_transactional_schema_script(conn, """
+            DROP TRIGGER IF EXISTS entity_access_grants_require_manager_update;
+            CREATE TRIGGER entity_access_grants_require_manager_update
+            BEFORE UPDATE OF entity_access_id, granted_by_user_id ON entity_access_grants
+            WHEN (NEW.granted_by_user_id IS NULL AND NEW.entity_access_id != OLD.entity_access_id)
+               OR (
+                   NEW.granted_by_user_id IS NOT NULL
+                   AND NOT EXISTS (
+                       SELECT 1
+                       FROM entity_access ea
+                       LEFT JOIN households h ON h.id = ea.owner_household_id
+                       WHERE ea.id = NEW.entity_access_id
+                         AND COALESCE(ea.owner_user_id, h.owner_user_id) = NEW.granted_by_user_id
+                   )
+               )
+            BEGIN
+                SELECT RAISE(ABORT, 'only the entity manager can grant access');
+            END;
+            """)
+        if table_exists(conn, "schema_version"):
+            conn.execute("DELETE FROM schema_version")
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (58, datetime('now'))"
+            )
+        if manage_transaction:
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        if manage_transaction:
+            conn.execute("PRAGMA foreign_keys = ON")
+
+
+def apply_household_entity_access_migration(conn, sql: str):
+    """Apply migration 58, its repairs, and its version marker atomically."""
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        execute_transactional_schema_script(conn, sql)
+        repair_household_entity_access_migration(conn, manage_transaction=False)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
+def repair_login_rate_limit_migration(conn):
+    """Restore migration 051 when it was added below an existing DB version."""
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS login_rate_limit_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bucket TEXT NOT NULL,
+        bucket_key TEXT NOT NULL,
+        attempted_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_login_rate_limit_attempts_lookup
+        ON login_rate_limit_attempts(bucket, bucket_key, attempted_at);
+    """)
     conn.commit()
 
 
@@ -476,7 +799,8 @@ POST_APPLY_REPAIRS = {
     50: repair_todo_attachments_migration,
     54: repair_dashboard_preferences_sync_migration,
     55: repair_todo_child_idempotency_migration,
-    57: repair_workspace_hidden_modules_migration,
+    57: repair_user_module_preferences_migration,
+    58: repair_household_entity_access_migration,
 }
 
 def get_migration_files():
@@ -510,6 +834,9 @@ def run_migrations():
     
     init_migrations_table(conn)
     current_version = get_db_version(conn)
+    if current_version >= 51 and not table_exists(conn, "login_rate_limit_attempts"):
+        print("[MIGRATION] Repairing missing login rate-limit schema from version 51...")
+        repair_login_rate_limit_migration(conn)
     migrations = get_migration_files()
     
     if not migrations:
@@ -523,11 +850,14 @@ def run_migrations():
             sql = filepath.read_text()
             
             try:
-                conn.executescript(sql)
-                repair = POST_APPLY_REPAIRS.get(version)
-                if repair:
-                    repair(conn)
-                set_db_version(conn, version)
+                if version == 58:
+                    apply_household_entity_access_migration(conn, sql)
+                else:
+                    conn.executescript(sql)
+                    repair = POST_APPLY_REPAIRS.get(version)
+                    if repair:
+                        repair(conn)
+                    set_db_version(conn, version)
                 applied += 1
                 print(f"[MIGRATION] ✅ {filepath.name} applied successfully")
             except sqlite3.OperationalError as e:
@@ -597,8 +927,8 @@ def run_migrations():
                     set_db_version(conn, version)
                     applied += 1
                 elif version == 57 and ("duplicate column" in error_msg or "already exists" in error_msg):
-                    print(f"[MIGRATION] ⚠️ {filepath.name} - workspace module visibility schema partially exists, repairing remaining schema")
-                    repair_workspace_hidden_modules_migration(conn)
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - account module visibility schema partially exists, repairing remaining schema")
+                    repair_user_module_preferences_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif version in POST_APPLY_REPAIRS and ("duplicate column" in error_msg or "already exists" in error_msg):

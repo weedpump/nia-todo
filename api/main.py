@@ -15,6 +15,7 @@ from rate_limit import rate_limiter
 from middleware.security import CSRFProtectionMiddleware, RateLimitMiddleware, RequestBodyLimitMiddleware, SecurityHeadersMiddleware
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
+from services.attachments import cleanup_stale_attachment_quarantine
 from services.server_updates import update_check_background_task
 from services.instance_config import get_public_base_url
 from services.native_updates import build_windows_updater_response
@@ -23,6 +24,8 @@ from errors import APIError, api_error_handler
 
 # Run migrations on import
 run_migrations()
+with get_db() as db:
+    cleanup_stale_attachment_quarantine(db)
 
 app = FastAPI(title="nia-todo", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -54,13 +57,14 @@ async def app_shell_cache_control_middleware(request, call_next):
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2, oidc, server_updates
+from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, households, instance, two_factor, braindump_v2, oidc, server_updates
 
 app.include_router(auth.router)
 app.include_router(oidc.router)
 app.include_router(instance.router)
 app.include_router(todos.router)
 app.include_router(workspaces.router)
+app.include_router(households.router)
 app.include_router(projects.router)
 app.include_router(sections.router)
 app.include_router(reminders.router)

@@ -16,6 +16,7 @@ from services.audit import log_audit
 from services.client_info import session_user_agent
 from services.two_factor import consume_mfa_action_grant, create_challenge, get_valid_trusted_device_id, mfa_required_for_user, user_mfa_state
 from services.attachments import attachment_usage_payload
+from services.module_visibility import module_preferences_payload
 from errors import api_error
 
 router = APIRouter(prefix="/api")
@@ -109,7 +110,8 @@ def login(data: LoginRequest, request: Request, response: Response):
                     "avatar_updated_at": user.get('avatar_updated_at'),
                     "braindump_enabled": bool(user.get('braindump_enabled', False)),
                     "braindump_learning_enabled": bool(user.get('braindump_learning_enabled', True)),
-                    "is_admin": bool(user.get('is_admin', False))
+                    "is_admin": bool(user.get('is_admin', False)),
+                    **module_preferences_payload(user),
                 },
                 "state": state,
             }
@@ -133,7 +135,8 @@ def login(data: LoginRequest, request: Request, response: Response):
                 "avatar_updated_at": user.get('avatar_updated_at'),
                 "braindump_enabled": bool(user.get('braindump_enabled', False)),
                 "braindump_learning_enabled": bool(user.get('braindump_learning_enabled', True)),
-                "is_admin": bool(user.get('is_admin', False))
+                "is_admin": bool(user.get('is_admin', False)),
+                **module_preferences_payload(user),
             },
             "csrf_token": csrf_token,
             "mfa_enrollment_required": bool(mfa_required and not (state.get('has_totp') or state.get('has_passkey') or state.get('has_recovery_codes') or state.get('has_email_fallback'))) if mfa_required and not remembered else False
@@ -181,7 +184,7 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             user_id = payload.get('user_id')
         
         user = db.execute(
-            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, avatar_url, avatar_updated_at, is_admin, token_version, language, COALESCE(braindump_enabled, 0) AS braindump_enabled, COALESCE(braindump_learning_enabled, 1) AS braindump_learning_enabled, default_reminder_offset_minutes FROM users WHERE id = ?",
+            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, avatar_url, avatar_updated_at, is_admin, token_version, language, COALESCE(braindump_enabled, 0) AS braindump_enabled, COALESCE(braindump_learning_enabled, 1) AS braindump_learning_enabled, default_reminder_offset_minutes, disabled_modules_json FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         if not user:
@@ -215,6 +218,7 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             "is_admin": bool(user['is_admin']),
             "two_factor": mfa_state,
             "mfa_enrollment_required": enroll_only,
+            **module_preferences_payload(user),
         }
 
         # Tokens issued before per-device sessions do not contain a sid and
