@@ -6,12 +6,11 @@ import {
   MODULES,
   REGISTERED_MODULE_IDS,
   MODULE_STORAGE_KEY,
-  moduleDefaultPath,
-  moduleFromPath,
   persistModule,
   readStoredModule,
 } from '../web/static/js/modules/registry.js';
 import { createEmptyModule } from '../web/static/js/modules/module-factory.js';
+import { appBaseUrl, moduleIdFromNavigation } from '../web/static/js/features/module-shell.js';
 import {
   disabledModuleIdsForUser,
   enabledModulesForUser,
@@ -30,7 +29,6 @@ const templateModule = createEmptyModule({
   labelKey: 'module.tasks.label',
   descriptionKey: 'module.tasks.description',
   icon: 'tasks',
-  defaultPath: '/example',
 });
 assert.equal(templateModule.id, 'example');
 assert.equal(templateModule.searchEnabled, true);
@@ -39,14 +37,32 @@ for (const module of MODULES) {
   assert.equal(typeof module.mount, 'function', `${module.id} must implement the shared mount contract`);
   assert.equal(typeof module.searchPlaceholderKey, 'string', `${module.id} must define its search contract`);
 }
-assert.equal(moduleDefaultPath('tasks'), '/tasks');
-assert.equal(moduleDefaultPath('shopping'), '/shopping');
-assert.equal(moduleDefaultPath('recipes'), '/recipes');
-assert.equal(moduleFromPath('/tasks'), 'tasks');
-assert.equal(moduleFromPath('/shopping'), 'shopping');
-assert.equal(moduleFromPath('/recipes'), 'recipes');
-assert.equal(moduleFromPath('/'), null);
-assert.equal(moduleFromPath('/unknown'), null);
+assert.equal(appBaseUrl({ pathname: '/tasks', search: '' }), '/');
+assert.equal(appBaseUrl({ pathname: '/shopping', search: '?share=abc' }), '/?share=abc');
+assert.equal(moduleIdFromNavigation({
+  state: { niaModuleRoute: true, moduleId: 'shopping' },
+  storage: { getItem: () => 'tasks' },
+}), 'shopping', 'history state must select the module while the visible URL stays at the app root');
+assert.equal(moduleIdFromNavigation({
+  state: null,
+  storage: { getItem: () => 'shopping' },
+}), 'shopping', 'the clean root URL must restore the persisted module on startup');
+assert.equal(moduleIdFromNavigation({
+  state: { niaModuleRoute: true, moduleId: 'unknown' },
+  storage: { getItem: () => 'tasks' },
+}), 'tasks', 'invalid history state must fall back to the persisted module');
+
+const navigationStack = [
+  { state: { niaModuleRoute: true, moduleId: 'tasks' }, url: '/' },
+  { state: { niaModuleRoute: true, moduleId: 'shopping' }, url: '/' },
+  { state: { niaModuleRoute: true, moduleId: 'recipes' }, url: '/' },
+];
+assert.deepEqual(
+  navigationStack.map(entry => moduleIdFromNavigation({ state: entry.state })),
+  ['tasks', 'shopping', 'recipes'],
+  'Back and Forward must recover each module from history state without exposing module paths',
+);
+assert(navigationStack.every(entry => entry.url === '/'), 'every module history entry must keep the visible base URL');
 assert.deepEqual(normalizeDisabledModuleIds(['recipes', 'tasks', 'recipes', 'unknown']), ['tasks', 'recipes']);
 assert.deepEqual(normalizeDisabledModuleIds(['tasks', 'shopping', 'recipes']), ['shopping', 'recipes'], 'at least one module must remain enabled');
 assert.deepEqual(disabledModuleIdsForUser({ disabled_modules: '["tasks"]' }), ['tasks']);
@@ -104,6 +120,7 @@ assert(shellSource.includes("window.addEventListener('popstate'"), 'module shell
 assert(shellSource.includes('if (normalize || previousModuleId !== activeModuleId) renderActiveModule();'), 'same-module UI history changes must not reactivate and rerender the active module');
 assert(shellSource.includes('history.pushState('), 'module navigation must create browser history entries');
 assert(shellSource.includes('history.replaceState('), 'startup must normalize the module URL without adding history');
+assert(shellSource.includes('appBaseUrl(location)'), 'module history must keep the visible URL at the app root');
 assert(shellSource.includes("const PERSISTENT_MODULE_SLOTS = new Set(['settingsNav', 'settings', 'desktopHotkeys'])"), 'registered module settings must remain available independently of the active module');
 assert(shellSource.includes('resolveEnabledModuleId('), 'module navigation must resolve disabled modules against account preferences');
 assert(switcherSource.includes('getModules().map('), 'module switcher must render only account-enabled modules');

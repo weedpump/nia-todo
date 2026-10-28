@@ -5,5 +5,4 @@ export const recipesModule = createEmptyModule({
   labelKey: 'module.recipes.label',
   descriptionKey: 'module.recipes.description',
   icon: 'recipes',
-  defaultPath: '/recipes',
 });

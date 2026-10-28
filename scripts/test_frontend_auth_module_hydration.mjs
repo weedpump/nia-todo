@@ -30,6 +30,7 @@ const html = `<!doctype html><html><body>
     import { createModuleShell } from '/static/js/features/module-shell.js';
 
     localStorage.setItem('jwt_token', 'cached-token');
+    localStorage.setItem('nia-active-module', 'shopping');
     localStorage.setItem('cached_user', JSON.stringify({
       id: 1,
       username: 'tester',
@@ -38,6 +39,7 @@ const html = `<!doctype html><html><body>
 
     let currentUser = null;
     const shell = createModuleShell({ getUser: () => currentUser });
+    window.moduleShell = shell;
     shell.bind();
 
     const auth = createAuthSessionFeature({
@@ -72,13 +74,12 @@ try {
       '/static/js/modules/visibility.js': visibilitySource,
       '/static/js/modules/registry.js': `
         export const MODULES = [
-          { id: 'tasks', defaultPath: '/tasks', capabilities: { workspaces: true }, render() {} },
-          { id: 'shopping', defaultPath: '/shopping', capabilities: {}, render() {} },
-          { id: 'recipes', defaultPath: '/recipes', capabilities: {}, render() {} },
+          { id: 'tasks', capabilities: { workspaces: true }, render() {} },
+          { id: 'shopping', capabilities: {}, render() {} },
+          { id: 'recipes', capabilities: {}, render() {} },
         ];
         export const getModule = id => MODULES.find(module => module.id === id) || MODULES[0];
-        export const moduleDefaultPath = id => getModule(id).defaultPath;
-        export const moduleFromPath = path => MODULES.find(module => path === module.defaultPath || path.startsWith(module.defaultPath + '/'))?.id || null;
+        export const isModuleId = id => MODULES.some(module => module.id === id);
         export const persistModule = id => localStorage.setItem('nia-active-module', id);
         export const readStoredModule = () => localStorage.getItem('nia-active-module') || 'tasks';
       `,
@@ -99,10 +100,32 @@ try {
   const state = await page.evaluate(() => window.authModuleHydrationState);
   assert.deepEqual(state, {
     activeModule: 'tasks',
-    pathname: '/tasks',
+    pathname: '/',
     shoppingMainHidden: true,
     tasksMainHidden: false,
   });
+
+  await page.evaluate(() => window.moduleShell.navigateToModule('recipes'));
+  assert.deepEqual(await page.evaluate(() => ({
+    pathname: location.pathname,
+    moduleId: history.state?.moduleId,
+    activeModule: window.moduleShell.getActiveModule(),
+  })), {
+    pathname: '/',
+    moduleId: 'recipes',
+    activeModule: 'recipes',
+  });
+
+  await page.evaluate(() => window.moduleShell.navigateToModule('tasks'));
+  await page.evaluate(() => history.back());
+  await page.waitForFunction(() => window.moduleShell.getActiveModule() === 'recipes');
+  assert.equal(new URL(page.url()).pathname, '/', 'Back must keep the visible base URL');
+  assert.equal(await page.evaluate(() => history.state?.moduleId), 'recipes');
+
+  await page.evaluate(() => history.forward());
+  await page.waitForFunction(() => window.moduleShell.getActiveModule() === 'tasks');
+  assert.equal(new URL(page.url()).pathname, '/', 'Forward must keep the visible base URL');
+  assert.equal(await page.evaluate(() => history.state?.moduleId), 'tasks');
 } finally {
   await browser.close();
 }

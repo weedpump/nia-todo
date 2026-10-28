@@ -46,12 +46,3 @@ export function persistModule(moduleId, storage = globalThis.localStorage) {
     // Keep the current in-memory module when storage is unavailable.
   }
 }
-
-export function moduleFromPath(pathname = globalThis.location?.pathname || '/') {
-  const firstSegment = String(pathname).split('/').filter(Boolean)[0];
-  return isModuleId(firstSegment) ? firstSegment : null;
-}
-
-export function moduleDefaultPath(moduleId) {
-  return getModule(moduleId).defaultPath;
-}
