@@ -551,10 +551,7 @@ export function createProjectsFeature({
       if (!target) return;
       const action = target.dataset.projectAction;
       event.preventDefault();
-      if (action === 'edit') {
-        event.stopPropagation();
-        editProject(target.dataset.projectId);
-      } else if (action === 'delete-from-modal') {
+      if (action === 'delete-from-modal') {
         document.getElementById('project-detail-header-menu')?.removeAttribute('open');
         deleteProjectFromModal();
       } else if (action === 'clear-done-current') {

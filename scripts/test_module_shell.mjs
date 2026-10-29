@@ -153,7 +153,9 @@ for (const settingId of ['settings-section-default-reminder', 'settings-section-
   assert(taskSettingsSource.includes(`id="${settingId}"`), `tasks module must own ${settingId}`);
 }
 assert(moduleCss.includes('.module-slot-panel[hidden]'), 'inactive module panels must be hidden by the shared slot system');
-assert(shoppingSource.includes('createEmptyModule'), 'shopping must remain an empty registered module');
+assert(!shoppingSource.includes('createEmptyModule'), 'shopping must mount its real module frame');
+assert(shoppingSource.includes('id="shopping-list-sidebar"'), 'shopping must own its sidebar navigation slot');
+assert(shoppingSource.includes('id="shopping-navigation-main"'), 'shopping must own its navigation main state');
 assert(recipesSource.includes('createEmptyModule'), 'recipes must remain an empty registered module');
 assert(!existsSync(new URL('web/static/js/modules/shopping-preview.js', root)), 'shopping feature implementation must not exist yet');
 assert(!indexSource.includes('shopping-list-modal'), 'shopping-specific dialogs must not exist yet');

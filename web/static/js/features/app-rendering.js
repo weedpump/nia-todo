@@ -4,6 +4,7 @@ import { getActiveLocale, t } from '../i18n/index.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { calculateDashboardMetrics, filterTodosForDashboard, filterTodosForDashboardDrilldown, filterTodosForTodayFocus, getEffectiveDashboardPreferences, selectDashboardWorkspaceTodos } from './dashboard-preferences.js';
+import { classifyEntityOwnership, renderEntitySidebarRow, renderEntitySidebarSection } from './entity-sidebar.js';
 
 export function createAppRenderingFeature({
   appVersion,
@@ -103,10 +104,6 @@ export function createAppRenderingFeature({
     return getWorkspaceTodos().filter(todo => todo.project_id === pid && todo.status !== 'done').length;
   }
 
-  function isHouseholdProject(project) {
-    return Boolean(project?.owner_household_id || project?.ownership_type === 'household');
-  }
-
   function renderProjects() {
     const el = document.getElementById('project-list');
     if (!el) return;
@@ -114,9 +111,9 @@ export function createAppRenderingFeature({
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
 
-    const personalProjects = projects.filter(project => !isHouseholdProject(project) && !project.is_shared);
-    const householdProjects = projects.filter(isHouseholdProject);
-    const sharedProjects = projects.filter(project => !isHouseholdProject(project) && project.is_shared);
+    const personalProjects = projects.filter(project => classifyEntityOwnership(project) === 'personal');
+    const householdProjects = projects.filter(project => classifyEntityOwnership(project) === 'household');
+    const sharedProjects = projects.filter(project => classifyEntityOwnership(project) === 'shared');
 
     function buildProjectTree(items) {
       const projectMap = new Map();
@@ -138,23 +135,19 @@ export function createAppRenderingFeature({
     const householdRoots = buildProjectTree(householdProjects);
 
     function renderProjectTree(project, depth = 0) {
-      const indent = depth * 16;
       const hasChildren = project.children && project.children.length > 0;
-
-      let html = '';
-      html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
-      html += `<div class="nav-item-with-action">`;
       const isActiveProject = Number(currentProjectId) === Number(project.id);
-      html += `<button class="nav-btn ui-nav-pill project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}" aria-label="${escapeHtmlAttr(project.name)}" title="${escapeHtmlAttr(project.name)}">`;
-      html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
-      html += `<span class="nav-label">${escapeHtml(project.name)}</span>`;
-      html += `<span class="badge">${countByProject(project.id)}</span>`;
-      html += `</button>`;
-      html += `<button class="nav-edit" data-project-action="edit" data-project-id="${escapeHtmlAttr(project.id)}" title="${escapeHtmlAttr(t('common.edit'))}">`;
-      html += iconSvg('edit-3');
-      html += `</button>`;
-      html += `</div>`;
-      html += `</div>`;
+      let html = renderEntitySidebarRow({
+        entity: project,
+        entityType: 'project',
+        active: isActiveProject,
+        count: countByProject(project.id),
+        depth,
+        rowClass: 'project-tree-item',
+        selectClass: 'project-drop-target',
+        selectAttributes: { 'data-filter': project.id, 'data-project-id': project.id },
+        detailAttributes: { 'data-project-id': project.id },
+      });
 
       if (hasChildren) {
         project.children.sort((a, b) => a.name.localeCompare(b.name));
@@ -166,19 +159,28 @@ export function createAppRenderingFeature({
 
     let html = '';
     if (personalRoots.length) {
-      html += `<div data-project-section="personal">${personalRoots.map(project => renderProjectTree(project)).join('')}</div>`;
+      html += renderEntitySidebarSection({
+        section: 'personal',
+        rows: personalRoots.map(project => renderProjectTree(project)).join(''),
+        sectionAttributes: { 'data-project-section': 'personal' },
+      });
     }
     if (householdRoots.length) {
-      html += `<div data-project-section="household"><div class="nav-title shared-title household-title">${iconSvg('house-heart')}<span>${escapeHtml(t('menu.household'))}</span></div>`;
-      html += householdRoots.map(project => renderProjectTree(project)).join('');
-      html += `</div>`;
+      html += renderEntitySidebarSection({
+        section: 'household',
+        title: t('common.household'),
+        icon: 'house-heart',
+        rows: householdRoots.map(project => renderProjectTree(project)).join(''),
+        sectionAttributes: { 'data-project-section': 'household' },
+      });
     }
     if (sharedProjects.length) {
-      html += `<div data-project-section="shared"><div class="nav-title shared-title">${escapeHtml(t('project.sharedProjects'))}</div>`;
-      for (const project of sharedProjects) {
-        html += renderProjectTree({ ...project, children: [] });
-      }
-      html += `</div>`;
+      html += renderEntitySidebarSection({
+        section: 'shared',
+        title: t('common.sharedWithMe'),
+        rows: sharedProjects.map(project => renderProjectTree({ ...project, children: [] })).join(''),
+        sectionAttributes: { 'data-project-section': 'shared' },
+      });
     }
     el.innerHTML = html;
   }

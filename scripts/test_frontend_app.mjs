@@ -82,13 +82,13 @@ async function run() {
     await page.fill('#search-input', '');
     await page.locator('#today-focus-btn').click();
 
-    await page.click('button[data-nav-action="new-project"]');
+    await page.click('button[data-entity-sidebar-action="add"][data-entity-type="project"]');
     await page.fill('#project-name', 'Frontend Project A');
     await page.fill('#project-color', '#ff8800');
     await page.click('button[form="project-form"]');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
-    await page.click('button[data-nav-action="new-project"]');
+    await page.click('button[data-entity-sidebar-action="add"][data-entity-type="project"]');
     await page.fill('#project-name', 'Frontend Project B');
     await page.fill('#project-color', '#00aa88');
     await page.click('button[form="project-form"]');

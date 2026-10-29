@@ -1,7 +1,7 @@
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
 import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL, apiResourceUrl } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
-import { authApi, householdsApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
+import { authApi, householdsApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, shoppingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -38,6 +38,7 @@ import { createWhatsNewFeature } from './features/whats-new.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
+import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
@@ -59,6 +60,8 @@ let todos = [];
 let projects = [];
 let sections = [];
 let workspaces = [];
+let shoppingLists = [];
+let shoppingStores = [];
 let currentFilter = 'all';
 let currentProjectId = null;
 let currentWorkspaceId = null;
@@ -77,6 +80,21 @@ let syncController = null;
 let dashboardPreferencesSyncFeature = null;
 let moduleShell = null;
 let moduleSwitcher = null;
+let shoppingNavigationFeature = null;
+
+function renderShopping() {
+  shoppingNavigationFeature?.render();
+}
+
+function setShoppingListsState(next) {
+  shoppingLists = Array.isArray(next) ? next : [];
+  shoppingNavigationFeature?.replaceLists(shoppingLists);
+}
+
+function setShoppingStoresState(next) {
+  shoppingStores = Array.isArray(next) ? next : [];
+  renderShopping();
+}
 
 function getCurrentWorkspace() {
   return workspaces.find(workspace => String(workspace.id) === String(currentWorkspaceId)) || null;
@@ -276,12 +294,18 @@ const syncFeature = createSyncFeature({
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
   setWorkspaces: setWorkspacesState,
+  getShoppingLists: () => shoppingLists,
+  setShoppingLists: setShoppingListsState,
+  getShoppingStores: () => shoppingStores,
+  setShoppingStores: setShoppingStoresState,
   todosApi,
   projectsApi,
   sectionsApi,
   workspacesApi,
+  shoppingApi,
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
+  renderShopping: () => renderShopping(),
 });
 const todosFeature = createTodosFeature({
   getTodos: () => todos,
@@ -467,10 +491,15 @@ const wsClient = createWebSocketClient({
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
   setWorkspaces: setWorkspacesState,
+  getShoppingLists: () => shoppingLists,
+  setShoppingLists: setShoppingListsState,
+  getShoppingStores: () => shoppingStores,
+  setShoppingStores: setShoppingStoresState,
   renderWorkspaces: () => renderWorkspaces(),
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
+  renderShopping: () => renderShopping(),
   onAuthOk: () => {
     desktopIntegration?.announceNotificationReadiness();
     dashboardPreferencesSyncFeature?.refresh();
@@ -672,6 +701,7 @@ const navigationFeature = createNavigationFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   showProjectModal: () => showProjectModal(),
+  editProject: id => projectsFeature.editProject(id),
 });
 const setFilter = navigationFeature.setFilter;
 const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
@@ -719,6 +749,13 @@ moduleSwitcher = createModuleSwitcher({
     uiShell.closeSidebar({ preserveHistory: true });
   },
 });
+shoppingNavigationFeature = createShoppingNavigationFeature({
+  getLists: () => shoppingLists,
+  closeSidebar: options => uiShell.closeSidebar(options),
+  onAdd: () => window.dispatchEvent(new CustomEvent('nia:shopping-list-add-request')),
+  onDetail: id => window.dispatchEvent(new CustomEvent('nia:shopping-list-detail-request', { detail: { id } })),
+});
+shoppingNavigationFeature.bind();
 const refreshTasksModule = () => {
   renderProjects();
   renderStats();
@@ -737,6 +774,10 @@ moduleShell.registerController('tasks', {
     renderStats();
     renderTodos();
   },
+});
+moduleShell.registerController('shopping', {
+  onActivate: () => shoppingNavigationFeature.activate(),
+  onLanguageChange: () => shoppingNavigationFeature.render(),
 });
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
@@ -861,6 +902,8 @@ const appLifecycle = createAppLifecycle({
   setProjects: (next) => { projects = next; },
   setSections: (next) => { sections = next; },
   setWorkspaces: setWorkspacesState,
+  setShoppingLists: setShoppingListsState,
+  setShoppingStores: setShoppingStoresState,
   setCurrentFilter: (next) => { currentFilter = next; },
   setCurrentProjectId: (next) => { currentProjectId = next; },
   setCurrentWorkspaceId: setCurrentWorkspaceState,

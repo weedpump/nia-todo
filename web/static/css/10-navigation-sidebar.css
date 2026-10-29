@@ -68,7 +68,7 @@
     margin-bottom: 12px;
   }
 
-  #app[data-desktop-sidebar-mode="rail"] .project-tree-item {
+  #app[data-desktop-sidebar-mode="rail"] .entity-sidebar-item {
     padding-left: 0 !important;
   }
 
@@ -180,7 +180,7 @@
   color: var(--accent);
 }
 
-.add-project-icon {
+.entity-sidebar-add-icon {
   color: currentColor;
 }
 
@@ -228,8 +228,8 @@
   flex-shrink: 0;
 }
 
-/* Project Tree */
-.project-tree-item {
+/* Entity sidebar rows */
+.entity-sidebar-item {
   width: 100%;
 }
 

@@ -1,3 +1,5 @@
+import { bindEntitySidebarNavigation } from './entity-sidebar.js';
+
 export function createNavigationFeature({
   sectionsApi,
   getCurrentProjectId,
@@ -15,6 +17,7 @@ export function createNavigationFeature({
   renderStats,
   renderTodos,
   showProjectModal = null,
+  editProject = null,
 }) {
   const baseFilters = ['all','focus','calendar','pending','in_progress','done'];
   let applyingHistory = false;
@@ -50,7 +53,7 @@ export function createNavigationFeature({
     setCurrentProjectId(nextProjectId);
 
     localStorage.setItem('nia-last-filter', filter);
-    const sidebarClosed = closeSidebar({ preserveHistory: true });
+    const sidebarClosed = options.skipSidebarClose ? false : closeSidebar({ preserveHistory: true });
     updateHistory(filter, Boolean(options.replaceHistory || sidebarClosed));
 
     document.querySelectorAll('.nav-btn').forEach((button) => {
@@ -105,17 +108,19 @@ export function createNavigationFeature({
   function bindNavigationActions() {
     if (document.documentElement.dataset.navigationActionsBound === '1') return;
     document.documentElement.dataset.navigationActionsBound = '1';
+    bindEntitySidebarNavigation({
+      root: document,
+      entityType: 'project',
+      onSelect: (id, { sidebarClosed } = {}) => setFilter(id, { skipSidebarClose: true, replaceHistory: sidebarClosed }),
+      onDetail: id => editProject?.(id),
+      onAdd: () => showProjectModal?.(),
+      closeSidebar,
+    });
     document.addEventListener('click', (event) => {
-      const navButton = event.target?.closest?.('.nav-btn[data-filter], [data-nav-filter]');
+      const navButton = event.target?.closest?.('.nav-btn[data-filter]:not([data-entity-sidebar-action]), [data-nav-filter]');
       if (navButton) {
         event.preventDefault();
         setFilter(navButton.dataset.filter || navButton.dataset.navFilter);
-        return;
-      }
-      const action = event.target?.closest?.('[data-nav-action]')?.dataset.navAction;
-      if (action === 'new-project') {
-        event.preventDefault();
-        showProjectModal?.();
       }
     });
   }

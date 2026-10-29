@@ -137,6 +137,7 @@ run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
 run_step "Product Branding" node scripts/test_product_branding.mjs
 run_step "Module Shell" node scripts/test_module_shell.mjs
+run_step "Shared Entity Sidebar" node scripts/test_frontend_entity_sidebar.mjs
 run_step "Auth Module Hydration" node scripts/test_frontend_auth_module_hydration.mjs
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
 run_step "Service Worker Avatar Privacy" node scripts/test_sw_avatar_privacy.mjs
@@ -163,6 +164,7 @@ run_step "WebSocket Access Snapshot" node scripts/test_frontend_access_snapshot.
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
 run_step "Offline Shopping Sync Contracts" node scripts/test_offline_shopping_sync.mjs
 run_step "Frontend Shopping Realtime" node scripts/test_frontend_shopping_realtime.mjs
+run_step "Shopping Store Snapshot" node scripts/test_shopping_store_snapshot.mjs
 
 frontend_suite_active=0
 restore_frontend_suite() {
@@ -218,6 +220,7 @@ run_frontend_shared_step_retry() {
 step "Frontend Shared DB"
 run_frontend_shared_step_retry "Frontend Smoke" node scripts/test_frontend_smoke.mjs
 run_frontend_shared_step_retry "Frontend App Core" node scripts/test_frontend_app.mjs
+run_frontend_shared_step_retry "Shared Entity Sidebar Browser" node scripts/test_frontend_entity_sidebar_browser.mjs
 run_frontend_shared_step_retry "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
 run_frontend_shared_step_retry "Frontend Offline Todo Children" node scripts/test_frontend_offline_todo_children.mjs
 run_frontend_shared_step_retry "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs

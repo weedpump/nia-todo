@@ -1,6 +1,8 @@
 import { TASK_DIALOGS_HTML } from './tasks-dialogs.js';
 import { TASK_DESKTOP_HOTKEYS_HTML, TASK_SETTINGS_HTML, TASK_SETTINGS_NAV_HTML } from './tasks-settings.js';
 import { TASK_SHORTCUTS_HTML } from './tasks-shortcuts.js';
+import { renderEntitySidebarAddRow } from '../features/entity-sidebar.js';
+import { t } from '../i18n/index.js';
 
 export const tasksModule = Object.freeze({
   id: 'tasks',
@@ -40,13 +42,7 @@ export const tasksModule = Object.freeze({
       <nav class="nav-section">
         <div class="nav-title" data-i18n-key="nav.projects">Projects</div>
         <div id="project-list"></div>
-        <div class="project-tree-item add-project-tree-item">
-          <div class="nav-item-with-action">
-            <button class="nav-btn ui-nav-pill add-btn" data-nav-action="new-project" aria-label="Add project" data-i18n-aria-label-key="nav.addProject" title="Add project" data-i18n-title-key="nav.addProject">
-              <span class="entity-icon add-project-icon" data-icon="plus"></span><span data-i18n-key="nav.addProject">Add project</span>
-            </button>
-          </div>
-        </div>
+        ${renderEntitySidebarAddRow({ entityType: 'project', label: t('nav.addProject'), labelKey: 'nav.addProject' })}
       </nav>
 
       <nav class="nav-section" id="invites-section" style="display:none;">

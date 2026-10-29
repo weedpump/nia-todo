@@ -193,7 +193,9 @@ assert(syncSource.includes('sanitizeQueueItem'), 'offline sync must sanitize que
 assert(syncSource.includes('pickAllowed'), 'offline sync must whitelist payload fields');
 
 const renderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
-assert(renderingSource.includes('data-project-action="edit"') && renderingSource.includes('data-project-id="${escapeHtmlAttr(project.id)}"'), 'project edit buttons must use escaped data attributes instead of inline onclick handlers');
+const entitySidebarSource = readFileSync(new URL('../web/static/js/features/entity-sidebar.js', import.meta.url), 'utf8');
+assert(renderingSource.includes('renderEntitySidebarRow({') && renderingSource.includes("detailAttributes: { 'data-project-id': project.id }"), 'projects must delegate edit-button rendering to the neutral entity sidebar');
+assert(entitySidebarSource.includes('data-entity-sidebar-action="detail"') && entitySidebarSource.includes('escapeHtmlAttr(id)'), 'shared detail buttons must use escaped data attributes instead of inline handlers');
 assert(!renderingSource.includes('onclick="editProject('), 'project edit must not use inline onclick handlers');
 assert(renderingSource.includes('invite-action invite-accept') && renderingSource.includes('invite-action invite-decline'), 'invite actions should use compact dedicated buttons');
 

@@ -137,7 +137,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     modal?.classList.remove('active');
 
     const activeElement = document.activeElement;
-    if (activeElement?.matches?.('.nav-edit, [data-project-action="edit"], [data-workspace-action="edit"]')) {
+    if (activeElement?.matches?.('.entity-sidebar-detail, [data-workspace-action="edit"]')) {
       activeElement.blur();
     }
   }

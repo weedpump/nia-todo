@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'nia-v4-module-platform-preview-191';
+const CACHE_REVISION = 'nia-v4-module-platform-preview-192';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -71,6 +71,7 @@ const PRECACHE_ASSETS = [
   '/static/js/api/push.js',
   '/static/js/api/sharing.js',
   '/static/js/api/todos.js',
+  '/static/js/api/shopping.js',
   '/static/js/api/server-updates.js',
   '/static/js/core/config.js',
   '/static/js/core/boot.js',
@@ -119,6 +120,8 @@ const PRECACHE_ASSETS = [
   '/static/js/features/about.js',
   '/static/js/features/shortcut-help.js',
   '/static/js/features/app-rendering.js',
+  '/static/js/features/entity-sidebar.js',
+  '/static/js/features/shopping-navigation.js',
   '/static/js/features/dashboard-preferences.js',
   '/static/js/features/dashboard-preferences-dialog.js',
   '/static/js/features/dashboard-preferences-sync.js',
@@ -168,6 +171,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/todo-quick-add.js',
   '/static/js/features/todo-multi-add.js',
   '/static/js/features/todo-pending.js',
+  '/static/js/features/shopping-pending.js',
   '/static/js/features/sync.js',
   '/static/js/features/sync-controller.js',
   '/static/js/features/todo-rendering.js',

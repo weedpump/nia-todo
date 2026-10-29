@@ -155,7 +155,7 @@ export function createWorkspacesFeature({
           </div>`;
         }).join('')}
       </div>
-      <button type="button" class="ui-menu-item workspace-menu-add" data-workspace-action="new"><span class="entity-icon add-project-icon workspace-menu-add-icon" data-icon="plus" aria-hidden="true"></span><span>${escapeHtml(t('workspace.add'))}</span></button>
+      <button type="button" class="ui-menu-item workspace-menu-add" data-workspace-action="new"><span class="entity-icon entity-sidebar-add-icon workspace-menu-add-icon" data-icon="plus" aria-hidden="true"></span><span>${escapeHtml(t('workspace.add'))}</span></button>
     `;
     hydrateIcons(menu);
   }

@@ -50,7 +50,7 @@ const transferWarningTerms = {
 for (const locale of ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'es', 'zh-CN']) {
   const messages = JSON.parse(readFileSync(new URL(`../web/static/i18n/${locale}.json`, import.meta.url), 'utf8'));
   for (const key of [
-    'menu.household',
+    'common.household',
     'settings.household.title', 'settings.household.hint', 'settings.household.pendingInviteCount',
     'settings.household.unknownMember', 'settings.household.invitedBy', 'settings.household.accept',
     'settings.household.decline', 'settings.household.noIncomingInvites', 'settings.household.owner',
@@ -227,6 +227,7 @@ try {
     if (pathname === '/static/js/features/projects.js') return route.fulfill({ contentType: 'text/javascript', body: projectsSource });
     if (pathname === '/static/js/features/project-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: sharingSource });
     if (pathname === '/static/js/features/app-rendering.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(renderingSourceUrl, 'utf8') });
+    if (pathname === '/static/js/features/entity-sidebar.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-sidebar.js', import.meta.url), 'utf8') });
     if (pathname === '/static/css/71-settings.css') return route.fulfill({ contentType: 'text/css', body: settingsCss });
     if (pathname === '/static/js/i18n/index.js') return route.fulfill({ contentType: 'text/javascript', body: "export const t=(key,args={})=>key==='project.forHousehold'?`Household “${args.name}”`:key==='project.householdBadge'?`Household: ${args.name}`:key; export const getActiveLocale=()=> 'en-US';" });
     if (pathname === '/static/js/icons/lucide-icons.js') return route.fulfill({ contentType: 'text/javascript', body: lucideIconsSource });
@@ -235,6 +236,7 @@ try {
     if (pathname === '/static/js/ui/dropdowns.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const hydrateSelect=()=>{}; export const refreshSelect=()=>{};' });
     if (pathname === '/static/js/features/ui-history.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const openUiLayer=()=>{};' });
     if (pathname === '/static/js/core/config.js') return route.fulfill({ contentType: 'text/javascript', body: "export const apiResourceUrl=value=>value;" });
+    if (pathname === '/static/js/core/utils.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/core/utils.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/core/authenticated-image.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const loadAuthenticatedImage=async()=>false; export const releaseAuthenticatedImage=()=>{};' });
     if (pathname === '/static/js/features/dashboard-preferences.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const calculateDashboardMetrics=()=>({}); export const filterTodosForDashboard=items=>items; export const filterTodosForDashboardDrilldown=items=>items; export const filterTodosForTodayFocus=items=>items; export const getEffectiveDashboardPreferences=()=>({stats:[],focusItems:[],activeProjects:{sort:"recent",limit:5},showFocus:false,showActiveProjects:false,groupByStatus:true}); export const selectDashboardWorkspaceTodos=items=>items;' });
     return route.fulfill({ contentType: 'text/html', body: testHtml });
