@@ -701,6 +701,13 @@ async def create_shopping_section(shopping_list_id: int, data: ShoppingSectionCr
             db.commit()
         except sqlite3.IntegrityError as exc:
             db.rollback()
+            if data.client_mutation_id:
+                existing = db.execute(
+                    "SELECT * FROM shopping_sections WHERE shopping_list_id = ? AND client_mutation_id = ?",
+                    (shopping_list_id, data.client_mutation_id),
+                ).fetchone()
+                if existing:
+                    return _section_view(existing)
             raise HTTPException(409, "Shopping section could not be saved") from exc
         row = db.execute("SELECT * FROM shopping_sections WHERE id = ?", (section_id,)).fetchone()
         result = _section_view(row)
@@ -823,6 +830,8 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
         if "name" in fields_set:
             updates["name"] = _clean_required(data.name, "Item name", 500)
         if "section_id" in fields_set:
+            if data.section_id != existing["section_id"]:
+                _permissions_for_list(db, shopping_list_id, user_id, manage=True)
             if data.section_id is not None:
                 section = db.execute(
                     "SELECT id FROM shopping_sections WHERE id = ? AND shopping_list_id = ?",

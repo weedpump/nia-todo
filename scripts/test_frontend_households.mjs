@@ -229,6 +229,7 @@ try {
     if (pathname === '/static/js/features/form-save-state.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/form-save-state.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/project-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: sharingSource });
     if (pathname === '/static/js/features/app-rendering.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(renderingSourceUrl, 'utf8') });
+    if (pathname === '/static/js/features/section-ui.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/section-ui.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/entity-sidebar.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-sidebar.js', import.meta.url), 'utf8') });
     if (pathname === '/static/css/71-settings.css') return route.fulfill({ contentType: 'text/css', body: settingsCss });
     if (pathname === '/static/js/i18n/index.js') return route.fulfill({ contentType: 'text/javascript', body: "export const t=(key,args={})=>key==='project.forHousehold'?`Household “${args.name}”`:key==='project.householdBadge'?`Household: ${args.name}`:key; export const getActiveLocale=()=> 'en-US';" });

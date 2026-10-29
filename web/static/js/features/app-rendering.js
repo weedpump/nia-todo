@@ -5,6 +5,7 @@ import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-ic
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { calculateDashboardMetrics, filterTodosForDashboard, filterTodosForDashboardDrilldown, filterTodosForTodayFocus, getEffectiveDashboardPreferences, selectDashboardWorkspaceTodos } from './dashboard-preferences.js';
 import { classifyEntityOwnership, renderEntitySidebarRow, renderEntitySidebarSection } from './entity-sidebar.js';
+import { renderSectionCollection } from './section-ui.js';
 
 export function createAppRenderingFeature({
   appVersion,
@@ -29,7 +30,6 @@ export function createAppRenderingFeature({
   getFocusProjectSearch,
   sortTodoList,
   renderTodoItem,
-  renderSectionHeader,
   renderCalendarView,
   cleanupCalendarView,
   getInvites,
@@ -734,7 +734,7 @@ export function createAppRenderingFeature({
       const projectTodos = getWorkspaceTodos().filter(t => Number(t.project_id) === Number(currentProjectId));
       if (!search) html += renderProjectDashboard(currentProject, projectTodos);
       const sections = allSections.filter(s => Number(s.project_id) === Number(currentProjectId));
-      const validSectionIds = new Set(sections.map(s => s.id));
+
 
       if (currentFilter !== 'all' && ['pending','in_progress','done'].includes(currentFilter)) {
         filtered = filtered.filter(t => t.status === currentFilter);
@@ -751,30 +751,24 @@ export function createAppRenderingFeature({
         </div>`;
       }
 
-      sections.forEach((section, index) => {
-        const sectionTodos = sortProjectSectionTodos(sectionSource.filter(t => t.section_id === section.id));
-        html += `<div class="section-dropzone" data-drop-index="${index}"></div>`;
-        html += renderSectionHeader(section, sectionTodos);
-        html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}">`;
-        html += sectionTodos.map(t => renderTodoItem(t)).join('');
-        html += `</div>`;
+      const sectionItems = sectionSource.map(todo => todo);
+      const validSectionIds = new Set(sections.map(section => String(section.id)));
+      const unsortedCount = sectionItems.filter(todo => todo.section_id == null || !validSectionIds.has(String(todo.section_id))).length;
+      html += renderSectionCollection({
+        sections,
+        items: sectionItems,
+        canManage: true,
+        unsortedLabel: t('section.unsorted'),
+        deleteLabel: t('section.delete'),
+        newLabel: t('section.new'),
+        renderItem: todo => renderTodoItem(todo),
+        sortItems: sortProjectSectionTodos,
+        showUnsorted: Boolean(unsortedCount || sections.length),
+        renderAddRow: () => `<div class="add-section-row">
+          <button type="button" class="btn btn-secondary btn-small" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
+          <button type="button" class="btn btn-secondary btn-small" data-project-action="clear-done-current">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
+        </div>`,
       });
-      if (sections.length) {
-        html += `<div class="section-dropzone" data-drop-index="${sections.length}"></div>`;
-      }
-
-      const unsorted = sortProjectSectionTodos(sectionSource.filter(t => !t.section_id || !validSectionIds.has(t.section_id)));
-      if (unsorted.length || sections.length) {
-        html += renderSectionHeader(null, unsorted);
-        html += `<div class="section-todos" data-section-id="null">`;
-        html += unsorted.map(t => renderTodoItem(t)).join('');
-        html += `</div>`;
-      }
-
-      html += `<div class="add-section-row">
-        <button type="button" class="btn btn-secondary btn-small" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
-        <button type="button" class="btn btn-secondary btn-small" data-project-action="clear-done-current">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
-      </div>`;
 
       if (!filtered.length && !sections.length) {
         html += `<div class="empty-state">

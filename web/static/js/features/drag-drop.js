@@ -1,4 +1,12 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
+import { resolveSectionDragSourceAdapter, resolveSectionDropAdapter } from './section-ui.js';
+
+export function sectionDragSourceMatches({ currentId, currentAdapter, completedId, completedAdapter } = {}) {
+  return currentAdapter === completedAdapter
+    && currentId !== null
+    && currentId !== undefined
+    && String(currentId) === String(completedId);
+}
 
 export function createDragDropFeature({
   getTodos,
@@ -15,10 +23,13 @@ export function createDragDropFeature({
   addToSyncQueue,
   runSyncQueueMutation,
   syncWithServer,
+  sectionRegistry,
+  taskSectionAdapter,
 }) {
   const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
   let dragSrcTodoId = null;
   let dragSrcSectionId = null;
+  let dragSrcSectionAdapter = null;
   let currentSectionDropIndex = null;
   let pointerDrag = null;
   let nativeSummaryPointer = null;
@@ -37,6 +48,17 @@ export function createDragDropFeature({
 
   function eventDataTransfer(e) {
     return e.dataTransfer || { setData() {}, effectAllowed: 'move', dropEffect: 'move' };
+  }
+
+  function setSectionDragActive(active) {
+    document.body.classList.toggle('section-dragging', active);
+  }
+
+  function taskSectionIdFromTarget(target, rawId) {
+    if (rawId === 'null') return null;
+    const adapter = sectionRegistry?.resolve?.(target) || taskSectionAdapter;
+    if (taskSectionAdapter && adapter !== taskSectionAdapter) return undefined;
+    return adapter?.resolveSectionId?.(rawId) ?? rawId;
   }
 
   function handleTodoDragStart(e) {
@@ -145,7 +167,8 @@ export function createDragDropFeature({
     const targetSectionId = container.dataset.sectionId;
     if (!dragSrcTodoId) return;
 
-    const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
+    const newSectionId = taskSectionIdFromTarget(container, targetSectionId);
+    if (newSectionId === undefined) return;
     await moveTodoToSection(dragSrcTodoId, newSectionId);
   }
 
@@ -176,8 +199,11 @@ export function createDragDropFeature({
 
   function handleSectionDragStart(e) {
     const section = e.target?.closest?.('.section-header[data-section-id]') || e.target;
-    dragSrcSectionId = parseInt(section.dataset.sectionId);
+    dragSrcSectionAdapter = resolveSectionDragSourceAdapter({ registry: sectionRegistry, taskAdapter: taskSectionAdapter, target: section });
+    if (!dragSrcSectionAdapter) return;
+    dragSrcSectionId = dragSrcSectionAdapter.resolveSectionId?.(section.dataset.sectionId) ?? section.dataset.sectionId;
     section.classList.add('dragging');
+    setSectionDragActive(true);
     const transfer = eventDataTransfer(e);
     transfer.effectAllowed = 'move';
     transfer.setData('text/plain', 'section:' + dragSrcSectionId);
@@ -191,13 +217,15 @@ export function createDragDropFeature({
     stopStandardDragAutoScroll();
     const section = e.target?.closest?.('.section-header[data-section-id]') || e.target;
     section.classList.remove('dragging');
+    setSectionDragActive(false);
     clearSectionDropIndicators();
     dragSrcSectionId = null;
+    dragSrcSectionAdapter = null;
     currentSectionDropIndex = null;
   }
 
   function handleSectionDragOver(e) {
-    if (!dragSrcSectionId) return;
+    if (dragSrcSectionId === null || dragSrcSectionId === undefined) return;
     e.preventDefault();
     eventDataTransfer(e).dropEffect = 'move';
     scheduleStandardDragAutoScroll(e);
@@ -212,7 +240,11 @@ export function createDragDropFeature({
     if (header) header.classList.add('drag-over');
   }
 
-  async function persistSectionOrder(sections) {
+  async function persistSectionOrder(sections, sourceAdapter = dragSrcSectionAdapter) {
+    if (sourceAdapter?.reorderSections) {
+      await sourceAdapter.reorderSections(sections.map(section => section.id));
+      return;
+    }
     for (let i = 0; i < sections.length; i++) {
       sections[i] = { ...sections[i], sort_order: i };
       if (isOnlineForSync()) {
@@ -228,10 +260,19 @@ export function createDragDropFeature({
     renderTodos();
   }
 
-  async function moveSectionToDropTarget(header, dropzone) {
-    if (!dragSrcSectionId) return false;
-    const sections = [...getSections()];
-    const srcIdx = sections.findIndex(s => s.id === dragSrcSectionId);
+  async function moveSectionToDropTarget(header, dropzone, source = {}) {
+    const sourceId = source.id ?? dragSrcSectionId;
+    const sourceAdapter = source.adapter ?? dragSrcSectionAdapter;
+    if (sourceId === null || sourceId === undefined) return false;
+    const adapter = resolveSectionDropAdapter({
+      registry: sectionRegistry,
+      taskAdapter: taskSectionAdapter,
+      sourceAdapter,
+      target: dropzone || header,
+    });
+    if (!adapter?.canManage?.()) return false;
+    const sections = [...(adapter.getSections?.() || getSections())];
+    const srcIdx = sections.findIndex(section => String(section.id) === String(sourceId));
     if (srcIdx === -1) return false;
 
     if (dropzone) {
@@ -240,25 +281,27 @@ export function createDragDropFeature({
       const [moved] = sections.splice(srcIdx, 1);
       const targetIdx = srcIdx < rawIndex ? rawIndex - 1 : rawIndex;
       sections.splice(Math.max(0, Math.min(targetIdx, sections.length)), 0, moved);
-      await persistSectionOrder(sections);
+      await persistSectionOrder(sections, sourceAdapter);
       return true;
     }
 
     const targetSectionId = header?.dataset.sectionId;
-    if (targetSectionId === 'null' || !header || dragSrcSectionId === parseInt(targetSectionId)) return false;
+    if (targetSectionId === 'null' || !header || String(sourceId) === String(targetSectionId)) return false;
 
-    const targetIdx = sections.findIndex(s => s.id === parseInt(targetSectionId));
+    const targetId = adapter.resolveSectionId?.(targetSectionId) ?? targetSectionId;
+    const targetIdx = sections.findIndex(section => String(section.id) === String(targetId));
     if (targetIdx === -1) return false;
 
     const [moved] = sections.splice(srcIdx, 1);
     sections.splice(targetIdx, 0, moved);
-    await persistSectionOrder(sections);
+    await persistSectionOrder(sections, sourceAdapter);
     return true;
   }
 
   async function handleSectionDrop(e) {
     e.preventDefault();
     stopStandardDragAutoScroll();
+    setSectionDragActive(false);
 
     const header = e.target.closest('.section-header');
     const dropzone = e.target.closest('.section-dropzone');
@@ -268,7 +311,8 @@ export function createDragDropFeature({
     const targetSectionId = header?.dataset.sectionId;
 
     if (dragSrcTodoId && header) {
-      const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
+      const newSectionId = taskSectionIdFromTarget(header, targetSectionId);
+      if (newSectionId === undefined) return;
       await moveTodoToSection(dragSrcTodoId, newSectionId);
       return;
     }
@@ -586,11 +630,13 @@ export function createDragDropFeature({
     stopNativeAutoScroll();
     pointerDrag.ghost?.remove();
     pointerDrag.source?.classList?.remove('dragging');
+    if (pointerDrag.type === 'section') setSectionDragActive(false);
     document.body.classList.remove('native-pointer-dragging');
     clearNativeDragIndicators();
     pointerDrag = null;
     dragSrcTodoId = null;
     dragSrcSectionId = null;
+    dragSrcSectionAdapter = null;
   }
 
   function activateNativePointerDrag(event) {
@@ -611,7 +657,11 @@ export function createDragDropFeature({
     pointerDrag.ghost = createNativeGhost(pointerDrag.source);
     pointerDrag.source.classList.add('dragging');
     if (pointerDrag.type === 'todo') dragSrcTodoId = pointerDrag.id;
-    if (pointerDrag.type === 'section') dragSrcSectionId = pointerDrag.id;
+    if (pointerDrag.type === 'section') {
+      dragSrcSectionId = pointerDrag.id;
+      dragSrcSectionAdapter = resolveSectionDragSourceAdapter({ registry: sectionRegistry, taskAdapter: taskSectionAdapter, target: pointerDrag.source });
+      setSectionDragActive(true);
+    }
     moveNativeGhost(event);
     updateNativeDropTarget(event.clientX, event.clientY);
     scheduleNativeAutoScroll();
@@ -628,12 +678,14 @@ export function createDragDropFeature({
     try { drag.source.releasePointerCapture?.(drag.pointerId); } catch (_error) {}
     drag.ghost?.remove();
     drag.source.classList.remove('dragging');
+    if (drag.type === 'section') setSectionDragActive(false);
     document.body.classList.remove('native-pointer-dragging');
     clearNativeDragIndicators();
 
     if (!wasActive || !target) {
       dragSrcTodoId = null;
       dragSrcSectionId = null;
+      dragSrcSectionAdapter = null;
       return;
     }
 
@@ -644,14 +696,28 @@ export function createDragDropFeature({
         return;
       }
       const rawSectionId = target.sectionTodos?.dataset.sectionId || target.sectionHeader?.dataset.sectionId;
-      if (rawSectionId) await moveTodoToSection(drag.id, rawSectionId === 'null' ? null : parseInt(rawSectionId));
+      if (rawSectionId) {
+        const targetElement = target.sectionTodos || target.sectionHeader;
+        const sectionId = taskSectionIdFromTarget(targetElement, rawSectionId);
+        if (sectionId !== undefined) await moveTodoToSection(drag.id, sectionId);
+      }
       dragSrcTodoId = null;
       return;
     }
 
     if (drag.type === 'section') {
-      await moveSectionToDropTarget(target.sectionHeader, target.dropzone);
-      dragSrcSectionId = null;
+      const completedId = drag.id;
+      const completedAdapter = dragSrcSectionAdapter;
+      await moveSectionToDropTarget(target.sectionHeader, target.dropzone, { id: completedId, adapter: completedAdapter });
+      if (sectionDragSourceMatches({
+        currentId: dragSrcSectionId,
+        currentAdapter: dragSrcSectionAdapter,
+        completedId,
+        completedAdapter,
+      })) {
+        dragSrcSectionId = null;
+        dragSrcSectionAdapter = null;
+      }
     }
   }
 
@@ -778,7 +844,10 @@ export function createDragDropFeature({
       }
       const section = event.target.closest('.section-header[data-section-id]:not(.section-unsorted)');
       if (section && section.dataset.sectionId !== 'null') {
-        startNativePointerDrag(event, section, 'section', parseInt(section.dataset.sectionId));
+        const adapter = resolveSectionDragSourceAdapter({ registry: sectionRegistry, taskAdapter: taskSectionAdapter, target: section });
+        if (!adapter) return;
+        const sectionId = adapter?.resolveSectionId?.(section.dataset.sectionId) ?? section.dataset.sectionId;
+        startNativePointerDrag(event, section, 'section', sectionId);
       }
     }, true);
 

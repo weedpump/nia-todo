@@ -254,6 +254,7 @@ assert.equal(mainTarget.className, 'module-page shopping-list-content-page');
 assert.match(mainTarget.innerHTML, /class="shopping-list-content-header"/);
 assert.match(mainTarget.innerHTML, /class="shopping-list-content-body"/);
 assert.match(mainTarget.innerHTML, /class="empty-state shopping-list-empty-state"/);
+assert.doesNotMatch(mainTarget.innerHTML, /class="section-header section-unsorted"/, 'a completely empty list must retain the accepted empty-state instead of a zero-count fallback section');
 assert.doesNotMatch(mainTarget.innerHTML, /data-shopping-list-action=/, 'the content header must not introduce list actions');
 assert.deepEqual(featureHistoryCalls, [], 'background rendering must not mutate browser history');
 navigationFeature.activate();
@@ -299,8 +300,7 @@ assert.deepEqual(featureCalls.at(-1), ['remap', 'temp-shopping-list-older', 88],
 assert.equal(featureRoot.remappedFocusId, '88', 'a focused non-active Temp-ID row must regain focus on its server-ID replacement');
 navigationFeature.replaceLists([{ ...entities[0], id: 77, items: [{ id: 1, name: 'Milk', completed: false }] }]);
 assert.equal(mainTarget.dataset.shoppingContentState, 'populated');
-assert.match(mainTarget.innerHTML, /class="shopping-list-content-items"/);
-assert.doesNotMatch(mainTarget.innerHTML, /shopping-list-empty-state/, 'a list with item data must not render the empty-list message');
+assert.match(mainTarget.innerHTML, /class="section-item-name">Milk</);
 navigationFeature.replaceLists([]);
 assert.equal(navigationFeature.getActiveListId(), null);
 assert.equal(featureStorage.has('nia-shopping-active-list'), false);

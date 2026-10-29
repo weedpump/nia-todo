@@ -3,8 +3,10 @@
 
 import asyncio
 import os
+import sqlite3
 import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -321,7 +323,6 @@ with tempfile.TemporaryDirectory() as tmp:
                 name="Shared item edited",
                 quantity_value=3,
                 quantity_unit="pcs",
-                section_id=personal_section["id"],
             ),
             shared_id,
         )
@@ -329,7 +330,19 @@ with tempfile.TemporaryDirectory() as tmp:
     assert shared_item_edit["name"] == "Shared item edited", shared_item_edit
     assert shared_item_edit["quantity_value"] == 3, shared_item_edit
     assert shared_item_edit["quantity_unit"] == "pcs", shared_item_edit
-    assert shared_item_edit["section_id"] == personal_section["id"], shared_item_edit
+    assert shared_item_edit["section_id"] is None, shared_item_edit
+    try:
+        asyncio.run(
+            update_shopping_item(
+                shared_item["id"],
+                ShoppingItemUpdate(section_id=personal_section["id"]),
+                shared_id,
+            )
+        )
+    except HTTPException as error:
+        assert error.status_code == 404, error
+    else:
+        raise AssertionError("Direct recipient changed a shopping item's section")
     assert shared_item_edit["store_ids"] == [owner_store["id"]], shared_item_edit
     retained_hidden_store = asyncio.run(
         update_shopping_item(
@@ -484,6 +497,39 @@ with tempfile.TemporaryDirectory() as tmp:
     assert [(store["id"], store["name"]) for store in milk["stores"]] == [(rewe["id"], "REWE"), (lidl["id"], "Lidl City")], milk
     assert unrestricted["store_ids"] == [], unrestricted
     assert unrestricted["stores"] == [], unrestricted
+    owner_section_move = asyncio.run(
+        update_shopping_item(
+            unrestricted["id"],
+            ShoppingItemUpdate(section_id=section_id),
+            owner_id,
+        )
+    )
+    assert owner_section_move["section_id"] == section_id, owner_section_move
+    owner_unsorted_move = asyncio.run(
+        update_shopping_item(
+            unrestricted["id"],
+            ShoppingItemUpdate(section_id=None),
+            owner_id,
+        )
+    )
+    assert owner_unsorted_move["section_id"] is None, owner_unsorted_move
+    with get_db() as db:
+        assert db.execute(
+            "SELECT section_id FROM shopping_items WHERE id = ?",
+            (unrestricted["id"],),
+        ).fetchone()["section_id"] is None
+    try:
+        asyncio.run(
+            update_shopping_item(
+                unrestricted["id"],
+                ShoppingItemUpdate(section_id=section_id),
+                member_id,
+            )
+        )
+    except HTTPException as error:
+        assert error.status_code == 404, error
+    else:
+        raise AssertionError("Household member changed a shopping item's section without sort_order")
 
     owner_item_view = next(
         item for item in get_shopping_list(household_id_value, owner_id)["items"]
@@ -634,5 +680,58 @@ with tempfile.TemporaryDirectory() as tmp:
             "WHERE ea.entity_type = 'shopping_list' AND ea.entity_id = ?",
             (household_id_value,),
         ).fetchone()
+
+    class SectionRaceDb:
+        def __init__(self):
+            self.lookup_count = 0
+            self.rolled_back = False
+
+        def execute(self, sql, params=()):
+            if sql == "BEGIN IMMEDIATE":
+                return self
+            if "SELECT * FROM shopping_sections WHERE shopping_list_id" in sql:
+                self.lookup_count += 1
+                return self
+            if sql.startswith("INSERT INTO shopping_sections"):
+                raise sqlite3.IntegrityError("simulated unique race")
+            raise AssertionError((sql, params))
+
+        def fetchone(self):
+            if self.lookup_count == 1:
+                return None
+            return {
+                "id": 999,
+                "shopping_list_id": personal_id,
+                "name": "Recovered",
+                "sort_order": 0,
+                "client_mutation_id": "section-race",
+            }
+
+        def rollback(self):
+            self.rolled_back = True
+
+    race_db = SectionRaceDb()
+
+    @contextmanager
+    def race_get_db():
+        yield race_db
+
+    original_get_db = shopping_router.get_db
+    original_permissions = shopping_router._permissions_for_list
+    shopping_router.get_db = race_get_db
+    shopping_router._permissions_for_list = lambda *args, **kwargs: (None, None)
+    try:
+        recovered_section = asyncio.run(
+            create_shopping_section(
+                personal_id,
+                ShoppingSectionCreate(name="Race", client_mutation_id="section-race"),
+                owner_id,
+            )
+        )
+    finally:
+        shopping_router.get_db = original_get_db
+        shopping_router._permissions_for_list = original_permissions
+    assert race_db.rolled_back is True
+    assert recovered_section["id"] == 999, recovered_section
 
 print("✅ Shopping lists support stable stores, structured quantities, preferences, and household access")

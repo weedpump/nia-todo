@@ -240,6 +240,42 @@ assert.equal(queueState.length, 0);
 assert.deepEqual(shoppingStoreState.map(store => [store.id, store.name]), [[90, 'REWE Center']]);
 assert.equal(shoppingState[0].id, 70, 'store recovery must not delete a shopping list with the same numeric id');
 
+let createdSectionPayload = null;
+let updatedSectionId = null;
+let createdItemSectionId = null;
+let replaySections = [];
+serverItems = [];
+queueState = [
+  { id: 40, action: 'CREATE_SHOPPING_SECTION', data: { shopping_list_id: 70, temp_id: 'temp-section-replay', section: { name: 'Bakery', sort_order: 0 }, client_mutation_id: 'temp-section-replay' } },
+  { id: 41, action: 'UPDATE_SHOPPING_SECTION', data: { shopping_list_id: 70, section_id: 'temp-section-replay', changes: { name: 'Bread' } } },
+  { id: 42, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 70, temp_id: 'temp-item-section-replay', item: { name: 'Rolls', section_id: 'temp-section-replay', store_ids: [] }, client_mutation_id: 'temp-item-section-replay' } },
+];
+shoppingState = [{ id: 70, name: 'Queued', sections: [{ id: 'temp-section-replay', name: 'Bread', sort_order: 0 }], items: [{ id: 'temp-item-section-replay', name: 'Rolls', section_id: 'temp-section-replay', store_ids: [] }], preferences: {} }];
+shoppingApi.createSection = async (listId, data) => {
+  assert.equal(listId, 70);
+  createdSectionPayload = structuredClone(data);
+  replaySections = [{ id: 300, shopping_list_id: 70, ...data }];
+  return replaySections[0];
+};
+shoppingApi.updateSection = async (sectionId, changes) => {
+  updatedSectionId = sectionId;
+  replaySections = replaySections.map(section => section.id === sectionId ? { ...section, ...changes } : section);
+  return replaySections[0];
+};
+shoppingApi.createItem = async (listId, data) => {
+  assert.equal(listId, 70);
+  createdItemSectionId = data.section_id;
+  serverItems = [{ id: 202, shopping_list_id: 70, completed: false, ...data }];
+  return serverItems[0];
+};
+shoppingApi.getList = async id => ({ id, name: 'Queued', sections: structuredClone(replaySections), items: structuredClone(serverItems), preferences: {} });
+const sectionReplayResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
+assert.deepEqual(sectionReplayResult, { successCount: 3, failCount: 0, skipped: false });
+assert.equal(createdSectionPayload.client_mutation_id, 'temp-section-replay', 'section replay preserves the stable mutation identity in the API body');
+assert.equal(updatedSectionId, 300, 'dependent section updates use the remapped server ID');
+assert.equal(createdItemSectionId, 300, 'dependent item creates use the remapped section ID');
+assert.equal(queueState.length, 0);
+
 let deletedSectionId = null;
 queueState = [{ id: 14, action: 'DELETE_SHOPPING_SECTION', data: { shopping_list_id: 70, section_id: 300 } }];
 shoppingState = [{ id: 70, name: 'Queued', sections: [{ id: 300, name: 'Bakery' }], items: [{ id: 200, name: 'Eggs', section_id: 300 }], preferences: {} }];

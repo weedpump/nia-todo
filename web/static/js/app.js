@@ -41,6 +41,8 @@ import { createNavigationFeature } from './features/navigation.js';
 import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
 import { createShoppingListDetailsFeature } from './features/shopping-list-details.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
+import { createSectionRootRegistry } from './features/section-ui.js';
+import { createShoppingSectionsAdapter } from './features/shopping-sections.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createModuleShell } from './features/module-shell.js';
@@ -159,6 +161,7 @@ const pushFeature = createPushNotificationsFeature({ pushApi });
 const confirmDialogFeature = createConfirmDialogFeature();
 const dateTimePickerFeature = createDateTimePickerFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
+const sectionRegistry = createSectionRootRegistry();
 const alertInfo = confirmDialogFeature.alertInfo;
 const appDownloadsFeature = createAppDownloadsFeature();
 const serverUpdateIndicator = createServerUpdateIndicator({ serverUpdatesApi });
@@ -634,6 +637,7 @@ const sectionActions = createSectionActionsFeature({
   renderTodos: () => renderTodos(),
   confirmDanger,
   sectionsFeature,
+  sectionRegistry,
 });
 const renderSectionHeader = sectionActions.renderSectionHeader;
 const bindSectionActions = sectionActions.bindSectionActions;
@@ -772,12 +776,28 @@ moduleSwitcher = createModuleSwitcher({
     uiShell.closeSidebar({ preserveHistory: true });
   },
 });
+const shoppingSectionsAdapter = createShoppingSectionsAdapter({
+  getLists: () => shoppingLists,
+  setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
+  getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
+  getRoot: () => document.querySelector('[data-section-root="shopping"]'),
+  commitMutation: commitShoppingMutation,
+  render: () => shoppingNavigationFeature?.render?.(),
+  isOnlineForSync,
+  syncWithServer,
+  onError: error => console.error('Shopping section mutation failed', error),
+  labels: {
+    deleteMessage: () => t('shopping.section.deleteMessage'),
+  },
+});
 shoppingNavigationFeature = createShoppingNavigationFeature({
   getLists: () => shoppingLists,
   closeSidebar: options => uiShell.closeSidebar(options),
   onAdd: () => window.dispatchEvent(new CustomEvent('nia:shopping-list-add-request')),
   onDetail: id => window.dispatchEvent(new CustomEvent('nia:shopping-list-detail-request', { detail: { id } })),
   onListIdRemap: (fromId, toId) => shoppingListDetailsFeature?.remapListId(fromId, toId),
+  sectionRegistry,
+  sectionAdapter: shoppingSectionsAdapter,
 });
 shoppingNavigationFeature.bind();
 shoppingListDetailsFeature = createShoppingListDetailsFeature({
@@ -841,6 +861,8 @@ const dragDropFeature = createDragDropFeature({
   addToSyncQueue,
   runSyncQueueMutation,
   syncWithServer,
+  sectionRegistry,
+  taskSectionAdapter: sectionActions.adapter,
 });
 const bindStandardDragDrop = dragDropFeature.bindStandardDragDrop;
 const bindNativePointerDragDrop = dragDropFeature.bindNativePointerDragDrop;

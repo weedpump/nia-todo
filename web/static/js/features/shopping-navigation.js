@@ -8,6 +8,7 @@ import { escapeHtml } from '../core/utils.js';
 import { iconSvg, markerHtml } from '../icons/lucide-icons.js';
 import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { t } from '../i18n/index.js';
+import { renderSectionCollection } from './section-ui.js';
 
 export const SHOPPING_ACTIVE_LIST_KEY = 'nia-shopping-active-list';
 
@@ -82,12 +83,15 @@ export function createShoppingNavigationFeature({
   onAdd,
   onDetail,
   onListIdRemap = () => {},
+  sectionRegistry = null,
+  sectionAdapter = null,
 } = {}) {
   let localLists = null;
   let activeListId = null;
   let bound = false;
   let binding = null;
   let applyingHistory = false;
+  let registeredSectionRoot = null;
 
   function lists() {
     return localLists ?? getLists() ?? [];
@@ -150,17 +154,33 @@ export function createShoppingNavigationFeature({
       `;
       return;
     }
-    const hasItems = Array.isArray(selected.items) && selected.items.length > 0;
+    const sections = Array.isArray(selected.sections) ? selected.sections : [];
+    const items = Array.isArray(selected.items) ? selected.items : [];
+    const hasItems = items.length > 0;
+    const hasSectionContent = hasItems || sections.length > 0;
+    const validSectionIds = new Set(sections.map(section => String(section.id)));
+    const hasUnsortedItems = items.some(item => item.section_id == null || !validSectionIds.has(String(item.section_id)));
+    const sectionHtml = renderSectionCollection({
+      sections,
+      items,
+      canManage: selected.can_manage === true,
+      unsortedLabel: t('shopping.section.unsorted'),
+      deleteLabel: t('section.delete'),
+      newLabel: t('section.new'),
+      renderItem: item => `<div class="section-item-name">${escapeHtml(item.name || '')}</div>`,
+      showUnsorted: hasUnsortedItems,
+    });
     main.dataset.shoppingNavigationState = 'selected';
-    main.dataset.shoppingContentState = hasItems ? 'populated' : 'empty';
+    main.dataset.shoppingContentState = hasSectionContent ? 'populated' : 'empty';
     main.className = 'module-page shopping-list-content-page';
     main.innerHTML = `
       <header class="shopping-list-content-header">
         <span class="shopping-list-content-marker" aria-hidden="true">${markerHtml(selected)}</span>
         <h1>${escapeHtml(selected.name || '')}</h1>
       </header>
-      <div class="shopping-list-content-body">
-        ${hasItems ? '<div class="shopping-list-content-items"></div>' : `
+      <div class="shopping-list-content-body" data-section-root="shopping">
+        ${sectionHtml}
+        ${hasSectionContent ? '' : `
           <div class="empty-state shopping-list-empty-state">
             <div class="emoji" aria-hidden="true">${iconSvg('shopping-cart')}</div>
             <h3>${escapeHtml(t('shopping.list.emptyTitle'))}</h3>
@@ -169,6 +189,10 @@ export function createShoppingNavigationFeature({
         `}
       </div>
     `;
+    const nextSectionRoot = main.querySelector?.('[data-section-root="shopping"]') || null;
+    if (registeredSectionRoot && registeredSectionRoot !== nextSectionRoot) sectionRegistry?.unregister?.(registeredSectionRoot);
+    if (nextSectionRoot && sectionAdapter) sectionRegistry?.register?.(nextSectionRoot, sectionAdapter);
+    registeredSectionRoot = nextSectionRoot;
   }
 
   function render() {

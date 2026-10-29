@@ -138,6 +138,8 @@ run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 run_step "Product Branding" node scripts/test_product_branding.mjs
 run_step "Module Shell" node scripts/test_module_shell.mjs
 run_step "Shared Entity Sidebar" node scripts/test_frontend_entity_sidebar.mjs
+run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
+run_step "Shopping Sections" node scripts/test_shopping_sections.mjs
 run_step "Shopping List Content Browser" node scripts/test_frontend_shopping_content.mjs
 run_step "Shared Entity Appearance" node scripts/test_frontend_entity_appearance.mjs
 run_step "Shared Entity Appearance Browser" node scripts/test_frontend_entity_appearance_browser.mjs
