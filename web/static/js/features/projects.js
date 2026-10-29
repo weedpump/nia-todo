@@ -438,11 +438,12 @@ export function createProjectsFeature({
     }
   }
 
-  async function deleteProject(id) {
+  async function deleteProject(id, { returnFocus = null } = {}) {
     const confirmed = await confirmDanger({
       title: t('project.deleteTitle'),
       message: t('project.deleteMessage'),
       confirmText: t('project.delete'),
+      returnFocus,
     });
     if (!confirmed) return;
     function collectProjectTreeIds(rootId) {
@@ -485,7 +486,9 @@ export function createProjectsFeature({
 
   function deleteProjectFromModal() {
     const id = document.getElementById('project-id').value;
-    if (id) deleteProject(parseInt(id));
+    if (id) deleteProject(parseInt(id), {
+      returnFocus: () => document.querySelector('#project-detail-header-menu > summary'),
+    });
   }
 
   function bindProjectActions() {

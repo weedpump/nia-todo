@@ -16,9 +16,9 @@ export function renderEntityDetailHeader({
   actionsId = '',
   actionsHtml = '',
 } = {}) {
-  return `<div class="${['entity-modal-header', ...headerClassNames, 'ui-detail-modal-header'].filter(Boolean).join(' ')}">
+  return `<div class="${['entity-modal-header', ...headerClassNames, 'ui-detail-modal-header', 'ui-detail-entity-header'].filter(Boolean).join(' ')}">
     <div class="${['entity-modal-title-icon', ...iconClassNames, 'ui-detail-title-icon'].filter(Boolean).join(' ')}" data-icon="${escapeHtmlAttr(icon)}"></div>
-    <div>
+    <div class="ui-detail-header-copy">
       ${keyedText('h3', title)}
       ${keyedText('p', subtitle)}
     </div>

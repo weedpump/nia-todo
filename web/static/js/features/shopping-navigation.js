@@ -126,7 +126,11 @@ export function createShoppingNavigationFeature({
 
   function updateHistory(id, replace = false) {
     if (applyingHistory || !historyTarget) return;
-    const state = { ...(historyTarget.state || {}), niaShoppingList: true, shoppingListId: String(id) };
+    const state = {
+      ...(historyTarget.state || {}),
+      niaShoppingList: true,
+      shoppingListId: id == null ? null : String(id),
+    };
     if (replace || historyTarget.state?.niaShoppingList !== true) historyTarget.replaceState(state, '', navigationUrl(id));
     else historyTarget.pushState(state, '', navigationUrl(id));
   }
@@ -195,6 +199,19 @@ export function createShoppingNavigationFeature({
     return true;
   }
 
+  function normalizeActiveListNavigation() {
+    updateHistory(activeListId, true);
+  }
+
+  function focusActiveListAction() {
+    const target = activeListId == null
+      ? root?.querySelector?.('[data-entity-sidebar-action="add"][data-entity-type="shopping-list"]')
+      : Array.from(root?.querySelectorAll?.('[data-entity-sidebar-action="detail"][data-entity-type="shopping-list"]') || [])
+        .find(button => String(button.dataset.entityId) === String(activeListId));
+    target?.focus?.();
+    return Boolean(target);
+  }
+
   function replaceLists(nextLists) {
     const previousActiveListId = activeListId;
     const previousIds = new Set(lists().map(list => String(list.id)));
@@ -255,6 +272,8 @@ export function createShoppingNavigationFeature({
     render,
     replaceLists,
     selectList,
+    normalizeActiveListNavigation,
+    focusActiveListAction,
     getActiveListId: () => activeListId,
     destroy() {
       binding?.destroy?.();

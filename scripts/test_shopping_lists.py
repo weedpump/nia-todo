@@ -116,6 +116,16 @@ with tempfile.TemporaryDirectory() as tmp:
     assert get_shopping_list(no_icon["id"], owner_id)["icon"] is None
 
     disposable = asyncio.run(create_shopping_list(ShoppingListCreate(name="Disposable"), owner_id))
+    disposable_section = asyncio.run(
+        create_shopping_section(disposable["id"], ShoppingSectionCreate(name="Disposable section"), owner_id)
+    )
+    disposable_item = asyncio.run(
+        create_shopping_item(
+            disposable["id"],
+            ShoppingItemCreate(name="Disposable item", section_id=disposable_section["id"]),
+            owner_id,
+        )
+    )
     asyncio.run(delete_shopping_list(disposable["id"], owner_id))
     assert disposable["id"] not in {row["id"] for row in list_shopping_lists(owner_id)["shopping_lists"]}
     with get_db() as db:
@@ -123,6 +133,8 @@ with tempfile.TemporaryDirectory() as tmp:
             "SELECT 1 FROM entity_access WHERE entity_type = 'shopping_list' AND entity_id = ?",
             (disposable["id"],),
         ).fetchone()
+        assert not db.execute("SELECT 1 FROM shopping_sections WHERE id = ?", (disposable_section["id"],)).fetchone()
+        assert not db.execute("SELECT 1 FROM shopping_items WHERE id = ?", (disposable_item["id"],)).fetchone()
 
     duplicate = asyncio.run(
         create_shopping_list(
@@ -156,6 +168,14 @@ with tempfile.TemporaryDirectory() as tmp:
     with get_db() as db:
         persisted = db.execute("SELECT name FROM shopping_lists WHERE id = ?", (personal_id,)).fetchone()
         assert persisted["name"] == "Weekly groceries", persisted
+    try:
+        asyncio.run(delete_shopping_list(personal_id, shared_id))
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Direct recipient deleted shopping list")
+    with get_db() as db:
+        assert db.execute("SELECT 1 FROM shopping_lists WHERE id = ?", (personal_id,)).fetchone()
     assert list_shopping_lists(outsider_id)["shopping_lists"] == []
     asyncio.run(revoke_shopping_list_member(personal_id, shared_id, owner_id))
     assert list_shopping_list_members(personal_id, owner_id)["members"] == []
@@ -219,6 +239,14 @@ with tempfile.TemporaryDirectory() as tmp:
     with get_db() as db:
         persisted = db.execute("SELECT name FROM shopping_lists WHERE id = ?", (transfer_list["id"],)).fetchone()
         assert persisted["name"] == "Transfer me", persisted
+    try:
+        asyncio.run(delete_shopping_list(transfer_list["id"], member_id))
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Household member deleted shopping list")
+    with get_db() as db:
+        assert db.execute("SELECT 1 FROM shopping_lists WHERE id = ?", (transfer_list["id"],)).fetchone()
     assert [row["id"] for row in list_shopping_lists(shared_id)["shopping_lists"]] == [personal_id]
     assert transfer_syncs == [{owner_id, member_id, shared_id}], transfer_syncs
     with get_db() as db:

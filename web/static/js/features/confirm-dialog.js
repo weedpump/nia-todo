@@ -3,6 +3,7 @@ import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.
 
 export function createConfirmDialogFeature() {
   let pendingResolve = null;
+  let pendingReturnFocus = null;
 
   function close(result = false, { fromHistory = false } = {}) {
     const modal = document.getElementById('confirm-modal');
@@ -10,11 +11,21 @@ export function createConfirmDialogFeature() {
     modal?.classList.remove('active');
     document.getElementById('confirm-cancel-btn')?.style.removeProperty('display');
     const resolve = pendingResolve;
+    const returnFocus = pendingReturnFocus;
     pendingResolve = null;
+    pendingReturnFocus = null;
     if (resolve) resolve(result);
+    if (!result) globalThis.setTimeout?.(() => returnFocus?.()?.focus?.(), 0);
   }
 
-  function confirmDanger({ title = t('confirm.deleteTitle'), message = '', confirmText = t('todo.delete'), cancelText = t('common.cancel'), hideCancel = false } = {}) {
+  function confirmDanger({
+    title = t('confirm.deleteTitle'),
+    message = '',
+    confirmText = t('todo.delete'),
+    cancelText = t('common.cancel'),
+    hideCancel = false,
+    returnFocus = null,
+  } = {}) {
     if (pendingResolve) close(false, { fromHistory: true });
     const modal = document.getElementById('confirm-modal');
     if (!modal) return Promise.resolve(window.confirm(message || title));
@@ -45,6 +56,10 @@ export function createConfirmDialogFeature() {
 
     return new Promise((resolve) => {
       pendingResolve = resolve;
+      const initialFocus = document.activeElement;
+      pendingReturnFocus = typeof returnFocus === 'function'
+        ? returnFocus
+        : () => returnFocus || initialFocus;
       setTimeout(() => document.getElementById('confirm-confirm-btn')?.focus(), 50);
     });
   }
@@ -55,7 +70,11 @@ export function createConfirmDialogFeature() {
     document.getElementById('confirm-modal-overlay')?.addEventListener('click', () => close(false));
     document.addEventListener('keydown', (event) => {
       if (!document.getElementById('confirm-modal')?.classList.contains('active')) return;
-      if (event.key === 'Escape') close(false);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        close(false);
+      }
     });
   }
 

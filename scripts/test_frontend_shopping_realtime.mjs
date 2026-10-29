@@ -45,4 +45,8 @@ assert.deepEqual(stores.shoppingLists.map(list => list.id), ['temp-list-1', 7]);
 await client.handleWsMessage({ type: 'shopping_item_update', payload: { id: 20, shopping_list_id: 7 } });
 assert.equal(refreshCalls, 1, 'shopping realtime deltas trigger an authoritative queue-aware refresh');
 
+await client.handleWsMessage({ type: 'shopping_list_delete', payload: { id: 7, deleted: true } });
+assert.equal(refreshCalls, 2, 'shopping list deletion triggers the same authoritative queue-aware refresh');
+assert.deepEqual(shoppingState.map(list => list.id), [7, 'temp-list-1'], 'the realtime handler must not bypass pending-aware reconciliation');
+
 console.log('✅ Shopping realtime snapshot and invalidation contracts passed');

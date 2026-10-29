@@ -208,13 +208,18 @@ const featureWindow = {
 const featureRoot = {
   activeElement: null,
   remappedFocusId: null,
+  addFocused: false,
   addEventListener() {},
   removeEventListener() {},
   querySelectorAll() {
-    return [77, 88].map(id => ({
+    return [10, 77, 88].map(id => ({
       dataset: { entityId: String(id) },
       focus: () => { this.remappedFocusId = String(id); },
     }));
+  },
+  querySelector(selector) {
+    if (selector !== '[data-entity-sidebar-action="add"][data-entity-type="shopping-list"]') return null;
+    return { focus: () => { this.addFocused = true; } };
   },
 };
 const navigationFeature = createShoppingNavigationFeature({
@@ -251,6 +256,12 @@ navigationFeature.selectList(20);
 assert.equal(navigationFeature.getActiveListId(), 20);
 assert.equal(featureStorage.get('nia-shopping-active-list'), '20');
 assert.deepEqual(featureHistoryCalls.at(-1), ['push', '20', '/?shoppingList=20']);
+navigationFeature.replaceLists([{ ...entities[0], id: 10, items: [] }]);
+assert.equal(navigationFeature.getActiveListId(), 10, 'deleting the active list must select the deterministic fallback');
+navigationFeature.normalizeActiveListNavigation();
+assert.deepEqual(featureHistoryCalls.at(-1), ['replace', '10', '/?shoppingList=10'], 'automatic delete fallback must replace the stale list URL');
+assert.equal(navigationFeature.focusActiveListAction(), true);
+assert.equal(featureRoot.remappedFocusId, '10', 'fallback focus must target the live active-list detail action');
 featurePopState({ state: { niaShoppingList: true, shoppingListId: '10' } });
 assert.equal(navigationFeature.getActiveListId(), 10, 'popstate must restore the initially visible shopping list');
 navigationFeature.replaceLists([{ ...entities[0], id: 'temp-shopping-list-1', items: [] }]);
@@ -284,6 +295,10 @@ navigationFeature.replaceLists([]);
 assert.equal(navigationFeature.getActiveListId(), null);
 assert.equal(featureStorage.has('nia-shopping-active-list'), false);
 assert.equal(mainTarget.dataset.shoppingNavigationState, 'empty');
+navigationFeature.normalizeActiveListNavigation();
+assert.deepEqual(featureHistoryCalls.at(-1), ['replace', null, '/'], 'deleting the final list must remove shoppingList from history and URL');
+assert.equal(navigationFeature.focusActiveListAction(), true);
+assert.equal(featureRoot.addFocused, true, 'the empty state must focus the add-list action');
 
 const appRenderingSource = readFileSync(new URL('web/static/js/features/app-rendering.js', root), 'utf8');
 const appSource = readFileSync(new URL('web/static/js/app.js', root), 'utf8');

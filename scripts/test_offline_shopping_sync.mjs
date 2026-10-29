@@ -305,4 +305,24 @@ assert.equal(deletedListId, 70);
 assert.equal(queueState.length, 0);
 assert.equal(shoppingState.length, 0);
 
+let createThenDeleteServerId = null;
+let createThenDeleteCalls = 0;
+queueState = [
+  { id: 31, action: 'CREATE_SHOPPING_LIST', data: { temp_id: 'temp-list-delete', name: 'Delete before replay', color: '#6366f1', icon: 'shopping-cart', sort_order: 0, client_mutation_id: 'temp-list-delete' } },
+  { id: 32, action: 'DELETE_SHOPPING_LIST', data: { id: 'temp-list-delete' } },
+];
+shoppingState = [];
+shoppingApi.createList = async data => ({ id: 71, ...data });
+shoppingApi.deleteList = async listId => {
+  createThenDeleteServerId = listId;
+  createThenDeleteCalls += 1;
+  return { id: listId, deleted: true };
+};
+const createThenDeleteResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
+assert.deepEqual(createThenDeleteResult, { successCount: 2, failCount: 0, skipped: false });
+assert.equal(createThenDeleteServerId, 71, 'offline create then delete must replay the remapped server ID');
+assert.equal(createThenDeleteCalls, 1, 'offline create then delete must issue exactly one server delete');
+assert.equal(queueState.length, 0);
+assert.equal(shoppingState.length, 0, 'offline create then delete must not resurrect the list projection');
+
 console.log('✅ Offline shopping projection and atomic IndexedDB contracts passed');

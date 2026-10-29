@@ -274,6 +274,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
         await showTodoModal();
       }
       if (e.key === 'Escape') {
+        if (document.getElementById('confirm-modal')?.classList.contains('active')) return;
         if (document.getElementById('attachment-preview-modal')?.classList.contains('active')) {
           e.preventDefault();
           window.closeAttachmentPreview?.();

@@ -88,9 +88,18 @@ function renderShopping() {
   shoppingNavigationFeature?.render();
 }
 
-function setShoppingListsState(next) {
+function setShoppingListsState(next, { reconcileDetails = true } = {}) {
+  const previousActiveListId = shoppingNavigationFeature?.getActiveListId?.() ?? null;
   shoppingLists = Array.isArray(next) ? next : [];
   shoppingNavigationFeature?.replaceLists(shoppingLists);
+  if (!reconcileDetails) return;
+  const detailsOwnTransition = shoppingListDetailsFeature?.reconcileListsChanged?.() || false;
+  const activeListId = shoppingNavigationFeature?.getActiveListId?.() ?? null;
+  const selectionChanged = String(previousActiveListId ?? '') !== String(activeListId ?? '');
+  if (!detailsOwnTransition && selectionChanged && moduleShell?.getActiveModule?.() === 'shopping') {
+    shoppingNavigationFeature?.normalizeActiveListNavigation();
+    shoppingNavigationFeature?.focusActiveListAction();
+  }
 }
 
 function setShoppingStoresState(next) {
@@ -773,11 +782,14 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
 shoppingNavigationFeature.bind();
 shoppingListDetailsFeature = createShoppingListDetailsFeature({
   getLists: () => shoppingLists,
-  setLists: setShoppingListsState,
+  setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
   commitMutation: commitShoppingMutation,
   isOnlineForSync,
   syncWithServer,
   selectList: id => shoppingNavigationFeature.selectList(id),
+  confirmDanger,
+  normalizeActiveListNavigation: () => shoppingNavigationFeature.normalizeActiveListNavigation(),
+  focusActiveListAction: () => shoppingNavigationFeature.focusActiveListAction(),
 });
 const refreshTasksModule = () => {
   renderProjects();

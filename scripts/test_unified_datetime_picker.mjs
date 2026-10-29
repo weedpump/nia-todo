@@ -390,13 +390,20 @@ try {
       const modal = document.getElementById('date-time-picker-modal');
       const content = modal.querySelector('.date-time-picker-content');
       const body = modal.querySelector('.date-time-picker-body');
+      const heading = modal.querySelector('.date-time-picker-heading');
       const rect = content.getBoundingClientRect();
       return {
         fillsViewport: rect.left === 0 && rect.top === 0 && Math.round(rect.width) === window.innerWidth && Math.round(rect.height) === window.innerHeight,
         bodyFits: body.scrollHeight <= body.clientHeight,
         timeBorderTopStyle: getComputedStyle(document.querySelector('.date-time-picker-time')).borderTopStyle,
+        headingUsesAvailableWidth: heading.getBoundingClientRect().width > 100,
       };
-    }), { fillsViewport: true, bodyFits: true, timeBorderTopStyle: 'none' }, `mobile ${viewport.width}px must stay fullscreen without an inner scrollbar or desktop date/time separator`);
+    }), {
+      fillsViewport: true,
+      bodyFits: true,
+      timeBorderTopStyle: 'none',
+      headingUsesAvailableWidth: true,
+    }, `mobile ${viewport.width}px must preserve the datetime heading geometry and stay fullscreen without an inner scrollbar or desktop date/time separator`);
     await page.click('button[data-datetime-picker-action="cancel"]:not(.modal-close-x)');
   }
 } finally {

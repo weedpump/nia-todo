@@ -67,12 +67,16 @@ export function createShoppingListDetailsFeature({
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   selectList = () => false,
+  confirmDanger = async () => false,
+  normalizeActiveListNavigation = () => {},
+  focusActiveListAction = () => false,
   onError = console.error,
 } = {}) {
   let bound = false;
   let appearance = null;
   let saveState = null;
   let submitting = false;
+  let deleting = false;
   let restoreFocus = null;
 
   function listById(id) {
@@ -88,8 +92,10 @@ export function createShoppingListDetailsFeature({
   }
 
   function canSubmit() {
-    const current = editingList();
-    return !current || canManageShoppingListMetadata(current);
+    const id = doc?.getElementById?.('shopping-list-id')?.value || '';
+    if (!id) return true;
+    const current = listById(id);
+    return Boolean(current && canManageShoppingListMetadata(current));
   }
 
   function appearanceController() {
@@ -126,6 +132,17 @@ export function createShoppingListDetailsFeature({
   function setError(key = '') {
     const error = doc?.getElementById?.('shopping-list-error');
     if (error) error.textContent = key ? t(key) : '';
+  }
+
+  function syncDeleteMenu(list = editingList()) {
+    const menu = doc?.getElementById?.('shopping-list-detail-header-menu');
+    const button = doc?.getElementById?.('shopping-list-delete-btn');
+    const visible = Boolean(list && canManageShoppingListMetadata(list));
+    if (menu) {
+      menu.hidden = !visible;
+      if (!visible) menu.removeAttribute('open');
+    }
+    if (button) button.disabled = deleting || !visible;
   }
 
   function hideModal() {
@@ -171,6 +188,7 @@ export function createShoppingListDetailsFeature({
       title.textContent = t(title.dataset.i18nKey);
     }
     setError();
+    syncDeleteMenu(list);
     restoreFocus = list
       ? () => detailButton(doc?.getElementById?.('shopping-list-id')?.value || list.id)
       : addButton;
@@ -247,12 +265,85 @@ export function createShoppingListDetailsFeature({
       icon: latest.icon || '',
     }, { editable: false });
     ensureSaveState()?.reset();
+    syncDeleteMenu(latest);
     doc?.getElementById?.('shopping-list-modal')?.querySelector?.('.modal-close-x')?.focus?.();
+  }
+
+  function closeAfterDeletedList({ sync = true } = {}) {
+    closeModal(() => {
+      normalizeActiveListNavigation();
+      focusActiveListAction();
+      if (sync && isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
+    });
+  }
+
+  function reconcileListsChanged() {
+    const modal = doc?.getElementById?.('shopping-list-modal');
+    if (!modal?.classList?.contains?.('active')) return false;
+    const id = doc?.getElementById?.('shopping-list-id')?.value || '';
+    if (!id) return false;
+    const latest = editingList();
+    if (latest) {
+      if (!canManageShoppingListMetadata(latest)) reconcileBlockedUpdate();
+      return false;
+    }
+    if (doc?.getElementById?.('confirm-modal')?.classList?.contains?.('active')) return true;
+    closeAfterDeletedList({ sync: false });
+    return true;
+  }
+
+  async function deleteCurrentList() {
+    if (deleting || submitting) return;
+    const current = editingList();
+    if (!current || !canManageShoppingListMetadata(current)) {
+      syncDeleteMenu(current);
+      return;
+    }
+    doc?.getElementById?.('shopping-list-detail-header-menu')?.removeAttribute?.('open');
+    deleting = true;
+    syncDeleteMenu(current);
+    try {
+      const confirmed = await confirmDanger({
+        title: t('shopping.list.delete.title'),
+        message: t('shopping.list.delete.message'),
+        confirmText: t('shopping.list.delete.confirm'),
+        returnFocus: () => doc?.getElementById?.('shopping-list-detail-header-menu-trigger'),
+      });
+      if (!confirmed) {
+        if (!editingList()) closeAfterDeletedList();
+        return;
+      }
+      const committed = await commitMutation(() => {
+        const currentId = doc?.getElementById?.('shopping-list-id')?.value || current.id;
+        const latest = listById(currentId);
+        if (!latest || !canManageShoppingListMetadata(latest)) return null;
+        return {
+          deleteListId: latest.id,
+          action: 'DELETE_SHOPPING_LIST',
+          data: { id: latest.id },
+        };
+      });
+      if (!committed) {
+        const latest = editingList();
+        if (latest) reconcileBlockedUpdate();
+        else closeAfterDeletedList();
+        return;
+      }
+      setLists(getLists().filter(list => String(list.id) !== String(committed.data.id)));
+      closeAfterDeletedList();
+    } catch (error) {
+      onError(error);
+      setError('shopping.list.error.deleteFailed');
+      globalThis.setTimeout?.(() => doc?.getElementById?.('shopping-list-detail-header-menu-trigger')?.focus?.(), 0);
+    } finally {
+      deleting = false;
+      syncDeleteMenu();
+    }
   }
 
   async function save(event) {
     event?.preventDefault?.();
-    if (submitting) return;
+    if (submitting || deleting) return;
     const state = {
       id: doc?.getElementById?.('shopping-list-id')?.value || '',
       ...readState(),
@@ -262,6 +353,10 @@ export function createShoppingListDetailsFeature({
       return;
     }
     const current = state.id ? listById(state.id) : null;
+    if (state.id && !current) {
+      closeAfterDeletedList({ sync: false });
+      return;
+    }
     if (current && !canManageShoppingListMetadata(current)) return;
     const controller = ensureSaveState();
     controller?.refresh?.();
@@ -299,6 +394,13 @@ export function createShoppingListDetailsFeature({
     if (list) showListModal(list);
   }
 
+  function handleAction(event) {
+    const action = event.target?.closest?.('[data-shopping-list-action]');
+    if (!action) return;
+    event.preventDefault?.();
+    if (action.dataset.shoppingListAction === 'delete-from-modal') deleteCurrentList();
+  }
+
   function remapListId(fromId, toId) {
     const idInput = doc?.getElementById?.('shopping-list-id');
     if (!idInput || String(idInput.value) !== String(fromId)) return false;
@@ -311,6 +413,7 @@ export function createShoppingListDetailsFeature({
     bound = true;
     const form = doc?.getElementById?.('shopping-list-form');
     form?.addEventListener?.('submit', save);
+    doc?.addEventListener?.('click', handleAction);
     eventTarget?.addEventListener?.('nia:shopping-list-add-request', handleAddRequest);
     eventTarget?.addEventListener?.('nia:shopping-list-detail-request', handleDetailRequest);
     registerUiLayer('shopping-list-modal', hideModal);
@@ -321,6 +424,8 @@ export function createShoppingListDetailsFeature({
     showListModal,
     save,
     closeModal,
+    deleteCurrentList,
+    reconcileListsChanged,
     remapListId,
   };
 }

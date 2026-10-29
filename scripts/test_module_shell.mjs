@@ -161,6 +161,8 @@ assert(recipesSource.includes('createEmptyModule'), 'recipes must remain an empt
 assert(!existsSync(new URL('web/static/js/modules/shopping-preview.js', root)), 'shopping feature implementation must not exist yet');
 assert(shoppingSource.includes('SHOPPING_DIALOGS_HTML'), 'shopping must mount its own dialogs through the module slot');
 assert(shoppingDialogsSource.includes('id="shopping-list-modal"'), 'shopping must own the list-details dialog');
+assert(shoppingDialogsSource.includes('id="shopping-list-detail-header-menu"'), 'shopping details must own the shared overflow-menu shell');
+assert(shoppingDialogsSource.includes('data-shopping-list-action="delete-from-modal"'), 'shopping details must expose deletion only through the overflow menu');
 assert(!indexSource.includes('shopping-list-modal'), 'shopping-specific dialogs must not leak into the global shell');
 assert(!moduleCss.includes('.shopping-item'), 'shopping-specific component styling must not exist yet');
 assert(!indexSource.includes('id="workspace-module-list"'), 'module visibility must not be configured in workspace settings');

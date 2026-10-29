@@ -69,6 +69,10 @@
   display: none;
 }
 
+.ui-detail-modal .ui-detail-header-copy {
+  min-width: 0;
+}
+
 .ui-detail-modal.ui-detail-view .ui-detail-modal-body,
 .ui-detail-modal.todo-detail-view .ui-detail-modal-body {
   --ui-detail-modal-body-pad-y: clamp(22px, 2.5vw, 38px);
@@ -436,15 +440,27 @@
     overflow: hidden;
   }
 
-  .ui-detail-modal.ui-detail-view .ui-detail-modal-header,
-  .ui-detail-modal.todo-detail-view .ui-detail-modal-header {
+  .ui-detail-modal.ui-detail-view .ui-detail-modal-header.ui-detail-entity-header,
+  .ui-detail-modal.todo-detail-view .ui-detail-modal-header.ui-detail-entity-header {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 12px;
     width: calc(100% - 32px);
-    padding: 12px 94px 12px 0;
+    padding: 12px 0;
   }
 
-  .ui-detail-modal .ui-detail-header-actions {
+  .ui-detail-modal .ui-detail-entity-header .ui-detail-header-actions {
+    position: static;
+    grid-column: 3;
     top: 13px;
     right: 12px;
+  }
+
+  .ui-detail-modal .ui-detail-entity-header .ui-detail-header-copy h3 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .ui-detail-modal .ui-detail-header-actions .btn {
