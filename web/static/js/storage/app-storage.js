@@ -45,6 +45,14 @@ export function createAppStorage({ setDb }) {
     return indexedDb.commitTodoUpdatesWithQueue(updates);
   }
 
+  function commitShoppingMutation(mutation) {
+    return indexedDb.commitShoppingMutation(mutation);
+  }
+
+  function commitShoppingReplay(replay) {
+    return indexedDb.commitShoppingReplay(replay);
+  }
+
   return {
     openDB,
     clearIndexedDB,
@@ -56,5 +64,7 @@ export function createAppStorage({ setDb }) {
     clearSyncQueue,
     addToSyncQueue,
     commitTodoUpdatesWithQueue,
+    commitShoppingMutation,
+    commitShoppingReplay,
   };
 }

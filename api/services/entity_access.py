@@ -457,6 +457,23 @@ def revoke_entity_access(
     )
 
 
+def leave_entity_access(db, entity_type: str, entity_id: int, user_id: int) -> None:
+    """Remove the caller's direct grant without granting manager revoke rights."""
+    access = _get_entity_access(db, entity_type, entity_id)
+    if _entity_manager_user_id(db, access) == user_id:
+        raise ValueError("Entity manager cannot leave their own entity")
+    grant = db.execute(
+        "SELECT 1 FROM entity_access_grants WHERE entity_access_id = ? AND user_id = ?",
+        (access["id"], user_id),
+    ).fetchone()
+    if not grant:
+        raise PermissionError("User has no direct access grant")
+    db.execute(
+        "DELETE FROM entity_access_grants WHERE entity_access_id = ? AND user_id = ?",
+        (access["id"], user_id),
+    )
+
+
 def resolve_entity_access(db, entity_type: str, entity_id: int, user_id: int) -> EntityPermissions:
     entity_type, entity_id = _normalize_entity_key(entity_type, entity_id)
     access = db.execute(

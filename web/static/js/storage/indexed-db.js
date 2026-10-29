@@ -70,6 +70,12 @@ export function openDatabase() {
       if (!db.objectStoreNames.contains('avatars')) {
         db.createObjectStore('avatars', { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains('shoppingLists')) {
+        db.createObjectStore('shoppingLists', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('shoppingStores')) {
+        db.createObjectStore('shoppingStores', { keyPath: 'id' });
+      }
     };
 
     request.onsuccess = async (event) => {
@@ -137,6 +143,83 @@ export function commitTodoUpdatesWithQueue(updates, {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error || new Error('Failed to commit todo updates'));
     tx.onabort = () => reject(tx.error || new Error('Todo update transaction was aborted'));
+  });
+}
+
+export function commitShoppingMutation({
+  list,
+  lists = [],
+  deleteListId,
+  store,
+  deleteStoreId,
+  action,
+  data,
+  mutations = [],
+  database = db,
+  timestamp = Date.now(),
+  localUpdatedAt = new Date().toISOString(),
+} = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  return new Promise((resolve, reject) => {
+    let tx;
+    try {
+      tx = database.transaction(['shoppingLists', 'shoppingStores', 'syncQueue'], 'readwrite');
+      const listStore = tx.objectStore('shoppingLists');
+      const storeStore = tx.objectStore('shoppingStores');
+      const queueStore = tx.objectStore('syncQueue');
+      if (deleteListId !== undefined && deleteListId !== null) listStore.delete(deleteListId);
+      if (list) listStore.put(list);
+      for (const shoppingList of lists) listStore.put(shoppingList);
+      if (deleteStoreId !== undefined && deleteStoreId !== null) storeStore.delete(deleteStoreId);
+      if (store) storeStore.put(store);
+      const queueMutations = mutations.length ? mutations : [{ action, data }];
+      for (const mutation of queueMutations) {
+        queueStore.put({ action: mutation.action, data: mutation.data, timestamp, localUpdatedAt });
+      }
+    } catch (error) {
+      tx?.abort?.();
+      reject(error);
+      return;
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Failed to commit shopping mutation'));
+    tx.onabort = () => reject(tx.error || new Error('Shopping mutation transaction was aborted'));
+  });
+}
+
+export function commitShoppingReplay({
+  list,
+  removeListIds = [],
+  store,
+  removeStoreIds = [],
+  queueDeleteId,
+  queueDeleteIds = [],
+  queueRecords = [],
+  database = db,
+} = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  return new Promise((resolve, reject) => {
+    let tx;
+    try {
+      tx = database.transaction(['shoppingLists', 'shoppingStores', 'syncQueue'], 'readwrite');
+      const listStore = tx.objectStore('shoppingLists');
+      const storeStore = tx.objectStore('shoppingStores');
+      const queueStore = tx.objectStore('syncQueue');
+      for (const listId of removeListIds) listStore.delete(listId);
+      if (list) listStore.put(list);
+      for (const storeId of removeStoreIds) storeStore.delete(storeId);
+      if (store) storeStore.put(store);
+      for (const record of queueRecords) queueStore.put(record);
+      for (const recordId of queueDeleteIds) queueStore.delete(recordId);
+      if (queueDeleteId !== undefined && queueDeleteId !== null) queueStore.delete(queueDeleteId);
+    } catch (error) {
+      tx?.abort?.();
+      reject(error);
+      return;
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Failed to commit shopping replay'));
+    tx.onabort = () => reject(tx.error || new Error('Shopping replay transaction was aborted'));
   });
 }
 

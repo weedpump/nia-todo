@@ -6,7 +6,7 @@ import { getVersion } from '../../vendor/tauri-api/app.js';
 export let API = '';
 export let WS_URL = websocketUrlFromBase(location.origin);
 export const DB_NAME = 'nia-todo-db';
-export const DB_VERSION = 5;
+export const DB_VERSION = 7;
 export const APP_VERSION = 'v3.6.3';
 
 const TAURI_API = Object.freeze({

@@ -1,4 +1,5 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
+import { projectShoppingSnapshot, projectShoppingStoresSnapshot } from './shopping-pending.js';
 
 export function createWebSocketClient({
   wsUrl,
@@ -23,10 +24,15 @@ export function createWebSocketClient({
   setSections,
   getWorkspaces,
   setWorkspaces,
+  getShoppingLists = () => [],
+  setShoppingLists = () => {},
+  getShoppingStores = () => [],
+  setShoppingStores = () => {},
   renderWorkspaces,
   renderProjects,
   renderStats,
   renderTodos,
+  renderShopping = () => {},
   onAuthOk = () => {},
   onReminderDue = () => {},
   onSessionInvalidated = () => {},
@@ -234,6 +240,7 @@ async function handleWsMessage(msg) {
   let projects = getProjects();
   let sections = getSections();
   let workspaces = getWorkspaces?.() || [];
+  let shoppingLists = getShoppingLists?.() || [];
 
   async function persistTodoPayloadWithPending(todo) {
     if (!todo?.id) return false;
@@ -494,6 +501,30 @@ async function handleWsMessage(msg) {
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
       }
+      if (msg.shopping_lists) {
+        const queue = await dbGetAll('syncQueue');
+        const localLists = await dbGetAll('shoppingLists');
+        shoppingLists = projectShoppingSnapshot(msg.shopping_lists, localLists, queue);
+        const nextIds = new Set(shoppingLists.map(list => String(list.id)));
+        for (const localList of localLists) {
+          if (!nextIds.has(String(localList.id))) await deleteFromDB('shoppingLists', localList.id);
+        }
+        await Promise.all(shoppingLists.map(list => dbPut('shoppingLists', list)));
+        setShoppingLists(shoppingLists);
+        renderShopping();
+      }
+      if (msg.shopping_stores) {
+        const queue = await dbGetAll('syncQueue');
+        const localStores = await dbGetAll('shoppingStores');
+        const shoppingStores = projectShoppingStoresSnapshot(msg.shopping_stores, localStores, queue);
+        const nextIds = new Set(shoppingStores.map(store => String(store.id)));
+        for (const localStore of localStores) {
+          if (!nextIds.has(String(localStore.id))) await deleteFromDB('shoppingStores', localStore.id);
+        }
+        await Promise.all(shoppingStores.map(store => dbPut('shoppingStores', store)));
+        setShoppingStores(shoppingStores);
+        renderShopping();
+      }
       if (msg.module_preferences) {
         onModulePreferencesUpdate(msg.module_preferences);
       }
@@ -699,6 +730,22 @@ async function handleWsMessage(msg) {
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
       }
+      await refreshFromServer?.();
+      return;
+    case 'shopping_list_create':
+    case 'shopping_list_update':
+    case 'shopping_list_delete':
+    case 'shopping_store_create':
+    case 'shopping_store_update':
+    case 'shopping_store_delete':
+    case 'shopping_section_create':
+    case 'shopping_section_update':
+    case 'shopping_section_delete':
+    case 'shopping_item_create':
+    case 'shopping_item_update':
+    case 'shopping_item_delete':
+    case 'shopping_items_completed_delete':
+    case 'shopping_preferences_update':
       await refreshFromServer?.();
       return;
     case 'member_invited':

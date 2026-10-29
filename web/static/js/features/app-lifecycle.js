@@ -16,6 +16,8 @@ export function createAppLifecycle({
   setProjects,
   setSections,
   setWorkspaces,
+  setShoppingLists = () => {},
+  setShoppingStores = () => {},
   setCurrentFilter,
   setCurrentProjectId,
   setCurrentWorkspaceId,
@@ -101,6 +103,8 @@ export function createAppLifecycle({
     setProjects(await dbGetAll('projects'));
     setSections(await dbGetAll('sections'));
     setWorkspaces(await dbGetAll('workspaces'));
+    setShoppingLists(await dbGetAll('shoppingLists'));
+    setShoppingStores(await dbGetAll('shoppingStores'));
     ensureCurrentWorkspace?.();
     renderWorkspaces?.();
     renderProjects();

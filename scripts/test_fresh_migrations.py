@@ -100,6 +100,46 @@ def main():
                 "idx_household_members_household_status",
             }.issubset(household_member_indexes), household_member_indexes
 
+            for table_name in ("shopping_lists", "shopping_sections", "shopping_stores", "shopping_items", "shopping_item_stores", "shopping_list_preferences"):
+                table = db.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+                    (table_name,),
+                ).fetchone()
+                assert table == (table_name,), table
+
+            shopping_list_columns = {row[1] for row in db.execute("PRAGMA table_info(shopping_lists)")}
+            shopping_section_columns = {row[1] for row in db.execute("PRAGMA table_info(shopping_sections)")}
+            shopping_store_columns = {row[1] for row in db.execute("PRAGMA table_info(shopping_stores)")}
+            shopping_item_columns = {row[1] for row in db.execute("PRAGMA table_info(shopping_items)")}
+            shopping_item_store_columns = {row[1] for row in db.execute("PRAGMA table_info(shopping_item_stores)")}
+            shopping_preference_columns = {row[1] for row in db.execute("PRAGMA table_info(shopping_list_preferences)")}
+            assert {"name", "sort_order", "created_by_user_id", "client_mutation_id"}.issubset(shopping_list_columns), shopping_list_columns
+            assert {"shopping_list_id", "name", "sort_order", "client_mutation_id"}.issubset(shopping_section_columns), shopping_section_columns
+            assert {"name", "owner_user_id", "owner_household_id", "active", "client_mutation_id"}.issubset(shopping_store_columns), shopping_store_columns
+            assert {"shopping_list_id", "section_id", "name", "quantity_value", "quantity_unit", "completed", "client_mutation_id"}.issubset(shopping_item_columns), shopping_item_columns
+            assert {"shopping_item_id", "shopping_store_id", "sort_order"}.issubset(shopping_item_store_columns), shopping_item_store_columns
+            assert {"shopping_list_id", "user_id", "selected_store_id", "hide_empty_sections"}.issubset(shopping_preference_columns), shopping_preference_columns
+            assert "markets_json" not in shopping_item_columns, shopping_item_columns
+            assert "quantity_text" not in shopping_item_columns, shopping_item_columns
+            assert "hide_completed" not in shopping_preference_columns, shopping_preference_columns
+            assert "archived_at" not in shopping_list_columns, shopping_list_columns
+
+            shopping_section_indexes = {row[1] for row in db.execute("PRAGMA index_list(shopping_sections)")}
+            shopping_item_indexes = {row[1] for row in db.execute("PRAGMA index_list(shopping_items)")}
+            assert {"idx_shopping_sections_list_order", "idx_shopping_sections_client_mutation"}.issubset(shopping_section_indexes), shopping_section_indexes
+            assert {"idx_shopping_items_list_order", "idx_shopping_items_client_mutation"}.issubset(shopping_item_indexes), shopping_item_indexes
+
+            section_foreign_keys = {(row[2], row[3], row[4], row[6]) for row in db.execute("PRAGMA foreign_key_list(shopping_sections)")}
+            item_foreign_keys = {(row[2], row[3], row[4], row[6]) for row in db.execute("PRAGMA foreign_key_list(shopping_items)")}
+            item_store_foreign_keys = {
+                (row[2], row[3], row[4], row[6])
+                for row in db.execute("PRAGMA foreign_key_list(shopping_item_stores)")
+            }
+            assert ("shopping_lists", "shopping_list_id", "id", "CASCADE") in section_foreign_keys, section_foreign_keys
+            assert ("shopping_lists", "shopping_list_id", "id", "CASCADE") in item_foreign_keys, item_foreign_keys
+            assert ("shopping_sections", "section_id", "id", "SET NULL") in item_foreign_keys, item_foreign_keys
+            assert ("shopping_stores", "shopping_store_id", "id", "CASCADE") in item_store_foreign_keys, item_store_foreign_keys
+
         with sqlite3.connect(db_path) as db:
             db.execute("DROP TABLE dashboard_preferences")
             db.execute("UPDATE schema_version SET version = 53")
@@ -127,6 +167,41 @@ def main():
             user_columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
             assert "hidden_modules_json" not in workspace_columns, workspace_columns
             assert "disabled_modules_json" in user_columns, user_columns
+
+        with sqlite3.connect(db_path) as db:
+            db.execute("PRAGMA foreign_keys = OFF")
+            db.execute("DROP TABLE shopping_item_stores")
+            db.execute("""CREATE TABLE shopping_item_stores (
+                shopping_item_id INTEGER NOT NULL,
+                shopping_store_id INTEGER NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (shopping_item_id, shopping_store_id),
+                FOREIGN KEY (shopping_item_id) REFERENCES shopping_items(id) ON DELETE CASCADE,
+                FOREIGN KEY (shopping_store_id) REFERENCES shopping_stores(id)
+            )""")
+            db.execute("CREATE INDEX idx_shopping_item_stores_item_order ON shopping_item_stores(shopping_item_id, sort_order, shopping_store_id)")
+            db.execute("UPDATE schema_version SET version = 58")
+            db.commit()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, 'api'); from migrate import run_migrations; run_migrations()",
+            ],
+            cwd=BASE,
+            env=env,
+            check=True,
+        )
+
+        with sqlite3.connect(db_path) as db:
+            repaired_item_store_foreign_keys = {
+                (row[2], row[3], row[4], row[6])
+                for row in db.execute("PRAGMA foreign_key_list(shopping_item_stores)")
+            }
+            assert (
+                "shopping_stores", "shopping_store_id", "id", "CASCADE"
+            ) in repaired_item_store_foreign_keys, repaired_item_store_foreign_keys
 
     print("✅ Fresh migration test passed")
 

@@ -11,6 +11,7 @@ from services.sharing import get_project_ids_for_user, get_todo_reminder_recipie
 from services.server_updates import get_public_update_status
 from services.websocket import manager, get_project_view_for_user
 from services.module_visibility import module_preferences_payload
+from routers.shopping import get_sync_shopping_lists, get_sync_shopping_stores
 from rate_limit import rate_limiter, get_client_ip_ws
 
 
@@ -199,6 +200,8 @@ def get_sync_payload(db, user_id: int) -> dict:
         "projects": projects,
         "sections": [dict(row) for row in sections_rows],
         "workspaces": [dict(r) for r in workspaces_rows],
+        "shopping_lists": get_sync_shopping_lists(db, user_id),
+        "shopping_stores": get_sync_shopping_stores(db, user_id),
         "module_preferences": module_preferences_payload(user_module_row or {}),
         "household": household_payload,
         "household_invites": [dict(row) for row in household_invite_rows],

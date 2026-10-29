@@ -95,6 +95,7 @@ run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py
 run_step "Household Entity Access" python3 scripts/test_household_entity_access.py
+run_step "Shopping Lists" python3 scripts/test_shopping_lists.py
 run_step "Household API" python3 scripts/test_household_api.py
 run_step "Project Household Access" python3 scripts/test_project_household_access.py
 run_step "Household Access Regressions" python3 scripts/test_household_access_regressions.py
@@ -160,6 +161,8 @@ run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summar
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
 run_step "WebSocket Access Snapshot" node scripts/test_frontend_access_snapshot.mjs
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
+run_step "Offline Shopping Sync Contracts" node scripts/test_offline_shopping_sync.mjs
+run_step "Frontend Shopping Realtime" node scripts/test_frontend_shopping_realtime.mjs
 
 frontend_suite_active=0
 restore_frontend_suite() {

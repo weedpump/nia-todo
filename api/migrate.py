@@ -826,6 +826,50 @@ def init_migrations_table(conn):
     """)
     conn.commit()
 
+
+def repair_shopping_lists_migration(conn, sql: str):
+    """Finish migration 59 and repair the store-assignment delete lifecycle."""
+    repair_sql = sql.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ")
+    repair_sql = repair_sql.replace("CREATE UNIQUE INDEX ", "CREATE UNIQUE INDEX IF NOT EXISTS ")
+    repair_sql = repair_sql.replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
+    conn.executescript(repair_sql)
+
+    store_foreign_keys = {
+        (row[2], row[3], row[4], row[6])
+        for row in conn.execute("PRAGMA foreign_key_list(shopping_item_stores)")
+    }
+    expected_store_foreign_key = ("shopping_stores", "shopping_store_id", "id", "CASCADE")
+    if expected_store_foreign_key in store_foreign_keys:
+        return
+
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute("DROP TABLE IF EXISTS shopping_item_stores__repair")
+        conn.execute("""CREATE TABLE shopping_item_stores__repair (
+            shopping_item_id INTEGER NOT NULL,
+            shopping_store_id INTEGER NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (shopping_item_id, shopping_store_id),
+            FOREIGN KEY (shopping_item_id) REFERENCES shopping_items(id) ON DELETE CASCADE,
+            FOREIGN KEY (shopping_store_id) REFERENCES shopping_stores(id) ON DELETE CASCADE
+        )""")
+        conn.execute("""INSERT INTO shopping_item_stores__repair
+                      (shopping_item_id, shopping_store_id, sort_order)
+                      SELECT shopping_item_id, shopping_store_id, sort_order
+                      FROM shopping_item_stores""")
+        conn.execute("DROP TABLE shopping_item_stores")
+        conn.execute("ALTER TABLE shopping_item_stores__repair RENAME TO shopping_item_stores")
+        conn.execute("""CREATE INDEX idx_shopping_item_stores_item_order
+                      ON shopping_item_stores(shopping_item_id, sort_order, shopping_store_id)""")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
 def run_migrations():
     """Führt alle ausstehenden Migrationen aus."""
     conn = sqlite3.connect(str(DB_PATH))
@@ -929,6 +973,11 @@ def run_migrations():
                 elif version == 57 and ("duplicate column" in error_msg or "already exists" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - account module visibility schema partially exists, repairing remaining schema")
                     repair_user_module_preferences_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 59 and "already exists" in error_msg:
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - shopping list schema partially exists, repairing remaining schema")
+                    repair_shopping_lists_migration(conn, sql)
                     set_db_version(conn, version)
                     applied += 1
                 elif version in POST_APPLY_REPAIRS and ("duplicate column" in error_msg or "already exists" in error_msg):
