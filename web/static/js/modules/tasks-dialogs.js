@@ -1,3 +1,8 @@
+import { escapeHtmlAttr } from '../core/utils.js';
+import { renderEntityAppearanceFields } from '../features/entity-appearance.js';
+import { renderEntityDetailHeader } from '../features/entity-detail-header.js';
+import { t } from '../i18n/index.js';
+
 // Task-owned dialogs are mounted with the tasks module.
 export const TASK_DIALOGS_HTML = `
   <!-- Dashboard Preferences Modal -->
@@ -484,56 +489,29 @@ export const TASK_DIALOGS_HTML = `
     </div>
   </div>
 
-  <div class="modal ui-detail-modal ui-detail-view" id="project-modal">
+  <div class="modal ui-detail-modal ui-detail-view" id="project-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="project-modal-title">
     <div class="modal-overlay" data-close-modal="project-modal"></div>
     <div class="modal-content entity-modal-content project-modal-content ui-detail-modal-content">
-      <div class="entity-modal-header project-modal-header ui-detail-modal-header">
-        <div class="entity-modal-title-icon ui-detail-title-icon" data-icon="folder"></div>
-        <div>
-          <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
-          <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
-        </div>
-        <div class="ui-detail-header-actions">
-          <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
+      ${renderEntityDetailHeader({
+        headerClassNames: ['project-modal-header'],
+        icon: 'folder',
+        title: { id: 'project-modal-title', key: 'project.new' },
+        subtitle: { key: 'project.modalHint' },
+        actionsHtml: `
+          <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">${escapeHtmlAttr(t('common.save'))}</button>
           <details class="ui-detail-header-menu-toggle" id="project-detail-header-menu" hidden>
-            <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
+            <summary aria-label="${escapeHtmlAttr(t('common.more'))}" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
             <div class="ui-detail-header-menu ui-menu" role="menu">
-              <button type="button" class="ui-menu-item danger" id="project-delete-btn" data-project-action="delete-from-modal" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
+              <button type="button" class="ui-menu-item danger" id="project-delete-btn" data-project-action="delete-from-modal" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">${escapeHtmlAttr(t('project.delete'))}</span></button>
             </div>
           </details>
-          <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
-        </div>
-      </div>
+          <button type="button" class="modal-close-x" data-close-modal="project-modal" aria-label="${escapeHtmlAttr(t('common.close'))}" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
+        `,
+      })}
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="project-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="project-id">
-          <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section project-title-section">
-            <div class="form-group project-title-group ui-detail-title-group">
-              <label data-i18n-key="common.name">Name</label>
-              <input class="ui-field ui-detail-title-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
-            </div>
-          </section>
-          <section class="ui-section-card ui-detail-section ui-section-divider">
-            <div class="ui-section-heading ui-detail-section-heading">
-              <div class="ui-section-icon ui-detail-section-icon" data-icon="folder"></div>
-              <div>
-                <h4 data-i18n-key="project.details">Details</h4>
-                <p data-i18n-key="project.detailsHint">Farbe und Icon für dieses Projekt.</p>
-              </div>
-            </div>
-            <div class="ui-field-grid two-columns project-appearance-grid">
-              <div class="form-group">
-                <label data-i18n-key="common.color">Farbe</label>
-                <input type="color" id="project-color" value="#6366f1">
-                <div id="project-color-picker" class="color-picker" aria-label="Choose project color" data-i18n-aria-label-key="project.chooseColor"></div>
-              </div>
-              <div class="form-group">
-                <label data-i18n-key="project.icon">Icon (optional)</label>
-                <input type="hidden" id="project-icon">
-                <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
-              </div>
-            </div>
-          </section>
+          ${renderEntityAppearanceFields({ prefix: 'project' })}
           <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>

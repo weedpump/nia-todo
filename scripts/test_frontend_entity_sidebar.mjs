@@ -206,8 +206,16 @@ const featureWindow = {
   removeEventListener(type, callback) { if (type === 'popstate' && featurePopState === callback) featurePopState = null; },
 };
 const featureRoot = {
+  activeElement: null,
+  remappedFocusId: null,
   addEventListener() {},
   removeEventListener() {},
+  querySelectorAll() {
+    return [77, 88].map(id => ({
+      dataset: { entityId: String(id) },
+      focus: () => { this.remappedFocusId = String(id); },
+    }));
+  },
 };
 const navigationFeature = createShoppingNavigationFeature({
   getLists: () => [
@@ -227,6 +235,7 @@ const navigationFeature = createShoppingNavigationFeature({
   closeSidebar: options => { featureCalls.push(['close', options]); return true; },
   onAdd: () => featureCalls.push(['add']),
   onDetail: id => featureCalls.push(['detail', id]),
+  onListIdRemap: (fromId, toId) => featureCalls.push(['remap', fromId, toId]),
 });
 navigationFeature.bind();
 navigationFeature.render();
@@ -244,6 +253,33 @@ assert.equal(featureStorage.get('nia-shopping-active-list'), '20');
 assert.deepEqual(featureHistoryCalls.at(-1), ['push', '20', '/?shoppingList=20']);
 featurePopState({ state: { niaShoppingList: true, shoppingListId: '10' } });
 assert.equal(navigationFeature.getActiveListId(), 10, 'popstate must restore the initially visible shopping list');
+navigationFeature.replaceLists([{ ...entities[0], id: 'temp-shopping-list-1', items: [] }]);
+navigationFeature.selectList('temp-shopping-list-1');
+featureRoot.activeElement = {
+  dataset: { entityType: 'shopping-list', entityId: 'temp-shopping-list-1' },
+  matches: selector => selector === '[data-entity-sidebar-action="detail"][data-entity-type="shopping-list"]',
+};
+navigationFeature.replaceLists([{ ...entities[0], id: 77, client_mutation_id: 'temp-shopping-list-1', items: [] }]);
+assert.equal(navigationFeature.getActiveListId(), 77, 'temporary shopping-list selection must follow the server ID remap');
+assert.equal(featureStorage.get('nia-shopping-active-list'), '77');
+assert.deepEqual(featureHistoryCalls.at(-1), ['replace', '77', '/?shoppingList=77'], 'ID remapping must replace the temporary URL instead of adding another history entry');
+assert.deepEqual(featureCalls.at(-1), ['remap', 'temp-shopping-list-1', 77], 'ID remapping must notify an open details editor');
+assert.equal(featureRoot.remappedFocusId, '77', 'ID remapping must restore focus to the live server-ID detail button');
+navigationFeature.replaceLists([
+  { ...entities[0], id: 77, items: [] },
+  { ...entities[0], id: 'temp-shopping-list-older', name: 'Older', items: [] },
+]);
+featureRoot.activeElement = {
+  dataset: { entityType: 'shopping-list', entityId: 'temp-shopping-list-older' },
+  matches: selector => selector === '[data-entity-sidebar-action="detail"][data-entity-type="shopping-list"]',
+};
+featureRoot.remappedFocusId = null;
+navigationFeature.replaceLists([
+  { ...entities[0], id: 77, items: [] },
+  { ...entities[0], id: 88, name: 'Older', client_mutation_id: 'temp-shopping-list-older', items: [] },
+]);
+assert.deepEqual(featureCalls.at(-1), ['remap', 'temp-shopping-list-older', 88], 'non-active Temp-ID remaps must also notify an open details editor');
+assert.equal(featureRoot.remappedFocusId, '88', 'a focused non-active Temp-ID row must regain focus on its server-ID replacement');
 navigationFeature.replaceLists([]);
 assert.equal(navigationFeature.getActiveListId(), null);
 assert.equal(featureStorage.has('nia-shopping-active-list'), false);

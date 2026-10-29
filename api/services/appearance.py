@@ -8,14 +8,30 @@ from fastapi import HTTPException
 HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
 VALID_ICON_NAMES = {
-    "layout-dashboard", "circle", "clock", "flame", "check", "check-circle", "plus", "trash-2",
-    "calendar", "calendar-days", "chart-line", "triangle-alert", "settings", "monitor", "sun", "moon",
-    "refresh-cw", "x", "arrow-left", "edit-3", "image", "key-round", "bell", "smartphone", "keyboard",
-    "share-2", "download", "clipboard", "ban", "folder", "briefcase", "home", "code", "server",
-    "shopping-cart", "heart", "star", "users", "user-plus", "log-out", "menu", "search", "mail",
-    "inbox", "lock-keyhole", "shield", "database", "cloud", "wifi", "wrench", "rocket", "car",
-    "plane", "book-open", "file-text", "laptop", "cpu", "terminal", "hammer", "bug", "package",
-    "archive", "tag", "bookmark", "flag", "map-pin",
+    "accessibility", "alarm-clock", "ambulance", "archive", "arrow-left", "award", "axe", "baby",
+    "ban", "banknote", "bath", "battery", "bed", "bell", "bike", "bird",
+    "book-open", "bookmark", "bot", "brain", "briefcase", "bug", "building", "building-2",
+    "bus", "cable", "calendar", "calendar-days", "camera", "car", "cat", "chart-bar",
+    "chart-column", "chart-line", "check", "check-circle", "chef-hat", "church", "circle", "circle-dollar-sign",
+    "clapperboard", "clipboard", "clock", "cloud", "code", "coffee", "cpu", "cross",
+    "crown", "database", "dog", "download", "drama", "dumbbell", "earth", "edit-3",
+    "factory", "fence", "file-text", "film", "fingerprint", "flag", "flame", "flower",
+    "flower-2", "folder", "gamepad-2", "gift", "globe", "graduation-cap", "hammer", "hand-heart",
+    "hand-helping", "handshake", "hard-drive", "headphones", "heart", "heart-handshake", "heart-pulse", "home",
+    "hospital", "house-heart", "house-plus", "image", "inbox", "key-round", "keyboard", "land-plot",
+    "landmark", "languages", "laptop", "layout-dashboard", "leaf", "life-buoy", "link", "list-todo",
+    "lock-keyhole", "log-out", "mail", "map", "map-pin", "map-pinned", "mars", "menu",
+    "message-circle", "monitor", "moon", "mountain", "music", "network", "newspaper", "notebook-pen",
+    "package", "paintbrush", "palette", "paw-print", "pen-tool", "pencil", "person-standing", "phone",
+    "pickaxe", "piggy-bank", "plane", "plug", "plus", "podcast", "presentation", "rabbit",
+    "radio", "refresh-cw", "rocket", "route", "school", "scissors", "search", "server",
+    "settings", "share-2", "shield", "shield-check", "ship", "shopping-bag", "shopping-cart", "shovel",
+    "shrub", "smartphone", "smile", "snail", "sofa", "spray-can", "sprout", "squirrel",
+    "star", "stethoscope", "store", "sun", "tablet", "tag", "target", "tent",
+    "terminal", "ticket", "tractor", "train", "trash-2", "tree-deciduous", "tree-pine", "trees",
+    "triangle-alert", "truck", "turtle", "tv", "upload", "user", "user-plus", "users",
+    "utensils", "venus", "venus-and-mars", "volleyball", "wallet", "warehouse", "waves", "wifi",
+    "worm", "wrench", "x", "zap",
 }
 
 

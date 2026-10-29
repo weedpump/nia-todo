@@ -81,6 +81,7 @@ export function createShoppingNavigationFeature({
   closeSidebar,
   onAdd,
   onDetail,
+  onListIdRemap = () => {},
 } = {}) {
   let localLists = null;
   let activeListId = null;
@@ -195,9 +196,35 @@ export function createShoppingNavigationFeature({
   }
 
   function replaceLists(nextLists) {
+    const previousActiveListId = activeListId;
+    const previousIds = new Set(lists().map(list => String(list.id)));
+    const focusedDetailId = root?.activeElement?.matches?.('[data-entity-sidebar-action="detail"][data-entity-type="shopping-list"]')
+      ? root.activeElement.dataset.entityId
+      : null;
     localLists = Array.isArray(nextLists) ? nextLists : [];
     setLists?.(localLists);
+    const remappedLists = localLists.filter(list => (
+      list.client_mutation_id != null
+      && previousIds.has(String(list.client_mutation_id))
+      && !previousIds.has(String(list.id))
+    ));
+    const focusedRemap = remappedLists.find(list => String(list.client_mutation_id) === String(focusedDetailId));
+    for (const remapped of remappedLists) onListIdRemap(remapped.client_mutation_id, remapped.id);
+    const activeStillExists = localLists.some(list => String(list.id) === String(previousActiveListId));
+    if (!activeStillExists && previousActiveListId != null) {
+      const remapped = remappedLists.find(list => String(list.client_mutation_id) === String(previousActiveListId));
+      if (remapped) {
+        activeListId = remapped.id;
+        persistActiveListId();
+        updateHistory(activeListId, true);
+      }
+    }
     render();
+    if (focusedRemap) {
+      Array.from(root?.querySelectorAll?.('[data-entity-sidebar-action="detail"][data-entity-type="shopping-list"]') || [])
+        .find(button => String(button.dataset.entityId) === String(focusedRemap.id))
+        ?.focus?.();
+    }
   }
 
   function handlePopState(event) {

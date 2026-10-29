@@ -138,6 +138,8 @@ run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 run_step "Product Branding" node scripts/test_product_branding.mjs
 run_step "Module Shell" node scripts/test_module_shell.mjs
 run_step "Shared Entity Sidebar" node scripts/test_frontend_entity_sidebar.mjs
+run_step "Shared Entity Appearance" node scripts/test_frontend_entity_appearance.mjs
+run_step "Shared Entity Appearance Browser" node scripts/test_frontend_entity_appearance_browser.mjs
 run_step "Auth Module Hydration" node scripts/test_frontend_auth_module_hydration.mjs
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
 run_step "Service Worker Avatar Privacy" node scripts/test_sw_avatar_privacy.mjs

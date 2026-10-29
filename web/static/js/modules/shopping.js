@@ -1,6 +1,7 @@
 import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { t } from '../i18n/index.js';
 import { renderEntitySidebarAddRow } from '../features/entity-sidebar.js';
+import { SHOPPING_DIALOGS_HTML } from './shopping-dialogs.js';
 
 export const shoppingModule = Object.freeze({
   id: 'shopping',
@@ -23,6 +24,7 @@ export const shoppingModule = Object.freeze({
       <div id="shopping-navigation-main" class="module-page module-empty-page">
         <div class="module-empty-icon" aria-hidden="true">${niaIconSvg('shopping')}</div>
       </div>
+      ${SHOPPING_DIALOGS_HTML}
     `;
     slots.floating.innerHTML = '';
     slots.userMenu.innerHTML = '';

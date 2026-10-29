@@ -1,8 +1,8 @@
 import { t } from '../i18n/index.js';
-import { renderIconPicker } from '../icons/lucide-icons.js';
-import { renderColorPicker } from '../ui/color-picker.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { openUiLayer } from './ui-history.js';
+import { createEntityAppearanceController } from './entity-appearance.js';
+import { createFormSaveState } from './form-save-state.js';
 
 export function createProjectsFeature({
   getProjects,
@@ -31,14 +31,24 @@ export function createProjectsFeature({
 }) {
   let projectFormBound = false;
   let projectActionsBound = false;
-  let projectSaveSnapshot = null;
+  let projectAppearance = null;
+  let projectSaveState = null;
+
+  function ensureProjectAppearance() {
+    if (!projectAppearance) {
+      projectAppearance = createEntityAppearanceController({
+        prefix: 'project',
+        onChange: () => projectSaveState?.refresh?.(),
+      });
+    }
+    return projectAppearance;
+  }
 
   function getProjectSaveRelevantState() {
+    const appearance = ensureProjectAppearance().readState();
     return {
       id: document.getElementById('project-id')?.value || '',
-      name: (document.getElementById('project-name')?.value || '').trim(),
-      color: document.getElementById('project-color')?.value || '#6366f1',
-      icon: document.getElementById('project-icon')?.value || '',
+      ...appearance,
       parent_id: document.getElementById('project-parent-id')?.value || '',
       display_workspace_id: document.getElementById('project-display-workspace-id')?.value || '',
       household_id: document.getElementById('project-household-id')?.value || '',
@@ -46,22 +56,15 @@ export function createProjectsFeature({
   }
 
   function canSaveProject() {
-    const state = getProjectSaveRelevantState();
-    const unchanged = projectSaveSnapshot !== null && JSON.stringify(state) === projectSaveSnapshot;
-    return !!state.name && !unchanged;
+    return projectSaveState?.canSave?.() || false;
   }
 
   function refreshProjectSaveButtonState() {
-    const saveBtn = document.getElementById('project-save-btn');
-    if (!saveBtn) return;
-    const canSave = canSaveProject();
-    saveBtn.hidden = !canSave;
-    saveBtn.disabled = !canSave;
+    projectSaveState?.refresh?.();
   }
 
   function resetProjectSaveSnapshot() {
-    projectSaveSnapshot = JSON.stringify(getProjectSaveRelevantState());
-    refreshProjectSaveButtonState();
+    projectSaveState?.reset?.();
   }
 
   function bindProjectForm() {
@@ -69,13 +72,14 @@ export function createProjectsFeature({
     const form = document.getElementById('project-form');
     if (!form) return;
     projectFormBound = true;
-    form.addEventListener('submit', saveProject);
-    form.addEventListener('input', refreshProjectSaveButtonState);
-    form.addEventListener('change', refreshProjectSaveButtonState);
-    document.getElementById('project-icon-picker')?.addEventListener('click', (event) => {
-      if (!event.target?.closest?.('.icon-picker-option')) return;
-      window.setTimeout(refreshProjectSaveButtonState, 0);
+    ensureProjectAppearance();
+    projectSaveState = createFormSaveState({
+      form,
+      button: document.getElementById('project-save-btn'),
+      readState: getProjectSaveRelevantState,
+      isValid: state => Boolean(state.name) && state.name.length <= 200,
     });
+    form.addEventListener('submit', saveProject);
   }
 
   function isOwner(project) {
@@ -121,35 +125,11 @@ export function createProjectsFeature({
       if (input) input.disabled = transferMode;
     });
     if (parentInput) parentInput.disabled = false;
-    const iconPicker = document.getElementById('project-icon-picker');
-    const colorPicker = document.getElementById('project-color-picker');
-    if (iconPicker && iconInput) {
-      renderIconPicker({
-        container: iconPicker,
-        input: iconInput,
-        selected: iconInput.value || '',
-        color: colorInput?.value || '#6366f1',
-      });
-    }
-    if (colorPicker && colorInput) {
-      renderColorPicker({
-        container: colorPicker,
-        input: colorInput,
-        selected: colorInput.value || '#6366f1',
-        onChange: (color) => {
-          if (iconPicker && iconInput) {
-            renderIconPicker({ container: iconPicker, input: iconInput, selected: iconInput.value || '', color });
-          }
-          refreshProjectSaveButtonState();
-        },
-      });
-    }
-    [iconPicker, colorPicker].forEach(picker => {
-      if (!picker) return;
-      picker.style.pointerEvents = transferMode ? 'none' : '';
-      picker.style.opacity = transferMode ? '0.6' : '';
-      picker.setAttribute('aria-disabled', transferMode ? 'true' : 'false');
-    });
+    ensureProjectAppearance().setValues({
+      name: nameInput?.value || '',
+      color: colorInput?.value || '#6366f1',
+      icon: iconInput?.value || '',
+    }, { editable: !transferMode });
     if (parentInput) refreshSelect(parentInput);
     if (workspaceInput) refreshSelect(workspaceInput);
   }
@@ -286,12 +266,7 @@ export function createProjectsFeature({
     if (saveBtn) {
       saveBtn.hidden = false;
       saveBtn.disabled = false;
-    }
-    const iconPicker = document.getElementById('project-icon-picker');
-    if (iconPicker) {
-      iconPicker.style.pointerEvents = '';
-      iconPicker.style.opacity = '';
-      iconPicker.setAttribute('aria-disabled', 'false');
+      saveBtn.style.display = '';
     }
     const modalTitle = document.getElementById('project-modal-title');
     if (modalTitle) {
@@ -312,16 +287,8 @@ export function createProjectsFeature({
 
     if (project) {
       document.getElementById('project-id').value = project.id;
-      document.getElementById('project-name').value = project.name;
-      document.getElementById('project-color').value = project.color;
-      document.getElementById('project-icon').value = project.icon || '';
-      renderIconPicker({
-        container: document.getElementById('project-icon-picker'),
-        input: document.getElementById('project-icon'),
-        selected: project.icon || '',
-        color: project.color || '#6366f1',
-      });
       const owner = isOwner(project);
+      ensureProjectAppearance().setValues(project, { editable: owner });
       const shared = !!project.is_shared;
       const canDelete = owner && !project.is_inbox;
       if (deleteBtn) deleteBtn.style.display = canDelete ? '' : 'none';
@@ -340,16 +307,10 @@ export function createProjectsFeature({
         headerMenu.removeAttribute('open');
       }
       document.getElementById('project-form')?.classList.remove('readonly-project');
-      document.getElementById('project-icon').value = '';
-      renderIconPicker({
-        container: document.getElementById('project-icon-picker'),
-        input: document.getElementById('project-icon'),
-        selected: '',
-        color: document.getElementById('project-color')?.value || '#6366f1',
-      });
+      ensureProjectAppearance().setValues({ name: '', color: '#6366f1', icon: '' }, { editable: true });
       renderProjectWorkspaceSelect(null);
       renderProjectHouseholdSelect(null);
-      ['project-name', 'project-color', 'project-parent-id', 'project-icon'].forEach(id => {
+      ['project-parent-id'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           el.disabled = false;
@@ -358,25 +319,8 @@ export function createProjectsFeature({
       });
     }
 
-    const colorInput = document.getElementById('project-color');
-    if (colorInput) {
-      renderColorPicker({
-        container: document.getElementById('project-color-picker'),
-        input: colorInput,
-        selected: colorInput.value || '#6366f1',
-        onChange: (color) => {
-          renderIconPicker({
-            container: document.getElementById('project-icon-picker'),
-            input: document.getElementById('project-icon'),
-            selected: document.getElementById('project-icon')?.value || '',
-            color,
-          });
-          refreshProjectSaveButtonState();
-        },
-      });
-    }
-
     document.getElementById('project-modal')?.classList.add('active');
+    document.getElementById('project-modal')?.setAttribute('aria-hidden', 'false');
     openUiLayer('project-modal');
     resetProjectSaveSnapshot();
     if (!project) {
@@ -399,6 +343,7 @@ export function createProjectsFeature({
     const sharedMemberProject = !!existing?.is_shared && !isOwner(existing);
     const displayWorkspaceId = document.getElementById('project-display-workspace-id')?.value || getCurrentWorkspaceId?.() || null;
     const ownerProject = !!existing && isOwner(existing) && !existing.is_inbox;
+    const appearance = ensureProjectAppearance().readState();
     const householdValue = document.getElementById('project-household-id')?.value || '';
     const selectedHouseholdId = householdValue ? parseInt(householdValue) : null;
     const defaultWorkspaceId = getWorkspaces?.().find(workspace => workspace.is_default)?.id || getCurrentWorkspaceId?.() || null;
@@ -446,9 +391,9 @@ export function createProjectsFeature({
     const projectData = sharedMemberProject ? {
       workspace_id: displayWorkspaceId ? parseInt(displayWorkspaceId) : null,
     } : {
-      name: document.getElementById('project-name').value,
-      color: document.getElementById('project-color').value,
-      icon: document.getElementById('project-icon')?.value || null,
+      name: appearance.name,
+      color: appearance.color,
+      icon: appearance.icon,
       sort_order: getProjects().length,
       parent_id: parentIdVal ? parseInt(parentIdVal) : null,
       workspace_id: selectedHouseholdId

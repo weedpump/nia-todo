@@ -39,6 +39,7 @@ import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
+import { createShoppingListDetailsFeature } from './features/shopping-list-details.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
@@ -81,6 +82,7 @@ let dashboardPreferencesSyncFeature = null;
 let moduleShell = null;
 let moduleSwitcher = null;
 let shoppingNavigationFeature = null;
+let shoppingListDetailsFeature = null;
 
 function renderShopping() {
   shoppingNavigationFeature?.render();
@@ -259,6 +261,17 @@ async function commitTodoUpdatesWithQueue(operation) {
     finishQueueWrite();
   }
 }
+async function commitShoppingMutation(buildMutation) {
+  const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
+  try {
+    const mutation = typeof buildMutation === 'function' ? buildMutation() : buildMutation;
+    if (!mutation) return null;
+    await appStorage.commitShoppingMutation(mutation);
+    return mutation;
+  } finally {
+    finishQueueWrite();
+  }
+}
 const syncInProgressRef = { value: syncInProgress };
 const activeBackgroundSyncOperations = new Set();
 
@@ -303,6 +316,7 @@ const syncFeature = createSyncFeature({
   sectionsApi,
   workspacesApi,
   shoppingApi,
+  commitShoppingReplay: appStorage.commitShoppingReplay,
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   renderShopping: () => renderShopping(),
@@ -754,8 +768,17 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
   closeSidebar: options => uiShell.closeSidebar(options),
   onAdd: () => window.dispatchEvent(new CustomEvent('nia:shopping-list-add-request')),
   onDetail: id => window.dispatchEvent(new CustomEvent('nia:shopping-list-detail-request', { detail: { id } })),
+  onListIdRemap: (fromId, toId) => shoppingListDetailsFeature?.remapListId(fromId, toId),
 });
 shoppingNavigationFeature.bind();
+shoppingListDetailsFeature = createShoppingListDetailsFeature({
+  getLists: () => shoppingLists,
+  setLists: setShoppingListsState,
+  commitMutation: commitShoppingMutation,
+  isOnlineForSync,
+  syncWithServer,
+  selectList: id => shoppingNavigationFeature.selectList(id),
+});
 const refreshTasksModule = () => {
   renderProjects();
   renderStats();
@@ -954,6 +977,7 @@ export function startAppModule() {
   startupBound = true;
   moduleShell.bind();
   moduleSwitcher.bind();
+  shoppingListDetailsFeature.bind();
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();

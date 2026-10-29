@@ -145,6 +145,17 @@ with tempfile.TemporaryDirectory() as tmp:
     assert [row["id"] for row in shared_lists] == [personal_id]
     assert shared_lists[0]["owner_username"] == "owner", shared_lists[0]
     assert shared_lists[0]["is_shared"] is True, shared_lists[0]
+    assert shared_lists[0]["can_edit"] is True, shared_lists[0]
+    assert shared_lists[0]["can_manage"] is False, shared_lists[0]
+    try:
+        asyncio.run(update_shopping_list(personal_id, ShoppingListUpdate(name="Recipient rename"), shared_id))
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Direct recipient changed shopping-list metadata")
+    with get_db() as db:
+        persisted = db.execute("SELECT name FROM shopping_lists WHERE id = ?", (personal_id,)).fetchone()
+        assert persisted["name"] == "Weekly groceries", persisted
     assert list_shopping_lists(outsider_id)["shopping_lists"] == []
     asyncio.run(revoke_shopping_list_member(personal_id, shared_id, owner_id))
     assert list_shopping_list_members(personal_id, owner_id)["members"] == []
@@ -196,6 +207,18 @@ with tempfile.TemporaryDirectory() as tmp:
     assert transferred["ownership_type"] == "household", transferred
     assert transferred["owner_household_id"] == household_id, transferred
     assert transferred["can_manage"] is True, transferred
+    household_member_view = get_shopping_list(transfer_list["id"], member_id)
+    assert household_member_view["can_edit"] is True, household_member_view
+    assert household_member_view["can_manage"] is False, household_member_view
+    try:
+        asyncio.run(update_shopping_list(transfer_list["id"], ShoppingListUpdate(name="Member rename"), member_id))
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Household member changed shopping-list metadata")
+    with get_db() as db:
+        persisted = db.execute("SELECT name FROM shopping_lists WHERE id = ?", (transfer_list["id"],)).fetchone()
+        assert persisted["name"] == "Transfer me", persisted
     assert [row["id"] for row in list_shopping_lists(shared_id)["shopping_lists"]] == [personal_id]
     assert transfer_syncs == [{owner_id, member_id, shared_id}], transfer_syncs
     with get_db() as db:

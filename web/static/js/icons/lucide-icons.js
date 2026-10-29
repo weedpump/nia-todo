@@ -137,7 +137,7 @@ function currentIconLabel(icon) {
   return icon ? iconLabel(icon) : t('iconPicker.none');
 }
 
-export function renderIconPicker({ container, input, selected = '', color = '#6366f1' }) {
+export function renderIconPicker({ container, input, selected = '', color = '#6366f1', onChange } = {}) {
   if (!container || !input) return;
   const safeSelected = safeIconName(selected);
   const safePickerColor = safeColor(color);
@@ -192,6 +192,9 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
   const panel = container.querySelector('.icon-picker-panel');
   const search = container.querySelector('.icon-picker-search');
   const options = Array.from(container.querySelectorAll('.icon-picker-option'));
+  if (currentButton) currentButton.disabled = input.disabled;
+  for (const option of options) option.disabled = input.disabled;
+  if (search) search.disabled = input.disabled;
 
   function setExpanded(expanded) {
     panel.hidden = !expanded;
@@ -212,6 +215,7 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
   }
 
   currentButton?.addEventListener('click', () => {
+    if (input.disabled) return;
     const expanded = currentButton.getAttribute('aria-expanded') === 'true';
     setExpanded(!expanded);
     if (!expanded) search?.focus();
@@ -219,8 +223,10 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
 
   options.forEach((button) => {
     button.addEventListener('click', () => {
+      if (input.disabled) return;
       updateCurrent(button.dataset.value || '');
       setExpanded(false);
+      if (typeof onChange === 'function') onChange(input.value || null);
     });
   });
 

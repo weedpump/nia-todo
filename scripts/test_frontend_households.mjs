@@ -225,6 +225,8 @@ try {
     const pathname = new URL(route.request().url()).pathname;
     if (pathname === '/static/js/features/households.js') return route.fulfill({ contentType: 'text/javascript', body: householdsSource });
     if (pathname === '/static/js/features/projects.js') return route.fulfill({ contentType: 'text/javascript', body: projectsSource });
+    if (pathname === '/static/js/features/entity-appearance.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-appearance.js', import.meta.url), 'utf8') });
+    if (pathname === '/static/js/features/form-save-state.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/form-save-state.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/project-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: sharingSource });
     if (pathname === '/static/js/features/app-rendering.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(renderingSourceUrl, 'utf8') });
     if (pathname === '/static/js/features/entity-sidebar.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-sidebar.js', import.meta.url), 'utf8') });
@@ -239,6 +241,7 @@ try {
     if (pathname === '/static/js/core/utils.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/core/utils.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/core/authenticated-image.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const loadAuthenticatedImage=async()=>false; export const releaseAuthenticatedImage=()=>{};' });
     if (pathname === '/static/js/features/dashboard-preferences.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const calculateDashboardMetrics=()=>({}); export const filterTodosForDashboard=items=>items; export const filterTodosForDashboardDrilldown=items=>items; export const filterTodosForTodayFocus=items=>items; export const getEffectiveDashboardPreferences=()=>({stats:[],focusItems:[],activeProjects:{sort:"recent",limit:5},showFocus:false,showActiveProjects:false,groupByStatus:true}); export const selectDashboardWorkspaceTodos=items=>items;' });
+    if (pathname.endsWith('.js')) return route.fulfill({ status: 404, contentType: 'text/plain', body: `Missing JavaScript fixture: ${pathname}` });
     return route.fulfill({ contentType: 'text/html', body: testHtml });
   });
   await page.goto('http://nia.test/');

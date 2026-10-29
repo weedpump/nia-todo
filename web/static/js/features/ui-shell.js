@@ -135,6 +135,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     if (modalId === 'settings-modal' && modal?.classList.contains('mfa-enrollment-locked')) return;
     if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer(modalId, { reason: 'ui' })) return;
     modal?.classList.remove('active');
+    modal?.setAttribute('aria-hidden', 'true');
 
     const activeElement = document.activeElement;
     if (activeElement?.matches?.('.entity-sidebar-detail, [data-workspace-action="edit"]')) {
@@ -280,6 +281,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
         }
         closeModal('todo-modal');
         closeModal('project-modal');
+        closeModal('shopping-list-modal');
       }
     });
   }

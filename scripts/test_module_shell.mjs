@@ -97,6 +97,7 @@ const taskShortcutsSource = read('web/static/js/modules/tasks-shortcuts.js');
 const workspacesSource = read('web/static/js/features/workspaces.js');
 const todosSource = read('web/static/js/features/todos.js');
 const shoppingSource = read('web/static/js/modules/shopping.js');
+const shoppingDialogsSource = read('web/static/js/modules/shopping-dialogs.js');
 const recipesSource = read('web/static/js/modules/recipes.js');
 const indexSource = read('web/index.html');
 const moduleCss = read('web/static/css/14-module-content.css');
@@ -158,7 +159,9 @@ assert(shoppingSource.includes('id="shopping-list-sidebar"'), 'shopping must own
 assert(shoppingSource.includes('id="shopping-navigation-main"'), 'shopping must own its navigation main state');
 assert(recipesSource.includes('createEmptyModule'), 'recipes must remain an empty registered module');
 assert(!existsSync(new URL('web/static/js/modules/shopping-preview.js', root)), 'shopping feature implementation must not exist yet');
-assert(!indexSource.includes('shopping-list-modal'), 'shopping-specific dialogs must not exist yet');
+assert(shoppingSource.includes('SHOPPING_DIALOGS_HTML'), 'shopping must mount its own dialogs through the module slot');
+assert(shoppingDialogsSource.includes('id="shopping-list-modal"'), 'shopping must own the list-details dialog');
+assert(!indexSource.includes('shopping-list-modal'), 'shopping-specific dialogs must not leak into the global shell');
 assert(!moduleCss.includes('.shopping-item'), 'shopping-specific component styling must not exist yet');
 assert(!indexSource.includes('id="workspace-module-list"'), 'module visibility must not be configured in workspace settings');
 assert(!workspacesSource.includes('hidden_modules'), 'workspace payloads must not persist module visibility');
