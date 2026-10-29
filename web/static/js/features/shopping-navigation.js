@@ -5,7 +5,7 @@ import {
   renderEntitySidebarSection,
 } from './entity-sidebar.js';
 import { escapeHtml } from '../core/utils.js';
-import { markerHtml } from '../icons/lucide-icons.js';
+import { iconSvg, markerHtml } from '../icons/lucide-icons.js';
 import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { t } from '../i18n/index.js';
 
@@ -141,6 +141,8 @@ export function createShoppingNavigationFeature({
     const selected = lists().find(list => String(list.id) === String(activeListId));
     if (!selected) {
       main.dataset.shoppingNavigationState = 'empty';
+      main.dataset.shoppingContentState = 'no-list';
+      main.className = 'module-page module-empty-page';
       main.innerHTML = `
         <div class="module-empty-icon" aria-hidden="true">${niaIconSvg('shopping')}</div>
         <h1>${escapeHtml(t('shopping.sidebar.emptyTitle'))}</h1>
@@ -148,10 +150,24 @@ export function createShoppingNavigationFeature({
       `;
       return;
     }
+    const hasItems = Array.isArray(selected.items) && selected.items.length > 0;
     main.dataset.shoppingNavigationState = 'selected';
+    main.dataset.shoppingContentState = hasItems ? 'populated' : 'empty';
+    main.className = 'module-page shopping-list-content-page';
     main.innerHTML = `
-      <div class="module-empty-icon" aria-hidden="true">${markerHtml(selected)}</div>
-      <h1>${escapeHtml(selected.name || '')}</h1>
+      <header class="shopping-list-content-header">
+        <span class="shopping-list-content-marker" aria-hidden="true">${markerHtml(selected)}</span>
+        <h1>${escapeHtml(selected.name || '')}</h1>
+      </header>
+      <div class="shopping-list-content-body">
+        ${hasItems ? '<div class="shopping-list-content-items"></div>' : `
+          <div class="empty-state shopping-list-empty-state">
+            <div class="emoji" aria-hidden="true">${iconSvg('shopping-cart')}</div>
+            <h3>${escapeHtml(t('shopping.list.emptyTitle'))}</h3>
+            <p>${escapeHtml(t('shopping.list.emptyHint'))}</p>
+          </div>
+        `}
+      </div>
     `;
   }
 

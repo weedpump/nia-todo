@@ -40,6 +40,8 @@
   "shopping.sidebar.add": "Ajouter une liste",
   "shopping.sidebar.emptyTitle": "Aucune liste de courses",
   "shopping.sidebar.emptyHint": "Créez votre première liste et planifiez vos prochaines courses.",
+  "shopping.list.emptyTitle": "Aucun article pour le moment",
+  "shopping.list.emptyHint": "Cette liste de courses ne contient encore aucun article.",
   "common.icon": "Icône",
   "entity.chooseColor": "Choisir la couleur",
   "entity.chooseIcon": "Choisir l’icône",

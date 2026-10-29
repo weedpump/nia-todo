@@ -40,6 +40,8 @@
   "shopping.sidebar.add": "Добавить список",
   "shopping.sidebar.emptyTitle": "Списков покупок пока нет",
   "shopping.sidebar.emptyHint": "Создайте первый список и спланируйте следующую покупку.",
+  "shopping.list.emptyTitle": "Пока нет товаров",
+  "shopping.list.emptyHint": "В этом списке покупок пока нет товаров.",
   "common.icon": "Значок",
   "entity.chooseColor": "Выбрать цвет",
   "entity.chooseIcon": "Выбрать значок",

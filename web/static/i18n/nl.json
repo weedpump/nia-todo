@@ -40,6 +40,8 @@
   "shopping.sidebar.add": "Lijst toevoegen",
   "shopping.sidebar.emptyTitle": "Nog geen boodschappenlijsten",
   "shopping.sidebar.emptyHint": "Maak je eerste lijst en plan je volgende boodschappen.",
+  "shopping.list.emptyTitle": "Nog geen artikelen",
+  "shopping.list.emptyHint": "Deze boodschappenlijst bevat nog geen artikelen.",
   "common.icon": "Pictogram",
   "entity.chooseColor": "Kleur kiezen",
   "entity.chooseIcon": "Pictogram kiezen",

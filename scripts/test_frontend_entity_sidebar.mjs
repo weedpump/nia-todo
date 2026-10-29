@@ -191,7 +191,7 @@ assert.equal(mountedSlots.topbar.innerHTML, '');
 assert.equal(mountedSlots.floating.innerHTML, '');
 
 const sidebarTarget = { innerHTML: '' };
-const mainTarget = { innerHTML: '', dataset: {} };
+const mainTarget = { innerHTML: '', dataset: {}, className: '' };
 const featureCalls = [];
 const featureStorage = new Map([['nia-shopping-active-list', '404']]);
 const featureHistoryCalls = [];
@@ -249,6 +249,12 @@ assert.equal(featureStorage.get('nia-shopping-active-list'), '10');
 assert.match(sidebarTarget.innerHTML, /data-entity-id="10"/);
 assert.match(sidebarTarget.innerHTML, /entity-sidebar-select active/);
 assert.equal(mainTarget.dataset.shoppingNavigationState, 'selected');
+assert.equal(mainTarget.dataset.shoppingContentState, 'empty');
+assert.equal(mainTarget.className, 'module-page shopping-list-content-page');
+assert.match(mainTarget.innerHTML, /class="shopping-list-content-header"/);
+assert.match(mainTarget.innerHTML, /class="shopping-list-content-body"/);
+assert.match(mainTarget.innerHTML, /class="empty-state shopping-list-empty-state"/);
+assert.doesNotMatch(mainTarget.innerHTML, /data-shopping-list-action=/, 'the content header must not introduce list actions');
 assert.deepEqual(featureHistoryCalls, [], 'background rendering must not mutate browser history');
 navigationFeature.activate();
 assert.deepEqual(featureHistoryCalls, [['replace', '10', '/?shoppingList=10']], 'module activation must normalize the initially visible list');
@@ -291,10 +297,16 @@ navigationFeature.replaceLists([
 ]);
 assert.deepEqual(featureCalls.at(-1), ['remap', 'temp-shopping-list-older', 88], 'non-active Temp-ID remaps must also notify an open details editor');
 assert.equal(featureRoot.remappedFocusId, '88', 'a focused non-active Temp-ID row must regain focus on its server-ID replacement');
+navigationFeature.replaceLists([{ ...entities[0], id: 77, items: [{ id: 1, name: 'Milk', completed: false }] }]);
+assert.equal(mainTarget.dataset.shoppingContentState, 'populated');
+assert.match(mainTarget.innerHTML, /class="shopping-list-content-items"/);
+assert.doesNotMatch(mainTarget.innerHTML, /shopping-list-empty-state/, 'a list with item data must not render the empty-list message');
 navigationFeature.replaceLists([]);
 assert.equal(navigationFeature.getActiveListId(), null);
 assert.equal(featureStorage.has('nia-shopping-active-list'), false);
 assert.equal(mainTarget.dataset.shoppingNavigationState, 'empty');
+assert.equal(mainTarget.dataset.shoppingContentState, 'no-list');
+assert.equal(mainTarget.className, 'module-page module-empty-page');
 navigationFeature.normalizeActiveListNavigation();
 assert.deepEqual(featureHistoryCalls.at(-1), ['replace', null, '/'], 'deleting the final list must remove shoppingList from history and URL');
 assert.equal(navigationFeature.focusActiveListAction(), true);
@@ -324,6 +336,8 @@ const requiredKeys = [
   'shopping.sidebar.add',
   'shopping.sidebar.emptyTitle',
   'shopping.sidebar.emptyHint',
+  'shopping.list.emptyTitle',
+  'shopping.list.emptyHint',
 ];
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
   const dictionary = JSON.parse(readFileSync(new URL(`web/static/i18n/${locale}.json`, root), 'utf8'));

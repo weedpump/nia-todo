@@ -40,6 +40,8 @@
   "shopping.sidebar.add": "Add list",
   "shopping.sidebar.emptyTitle": "No shopping lists yet",
   "shopping.sidebar.emptyHint": "Create your first list and plan your next shopping trip.",
+  "shopping.list.emptyTitle": "No items yet",
+  "shopping.list.emptyHint": "This shopping list does not contain any items yet.",
   "common.icon": "Icon",
   "entity.chooseColor": "Choose color",
   "entity.chooseIcon": "Choose icon",

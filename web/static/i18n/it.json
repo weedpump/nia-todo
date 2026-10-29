@@ -40,6 +40,8 @@
   "shopping.sidebar.add": "Aggiungi lista",
   "shopping.sidebar.emptyTitle": "Nessuna lista della spesa",
   "shopping.sidebar.emptyHint": "Crea la prima lista e pianifica la prossima spesa.",
+  "shopping.list.emptyTitle": "Ancora nessun articolo",
+  "shopping.list.emptyHint": "Questa lista della spesa non contiene ancora articoli.",
   "common.icon": "Icona",
   "entity.chooseColor": "Scegli colore",
   "entity.chooseIcon": "Scegli icona",

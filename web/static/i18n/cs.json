@@ -40,6 +40,8 @@
   "shopping.sidebar.add": "Přidat seznam",
   "shopping.sidebar.emptyTitle": "Zatím žádné nákupní seznamy",
   "shopping.sidebar.emptyHint": "Vytvořte první seznam a naplánujte další nákup.",
+  "shopping.list.emptyTitle": "Zatím žádné položky",
+  "shopping.list.emptyHint": "Tento nákupní seznam zatím neobsahuje žádné položky.",
   "common.icon": "Ikona",
   "entity.chooseColor": "Vybrat barvu",
   "entity.chooseIcon": "Vybrat ikonu",

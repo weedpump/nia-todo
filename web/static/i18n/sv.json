@@ -40,6 +40,8 @@
   "shopping.sidebar.add": "Lägg till lista",
   "shopping.sidebar.emptyTitle": "Inga inköpslistor än",
   "shopping.sidebar.emptyHint": "Skapa din första lista och planera nästa inköp.",
+  "shopping.list.emptyTitle": "Inga varor än",
+  "shopping.list.emptyHint": "Den här inköpslistan innehåller inga varor än.",
   "common.icon": "Ikon",
   "entity.chooseColor": "Välj färg",
   "entity.chooseIcon": "Välj ikon",

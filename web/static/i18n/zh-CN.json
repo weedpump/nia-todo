@@ -40,6 +40,8 @@
   "shopping.sidebar.add": "添加清单",
   "shopping.sidebar.emptyTitle": "还没有购物清单",
   "shopping.sidebar.emptyHint": "创建第一份清单并规划下一次购物。",
+  "shopping.list.emptyTitle": "还没有商品",
+  "shopping.list.emptyHint": "此购物清单尚未包含任何商品。",
   "common.icon": "图标",
   "entity.chooseColor": "选择颜色",
   "entity.chooseIcon": "选择图标",
