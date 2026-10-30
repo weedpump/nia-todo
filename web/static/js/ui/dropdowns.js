@@ -150,9 +150,42 @@ function renderSearch(instance) {
   instance.menu.appendChild(searchWrap);
 }
 
+function activateAction(instance) {
+  const action = instance?.options?.action;
+  if (!action || typeof action.onActivate !== 'function' || instance.select.disabled) return;
+  closeOpenDropdown('action');
+  instance.trigger.focus();
+  action.onActivate({
+    select: instance.select,
+    trigger: instance.trigger,
+  });
+}
+
+function renderAction(instance) {
+  const action = instance?.options?.action;
+  if (!action?.label || typeof action.onActivate !== 'function') return;
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'ui-select-action';
+  if (action.ariaLabel) row.setAttribute('aria-label', action.ariaLabel);
+  const marker = action.icon
+    ? `<span class="ui-select-action-icon" aria-hidden="true">${iconSvg(action.icon)}</span>`
+    : '';
+  row.innerHTML = `${marker}<span class="ui-select-action-label">${escapeHtml(action.label)}</span>`;
+  row.addEventListener('click', () => activateAction(instance));
+  instance.menu.appendChild(row);
+}
+
 function renderMenu(instance) {
   instance.menu.innerHTML = '';
   renderSearch(instance);
+  const listbox = document.createElement('div');
+  listbox.id = `${instance.id}-ui-listbox`;
+  listbox.className = 'ui-select-options';
+  listbox.setAttribute('role', 'listbox');
+  const labelId = instance.menu.dataset.labelledby;
+  if (labelId) listbox.setAttribute('aria-labelledby', labelId);
+  instance.menu.appendChild(listbox);
   const options = visibleOptions(instance.select);
   options.forEach((option, index) => {
     const row = document.createElement('button');
@@ -177,7 +210,7 @@ function renderMenu(instance) {
       chooseIndex(instance, index);
     });
     row.addEventListener('mouseenter', () => highlightIndex(instance, index));
-    instance.menu.appendChild(row);
+    listbox.appendChild(row);
   });
   if (isSearchable(instance)) {
     const empty = document.createElement('div');
@@ -187,6 +220,7 @@ function renderMenu(instance) {
     instance.menu.appendChild(empty);
     applySearchFilter(instance);
   }
+  renderAction(instance);
 }
 
 function positionDropdown(trigger, menu) {
@@ -235,6 +269,27 @@ function highlightedOption(instance) {
 
 function menuOptionRows(instance) {
   return Array.from(instance.menu.querySelectorAll('.ui-select-option')).filter(row => !row.hidden);
+}
+
+function actionRow(instance) {
+  return instance.menu.querySelector('.ui-select-action');
+}
+
+function focusAction(instance) {
+  const action = actionRow(instance);
+  if (!action) return false;
+  instance.menu.querySelectorAll('.ui-select-option').forEach(option => option.classList.remove('is-highlighted'));
+  instance.trigger.removeAttribute('aria-activedescendant');
+  action.focus();
+  return true;
+}
+
+function moveOptionHighlight(instance, currentIndex, direction) {
+  const rows = menuOptionRows(instance).filter(row => !row.disabled);
+  const position = rows.findIndex(row => Number(row.dataset.index) === Number(currentIndex));
+  if (direction > 0 && position === rows.length - 1 && focusAction(instance)) return;
+  const index = firstEnabledIndex(instance, currentIndex + direction, direction);
+  if (index >= 0) highlightIndex(instance, index);
 }
 
 function highlightIndex(instance, index) {
@@ -337,14 +392,14 @@ function onTriggerKeydown(instance, event) {
     const direction = event.key === 'ArrowDown' ? 1 : -1;
     const current = highlightedOption(instance);
     const currentIndex = current ? Number(current.dataset.index) : selectedIndex(instance);
-    const index = firstEnabledIndex(instance, currentIndex + direction, direction);
-    if (index >= 0) highlightIndex(instance, index);
+    moveOptionHighlight(instance, currentIndex, direction);
   }
 }
 
 function onMenuKeydown(event) {
   if (!openState) return;
   const instance = openState.instance;
+  const action = event.target.closest?.('.ui-select-action');
   if (event.key === 'Escape') {
     event.preventDefault();
     closeOpenDropdown('escape');
@@ -355,14 +410,25 @@ function onMenuKeydown(event) {
     closeOpenDropdown('tab');
     return;
   }
-  const options = Array.from(instance.menu.querySelectorAll('.ui-select-option'));
+  if (action && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault();
+    activateAction(instance);
+    return;
+  }
+  if (action && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+    event.preventDefault();
+    instance.trigger.focus();
+    const rows = menuOptionRows(instance).filter(row => !row.disabled);
+    const target = event.key === 'ArrowUp' ? rows[rows.length - 1] : rows[0];
+    if (target) highlightIndex(instance, Number(target.dataset.index));
+    return;
+  }
   const current = highlightedOption(instance);
   const currentIndex = current ? Number(current.dataset.index) : selectedIndex(instance);
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault();
     const direction = event.key === 'ArrowDown' ? 1 : -1;
-    const index = firstEnabledIndex(instance, currentIndex + direction, direction);
-    if (index >= 0) highlightIndex(instance, index);
+    moveOptionHighlight(instance, currentIndex, direction);
     return;
   }
   if (event.key === 'Enter' || event.key === ' ') {
@@ -383,6 +449,7 @@ function bindGlobalListeners() {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && openState) {
+      event.preventDefault();
       const trigger = openState.instance.trigger;
       closeOpenDropdown('escape');
       trigger.focus();
@@ -440,16 +507,15 @@ export function hydrateSelect(select, options = {}) {
   const menu = document.createElement('div');
   menu.id = `${select.id}-ui-menu`;
   menu.className = `ui-select-menu ${options.menuClassName || ''}`.trim();
-  menu.setAttribute('role', 'listbox');
   menu.hidden = true;
   menu.addEventListener('keydown', onMenuKeydown);
-  trigger.setAttribute('aria-controls', menu.id);
+  trigger.setAttribute('aria-controls', `${select.id}-ui-listbox`);
 
   const label = selectLabelElement(select);
   const labelId = ensureElementId(label, `${select.id}-label`);
   if (labelId) {
     trigger.setAttribute('aria-labelledby', `${labelId} ${value.id}`);
-    menu.setAttribute('aria-labelledby', labelId);
+    menu.dataset.labelledby = labelId;
   } else {
     trigger.setAttribute('aria-label', select.getAttribute('aria-label') || select.name || select.id);
   }

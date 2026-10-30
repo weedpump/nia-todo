@@ -320,9 +320,9 @@
   }
 }
 
-/* Mobile FAB safe-area refinement */
+/* Mobile module primary-action safe-area refinement */
 @media (max-width: 768px) {
-  .fab-add-todo {
+  .ui-module-primary-action {
     right: calc(22px + env(safe-area-inset-right, 0px));
     bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   }

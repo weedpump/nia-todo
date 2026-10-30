@@ -215,7 +215,277 @@ releaseRemap();
 await remappedToggle;
 assert.equal(remappedMutation.data.item_id, 61, 'a queued toggle must follow a Temp-ID remap before the durable commit');
 
+let createLists = [{
+  id: 'list-create',
+  client_mutation_id: 'stable-list-create',
+  can_edit: true,
+  sections: [{ id: 'temp-shopping-section-produce', name: 'Produce' }],
+  items: [{ id: 'existing', sort_order: 7 }],
+}];
+const createStores = [{ id: 'temp-shopping-store-market', name: 'Market', active: true }];
+const createDurable = deferred();
+let createMutation = null;
+let createPublishes = 0;
+let createRenders = 0;
+let createTempCalls = 0;
+const creator = createShoppingItemsController({
+  getLists: () => createLists,
+  setLists: next => { createLists = next; createPublishes += 1; },
+  getActiveListId: () => 'list-create',
+  getStores: () => createStores,
+  createTempId: () => { createTempCalls += 1; return 'temp-shopping-item-created'; },
+  commitMutation: async build => {
+    createMutation = build();
+    await createDurable.promise;
+    return createMutation;
+  },
+  render: () => { createRenders += 1; },
+});
+const createFirst = creator.create({
+  name: '  Apples  ',
+  quantity: '0',
+  unit: '  kg  ',
+  sectionId: 'temp-shopping-section-produce',
+  storeId: 'temp-shopping-store-market',
+});
+const createSecond = creator.create({
+  name: '  Apples  ',
+  quantity: '0',
+  unit: '  kg  ',
+  sectionId: 'temp-shopping-section-produce',
+  storeId: 'temp-shopping-store-market',
+});
+await Promise.resolve();
+assert.equal(createTempCalls, 1, 'duplicate create submission must allocate one identity');
+assert.strictEqual(createFirst, createSecond, 'duplicate create submission must be single-flight');
+assert.equal(createPublishes, 0, 'created items must not publish before durable commit');
+assert.equal(createRenders, 0, 'created items must not render before durable commit');
+assert.equal(createMutation.action, 'CREATE_SHOPPING_ITEM');
+assert.deepEqual(createMutation.data, {
+  shopping_list_id: 'list-create',
+  temp_id: 'temp-shopping-item-created',
+  item: {
+    name: 'Apples',
+    section_id: 'temp-shopping-section-produce',
+    quantity_value: 0,
+    quantity_unit: 'kg',
+    store_ids: ['temp-shopping-store-market'],
+    sort_order: 8,
+    client_mutation_id: 'temp-shopping-item-created',
+  },
+  client_mutation_id: 'temp-shopping-item-created',
+});
+assert.equal(createMutation.result.id, 'temp-shopping-item-created');
+assert.equal(createMutation.result.client_mutation_id, 'temp-shopping-item-created');
+assert.equal(createMutation.result.completed, false);
+assert.equal(createMutation.result.is_pending, true);
+createDurable.resolve();
+const createdItem = await createFirst;
+assert.equal(createdItem.id, 'temp-shopping-item-created');
+assert.equal(createPublishes, 1);
+assert.equal(createRenders, 1);
+assert.equal(createLists[0].items.at(-1).quantity_value, 0, 'zero quantity must survive creation');
+
+let rejectedSyncLists = [{ id: 'sync-reject-list', can_edit: true, sections: [], items: [] }];
+const rejectedSyncCreator = createShoppingItemsController({
+  getLists: () => rejectedSyncLists,
+  setLists: next => { rejectedSyncLists = next; },
+  getActiveListId: () => 'sync-reject-list',
+  createTempId: () => 'temp-shopping-item-sync-reject',
+  commitMutation: async build => build(),
+  render: () => {},
+  isOnlineForSync: () => true,
+  syncWithServer: async () => {
+    rejectedSyncLists = [{ id: 'sync-reject-list', can_edit: true, sections: [], items: [] }];
+    return { successCount: 0, failCount: 1 };
+  },
+});
+await assert.rejects(
+  () => rejectedSyncCreator.create({ name: 'Cheese' }),
+  /not visible after synchronization/,
+  'an online create must not report success after synchronization removed the item',
+);
+
+const invalidCreateInputs = [
+  [{ name: '   ' }, 'blank name'],
+  [{ name: 'x'.repeat(501) }, 'overlong name'],
+  [{ name: 'Milk', quantity: '-1' }, 'negative quantity'],
+  [{ name: 'Milk', quantity: 'not-a-number' }, 'non-finite quantity'],
+  [{ name: 'Milk', quantity: 'Infinity' }, 'infinite quantity'],
+  [{ name: 'Milk', unit: 'x'.repeat(41) }, 'overlong unit'],
+  [{ name: 'Milk', store_ids: ['store-a', 'store-b'] }, 'multiple stores'],
+];
+for (const [input, label] of invalidCreateInputs) {
+  let invalidCommits = 0;
+  let invalidTempIds = 0;
+  const invalid = createShoppingItemsController({
+    getLists: () => [{ id: 'validation-list', can_edit: true, sections: [], items: [] }],
+    getActiveListId: () => 'validation-list',
+    commitMutation: async build => { invalidCommits += 1; return build(); },
+    createTempId: () => { invalidTempIds += 1; return 'should-not-exist'; },
+  });
+  assert.equal(await invalid.create(input), null, `${label} must fail validation`);
+  assert.equal(invalidCommits, 0, `${label} must not reach durable commit`);
+  assert.equal(invalidTempIds, 0, `${label} must not allocate an identity`);
+}
+for (const [input, label] of [
+  [{ name: 'Milk', sectionId: 'missing-section' }, 'unknown section'],
+  [{ name: 'Milk', storeId: 'missing-store' }, 'unknown store'],
+]) {
+  let invalidReferenceCommits = 0;
+  let invalidReferenceTempIds = 0;
+  const invalidReference = createShoppingItemsController({
+    getLists: () => [{ id: 'reference-list', can_edit: true, sections: [], items: [] }],
+    getActiveListId: () => 'reference-list',
+    getStores: () => [],
+    commitMutation: async build => { invalidReferenceCommits += 1; return build(); },
+    createTempId: () => { invalidReferenceTempIds += 1; return 'should-not-exist'; },
+  });
+  assert.equal(await invalidReference.create(input), null, `${label} must fail validation`);
+  assert.equal(invalidReferenceCommits, 0, `${label} must not reach durable commit`);
+  assert.equal(invalidReferenceTempIds, 0, `${label} must not allocate an identity`);
+}
+for (const canEdit of [false, undefined, null, 'true', 1]) {
+  let deniedCommits = 0;
+  const denied = createShoppingItemsController({
+    getLists: () => [{ id: 'denied-list', can_edit: canEdit, sections: [], items: [] }],
+    getActiveListId: () => 'denied-list',
+    commitMutation: async build => { deniedCommits += 1; return build(); },
+  });
+  assert.equal(await denied.create({ name: 'Milk' }), null, `can_edit=${String(canEdit)} must deny create`);
+  assert.equal(deniedCommits, 0, `can_edit=${String(canEdit)} must fail closed before commit`);
+}
+
+let blankQuantityMutation = null;
+const blankQuantity = createShoppingItemsController({
+  getLists: () => [{ id: 'blank-quantity-list', can_edit: true, sections: [], items: [] }],
+  setLists: () => {},
+  getActiveListId: () => 'blank-quantity-list',
+  createTempId: () => 'temp-shopping-item-blank',
+  commitMutation: async build => { blankQuantityMutation = build(); return blankQuantityMutation; },
+});
+await blankQuantity.create({ name: 'Milk', quantity: '   ', unit: '   ' });
+assert.equal(blankQuantityMutation.data.item.quantity_value, null, 'blank quantity must normalize to null');
+assert.equal(blankQuantityMutation.data.item.quantity_unit, null, 'blank unit must normalize to null');
+
+let mixedLists = [{
+  id: 'mixed-list',
+  can_edit: true,
+  sections: [],
+  items: [{ id: 'mixed-existing', completed: false, sort_order: 0 }],
+}];
+const mixedGates = [deferred(), deferred()];
+const mixedMutations = [];
+let mixedCommitCalls = 0;
+const mixed = createShoppingItemsController({
+  getLists: () => mixedLists,
+  setLists: next => { mixedLists = next; },
+  getActiveListId: () => 'mixed-list',
+  createTempId: () => 'temp-shopping-item-mixed',
+  commitMutation: async build => {
+    const call = mixedCommitCalls++;
+    const mutation = build();
+    mixedMutations.push(mutation);
+    await mixedGates[call].promise;
+    return mutation;
+  },
+});
+const mixedCreate = mixed.create({ name: 'Bread' });
+const mixedToggle = mixed.toggleCompleted('mixed-list', 'mixed-existing');
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(mixedCommitCalls, 1, 'create and completion must share the per-list serialization queue');
+mixedGates[0].resolve();
+await mixedCreate;
+await Promise.resolve();
+assert.equal(mixedCommitCalls, 2);
+assert(mixedMutations[1].list.items.some(item => item.id === 'temp-shopping-item-mixed'), 'queued completion must build from the published create projection');
+mixedGates[1].resolve();
+await mixedToggle;
+assert.equal(mixedLists[0].items.find(item => item.id === 'mixed-existing').completed, true);
+assert(mixedLists[0].items.some(item => item.id === 'temp-shopping-item-mixed'));
+
+let remappedCreateMutation = null;
+const remappedCreate = createShoppingItemsController({
+  getLists: () => [{
+    id: 'remapped-create-list',
+    can_edit: true,
+    sections: [{ id: 91, client_mutation_id: 'temp-shopping-section-remapped' }],
+    items: [],
+  }],
+  setLists: () => {},
+  getActiveListId: () => 'remapped-create-list',
+  getStores: () => [{ id: 81, client_mutation_id: 'temp-shopping-store-remapped', active: true }],
+  createTempId: () => 'temp-shopping-item-remapped-reference',
+  commitMutation: async build => {
+    remappedCreateMutation = build();
+    return remappedCreateMutation;
+  },
+  render: () => {},
+});
+await remappedCreate.create({
+  name: 'Milk',
+  sectionId: 'temp-shopping-section-remapped',
+  storeId: 'temp-shopping-store-remapped',
+});
+assert.equal(remappedCreateMutation.data.item.section_id, 91, 'a stale section Temp-ID must resolve through its stable mutation identity');
+assert.deepEqual(remappedCreateMutation.data.item.store_ids, [81], 'a stale store Temp-ID must resolve through its stable mutation identity');
+
+let createFailurePublishes = 0;
+const createFailure = createShoppingItemsController({
+  getLists: () => [{ id: 'create-failure-list', can_edit: true, sections: [], items: [] }],
+  setLists: () => { createFailurePublishes += 1; },
+  getActiveListId: () => 'create-failure-list',
+  createTempId: () => 'temp-shopping-item-failure',
+  commitMutation: async build => { build(); throw new Error('create disk full'); },
+  render: () => { createFailurePublishes += 1; },
+});
+await assert.rejects(() => createFailure.create({ name: 'Milk' }), /create disk full/);
+assert.equal(createFailurePublishes, 0, 'failed create commit must not publish or render');
+
+for (const race of ['active-list', 'permission', 'list', 'section', 'store']) {
+  let raceCreateLists = [{
+    id: 'create-race-list',
+    can_edit: true,
+    sections: [{ id: 'temp-shopping-section-race' }],
+    items: [],
+  }];
+  let raceCreateStores = [{ id: 'temp-shopping-store-race' }];
+  let raceCreateActive = 'create-race-list';
+  let raceCreatePublishes = 0;
+  let releaseCreateBuild;
+  const createBuildGate = new Promise(resolve => { releaseCreateBuild = resolve; });
+  const racingCreate = createShoppingItemsController({
+    getLists: () => raceCreateLists,
+    setLists: () => { raceCreatePublishes += 1; },
+    getActiveListId: () => raceCreateActive,
+    getStores: () => raceCreateStores,
+    createTempId: () => `temp-shopping-item-${race}`,
+    commitMutation: async build => { await createBuildGate; return build(); },
+    render: () => { raceCreatePublishes += 1; },
+  });
+  const pendingCreate = racingCreate.create({
+    name: 'Milk',
+    sectionId: 'temp-shopping-section-race',
+    storeId: 'temp-shopping-store-race',
+  });
+  await Promise.resolve();
+  if (race === 'active-list') raceCreateActive = 'another-list';
+  if (race === 'permission') raceCreateLists = [{ ...raceCreateLists[0], can_edit: false }];
+  if (race === 'list') raceCreateLists = [];
+  if (race === 'section') raceCreateLists = [{ ...raceCreateLists[0], sections: [] }];
+  if (race === 'store') raceCreateStores = [];
+  releaseCreateBuild();
+  assert.equal(await pendingCreate, null, `${race} change must cancel queued create`);
+  assert.equal(raceCreatePublishes, 0, `${race} change must not publish`);
+}
+
 const todoRenderingSource = readFileSync(new URL('../web/static/js/features/todo-rendering.js', import.meta.url), 'utf8');
+const todoDialogsSource = readFileSync(new URL('../web/static/js/modules/tasks-dialogs.js', import.meta.url), 'utf8');
+const todoFeatureSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
+const todoQuickAddSource = readFileSync(new URL('../web/static/js/features/todo-quick-add.js', import.meta.url), 'utf8');
+const braindumpSource = readFileSync(new URL('../web/static/js/features/braindump-live.js', import.meta.url), 'utf8');
+const shoppingDialogsSource = readFileSync(new URL('../web/static/js/modules/shopping-dialogs.js', import.meta.url), 'utf8');
 const primitiveCss = readFileSync(new URL('../web/static/css/99-ui-primitives.css', import.meta.url), 'utf8');
 const todoCardCss = readFileSync(new URL('../web/static/css/81-todo-cards-refresh.css', import.meta.url), 'utf8');
 const shoppingCardCss = readFileSync(new URL('../web/static/css/14-module-content.css', import.meta.url), 'utf8');
@@ -233,6 +503,14 @@ for (const property of ['min-height', 'gap', 'padding', 'border-color', 'border-
   }
   assert(!shoppingCardBlock.includes(`${property}:`), `shopping card must inherit shared ${property} instead of redefining it`);
 }
+assert.equal((todoDialogsSource.match(/data-i18n-key="common\.section"/g) || []).length, 2, 'single and bulk todo section labels must share the neutral section key');
+assert.match(todoFeatureSource, /t\('common\.section'\)/, 'todo preview chips must share the neutral section key');
+assert.match(todoQuickAddSource, /t\('common\.section'\)/, 'quick-add section badges must share the neutral section key');
+assert.match(braindumpSource, /t\('common\.section'\)/, 'BrainDump section labels must share the neutral section key');
+assert.match(shoppingDialogsSource, /data-i18n-key="common\.section"/, 'shopping item creation must share the neutral section key');
+for (const source of [todoDialogsSource, todoFeatureSource, todoQuickAddSource, braindumpSource, shoppingDialogsSource]) {
+  assert.doesNotMatch(source, /(?:todo|shopping\.item)\.section(?=['"])|quickAdd\.detected\.section|braindump\.quickfix\.section/, 'equivalent section labels must not retain module-specific i18n keys');
+}
 
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
   const dictionary = JSON.parse(readFileSync(new URL(`../web/static/i18n/${locale}.json`, import.meta.url), 'utf8'));
@@ -241,6 +519,44 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
     assert(dictionary[key].trim(), `${locale} ${key} must not be empty`);
     assert(dictionary[key].includes('{name}'), `${locale} ${key} must identify the affected item`);
   }
+  for (const key of [
+    'shopping.item.add',
+    'shopping.item.modal.title',
+    'shopping.item.modal.subtitle',
+    'shopping.item.name',
+    'shopping.item.namePlaceholder',
+    'shopping.item.details',
+    'shopping.item.detailsHint',
+    'shopping.item.quantity',
+    'shopping.item.quantityPlaceholder',
+    'shopping.item.unit',
+    'shopping.item.unitPlaceholder',
+    'common.section',
+    'shopping.item.store',
+    'shopping.item.store.none',
+    'shopping.item.store.search',
+    'shopping.item.store.empty',
+    'shopping.item.store.add',
+    'shopping.store.name',
+    'shopping.store.namePlaceholder',
+    'shopping.store.error.invalidName',
+    'shopping.store.error.saveFailed',
+    'shopping.item.error.invalidName',
+    'shopping.item.error.invalidQuantity',
+    'shopping.item.error.invalidUnit',
+    'shopping.item.error.saveFailed',
+  ]) {
+    assert.equal(typeof dictionary[key], 'string', `${locale} must contain ${key}`);
+    assert(dictionary[key].trim(), `${locale} ${key} must not be empty`);
+  }
+  assert.equal(dictionary['todo.section'], undefined, `${locale} must not retain the duplicate todo.section key`);
+  assert.equal(dictionary['shopping.item.section'], undefined, `${locale} must not retain the duplicate shopping.item.section key`);
+  assert.equal(dictionary['quickAdd.detected.section'], undefined, `${locale} must not retain the duplicate quickAdd.detected.section key`);
+  assert.equal(dictionary['braindump.quickfix.section'], undefined, `${locale} must not retain the duplicate braindump.quickfix.section key`);
+  if (locale === 'de') {
+    const legacySectionValues = Object.entries(dictionary).filter(([, value]) => typeof value === 'string' && /\bSection/.test(value));
+    assert.deepEqual(legacySectionValues, [], 'German task surfaces must consistently say Abschnitt instead of Section');
+  }
 }
 
-console.log('✅ Shopping item renderer and durable completion controller passed');
+console.log('✅ Shopping item renderer and durable create/completion controller passed');

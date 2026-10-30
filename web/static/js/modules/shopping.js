@@ -1,6 +1,7 @@
 import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { t } from '../i18n/index.js';
 import { renderEntitySidebarAddRow } from '../features/entity-sidebar.js';
+import { renderModulePrimaryAction } from '../ui/module-primary-action.js';
 import { SHOPPING_DIALOGS_HTML } from './shopping-dialogs.js';
 
 export const shoppingModule = Object.freeze({
@@ -26,7 +27,14 @@ export const shoppingModule = Object.freeze({
       </div>
       ${SHOPPING_DIALOGS_HTML}
     `;
-    slots.floating.innerHTML = '';
+    slots.floating.innerHTML = renderModulePrimaryAction({
+      actionAttribute: 'data-shopping-item-action',
+      action: 'open-create',
+      ariaLabel: t('shopping.item.add'),
+      ariaLabelKey: 'shopping.item.add',
+      title: t('shopping.item.add'),
+      titleKey: 'shopping.item.add',
+    });
     slots.userMenu.innerHTML = '';
     slots.shortcuts.innerHTML = '';
     slots.settingsNav.innerHTML = '';

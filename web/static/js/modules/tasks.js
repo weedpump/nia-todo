@@ -3,6 +3,7 @@ import { TASK_DESKTOP_HOTKEYS_HTML, TASK_SETTINGS_HTML, TASK_SETTINGS_NAV_HTML }
 import { TASK_SHORTCUTS_HTML } from './tasks-shortcuts.js';
 import { renderEntitySidebarAddRow } from '../features/entity-sidebar.js';
 import { t } from '../i18n/index.js';
+import { renderModulePrimaryAction } from '../ui/module-primary-action.js';
 
 export const tasksModule = Object.freeze({
   id: 'tasks',
@@ -62,11 +63,14 @@ export const tasksModule = Object.freeze({
       ${TASK_DIALOGS_HTML}
     `;
 
-    slots.floating.innerHTML = `
-      <button class="fab-add-todo" type="button" data-todo-action="new" aria-label="Create new todo" data-i18n-aria-label-key="todo.create" title="New todo" data-i18n-title-key="todo.new">
-        <span>+</span>
-      </button>
-    `;
+    slots.floating.innerHTML = renderModulePrimaryAction({
+      actionAttribute: 'data-todo-action',
+      action: 'new',
+      ariaLabel: 'Create new todo',
+      ariaLabelKey: 'todo.create',
+      title: 'New todo',
+      titleKey: 'todo.new',
+    });
 
     slots.userMenu.innerHTML = `
       <button type="button" class="ui-menu-item user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>

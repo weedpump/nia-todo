@@ -152,7 +152,8 @@
 }
 
 .ui-select-option,
-.ui-menu-item {
+.ui-menu-item,
+.ui-select-action {
   width: 100%;
   min-height: 36px;
   display: flex;
@@ -179,7 +180,9 @@
 
 .ui-select-option:hover,
 .ui-select-option.is-highlighted,
-.ui-menu-item:hover {
+.ui-menu-item:hover,
+.ui-select-action:hover,
+.ui-select-action:focus-visible {
   background:
     linear-gradient(135deg,
       color-mix(in srgb, var(--accent) 15%, var(--bg-tertiary)) 0%,
@@ -197,7 +200,9 @@
 
 [data-theme="light"] .ui-select-option:hover,
 [data-theme="light"] .ui-select-option.is-highlighted,
-[data-theme="light"] .ui-menu-item:hover {
+[data-theme="light"] .ui-menu-item:hover,
+[data-theme="light"] .ui-select-action:hover,
+[data-theme="light"] .ui-select-action:focus-visible {
   background:
     linear-gradient(135deg,
       color-mix(in srgb, var(--accent) 10%, white) 0%,
@@ -265,6 +270,33 @@
   background: color-mix(in srgb, var(--border) 82%, transparent);
 }
 
+.ui-select-action {
+  margin-top: 6px;
+  border-radius: 0 0 18px 18px;
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.ui-select-action-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.ui-select-action-icon .ui-icon,
+.ui-select-action-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ui-select-action-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
   .ui-select-trigger {
     min-height: 36px;
@@ -278,7 +310,8 @@
   }
 
   .ui-select-option,
-  .ui-menu-item {
+  .ui-menu-item,
+  .ui-select-action {
     min-height: 44px;
     font-size: 14px;
     border-radius: 999px;

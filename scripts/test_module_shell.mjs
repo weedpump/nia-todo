@@ -179,8 +179,8 @@ assert(appSource.includes("moduleShell?.getActiveModule?.() !== 'tasks'"), 'nati
 assert(todosSource.includes("if (getActiveModule() !== 'tasks') return;"), 'todo list shortcuts must be inactive outside the tasks module');
 assert(appSource.includes('onDeactivate: () => todosFeature.resetTodoShortcutTarget()'), 'leaving tasks must clear the todo shortcut target');
 
-const requiredKeys = ['module.placeholder.body', 'module.placeholder.search', 'settings.modules.title', 'settings.modules.hint', 'settings.modules.oneRequired'];
-const forbiddenKeys = ['shopping.searchPlaceholder', 'recipes.searchPlaceholder', 'shopping.list.new', 'shopping.item.add', 'shopping.sample.weekly'];
+const requiredKeys = ['module.placeholder.body', 'module.placeholder.search', 'settings.modules.title', 'settings.modules.hint', 'settings.modules.oneRequired', 'shopping.item.add'];
+const forbiddenKeys = ['shopping.searchPlaceholder', 'recipes.searchPlaceholder', 'shopping.list.new', 'shopping.sample.weekly'];
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
   const dictionary = JSON.parse(read(`web/static/i18n/${locale}.json`));
   for (const key of requiredKeys) {

@@ -238,7 +238,7 @@ export const TASK_DIALOGS_HTML = `
                 <select class="ui-field" id="todo-multi-project"></select>
               </div>
               <div class="form-group">
-                <label for="todo-multi-section" data-i18n-key="todo.section">Section</label>
+                <label for="todo-multi-section" data-i18n-key="common.section">Section</label>
                 <select class="ui-field" id="todo-multi-section" disabled>
                   <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
                 </select>
@@ -379,7 +379,7 @@ export const TASK_DIALOGS_HTML = `
               <select class="ui-field" id="todo-project"></select>
             </div>
             <div class="form-group">
-              <label data-i18n-key="todo.section">Section</label>
+              <label data-i18n-key="common.section">Section</label>
               <select class="ui-field" id="todo-section" disabled>
                 <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
               </select>

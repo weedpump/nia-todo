@@ -43,7 +43,7 @@
   margin-left: auto;
 }
 
-.fab-add-todo {
+.ui-module-primary-action {
   position: fixed;
   right: calc(28px + env(safe-area-inset-right, 0px));
   bottom: calc(28px + env(safe-area-inset-bottom, 0px));
@@ -61,18 +61,18 @@
   box-shadow: 0 12px 28px rgba(0,0,0,0.30);
   transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
 }
-.fab-add-todo span {
+.ui-module-primary-action span {
   font-size: 42px;
   line-height: 0.9;
   font-weight: 800;
   transform: translateY(-1px);
 }
-.fab-add-todo:hover {
+.ui-module-primary-action:hover {
   transform: translateY(-2px) scale(1.03);
   box-shadow: 0 14px 32px rgba(0,0,0,0.34);
   filter: brightness(1.06);
 }
-.fab-add-todo:active {
+.ui-module-primary-action:active {
   transform: translateY(0) scale(0.98);
 }
 

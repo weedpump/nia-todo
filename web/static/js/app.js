@@ -40,6 +40,7 @@ import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
 import { createShoppingItemsController } from './features/shopping-items.js';
+import { createShoppingItemCreateFeature } from './features/shopping-item-create.js';
 import { createShoppingListDetailsFeature } from './features/shopping-list-details.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createSectionRootRegistry } from './features/section-ui.js';
@@ -86,15 +87,18 @@ let moduleShell = null;
 let moduleSwitcher = null;
 let shoppingNavigationFeature = null;
 let shoppingListDetailsFeature = null;
+let shoppingItemCreateFeature = null;
 
 function renderShopping() {
   shoppingNavigationFeature?.render();
+  shoppingItemCreateFeature?.reconcile?.();
 }
 
 function setShoppingListsState(next, { reconcileDetails = true } = {}) {
   const previousActiveListId = shoppingNavigationFeature?.getActiveListId?.() ?? null;
   shoppingLists = Array.isArray(next) ? next : [];
   shoppingNavigationFeature?.replaceLists(shoppingLists);
+  shoppingItemCreateFeature?.reconcile?.();
   if (!reconcileDetails) return;
   const detailsOwnTransition = shoppingListDetailsFeature?.reconcileListsChanged?.() || false;
   const activeListId = shoppingNavigationFeature?.getActiveListId?.() ?? null;
@@ -764,7 +768,12 @@ const deleteTodo = todosFeature.deleteTodo;
 
 const uiShell = createUiShell({
   renderMarkdown,
-  showTodoModal: () => moduleShell?.getActiveModule?.() === 'tasks' ? showTodoModal() : undefined,
+  showTodoModal: () => {
+    const activeModule = moduleShell?.getActiveModule?.();
+    if (activeModule === 'tasks') return showTodoModal();
+    if (activeModule === 'shopping') return shoppingItemCreateFeature?.show?.();
+    return undefined;
+  },
 });
 moduleShell = createModuleShell({
   onActiveModuleChange: moduleId => moduleSwitcher?.syncActiveModule(moduleId),
@@ -794,6 +803,7 @@ const shoppingSectionsAdapter = createShoppingSectionsAdapter({
 const shoppingItemsController = createShoppingItemsController({
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
+  getStores: () => shoppingStores,
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
   commitMutation: commitShoppingMutation,
   render: () => shoppingNavigationFeature?.render?.(),
@@ -823,6 +833,18 @@ shoppingListDetailsFeature = createShoppingListDetailsFeature({
   normalizeActiveListNavigation: () => shoppingNavigationFeature.normalizeActiveListNavigation(),
   focusActiveListAction: () => shoppingNavigationFeature.focusActiveListAction(),
 });
+shoppingItemCreateFeature = createShoppingItemCreateFeature({
+  getLists: () => shoppingLists,
+  getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
+  getStores: () => shoppingStores,
+  setStores: setShoppingStoresState,
+  commitMutation: commitShoppingMutation,
+  itemController: shoppingItemsController,
+  isOnlineForSync,
+  syncWithServer,
+  onError: error => console.error('Shopping item create failed', error),
+});
+shoppingItemCreateFeature.bind();
 const refreshTasksModule = () => {
   renderProjects();
   renderStats();
@@ -843,8 +865,11 @@ moduleShell.registerController('tasks', {
   },
 });
 moduleShell.registerController('shopping', {
-  onActivate: () => shoppingNavigationFeature.activate(),
-  onLanguageChange: () => shoppingNavigationFeature.render(),
+  onActivate: () => {
+    shoppingNavigationFeature.activate();
+    shoppingItemCreateFeature.reconcile();
+  },
+  onLanguageChange: renderShopping,
 });
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;

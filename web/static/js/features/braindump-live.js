@@ -1207,7 +1207,7 @@ export function createBrainDumpLiveFeature(options = {}) {
                 <select data-ui-select data-project-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate.project_name)}</select>
               </div>
               <div class="braindump-quickfix-field">
-                <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.section'))}</span>
+                <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('common.section'))}</span>
                 <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
               </div>
               <label class="braindump-quickfix-field">

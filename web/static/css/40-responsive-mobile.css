@@ -166,13 +166,13 @@
   .status-pending-sync::after {
     content: none;
   }
-  .fab-add-todo {
+  .ui-module-primary-action {
     right: calc(18px + env(safe-area-inset-right, 0px));
     bottom: calc(18px + env(safe-area-inset-bottom, 0px));
     width: 56px;
     height: 56px;
   }
-  .fab-add-todo span { font-size: 38px; }
+  .ui-module-primary-action span { font-size: 38px; }
 
   .stats-bar {
     padding: 12px 16px 0;

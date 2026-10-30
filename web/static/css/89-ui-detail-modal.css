@@ -578,3 +578,30 @@
 .ui-detail-modal.todo-detail-view .ui-detail-header-actions .modal-close-x:focus-visible {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.28), 0 0 0 1px rgba(var(--accent-rgb), 0.45);
 }
+
+#shopping-item-modal .shopping-item-new-store {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#shopping-item-modal .shopping-item-new-store[hidden] {
+  display: none;
+}
+
+#shopping-item-modal .shopping-item-new-store-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 480px) {
+  #shopping-item-modal .shopping-item-new-store-row {
+    grid-template-columns: 1fr;
+  }
+
+  #shopping-item-modal .shopping-item-new-store-row .btn {
+    width: 100%;
+  }
+}

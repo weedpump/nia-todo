@@ -427,7 +427,7 @@ export function createTodosFeature({
     addChip(projectIcon, t('todo.project'), getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color, editTarget: 'todo-project' });
     const sectionSelect = document.getElementById('todo-section');
     if (sectionSelect && !sectionSelect.disabled) {
-      addChip('layers', t('todo.section'), getSelectedOptionLabel('todo-section'), { tone: 'section', editTarget: 'todo-section' });
+      addChip('layers', t('common.section'), getSelectedOptionLabel('todo-section'), { tone: 'section', editTarget: 'todo-section' });
     }
     addChip('flag', t('todo.priority'), getSelectedOptionLabel('todo-priority'), { tone: priorityTone, editTarget: 'todo-priority' });
     addChip(statusIcon, t('todo.status'), getSelectedOptionLabel('todo-status'), { tone: statusTone, editTarget: 'todo-status' });

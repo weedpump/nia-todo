@@ -282,7 +282,7 @@ export function createTodoQuickAddFeature({
           if (!section) continue;
           changes.section_id = section.id;
           if (!changes.project_id && section.project_id) changes.project_id = section.project_id;
-          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'section', start, end, t('quickAdd.detected.section'), section.name, 'section_id');
+          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'section', start, end, t('common.section'), section.name, 'section_id');
         }
       }
     }
