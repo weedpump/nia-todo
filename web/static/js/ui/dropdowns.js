@@ -354,7 +354,12 @@ function openDropdown(instance) {
   if (index >= 0) highlightIndex(instance, index);
   openState = { instance };
   if (isSearchable(instance)) {
-    window.setTimeout(() => instance.menu.querySelector('.ui-select-search-input')?.focus(), 0);
+    window.setTimeout(() => {
+      const input = instance.menu.querySelector('.ui-select-search-input');
+      if (!input) return;
+      if (document.activeElement !== instance.trigger && document.activeElement !== document.body) return;
+      input.focus();
+    }, 0);
   }
 }
 

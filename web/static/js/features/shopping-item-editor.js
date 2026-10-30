@@ -18,7 +18,7 @@ function nextSortOrder(records = []) {
   }, -1) + 1;
 }
 
-export function createShoppingItemCreateFeature({
+export function createShoppingItemEditorFeature({
   document: doc = globalThis.document,
   eventTarget = globalThis.window,
   getLists = () => [],
@@ -27,6 +27,7 @@ export function createShoppingItemCreateFeature({
   setStores = () => {},
   commitMutation,
   itemController,
+  confirmDanger = async () => false,
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   onError = console.error,
@@ -37,18 +38,57 @@ export function createShoppingItemCreateFeature({
   let submitting = false;
   let submittingStore = false;
   let restoreFocus = null;
+  let mode = 'create';
+  let editingListIdentity = null;
+  let editingItemIdentity = null;
 
   function activeList() {
     const id = getActiveListId();
     return getLists().find(list => sameId(list.id, id)) || null;
   }
 
-  function canCreate() {
+  function canMutate() {
     return activeList()?.can_edit === true;
+  }
+
+  function resolveEditingItem() {
+    const list = activeList();
+    if (!list || editingListIdentity == null || editingItemIdentity == null) return null;
+    if (!sameId(list.id, editingListIdentity) && !sameId(list.client_mutation_id, editingListIdentity)) return null;
+    return (list.items || []).find(item => (
+      sameId(item.id, editingItemIdentity)
+      || sameId(item.client_mutation_id, editingItemIdentity)
+    )) || null;
   }
 
   function trigger() {
     return doc?.querySelector?.('[data-shopping-item-action="open-create"]') || null;
+  }
+
+  function editTrigger(identity = editingItemIdentity) {
+    const list = activeList();
+    const item = (list?.items || []).find(candidate => (
+      sameId(candidate.id, identity)
+      || sameId(candidate.client_mutation_id, identity)
+    ));
+    const currentIdentity = item?.id ?? identity;
+    return Array.from(doc?.querySelectorAll?.('[data-shopping-item-action="open-edit"]') || [])
+      .find(element => sameId(element.dataset.shoppingItemId, currentIdentity)) || null;
+  }
+
+  function setMode(nextMode) {
+    mode = nextMode === 'edit' ? 'edit' : 'create';
+    const title = doc?.getElementById?.('shopping-item-modal-title');
+    const menu = doc?.getElementById?.('shopping-item-detail-menu-toggle');
+    if (title) {
+      const key = mode === 'edit' ? 'shopping.item.modal.editTitle' : 'shopping.item.modal.title';
+      title.dataset.i18nKey = key;
+      title.textContent = t(key);
+    }
+    if (menu) {
+      menu.hidden = mode !== 'edit';
+      menu.removeAttribute('open');
+    }
   }
 
   function modal() {
@@ -173,7 +213,7 @@ export function createShoppingItemCreateFeature({
         button,
         readState,
         isValid: validState,
-        canSubmit: canCreate,
+        canSubmit: canMutate,
       });
       saveState.form = currentForm;
     }
@@ -187,6 +227,9 @@ export function createShoppingItemCreateFeature({
     hideStoreCreator();
     const targetFocus = restoreFocus?.();
     restoreFocus = null;
+    editingListIdentity = null;
+    editingItemIdentity = null;
+    setMode('create');
     targetFocus?.focus?.();
   }
 
@@ -197,25 +240,58 @@ export function createShoppingItemCreateFeature({
     callback?.();
   }
 
-  function show() {
-    if (!canCreate() || submitting) return false;
-    const target = modal();
-    const currentForm = form();
-    if (!target || !currentForm) return false;
-    currentForm.reset?.();
-    setError();
-    setStoreError();
-    hideStoreCreator();
-    populateSections();
-    populateStores();
+  function openModal(target, currentForm) {
     translatePage(target);
-    restoreFocus = () => trigger();
+    setMode(mode);
     target.classList.add('active');
     target.setAttribute('aria-hidden', 'false');
     openUiLayer('shopping-item-modal');
     ensureSaveState()?.reset();
     globalThis.setTimeout?.(() => doc?.getElementById?.('shopping-item-name')?.focus?.(), 0);
     return true;
+  }
+
+  function showCreate() {
+    if (!canMutate() || submitting) return false;
+    const target = modal();
+    const currentForm = form();
+    if (!target || !currentForm) return false;
+    mode = 'create';
+    editingListIdentity = null;
+    editingItemIdentity = null;
+    currentForm.reset?.();
+    setError();
+    setStoreError();
+    hideStoreCreator();
+    populateSections();
+    populateStores();
+    restoreFocus = () => trigger();
+    return openModal(target, currentForm);
+  }
+
+  function showEdit(listId, itemId, triggerElement = null) {
+    const list = activeList();
+    if (list?.can_edit !== true || submitting) return false;
+    if (!sameId(list.id, listId) && !sameId(list.client_mutation_id, listId)) return false;
+    const item = (list.items || []).find(candidate => sameId(candidate.id, itemId) || sameId(candidate.client_mutation_id, itemId));
+    const target = modal();
+    const currentForm = form();
+    if (!item || !target || !currentForm) return false;
+    mode = 'edit';
+    editingListIdentity = list.client_mutation_id ?? list.id;
+    editingItemIdentity = item.client_mutation_id ?? item.id;
+    currentForm.reset?.();
+    setError();
+    setStoreError();
+    hideStoreCreator();
+    const storeId = item.store_ids?.[0] ?? item.stores?.[0]?.id ?? null;
+    populateSections(item.section_id ?? '');
+    populateStores(storeId ?? '');
+    doc.getElementById('shopping-item-name').value = item.name || '';
+    doc.getElementById('shopping-item-quantity').value = item.quantity_value ?? '';
+    doc.getElementById('shopping-item-unit').value = item.quantity_unit || '';
+    restoreFocus = () => editTrigger(editingItemIdentity) || (triggerElement?.isConnected ? triggerElement : null) || trigger();
+    return openModal(target, currentForm);
   }
 
   async function createStore() {
@@ -246,7 +322,7 @@ export function createShoppingItemCreateFeature({
     buttons.forEach(button => { button.disabled = true; });
     try {
       const mutation = await commitMutation(() => {
-        if (!canCreate()) return null;
+        if (!canMutate()) return null;
         const store = {
           id: tempId,
           name,
@@ -320,9 +396,11 @@ export function createShoppingItemCreateFeature({
     submitting = true;
     controller.button.disabled = true;
     try {
-      const created = await itemController?.create?.(state);
-      if (!created) {
-        if (!canCreate()) closeModal();
+      const saved = mode === 'edit'
+        ? await itemController?.update?.(activeList()?.id, editingItemIdentity, state)
+        : await itemController?.create?.(state);
+      if (!saved) {
+        if (!canMutate()) closeModal();
         return;
       }
       closeModal();
@@ -337,15 +415,52 @@ export function createShoppingItemCreateFeature({
     }
   }
 
+  async function deleteCurrentItem() {
+    if (mode !== 'edit' || submitting) return;
+    const item = resolveEditingItem();
+    if (!item || !canMutate()) {
+      closeModal();
+      return;
+    }
+    const confirmed = await confirmDanger({
+      title: t('shopping.item.delete.title'),
+      message: t('shopping.item.delete.message', { name: item.name || '' }),
+      confirmText: t('shopping.item.delete.confirm'),
+      returnFocus: () => doc?.querySelector?.('[data-shopping-item-editor-action="delete"]'),
+    });
+    if (!confirmed) return;
+    submitting = true;
+    const controller = ensureSaveState();
+    if (controller?.button) controller.button.disabled = true;
+    try {
+      const deleted = await itemController?.remove?.(activeList()?.id, editingItemIdentity);
+      if (!deleted) {
+        if (!canMutate() || !resolveEditingItem()) closeModal();
+        return;
+      }
+      closeModal();
+    } catch (error) {
+      onError(error);
+      setError('shopping.item.error.deleteFailed');
+    } finally {
+      submitting = false;
+      controller?.refresh?.();
+    }
+  }
+
   function handleSubmit(event) {
     if (event.target?.id !== 'shopping-item-form') return;
     void save(event);
   }
 
   function reconcile() {
-    const allowed = canCreate();
+    const allowed = canMutate();
     if (!modal()?.classList?.contains?.('active')) return;
     if (!allowed) {
+      closeModal();
+      return;
+    }
+    if (mode === 'edit' && !resolveEditingItem()) {
       closeModal();
       return;
     }
@@ -360,7 +475,14 @@ export function createShoppingItemCreateFeature({
     const open = event.target?.closest?.('[data-shopping-item-action="open-create"]');
     if (open) {
       event.preventDefault?.();
-      show();
+      showCreate();
+      return;
+    }
+    const editorAction = event.target?.closest?.('[data-shopping-item-editor-action]');
+    if (editorAction) {
+      event.preventDefault?.();
+      doc?.getElementById?.('shopping-item-detail-menu-toggle')?.removeAttribute?.('open');
+      if (editorAction.dataset.shoppingItemEditorAction === 'delete') void deleteCurrentItem();
       return;
     }
     const action = event.target?.closest?.('[data-shopping-item-create-action]');
@@ -407,6 +529,7 @@ export function createShoppingItemCreateFeature({
     const sectionValue = doc?.getElementById?.('shopping-item-section')?.value || '';
     const storeValue = doc?.getElementById?.('shopping-item-store')?.value || '';
     translatePage(modal());
+    setMode(mode);
     populateSections(sectionValue);
     populateStores(storeValue);
   }
@@ -424,7 +547,9 @@ export function createShoppingItemCreateFeature({
 
   return {
     bind,
-    show,
+    show: showCreate,
+    showCreate,
+    showEdit,
     close: closeModal,
     reconcile,
     createStore,

@@ -37,6 +37,7 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
   const id = escapeHtmlAttr(String(item.id ?? ''));
   const quantity = formatShoppingQuantity(item, locale);
   const ariaLabel = completed ? labels.markOpen : labels.markCompleted;
+  const editLabel = labels.edit || item.name || '';
   const classes = [
     'ui-item-card',
     'shopping-item-card',
@@ -48,8 +49,17 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
       <button type="button" class="shopping-item-check" role="checkbox" aria-checked="${completed ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(ariaLabel || '')}"${editable ? ` data-shopping-item-action="toggle-completed" data-shopping-item-id="${id}"` : ' disabled'}>
         <span class="shopping-item-check-icon" aria-hidden="true">${completed ? iconSvg('check') : ''}</span>
       </button>
-      <span class="shopping-item-title">${escapeHtml(item.name || '')}</span>
-      ${quantity ? `<span class="ui-badge shopping-item-quantity">${escapeHtml(quantity)}</span>` : ''}
+      ${editable ? `
+        <button type="button" class="shopping-item-edit-trigger" data-shopping-item-action="open-edit" data-shopping-item-id="${id}" aria-label="${escapeHtmlAttr(editLabel)}">
+          <span class="shopping-item-title">${escapeHtml(item.name || '')}</span>
+          ${quantity ? `<span class="ui-badge shopping-item-quantity">${escapeHtml(quantity)}</span>` : ''}
+        </button>
+      ` : `
+        <div class="shopping-item-content">
+          <span class="shopping-item-title">${escapeHtml(item.name || '')}</span>
+          ${quantity ? `<span class="ui-badge shopping-item-quantity">${escapeHtml(quantity)}</span>` : ''}
+        </div>
+      `}
     </div>
   `;
 }
@@ -64,6 +74,7 @@ export function createShoppingItemsController({
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   onError = () => {},
+  onEdit = () => {},
   createTempId = () => `temp-shopping-item-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
   const inFlight = new Map();
@@ -71,8 +82,14 @@ export function createShoppingItemsController({
   let root = null;
 
   function currentList(listId) {
-    if (!sameId(getActiveListId(), listId)) return null;
-    return getLists().find(list => sameId(list.id, listId)) || null;
+    const list = getLists().find(candidate => (
+      sameId(candidate.id, listId)
+      || sameId(candidate.client_mutation_id, listId)
+    )) || null;
+    if (!list) return null;
+    const activeId = getActiveListId();
+    if (!sameId(list.id, activeId) && !sameId(list.client_mutation_id, activeId)) return null;
+    return list;
   }
 
   async function publish(mutation, { waitForSync = false } = {}) {
@@ -152,7 +169,7 @@ export function createShoppingItemsController({
     const tempId = createTempId();
     const operation = enqueueForList(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
-        const latest = currentList(live.id);
+        const latest = currentList(stableListIdentity);
         if (latest?.can_edit !== true) return null;
         const section = stableSectionIdentity == null
           ? null
@@ -207,17 +224,155 @@ export function createShoppingItemsController({
     return operation;
   }
 
+  function update(listId, itemId, input = {}) {
+    const live = currentList(listId);
+    const initialItem = (live?.items || []).find(item => (
+      sameId(item.id, itemId)
+      || sameId(item.client_mutation_id, itemId)
+    ));
+    if (live?.can_edit !== true || !initialItem) return Promise.resolve(null);
+    const name = String(input.name ?? '').trim();
+    const quantityInput = input.quantity ?? input.quantity_value;
+    const quantityText = typeof quantityInput === 'string' ? quantityInput.trim() : quantityInput;
+    const quantity = quantityText === '' || quantityText === null || quantityText === undefined
+      ? null
+      : Number(quantityText);
+    const unit = String(input.unit ?? input.quantity_unit ?? '').trim();
+    const sectionValue = input.sectionId ?? input.section_id ?? null;
+    const sectionInput = sectionValue === '' ? null : sectionValue;
+    const suppliedStoreIds = input.store_ids;
+    if (!name || name.length > 500) return Promise.resolve(null);
+    if (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) return Promise.resolve(null);
+    if (unit.length > 40) return Promise.resolve(null);
+    if (suppliedStoreIds !== undefined && (!Array.isArray(suppliedStoreIds) || suppliedStoreIds.length > 1)) return Promise.resolve(null);
+    const storeValue = input.storeId ?? suppliedStoreIds?.[0] ?? null;
+    const storeInput = storeValue === '' ? null : storeValue;
+    const initialSection = sectionInput == null
+      ? null
+      : (live.sections || []).find(candidate => (
+        sameId(candidate.id, sectionInput)
+        || sameId(candidate.client_mutation_id, sectionInput)
+      ));
+    if (sectionInput != null && !initialSection) return Promise.resolve(null);
+    const initialStore = storeInput == null
+      ? null
+      : getStores().find(candidate => (
+        sameId(candidate.id, storeInput)
+        || sameId(candidate.client_mutation_id, storeInput)
+      ));
+    if (storeInput != null && !initialStore) return Promise.resolve(null);
+    const stableItemIdentity = initialItem.client_mutation_id ?? initialItem.id;
+    const stableSectionIdentity = initialSection?.client_mutation_id ?? initialSection?.id ?? null;
+    const stableStoreIdentity = initialStore?.client_mutation_id ?? initialStore?.id ?? null;
+    const stableListIdentity = live.client_mutation_id ?? live.id;
+    const submissionKey = `update\u0000${String(stableListIdentity)}\u0000${String(stableItemIdentity)}`;
+    if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
+    const operation = enqueueForList(stableListIdentity, async () => {
+      const mutation = await commitMutation(() => {
+        const latest = currentList(stableListIdentity);
+        if (latest?.can_edit !== true) return null;
+        const item = (latest.items || []).find(candidate => (
+          sameId(candidate.id, itemId)
+          || sameId(candidate.client_mutation_id, stableItemIdentity)
+        ));
+        if (!item) return null;
+        const section = stableSectionIdentity == null
+          ? null
+          : (latest.sections || []).find(candidate => (
+            sameId(candidate.id, stableSectionIdentity)
+            || sameId(candidate.client_mutation_id, stableSectionIdentity)
+          ));
+        if (stableSectionIdentity != null && !section) return null;
+        const store = stableStoreIdentity == null
+          ? null
+          : getStores().find(candidate => (
+            sameId(candidate.id, stableStoreIdentity)
+            || sameId(candidate.client_mutation_id, stableStoreIdentity)
+          ));
+        if (stableStoreIdentity != null && !store) return null;
+        const enumerableStores = getStores();
+        const retainedHiddenStoreIds = (item.store_ids || []).filter(storeId => !enumerableStores.some(candidate => (
+          sameId(candidate.id, storeId)
+          || sameId(candidate.client_mutation_id, storeId)
+        )));
+        const storeIds = [...retainedHiddenStoreIds, ...(store ? [store.id] : [])]
+          .filter((storeId, index, values) => values.findIndex(candidate => sameId(candidate, storeId)) === index);
+        const changes = {
+          name,
+          section_id: section?.id ?? null,
+          quantity_value: quantity,
+          quantity_unit: unit || null,
+          store_ids: storeIds,
+        };
+        const updated = {
+          ...clone(item),
+          ...clone(changes),
+          stores: store ? [clone(store)] : [],
+          is_pending: true,
+        };
+        return {
+          list: {
+            ...clone(latest),
+            items: latest.items.map(candidate => sameId(candidate.id, item.id) ? updated : clone(candidate)),
+          },
+          action: 'UPDATE_SHOPPING_ITEM',
+          data: { shopping_list_id: latest.id, item_id: item.id, changes },
+          result: updated,
+        };
+      });
+      return publish(mutation);
+    }).finally(() => inFlight.delete(submissionKey));
+    inFlight.set(submissionKey, operation);
+    return operation;
+  }
+
+  function remove(listId, itemId) {
+    const live = currentList(listId);
+    const initialItem = (live?.items || []).find(item => (
+      sameId(item.id, itemId)
+      || sameId(item.client_mutation_id, itemId)
+    ));
+    if (live?.can_edit !== true || !initialItem) return Promise.resolve(null);
+    const stableListIdentity = live.client_mutation_id ?? live.id;
+    const stableItemIdentity = initialItem.client_mutation_id ?? initialItem.id;
+    const submissionKey = `delete\u0000${String(stableListIdentity)}\u0000${String(stableItemIdentity)}`;
+    if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
+    const operation = enqueueForList(stableListIdentity, async () => {
+      const mutation = await commitMutation(() => {
+        const latest = currentList(stableListIdentity);
+        if (latest?.can_edit !== true) return null;
+        const item = (latest.items || []).find(candidate => (
+          sameId(candidate.id, itemId)
+          || sameId(candidate.client_mutation_id, stableItemIdentity)
+        ));
+        if (!item) return null;
+        return {
+          list: {
+            ...clone(latest),
+            items: latest.items.filter(candidate => !sameId(candidate.id, item.id)).map(clone),
+          },
+          action: 'DELETE_SHOPPING_ITEM',
+          data: { shopping_list_id: latest.id, item_id: item.id },
+          result: clone(item),
+        };
+      });
+      return publish(mutation);
+    }).finally(() => inFlight.delete(submissionKey));
+    inFlight.set(submissionKey, operation);
+    return operation;
+  }
+
   function toggleCompleted(listId, itemId) {
     const live = currentList(listId);
     const initialItem = (live?.items || []).find(item => sameId(item.id, itemId));
     if (live?.can_edit !== true || !initialItem) return Promise.resolve(null);
     const stableListIdentity = live.client_mutation_id ?? live.id;
     const stableIdentity = initialItem.client_mutation_id ?? initialItem.id;
-    const key = `${String(listId)}\u0000${String(stableIdentity)}`;
+    const key = `${String(stableListIdentity)}\u0000${String(stableIdentity)}`;
     if (inFlight.has(key)) return inFlight.get(key);
     const operation = enqueueForList(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
-        const latest = currentList(listId);
+        const latest = currentList(stableListIdentity);
         if (latest?.can_edit !== true) return null;
         const item = (latest.items || []).find(candidate => (
           sameId(candidate.id, itemId)
@@ -243,6 +398,13 @@ export function createShoppingItemsController({
   }
 
   async function onClick(event) {
+    const editTarget = event.target?.closest?.('[data-shopping-item-action="open-edit"]');
+    if (editTarget && root?.contains?.(editTarget)) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      onEdit(getActiveListId(), editTarget.dataset.shoppingItemId, editTarget);
+      return;
+    }
     const target = event.target?.closest?.('[data-shopping-item-action="toggle-completed"]');
     if (!target || !root?.contains?.(target)) return;
     event.preventDefault?.();
@@ -262,6 +424,8 @@ export function createShoppingItemsController({
 
   return {
     create,
+    update,
+    remove,
     toggleCompleted,
     bindRoot(nextRoot) {
       if (root === nextRoot) return;

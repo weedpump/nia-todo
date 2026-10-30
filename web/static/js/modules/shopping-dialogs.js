@@ -51,6 +51,12 @@ export const SHOPPING_DIALOGS_HTML = `
         },
         actionsHtml: `
           <button type="submit" form="shopping-item-form" class="btn btn-primary" id="shopping-item-save-btn" data-i18n-key="common.save">${escapeHtmlAttr(t('common.save'))}</button>
+          <details class="ui-detail-header-menu-toggle" id="shopping-item-detail-menu-toggle" hidden>
+            <summary aria-label="${escapeHtmlAttr(t('common.more'))}" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
+            <div class="ui-detail-header-menu ui-menu" role="menu">
+              <button type="button" class="ui-menu-item danger" data-shopping-item-editor-action="delete" role="menuitem"><span data-icon="trash-2"></span><span data-i18n-key="shopping.item.delete">${escapeHtmlAttr(t('shopping.item.delete'))}</span></button>
+            </div>
+          </details>
           <button type="button" class="modal-close-x" data-close-modal="shopping-item-modal" aria-label="${escapeHtmlAttr(t('common.close'))}" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
         `,
       })}

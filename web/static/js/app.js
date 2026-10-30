@@ -40,7 +40,7 @@ import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
 import { createShoppingItemsController } from './features/shopping-items.js';
-import { createShoppingItemCreateFeature } from './features/shopping-item-create.js';
+import { createShoppingItemEditorFeature } from './features/shopping-item-editor.js';
 import { createShoppingListDetailsFeature } from './features/shopping-list-details.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createSectionRootRegistry } from './features/section-ui.js';
@@ -87,18 +87,18 @@ let moduleShell = null;
 let moduleSwitcher = null;
 let shoppingNavigationFeature = null;
 let shoppingListDetailsFeature = null;
-let shoppingItemCreateFeature = null;
+let shoppingItemEditorFeature = null;
 
 function renderShopping() {
   shoppingNavigationFeature?.render();
-  shoppingItemCreateFeature?.reconcile?.();
+  shoppingItemEditorFeature?.reconcile?.();
 }
 
 function setShoppingListsState(next, { reconcileDetails = true } = {}) {
   const previousActiveListId = shoppingNavigationFeature?.getActiveListId?.() ?? null;
   shoppingLists = Array.isArray(next) ? next : [];
   shoppingNavigationFeature?.replaceLists(shoppingLists);
-  shoppingItemCreateFeature?.reconcile?.();
+  shoppingItemEditorFeature?.reconcile?.();
   if (!reconcileDetails) return;
   const detailsOwnTransition = shoppingListDetailsFeature?.reconcileListsChanged?.() || false;
   const activeListId = shoppingNavigationFeature?.getActiveListId?.() ?? null;
@@ -771,7 +771,7 @@ const uiShell = createUiShell({
   showTodoModal: () => {
     const activeModule = moduleShell?.getActiveModule?.();
     if (activeModule === 'tasks') return showTodoModal();
-    if (activeModule === 'shopping') return shoppingItemCreateFeature?.show?.();
+    if (activeModule === 'shopping') return shoppingItemEditorFeature?.show?.();
     return undefined;
   },
 });
@@ -810,6 +810,7 @@ const shoppingItemsController = createShoppingItemsController({
   isOnlineForSync,
   syncWithServer,
   onError: error => console.error('Shopping item mutation failed', error),
+  onEdit: (listId, itemId, triggerElement) => shoppingItemEditorFeature?.showEdit?.(listId, itemId, triggerElement),
 });
 shoppingNavigationFeature = createShoppingNavigationFeature({
   getLists: () => shoppingLists,
@@ -833,18 +834,19 @@ shoppingListDetailsFeature = createShoppingListDetailsFeature({
   normalizeActiveListNavigation: () => shoppingNavigationFeature.normalizeActiveListNavigation(),
   focusActiveListAction: () => shoppingNavigationFeature.focusActiveListAction(),
 });
-shoppingItemCreateFeature = createShoppingItemCreateFeature({
+shoppingItemEditorFeature = createShoppingItemEditorFeature({
   getLists: () => shoppingLists,
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
   getStores: () => shoppingStores,
   setStores: setShoppingStoresState,
   commitMutation: commitShoppingMutation,
   itemController: shoppingItemsController,
+  confirmDanger,
   isOnlineForSync,
   syncWithServer,
-  onError: error => console.error('Shopping item create failed', error),
+  onError: error => console.error('Shopping item editor failed', error),
 });
-shoppingItemCreateFeature.bind();
+shoppingItemEditorFeature.bind();
 const refreshTasksModule = () => {
   renderProjects();
   renderStats();
@@ -867,7 +869,7 @@ moduleShell.registerController('tasks', {
 moduleShell.registerController('shopping', {
   onActivate: () => {
     shoppingNavigationFeature.activate();
-    shoppingItemCreateFeature.reconcile();
+    shoppingItemEditorFeature.reconcile();
   },
   onLanguageChange: renderShopping,
 });

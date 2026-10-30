@@ -177,6 +177,7 @@ export function createShoppingNavigationFeature({
         labels: {
           markCompleted: t('shopping.item.markCompleted', { name: item.name || '' }),
           markOpen: t('shopping.item.markOpen', { name: item.name || '' }),
+          edit: t('shopping.item.edit', { name: item.name || '' }),
         },
       }),
       showUnsorted: hasUnsortedItems,

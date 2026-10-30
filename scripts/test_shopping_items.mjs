@@ -25,6 +25,8 @@ assert.match(openHtml, /class="shopping-item-title"/);
 assert.match(openHtml, /class="ui-badge shopping-item-quantity"/);
 assert(openHtml.indexOf('shopping-item-title') < openHtml.indexOf('shopping-item-quantity'), 'title must precede the right-side quantity badge');
 assert.match(openHtml, /data-shopping-item-action="toggle-completed"/);
+assert.match(openHtml, /data-shopping-item-action="open-edit"/);
+assert.match(openHtml, /class="shopping-item-edit-trigger"/);
 assert.match(openHtml, /data-shopping-item-id="temp-shopping-item-1"/);
 assert.match(openHtml, /role="checkbox"/);
 assert.match(openHtml, /aria-checked="false"/);
@@ -53,6 +55,7 @@ for (const canEdit of [false, undefined, null, 'true', 1]) {
   const html = renderShoppingItem({ item: { id: 8, name: 'Read only', completed: false }, canEdit, labels });
   assert.match(html, /disabled/, `canEdit=${String(canEdit)} must fail closed`);
   assert(!html.includes('data-shopping-item-action='), `canEdit=${String(canEdit)} must not expose a mutating action`);
+  assert(!html.includes('shopping-item-edit-trigger'), `canEdit=${String(canEdit)} must not expose the item editor`);
 }
 assert(!renderShoppingItem({ item: { id: 9, name: 'No quantity', completed: false }, canEdit: true, labels }).includes('shopping-item-quantity'), 'empty quantity badge must be omitted');
 
@@ -431,6 +434,160 @@ await remappedCreate.create({
 assert.equal(remappedCreateMutation.data.item.section_id, 91, 'a stale section Temp-ID must resolve through its stable mutation identity');
 assert.deepEqual(remappedCreateMutation.data.item.store_ids, [81], 'a stale store Temp-ID must resolve through its stable mutation identity');
 
+let updateLists = [{
+  id: 'update-list',
+  client_mutation_id: 'stable-update-list',
+  can_edit: true,
+  sections: [{ id: 'temp-update-section', client_mutation_id: 'temp-update-section', name: 'Produce' }],
+  items: [{
+    id: 'temp-update-item',
+    client_mutation_id: 'temp-update-item',
+    name: 'Old milk',
+    quantity_value: 1,
+    quantity_unit: 'l',
+    section_id: null,
+    store_ids: [],
+    stores: [],
+    completed: false,
+  }],
+}];
+let updateStores = [{ id: 'temp-update-store', client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
+const updateGate = deferred();
+let updateMutation = null;
+let updatePublishes = 0;
+let activeUpdateListId = 'update-list';
+const updater = createShoppingItemsController({
+  getLists: () => updateLists,
+  setLists: next => { updateLists = next; updatePublishes += 1; },
+  getActiveListId: () => activeUpdateListId,
+  getStores: () => updateStores,
+  commitMutation: async build => {
+    await updateGate.promise;
+    updateMutation = build();
+    return updateMutation;
+  },
+  render: () => {},
+});
+const firstUpdate = updater.update('update-list', 'temp-update-item', {
+  name: '  Fresh milk  ',
+  quantity: '0',
+  unit: '  bottles  ',
+  sectionId: 'temp-update-section',
+  storeId: 'temp-update-store',
+});
+const secondUpdate = updater.update('update-list', 'temp-update-item', {
+  name: '  Fresh milk  ',
+  quantity: '0',
+  unit: '  bottles  ',
+  sectionId: 'temp-update-section',
+  storeId: 'temp-update-store',
+});
+assert.strictEqual(firstUpdate, secondUpdate, 'duplicate item saves must be single-flight');
+assert.equal(updatePublishes, 0, 'item edits must not publish before durable commit');
+updateLists = [{
+  ...updateLists[0],
+  id: 61,
+  sections: [{ id: 71, client_mutation_id: 'temp-update-section', name: 'Produce' }],
+  items: [{ ...updateLists[0].items[0], id: 81 }],
+}];
+activeUpdateListId = 61;
+updateStores = [{ id: 91, client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
+updateGate.resolve();
+const updatedItem = await firstUpdate;
+assert.equal(updateMutation.action, 'UPDATE_SHOPPING_ITEM');
+assert.deepEqual(updateMutation.data, {
+  shopping_list_id: 61,
+  item_id: 81,
+  changes: {
+    name: 'Fresh milk',
+    section_id: 71,
+    quantity_value: 0,
+    quantity_unit: 'bottles',
+    store_ids: [91],
+  },
+});
+assert.equal(updatedItem.id, 81);
+assert.equal(updatedItem.name, 'Fresh milk');
+assert.equal(updatedItem.quantity_value, 0);
+assert.equal(updatedItem.section_id, 71);
+assert.deepEqual(updatedItem.store_ids, [91]);
+assert.deepEqual(updatedItem.stores.map(store => store.id), [91]);
+assert.equal(updatedItem.is_pending, true);
+assert.equal(updatePublishes, 1);
+
+let hiddenStoreMutation = null;
+const hiddenStoreEditor = createShoppingItemsController({
+  getLists: () => [{
+    id: 'hidden-store-list',
+    can_edit: true,
+    sections: [],
+    items: [{
+      id: 'hidden-store-item',
+      name: 'Private assignment',
+      quantity_value: null,
+      quantity_unit: null,
+      section_id: null,
+      store_ids: [501],
+      stores: [],
+    }],
+  }],
+  setLists: () => {},
+  getActiveListId: () => 'hidden-store-list',
+  getStores: () => [],
+  commitMutation: async build => {
+    hiddenStoreMutation = build();
+    return hiddenStoreMutation;
+  },
+});
+await hiddenStoreEditor.update('hidden-store-list', 'hidden-store-item', {
+  name: 'Renamed assignment',
+  quantity: '',
+  unit: '',
+  sectionId: null,
+  storeId: null,
+});
+assert.deepEqual(
+  hiddenStoreMutation.data.changes.store_ids,
+  [501],
+  'editing an item must preserve opaque store assignments the recipient cannot enumerate',
+);
+
+let deleteLists = [{
+  id: 'delete-list',
+  client_mutation_id: 'stable-delete-list',
+  can_edit: true,
+  sections: [],
+  items: [{ id: 'temp-delete-item', client_mutation_id: 'temp-delete-item', name: 'Remove me' }],
+}];
+const deleteGate = deferred();
+let deleteMutation = null;
+let deletePublishes = 0;
+let activeDeleteListId = 'delete-list';
+const remover = createShoppingItemsController({
+  getLists: () => deleteLists,
+  setLists: next => { deleteLists = next; deletePublishes += 1; },
+  getActiveListId: () => activeDeleteListId,
+  commitMutation: async build => {
+    await deleteGate.promise;
+    deleteMutation = build();
+    return deleteMutation;
+  },
+  render: () => {},
+});
+const firstDelete = remover.remove('delete-list', 'temp-delete-item');
+const secondDelete = remover.remove('delete-list', 'temp-delete-item');
+assert.strictEqual(firstDelete, secondDelete, 'duplicate item deletes must be single-flight');
+assert.equal(deletePublishes, 0, 'item deletion must not publish before durable commit');
+deleteLists = [{ ...deleteLists[0], id: 111, items: [{ ...deleteLists[0].items[0], id: 101 }] }];
+activeDeleteListId = 111;
+deleteGate.resolve();
+const deletedItem = await firstDelete;
+assert.equal(deleteMutation.action, 'DELETE_SHOPPING_ITEM');
+assert.deepEqual(deleteMutation.data, { shopping_list_id: 111, item_id: 101 });
+assert.equal(deletedItem.id, 101);
+assert.equal(deleteLists[0].items.length, 0);
+assert.equal(deletePublishes, 1);
+
 let createFailurePublishes = 0;
 const createFailure = createShoppingItemsController({
   getLists: () => [{ id: 'create-failure-list', can_edit: true, sections: [], items: [] }],
@@ -514,7 +671,7 @@ for (const source of [todoDialogsSource, todoFeatureSource, todoQuickAddSource, 
 
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
   const dictionary = JSON.parse(readFileSync(new URL(`../web/static/i18n/${locale}.json`, import.meta.url), 'utf8'));
-  for (const key of ['shopping.item.markCompleted', 'shopping.item.markOpen']) {
+  for (const key of ['shopping.item.markCompleted', 'shopping.item.markOpen', 'shopping.item.edit', 'shopping.item.delete.message']) {
     assert.equal(typeof dictionary[key], 'string', `${locale} must contain ${key}`);
     assert(dictionary[key].trim(), `${locale} ${key} must not be empty`);
     assert(dictionary[key].includes('{name}'), `${locale} ${key} must identify the affected item`);
@@ -522,6 +679,7 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
   for (const key of [
     'shopping.item.add',
     'shopping.item.modal.title',
+    'shopping.item.modal.editTitle',
     'shopping.item.modal.subtitle',
     'shopping.item.name',
     'shopping.item.namePlaceholder',
@@ -545,6 +703,10 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
     'shopping.item.error.invalidQuantity',
     'shopping.item.error.invalidUnit',
     'shopping.item.error.saveFailed',
+    'shopping.item.delete',
+    'shopping.item.delete.title',
+    'shopping.item.delete.confirm',
+    'shopping.item.error.deleteFailed',
   ]) {
     assert.equal(typeof dictionary[key], 'string', `${locale} must contain ${key}`);
     assert(dictionary[key].trim(), `${locale} ${key} must not be empty`);

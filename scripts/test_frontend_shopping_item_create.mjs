@@ -12,12 +12,13 @@ assert.match(shoppingDialogsSource, /icon:\s*'shopping-cart'/, 'the item modal m
 assert.doesNotMatch(shoppingDialogsSource, /icon:\s*'shopping-basket'/, 'unknown icon names fall back to the placeholder circle');
 assert.match(shoppingDialogsSource, /id="shopping-item-section"[^>]*data-ui-select/);
 assert.match(shoppingDialogsSource, /id="shopping-item-store"[^>]*data-ui-select/);
+assert.match(shoppingDialogsSource, /data-shopping-item-editor-action="delete"/);
 
 const fixtureSource = `
   import { initI18n, translatePage } from '/static/js/i18n/index.js';
   import { SHOPPING_DIALOGS_HTML } from '/static/js/modules/shopping-dialogs.js';
   import { createShoppingItemsController } from '/static/js/features/shopping-items.js';
-  import { createShoppingItemCreateFeature } from '/static/js/features/shopping-item-create.js';
+  import { createShoppingItemEditorFeature } from '/static/js/features/shopping-item-editor.js';
   import { createShoppingNavigationFeature } from '/static/js/features/shopping-navigation.js';
 
   localStorage.setItem('nia-todo-language', 'de');
@@ -29,7 +30,9 @@ const fixtureSource = `
   ];
   let stores = [];
   let navigation = null;
+  let editor = null;
   const commits = [];
+  let confirmations = 0;
   let deferredCommit = null;
   const commitMutation = async build => {
     if (deferredCommit) await deferredCommit.promise;
@@ -51,6 +54,7 @@ const fixtureSource = `
     commitMutation,
     render: () => navigation?.render(),
     createTempId: () => 'temp-shopping-item-browser',
+    onEdit: (listId, itemId, triggerElement) => editor?.showEdit?.(listId, itemId, triggerElement),
   });
   navigation = createShoppingNavigationFeature({
     getLists: () => lists,
@@ -62,7 +66,7 @@ const fixtureSource = `
   navigation.bind();
   navigation.replaceLists(lists);
   navigation.selectList(activeListId, { updateNavigation: false });
-  const feature = createShoppingItemCreateFeature({
+  editor = createShoppingItemEditorFeature({
     document,
     eventTarget: window,
     getLists: () => lists,
@@ -71,13 +75,14 @@ const fixtureSource = `
     setStores: next => { stores = next; },
     commitMutation,
     itemController,
+    confirmDanger: async () => { confirmations += 1; return true; },
     createStoreTempId: () => 'temp-shopping-store-browser',
   });
-  feature.bind();
+  editor.bind();
   document.body.insertAdjacentHTML('beforeend', SHOPPING_DIALOGS_HTML);
   translatePage(document);
   window.test = {
-    setActive: id => { activeListId = id; navigation.selectList(id, { updateNavigation: false }); feature.reconcile(); },
+    setActive: id => { activeListId = id; navigation.selectList(id, { updateNavigation: false }); editor.reconcile(); },
     deferNextCommit: () => {
       let release;
       const promise = new Promise(resolve => { release = resolve; });
@@ -87,9 +92,23 @@ const fixtureSource = `
       deferredCommit?.release();
       deferredCommit = null;
     },
+    remapCreatedItem: () => {
+      lists = lists.map(list => list.id !== 1 ? list : {
+        ...list,
+        items: list.items.map(item => item.id !== 'temp-shopping-item-browser' ? item : {
+          ...item,
+          id: 42,
+          client_mutation_id: 'temp-shopping-item-browser',
+        }),
+      });
+      navigation.replaceLists(lists);
+      navigation.render();
+      editor.reconcile();
+    },
     lists: () => lists,
     stores: () => stores,
     commits: () => commits,
+    confirmations: () => confirmations,
   };
 `;
 
@@ -168,6 +187,58 @@ try {
   assert.deepEqual(await page.locator('.shopping-item-title').allTextContents(), ['Tomaten'], 'the production shopping renderer must show the durable item immediately');
   assert.equal(await trigger.evaluate(element => document.activeElement === element), true, 'closing restores focus to the shared FAB');
 
+  await page.locator('.shopping-item-edit-trigger').click();
+  await modal.waitFor({ state: 'visible' });
+  assert.equal((await page.locator('#shopping-item-modal-title').textContent()).trim(), 'Artikel bearbeiten');
+  assert.equal(await page.locator('#shopping-item-detail-menu-toggle').isVisible(), true);
+  assert.equal(await page.locator('#shopping-item-name').inputValue(), 'Tomaten');
+  assert.equal(await page.locator('#shopping-item-quantity').inputValue(), '0');
+  assert.equal(await page.locator('#shopping-item-unit').inputValue(), 'Stück');
+  assert.equal(await page.locator('#shopping-item-section').inputValue(), 'produce');
+  assert.equal(await page.locator('#shopping-item-store').inputValue(), 'temp-shopping-store-browser');
+  await page.evaluate(() => window.test.remapCreatedItem());
+  await page.locator('#shopping-item-name').fill('Kirschtomaten');
+  await page.locator('#shopping-item-quantity').fill('2');
+  await page.locator('#shopping-item-save-btn').click();
+  await page.waitForFunction(() => document.querySelector('#shopping-item-modal')?.getAttribute('aria-hidden') === 'true');
+  assert.equal(await page.evaluate(() => window.test.commits().at(-1).action), 'UPDATE_SHOPPING_ITEM');
+  assert.equal(await page.evaluate(() => window.test.commits().at(-1).data.item_id), 42, 'an open editor must follow the item Temp-ID to its server ID');
+  assert.deepEqual(await page.locator('.shopping-item-title').allTextContents(), ['Kirschtomaten']);
+  assert.deepEqual(await page.locator('.shopping-item-quantity').allTextContents(), ['2 Stück']);
+  assert.equal(await page.locator('.shopping-item-edit-trigger').evaluate(element => document.activeElement === element), true, 'saving a remapped edit restores focus to the live item');
+
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.locator('.shopping-item-edit-trigger').click();
+  await page.locator('#shopping-item-name').fill('Mobile Tomaten');
+  const mobileEditHeader = await page.locator('#shopping-item-modal .ui-detail-modal-header').evaluate(header => {
+    const selectors = ['#shopping-item-save-btn', '#shopping-item-detail-menu-toggle', '.modal-close-x'];
+    const boxes = selectors.map(selector => {
+      const rect = header.querySelector(selector).getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width };
+    });
+    return {
+      fits: document.documentElement.scrollWidth <= innerWidth,
+      boxes,
+      viewportWidth: innerWidth,
+    };
+  });
+  assert.equal(mobileEditHeader.fits, true);
+  assert(mobileEditHeader.boxes.every(box => box.width > 0 && box.left >= 0 && box.right <= mobileEditHeader.viewportWidth));
+  assert(mobileEditHeader.boxes[0].right <= mobileEditHeader.boxes[1].left, 'mobile Save and overflow controls must not overlap');
+  assert(mobileEditHeader.boxes[1].right <= mobileEditHeader.boxes[2].left, 'mobile overflow and Close controls must not overlap');
+  await page.locator('#shopping-item-save-btn').click();
+  await page.waitForFunction(() => document.querySelector('#shopping-item-modal')?.getAttribute('aria-hidden') === 'true');
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await page.locator('.shopping-item-edit-trigger').click();
+  await page.locator('#shopping-item-detail-menu-toggle summary').click();
+  await page.locator('[data-shopping-item-editor-action="delete"]').click();
+  await page.waitForFunction(() => document.querySelectorAll('.shopping-item-card').length === 0);
+  assert.equal(await page.evaluate(() => window.test.confirmations()), 1);
+  assert.equal(await page.evaluate(() => window.test.commits().at(-1).action), 'DELETE_SHOPPING_ITEM');
+  assert.equal(await modal.getAttribute('aria-hidden'), 'true');
+  assert.equal(await trigger.evaluate(element => document.activeElement === element), true, 'deleting an item falls back to the shared FAB');
+
   await trigger.click();
   await page.locator('[data-select-id="shopping-item-store"] .ui-select-trigger').click();
   await addStoreAction.click();
@@ -197,4 +268,4 @@ try {
   await browser.close();
 }
 
-console.log('✅ Shopping item create modal, section/store selection and shared FAB passed');
+console.log('✅ Shopping item create/edit/delete modal, section/store selection and shared FAB passed');

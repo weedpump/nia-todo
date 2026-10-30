@@ -830,8 +830,6 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
         if "name" in fields_set:
             updates["name"] = _clean_required(data.name, "Item name", 500)
         if "section_id" in fields_set:
-            if data.section_id != existing["section_id"]:
-                _permissions_for_list(db, shopping_list_id, user_id, manage=True)
             if data.section_id is not None:
                 section = db.execute(
                     "SELECT id FROM shopping_sections WHERE id = ? AND shopping_list_id = ?",

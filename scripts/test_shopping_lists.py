@@ -331,18 +331,14 @@ with tempfile.TemporaryDirectory() as tmp:
     assert shared_item_edit["quantity_value"] == 3, shared_item_edit
     assert shared_item_edit["quantity_unit"] == "pcs", shared_item_edit
     assert shared_item_edit["section_id"] is None, shared_item_edit
-    try:
-        asyncio.run(
-            update_shopping_item(
-                shared_item["id"],
-                ShoppingItemUpdate(section_id=personal_section["id"]),
-                shared_id,
-            )
+    recipient_section_move = asyncio.run(
+        update_shopping_item(
+            shared_item["id"],
+            ShoppingItemUpdate(section_id=personal_section["id"]),
+            shared_id,
         )
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Direct recipient changed a shopping item's section")
+    )
+    assert recipient_section_move["section_id"] == personal_section["id"], recipient_section_move
     assert shared_item_edit["store_ids"] == [owner_store["id"]], shared_item_edit
     retained_hidden_store = asyncio.run(
         update_shopping_item(
@@ -518,18 +514,14 @@ with tempfile.TemporaryDirectory() as tmp:
             "SELECT section_id FROM shopping_items WHERE id = ?",
             (unrestricted["id"],),
         ).fetchone()["section_id"] is None
-    try:
-        asyncio.run(
-            update_shopping_item(
-                unrestricted["id"],
-                ShoppingItemUpdate(section_id=section_id),
-                member_id,
-            )
+    member_section_move = asyncio.run(
+        update_shopping_item(
+            unrestricted["id"],
+            ShoppingItemUpdate(section_id=section_id),
+            member_id,
         )
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Household member changed a shopping item's section without sort_order")
+    )
+    assert member_section_move["section_id"] == section_id, member_section_move
 
     owner_item_view = next(
         item for item in get_shopping_list(household_id_value, owner_id)["items"]
