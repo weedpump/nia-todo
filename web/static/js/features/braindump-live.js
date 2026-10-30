@@ -1149,11 +1149,11 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   function renderCandidateMetaChips({ route, due, reminder, recurrence, location }) {
     return [
-      route ? `<span class="todo-meta-chip braindump-route">${iconSvg('folder')} ${escapeHtml(route)}</span>` : '',
-      due ? `<span class="todo-meta-chip todo-due">${iconSvg('calendar')} ${escapeHtml(t('braindump.meta.due', { date: due }))}</span>` : '',
-      reminder ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${escapeHtml(t('braindump.meta.reminder', { date: reminder }))}</span>` : '',
-      recurrence ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrence)}</span>` : '',
-      location ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(t('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(location)}</span>` : '',
+      route ? `<span class="todo-meta-chip ui-badge braindump-route">${iconSvg('folder')} ${escapeHtml(route)}</span>` : '',
+      due ? `<span class="todo-meta-chip ui-badge todo-due">${iconSvg('calendar')} ${escapeHtml(t('braindump.meta.due', { date: due }))}</span>` : '',
+      reminder ? `<span class="todo-meta-chip ui-badge todo-reminder">${iconSvg('bell')} ${escapeHtml(t('braindump.meta.reminder', { date: reminder }))}</span>` : '',
+      recurrence ? `<span class="todo-meta-chip ui-badge todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrence)}</span>` : '',
+      location ? `<span class="todo-meta-chip ui-badge todo-location" title="${escapeHtmlAttr(t('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(location)}</span>` : '',
     ].filter(Boolean).join('');
   }
 

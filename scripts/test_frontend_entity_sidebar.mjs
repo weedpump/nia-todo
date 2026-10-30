@@ -300,7 +300,7 @@ assert.deepEqual(featureCalls.at(-1), ['remap', 'temp-shopping-list-older', 88],
 assert.equal(featureRoot.remappedFocusId, '88', 'a focused non-active Temp-ID row must regain focus on its server-ID replacement');
 navigationFeature.replaceLists([{ ...entities[0], id: 77, items: [{ id: 1, name: 'Milk', completed: false }] }]);
 assert.equal(mainTarget.dataset.shoppingContentState, 'populated');
-assert.match(mainTarget.innerHTML, /class="section-item-name">Milk</);
+assert.match(mainTarget.innerHTML, /class="shopping-item-title">Milk</);
 navigationFeature.replaceLists([]);
 assert.equal(navigationFeature.getActiveListId(), null);
 assert.equal(featureStorage.has('nia-shopping-active-list'), false);

@@ -42,6 +42,8 @@
   "shopping.sidebar.emptyHint": "Vytvořte první seznam a naplánujte další nákup.",
   "shopping.list.emptyTitle": "Zatím žádné položky",
   "shopping.list.emptyHint": "Tento nákupní seznam zatím neobsahuje žádné položky.",
+  "shopping.item.markCompleted": "Označit {name} jako koupené",
+  "shopping.item.markOpen": "Označit {name} znovu jako potřebné",
   "shopping.section.unsorted": "Bez sekce",
   "shopping.section.deleteMessage": "Položky v této sekci budou přesunuty do „Bez sekce“.",
   "common.icon": "Ikona",

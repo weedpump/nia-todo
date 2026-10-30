@@ -39,6 +39,7 @@ import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
+import { createShoppingItemsController } from './features/shopping-items.js';
 import { createShoppingListDetailsFeature } from './features/shopping-list-details.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createSectionRootRegistry } from './features/section-ui.js';
@@ -790,6 +791,16 @@ const shoppingSectionsAdapter = createShoppingSectionsAdapter({
     deleteMessage: () => t('shopping.section.deleteMessage'),
   },
 });
+const shoppingItemsController = createShoppingItemsController({
+  getLists: () => shoppingLists,
+  setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
+  getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
+  commitMutation: commitShoppingMutation,
+  render: () => shoppingNavigationFeature?.render?.(),
+  isOnlineForSync,
+  syncWithServer,
+  onError: error => console.error('Shopping item mutation failed', error),
+});
 shoppingNavigationFeature = createShoppingNavigationFeature({
   getLists: () => shoppingLists,
   closeSidebar: options => uiShell.closeSidebar(options),
@@ -798,6 +809,7 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
   onListIdRemap: (fromId, toId) => shoppingListDetailsFeature?.remapListId(fromId, toId),
   sectionRegistry,
   sectionAdapter: shoppingSectionsAdapter,
+  itemController: shoppingItemsController,
 });
 shoppingNavigationFeature.bind();
 shoppingListDetailsFeature = createShoppingListDetailsFeature({

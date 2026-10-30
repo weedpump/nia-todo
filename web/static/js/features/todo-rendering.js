@@ -73,7 +73,7 @@ export function renderTodoItem(t) {
         </details>`;
 
   const cardMarkup = `
-    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" data-priority="${escapeHtmlAttr(String(t.priority || ''))}" draggable="true">
+    <div class="todo-item ui-item-card ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" data-priority="${escapeHtmlAttr(String(t.priority || ''))}" draggable="true">
       <div class="todo-status-control">
         <button type="button" class="todo-check" data-todo-action="toggle-status" data-todo-id="${todoIdAttr}" aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
           ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}
@@ -87,13 +87,13 @@ export function renderTodoItem(t) {
             <span class="todo-title">${escapeHtml(t.title)}</span>
             ${hasMeta ? `
             <div class="todo-meta-row">
-              ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone} ${isOverdue || isDueToday ? 'minimal-attention' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
-              ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
-              ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
-              ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
-              ${hasSubtasks ? `<span class="todo-meta-chip todo-subtasks-progress">${iconSvg('list-todo')} ${escapeHtml(subtaskProgress)}</span>` : ''}
-              ${hasComments ? `<span class="todo-meta-chip todo-comments-progress">${iconSvg('notebook-pen')} ${escapeHtml(i18nT('todo.comments.count', { count: commentsCount }))}</span>` : ''}
-              ${hasAttachments ? `<span class="todo-meta-chip todo-attachments-progress">${iconSvg('paperclip')} ${escapeHtml(i18nT('todo.attachments.count', { count: attachmentsCount }))}</span>` : ''}
+              ${dueStr ? `<span class="todo-meta-chip ui-badge todo-due ${isOverdue ? 'overdue' : dueTone} ${isOverdue || isDueToday ? 'minimal-attention' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
+              ${remindStr ? `<span class="todo-meta-chip ui-badge todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
+              ${recurrenceStr ? `<span class="todo-meta-chip ui-badge todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
+              ${locationStr ? `<span class="todo-meta-chip ui-badge todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
+              ${hasSubtasks ? `<span class="todo-meta-chip ui-badge todo-subtasks-progress">${iconSvg('list-todo')} ${escapeHtml(subtaskProgress)}</span>` : ''}
+              ${hasComments ? `<span class="todo-meta-chip ui-badge todo-comments-progress">${iconSvg('notebook-pen')} ${escapeHtml(i18nT('todo.comments.count', { count: commentsCount }))}</span>` : ''}
+              ${hasAttachments ? `<span class="todo-meta-chip ui-badge todo-attachments-progress">${iconSvg('paperclip')} ${escapeHtml(i18nT('todo.attachments.count', { count: attachmentsCount }))}</span>` : ''}
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}

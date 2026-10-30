@@ -1,3 +1,60 @@
+/* Shared visual primitives */
+
+:root {
+  --ui-item-card-min-height: 50px;
+  --ui-item-card-gap: 12px;
+  --ui-item-card-padding: 10px 14px;
+  --ui-item-card-radius: 999px;
+  --ui-item-card-border: transparent;
+  --ui-item-card-background: color-mix(in srgb, var(--bg-secondary) 66%, transparent);
+  --ui-item-card-shadow: none;
+}
+
+.ui-item-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--ui-item-card-min-height);
+  gap: var(--ui-item-card-gap);
+  padding: var(--ui-item-card-padding);
+  border: 1px solid var(--ui-item-card-border);
+  border-radius: var(--ui-item-card-radius);
+  background: var(--ui-item-card-background);
+  box-shadow: var(--ui-item-card-shadow);
+  box-sizing: border-box;
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.ui-badge .ui-icon {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+  .ui-item-card {
+    gap: 10px;
+    border-radius: 24px;
+  }
+}
+
 /* Shared full-width section primitives */
 
 .ui-section-divider {

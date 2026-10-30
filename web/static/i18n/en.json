@@ -42,6 +42,8 @@
   "shopping.sidebar.emptyHint": "Create your first list and plan your next shopping trip.",
   "shopping.list.emptyTitle": "No items yet",
   "shopping.list.emptyHint": "This shopping list does not contain any items yet.",
+  "shopping.item.markCompleted": "Mark {name} as purchased",
+  "shopping.item.markOpen": "Mark {name} as needed",
   "shopping.section.unsorted": "No section",
   "shopping.section.deleteMessage": "Items in this section will be moved to “No section”.",
   "common.icon": "Icon",

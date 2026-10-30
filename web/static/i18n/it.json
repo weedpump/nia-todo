@@ -42,6 +42,8 @@
   "shopping.sidebar.emptyHint": "Crea la prima lista e pianifica la prossima spesa.",
   "shopping.list.emptyTitle": "Ancora nessun articolo",
   "shopping.list.emptyHint": "Questa lista della spesa non contiene ancora articoli.",
+  "shopping.item.markCompleted": "Segna {name} come acquistato",
+  "shopping.item.markOpen": "Segna {name} come da acquistare",
   "shopping.section.unsorted": "Senza sezione",
   "shopping.section.deleteMessage": "Gli articoli in questa sezione verranno spostati in «Senza sezione».",
   "common.icon": "Icona",

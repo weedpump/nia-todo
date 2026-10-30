@@ -33,14 +33,6 @@
 }
 
 .todo-item {
-  min-height: 44px;
-  gap: 12px;
-  padding: 8px 14px;
-  border-radius: 16px;
-  border-color: color-mix(in srgb, var(--border) 84%, transparent);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
-  box-shadow: 0 10px 24px rgba(0,0,0,.075);
   margin-bottom: 8px;
   transition: border-color .15s, background .15s, box-shadow .15s, transform .12s, opacity .15s;
 }
@@ -130,29 +122,6 @@
   flex-wrap: wrap;
 }
 
-.todo-badge,
-.todo-meta-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  width: fit-content;
-  max-width: 100%;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 1.2;
-}
-
-.todo-badge .ui-icon,
-.todo-meta-chip .ui-icon {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 auto;
-}
 
 .todo-badge.pinned {
   color: var(--accent);
@@ -195,7 +164,7 @@
   background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
-.todo-reminder {
+.todo-meta-chip.todo-reminder {
   color: var(--success);
   border-color: color-mix(in srgb, var(--success) 28%, transparent);
   background: color-mix(in srgb, var(--success) 11%, transparent);
@@ -244,7 +213,6 @@
 }
 
 .todo-item.pinned {
-  border-radius: 18px;
   background:
     radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), transparent 42%),
     var(--bg-secondary);
@@ -259,9 +227,6 @@
 
   .todo-item {
     align-items: center;
-    gap: 10px;
-    padding: 12px;
-    border-radius: 15px;
   }
 
   .todo-check {
@@ -278,7 +243,7 @@
    layouts can show the desktop sidebar while keeping noisy card actions tucked away.
    Touch tablets may report desktop-class widths, so also key off coarse pointers. */
 @media (max-width: 1279px), (hover: none) and (pointer: coarse) {
-  .todo-item {
+  .todo-item.ui-item-card {
     padding-right: 52px;
   }
 
@@ -668,16 +633,6 @@
   color: var(--text-primary);
 }
 
-.todo-item {
-  min-height: 48px;
-  gap: 12px;
-  padding: 9px 12px;
-  border-radius: 18px;
-  border-color: color-mix(in srgb, var(--border) 62%, transparent);
-  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
-  box-shadow: none;
-}
-
 .todo-item:hover,
 .todo-item:focus-within {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
@@ -708,7 +663,6 @@
 
 .todo-item.pinned {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-  border-radius: 20px;
   background: color-mix(in srgb, var(--accent) 7%, var(--bg-secondary));
   box-shadow: inset 3px 0 0 var(--accent);
 }
@@ -717,7 +671,6 @@
   font-weight: 560;
 }
 
-.todo-meta-chip,
 .todo-badge {
   min-height: 22px;
   padding: 3px 8px;
@@ -802,11 +755,6 @@
     padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
   }
 
-  .todo-item {
-    min-height: 52px;
-    padding: 11px;
-  }
-
   .project-dashboard .overview-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -817,19 +765,14 @@
   }
 }
 
-/* Local preview tweak: make todo rows feel more like soft pills than rounded cards. */
-.todo-item {
-  min-height: 50px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border-color: color-mix(in srgb, var(--border) 54%, transparent);
-  background: color-mix(in srgb, var(--bg-secondary) 66%, transparent);
-}
-
 .todo-item.has-open-menu,
 .todo-item:has(.todo-meta-row:not(:empty)),
 .todo-item:has(.todo-desc-preview) {
   border-radius: 26px;
+}
+
+.todo-item.ui-item-card.pinned {
+  border-radius: 999px;
 }
 
 .todo-item:hover,
@@ -840,7 +783,6 @@
 }
 
 .todo-item.in-progress {
-  border-radius: 999px;
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 82%, transparent);
 }
 
@@ -850,13 +792,18 @@
 }
 
 .todo-item.pinned {
-  border-radius: 999px;
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
 }
 
 .todo-item.pinned:has(.todo-meta-row:not(:empty)),
 .todo-item.pinned:has(.todo-desc-preview) {
   border-radius: 26px;
+}
+
+@media (max-width: 768px) {
+  .todo-item.ui-item-card.pinned {
+    border-radius: 24px;
+  }
 }
 
 .todo-check {
@@ -871,17 +818,8 @@
   border-radius: 999px;
 }
 
-.todo-meta-chip,
 .todo-badge {
   border-radius: 999px;
-}
-
-@media (max-width: 768px) {
-  .todo-item,
-  .todo-item.in-progress,
-  .todo-item.pinned {
-    border-radius: 24px;
-  }
 }
 
 .todo-item.swiping::before,
@@ -1022,7 +960,7 @@
 }
 
 @media (max-width: 1279px), (hover: none) and (pointer: coarse) {
-  .todo-item {
+  .todo-item.ui-item-card {
     padding-right: 52px;
   }
 }
@@ -1048,7 +986,6 @@
 }
 
 /* Local preview: remove todo row borders while keeping status/accent paint. */
-.todo-item,
 .todo-item:hover,
 .todo-item:focus-within,
 .todo-item.in-progress,

@@ -42,6 +42,8 @@
   "shopping.sidebar.emptyHint": "Utwórz pierwszą listę i zaplanuj następne zakupy.",
   "shopping.list.emptyTitle": "Brak pozycji",
   "shopping.list.emptyHint": "Ta lista zakupów nie zawiera jeszcze żadnych pozycji.",
+  "shopping.item.markCompleted": "Oznacz {name} jako kupione",
+  "shopping.item.markOpen": "Oznacz {name} jako potrzebne",
   "shopping.section.unsorted": "Bez sekcji",
   "shopping.section.deleteMessage": "Artykuły z tej sekcji zostaną przeniesione do „Bez sekcji”.",
   "common.icon": "Ikona",

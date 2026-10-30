@@ -42,6 +42,8 @@
   "shopping.sidebar.emptyHint": "Maak je eerste lijst en plan je volgende boodschappen.",
   "shopping.list.emptyTitle": "Nog geen artikelen",
   "shopping.list.emptyHint": "Deze boodschappenlijst bevat nog geen artikelen.",
+  "shopping.item.markCompleted": "Markeer {name} als gekocht",
+  "shopping.item.markOpen": "Markeer {name} als nog nodig",
   "shopping.section.unsorted": "Zonder sectie",
   "shopping.section.deleteMessage": "Artikelen in deze sectie worden verplaatst naar ‘Zonder sectie’.",
   "common.icon": "Pictogram",

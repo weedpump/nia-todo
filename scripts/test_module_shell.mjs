@@ -164,7 +164,8 @@ assert(shoppingDialogsSource.includes('id="shopping-list-modal"'), 'shopping mus
 assert(shoppingDialogsSource.includes('id="shopping-list-detail-header-menu"'), 'shopping details must own the shared overflow-menu shell');
 assert(shoppingDialogsSource.includes('data-shopping-list-action="delete-from-modal"'), 'shopping details must expose deletion only through the overflow menu');
 assert(!indexSource.includes('shopping-list-modal'), 'shopping-specific dialogs must not leak into the global shell');
-assert(!moduleCss.includes('.shopping-item'), 'shopping-specific component styling must not exist yet');
+assert(moduleCss.includes('.shopping-item-card'), 'shopping item cards must have scoped component styling');
+assert(!moduleCss.includes('.shopping-item-card.todo-item'), 'shopping styling must not couple item cards to todo contracts');
 assert(!indexSource.includes('id="workspace-module-list"'), 'module visibility must not be configured in workspace settings');
 assert(!workspacesSource.includes('hidden_modules'), 'workspace payloads must not persist module visibility');
 assert(indexSource.includes('id="settings-section-modules"'), 'account module visibility must live in settings');

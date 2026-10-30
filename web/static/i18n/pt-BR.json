@@ -42,6 +42,8 @@
   "shopping.sidebar.emptyHint": "Crie sua primeira lista e planeje a próxima compra.",
   "shopping.list.emptyTitle": "Nenhum item ainda",
   "shopping.list.emptyHint": "Esta lista de compras ainda não contém itens.",
+  "shopping.item.markCompleted": "Marcar {name} como comprado",
+  "shopping.item.markOpen": "Marcar {name} como necessário",
   "shopping.section.unsorted": "Sem seção",
   "shopping.section.deleteMessage": "Os itens desta seção serão movidos para “Sem seção”.",
   "common.icon": "Ícone",

@@ -7,8 +7,9 @@ import {
 import { escapeHtml } from '../core/utils.js';
 import { iconSvg, markerHtml } from '../icons/lucide-icons.js';
 import { niaIconSvg } from '../icons/nia-product-icons.js';
-import { t } from '../i18n/index.js';
+import { getActiveLocale, t } from '../i18n/index.js';
 import { renderSectionCollection } from './section-ui.js';
+import { renderShoppingItem } from './shopping-items.js';
 
 export const SHOPPING_ACTIVE_LIST_KEY = 'nia-shopping-active-list';
 
@@ -85,6 +86,7 @@ export function createShoppingNavigationFeature({
   onListIdRemap = () => {},
   sectionRegistry = null,
   sectionAdapter = null,
+  itemController = null,
 } = {}) {
   let localLists = null;
   let activeListId = null;
@@ -144,6 +146,7 @@ export function createShoppingNavigationFeature({
     if (!main) return;
     const selected = lists().find(list => String(list.id) === String(activeListId));
     if (!selected) {
+      itemController?.bindRoot?.(null);
       main.dataset.shoppingNavigationState = 'empty';
       main.dataset.shoppingContentState = 'no-list';
       main.className = 'module-page module-empty-page';
@@ -167,7 +170,15 @@ export function createShoppingNavigationFeature({
       unsortedLabel: t('shopping.section.unsorted'),
       deleteLabel: t('section.delete'),
       newLabel: t('section.new'),
-      renderItem: item => `<div class="section-item-name">${escapeHtml(item.name || '')}</div>`,
+      renderItem: item => renderShoppingItem({
+        item,
+        canEdit: selected.can_edit === true,
+        locale: getActiveLocale(),
+        labels: {
+          markCompleted: t('shopping.item.markCompleted', { name: item.name || '' }),
+          markOpen: t('shopping.item.markOpen', { name: item.name || '' }),
+        },
+      }),
       showUnsorted: hasUnsortedItems,
     });
     main.dataset.shoppingNavigationState = 'selected';
@@ -193,6 +204,7 @@ export function createShoppingNavigationFeature({
     if (registeredSectionRoot && registeredSectionRoot !== nextSectionRoot) sectionRegistry?.unregister?.(registeredSectionRoot);
     if (nextSectionRoot && sectionAdapter) sectionRegistry?.register?.(nextSectionRoot, sectionAdapter);
     registeredSectionRoot = nextSectionRoot;
+    itemController?.bindRoot?.(nextSectionRoot);
   }
 
   function render() {
@@ -318,6 +330,7 @@ export function createShoppingNavigationFeature({
     destroy() {
       binding?.destroy?.();
       eventTarget?.removeEventListener?.('popstate', handlePopState);
+      itemController?.bindRoot?.(null);
       binding = null;
       bound = false;
     },

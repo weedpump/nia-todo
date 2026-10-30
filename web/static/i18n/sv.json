@@ -42,6 +42,8 @@
   "shopping.sidebar.emptyHint": "Skapa din första lista och planera nästa inköp.",
   "shopping.list.emptyTitle": "Inga varor än",
   "shopping.list.emptyHint": "Den här inköpslistan innehåller inga varor än.",
+  "shopping.item.markCompleted": "Markera {name} som köpt",
+  "shopping.item.markOpen": "Markera {name} som behövd",
   "shopping.section.unsorted": "Utan avsnitt",
   "shopping.section.deleteMessage": "Varor i det här avsnittet flyttas till ”Utan avsnitt”.",
   "common.icon": "Ikon",

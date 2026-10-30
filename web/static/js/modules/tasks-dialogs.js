@@ -284,7 +284,7 @@ export const TASK_DIALOGS_HTML = `
               <p data-i18n-key="todo.subtasks.hint">Add checklist items for this todo.</p>
             </div>
             <span class="todo-section-heading-spacer"></span>
-            <span id="todo-subtasks-count" class="todo-meta-chip todo-subtasks-progress" aria-live="polite">0/0</span>
+            <span id="todo-subtasks-count" class="todo-meta-chip ui-badge todo-subtasks-progress" aria-live="polite">0/0</span>
           </div>
           <div class="todo-subtasks-editor">
             <div id="todo-subtasks-list" class="todo-subtasks-list"></div>
@@ -307,7 +307,7 @@ export const TASK_DIALOGS_HTML = `
               <p data-i18n-key="todo.comments.hint">Add comments to this todo.</p>
             </div>
             <span class="todo-section-heading-spacer"></span>
-            <span id="todo-comments-count" class="todo-meta-chip todo-comments-progress" aria-live="polite">0</span>
+            <span id="todo-comments-count" class="todo-meta-chip ui-badge todo-comments-progress" aria-live="polite">0</span>
           </div>
           <div class="todo-comments-editor">
             <div id="todo-comments-list" class="todo-comments-list"></div>
@@ -331,7 +331,7 @@ export const TASK_DIALOGS_HTML = `
               <p data-i18n-key="todo.attachments.hint">Attach files or photos to this todo.</p>
             </div>
             <span class="todo-section-heading-spacer"></span>
-            <span id="todo-attachments-count" class="todo-meta-chip todo-attachments-progress" aria-live="polite">0</span>
+            <span id="todo-attachments-count" class="todo-meta-chip ui-badge todo-attachments-progress" aria-live="polite">0</span>
           </div>
           <div class="todo-attachments-editor">
             <div id="todo-attachments-list" class="todo-attachments-list"></div>
