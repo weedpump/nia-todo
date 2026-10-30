@@ -44,6 +44,8 @@
   "shopping.list.emptyHint": "В этом списке покупок пока нет товаров.",
   "shopping.item.markCompleted": "Отметить «{name}» как купленное",
   "shopping.item.markOpen": "Отметить «{name}» как нужное",
+  "shopping.item.swipeComplete": "Куплено",
+  "shopping.item.swipeReopen": "Снова открыть",
   "shopping.item.edit": "Изменить «{name}»",
   "shopping.item.delete": "Удалить товар",
   "shopping.item.delete.title": "Удалить товар?",

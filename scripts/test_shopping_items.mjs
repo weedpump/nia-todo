@@ -7,7 +7,12 @@ import {
   renderShoppingItem,
 } from '../web/static/js/features/shopping-items.js';
 
-const labels = { markCompleted: 'Milch als gekauft markieren', markOpen: 'Milch wieder als offen markieren' };
+const labels = {
+  markCompleted: 'Milch als gekauft markieren',
+  markOpen: 'Milch wieder als offen markieren',
+  swipeComplete: 'Gekauft',
+  swipeReopen: 'Wieder öffnen',
+};
 
 assert.equal(formatShoppingQuantity({ quantity_value: 1.5, quantity_unit: 'kg' }, 'de-DE'), '1,5 kg');
 assert.equal(formatShoppingQuantity({ quantity_value: 1.23456, quantity_unit: 'kg' }, 'de-DE'), '1,23456 kg', 'stored quantity precision must remain visible');
@@ -20,7 +25,7 @@ const openHtml = renderShoppingItem({
   locale: 'de-DE',
   labels,
 });
-assert.match(openHtml, /class="ui-item-card shopping-item-card is-pending"/);
+assert.match(openHtml, /class="ui-item-card shopping-item-card ui-swipe-card is-pending"/);
 assert.match(openHtml, /class="shopping-item-title"/);
 assert.match(openHtml, /class="ui-badge shopping-item-quantity"/);
 assert(openHtml.indexOf('shopping-item-title') < openHtml.indexOf('shopping-item-quantity'), 'title must precede the right-side quantity badge');
@@ -45,7 +50,7 @@ const completedHtml = renderShoppingItem({
   locale: 'en-US',
   labels,
 });
-assert.match(completedHtml, /shopping-item-card is-completed/);
+assert.match(completedHtml, /shopping-item-card ui-swipe-card is-completed/);
 assert.match(completedHtml, /aria-checked="true"/);
 assert.match(completedHtml, /aria-label="Milch wieder als offen markieren"/);
 assert.match(completedHtml, /shopping-item-check-icon/);
@@ -217,6 +222,10 @@ remappedLists = [{
 releaseRemap();
 await remappedToggle;
 assert.equal(remappedMutation.data.item_id, 61, 'a queued toggle must follow a Temp-ID remap before the durable commit');
+remappedMutation = null;
+await remapped.toggleCompleted(6, 'temp-shopping-item-remap');
+assert.equal(remappedMutation.data.item_id, 61, 'a later gesture may still resolve the stable client identity after remapping');
+assert.deepEqual(remappedMutation.data.changes, { completed: false });
 
 let createLists = [{
   id: 'list-create',
@@ -703,6 +712,8 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
     'shopping.item.error.invalidQuantity',
     'shopping.item.error.invalidUnit',
     'shopping.item.error.saveFailed',
+    'shopping.item.swipeComplete',
+    'shopping.item.swipeReopen',
     'shopping.item.delete',
     'shopping.item.delete.title',
     'shopping.item.delete.confirm',

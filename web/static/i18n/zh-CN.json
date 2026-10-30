@@ -44,6 +44,8 @@
   "shopping.list.emptyHint": "此购物清单尚未包含任何商品。",
   "shopping.item.markCompleted": "将{name}标记为已购买",
   "shopping.item.markOpen": "将{name}标记为待购买",
+  "shopping.item.swipeComplete": "已购买",
+  "shopping.item.swipeReopen": "重新打开",
   "shopping.item.edit": "编辑{name}",
   "shopping.item.delete": "删除商品",
   "shopping.item.delete.title": "删除商品？",

@@ -44,6 +44,8 @@
   "shopping.list.emptyHint": "Esta lista de compras ainda não contém itens.",
   "shopping.item.markCompleted": "Marcar {name} como comprado",
   "shopping.item.markOpen": "Marcar {name} como necessário",
+  "shopping.item.swipeComplete": "Comprado",
+  "shopping.item.swipeReopen": "Reabrir",
   "shopping.item.edit": "Editar {name}",
   "shopping.item.delete": "Excluir item",
   "shopping.item.delete.title": "Excluir item?",

@@ -44,6 +44,8 @@
   "shopping.list.emptyHint": "Den här inköpslistan innehåller inga varor än.",
   "shopping.item.markCompleted": "Markera {name} som köpt",
   "shopping.item.markOpen": "Markera {name} som behövd",
+  "shopping.item.swipeComplete": "Köpt",
+  "shopping.item.swipeReopen": "Öppna igen",
   "shopping.item.edit": "Redigera {name}",
   "shopping.item.delete": "Ta bort vara",
   "shopping.item.delete.title": "Ta bort varan?",

@@ -25,6 +25,27 @@
   box-sizing: border-box;
 }
 
+.ui-swipe-card {
+  touch-action: pan-y;
+}
+
+.ui-swipe-card.swiping {
+  transform: translate3d(var(--swipe-x, 0), 0, 0);
+  transition: none;
+  user-select: none;
+  z-index: 2;
+  --swipe-progress: 0;
+}
+
+.ui-swipe-card.swipe-settling,
+.ui-swipe-card.swipe-committing {
+  transition: transform 0.2s cubic-bezier(.2, .82, .22, 1);
+}
+
+.ui-swipe-card.swipe-committing {
+  transition-duration: 0.14s;
+}
+
 .ui-badge {
   display: inline-flex;
   align-items: center;

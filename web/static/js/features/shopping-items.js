@@ -1,4 +1,5 @@
 import { iconSvg } from '../icons/lucide-icons.js';
+import { registerItemSwipeAdapter, renderItemSwipeShell } from '../ui/item-swipe.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -41,10 +42,11 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
   const classes = [
     'ui-item-card',
     'shopping-item-card',
+    editable ? 'ui-swipe-card' : '',
     completed ? 'is-completed' : '',
     item.is_pending === true ? 'is-pending' : '',
   ].filter(Boolean).join(' ');
-  return `
+  const cardMarkup = `
     <div class="${classes}" data-shopping-item-key="${id}">
       <button type="button" class="shopping-item-check" role="checkbox" aria-checked="${completed ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(ariaLabel || '')}"${editable ? ` data-shopping-item-action="toggle-completed" data-shopping-item-id="${id}"` : ' disabled'}>
         <span class="shopping-item-check-icon" aria-hidden="true">${completed ? iconSvg('check') : ''}</span>
@@ -62,6 +64,18 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
       `}
     </div>
   `;
+  if (!editable) return cardMarkup;
+  return renderItemSwipeShell({
+    key: id,
+    cardMarkup,
+    actions: {
+      left: {
+        icon: 'check',
+        label: completed ? labels.swipeReopen : labels.swipeComplete,
+        tone: 'success',
+      },
+    },
+  });
 }
 
 export function createShoppingItemsController({
@@ -80,6 +94,23 @@ export function createShoppingItemsController({
   const inFlight = new Map();
   const listQueues = new Map();
   let root = null;
+
+  registerItemSwipeAdapter({
+    id: 'shopping-items',
+    cardSelector: '.shopping-item-card.ui-swipe-card[data-shopping-item-key]',
+    keyFromCard: item => item.dataset.shoppingItemKey,
+    directions: ['left'],
+    canStart: item => item.closest('.ui-swipe-shell') !== null,
+    interactiveStartSelector: '.shopping-item-edit-trigger',
+    protectedStartSelector: '.shopping-item-check',
+    onCommit: async ({ key }) => {
+      try {
+        await toggleCompleted(getActiveListId(), key);
+      } catch (error) {
+        onError(error);
+      }
+    },
+  });
 
   function currentList(listId) {
     const list = getLists().find(candidate => (
@@ -364,7 +395,10 @@ export function createShoppingItemsController({
 
   function toggleCompleted(listId, itemId) {
     const live = currentList(listId);
-    const initialItem = (live?.items || []).find(item => sameId(item.id, itemId));
+    const initialItem = (live?.items || []).find(item => (
+      sameId(item.id, itemId)
+      || sameId(item.client_mutation_id, itemId)
+    ));
     if (live?.can_edit !== true || !initialItem) return Promise.resolve(null);
     const stableListIdentity = live.client_mutation_id ?? live.id;
     const stableIdentity = initialItem.client_mutation_id ?? initialItem.id;

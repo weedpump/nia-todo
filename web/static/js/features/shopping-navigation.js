@@ -177,6 +177,8 @@ export function createShoppingNavigationFeature({
         labels: {
           markCompleted: t('shopping.item.markCompleted', { name: item.name || '' }),
           markOpen: t('shopping.item.markOpen', { name: item.name || '' }),
+          swipeComplete: t('shopping.item.swipeComplete'),
+          swipeReopen: t('shopping.item.swipeReopen'),
           edit: t('shopping.item.edit', { name: item.name || '' }),
         },
       }),

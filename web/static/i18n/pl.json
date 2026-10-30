@@ -44,6 +44,8 @@
   "shopping.list.emptyHint": "Ta lista zakupów nie zawiera jeszcze żadnych pozycji.",
   "shopping.item.markCompleted": "Oznacz {name} jako kupione",
   "shopping.item.markOpen": "Oznacz {name} jako potrzebne",
+  "shopping.item.swipeComplete": "Kupione",
+  "shopping.item.swipeReopen": "Otwórz ponownie",
   "shopping.item.edit": "Edytuj {name}",
   "shopping.item.delete": "Usuń produkt",
   "shopping.item.delete.title": "Usunąć produkt?",

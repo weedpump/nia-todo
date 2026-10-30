@@ -1,6 +1,7 @@
 import { escapeHtml, escapeHtmlAttr, formatDate, parseDateValue, renderMarkdown, truncateWords } from '../core/utils.js';
 import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { renderItemSwipeShell } from '../ui/item-swipe.js';
 
 function locationReminderLabel(todo) {
   const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
@@ -120,21 +121,12 @@ export function renderTodoItem(t) {
     </div>
   `;
 
-  if (!document.documentElement.classList.contains('mobile-swipe-ui')) return cardMarkup;
-
-  return `
-    <div class="todo-swipe-shell" data-todo-swipe-id="${todoIdAttr}">
-      <div class="todo-swipe-underlay" aria-hidden="true">
-        <div class="todo-swipe-action todo-swipe-action-in-progress">
-          ${iconSvg('flame', 'todo-swipe-action-icon', 'data-swipe-icon="in-progress"')}
-          <span>${escapeHtml(i18nT('todo.status.inProgress'))}</span>
-        </div>
-        <div class="todo-swipe-action todo-swipe-action-done">
-          ${iconSvg('check', 'todo-swipe-action-icon', 'data-swipe-icon="done"')}
-          <span>${escapeHtml(i18nT('todo.status.done'))}</span>
-        </div>
-      </div>
-      ${cardMarkup}
-    </div>
-  `;
+  return renderItemSwipeShell({
+    key: todoIdAttr,
+    cardMarkup: cardMarkup.replace('class="todo-item ', 'class="todo-item ui-swipe-card '),
+    actions: {
+      right: { icon: 'flame', label: i18nT('todo.status.inProgress'), tone: 'warning' },
+      left: { icon: 'check', label: i18nT('todo.status.done'), tone: 'success' },
+    },
+  });
 }

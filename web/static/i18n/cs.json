@@ -44,6 +44,8 @@
   "shopping.list.emptyHint": "Tento nákupní seznam zatím neobsahuje žádné položky.",
   "shopping.item.markCompleted": "Označit {name} jako koupené",
   "shopping.item.markOpen": "Označit {name} znovu jako potřebné",
+  "shopping.item.swipeComplete": "Koupeno",
+  "shopping.item.swipeReopen": "Znovu otevřít",
   "shopping.item.edit": "Upravit {name}",
   "shopping.item.delete": "Smazat položku",
   "shopping.item.delete.title": "Smazat položku?",

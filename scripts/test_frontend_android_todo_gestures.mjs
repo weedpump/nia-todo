@@ -6,6 +6,8 @@ console.log('🤖 Running slim Android todo gesture contract test...');
 
 const dragDropSource = await readFile(new URL('../web/static/js/features/drag-drop.js', import.meta.url), 'utf8');
 const todosSource = await readFile(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
+const shoppingItemsSource = await readFile(new URL('../web/static/js/features/shopping-items.js', import.meta.url), 'utf8');
+const itemSwipeSource = await readFile(new URL('../web/static/js/ui/item-swipe.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../web/static/style.css', import.meta.url), 'utf8');
 
 assert.ok(
@@ -39,11 +41,15 @@ assert.ok(
 );
 
 assert.ok(
-  todosSource.includes('--swipe-x')
-    && todosSource.includes('--swipe-progress')
-    && todosSource.includes("classList.toggle('swipe-ready'")
-    && todosSource.includes("classList.add('swiping')"),
-  'Todo swipe logic must expose swipe progress and ready state',
+  itemSwipeSource.includes('--swipe-x')
+    && itemSwipeSource.includes('--swipe-progress')
+    && itemSwipeSource.includes("classList.toggle('swipe-ready'")
+    && itemSwipeSource.includes("classList.add('swiping')")
+    && itemSwipeSource.includes("documentTarget.addEventListener('pointerdown'")
+    && todosSource.includes("registerItemSwipeAdapter({")
+    && shoppingItemsSource.includes("registerItemSwipeAdapter({")
+    && !todosSource.includes('bindTodoSwipeGestures'),
+  'Todo and Shopping must share one swipe progress and pointer state machine',
 );
 
 assert.ok(

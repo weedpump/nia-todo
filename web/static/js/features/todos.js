@@ -2,6 +2,7 @@ import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
+import { registerItemSwipeAdapter } from '../ui/item-swipe.js';
 import { createNativeBridge } from './native-bridge.js';
 import { createTodoAttachmentsFeature } from './todo-attachments.js';
 import { createTodoQuickAddFeature } from './todo-quick-add.js';
@@ -2040,250 +2041,6 @@ export function createTodosFeature({
     });
   }
 
-  function bindTodoSwipeGestures() {
-    if (document.documentElement.dataset.todoSwipeBound === '1') return;
-    document.documentElement.dataset.todoSwipeBound = '1';
-
-    const thresholdPx = 80;
-    const thresholdRatio = 0.35;
-    const lockThreshold = 10;
-    const leftEdgeSwipeDeadzonePx = 72;
-    const actionZoneLockThreshold = 36;
-    let active = null;
-    let suppressClickUntil = 0;
-    let swipeVisualFrame = 0;
-    let swipeVisualFrameIsTimeout = false;
-    let pendingSwipeVisual = null;
-
-    document.addEventListener('click', (event) => {
-      if (Date.now() > suppressClickUntil) return;
-      if (!event.target?.closest?.('.todo-item')) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation?.();
-    }, true);
-
-    document.addEventListener('pointerdown', (event) => {
-      if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
-      const item = event.target?.closest?.('.todo-item');
-      if (!item) return;
-      const startedInActionZone = Boolean(event.target.closest('.todo-actions'));
-      const startedInStatusZone = Boolean(event.target.closest('.todo-status-control, .todo-check'));
-      if (isTodoInteractiveTarget(event.target) && !startedInActionZone && !startedInStatusZone) return;
-      active = {
-        item,
-        shell: item.closest('.todo-swipe-shell'),
-        id: item.dataset.id,
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        dx: 0,
-        dy: 0,
-        locked: null,
-        swiped: false,
-        startedInActionZone,
-        startedInStatusZone,
-        originalDraggable: item.getAttribute('draggable'),
-        capturedPointer: false,
-      };
-    }, { passive: true });
-
-    function elasticSwipeDistance(rawDx, width) {
-      const sign = rawDx < 0 ? -1 : 1;
-      const distance = Math.abs(rawDx);
-      const max = Math.max(0, width);
-      const direct = Math.min(120, max * 0.32);
-      if (!max || distance <= direct) return rawDx;
-      const inputRange = Math.max(1, max * 0.95 - direct);
-      const progress = Math.min(1, (distance - direct) / inputRange);
-      const eased = direct + (max - direct) * (1 - Math.pow(1 - progress, 0.65));
-      return sign * Math.min(max, eased);
-    }
-
-    function setSwipeVisual(item, visualDx, rawDx, actionThreshold) {
-      const progress = Math.min(1, Math.abs(rawDx) / Math.max(1, actionThreshold));
-      item.style.setProperty('--swipe-x', `${visualDx}px`);
-      item.style.setProperty('--swipe-progress', progress.toFixed(3));
-      item.classList.toggle('swipe-right', visualDx > 0);
-      item.classList.toggle('swipe-left', visualDx < 0);
-      item.classList.toggle('swipe-ready', progress >= 1);
-      const shell = item.closest('.todo-swipe-shell');
-      shell?.classList.toggle('swipe-right', visualDx > 0);
-      shell?.classList.toggle('swipe-left', visualDx < 0);
-      shell?.classList.toggle('swipe-ready', progress >= 1);
-    }
-
-    function cancelScheduledSwipeVisual() {
-      if (swipeVisualFrame) {
-        if (swipeVisualFrameIsTimeout) window.clearTimeout(swipeVisualFrame);
-        else window.cancelAnimationFrame?.(swipeVisualFrame);
-      }
-      swipeVisualFrame = 0;
-      swipeVisualFrameIsTimeout = false;
-      pendingSwipeVisual = null;
-    }
-
-    function flushScheduledSwipeVisual() {
-      swipeVisualFrame = 0;
-      swipeVisualFrameIsTimeout = false;
-      const pending = pendingSwipeVisual;
-      pendingSwipeVisual = null;
-      if (!pending?.item?.isConnected || !pending.item.classList.contains('swiping')) return;
-      setSwipeVisual(pending.item, pending.visualDx, pending.rawDx, pending.actionThreshold);
-    }
-
-    function scheduleSwipeVisual(item, visualDx, rawDx, actionThreshold) {
-      pendingSwipeVisual = { item, visualDx, rawDx, actionThreshold };
-      if (swipeVisualFrame) return;
-      if (window.requestAnimationFrame) {
-        swipeVisualFrame = window.requestAnimationFrame(flushScheduledSwipeVisual);
-        swipeVisualFrameIsTimeout = false;
-      } else {
-        swipeVisualFrame = window.setTimeout(flushScheduledSwipeVisual, 16);
-        swipeVisualFrameIsTimeout = true;
-      }
-    }
-
-    function cleanupSwipeVisual(item) {
-      cancelScheduledSwipeVisual();
-      const shell = item.closest('.todo-swipe-shell');
-      shell?.classList.remove('is-swiping', 'swipe-right', 'swipe-left', 'swipe-ready');
-      item.classList.remove('swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
-      item.style.removeProperty('--swipe-x');
-      item.style.removeProperty('--swipe-progress');
-      item.removeAttribute('data-swipe-right-label');
-      item.removeAttribute('data-swipe-left-label');
-    }
-
-    function restoreSwipeDraggable(state) {
-      if (!state?.item) return;
-      if (state.originalDraggable === null) state.item.removeAttribute('draggable');
-      else state.item.setAttribute('draggable', state.originalDraggable);
-    }
-
-    function captureSwipePointer(state) {
-      if (!state?.item || state.capturedPointer) return;
-      try {
-        state.item.setPointerCapture?.(state.pointerId);
-        state.capturedPointer = true;
-      } catch (_) {}
-    }
-
-    function releaseSwipePointer(state) {
-      if (!state?.capturedPointer) return;
-      try { state.item?.releasePointerCapture?.(state.pointerId); } catch (_) {}
-      state.capturedPointer = false;
-    }
-
-    function cancelActiveSwipe() {
-      if (!active) return;
-      const current = active;
-      active = null;
-      cleanupSwipeVisual(current.item);
-      restoreSwipeDraggable(current);
-      releaseSwipePointer(current);
-      suppressClickUntil = Date.now() + 450;
-    }
-
-    function wait(ms) {
-      return new Promise(resolve => window.setTimeout(resolve, ms));
-    }
-
-    document.addEventListener('pointermove', (event) => {
-      if (!active || event.pointerId !== active.pointerId) return;
-      const dragDropActive = document.body.classList.contains('native-pointer-dragging') || active.item.classList.contains('dragging');
-      if (dragDropActive) {
-        cancelActiveSwipe();
-        return;
-      }
-      active.dx = event.clientX - active.startX;
-      active.dy = event.clientY - active.startY;
-
-      if (!active.locked) {
-        const absX = Math.abs(active.dx);
-        const absY = Math.abs(active.dy);
-        const requiredLockThreshold = (active.startedInActionZone || active.startedInStatusZone) ? actionZoneLockThreshold : lockThreshold;
-        if (absX < requiredLockThreshold && absY < lockThreshold) return;
-        const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx && !active.startedInStatusZone;
-        active.locked = absX >= requiredLockThreshold && absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
-        if (active.locked === 'vertical') return;
-        captureSwipePointer(active);
-        active.item.setAttribute('draggable', 'false');
-        if (!active.shell) {
-          active.item.setAttribute('data-swipe-right-label', `↗ ${t('todo.status.inProgress')}`);
-          active.item.setAttribute('data-swipe-left-label', `✓ ${t('todo.status.done')}`);
-        }
-        active.item.classList.remove('touch-feedback');
-        if (active.item.__niaTouchFeedbackTimer) window.clearTimeout(active.item.__niaTouchFeedbackTimer);
-        if (active.shell) {
-          setTodoActionsExpanded(active.item, false);
-          active.item.classList.remove('has-open-menu');
-          closeTodoActionMenus();
-          active.shell.classList.add('is-swiping');
-        }
-        active.item.classList.add('swiping');
-      }
-
-      if (active.locked !== 'horizontal') return;
-      event.preventDefault();
-      const actionThreshold = Math.max(thresholdPx, active.item.clientWidth * thresholdRatio);
-      const dx = elasticSwipeDistance(active.dx, active.item.clientWidth);
-      scheduleSwipeVisual(active.item, dx, active.dx, actionThreshold);
-      active.swiped = true;
-    }, { passive: false });
-
-    const finish = async (event) => {
-      if (!active || event.pointerId !== active.pointerId) return;
-      const current = active;
-      active = null;
-      const item = current.item;
-      const actionThreshold = Math.max(thresholdPx, item.clientWidth * thresholdRatio);
-      const shouldAct = current.locked === 'horizontal' && Math.abs(current.dx) >= actionThreshold;
-      cancelScheduledSwipeVisual();
-      releaseSwipePointer(current);
-
-      if (current.swiped || shouldAct) suppressClickUntil = Date.now() + 450;
-      if (current.locked === 'horizontal') event.preventDefault();
-
-      if (!shouldAct) {
-        if (current.swiped) {
-          item.classList.add('swipe-settling');
-          window.requestAnimationFrame(() => setSwipeVisual(item, 0, 0, actionThreshold));
-          await wait(180);
-        }
-        cleanupSwipeVisual(item);
-        restoreSwipeDraggable(current);
-        return;
-      }
-
-      item.classList.add('swipe-committing');
-      setSwipeVisual(item, current.dx < 0 ? -item.clientWidth : item.clientWidth, current.dx, actionThreshold);
-      await wait(130);
-      cleanupSwipeVisual(item);
-      restoreSwipeDraggable(current);
-      if (current.dx < 0) await toggleTodoStatus(current.id, 'done');
-      else await toggleTodoStatus(current.id, 'in_progress');
-    };
-
-    const cancel = (event) => {
-      if (!active || event.pointerId !== active.pointerId) return;
-      cancelActiveSwipe();
-    };
-
-    document.addEventListener('pointerup', finish, { passive: false });
-    document.addEventListener('pointercancel', cancel, { passive: true });
-    document.addEventListener('lostpointercapture', (event) => {
-      if (active && event.pointerId === active.pointerId) {
-        active.capturedPointer = false;
-      }
-    }, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) cancelActiveSwipe();
-    }, { passive: true });
-    window.addEventListener('blur', cancelActiveSwipe, { passive: true });
-    window.addEventListener('pagehide', cancelActiveSwipe, { passive: true });
-  }
-
   function isInteractiveTarget(element) {
     const tag = element?.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || element?.isContentEditable;
@@ -2553,7 +2310,25 @@ export function createTodosFeature({
   }
 
   bindTodoItemClickBehavior();
-  bindTodoSwipeGestures();
+  registerItemSwipeAdapter({
+    id: 'todo-items',
+    cardSelector: '.todo-item.ui-swipe-card[data-id]',
+    keyFromCard: item => item.dataset.id,
+    directions: ['left', 'right'],
+    protectedStartSelector: '.todo-actions, .todo-status-control, .todo-check',
+    labelFor: direction => direction === 'left' ? `✓ ${t('todo.status.done')}` : `↗ ${t('todo.status.inProgress')}`,
+    onActivate: (item, shell) => {
+      item.classList.remove('touch-feedback');
+      if (item.__niaTouchFeedbackTimer) window.clearTimeout(item.__niaTouchFeedbackTimer);
+      if (!shell) return;
+      setTodoActionsExpanded(item, false);
+      item.classList.remove('has-open-menu');
+      closeTodoActionMenus();
+    },
+    onCommit: async ({ key, direction }) => {
+      await toggleTodoStatus(key, direction === 'left' ? 'done' : 'in_progress');
+    },
+  });
   bindTodoActionsReveal();
   bindTodoStatusMenuBehavior();
   bindTodoHoverKeyboardShortcuts();

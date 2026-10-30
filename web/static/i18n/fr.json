@@ -44,6 +44,8 @@
   "shopping.list.emptyHint": "Cette liste de courses ne contient encore aucun article.",
   "shopping.item.markCompleted": "Marquer {name} comme acheté",
   "shopping.item.markOpen": "Marquer {name} comme à acheter",
+  "shopping.item.swipeComplete": "Acheté",
+  "shopping.item.swipeReopen": "Rouvrir",
   "shopping.item.edit": "Modifier {name}",
   "shopping.item.delete": "Supprimer l’article",
   "shopping.item.delete.title": "Supprimer l’article ?",

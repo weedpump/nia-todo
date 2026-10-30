@@ -129,21 +129,21 @@ try {
   await page.goto(`http://127.0.0.1:${address.port}/harness`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.__underlayReady === true);
 
-  const shells = page.locator('.todo-swipe-shell');
-  const shell = page.locator('.todo-swipe-shell[data-todo-swipe-id="36"]');
+  const shells = page.locator('.ui-swipe-shell');
+  const shell = page.locator('.ui-swipe-shell[data-ui-swipe-key="36"]');
   const item = page.locator('.todo-item[data-id="36"]');
   assert.equal(await shells.count(), 5, 'every mobile touch todo must render a swipe shell');
-  assert.equal(await shell.locator('.todo-swipe-action-in-progress').count(), 1, 'right swipe action must be persistent');
-  assert.equal(await shell.locator('.todo-swipe-action-done').count(), 1, 'left swipe action must be persistent');
-  assert.equal(await shell.locator('svg.todo-swipe-action-icon[data-swipe-icon="in-progress"]').count(), 1, 'in-progress action must use the Lucide flame icon');
-  assert.equal(await shell.locator('svg.todo-swipe-action-icon[data-swipe-icon="done"]').count(), 1, 'done action must use the Lucide check icon');
-  assert.ok((await shell.locator('.todo-swipe-action-in-progress').textContent()).trim(), 'in-progress action needs a label');
-  assert.ok((await shell.locator('.todo-swipe-action-done').textContent()).trim(), 'done action needs a label');
+  assert.equal(await shell.locator('.ui-swipe-action[data-ui-swipe-direction="right"]').count(), 1, 'right swipe action must be persistent');
+  assert.equal(await shell.locator('.ui-swipe-action[data-ui-swipe-direction="left"]').count(), 1, 'left swipe action must be persistent');
+  assert.equal(await shell.locator('svg.ui-swipe-action-icon[data-ui-swipe-icon="flame"]').count(), 1, 'in-progress action must use the Lucide flame icon');
+  assert.equal(await shell.locator('svg.ui-swipe-action-icon[data-ui-swipe-icon="check"]').count(), 1, 'done action must use the Lucide check icon');
+  assert.ok((await shell.locator('.ui-swipe-action[data-ui-swipe-direction="right"]').textContent()).trim(), 'in-progress action needs a label');
+  assert.ok((await shell.locator('.ui-swipe-action[data-ui-swipe-direction="left"]').textContent()).trim(), 'done action needs a label');
 
   const idleStyles = await page.evaluate(() => {
     const read = id => {
       const item = document.querySelector(`.todo-item[data-id="${id}"]`);
-      const shell = item.closest('.todo-swipe-shell');
+      const shell = item.closest('.ui-swipe-shell');
       const itemStyle = getComputedStyle(item);
       const shellStyle = getComputedStyle(shell);
       return {
@@ -154,8 +154,8 @@ try {
         shellMarginBottom: shellStyle.marginBottom,
         shellRadius: shellStyle.borderRadius,
         shellOverflow: shellStyle.overflow,
-        underlayOpacity: getComputedStyle(shell.querySelector('.todo-swipe-underlay')).opacity,
-        underlayVisibility: getComputedStyle(shell.querySelector('.todo-swipe-underlay')).visibility,
+        underlayOpacity: getComputedStyle(shell.querySelector('.ui-swipe-underlay')).opacity,
+        underlayVisibility: getComputedStyle(shell.querySelector('.ui-swipe-underlay')).visibility,
       };
     };
     return { pending: read(36), done: read(37), progress: read(38), pinned: read(39), details: read(40) };
@@ -175,8 +175,8 @@ try {
 
   await page.setViewportSize({ width: 900, height: 900 });
   const wideRadii = await page.evaluate(() => ({
-    simple: getComputedStyle(document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]')).borderRadius,
-    details: getComputedStyle(document.querySelector('.todo-swipe-shell[data-todo-swipe-id="40"]')).borderRadius,
+    simple: getComputedStyle(document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]')).borderRadius,
+    details: getComputedStyle(document.querySelector('.ui-swipe-shell[data-ui-swipe-key="40"]')).borderRadius,
   }));
   assert.equal(wideRadii.simple, '999px', 'wide compact cards must retain pill clipping');
   assert.equal(wideRadii.details, '26px', 'wide cards with details must match their 26px card radius');
@@ -187,7 +187,7 @@ try {
   assert.equal(await item.evaluate(element => element.classList.contains('actions-expanded')), true, 'quick-action reveal must still expand the wrapped card');
   assert.equal(await shell.evaluate(element => getComputedStyle(element).overflow), 'visible', 'expanded quick actions must escape shell clipping');
   const modalLayering = await page.evaluate(() => {
-    const shell = document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]');
+    const shell = document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]');
     const item = shell.querySelector('.todo-item');
     const modal = document.getElementById('confirm-modal');
     const rect = item.getBoundingClientRect();
@@ -210,7 +210,7 @@ try {
 
   for (const selector of ['.todo-status-menu-left', '.todo-snooze-menu']) {
     const menuState = await page.evaluate((menuSelector) => {
-      const shell = document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]');
+      const shell = document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]');
       const item = shell.querySelector('.todo-item');
       if (menuSelector === '.todo-snooze-menu') item.classList.add('actions-expanded');
       const menu = shell.querySelector(menuSelector);
@@ -226,7 +226,7 @@ try {
         zIndex: getComputedStyle(shell).zIndex,
         panelVisible: getComputedStyle(panel).visibility,
         panelHeight: rect.height,
-        hitShellId: hit?.closest?.('.todo-swipe-shell')?.dataset?.todoSwipeId || null,
+        hitShellId: hit?.closest?.('.ui-swipe-shell')?.dataset?.uiSwipeKey || null,
       };
       menu.open = false;
       menu.classList.remove('placement-ready');
@@ -244,7 +244,7 @@ try {
   assert.ok(box);
 
   await page.evaluate(() => {
-    const shell = document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]');
+    const shell = document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]');
     const item = shell.querySelector('.todo-item');
     const menu = item.querySelector('.todo-status-menu-left');
     item.classList.add('actions-expanded', 'has-open-menu');
@@ -267,9 +267,9 @@ try {
     clientX: box.x + box.width * 0.45,
     clientY: box.y + box.height / 2,
   });
-  await page.waitForFunction(() => document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]')?.classList.contains('is-swiping'));
+  await page.waitForFunction(() => document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]')?.classList.contains('is-swiping'));
   const openStateSwipe = await page.evaluate(() => {
-    const shell = document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]');
+    const shell = document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]');
     const item = shell.querySelector('.todo-item');
     return {
       overflow: getComputedStyle(shell).overflow,
@@ -307,7 +307,7 @@ try {
     clientY: box.y + box.height / 2,
   });
   await page.waitForFunction(() => {
-    const shell = document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]');
+    const shell = document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]');
     const item = shell?.querySelector('.todo-item[data-id="36"]');
     return shell?.classList.contains('is-swiping') && item?.style.getPropertyValue('--swipe-x');
   });
@@ -330,10 +330,10 @@ try {
   assert.notEqual(styles.transform, 'none', 'foreground card must still follow the finger');
 
   const leftGeometry = await page.evaluate(() => {
-    const shell = document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]');
+    const shell = document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]');
     const item = shell.querySelector('.todo-item');
-    const progress = shell.querySelector('.todo-swipe-action-in-progress');
-    const done = shell.querySelector('.todo-swipe-action-done');
+    const progress = shell.querySelector('.ui-swipe-action[data-ui-swipe-direction="right"]');
+    const done = shell.querySelector('.ui-swipe-action[data-ui-swipe-direction="left"]');
     const shellRect = shell.getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
     const progressRect = progress.getBoundingClientRect();
@@ -345,7 +345,7 @@ try {
       doneRect,
       progressOpacity: getComputedStyle(progress).opacity,
       doneOpacity: getComputedStyle(done).opacity,
-      underlayVisibility: getComputedStyle(shell.querySelector('.todo-swipe-underlay')).visibility,
+      underlayVisibility: getComputedStyle(shell.querySelector('.ui-swipe-underlay')).visibility,
     };
   });
   assert.ok(leftGeometry.itemRect.right < leftGeometry.shellRect.right, 'left swipe must expose the shell right edge');
@@ -354,7 +354,7 @@ try {
   assert.equal(leftGeometry.progressOpacity, '0', 'left swipe must hide the in-progress action');
   assert.equal(leftGeometry.underlayVisibility, 'visible', 'active direction must reveal the underlay');
 
-  const doneAction = await shell.locator('.todo-swipe-action-done').evaluate(element => {
+  const doneAction = await shell.locator('.ui-swipe-action[data-ui-swipe-direction="left"]').evaluate(element => {
     const current = getComputedStyle(element);
     return { backgroundImage: current.backgroundImage, color: current.color };
   });
@@ -371,10 +371,10 @@ try {
   });
   assert.equal(await shell.evaluate(element => element.classList.contains('is-swiping')), false, 'cancel must clean up the swipe shell');
   const cleanupState = await shell.evaluate(element => ({
-    underlayVisibility: getComputedStyle(element.querySelector('.todo-swipe-underlay')).visibility,
-    underlayOpacity: getComputedStyle(element.querySelector('.todo-swipe-underlay')).opacity,
-    doneOpacity: getComputedStyle(element.querySelector('.todo-swipe-action-done')).opacity,
-    progressOpacity: getComputedStyle(element.querySelector('.todo-swipe-action-in-progress')).opacity,
+    underlayVisibility: getComputedStyle(element.querySelector('.ui-swipe-underlay')).visibility,
+    underlayOpacity: getComputedStyle(element.querySelector('.ui-swipe-underlay')).opacity,
+    doneOpacity: getComputedStyle(element.querySelector('.ui-swipe-action[data-ui-swipe-direction="left"]')).opacity,
+    progressOpacity: getComputedStyle(element.querySelector('.ui-swipe-action[data-ui-swipe-direction="right"]')).opacity,
     itemSwiping: element.querySelector('.todo-item').classList.contains('swiping'),
   }));
   assert.deepEqual(cleanupState, {
@@ -401,20 +401,20 @@ try {
     clientX: box.x + box.width * 0.6,
     clientY: box.y + box.height / 2,
   });
-  await page.waitForFunction(() => document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]')?.classList.contains('swipe-right'));
+  await page.waitForFunction(() => document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]')?.classList.contains('swipe-right'));
   assert.equal(await shell.evaluate(element => element.classList.contains('swipe-right')), true, 'right swipe must reveal the in-progress action');
   const rightGeometry = await page.evaluate(() => {
-    const shell = document.querySelector('.todo-swipe-shell[data-todo-swipe-id="36"]');
+    const shell = document.querySelector('.ui-swipe-shell[data-ui-swipe-key="36"]');
     const item = shell.querySelector('.todo-item');
     const shellRect = shell.getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
     return { shellRect, itemRect };
   });
   assert.ok(rightGeometry.itemRect.left > rightGeometry.shellRect.left, 'right swipe must expose the shell left edge');
-  const progressAction = await shell.locator('.todo-swipe-action-in-progress').evaluate(element => ({
+  const progressAction = await shell.locator('.ui-swipe-action[data-ui-swipe-direction="right"]').evaluate(element => ({
     backgroundImage: getComputedStyle(element).backgroundImage,
     opacity: getComputedStyle(element).opacity,
-    doneOpacity: getComputedStyle(element.parentElement.querySelector('.todo-swipe-action-done')).opacity,
+    doneOpacity: getComputedStyle(element.parentElement.querySelector('.ui-swipe-action[data-ui-swipe-direction="left"]')).opacity,
   }));
   assert.notEqual(progressAction.backgroundImage, 'none', 'in-progress action must retain its orange semantic surface');
   assert.equal(progressAction.opacity, '1', 'right swipe must show only the in-progress action');
@@ -429,7 +429,7 @@ try {
     document.documentElement.classList.remove('mobile-swipe-ui', 'native-app');
     document.getElementById('fixture').innerHTML = window.__renderTodoItem(window.__underlayTodo);
   });
-  assert.equal(await page.locator('.todo-swipe-shell').count(), 0, 'web clients must retain the existing todo markup');
+  assert.equal(await page.locator('.ui-swipe-shell').count(), 0, 'web clients must retain the existing todo markup');
   assert.equal(await page.locator('#fixture > .todo-item[data-id="36"]').count(), 1, 'web todo card must remain a direct rendered item');
 
       console.log(`✅ Mobile touch semantic swipe underlay test passed (${browserName})`);

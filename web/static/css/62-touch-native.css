@@ -90,81 +90,83 @@
   box-shadow: none !important;
 }
 
-.mobile-swipe-ui .todo-item.swiping {
+.mobile-swipe-ui .ui-swipe-card.swiping {
   transform: translate3d(var(--swipe-x, 0), 0, 0) !important;
 }
 
-.mobile-swipe-ui .todo-item.swiping::before,
-.mobile-swipe-ui .todo-item.swiping::after {
+.mobile-swipe-ui .ui-swipe-card.swiping::before,
+.mobile-swipe-ui .ui-swipe-card.swiping::after {
   display: none !important;
 }
 
-.mobile-swipe-ui .todo-item.swiping.swipe-right,
-.mobile-swipe-ui .todo-item.swiping.swipe-left,
-.mobile-swipe-ui .todo-item.swiping.swipe-ready {
+.mobile-swipe-ui .ui-swipe-card.swiping.swipe-right,
+.mobile-swipe-ui .ui-swipe-card.swiping.swipe-left,
+.mobile-swipe-ui .ui-swipe-card.swiping.swipe-ready {
   border-color: var(--border) !important;
   background: var(--bg-secondary) !important;
   box-shadow: none !important;
 }
 
-.mobile-swipe-ui .todo-swipe-shell {
+.mobile-swipe-ui .ui-swipe-shell {
   position: relative;
   overflow: hidden;
   margin-bottom: 8px;
   border-radius: 999px;
 }
 
-.mobile-swipe-ui .todo-swipe-shell:has(.todo-item.has-open-menu),
-.mobile-swipe-ui .todo-swipe-shell:has(.todo-item.actions-expanded),
-.mobile-swipe-ui .todo-swipe-shell:has(.todo-status-menu[open]),
-.mobile-swipe-ui .todo-swipe-shell:has(.todo-snooze-menu[open]) {
+.mobile-swipe-ui .ui-swipe-shell:has(.todo-item.has-open-menu),
+.mobile-swipe-ui .ui-swipe-shell:has(.todo-item.actions-expanded),
+.mobile-swipe-ui .ui-swipe-shell:has(.todo-status-menu[open]),
+.mobile-swipe-ui .ui-swipe-shell:has(.todo-snooze-menu[open]) {
   z-index: 240;
   overflow: visible;
 }
 
-.mobile-swipe-ui .todo-swipe-shell.is-swiping {
+.mobile-swipe-ui .ui-swipe-shell.is-swiping {
   overflow: hidden !important;
 }
 
-.mobile-swipe-ui .todo-swipe-shell:has(> .todo-item .todo-meta-row:not(:empty)),
-.mobile-swipe-ui .todo-swipe-shell:has(> .todo-item .todo-desc-preview) {
+.mobile-swipe-ui .ui-swipe-shell:has(> .todo-item .todo-meta-row:not(:empty)),
+.mobile-swipe-ui .ui-swipe-shell:has(> .todo-item .todo-desc-preview) {
   border-radius: 26px;
 }
 
 @media (max-width: 768px) {
-  .mobile-swipe-ui .todo-swipe-shell,
-  .mobile-swipe-ui .todo-swipe-shell:has(> .todo-item .todo-meta-row:not(:empty)),
-  .mobile-swipe-ui .todo-swipe-shell:has(> .todo-item .todo-desc-preview) {
+  .mobile-swipe-ui .ui-swipe-shell,
+  .mobile-swipe-ui .ui-swipe-shell:has(> .todo-item .todo-meta-row:not(:empty)),
+  .mobile-swipe-ui .ui-swipe-shell:has(> .todo-item .todo-desc-preview) {
     border-radius: 24px;
   }
 }
 
-.mobile-swipe-ui .project-group-todos > .todo-swipe-shell,
-.mobile-swipe-ui .section-todos > .todo-swipe-shell,
-.mobile-swipe-ui .todo-list > .todo-swipe-shell,
-.mobile-swipe-ui .pinned-todos > .todo-swipe-shell {
+.mobile-swipe-ui .project-group-todos > .ui-swipe-shell,
+.mobile-swipe-ui .section-todos > .ui-swipe-shell,
+.mobile-swipe-ui .todo-list > .ui-swipe-shell,
+.mobile-swipe-ui .pinned-todos > .ui-swipe-shell {
   margin-bottom: 0;
 }
 
-.mobile-swipe-ui .pinned-todos > .todo-swipe-shell:last-child {
+.mobile-swipe-ui .pinned-todos > .ui-swipe-shell:last-child {
   margin-bottom: 0;
 }
 
-.mobile-swipe-ui .todo-swipe-shell > .todo-item {
+.mobile-swipe-ui .ui-swipe-shell > .ui-swipe-card {
   position: relative;
   z-index: 2;
   margin-bottom: 0;
 }
 
-.mobile-swipe-ui .todo-swipe-shell > .todo-item.done.swiping {
+.mobile-swipe-ui .ui-swipe-shell > .todo-item.done.swiping,
+.mobile-swipe-ui .ui-swipe-shell > .shopping-item-card.is-completed.swiping {
   opacity: 1;
 }
 
-.mobile-swipe-ui .todo-swipe-shell > .todo-item.done.swiping > * {
+.mobile-swipe-ui .ui-swipe-shell > .todo-item.done.swiping > *,
+.mobile-swipe-ui .ui-swipe-shell > .shopping-item-card.is-completed.swiping > * {
   opacity: .58;
 }
 
-.mobile-swipe-ui .todo-swipe-underlay {
+.mobile-swipe-ui .ui-swipe-underlay {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -175,13 +177,13 @@
   pointer-events: none;
 }
 
-.mobile-swipe-ui .todo-swipe-shell.swipe-left .todo-swipe-underlay,
-.mobile-swipe-ui .todo-swipe-shell.swipe-right .todo-swipe-underlay {
+.mobile-swipe-ui .ui-swipe-shell.swipe-left .ui-swipe-underlay,
+.mobile-swipe-ui .ui-swipe-shell.swipe-right .ui-swipe-underlay {
   visibility: visible;
   opacity: 1;
 }
 
-.mobile-swipe-ui .todo-swipe-action {
+.mobile-swipe-ui .ui-swipe-action {
   position: absolute;
   inset: 0;
   display: flex;
@@ -196,25 +198,38 @@
   opacity: 0;
 }
 
-.mobile-swipe-ui .todo-swipe-action-in-progress {
+.mobile-swipe-ui .ui-swipe-action[data-ui-swipe-direction="right"] {
   justify-content: flex-start;
+}
+
+.mobile-swipe-ui .ui-swipe-action[data-ui-swipe-direction="left"] {
+  justify-content: flex-end;
+}
+
+.mobile-swipe-ui .ui-swipe-action[data-ui-swipe-tone="warning"] {
   background: linear-gradient(90deg, rgb(217, 119, 6), rgb(245, 158, 11));
 }
 
-.mobile-swipe-ui .todo-swipe-action-done {
-  justify-content: flex-end;
+.mobile-swipe-ui .ui-swipe-action[data-ui-swipe-tone="success"] {
   background: linear-gradient(90deg, rgb(22, 163, 74), rgb(74, 222, 128));
 }
 
-.mobile-swipe-ui .todo-swipe-shell.swipe-right .todo-swipe-action-in-progress,
-.mobile-swipe-ui .todo-swipe-shell.swipe-left .todo-swipe-action-done {
+.mobile-swipe-ui .ui-swipe-shell.swipe-right .ui-swipe-action[data-ui-swipe-direction="right"],
+.mobile-swipe-ui .ui-swipe-shell.swipe-left .ui-swipe-action[data-ui-swipe-direction="left"] {
   opacity: 1;
 }
 
-.mobile-swipe-ui .todo-swipe-action-icon {
+.mobile-swipe-ui .ui-swipe-action-icon {
   width: 15px;
   height: 15px;
   flex: 0 0 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-swipe-card.swipe-settling,
+  .ui-swipe-card.swipe-committing {
+    transition: none !important;
+  }
 }
 
 .native-android .btn-primary:active,
