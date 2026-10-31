@@ -1,5 +1,6 @@
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { updateTopbarToggle } from '../ui/topbar-toggle.js';
 
 export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, saveShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos, renderStats = () => {} }) {
   let todayIconRefreshTimer = null;
@@ -86,13 +87,14 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const btn = document.getElementById('today-focus-btn');
     if (!btn || !getTodayFocus) return;
     const active = getTodayFocus();
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    btn.title = active ? t('todayFocus.disable') : t('todayFocus.enable');
+    updateTopbarToggle(btn, {
+      pressed: active,
+      label: active ? t('todayFocus.on') : t('todayFocus.short'),
+      title: active ? t('todayFocus.disable') : t('todayFocus.enable'),
+    });
     const icon = btn.querySelector('.today-calendar-icon');
     if (icon) icon.innerHTML = renderTodayCalendarIcon();
-    const label = btn.querySelector('[data-i18n-key="todayFocus.short"]');
-    if (label) label.textContent = active ? t('todayFocus.on') : t('todayFocus.short');
+
   }
 
 
@@ -110,12 +112,13 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const btn = document.getElementById('minimal-todos-btn');
     if (!btn || !getMinimalTodos) return;
     const active = getMinimalTodos();
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    btn.title = active ? t('minimalTodos.disable') : t('minimalTodos.enable');
+    updateTopbarToggle(btn, {
+      pressed: active,
+      label: active ? t('minimalTodos.on') : t('minimalTodos.short'),
+      title: active ? t('minimalTodos.disable') : t('minimalTodos.enable'),
+    });
     document.body?.classList.toggle('is-minimal-todos', active);
-    const label = btn.querySelector('[data-i18n-key="minimalTodos.short"]');
-    if (label) label.textContent = active ? t('minimalTodos.on') : t('minimalTodos.short');
+
   }
 
   function cycleSort() {

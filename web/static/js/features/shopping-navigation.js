@@ -84,6 +84,7 @@ export function createShoppingNavigationFeature({
   onAdd,
   onDetail,
   onListIdRemap = () => {},
+  onRender = () => {},
   sectionRegistry = null,
   sectionAdapter = null,
   itemController = null,
@@ -94,6 +95,11 @@ export function createShoppingNavigationFeature({
   let binding = null;
   let applyingHistory = false;
   let registeredSectionRoot = null;
+  let searchQuery = '';
+
+  function normalizedSearch(value) {
+    return String(value || '').trim().toLocaleLowerCase();
+  }
 
   function lists() {
     return localLists ?? getLists() ?? [];
@@ -159,13 +165,21 @@ export function createShoppingNavigationFeature({
     }
     const sections = Array.isArray(selected.sections) ? selected.sections : [];
     const items = Array.isArray(selected.items) ? selected.items : [];
-    const hasItems = items.length > 0;
-    const hasSectionContent = hasItems || sections.length > 0;
+    const search = normalizedSearch(searchQuery);
+    const visibleItems = search
+      ? items.filter(item => normalizedSearch(item.name).includes(search))
+      : items;
+    const hideEmptySections = selected.preferences?.hide_empty_sections === true;
+    const visibleSections = hideEmptySections || search
+      ? sections.filter(section => visibleItems.some(item => String(item.section_id) === String(section.id)))
+      : sections;
+    const hasItems = visibleItems.length > 0;
+    const hasSectionContent = hasItems || visibleSections.length > 0;
     const validSectionIds = new Set(sections.map(section => String(section.id)));
-    const hasUnsortedItems = items.some(item => item.section_id == null || !validSectionIds.has(String(item.section_id)));
+    const hasUnsortedItems = visibleItems.some(item => item.section_id == null || !validSectionIds.has(String(item.section_id)));
     const sectionHtml = renderSectionCollection({
-      sections,
-      items,
+      sections: visibleSections,
+      items: visibleItems,
       canManage: selected.can_manage === true,
       unsortedLabel: t('shopping.section.unsorted'),
       deleteLabel: t('section.delete'),
@@ -185,7 +199,7 @@ export function createShoppingNavigationFeature({
       showUnsorted: hasUnsortedItems,
     });
     main.dataset.shoppingNavigationState = 'selected';
-    main.dataset.shoppingContentState = hasSectionContent ? 'populated' : 'empty';
+    main.dataset.shoppingContentState = hasSectionContent ? 'populated' : (search ? 'search-empty' : 'empty');
     main.className = 'module-page shopping-list-content-page';
     main.innerHTML = `
       <header class="shopping-list-content-header">
@@ -195,10 +209,10 @@ export function createShoppingNavigationFeature({
       <div class="shopping-list-content-body" data-section-root="shopping">
         ${sectionHtml}
         ${hasSectionContent ? '' : `
-          <div class="empty-state shopping-list-empty-state">
-            <div class="emoji" aria-hidden="true">${iconSvg('shopping-cart')}</div>
-            <h3>${escapeHtml(t('shopping.list.emptyTitle'))}</h3>
-            <p>${escapeHtml(t('shopping.list.emptyHint'))}</p>
+          <div class="empty-state ${search ? 'shopping-search-empty-state' : 'shopping-list-empty-state'}">
+            <div class="emoji" aria-hidden="true">${iconSvg(search ? 'search' : 'shopping-cart')}</div>
+            <h3>${escapeHtml(t(search ? 'shopping.search.empty' : 'shopping.list.emptyTitle'))}</h3>
+            ${search ? '' : `<p>${escapeHtml(t('shopping.list.emptyHint'))}</p>`}
           </div>
         `}
       </div>
@@ -233,6 +247,7 @@ export function createShoppingNavigationFeature({
       });
     }
     renderMain();
+    onRender();
   }
 
   function activate() {
@@ -299,6 +314,13 @@ export function createShoppingNavigationFeature({
     }
   }
 
+  function setSearchQuery(value) {
+    const next = String(value || '');
+    if (next === searchQuery) return;
+    searchQuery = next;
+    renderMain();
+  }
+
   function handlePopState(event) {
     const id = resolveActiveShoppingListId(lists(), listIdFromNavigation(event) ?? readStoredActiveListId());
     if (id == null || String(id) === String(activeListId)) return;
@@ -326,6 +348,7 @@ export function createShoppingNavigationFeature({
     activate,
     render,
     replaceLists,
+    setSearchQuery,
     selectList,
     normalizeActiveListNavigation,
     focusActiveListAction,

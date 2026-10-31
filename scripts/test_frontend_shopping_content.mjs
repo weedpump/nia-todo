@@ -14,9 +14,11 @@ const fixtureSource = `
   localStorage.setItem('nia-todo-language', 'de');
   await initI18n();
   let lists = [
-    { id: 1, name: 'Wocheneinkauf', color: '#2563eb', icon: 'shopping-cart', sort_order: 0, can_manage: true, can_edit: true, items: [], sections: [] },
+    { id: 1, name: 'Wocheneinkauf', color: '#2563eb', icon: 'shopping-cart', sort_order: 0, can_manage: true, can_edit: true,
+      preferences: { selected_store_id: null, hide_empty_sections: true }, items: [], sections: [{ id: 'hidden-empty', name: 'Versteckt', sort_order: 0 }] },
     { id: 2, name: 'Gefüllte Liste', color: '#16a34a', icon: 'list-checks', sort_order: 1, can_manage: 'false', can_edit: 'true',
-      items: [{ id: 10, name: 'Milch', quantity_value: 1.5, quantity_unit: 'l', completed: false, section_id: 'missing' }],
+      preferences: { selected_store_id: null, hide_empty_sections: true },
+      items: [{ id: 10, name: 'Milch', quantity_value: 1.5, quantity_unit: 'l', completed: false, section_id: 'produce' }],
       sections: [{ id: 'produce', name: 'Obst & Gemüse', sort_order: 0 }, { id: 'empty', name: 'Leer', sort_order: 1 }] },
     { id: 3, name: 'Bearbeitbar', color: '#7c3aed', icon: 'shopping-basket', sort_order: 2, can_manage: false, can_edit: true,
       items: [
@@ -61,6 +63,7 @@ const fixtureSource = `
       navigation.replaceLists(lists);
     },
     setLanguage: async language => { await setLanguagePreference(language); navigation.render(); },
+    setSearch: value => navigation.setSearchQuery(value),
   };
 `;
 
@@ -115,9 +118,9 @@ try {
   await page.evaluate(() => window.test.select(2));
   assert.equal(await main.getAttribute('data-shopping-content-state'), 'populated');
   assert.equal(await page.locator('.shopping-list-empty-state').count(), 0, 'the accepted empty-state must disappear once sections or items are rendered');
-  assert.equal(await page.locator('.section-header:not(.section-unsorted)').count(), 2);
+  assert.equal(await page.locator('.section-header:not(.section-unsorted)').count(), 1, 'hide-empty must project only sections containing visible items');
   assert.equal(await page.locator('[data-section-action], .section-dropzone, .section-header[draggable="true"]').count(), 0, 'non-boolean management values must render read-only section UI');
-  assert.deepEqual(await page.locator('.section-count').allTextContents(), ['0', '0', '1']);
+  assert.deepEqual(await page.locator('.section-count').allTextContents(), ['1']);
   assert.equal((await page.locator('.shopping-item-title').textContent()).trim(), 'Milch');
   assert.equal((await page.locator('.shopping-item-quantity').textContent()).trim(), '1,5 l');
   assert.equal(await page.locator('.shopping-item-check').isDisabled(), true, 'non-boolean can_edit must fail closed');
@@ -125,6 +128,17 @@ try {
   assert.equal(await page.locator('.shopping-item-card.todo-item, .shopping-item-card [data-todo-action], .shopping-item-card[data-id], .shopping-item-card[draggable]').count(), 0, 'shopping cards must remain isolated from todo gesture/action contracts');
   assert.equal(await page.locator('[data-section-action]').count(), 0);
   assert.equal(await page.locator('.section-dropzone').count(), 0);
+
+  await page.evaluate(() => window.test.setSearch('MILCH'));
+  assert.equal(await main.locator('.shopping-item-card').count(), 1, 'shopping search must match item names case-insensitively');
+  assert.equal(await page.locator('.section-header:not(.section-unsorted)').count(), 1, 'search must retain a matching item section');
+  await page.evaluate(() => window.test.setSearch('Brot'));
+  assert.equal(await main.locator('.shopping-item-card').count(), 0);
+  assert.equal(await page.locator('.section-header:not(.section-unsorted)').count(), 0, 'search must remove sections with no matching visible items');
+  assert.equal((await page.locator('.shopping-search-empty-state h3').textContent()).trim(), 'Keine Artikel gefunden');
+  assert.equal(await main.getAttribute('data-shopping-content-state'), 'search-empty');
+  await page.evaluate(() => window.test.setSearch(''));
+  assert.equal(await main.locator('.shopping-item-card').count(), 1, 'clearing shopping search must restore the complete current list');
 
   const sectionDragFeedback = await page.locator('.section-header:not(.section-unsorted)').first().evaluate(element => {
     const dropzone = document.createElement('div');
@@ -249,7 +263,8 @@ try {
 
   await page.setViewportSize({ width: 320, height: 700 });
   await page.evaluate(() => { window.test.select(2); window.test.setName('Sehr langer Name einer Einkaufsliste, der auf kleinen Bildschirmen sauber umbrechen muss'); });
-  await unsorted.waitFor({ state: 'visible' });
+  const visibleSection = page.locator('.section-header:not(.section-unsorted)');
+  await visibleSection.waitFor({ state: 'visible' });
   const mobile = await main.evaluate(element => ({
     paddingLeft: getComputedStyle(element).paddingLeft,
     bodyFits: document.documentElement.scrollWidth <= innerWidth,

@@ -121,6 +121,7 @@ const ICON_NAMES = [
   'languages',
   'laptop',
   'layers',
+  'layers-minus',
   'layout-dashboard',
   'leaf',
   'life-buoy',

@@ -27,6 +27,10 @@
   flex: 1;
   position: relative;
 }
+.search-box[hidden],
+.workspace-switcher[hidden] {
+  display: none !important;
+}
 .search-box > .search-toggle-btn {
   display: none;
 }

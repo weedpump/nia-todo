@@ -4,6 +4,7 @@ import { TASK_SHORTCUTS_HTML } from './tasks-shortcuts.js';
 import { renderEntitySidebarAddRow } from '../features/entity-sidebar.js';
 import { t } from '../i18n/index.js';
 import { renderModulePrimaryAction } from '../ui/module-primary-action.js';
+import { renderTopbarToggle } from '../ui/topbar-toggle.js';
 
 export const tasksModule = Object.freeze({
   id: 'tasks',
@@ -53,8 +54,20 @@ export const tasksModule = Object.freeze({
     `;
 
     slots.topbar.innerHTML = `
-      <button type="button" class="today-focus-btn" id="today-focus-btn" title="Heute-Ansicht" data-i18n-title-key="todayFocus.toggleTitle"><span class="today-calendar-icon" aria-hidden="true"></span><span data-i18n-key="todayFocus.short">Heute</span></button>
-      <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" title="Ruhige Ansicht" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="leaf"></span><span data-i18n-key="minimalTodos.short">Ruhe</span></button>
+      ${renderTopbarToggle({
+        id: 'today-focus-btn',
+        iconMarkup: '<span class="today-calendar-icon" aria-hidden="true"></span>',
+        label: t('todayFocus.short'),
+        labelKey: 'todayFocus.short',
+        title: t('todayFocus.enable'),
+      })}
+      ${renderTopbarToggle({
+        id: 'minimal-todos-btn',
+        icon: 'leaf',
+        label: t('minimalTodos.short'),
+        labelKey: 'minimalTodos.short',
+        title: t('minimalTodos.enable'),
+      })}
     `;
 
     slots.main.innerHTML = `

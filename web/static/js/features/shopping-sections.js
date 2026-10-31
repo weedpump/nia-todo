@@ -23,7 +23,14 @@ export function createShoppingSectionsAdapter({
 } = {}) {
   function currentList() {
     const activeId = getActiveListId();
-    return getLists().find(list => sameId(list.id, activeId)) || null;
+    return getLists().find(list => sameId(list.id, activeId) || sameId(list.client_mutation_id, activeId)) || null;
+  }
+
+  function visibleSections(list = currentList()) {
+    const sections = list?.sections || [];
+    if (list?.preferences?.hide_empty_sections !== true) return sections;
+    const items = list?.items || [];
+    return sections.filter(section => items.some(item => sameId(item.section_id, section.id)));
   }
 
   function publish(mutation) {
@@ -48,7 +55,7 @@ export function createShoppingSectionsAdapter({
   const adapter = {
     getRoot,
     labels,
-    getSections: () => currentList()?.sections || [],
+    getSections: () => visibleSections(),
     getItems: () => currentList()?.items || [],
     canManage: () => currentList()?.can_manage === true,
     newInputId: () => 'shopping-new-section-name',
@@ -125,11 +132,19 @@ export function createShoppingSectionsAdapter({
       if (!Array.isArray(orderedIds)) return null;
       return commit((live) => {
         const sections = live.sections || [];
-        if (orderedIds.length !== sections.length) return null;
-        if (new Set(orderedIds.map(id => String(id))).size !== sections.length) return null;
-        const byId = new Map(sections.map(section => [String(section.id), section]));
+        const visible = visibleSections(live);
+        if (orderedIds.length !== visible.length) return null;
+        if (new Set(orderedIds.map(id => String(id))).size !== visible.length) return null;
+        const byId = new Map(visible.map(section => [String(section.id), section]));
         if (orderedIds.some(id => !byId.has(String(id)))) return null;
-        const reordered = orderedIds.map((id, index) => ({ ...clone(byId.get(String(id))), sort_order: index }));
+        let visibleIndex = 0;
+        const visibleIds = new Set(visible.map(section => String(section.id)));
+        const reordered = sections.map((section, index) => {
+          const next = visibleIds.has(String(section.id))
+            ? byId.get(String(orderedIds[visibleIndex++]))
+            : section;
+          return { ...clone(next), sort_order: index };
+        });
         const changedIds = new Set(reordered
           .filter((section, index) => !sameId(sections[index]?.id, section.id) || Number(sections[index]?.sort_order) !== index)
           .map(section => String(section.id)));

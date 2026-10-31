@@ -9,12 +9,11 @@ const focusCss = readFileSync(new URL('../web/static/css/64-focus-controls.css',
 const mobileCss = readFileSync(new URL('../web/static/css/40-responsive-mobile.css', import.meta.url), 'utf8');
 const workspaceCss = readFileSync(new URL('../web/static/css/61-workspace-confirm-icons.css', import.meta.url), 'utf8');
 
-const todayButtonMarkup = tasksModuleSource.match(/<button[^>]*id="today-focus-btn"[^>]*>[\s\S]*?<\/button>/)?.[0] || '';
-assert.match(todayButtonMarkup, /<span class="today-calendar-icon" aria-hidden="true"><\/span>/);
-assert.doesNotMatch(todayButtonMarkup, /data-icon="calendar-days"/);
-assert.match(focusCss, /\.today-focus-btn \.ui-icon,[\s\S]*?width: 19px;[\s\S]*?height: 19px;/);
+assert.match(tasksModuleSource, /id: 'today-focus-btn',[\s\S]*?iconMarkup: '<span class="today-calendar-icon" aria-hidden="true"><\/span>'/);
+assert.doesNotMatch(tasksModuleSource, /id: 'today-focus-btn',[\s\S]{0,120}?icon: 'calendar-days'/);
+assert.match(focusCss, /\.ui-topbar-toggle \.ui-icon[\s\S]*?width: 19px;[\s\S]*?height: 19px;/);
 assert.match(focusCss, /\.today-calendar-icon[\s\S]*?width: 19px;[\s\S]*?height: 19px;/);
-assert.doesNotMatch(focusCss, /\.today-focus-btn\.active::after|\.minimal-todos-btn\.active::after/);
+assert.doesNotMatch(focusCss, /\.ui-topbar-toggle\.active::after/);
 assert.match(mobileCss, /\.search-box > \.search-toggle-btn[\s\S]*?border: 0;/);
 assert.match(mobileCss, /#search-toggle-btn \.ui-icon[\s\S]*?width: 19px;[\s\S]*?height: 19px;/);
 assert.match(workspaceCss, /\.workspace-current-dot\.has-icon \.ui-icon[\s\S]*?width: 19px;[\s\S]*?height: 19px;/);
@@ -59,7 +58,7 @@ const todayButton = {
   },
   querySelector(selector) {
     if (selector === '.today-calendar-icon') return icon;
-    if (selector === '[data-i18n-key="todayFocus.short"]') return label;
+    if (selector === '[data-topbar-toggle-label]') return label;
     return null;
   },
 };

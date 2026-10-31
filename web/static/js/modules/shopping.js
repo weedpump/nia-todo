@@ -2,6 +2,7 @@ import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { t } from '../i18n/index.js';
 import { renderEntitySidebarAddRow } from '../features/entity-sidebar.js';
 import { renderModulePrimaryAction } from '../ui/module-primary-action.js';
+import { renderTopbarToggle } from '../ui/topbar-toggle.js';
 import { SHOPPING_DIALOGS_HTML } from './shopping-dialogs.js';
 
 export const shoppingModule = Object.freeze({
@@ -9,8 +10,8 @@ export const shoppingModule = Object.freeze({
   labelKey: 'module.shopping.label',
   descriptionKey: 'module.shopping.description',
   icon: 'shopping',
-  searchEnabled: false,
-  searchPlaceholderKey: 'common.search',
+  searchEnabled: true,
+  searchPlaceholderKey: 'shopping.search.placeholder',
 
   mount({ slots }) {
     slots.sidebar.innerHTML = `
@@ -20,7 +21,13 @@ export const shoppingModule = Object.freeze({
         ${renderEntitySidebarAddRow({ entityType: 'shopping-list', label: t('shopping.sidebar.add'), labelKey: 'shopping.sidebar.add' })}
       </nav>
     `;
-    slots.topbar.innerHTML = '';
+    slots.topbar.innerHTML = renderTopbarToggle({
+      id: 'shopping-hide-empty-sections-btn',
+      icon: 'layers-minus',
+      label: t('shopping.preferences.hideEmpty.short'),
+      labelKey: 'shopping.preferences.hideEmpty.short',
+      title: t('shopping.preferences.hideEmpty.enable'),
+    });
     slots.main.innerHTML = `
       <div id="shopping-navigation-main" class="module-page module-empty-page">
         <div class="module-empty-icon" aria-hidden="true">${niaIconSvg('shopping')}</div>

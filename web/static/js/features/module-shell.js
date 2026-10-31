@@ -1,6 +1,7 @@
 import { t, translatePage } from '../i18n/index.js';
 import { getModule, isModuleId, MODULES, persistModule, readStoredModule } from '../modules/registry.js';
 import { enabledModulesForUser, resolveEnabledModuleId } from '../modules/visibility.js';
+import { closeUiLayerNow } from './ui-history.js';
 
 const SLOT_ROOT_IDS = Object.freeze({
   sidebar: 'module-sidebar-slot',
@@ -76,14 +77,21 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
   function setSearchContract(module) {
     const input = document.getElementById('search-input');
     const toggle = document.getElementById('search-toggle-btn');
+    const box = document.getElementById('search-box');
     if (!input) return;
     const key = module.searchPlaceholderKey || 'common.search';
     const enabled = module.searchEnabled !== false;
     input.dataset.i18nPlaceholderKey = key;
     input.setAttribute('placeholder', t(key));
-    input.value = searchValues.get(module.id) || '';
+    input.value = enabled ? (searchValues.get(module.id) || '') : '';
     input.disabled = !enabled;
     toggle?.toggleAttribute('disabled', !enabled);
+    if (box) box.hidden = !enabled;
+    if (!enabled) {
+      box?.classList.remove('open');
+      input.blur();
+      closeUiLayerNow('mobile-search', { reason: 'module-capability' });
+    }
   }
 
   function renderActiveModule({ lifecycle = true } = {}) {
@@ -102,7 +110,14 @@ export function createModuleShell({ onActiveModuleChange, getUser = () => null }
     }
 
     const workspaceSwitcher = document.getElementById('workspace-switcher');
-    if (workspaceSwitcher) workspaceSwitcher.hidden = active.capabilities?.workspaces !== true;
+    if (workspaceSwitcher) {
+      const workspaceEnabled = active.capabilities?.workspaces === true;
+      workspaceSwitcher.hidden = !workspaceEnabled;
+      if (!workspaceEnabled) {
+        document.getElementById('workspace-menu')?.classList.remove('open');
+        document.getElementById('workspace-current-btn')?.setAttribute('aria-expanded', 'false');
+      }
+    }
     const moduleSwitcher = document.getElementById('module-switcher');
     if (moduleSwitcher) moduleSwitcher.hidden = false;
 

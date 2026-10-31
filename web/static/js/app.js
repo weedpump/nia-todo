@@ -45,6 +45,7 @@ import { createShoppingListDetailsFeature } from './features/shopping-list-detai
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createSectionRootRegistry } from './features/section-ui.js';
 import { createShoppingSectionsAdapter } from './features/shopping-sections.js';
+import { createShoppingViewPreferencesFeature } from './features/shopping-view-preferences.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createModuleShell } from './features/module-shell.js';
@@ -88,10 +89,12 @@ let moduleSwitcher = null;
 let shoppingNavigationFeature = null;
 let shoppingListDetailsFeature = null;
 let shoppingItemEditorFeature = null;
+let shoppingViewPreferencesFeature = null;
 
 function renderShopping() {
   shoppingNavigationFeature?.render();
   shoppingItemEditorFeature?.reconcile?.();
+  shoppingViewPreferencesFeature?.updateButton?.();
 }
 
 function setShoppingListsState(next, { reconcileDetails = true } = {}) {
@@ -823,11 +826,22 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
   onAdd: () => window.dispatchEvent(new CustomEvent('nia:shopping-list-add-request')),
   onDetail: id => window.dispatchEvent(new CustomEvent('nia:shopping-list-detail-request', { detail: { id } })),
   onListIdRemap: (fromId, toId) => shoppingListDetailsFeature?.remapListId(fromId, toId),
+  onRender: () => shoppingViewPreferencesFeature?.updateButton?.(),
   sectionRegistry,
   sectionAdapter: shoppingSectionsAdapter,
   itemController: shoppingItemsController,
 });
 shoppingNavigationFeature.bind();
+shoppingViewPreferencesFeature = createShoppingViewPreferencesFeature({
+  getLists: () => shoppingLists,
+  setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
+  getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
+  commitMutation: commitShoppingMutation,
+  render: renderShopping,
+  isOnlineForSync,
+  syncWithServer,
+  onError: error => console.error('Shopping view preference mutation failed', error),
+});
 shoppingListDetailsFeature = createShoppingListDetailsFeature({
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
@@ -875,8 +889,10 @@ moduleShell.registerController('shopping', {
   onActivate: () => {
     shoppingNavigationFeature.activate();
     shoppingItemEditorFeature.reconcile();
+    shoppingViewPreferencesFeature.updateButton();
   },
   onLanguageChange: renderShopping,
+  onSearch: value => shoppingNavigationFeature.setSearchQuery(value),
 });
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
@@ -1069,6 +1085,7 @@ export function startAppModule() {
   bindNativePointerDragDrop();
   bindMobileSearchEvents();
   bindTopbarPreferenceButtons();
+  shoppingViewPreferencesFeature.bind();
   bindDashboardPreferencesActions();
   window.addEventListener('online', () => dashboardPreferencesSyncFeature.refresh());
   bindTodayFocusHotkey();

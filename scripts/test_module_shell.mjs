@@ -105,6 +105,9 @@ const moduleCss = read('web/static/css/14-module-content.css');
 assert(appSource.includes("import { createModuleShell } from './features/module-shell.js';"), 'app must import the module shell');
 assert(appSource.indexOf('moduleShell.bind();') < appSource.indexOf('appLifecycle.bindDomReady();'), 'module DOM must mount before feature bindings and app initialization');
 assert(appSource.includes("moduleShell.registerController('tasks'"), 'tasks behavior must connect through the module controller contract');
+assert(appSource.includes('createShoppingViewPreferencesFeature({'), 'shopping view preferences must be wired through the production composition root');
+assert(appSource.includes('shoppingViewPreferencesFeature.bind();'), 'the production app must bind the shopping topbar preference control after module mounting');
+assert(appSource.includes("onSearch: value => shoppingNavigationFeature.setSearchQuery(value)"), 'the production shopping controller must route shared topbar search input into shopping rendering');
 assert(appSource.includes('moduleShell?.handleSearch?.(value)'), 'shared search must delegate to the active module');
 assert(switcherSource.includes("from '../modules/registry.js'"), 'module switcher must use the shared registry');
 assert(switcherSource.includes('onModuleChange?.(activeModuleId)'), 'module switcher must delegate navigation');
@@ -130,6 +133,8 @@ assert(tasksSource.includes('workspaces: true'), 'tasks must declare workspace c
 assert(!shoppingSource.includes('workspaces: true'), 'shopping must not declare workspace capability');
 assert(!recipesSource.includes('workspaces: true'), 'recipes must not declare workspace capability');
 assert(shellSource.includes("document.getElementById('workspace-switcher')"), 'the shell must control workspace switcher visibility');
+assert(tasksSource.includes('renderTopbarToggle('), 'tasks topbar controls must use the shared toggle primitive');
+assert(shoppingSource.includes('renderTopbarToggle('), 'shopping topbar controls must use the shared toggle primitive');
 
 for (const slotId of ['module-sidebar-slot', 'module-topbar-slot', 'module-main-slot', 'module-floating-slot', 'module-user-menu-slot', 'module-shortcuts-slot', 'module-settings-nav-slot', 'module-settings-slot', 'module-desktop-hotkeys-slot']) {
   assert(indexSource.includes(`id="${slotId}"`), `shared shell must expose ${slotId}`);
@@ -179,7 +184,7 @@ assert(appSource.includes("moduleShell?.getActiveModule?.() !== 'tasks'"), 'nati
 assert(todosSource.includes("if (getActiveModule() !== 'tasks') return;"), 'todo list shortcuts must be inactive outside the tasks module');
 assert(appSource.includes('onDeactivate: () => todosFeature.resetTodoShortcutTarget()'), 'leaving tasks must clear the todo shortcut target');
 
-const requiredKeys = ['module.placeholder.body', 'module.placeholder.search', 'settings.modules.title', 'settings.modules.hint', 'settings.modules.oneRequired', 'shopping.item.add'];
+const requiredKeys = ['module.placeholder.body', 'module.placeholder.search', 'settings.modules.title', 'settings.modules.hint', 'settings.modules.oneRequired', 'shopping.item.add', 'shopping.preferences.hideEmpty.short', 'shopping.preferences.hideEmpty.on', 'shopping.preferences.hideEmpty.enable', 'shopping.preferences.hideEmpty.disable', 'shopping.search.placeholder', 'shopping.search.empty'];
 const forbiddenKeys = ['shopping.searchPlaceholder', 'recipes.searchPlaceholder', 'shopping.list.new', 'shopping.sample.weekly'];
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
   const dictionary = JSON.parse(read(`web/static/i18n/${locale}.json`));

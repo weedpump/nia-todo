@@ -82,6 +82,29 @@ assert.deepEqual(partialReorder.list.sections.map(section => [section.id, Boolea
   ['opaque-b', true], ['opaque-a', true], ['opaque-c', false],
 ], 'only sections whose order changed are marked pending');
 
+lists = [{
+  id: 'list-1',
+  can_manage: true,
+  preferences: { selected_store_id: null, hide_empty_sections: true },
+  sections: [
+    { id: 'hidden-1', name: 'Hidden 1', sort_order: 0 },
+    { id: 'visible-a', name: 'Visible A', sort_order: 1 },
+    { id: 'hidden-2', name: 'Hidden 2', sort_order: 2 },
+    { id: 'visible-b', name: 'Visible B', sort_order: 3 },
+  ],
+  items: [
+    { id: 'item-a', section_id: 'visible-a', name: 'A' },
+    { id: 'item-b', section_id: 'visible-b', name: 'B' },
+  ],
+}];
+assert.deepEqual(adapter.getSections().map(section => section.id), ['visible-a', 'visible-b'], 'drag and section UI expose only visible sections while hide-empty is active');
+const visibleReorderCommitIndex = commits.length;
+await adapter.reorderSections(['visible-b', 'visible-a']);
+const visibleReorder = commits[visibleReorderCommitIndex];
+assert.deepEqual(visibleReorder.list.sections.map(section => section.id), ['hidden-1', 'visible-b', 'hidden-2', 'visible-a'], 'visible section moves must preserve hidden sections in their full permutation slots');
+assert.deepEqual(visibleReorder.list.sections.map(section => section.sort_order), [0, 1, 2, 3]);
+assert.deepEqual(visibleReorder.mutations.map(mutation => mutation.data.section_id), ['visible-b', 'visible-a']);
+
 const commitCountBeforePermissionLoss = commits.length;
 lists = lists.map(list => ({ ...list, can_manage: false }));
 assert.equal(adapter.canManage(), false);
