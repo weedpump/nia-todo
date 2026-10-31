@@ -17,6 +17,7 @@ export function createShoppingSectionsAdapter({
   syncWithServer = async () => {},
   onError = () => {},
   labels = {},
+  itemDrag = null,
   now = () => new Date().toISOString(),
   createTempId = () => `temp-shopping-section-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
@@ -55,6 +56,7 @@ export function createShoppingSectionsAdapter({
     resolveSectionId(id) {
       return this.getSections().find(section => sameId(section.id, id))?.id ?? id;
     },
+    itemDrag,
     render,
     onError,
     async createSection(name) {

@@ -1,7 +1,7 @@
 /* Touch fallbacks and Android WebView feedback */
 
 /* Touch pointer drag fallback */
-.native-app .todo-item,
+.native-app [data-item-dnd="true"],
 .native-app .section-header,
 [data-touch-dnd="true"] {
   touch-action: pan-y;
@@ -10,7 +10,7 @@
   -webkit-touch-callout: none;
 }
 
-.native-pointer-dragging .todo-item,
+.native-pointer-dragging [data-item-dnd="true"],
 .native-pointer-dragging .section-header,
 .native-pointer-dragging [data-touch-dnd="true"] {
   touch-action: none;
@@ -26,7 +26,7 @@
 }
 
 .native-drag-ghost {
-  position: fixed;
+  position: fixed !important;
   z-index: 9999;
   pointer-events: none;
   opacity: 0.92 !important;
@@ -48,10 +48,10 @@
   box-shadow: 0 18px 36px rgba(0,0,0,.28) !important;
 }
 
-.native-android .native-drag-ghost.todo-item,
-.native-android .native-drag-ghost.todo-item:hover,
-.native-android .native-drag-ghost.todo-item:active,
-.native-android .native-drag-ghost.todo-item.touch-feedback {
+.native-android .native-drag-ghost.ui-item-card,
+.native-android .native-drag-ghost.ui-item-card:hover,
+.native-android .native-drag-ghost.ui-item-card:active,
+.native-android .native-drag-ghost.ui-item-card.touch-feedback {
   background: var(--bg-secondary) !important;
   transform: none !important;
   opacity: 0.92 !important;

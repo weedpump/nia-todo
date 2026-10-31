@@ -47,7 +47,7 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
     item.is_pending === true ? 'is-pending' : '',
   ].filter(Boolean).join(' ');
   const cardMarkup = `
-    <div class="${classes}" data-shopping-item-key="${id}">
+    <div class="${classes}" data-shopping-item-key="${id}"${editable ? ' data-item-dnd="true" draggable="true"' : ''}>
       <button type="button" class="shopping-item-check" role="checkbox" aria-checked="${completed ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(ariaLabel || '')}"${editable ? ` data-shopping-item-action="toggle-completed" data-shopping-item-id="${id}"` : ' disabled'}>
         <span class="shopping-item-check-icon" aria-hidden="true">${completed ? iconSvg('check') : ''}</span>
       </button>
@@ -431,6 +431,87 @@ export function createShoppingItemsController({
     return operation;
   }
 
+  function moveToSection(listId, itemId, sectionId) {
+    const live = currentList(listId);
+    const initialItem = (live?.items || []).find(item => (
+      sameId(item.id, itemId)
+      || sameId(item.client_mutation_id, itemId)
+    ));
+    const initialSection = sectionId == null
+      ? null
+      : (live?.sections || []).find(section => (
+        sameId(section.id, sectionId)
+        || sameId(section.client_mutation_id, sectionId)
+      ));
+    if (live?.can_edit !== true || !initialItem || (sectionId != null && !initialSection)) return Promise.resolve(null);
+    const stableListIdentity = live.client_mutation_id ?? live.id;
+    const stableItemIdentity = initialItem.client_mutation_id ?? initialItem.id;
+    const stableSectionIdentity = initialSection?.client_mutation_id ?? initialSection?.id ?? null;
+    const submissionKey = `move-section\u0000${String(stableListIdentity)}\u0000${String(stableItemIdentity)}`;
+    if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
+    const operation = enqueueForList(stableListIdentity, async () => {
+      const mutation = await commitMutation(() => {
+        const latest = currentList(stableListIdentity);
+        if (latest?.can_edit !== true) return null;
+        const item = (latest.items || []).find(candidate => (
+          sameId(candidate.id, itemId)
+          || sameId(candidate.client_mutation_id, stableItemIdentity)
+        ));
+        if (!item) return null;
+        const section = stableSectionIdentity == null
+          ? null
+          : (latest.sections || []).find(candidate => (
+            sameId(candidate.id, stableSectionIdentity)
+            || sameId(candidate.client_mutation_id, stableSectionIdentity)
+          ));
+        if (stableSectionIdentity != null && !section) return null;
+        const nextSectionId = section?.id ?? null;
+        if (sameId(item.section_id, nextSectionId) || (item.section_id == null && nextSectionId == null)) return null;
+        const updated = { ...clone(item), section_id: nextSectionId, is_pending: true };
+        return {
+          list: {
+            ...clone(latest),
+            items: latest.items.map(candidate => sameId(candidate.id, item.id) ? updated : clone(candidate)),
+          },
+          action: 'UPDATE_SHOPPING_ITEM',
+          data: { shopping_list_id: latest.id, item_id: item.id, changes: { section_id: nextSectionId } },
+          result: updated,
+        };
+      });
+      return publish(mutation);
+    }).finally(() => inFlight.delete(submissionKey));
+    inFlight.set(submissionKey, operation);
+    return operation;
+  }
+
+  const dragAdapter = {
+    interactiveStartSelector: '.shopping-item-edit-trigger',
+    protectedStartSelector: '.shopping-item-check',
+    canDrag: () => currentList(getActiveListId())?.can_edit === true,
+    keyFromElement: element => element?.dataset?.shoppingItemKey,
+    resolveSectionId(rawId) {
+      if (rawId === 'null' || rawId == null) return null;
+      const live = currentList(getActiveListId());
+      return (live?.sections || []).find(section => (
+        sameId(section.id, rawId)
+        || sameId(section.client_mutation_id, rawId)
+      ))?.id ?? rawId;
+    },
+    moveToSection: (itemId, sectionId) => moveToSection(getActiveListId(), itemId, sectionId),
+    focusItem(itemId) {
+      const live = currentList(getActiveListId());
+      const item = (live?.items || []).find(candidate => (
+        sameId(candidate.id, itemId)
+        || sameId(candidate.client_mutation_id, itemId)
+      ));
+      if (!item) return;
+      Array.from(root?.querySelectorAll?.('.shopping-item-card[data-shopping-item-key]') || [])
+        .find(element => sameId(element.dataset.shoppingItemKey, item.id))
+        ?.querySelector?.('.shopping-item-edit-trigger')
+        ?.focus?.();
+    },
+  };
+
   async function onClick(event) {
     const editTarget = event.target?.closest?.('[data-shopping-item-action="open-edit"]');
     if (editTarget && root?.contains?.(editTarget)) {
@@ -461,6 +542,8 @@ export function createShoppingItemsController({
     update,
     remove,
     toggleCompleted,
+    moveToSection,
+    dragAdapter,
     bindRoot(nextRoot) {
       if (root === nextRoot) return;
       root?.removeEventListener?.('click', onClick);

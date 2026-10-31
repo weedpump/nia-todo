@@ -33,6 +33,8 @@ assert.match(openHtml, /data-shopping-item-action="toggle-completed"/);
 assert.match(openHtml, /data-shopping-item-action="open-edit"/);
 assert.match(openHtml, /class="shopping-item-edit-trigger"/);
 assert.match(openHtml, /data-shopping-item-id="temp-shopping-item-1"/);
+assert.match(openHtml, /data-item-dnd="true"/);
+assert.match(openHtml, /draggable="true"/);
 assert.match(openHtml, /role="checkbox"/);
 assert.match(openHtml, /aria-checked="false"/);
 assert.match(openHtml, /aria-label="Milch als gekauft markieren"/);
@@ -40,7 +42,7 @@ assert(!openHtml.includes('<img src=x'), 'item title must be escaped');
 assert(!openHtml.includes('<b>kg</b>'), 'free quantity unit must be escaped');
 assert.match(openHtml, /&lt;img src=x onerror=alert\(1\)&gt; Milch/);
 assert.match(openHtml, /2,5 &lt;b&gt;kg&lt;\/b&gt;/);
-for (const forbidden of ['todo-item', 'todo-check', 'todo-title', 'data-todo-action', ' data-id=', ' draggable=', 'data-touch-dnd']) {
+for (const forbidden of ['todo-item', 'todo-check', 'todo-title', 'data-todo-action', ' data-id=', 'data-touch-dnd']) {
   assert(!openHtml.includes(forbidden), `shopping item markup must not expose ${forbidden}`);
 }
 
@@ -61,6 +63,8 @@ for (const canEdit of [false, undefined, null, 'true', 1]) {
   assert.match(html, /disabled/, `canEdit=${String(canEdit)} must fail closed`);
   assert(!html.includes('data-shopping-item-action='), `canEdit=${String(canEdit)} must not expose a mutating action`);
   assert(!html.includes('shopping-item-edit-trigger'), `canEdit=${String(canEdit)} must not expose the item editor`);
+  assert(!html.includes('data-item-dnd='), `canEdit=${String(canEdit)} must not expose item drag-and-drop`);
+  assert(!html.includes('draggable='), `canEdit=${String(canEdit)} must not be draggable`);
 }
 assert(!renderShoppingItem({ item: { id: 9, name: 'No quantity', completed: false }, canEdit: true, labels }).includes('shopping-item-quantity'), 'empty quantity badge must be omitted');
 
@@ -226,6 +230,75 @@ remappedMutation = null;
 await remapped.toggleCompleted(6, 'temp-shopping-item-remap');
 assert.equal(remappedMutation.data.item_id, 61, 'a later gesture may still resolve the stable client identity after remapping');
 assert.deepEqual(remappedMutation.data.changes, { completed: false });
+
+let movedLists = [{
+  id: 70,
+  can_edit: true,
+  sections: [
+    { id: 701, client_mutation_id: 'stable-section-a', name: 'A' },
+    { id: 702, client_mutation_id: 'stable-section-b', name: 'B' },
+  ],
+  items: [{ id: 711, client_mutation_id: 'stable-item', name: 'Milch', section_id: 701 }],
+}];
+const moveDurable = deferred();
+let movedMutation = null;
+let movedPublishes = 0;
+const mover = createShoppingItemsController({
+  getLists: () => movedLists,
+  setLists: next => { movedLists = next; movedPublishes += 1; },
+  getActiveListId: () => 70,
+  commitMutation: async build => {
+    await moveDurable.promise;
+    movedMutation = build();
+    return movedMutation;
+  },
+  render: () => {},
+});
+const pendingMove = mover.moveToSection(70, 'stable-item', 'stable-section-b');
+await Promise.resolve();
+assert.equal(movedPublishes, 0, 'a dragged item must not publish before its durable commit');
+movedLists = [{
+  ...movedLists[0],
+  sections: [
+    movedLists[0].sections[0],
+    { ...movedLists[0].sections[1], id: 712 },
+  ],
+  items: [{ ...movedLists[0].items[0], id: 721 }],
+}];
+moveDurable.resolve();
+const movedItem = await pendingMove;
+assert.equal(movedMutation.action, 'UPDATE_SHOPPING_ITEM');
+assert.deepEqual(movedMutation.data, {
+  shopping_list_id: 70,
+  item_id: 721,
+  changes: { section_id: 712 },
+});
+assert.equal(movedItem.section_id, 712);
+assert.equal(movedLists[0].items[0].section_id, 712);
+assert.equal(movedPublishes, 1);
+assert.equal(await mover.moveToSection(70, 'stable-item', 'stable-section-b'), null, 'dropping into the current section must be a no-op');
+
+let deniedMoveLists = [{
+  id: 73,
+  can_edit: true,
+  sections: [{ id: 731 }, { id: 732 }],
+  items: [{ id: 733, section_id: 731 }],
+}];
+const deniedMoveGate = deferred();
+let deniedMovePublishes = 0;
+const deniedMover = createShoppingItemsController({
+  getLists: () => deniedMoveLists,
+  setLists: () => { deniedMovePublishes += 1; },
+  getActiveListId: () => 73,
+  commitMutation: async build => { await deniedMoveGate.promise; return build(); },
+  render: () => { deniedMovePublishes += 1; },
+});
+const deniedMove = deniedMover.moveToSection(73, 733, 732);
+await Promise.resolve();
+deniedMoveLists = [{ ...deniedMoveLists[0], can_edit: false }];
+deniedMoveGate.resolve();
+assert.equal(await deniedMove, null, 'permission loss while waiting for the queue writer must cancel item drag persistence');
+assert.equal(deniedMovePublishes, 0);
 
 let createLists = [{
   id: 'list-create',

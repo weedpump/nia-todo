@@ -7,6 +7,7 @@ console.log('🤖 Running slim Android todo gesture contract test...');
 const dragDropSource = await readFile(new URL('../web/static/js/features/drag-drop.js', import.meta.url), 'utf8');
 const todosSource = await readFile(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 const shoppingItemsSource = await readFile(new URL('../web/static/js/features/shopping-items.js', import.meta.url), 'utf8');
+const sectionActionsSource = await readFile(new URL('../web/static/js/features/section-actions.js', import.meta.url), 'utf8');
 const itemSwipeSource = await readFile(new URL('../web/static/js/ui/item-swipe.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../web/static/style.css', import.meta.url), 'utf8');
 
@@ -50,6 +51,15 @@ assert.ok(
     && shoppingItemsSource.includes("registerItemSwipeAdapter({")
     && !todosSource.includes('bindTodoSwipeGestures'),
   'Todo and Shopping must share one swipe progress and pointer state machine',
+);
+
+assert.ok(
+  dragDropSource.includes('itemDragSourceFromTarget')
+    && dragDropSource.includes('[data-item-dnd="true"]')
+    && sectionActionsSource.includes('itemDrag')
+    && shoppingItemsSource.includes('dragAdapter')
+    && !dragDropSource.includes('.todo-item[data-id]'),
+  'Todo and Shopping item drag-drop must share one neutral pointer/HTML5 state machine with domain adapters',
 );
 
 assert.ok(

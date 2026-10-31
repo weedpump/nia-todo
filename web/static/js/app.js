@@ -631,15 +631,19 @@ const calendarViewFeature = createCalendarViewFeature({
 const sectionActions = createSectionActionsFeature({
   getTodos: () => todos,
   setTodos: setTodosState,
+  getProjects: () => projects,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   getCurrentProjectId: () => currentProjectId,
   dbPut,
+  dbGetAll,
   deleteFromDB,
   addToSyncQueue,
+  runSyncQueueMutation,
   isOnlineForSync,
   syncWithServer,
   renderTodos: () => renderTodos(),
+  renderProjects: () => renderProjects(),
   confirmDanger,
   sectionsFeature,
   sectionRegistry,
@@ -812,6 +816,7 @@ const shoppingItemsController = createShoppingItemsController({
   onError: error => console.error('Shopping item mutation failed', error),
   onEdit: (listId, itemId, triggerElement) => shoppingItemEditorFeature?.showEdit?.(listId, itemId, triggerElement),
 });
+shoppingSectionsAdapter.itemDrag = shoppingItemsController.dragAdapter;
 shoppingNavigationFeature = createShoppingNavigationFeature({
   getLists: () => shoppingLists,
   closeSidebar: options => uiShell.closeSidebar(options),
@@ -886,20 +891,11 @@ uiShell.bindKeyboardShortcuts();
 // ─── Drag & Drop ─────────────────────────────────────────────────────────────
 
 const dragDropFeature = createDragDropFeature({
-  getTodos: () => todos,
-  setTodos: setTodosState,
-  getProjects: () => projects,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   isOnlineForSync,
   sectionsApi,
   renderTodos: () => renderTodos(),
-  renderProjects: () => renderProjects(),
-  dbGetAll,
-  dbPut,
-  addToSyncQueue,
-  runSyncQueueMutation,
-  syncWithServer,
   sectionRegistry,
   taskSectionAdapter: sectionActions.adapter,
 });

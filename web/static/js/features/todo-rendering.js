@@ -74,7 +74,7 @@ export function renderTodoItem(t) {
         </details>`;
 
   const cardMarkup = `
-    <div class="todo-item ui-item-card ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" data-priority="${escapeHtmlAttr(String(t.priority || ''))}" draggable="true">
+    <div class="todo-item ui-item-card ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" data-priority="${escapeHtmlAttr(String(t.priority || ''))}" data-item-dnd="true" draggable="true">
       <div class="todo-status-control">
         <button type="button" class="todo-check" data-todo-action="toggle-status" data-todo-id="${todoIdAttr}" aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
           ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}

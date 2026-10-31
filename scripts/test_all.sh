@@ -167,6 +167,8 @@ run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.m
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run_step "Shared Item Swipe" node scripts/test_shared_item_swipe.mjs
+run_step "Shared Item Drag-Drop Chromium" node scripts/test_shared_item_drag_drop.mjs
+run_step "Shared Item Drag-Drop WebKit" env ITEM_DND_BROWSER=webkit node scripts/test_shared_item_drag_drop.mjs
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summary_live_updates.mjs

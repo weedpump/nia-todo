@@ -403,15 +403,15 @@
 
 /* ─── Drag & Drop Styles ────────────────────────────────────────────────────── */
 
-.todo-item[draggable="true"] {
+[data-item-dnd="true"][draggable="true"] {
   cursor: grab;
 }
 
-.todo-item[draggable="true"]:active {
+[data-item-dnd="true"][draggable="true"]:active {
   cursor: grabbing;
 }
 
-.todo-item.dragging {
+.ui-item-card.dragging {
   opacity: 0.6;
   border: 2px dashed var(--accent);
   transform: scale(0.98);

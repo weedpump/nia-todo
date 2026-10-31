@@ -199,21 +199,27 @@ assert.equal(focusedControl, deleteFocus, 'delete completion restores focus insi
 
 const { createSectionActionsFeature } = await import('../web/static/js/features/section-actions.js');
 let taskSections = [];
+let taskTodos = [{ id: 10, project_id: 1, section_id: null, title: 'Move me' }];
+const taskQueue = [];
 let taskRenderCount = 0;
 let releaseTaskSync;
 const taskSyncPending = new Promise(resolve => { releaseTaskSync = resolve; });
 const taskActions = createSectionActionsFeature({
-  getTodos: () => [],
-  setTodos: () => {},
+  getTodos: () => taskTodos,
+  setTodos: next => { taskTodos = next; },
+  getProjects: () => [{ id: 1 }],
   getSections: () => taskSections,
   setSections: next => { taskSections = next; },
   getCurrentProjectId: () => 1,
   dbPut: async () => {},
+  dbGetAll: async () => [],
   deleteFromDB: async () => {},
-  addToSyncQueue: async () => {},
+  addToSyncQueue: async (action, data) => { taskQueue.push({ action, data }); },
+  runSyncQueueMutation: operation => operation(async (action, data) => { taskQueue.push({ action, data }); }),
   isOnlineForSync: () => true,
   syncWithServer: () => taskSyncPending,
   renderTodos: () => { taskRenderCount += 1; },
+  renderProjects: () => {},
   confirmDanger: async () => false,
   sectionsFeature: { renderSectionHeader: () => '' },
   sectionRegistry: createSectionRootRegistry(),
@@ -225,6 +231,13 @@ assert.equal(taskSections.length, 1, 'Tasks publish the durable local projection
 assert.equal(taskRenderCount, 1, 'Tasks rerender immediately while online sync is still pending');
 releaseTaskSync();
 await pendingTaskCreate;
+const movedTask = await taskActions.adapter.itemDrag.moveToSection(10, taskSections[0].id);
+assert.equal(movedTask.section_id, taskSections[0].id, 'the Tasks domain adapter must retain section assignment through the shared item DnD controller');
+assert.equal(taskTodos[0].section_id, taskSections[0].id);
+assert.deepEqual(taskQueue.at(-1), {
+  action: 'UPDATE_TODO',
+  data: { id: 10, changes: { section_id: taskSections[0].id } },
+});
 
 const sectionActionsSource = readFileSync(new URL('../web/static/js/features/section-actions.js', import.meta.url), 'utf8');
 const sectionsSource = readFileSync(new URL('../web/static/js/features/sections.js', import.meta.url), 'utf8');
