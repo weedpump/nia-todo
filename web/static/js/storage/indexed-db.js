@@ -29,49 +29,6 @@ export function getDatabaseGeneration() {
   return dbGeneration;
 }
 
-export function cleanupLegacyShoppingStoreFilterState(database = db) {
-  if (!database?.objectStoreNames?.contains?.('syncQueue') || !database.objectStoreNames.contains('shoppingLists')) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve, reject) => {
-    let tx;
-    try {
-      tx = database.transaction(['syncQueue', 'shoppingLists'], 'readwrite');
-      const queueCursor = tx.objectStore('syncQueue').openCursor();
-      queueCursor.onsuccess = event => {
-        const cursor = event.target.result;
-        if (!cursor) return;
-        const entry = cursor.value;
-        const changes = entry?.data?.changes;
-        if (entry?.action === 'UPDATE_SHOPPING_PREFERENCES' && changes && Object.prototype.hasOwnProperty.call(changes, 'selected_store_id')) {
-          const { selected_store_id: _legacyStoreFilter, ...remainingChanges } = changes;
-          if (Object.keys(remainingChanges).length === 0) cursor.delete();
-          else cursor.update({ ...entry, data: { ...entry.data, changes: remainingChanges } });
-        }
-        cursor.continue();
-      };
-      const listCursor = tx.objectStore('shoppingLists').openCursor();
-      listCursor.onsuccess = event => {
-        const cursor = event.target.result;
-        if (!cursor) return;
-        const list = cursor.value;
-        if (list?.preferences && Object.prototype.hasOwnProperty.call(list.preferences, 'selected_store_id')) {
-          const { selected_store_id: _legacyStoreFilter, ...preferences } = list.preferences;
-          cursor.update({ ...list, preferences });
-        }
-        cursor.continue();
-      };
-    } catch (error) {
-      tx?.abort?.();
-      reject(error);
-      return;
-    }
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('Failed to clean legacy shopping store filters'));
-    tx.onabort = () => reject(tx.error || new Error('Legacy shopping store filter cleanup was aborted'));
-  });
-}
-
 export async function closeAndDeleteDatabase() {
   return new Promise((resolve) => {
     dbGeneration += 1;
@@ -119,6 +76,20 @@ export function openDatabase() {
       if (!db.objectStoreNames.contains('shoppingStores')) {
         db.createObjectStore('shoppingStores', { keyPath: 'id' });
       }
+      if (Number(event.oldVersion || 0) > 0 && Number(event.oldVersion || 0) < 8) {
+        const upgradeTransaction = event.target.transaction;
+        upgradeTransaction?.objectStore?.('shoppingLists')?.clear?.();
+        upgradeTransaction?.objectStore?.('shoppingStores')?.clear?.();
+        const queueCursor = upgradeTransaction?.objectStore?.('syncQueue')?.openCursor?.();
+        if (queueCursor) {
+          queueCursor.onsuccess = cursorEvent => {
+            const cursor = cursorEvent.target.result;
+            if (!cursor) return;
+            if (String(cursor.value?.action || '').includes('SHOPPING')) cursor.delete();
+            cursor.continue();
+          };
+        }
+      }
     };
 
     request.onsuccess = async (event) => {
@@ -130,11 +101,6 @@ export function openDatabase() {
       db = event.target.result;
       dbReady = true;
       console.log('IndexedDB opened');
-      try {
-        await cleanupLegacyShoppingStoreFilterState(db);
-      } catch (error) {
-        console.warn('Failed to clean legacy shopping store filters', error);
-      }
       await flushPendingAvatarOperations(generation);
       resolve(db);
     };
@@ -239,6 +205,7 @@ export function commitShoppingReplay({
   list,
   removeListIds = [],
   store,
+  stores = [],
   removeStoreIds = [],
   queueDeleteId,
   queueDeleteIds = [],
@@ -257,6 +224,7 @@ export function commitShoppingReplay({
       if (list) listStore.put(list);
       for (const storeId of removeStoreIds) storeStore.delete(storeId);
       if (store) storeStore.put(store);
+      for (const shoppingStore of stores) storeStore.put(shoppingStore);
       for (const record of queueRecords) queueStore.put(record);
       for (const recordId of queueDeleteIds) queueStore.delete(recordId);
       if (queueDeleteId !== undefined && queueDeleteId !== null) queueStore.delete(queueDeleteId);

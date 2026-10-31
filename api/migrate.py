@@ -829,6 +829,10 @@ def init_migrations_table(conn):
 
 def repair_shopping_lists_migration(conn, sql: str):
     """Finish migration 59 and repair the store-assignment delete lifecycle."""
+    if table_exists(conn, "shopping_stores") and not column_exists(conn, "shopping_stores", "shopping_list_id"):
+        raise RuntimeError(
+            "Legacy owner-scoped shopping stores require the explicit development-database transformation"
+        )
     repair_sql = sql.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ")
     repair_sql = repair_sql.replace("CREATE UNIQUE INDEX ", "CREATE UNIQUE INDEX IF NOT EXISTS ")
     repair_sql = repair_sql.replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
@@ -838,26 +842,64 @@ def repair_shopping_lists_migration(conn, sql: str):
         (row[2], row[3], row[4], row[6])
         for row in conn.execute("PRAGMA foreign_key_list(shopping_item_stores)")
     }
-    expected_store_foreign_key = ("shopping_stores", "shopping_store_id", "id", "CASCADE")
-    if expected_store_foreign_key in store_foreign_keys:
+    item_store_columns = {row[1] for row in conn.execute("PRAGMA table_info(shopping_item_stores)")}
+    has_store_list_fk = (
+        ("shopping_stores", "shopping_store_id", "id", "CASCADE") in store_foreign_keys
+        and ("shopping_stores", "shopping_list_id", "shopping_list_id", "CASCADE") in store_foreign_keys
+    )
+    has_item_list_fk = (
+        ("shopping_items", "shopping_item_id", "id", "CASCADE") in store_foreign_keys
+        and ("shopping_items", "shopping_list_id", "shopping_list_id", "CASCADE") in store_foreign_keys
+    )
+    if "shopping_list_id" in item_store_columns and has_store_list_fk and has_item_list_fk:
         return
 
     conn.execute("PRAGMA foreign_keys = OFF")
     conn.execute("BEGIN IMMEDIATE")
     try:
+        source_has_list_id = "shopping_list_id" in item_store_columns
+        source_list_mismatch = (
+            " OR assignment.shopping_list_id != item.shopping_list_id"
+            " OR assignment.shopping_list_id != store.shopping_list_id"
+            if source_has_list_id else ""
+        )
+        invalid_assignments = conn.execute(f"""SELECT COUNT(*)
+            FROM shopping_item_stores assignment
+            LEFT JOIN shopping_items item ON item.id = assignment.shopping_item_id
+            LEFT JOIN shopping_stores store ON store.id = assignment.shopping_store_id
+            WHERE item.id IS NULL
+               OR store.id IS NULL
+               OR item.shopping_list_id != store.shopping_list_id
+               {source_list_mismatch}""").fetchone()[0]
+        if invalid_assignments:
+            raise RuntimeError(
+                f"Cannot repair shopping store assignments: {invalid_assignments} invalid or cross-list row(s)"
+            )
         conn.execute("DROP TABLE IF EXISTS shopping_item_stores__repair")
         conn.execute("""CREATE TABLE shopping_item_stores__repair (
             shopping_item_id INTEGER NOT NULL,
             shopping_store_id INTEGER NOT NULL,
+            shopping_list_id INTEGER NOT NULL,
             sort_order INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (shopping_item_id, shopping_store_id),
-            FOREIGN KEY (shopping_item_id) REFERENCES shopping_items(id) ON DELETE CASCADE,
-            FOREIGN KEY (shopping_store_id) REFERENCES shopping_stores(id) ON DELETE CASCADE
+            FOREIGN KEY (shopping_item_id, shopping_list_id) REFERENCES shopping_items(id, shopping_list_id) ON DELETE CASCADE,
+            FOREIGN KEY (shopping_store_id, shopping_list_id) REFERENCES shopping_stores(id, shopping_list_id) ON DELETE CASCADE
         )""")
-        conn.execute("""INSERT INTO shopping_item_stores__repair
-                      (shopping_item_id, shopping_store_id, sort_order)
-                      SELECT shopping_item_id, shopping_store_id, sort_order
-                      FROM shopping_item_stores""")
+        list_expression = "assignment.shopping_list_id" if source_has_list_id else "item.shopping_list_id"
+        conn.execute(f"""INSERT INTO shopping_item_stores__repair
+                      (shopping_item_id, shopping_store_id, shopping_list_id, sort_order)
+                      SELECT assignment.shopping_item_id, assignment.shopping_store_id, {list_expression}, assignment.sort_order
+                      FROM shopping_item_stores assignment
+                      JOIN shopping_items item ON item.id = assignment.shopping_item_id
+                      JOIN shopping_stores store ON store.id = assignment.shopping_store_id
+                      WHERE item.shopping_list_id = store.shopping_list_id""")
+        foreign_key_errors = conn.execute(
+            "PRAGMA foreign_key_check(shopping_item_stores__repair)"
+        ).fetchall()
+        if foreign_key_errors:
+            raise RuntimeError(
+                f"Cannot repair shopping store assignments: foreign key check failed ({len(foreign_key_errors)} row(s))"
+            )
         conn.execute("DROP TABLE shopping_item_stores")
         conn.execute("ALTER TABLE shopping_item_stores__repair RENAME TO shopping_item_stores")
         conn.execute("""CREATE INDEX idx_shopping_item_stores_item_order
@@ -878,6 +920,15 @@ def run_migrations():
     
     init_migrations_table(conn)
     current_version = get_db_version(conn)
+    if (
+        current_version >= 59
+        and table_exists(conn, "shopping_stores")
+        and not column_exists(conn, "shopping_stores", "shopping_list_id")
+    ):
+        conn.close()
+        raise RuntimeError(
+            "Legacy owner-scoped shopping stores require the explicit development-database transformation"
+        )
     if current_version >= 51 and not table_exists(conn, "login_rate_limit_attempts"):
         print("[MIGRATION] Repairing missing login rate-limit schema from version 51...")
         repair_login_rate_limit_migration(conn)

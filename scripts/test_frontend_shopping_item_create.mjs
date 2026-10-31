@@ -29,7 +29,7 @@ const fixtureSource = `
     { id: 1, name: 'Einkauf', can_edit: true, can_manage: false, sections: [{ id: 'produce', name: 'Obst & Gemüse', sort_order: 0 }], items: [] },
     { id: 2, name: 'Nur lesen', can_edit: 'true', can_manage: true, sections: [], items: [] },
   ];
-  let stores = [];
+  let stores = [{ id: 'other-list-store', shopping_list_id: 2, name: 'Other list market', active: true, sort_order: 0 }];
   let navigation = null;
   let editor = null;
   const commits = [];
@@ -175,8 +175,12 @@ try {
   await page.locator('[data-shopping-store-creator="shopping-item"][data-shopping-store-creator-action="save"]').click();
   assert.equal(await page.locator('#shopping-item-store').inputValue(), 'temp-shopping-store-browser');
   assert.equal(await storeTrigger.evaluate(element => document.activeElement === element), true, 'successful store creation restores focus to the item store select');
-  assert.deepEqual(await page.evaluate(() => window.test.stores().map(store => [store.id, store.name, store.is_pending])), [['temp-shopping-store-browser', 'REWE', true]]);
+  assert.deepEqual(await page.evaluate(() => window.test.stores().map(store => [store.id, store.shopping_list_id, store.name, store.is_pending])), [
+    ['other-list-store', 2, 'Other list market', undefined],
+    ['temp-shopping-store-browser', 1, 'REWE', true],
+  ]);
   assert.equal(await page.evaluate(() => window.test.commits()[0].action), 'CREATE_SHOPPING_STORE');
+  assert.equal(await page.evaluate(() => window.test.commits()[0].data.shopping_list_id), 1);
 
   await page.locator('#shopping-item-name').fill('Tomaten');
   await page.locator('#shopping-item-quantity').fill('0');
@@ -254,7 +258,7 @@ try {
   await page.evaluate(() => window.test.setActive(2));
   await page.evaluate(() => window.test.releaseCommit());
   await page.waitForTimeout(0);
-  assert.deepEqual(await page.evaluate(() => window.test.stores().map(store => store.name)), ['REWE'], 'permission loss while waiting for durable store commit must cancel creation');
+  assert.deepEqual(await page.evaluate(() => window.test.stores().map(store => store.name)), ['Other list market', 'Aldi'], 'switching lists must not retarget or cancel a store mutation that remains authorized for its creator list');
   await page.evaluate(() => window.test.setActive(1));
 
   await page.setViewportSize({ width: 320, height: 700 });

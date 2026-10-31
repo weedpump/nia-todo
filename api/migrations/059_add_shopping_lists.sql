@@ -39,31 +39,27 @@ WHERE client_mutation_id IS NOT NULL;
 
 CREATE TABLE shopping_stores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shopping_list_id INTEGER NOT NULL,
     name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 120),
-    owner_user_id INTEGER,
-    owner_household_id INTEGER,
     active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_by_user_id INTEGER,
     client_mutation_id TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    CHECK((owner_user_id IS NOT NULL) != (owner_household_id IS NOT NULL)),
-    FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (owner_household_id) REFERENCES households(id) ON DELETE CASCADE,
+    FOREIGN KEY (shopping_list_id) REFERENCES shopping_lists(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
-CREATE UNIQUE INDEX idx_shopping_stores_personal_mutation
-ON shopping_stores(owner_user_id, client_mutation_id)
-WHERE owner_user_id IS NOT NULL AND client_mutation_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_shopping_stores_list_mutation
+ON shopping_stores(shopping_list_id, client_mutation_id)
+WHERE client_mutation_id IS NOT NULL;
 
-CREATE UNIQUE INDEX idx_shopping_stores_household_mutation
-ON shopping_stores(owner_household_id, client_mutation_id)
-WHERE owner_household_id IS NOT NULL AND client_mutation_id IS NOT NULL;
+CREATE INDEX idx_shopping_stores_list_order
+ON shopping_stores(shopping_list_id, active, sort_order, id);
 
-CREATE INDEX idx_shopping_stores_owner_order
-ON shopping_stores(owner_user_id, owner_household_id, active, sort_order, id);
+CREATE UNIQUE INDEX idx_shopping_stores_id_list
+ON shopping_stores(id, shopping_list_id);
 
 CREATE TABLE shopping_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,13 +89,17 @@ CREATE UNIQUE INDEX idx_shopping_items_client_mutation
 ON shopping_items(shopping_list_id, client_mutation_id)
 WHERE client_mutation_id IS NOT NULL;
 
+CREATE UNIQUE INDEX idx_shopping_items_id_list
+ON shopping_items(id, shopping_list_id);
+
 CREATE TABLE shopping_item_stores (
     shopping_item_id INTEGER NOT NULL,
     shopping_store_id INTEGER NOT NULL,
+    shopping_list_id INTEGER NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (shopping_item_id, shopping_store_id),
-    FOREIGN KEY (shopping_item_id) REFERENCES shopping_items(id) ON DELETE CASCADE,
-    FOREIGN KEY (shopping_store_id) REFERENCES shopping_stores(id) ON DELETE CASCADE
+    FOREIGN KEY (shopping_item_id, shopping_list_id) REFERENCES shopping_items(id, shopping_list_id) ON DELETE CASCADE,
+    FOREIGN KEY (shopping_store_id, shopping_list_id) REFERENCES shopping_stores(id, shopping_list_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_shopping_item_stores_item_order

@@ -280,8 +280,8 @@ with tempfile.TemporaryDirectory() as tmp:
     assert shared_list_broadcast["can_manage"] is False, shared_list_broadcast
     assert shared_list_broadcast["is_owner"] is False, shared_list_broadcast
 
-    owner_store = asyncio.run(create_shopping_store(ShoppingStoreCreate(name="Owner store"), owner_id))
-    other_owner_store = asyncio.run(create_shopping_store(ShoppingStoreCreate(name="Other owner store"), owner_id))
+    owner_store = asyncio.run(create_shopping_store(ShoppingStoreCreate(shopping_list_id=personal_id, name="Owner store"), owner_id))
+    other_owner_store = asyncio.run(create_shopping_store(ShoppingStoreCreate(shopping_list_id=personal_id, name="Other owner store"), owner_id))
     item_broadcasts = []
     original_broadcast_change = shopping_router.broadcast_change
 
@@ -304,12 +304,10 @@ with tempfile.TemporaryDirectory() as tmp:
         if event_type == "shopping_item_create" and recipient_id == shared_id
     )
     assert shared_broadcast["store_ids"] == [owner_store["id"]], shared_broadcast
-    assert shared_broadcast["stores"] == [], shared_broadcast
-    assert "Owner store" not in repr(shared_broadcast), shared_broadcast
+    assert [store["name"] for store in shared_broadcast["stores"]] == ["Owner store"], shared_broadcast
     shared_item_view = next(item for item in get_shopping_list(personal_id, shared_id)["items"] if item["id"] == shared_item["id"])
     assert shared_item_view["store_ids"] == [owner_store["id"]], shared_item_view
-    assert shared_item_view["stores"] == [], shared_item_view
-    assert "Owner store" not in repr(shared_item_view), shared_item_view
+    assert [store["name"] for store in shared_item_view["stores"]] == ["Owner store"], shared_item_view
     shared_list_view = get_shopping_list(personal_id, shared_id)
     assert shared_list_view["can_edit"] is True, shared_list_view
     assert shared_list_view["can_manage"] is False, shared_list_view
@@ -340,26 +338,14 @@ with tempfile.TemporaryDirectory() as tmp:
     )
     assert recipient_section_move["section_id"] == personal_section["id"], recipient_section_move
     assert shared_item_edit["store_ids"] == [owner_store["id"]], shared_item_edit
-    retained_hidden_store = asyncio.run(
+    shared_store_update = asyncio.run(
         update_shopping_item(
             shared_item["id"],
-            ShoppingItemUpdate(store_ids=[owner_store["id"]]),
+            ShoppingItemUpdate(store_ids=[owner_store["id"], other_owner_store["id"]]),
             shared_id,
         )
     )
-    assert retained_hidden_store["store_ids"] == [owner_store["id"]], retained_hidden_store
-    try:
-        asyncio.run(
-            update_shopping_item(
-                shared_item["id"],
-                ShoppingItemUpdate(store_ids=[owner_store["id"], other_owner_store["id"]]),
-                shared_id,
-            )
-        )
-    except HTTPException as error:
-        assert error.status_code == 400, error
-    else:
-        raise AssertionError("Direct recipient added a new inaccessible store")
+    assert shared_store_update["store_ids"] == [owner_store["id"], other_owner_store["id"]], shared_store_update
 
     household = asyncio.run(
         create_shopping_list(
@@ -426,27 +412,51 @@ with tempfile.TemporaryDirectory() as tmp:
 
     rewe = asyncio.run(
         create_shopping_store(
-            ShoppingStoreCreate(name="REWE", household_id=household_id, client_mutation_id="store-rewe"),
+            ShoppingStoreCreate(shopping_list_id=household_id_value, name="REWE", client_mutation_id="store-rewe"),
             member_id,
         )
     )
     lidl = asyncio.run(
         create_shopping_store(
-            ShoppingStoreCreate(name="Lidl", client_mutation_id="store-lidl"),
+            ShoppingStoreCreate(shopping_list_id=household_id_value, name="Lidl", client_mutation_id="store-lidl"),
             member_id,
         )
     )
     assert {store["id"] for store in list_shopping_stores(member_id)["shopping_stores"]} == {rewe["id"], lidl["id"]}
     assert list_shopping_stores(outsider_id)["shopping_stores"] == []
+    try:
+        asyncio.run(
+            update_shopping_store(
+                lidl["id"],
+                ShoppingStoreUpdate(name="Forbidden rename"),
+                member_id,
+            )
+        )
+    except HTTPException as error:
+        assert error.status_code == 404, error
+    else:
+        raise AssertionError("Household member renamed a shopping store")
     renamed_lidl = asyncio.run(
         update_shopping_store(
             lidl["id"],
             ShoppingStoreUpdate(name="Lidl City", sort_order=20),
-            member_id,
+            owner_id,
         )
     )
     assert renamed_lidl["name"] == "Lidl City", renamed_lidl
     assert renamed_lidl["sort_order"] == 20, renamed_lidl
+    try:
+        asyncio.run(
+            create_shopping_item(
+                household_id_value,
+                ShoppingItemCreate(name="Cross-list store", store_ids=[owner_store["id"]]),
+                member_id,
+            )
+        )
+    except HTTPException as error:
+        assert error.status_code == 400, error
+    else:
+        raise AssertionError("Shopping item accepted a store from another list")
 
     milk = asyncio.run(
         create_shopping_item(
@@ -528,8 +538,7 @@ with tempfile.TemporaryDirectory() as tmp:
         if item["id"] == milk["id"]
     )
     assert owner_item_view["store_ids"] == [rewe["id"], lidl["id"]], owner_item_view
-    assert [store["id"] for store in owner_item_view["stores"]] == [rewe["id"]], owner_item_view
-    assert "Lidl City" not in repr(owner_item_view), owner_item_view
+    assert [store["id"] for store in owner_item_view["stores"]] == [rewe["id"], lidl["id"]], owner_item_view
 
     completed = asyncio.run(
         update_shopping_item(
@@ -573,9 +582,9 @@ with tempfile.TemporaryDirectory() as tmp:
     assert "selected_store_id" not in owner_sync_list["preferences"], owner_sync_list
     assert {item["id"] for item in owner_sync_list["items"]} == {milk["id"], unrestricted["id"]}, owner_sync_list
     assert {store["id"] for store in owner_sync["shopping_stores"]} == {
-        owner_store["id"], other_owner_store["id"], rewe["id"]
+        owner_store["id"], other_owner_store["id"], rewe["id"], lidl["id"]
     }, owner_sync
-    assert "Lidl City" not in repr(owner_sync_list), owner_sync_list
+    assert "Lidl City" in repr(owner_sync["shopping_stores"]), owner_sync
 
     with get_db() as db:
         member_sync = get_sync_payload(db, member_id)
@@ -583,7 +592,13 @@ with tempfile.TemporaryDirectory() as tmp:
     assert "selected_store_id" not in member_sync_list["preferences"], member_sync_list
     assert {store["id"] for store in member_sync["shopping_stores"]} == {rewe["id"], lidl["id"]}, member_sync
 
-    asyncio.run(delete_shopping_store(lidl["id"], member_id))
+    try:
+        asyncio.run(delete_shopping_store(lidl["id"], member_id))
+    except HTTPException as error:
+        assert error.status_code == 404, error
+    else:
+        raise AssertionError("Household member deleted a shopping store")
+    asyncio.run(delete_shopping_store(lidl["id"], owner_id))
     inactive_lidl = next(store for store in list_shopping_stores(member_id)["shopping_stores"] if store["id"] == lidl["id"])
     assert inactive_lidl["active"] is False, inactive_lidl
     after_store_delete = get_shopping_list(household_id_value, member_id)
@@ -625,7 +640,10 @@ with tempfile.TemporaryDirectory() as tmp:
         )
     )
     lifecycle_store = asyncio.run(
-        create_shopping_store(ShoppingStoreCreate(name="Lifecycle store"), lifecycle_user_id)
+        create_shopping_store(
+            ShoppingStoreCreate(shopping_list_id=personal_id, name="Lifecycle store"),
+            lifecycle_user_id,
+        )
     )
     lifecycle_item = asyncio.run(
         create_shopping_item(
@@ -639,7 +657,8 @@ with tempfile.TemporaryDirectory() as tmp:
         item for item in get_shopping_list(personal_id, owner_id)["items"]
         if item["id"] == lifecycle_item["id"]
     )
-    assert lifecycle_item_after_user_delete["store_ids"] == [], lifecycle_item_after_user_delete
+    assert lifecycle_item_after_user_delete["store_ids"] == [lifecycle_store["id"]], lifecycle_item_after_user_delete
+    assert lifecycle_item_after_user_delete["stores"][0]["created_by_user_id"] is None, lifecycle_item_after_user_delete
 
     dissolution_item = asyncio.run(
         create_shopping_item(
@@ -653,8 +672,8 @@ with tempfile.TemporaryDirectory() as tmp:
         item for item in get_shopping_list(household_id_value, owner_id)["items"]
         if item["id"] == dissolution_item["id"]
     )
-    assert dissolution_item_after["store_ids"] == [], dissolution_item_after
-    assert dissolution_item_after["stores"] == [], dissolution_item_after
+    assert dissolution_item_after["store_ids"] == [rewe["id"]], dissolution_item_after
+    assert [store["id"] for store in dissolution_item_after["stores"]] == [rewe["id"]], dissolution_item_after
 
     with get_db() as db:
         columns = {row["name"] for row in db.execute("PRAGMA table_info(shopping_lists)").fetchall()}

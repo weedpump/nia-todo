@@ -38,11 +38,6 @@ assert.equal(projected.items.find(item => item.id === 20).completed, true);
 assert.equal(projected.sections.find(section => section.id === 'temp-section-1').name, 'Bread');
 assert.equal(projected.items.find(item => item.id === 'temp-item-1').section_id, 'temp-section-1');
 assert.equal(projected.preferences.hide_empty_sections, true);
-const legacyProjected = projectPendingShoppingChanges(serverList, [{
-  action: 'UPDATE_SHOPPING_PREFERENCES',
-  data: { shopping_list_id: 7, changes: { selected_store_id: 2 } },
-}]);
-assert.equal('selected_store_id' in legacyProjected.preferences, false, 'legacy store filters must not project into IndexedDB shopping-list snapshots');
 assert.equal(hasPendingShoppingChanges(queue, 7), true);
 assert.equal(queueItemReferencesShoppingList(queue[2], 7), true);
 assert.equal(projectPendingShoppingChanges(serverList, [{ action: 'DELETE_SHOPPING_LIST', data: { id: 7 } }]), null);
@@ -145,22 +140,28 @@ assert.equal(replayDb.calls.some(([name, id]) => name === 'shoppingLists.delete'
 assert.equal(replayDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 1), true);
 assert.equal(replayDb.calls.filter(([name]) => name === 'syncQueue.put').length, rewritten.length - 1);
 
-assert.equal(DB_VERSION, 7, 'stable shopping stores require IndexedDB schema version 7');
+assert.equal(DB_VERSION, 8, 'list-scoped shopping stores require IndexedDB schema version 8');
 
 const { createSyncFeature } = await import('../web/static/js/features/sync.js');
 let queueState = [
   { id: 11, action: 'CREATE_SHOPPING_LIST', data: { temp_id: 'temp-list-2', name: 'Queued', color: '#6366f1', icon: 'shopping-cart', sort_order: 0, client_mutation_id: 'temp-list-2' } },
-  { id: 12, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 'temp-list-2', temp_id: 'temp-item-2', item: { name: 'Eggs', section_id: null, store_ids: [] }, client_mutation_id: 'temp-item-2' } },
+  { id: 12, action: 'CREATE_SHOPPING_STORE', data: { shopping_list_id: 'temp-list-2', temp_id: 'temp-store-list-remap', store: { id: 'temp-store-list-remap', shopping_list_id: 'temp-list-2', name: 'Market', active: true }, name: 'Market', sort_order: 0, client_mutation_id: 'temp-store-list-remap' } },
+  { id: 13, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 'temp-list-2', temp_id: 'temp-item-2', item: { name: 'Eggs', section_id: null, store_ids: ['temp-store-list-remap'] }, client_mutation_id: 'temp-item-2' } },
 ];
-let shoppingState = [{ id: 'temp-list-2', name: 'Queued', sections: [], items: [{ id: 'temp-item-2', name: 'Eggs', section_id: null, store_ids: [], stores: [], completed: false }], preferences: {} }];
-let shoppingStoreState = [];
+let shoppingState = [{ id: 'temp-list-2', name: 'Queued', sections: [], items: [{ id: 'temp-item-2', name: 'Eggs', section_id: null, store_ids: ['temp-store-list-remap'], stores: [], completed: false }], preferences: {} }];
+let shoppingStoreState = [{ id: 'temp-store-list-remap', shopping_list_id: 'temp-list-2', name: 'Market', active: true }];
 let serverItems = [];
 const shoppingApi = {
   createList: async data => ({ id: 70, ...data }),
   createItem: async (listId, data) => {
     assert.equal(listId, 70, 'dependent item create uses the remapped server list id');
+    assert.deepEqual(data.store_ids, [90], 'dependent item create uses the remapped store id');
     serverItems.push({ id: 200, shopping_list_id: 70, completed: false, ...data });
     return serverItems.at(-1);
+  },
+  createStore: async data => {
+    assert.equal(data.shopping_list_id, 70, 'dependent store create uses the remapped server list id');
+    return { id: 90, ...data, active: true };
   },
   getList: async id => ({ id, name: 'Queued', sections: [], items: structuredClone(serverItems), preferences: {} }),
   snapshot: async () => ({ shopping_lists: [] }),
@@ -184,7 +185,7 @@ const syncFeature = createSyncFeature({
   setShoppingStores: next => { shoppingStoreState = structuredClone(next); },
   todosApi: {}, projectsApi: {}, sectionsApi: {}, workspacesApi: {},
   shoppingApi,
-  commitShoppingReplay: async ({ list, removeListIds = [], store, removeStoreIds = [], queueDeleteId, queueDeleteIds = [], queueRecords = [] }) => {
+  commitShoppingReplay: async ({ list, removeListIds = [], store, stores = [], removeStoreIds = [], queueDeleteId, queueDeleteIds = [], queueRecords = [] }) => {
     const remove = new Set(removeListIds.map(String));
     shoppingState = shoppingState.filter(entry => !remove.has(String(entry.id)));
     if (list) {
@@ -197,6 +198,10 @@ const syncFeature = createSyncFeature({
       const exists = shoppingStoreState.some(entry => String(entry.id) === String(store.id));
       shoppingStoreState = exists ? shoppingStoreState.map(entry => String(entry.id) === String(store.id) ? structuredClone(store) : entry) : [...shoppingStoreState, structuredClone(store)];
     }
+    for (const replayStore of stores) {
+      const exists = shoppingStoreState.some(entry => String(entry.id) === String(replayStore.id));
+      shoppingStoreState = exists ? shoppingStoreState.map(entry => String(entry.id) === String(replayStore.id) ? structuredClone(replayStore) : entry) : [...shoppingStoreState, structuredClone(replayStore)];
+    }
     const deletes = new Set([...queueDeleteIds, queueDeleteId].filter(id => id != null).map(String));
     const records = new Map(queueRecords.map(entry => [String(entry.id), structuredClone(entry)]));
     queueState = queueState.filter(entry => !deletes.has(String(entry.id))).map(entry => records.get(String(entry.id)) || entry);
@@ -204,22 +209,23 @@ const syncFeature = createSyncFeature({
   renderStats: () => {}, renderTodos: () => {}, renderShopping: () => {},
 });
 const syncResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
-assert.deepEqual(syncResult, { successCount: 2, failCount: 0, skipped: false });
+assert.deepEqual(syncResult, { successCount: 3, failCount: 0, skipped: false });
 assert.equal(queueState.length, 0);
 assert.equal(shoppingState.length, 1);
 assert.equal(shoppingState[0].id, 70);
 assert.equal(shoppingState[0].items[0].id, 200);
+assert.deepEqual(shoppingStoreState.map(store => [store.id, store.shopping_list_id]), [[90, 70]]);
 
 queueState = [
-  { id: 21, action: 'CREATE_SHOPPING_STORE', data: { temp_id: 'temp-store-1', name: 'REWE', household_id: null, sort_order: 0, client_mutation_id: 'temp-store-1' } },
+  { id: 21, action: 'CREATE_SHOPPING_STORE', data: { shopping_list_id: 70, temp_id: 'temp-store-1', name: 'REWE', sort_order: 0, client_mutation_id: 'temp-store-1' } },
   { id: 22, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 'temp-store-1', changes: { name: 'REWE Center' } } },
   { id: 23, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 70, temp_id: 'temp-item-3', item: { name: 'Water', section_id: null, store_ids: ['temp-store-1'] }, client_mutation_id: 'temp-item-3' } },
 ];
-shoppingStoreState = [{ id: 'temp-store-1', name: 'REWE Center', active: true, client_mutation_id: 'temp-store-1' }];
+shoppingStoreState = [{ id: 'temp-store-1', shopping_list_id: 70, name: 'REWE Center', active: true, client_mutation_id: 'temp-store-1' }];
 shoppingApi.createStore = async data => ({ id: 90, ...data, active: true });
 shoppingApi.updateStore = async (storeId, changes) => {
   assert.equal(storeId, 90, 'dependent store update uses the remapped server store id');
-  return { id: 90, name: changes.name, active: true };
+  return { id: 90, shopping_list_id: 70, name: changes.name, active: true };
 };
 shoppingApi.createItem = async (listId, data) => {
   assert.equal(listId, 70);
@@ -235,9 +241,9 @@ assert.deepEqual(shoppingStoreState.map(store => [store.id, store.name]), [[90, 
 assert.deepEqual(shoppingState[0].items.find(item => item.id === 201).store_ids, [90]);
 
 queueState = [{ id: 24, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 90, changes: { name: '' } } }];
-shoppingStoreState = [{ id: 90, name: '', active: true }];
+shoppingStoreState = [{ id: 90, shopping_list_id: 70, name: '', active: true }];
 shoppingApi.updateStore = async () => { const error = new Error('invalid store'); error.status = 422; throw error; };
-shoppingApi.listStores = async () => ({ shopping_stores: [{ id: 90, name: 'REWE Center', active: true }] });
+shoppingApi.listStores = async () => ({ shopping_stores: [{ id: 90, shopping_list_id: 70, name: 'REWE Center', active: true }] });
 const storeRecoveryResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
 assert.deepEqual(storeRecoveryResult, { successCount: 1, failCount: 0, skipped: false });
 assert.equal(queueState.length, 0);
@@ -291,15 +297,6 @@ assert.equal(deletedSectionId, 300);
 assert.equal(queueState.length, 0);
 assert.equal(shoppingState[0].sections.length, 0);
 assert.equal(shoppingState[0].items[0].section_id, null);
-
-let staleStorePreferenceCalls = 0;
-queueState = [{ id: 12, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 70, changes: { selected_store_id: 999 } } }];
-shoppingState = [{ id: 70, name: 'Queued', sections: [], items: structuredClone(serverItems), preferences: { hide_empty_sections: false } }];
-shoppingApi.updatePreferences = async () => { staleStorePreferenceCalls += 1; return {}; };
-const staleStorePreferenceResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
-assert.deepEqual(staleStorePreferenceResult, { successCount: 0, failCount: 0, skipped: false });
-assert.equal(staleStorePreferenceCalls, 0, 'legacy synchronized store-filter mutations must be discarded without contacting the server');
-assert.equal(queueState.length, 0, 'legacy synchronized store-filter mutations must be removed from the queue');
 
 queueState = [{ id: 13, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 70, changes: { hide_empty_sections: true } } }];
 shoppingState = [{ id: 70, name: 'Queued', sections: [], items: structuredClone(serverItems), preferences: { hide_empty_sections: true } }];

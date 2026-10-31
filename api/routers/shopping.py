@@ -69,8 +69,8 @@ class ShoppingSectionUpdate(BaseModel):
 
 
 class ShoppingStoreCreate(BaseModel):
+    shopping_list_id: int
     name: str = Field(..., max_length=120)
-    household_id: Optional[int] = None
     sort_order: int = 0
     client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
@@ -137,45 +137,41 @@ def _clean_optional(value: Optional[str], max_length: int) -> Optional[str]:
 def _store_view(row) -> dict:
     result = dict(row)
     result["active"] = bool(result["active"])
-    result["ownership_type"] = "household" if result["owner_household_id"] is not None else "user"
     return result
 
 
 def _accessible_store_rows(db, user_id: int):
-    return db.execute(
-        """SELECT DISTINCT store.*
-           FROM shopping_stores store
-           LEFT JOIN household_members member
-             ON member.household_id = store.owner_household_id
-            AND member.user_id = ?
-            AND member.status = 'accepted'
-           LEFT JOIN households household
-             ON household.id = store.owner_household_id
-           WHERE store.owner_user_id = ?
-              OR member.user_id IS NOT NULL
-              OR household.owner_user_id = ?
-           ORDER BY store.active DESC, store.sort_order, store.id""",
-        (user_id, user_id, user_id),
-    ).fetchall()
+    return [
+        row
+        for row in db.execute(
+            "SELECT * FROM shopping_stores ORDER BY shopping_list_id, active DESC, sort_order, id"
+        ).fetchall()
+        if resolve_entity_access(db, "shopping_list", row["shopping_list_id"], user_id).can_view
+    ]
 
 
 def _normalize_store_ids(
     db,
     user_id: int,
+    shopping_list_id: int,
     values: list[int] | None,
-    *,
-    retained_store_ids: set[int] | None = None,
 ) -> list[int]:
     store_ids = []
     seen = set()
-    accessible = {int(row["id"]) for row in _accessible_store_rows(db, user_id)}
-    retained = retained_store_ids or set()
+    _permissions_for_list(db, shopping_list_id, user_id, write=True)
+    accessible = {
+        int(row["id"])
+        for row in db.execute(
+            "SELECT id FROM shopping_stores WHERE shopping_list_id = ?",
+            (shopping_list_id,),
+        ).fetchall()
+    }
     for value in values or []:
         store_id = int(value)
         if store_id in seen:
             continue
-        if store_id not in accessible and store_id not in retained:
-            raise HTTPException(400, "Shopping store is not accessible")
+        if store_id not in accessible:
+            raise HTTPException(400, "Shopping store does not belong to the shopping list")
         seen.add(store_id)
         store_ids.append(store_id)
         if len(store_ids) > 50:
@@ -183,32 +179,12 @@ def _normalize_store_ids(
     return store_ids
 
 
-def _store_row_for_user(db, store_id: int, user_id: int):
+def _store_row_for_user(db, store_id: int, user_id: int, *, manage: bool = False):
     row = db.execute("SELECT * FROM shopping_stores WHERE id = ?", (store_id,)).fetchone()
     if not row:
         raise HTTPException(404, "Shopping store not found")
-    allowed = row["owner_user_id"] == user_id
-    if row["owner_household_id"] is not None:
-        allowed = is_household_participant(db, row["owner_household_id"], user_id)
-    if not allowed:
-        raise HTTPException(404, "Shopping store not found")
+    _permissions_for_list(db, row["shopping_list_id"], user_id, write=not manage, manage=manage)
     return row
-
-
-def _store_recipient_ids(db, row) -> set[int]:
-    if row["owner_user_id"] is not None:
-        return {int(row["owner_user_id"])}
-    household_id = row["owner_household_id"]
-    household = db.execute("SELECT owner_user_id FROM households WHERE id = ?", (household_id,)).fetchone()
-    recipient_ids = {int(household["owner_user_id"])} if household else set()
-    recipient_ids.update(
-        int(member["user_id"])
-        for member in db.execute(
-            "SELECT user_id FROM household_members WHERE household_id = ? AND status = 'accepted'",
-            (household_id,),
-        ).fetchall()
-    )
-    return recipient_ids
 
 
 def _permissions_for_list(db, shopping_list_id: int, user_id: int, *, write: bool = False, manage: bool = False):
@@ -263,13 +239,8 @@ def _item_view(db, row, user_id: int) -> dict:
            ORDER BY assignment.sort_order, store.id""",
         (row["id"],),
     ).fetchall()
-    accessible_store_ids = {int(store["id"]) for store in _accessible_store_rows(db, user_id)}
     result["store_ids"] = [int(assignment["id"]) for assignment in assignments]
-    result["stores"] = [
-        _store_view(assignment)
-        for assignment in assignments
-        if int(assignment["id"]) in accessible_store_ids
-    ]
+    result["stores"] = [_store_view(assignment) for assignment in assignments]
     result["completed"] = bool(result["completed"])
     return result
 
@@ -350,26 +321,22 @@ async def create_shopping_store(data: ShoppingStoreCreate, user_id: int = Depend
     name = _clean_required(data.name, "Shopping store name", 120)
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        if data.household_id is not None and not is_household_participant(db, data.household_id, user_id):
-            raise HTTPException(403, "Not a member of this household")
-        owner_field = "owner_household_id" if data.household_id is not None else "owner_user_id"
-        owner_id = data.household_id if data.household_id is not None else user_id
+        _permissions_for_list(db, data.shopping_list_id, user_id, write=True)
         if data.client_mutation_id:
             existing = db.execute(
-                f"SELECT * FROM shopping_stores WHERE {owner_field} = ? AND client_mutation_id = ?",
-                (owner_id, data.client_mutation_id),
+                "SELECT * FROM shopping_stores WHERE shopping_list_id = ? AND client_mutation_id = ?",
+                (data.shopping_list_id, data.client_mutation_id),
             ).fetchone()
             if existing:
                 return _store_view(existing)
         try:
             cursor = db.execute(
                 """INSERT INTO shopping_stores
-                   (name, owner_user_id, owner_household_id, sort_order, created_by_user_id, client_mutation_id, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (shopping_list_id, name, sort_order, created_by_user_id, client_mutation_id, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
                 (
+                    data.shopping_list_id,
                     name,
-                    None if data.household_id is not None else user_id,
-                    data.household_id,
                     data.sort_order,
                     user_id,
                     data.client_mutation_id,
@@ -383,7 +350,7 @@ async def create_shopping_store(data: ShoppingStoreCreate, user_id: int = Depend
             raise HTTPException(409, "Shopping store could not be saved") from exc
         row = db.execute("SELECT * FROM shopping_stores WHERE id = ?", (store_id,)).fetchone()
         result = _store_view(row)
-        recipient_ids = _store_recipient_ids(db, row)
+        recipient_ids = _recipient_ids(db, data.shopping_list_id)
         await broadcast_change("shopping_store_create", result, user_id, recipient_ids=recipient_ids)
         return result
 
@@ -392,7 +359,7 @@ async def create_shopping_store(data: ShoppingStoreCreate, user_id: int = Depend
 async def update_shopping_store(store_id: int, data: ShoppingStoreUpdate, user_id: int = Depends(require_auth)):
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        _store_row_for_user(db, store_id, user_id)
+        store = _store_row_for_user(db, store_id, user_id, manage=True)
         updates = []
         values = []
         if "name" in data.model_fields_set:
@@ -412,7 +379,7 @@ async def update_shopping_store(store_id: int, data: ShoppingStoreUpdate, user_i
         db.commit()
         updated = db.execute("SELECT * FROM shopping_stores WHERE id = ?", (store_id,)).fetchone()
         result = _store_view(updated)
-        recipient_ids = _store_recipient_ids(db, updated)
+        recipient_ids = _recipient_ids(db, store["shopping_list_id"])
     await broadcast_change("shopping_store_update", result, user_id, recipient_ids=recipient_ids)
     return result
 
@@ -421,12 +388,12 @@ async def update_shopping_store(store_id: int, data: ShoppingStoreUpdate, user_i
 async def delete_shopping_store(store_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        _store_row_for_user(db, store_id, user_id)
+        store = _store_row_for_user(db, store_id, user_id, manage=True)
         db.execute("UPDATE shopping_stores SET active = 0, updated_at = ? WHERE id = ?", (now_iso(), store_id))
         db.commit()
         updated = db.execute("SELECT * FROM shopping_stores WHERE id = ?", (store_id,)).fetchone()
         result = _store_view(updated)
-        recipient_ids = _store_recipient_ids(db, updated)
+        recipient_ids = _recipient_ids(db, store["shopping_list_id"])
     await broadcast_change("shopping_store_delete", result, user_id, recipient_ids=recipient_ids)
     return result
 
@@ -773,7 +740,7 @@ async def create_shopping_item(shopping_list_id: int, data: ShoppingItemCreate, 
             ).fetchone()
             if existing:
                 return _item_view(db, existing, user_id)
-        store_ids = _normalize_store_ids(db, user_id, data.store_ids)
+        store_ids = _normalize_store_ids(db, user_id, shopping_list_id, data.store_ids)
         if data.section_id is not None:
             section = db.execute(
                 "SELECT id FROM shopping_sections WHERE id = ? AND shopping_list_id = ?",
@@ -801,8 +768,10 @@ async def create_shopping_item(shopping_list_id: int, data: ShoppingItemCreate, 
             )
             item_id = int(cursor.lastrowid)
             db.executemany(
-                "INSERT INTO shopping_item_stores (shopping_item_id, shopping_store_id, sort_order) VALUES (?, ?, ?)",
-                [(item_id, store_id, index) for index, store_id in enumerate(store_ids)],
+                """INSERT INTO shopping_item_stores
+                   (shopping_item_id, shopping_store_id, shopping_list_id, sort_order)
+                   VALUES (?, ?, ?, ?)""",
+                [(item_id, store_id, shopping_list_id, index) for index, store_id in enumerate(store_ids)],
             )
             db.commit()
         except sqlite3.IntegrityError as exc:
@@ -842,18 +811,11 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
             updates["quantity_unit"] = _clean_optional(data.quantity_unit, 40)
         store_ids = None
         if "store_ids" in fields_set:
-            retained_store_ids = {
-                int(row["shopping_store_id"])
-                for row in db.execute(
-                    "SELECT shopping_store_id FROM shopping_item_stores WHERE shopping_item_id = ?",
-                    (item_id,),
-                ).fetchall()
-            }
             store_ids = _normalize_store_ids(
                 db,
                 user_id,
+                shopping_list_id,
                 data.store_ids,
-                retained_store_ids=retained_store_ids,
             )
         if "sort_order" in fields_set:
             _permissions_for_list(db, shopping_list_id, user_id, manage=True)
@@ -874,8 +836,10 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
         if store_ids is not None:
             db.execute("DELETE FROM shopping_item_stores WHERE shopping_item_id = ?", (item_id,))
             db.executemany(
-                "INSERT INTO shopping_item_stores (shopping_item_id, shopping_store_id, sort_order) VALUES (?, ?, ?)",
-                [(item_id, store_id, index) for index, store_id in enumerate(store_ids)],
+                """INSERT INTO shopping_item_stores
+                   (shopping_item_id, shopping_store_id, shopping_list_id, sort_order)
+                   VALUES (?, ?, ?, ?)""",
+                [(item_id, store_id, shopping_list_id, index) for index, store_id in enumerate(store_ids)],
             )
         if updates or store_ids is not None:
             db.commit()

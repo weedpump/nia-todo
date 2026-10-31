@@ -82,9 +82,13 @@ export function bindShoppingStoreCreator({
     submitting = true;
     actionButtons().forEach(button => { button.disabled = true; });
     try {
-      const store = await storeController?.create?.(name, { authorize });
-      if (!store) return null;
       const context = creationContext;
+      const shoppingListId = context?.id ?? context?.client_mutation_id ?? context;
+      const store = await storeController?.create?.(name, {
+        authorize: () => authorize(context),
+        shoppingListId,
+      });
+      if (!store) return null;
       hide();
       onCreated(store, context);
       if (selectId) doc?.querySelector?.(`[data-select-id="${selectId}"] .ui-select-trigger`)?.focus?.();

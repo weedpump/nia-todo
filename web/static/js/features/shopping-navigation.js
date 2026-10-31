@@ -144,8 +144,11 @@ export function createShoppingNavigationFeature({
     return identity == null ? null : `${SHOPPING_STORE_FILTER_KEY_PREFIX}${identity}`;
   }
 
-  function activeStores() {
-    return [...(getStores() || [])].filter(store => store?.active !== false).sort(compareStores);
+  function activeStores(list = lists().find(candidate => sameId(candidate.id, activeListId))) {
+    return [...(getStores() || [])].filter(store => (
+      store?.active !== false
+      && (sameId(store.shopping_list_id, list?.id) || sameId(store.shopping_list_id, list?.client_mutation_id))
+    )).sort(compareStores);
   }
 
   function storeFilterForList(list, stores = activeStores()) {
@@ -188,7 +191,7 @@ export function createShoppingNavigationFeature({
 
   function setStoreFilterForList(list, value) {
     if (!list) return null;
-    const stores = activeStores();
+    const stores = activeStores(list);
     const selected = value === undefined || value === null || String(value) === ''
       ? null
       : stores.find(store => sameId(store.id, value) || sameId(store.client_mutation_id, value)) || null;
@@ -340,6 +343,7 @@ export function createShoppingNavigationFeature({
         prefix: 'shopping-filter-store',
         selectId: 'shopping-store-filter',
         storeController,
+        authorize: context => lists().find(list => sameList(list, context))?.can_edit === true,
         getContext: () => ({ id: selected.id, client_mutation_id: selected.client_mutation_id }),
         onCreated: (store, list) => setStoreFilterForList(list, store.client_mutation_id ?? store.id),
       });
@@ -347,12 +351,12 @@ export function createShoppingNavigationFeature({
         setStoreFilter(storeSelect.value);
       });
       hydrateSelect(storeSelect, {
-        action: {
+        action: selected.can_edit === true ? {
           label: t('shopping.item.store.add'),
           ariaLabel: t('shopping.item.store.add'),
           icon: 'plus',
           onActivate: () => storeCreator?.show?.(),
-        },
+        } : null,
       });
     }
     const nextSectionRoot = main.querySelector?.('[data-section-root="shopping"]') || null;

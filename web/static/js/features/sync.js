@@ -45,6 +45,10 @@ export function createSyncFeature({
     return out;
   }
 
+  function sameId(left, right) {
+    return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
+  }
+
   function upsertTodo(todo) {
     if (!todo?.id) return;
     const known = getTodos().some(item => String(item.id) === String(todo.id));
@@ -114,13 +118,20 @@ export function createSyncFeature({
       const projected = projectPendingShoppingChanges(serverList, rewrittenQueue);
       const idsToRemove = [...removeListIds];
       if (!projected && serverList?.id != null) idsToRemove.push(serverList.id);
+      const remappedStores = rewrite.listIdFrom === undefined
+        ? []
+        : getShoppingStores().map(store => sameId(store.shopping_list_id, rewrite.listIdFrom)
+          ? { ...store, shopping_list_id: rewrite.listIdTo }
+          : store);
       await commitShoppingReplay({
         list: projected,
+        stores: remappedStores,
         removeListIds: idsToRemove,
         queueDeleteId: item.id,
         queueRecords: rewrittenQueue,
       });
       replaceShoppingList(projected, idsToRemove);
+      if (remappedStores.length) replaceShoppingStores(projectPendingShoppingStores(remappedStores, rewrittenQueue));
     } finally {
       releaseCommitLock();
     }
@@ -230,7 +241,7 @@ export function createSyncFeature({
     const projectFields = ['name', 'color', 'icon', 'sort_order', 'parent_id', 'workspace_id', 'household_id', '_tempId'];
     const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
     const shoppingListFields = ['name', 'color', 'icon', 'sort_order', 'household_id', 'client_mutation_id'];
-    const shoppingStoreFields = ['name', 'household_id', 'sort_order', 'client_mutation_id'];
+    const shoppingStoreFields = ['shopping_list_id', 'name', 'sort_order', 'client_mutation_id'];
     const shoppingSectionFields = ['name', 'sort_order', 'client_mutation_id'];
     const shoppingItemFields = ['name', 'section_id', 'quantity_value', 'quantity_unit', 'store_ids', 'sort_order', 'client_mutation_id'];
     const localCommentFields = ['id', 'todo_id', 'user_id', 'body', 'created_at', 'updated_at', 'author_username', 'author_display_name', 'is_pending'];
@@ -440,7 +451,7 @@ export function createSyncFeature({
           successCount++;
           continue;
         } else if (item.action === 'CREATE_SHOPPING_STORE') {
-          const created = await shoppingApi.createStore(pickAllowed(item.data, ['name', 'household_id', 'sort_order', 'client_mutation_id']));
+          const created = await shoppingApi.createStore(pickAllowed(item.data, ['shopping_list_id', 'name', 'sort_order', 'client_mutation_id']));
           await commitShoppingStoreState(item, created, {
             removeStoreIds: [item.data.temp_id],
             rewrite: { storeIdFrom: item.data.temp_id, storeIdTo: created.id },

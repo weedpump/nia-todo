@@ -7,11 +7,11 @@ import {
 } from '../web/static/js/features/shopping-pending.js';
 
 const serverStores = [
-  { id: 1, name: 'REWE', ownership_type: 'user', active: true },
+  { id: 1, shopping_list_id: 7, name: 'REWE', active: true },
 ];
 const localStores = [
   ...serverStores,
-  { id: 'temp-shopping-store-1', name: 'Lidl', ownership_type: 'user', active: true, is_pending: true },
+  { id: 'temp-shopping-store-1', shopping_list_id: 7, name: 'Lidl', active: true, is_pending: true },
 ];
 const queue = [
   {
@@ -19,7 +19,8 @@ const queue = [
     action: 'CREATE_SHOPPING_STORE',
     data: {
       temp_id: 'temp-shopping-store-1',
-      store: { name: 'Lidl', sort_order: 1 },
+      shopping_list_id: 7,
+      store: { name: 'Lidl', shopping_list_id: 7, sort_order: 1 },
       client_mutation_id: 'temp-shopping-store-1',
     },
   },
@@ -52,5 +53,12 @@ const rewritten = rewriteShoppingQueueReferences([
 });
 assert.deepEqual(rewritten[0].data.item.store_ids, [2]);
 assert.deepEqual(rewritten[1].data.changes.store_ids, [1, 2]);
+
+const listRewritten = rewriteShoppingQueueReferences([queue[0]], {
+  listIdFrom: 7,
+  listIdTo: 70,
+});
+assert.equal(listRewritten[0].data.shopping_list_id, 70);
+assert.equal(listRewritten[0].data.store.shopping_list_id, 70);
 
 console.log('✅ Shopping store snapshots and stable-ID references stay offline-safe');

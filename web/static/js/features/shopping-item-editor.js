@@ -37,6 +37,15 @@ export function createShoppingItemEditorFeature({
     return activeList()?.can_edit === true;
   }
 
+  function canMutateList(context) {
+    return getLists().find(list => (
+      sameId(list.id, context?.id)
+      || sameId(list.client_mutation_id, context?.id)
+      || sameId(list.id, context?.client_mutation_id)
+      || sameId(list.client_mutation_id, context?.client_mutation_id)
+    ))?.can_edit === true;
+  }
+
   function resolveEditingItem() {
     const list = activeList();
     if (!list || editingListIdentity == null || editingItemIdentity == null) return null;
@@ -123,7 +132,11 @@ export function createShoppingItemEditorFeature({
   function populateStores(selected = '') {
     const select = doc?.getElementById?.('shopping-item-store');
     if (!select) return;
-    const stores = getStores().filter(store => store?.active !== false);
+    const list = activeList();
+    const stores = getStores().filter(store => (
+      store?.active !== false
+      && (sameId(store.shopping_list_id, list?.id) || sameId(store.shopping_list_id, list?.client_mutation_id))
+    ));
     select.innerHTML = '';
     appendOption(select, '', t('shopping.item.store.none'));
     for (const store of [...stores].sort((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0))) {
@@ -136,12 +149,12 @@ export function createShoppingItemEditorFeature({
       searchPlaceholder: t('shopping.item.store.search'),
       searchLabel: t('shopping.item.store.search'),
       emptyText: t('shopping.item.store.empty'),
-      action: {
+      action: canMutate() ? {
         label: t('shopping.item.store.add'),
         ariaLabel: t('shopping.item.store.add'),
         icon: 'plus',
         onActivate: () => storeCreator?.show?.(),
-      },
+      } : null,
     });
     refreshSelect(select);
   }
@@ -423,7 +436,8 @@ export function createShoppingItemEditorFeature({
       prefix: 'shopping-item',
       selectId: 'shopping-item-store',
       storeController,
-      authorize: canMutate,
+      authorize: canMutateList,
+      getContext: () => ({ id: activeList()?.id, client_mutation_id: activeList()?.client_mutation_id }),
       onCreated: store => {
         populateStores(store.client_mutation_id ?? store.id);
         ensureSaveState()?.refresh?.();

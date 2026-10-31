@@ -26,7 +26,7 @@ const fixtureSource = `
         { id: 'temp-shopping-item-3', name: 'Sehr langer responsiver Artikeltitel ohne horizontalen Überlauf', quantity_value: 0, quantity_unit: 'SehrLangeMengeneinheitOhneTrennzeichen', completed: false, section_id: null },
         { id: 31, name: 'Erledigt', quantity_value: 2, quantity_unit: 'kg', completed: true, section_id: null },
       ], sections: [] },
-    { id: 4, name: 'Markteinkauf', color: '#ea580c', icon: 'store', sort_order: 3, can_manage: false, can_edit: false,
+    { id: 4, name: 'Markteinkauf', color: '#ea580c', icon: 'store', sort_order: 3, can_manage: false, can_edit: true,
       preferences: { hide_empty_sections: true },
       items: [
         { id: 40, name: 'Überall', completed: false, section_id: 'market-section', store_ids: [] },
@@ -38,14 +38,15 @@ const fixtureSource = `
       ] },
     { id: 5, name: 'Markt ohne Treffer', color: '#0891b2', icon: 'store', sort_order: 4, can_manage: false, can_edit: false,
       preferences: { hide_empty_sections: true },
-      items: [{ id: 50, name: 'Nur ALDI', completed: false, section_id: 'only-other', store_ids: ['store-aldi'] }],
+      items: [{ id: 50, name: 'Nur ALDI', completed: false, section_id: 'only-other', store_ids: [] }],
       sections: [{ id: 'only-other', name: 'Nur anderer Markt', sort_order: 0 }] },
   ];
   let stores = [
-    { id: 'store-rewe', name: 'REWE', sort_order: 0, active: true },
-    { id: 'store-aldi', name: 'ALDI', sort_order: 1, active: true },
-    { id: 'store-lidl', name: 'LIDL', sort_order: 2, active: true },
-    { id: 'store-old', name: 'Alter Markt', sort_order: 3, active: false },
+    { id: 'store-rewe', shopping_list_id: 4, name: 'REWE', sort_order: 0, active: true },
+    { id: 'store-aldi', shopping_list_id: 4, name: 'ALDI', sort_order: 1, active: true },
+    { id: 'store-lidl', shopping_list_id: 4, name: 'LIDL', sort_order: 2, active: true },
+    { id: 'store-old', shopping_list_id: 4, name: 'Alter Markt', sort_order: 3, active: false },
+    { id: 'store-lidl-list-5', shopping_list_id: 5, name: 'LIDL', sort_order: 0, active: true },
   ];
   document.body.innerHTML = \`
     <div id="shopping-list-sidebar" hidden></div>
@@ -108,6 +109,9 @@ const fixtureSource = `
     },
     setLanguage: async language => { await setLanguagePreference(language); },
     setSearch: value => navigation.setSearchQuery(value),
+    setCanEdit: (id, canEdit) => {
+      lists = lists.map(list => String(list.id) === String(id) ? { ...list, can_edit: canEdit } : list);
+    },
     mutationCommits: () => mutationCommits,
     mutations: () => structuredClone(mutations),
     deferStoreCommit: () => {
@@ -218,6 +222,9 @@ try {
   assert.equal(await page.evaluate(() => window.test.mutationCommits()), 0, 'a device-local store filter must not create an IndexedDB or sync-queue mutation');
   await page.evaluate(() => window.test.select(5));
   assert.equal(await page.evaluate(() => window.test.storeFilter()), null, 'each shopping list must retain an independent device-local filter');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-action').count(), 0, 'read-only list members may filter but must not create stores');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').press('Escape');
   await page.evaluate(() => window.test.select(4));
   assert.equal(await page.evaluate(() => window.test.storeFilter()), 'store-rewe', 'returning to a list must restore its device-local filter');
   const availableStores = await page.evaluate(() => window.test.stores());
@@ -250,6 +257,7 @@ try {
   assert.equal(await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').evaluate(element => document.activeElement === element), true, 'successful store creation restores focus to the current-list store select');
   assert.equal(await page.evaluate(() => window.test.mutationCommits()), commitsBeforeStoreCreate + 1, 'store creation must use exactly one durable mutation');
   assert.equal((await page.evaluate(() => window.test.mutations().at(-1).action)), 'CREATE_SHOPPING_STORE');
+  assert.equal((await page.evaluate(() => window.test.mutations().at(-1).data.shopping_list_id)), 4);
   assert.equal(await main.getAttribute('data-shopping-content-state'), 'filter-empty');
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
   await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'Alle Supermärkte' }).click();
@@ -264,13 +272,29 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('nia-shopping-store-filter:4')), 'temp-store-filter-created-2', 'a delayed create must retain the list that opened the creator');
   assert.equal(await page.evaluate(() => localStorage.getItem('nia-shopping-store-filter:5')), null, 'a delayed create must not overwrite the newly active list filter');
   assert.equal(await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').evaluate(element => document.activeElement === element), true, 'a delayed create restores focus to the currently rendered store select');
+  await page.evaluate(() => window.test.select(4));
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'Alle Supermärkte' }).click();
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-action').click();
+  await page.locator('#shopping-filter-store-new-store-name').fill('EDEKA');
+  await page.evaluate(() => window.test.deferStoreCommit());
+  await page.locator('[data-shopping-store-creator="shopping-filter-store"][data-shopping-store-creator-action="save"]').click();
+  await page.evaluate(() => { window.test.setCanEdit(4, false); window.test.select(3); });
+  await page.evaluate(() => window.test.releaseStoreCommit());
+  await page.waitForTimeout(0);
+  assert.equal(await page.evaluate(() => window.test.stores().some(store => store.name === 'EDEKA')), false, 'permission loss on the creator list must cancel a delayed store mutation even when the active list remains editable');
+  await page.evaluate(() => { window.test.setCanEdit(4, true); window.test.select(5); });
   await page.evaluate(() => window.test.setLanguage('en'));
   assert.equal((await page.locator('#shopping-store-filter option').first().textContent()).trim(), 'All stores', 'the current-list filter must follow the production language-change event');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-action').count(), 0, 'language rerenders must not expose store creation to readers');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').press('Escape');
+  await page.evaluate(() => window.test.select(4));
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
   assert.equal((await page.locator('#shopping-store-filter-ui-menu .ui-select-action').textContent()).trim(), 'Add store');
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').press('Escape');
   await page.evaluate(() => window.test.setLanguage('de'));
-  await page.evaluate(() => window.test.select(4));
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
   await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'Alle Supermärkte' }).click();
   await page.evaluate(() => window.test.select(5));
@@ -482,10 +506,9 @@ try {
       request.onsuccess = () => {
         const database = request.result;
         const tx = database.transaction(['syncQueue', 'shoppingLists'], 'readwrite');
-        tx.objectStore('syncQueue').put({ id: 1, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 4, changes: { selected_store_id: 'store-rewe' } } });
-        tx.objectStore('syncQueue').put({ id: 2, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 4, changes: { selected_store_id: 'store-rewe', hide_empty_sections: true } } });
-        tx.objectStore('syncQueue').put({ id: 3, action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 4, item_id: 41, changes: { completed: true } } });
-        tx.objectStore('shoppingLists').put({ id: 4, preferences: { selected_store_id: 'store-rewe', hide_empty_sections: true } });
+        tx.objectStore('syncQueue').put({ id: 1, action: 'CREATE_SHOPPING_STORE', data: { shopping_list_id: 4, store: { name: 'REWE', owner_household_id: 2 } } });
+        tx.objectStore('syncQueue').put({ id: 2, action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 4, item_id: 41, changes: { completed: true } } });
+        tx.objectStore('shoppingLists').put({ id: 4, preferences: { hide_empty_sections: true } });
         tx.oncomplete = () => { database.close(); resolve(); };
         tx.onerror = () => reject(tx.error);
       };
@@ -496,9 +519,8 @@ try {
       lists: await indexedDb.getAll('shoppingLists'),
     };
   });
-  assert.deepEqual(cleanedLegacyState.queue.map(entry => entry.id), [2, 3], 'opening IndexedDB must delete legacy filter-only queue entries');
-  assert.deepEqual(cleanedLegacyState.queue[0].data.changes, { hide_empty_sections: true }, 'opening IndexedDB must strip legacy store filters from mixed preference mutations');
-  assert.deepEqual(cleanedLegacyState.lists[0].preferences, { hide_empty_sections: true }, 'opening IndexedDB must strip legacy store filters from cached list snapshots');
+  assert.deepEqual(cleanedLegacyState.queue, [], 'IndexedDB v8 must discard unreleased owner-scoped shopping mutations');
+  assert.deepEqual(cleanedLegacyState.lists, [], 'IndexedDB v8 must discard unreleased shopping projections before list-scoped stores load');
 
   assert.deepEqual(pageErrors, []);
   console.log('✅ Shopping selected-list shared section content passed');

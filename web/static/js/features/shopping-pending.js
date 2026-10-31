@@ -45,6 +45,7 @@ export function projectPendingShoppingStores(serverStores = [], queue = []) {
           active: true,
           ...clone(data.store || {}),
           id: data.temp_id,
+          shopping_list_id: data.shopping_list_id ?? data.store?.shopping_list_id,
           is_pending: true,
         };
         projected = [...projected.filter(candidate => !sameId(candidate.id, store.id)), store];
@@ -163,6 +164,7 @@ export function rewriteShoppingQueueReferences(queue = [], {
       if (sameId(data.temp_id, listIdFrom) && next.action === 'CREATE_SHOPPING_LIST') data.temp_id = listIdTo;
       if (sameId(data.shopping_list_id, listIdFrom)) data.shopping_list_id = listIdTo;
       if (data.list && sameId(data.list.id, listIdFrom)) data.list.id = listIdTo;
+      if (data.store && sameId(data.store.shopping_list_id, listIdFrom)) data.store.shopping_list_id = listIdTo;
     }
     if (sectionIdFrom !== undefined) {
       if (sameId(data.section_id, sectionIdFrom)) data.section_id = sectionIdTo;

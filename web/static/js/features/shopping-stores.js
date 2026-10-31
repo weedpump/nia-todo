@@ -29,35 +29,34 @@ export function createShoppingStoresController({
 } = {}) {
   const pendingCreates = new Map();
 
-  function activeDuplicate(name) {
+  function activeDuplicate(name, shoppingListId) {
     const normalized = String(name || '').trim().toLocaleLowerCase();
     return getStores().find(store => (
       store?.active !== false
+      && sameId(store.shopping_list_id, shoppingListId)
       && String(store.name || '').trim().toLocaleLowerCase() === normalized
     )) || null;
   }
 
-  function create(value, { authorize = () => true } = {}) {
+  function create(value, { authorize = () => true, shoppingListId = null } = {}) {
     const name = validShoppingStoreName(value);
-    if (!name) return Promise.resolve(null);
-    const duplicate = activeDuplicate(name);
+    if (!name || shoppingListId == null) return Promise.resolve(null);
+    const duplicate = activeDuplicate(name, shoppingListId);
     if (duplicate) return Promise.resolve(duplicate);
-    const key = name.toLocaleLowerCase();
+    const key = `${shoppingListId}\u0000${name.toLocaleLowerCase()}`;
     if (pendingCreates.has(key)) return pendingCreates.get(key);
 
     const operation = (async () => {
       const tempId = createTempId();
       const mutation = await commitMutation(() => {
         if (!authorize()) return null;
-        if (activeDuplicate(name)) return null;
+        if (activeDuplicate(name, shoppingListId)) return null;
         const store = {
           id: tempId,
+          shopping_list_id: shoppingListId,
           name,
-          owner_user_id: null,
-          owner_household_id: null,
-          ownership_type: 'user',
           active: true,
-          sort_order: nextSortOrder(getStores()),
+          sort_order: nextSortOrder(getStores().filter(candidate => sameId(candidate.shopping_list_id, shoppingListId))),
           client_mutation_id: tempId,
           is_pending: true,
         };
@@ -67,15 +66,15 @@ export function createShoppingStoresController({
           data: {
             temp_id: tempId,
             store: clone(store),
+            shopping_list_id: shoppingListId,
             name,
-            household_id: null,
             sort_order: store.sort_order,
             client_mutation_id: tempId,
           },
           result: store,
         };
       });
-      const store = mutation?.result || mutation?.store || activeDuplicate(name);
+      const store = mutation?.result || mutation?.store || activeDuplicate(name, shoppingListId);
       if (!store) return null;
       if (mutation?.store) {
         setStores([...getStores().filter(candidate => !sameId(candidate.id, store.id)), store]);
