@@ -15,9 +15,9 @@ const fixtureSource = `
   await initI18n();
   let lists = [
     { id: 1, name: 'Wocheneinkauf', color: '#2563eb', icon: 'shopping-cart', sort_order: 0, can_manage: true, can_edit: true,
-      preferences: { selected_store_id: null, hide_empty_sections: true }, items: [], sections: [{ id: 'hidden-empty', name: 'Versteckt', sort_order: 0 }] },
+      preferences: { hide_empty_sections: true }, items: [], sections: [{ id: 'hidden-empty', name: 'Versteckt', sort_order: 0 }] },
     { id: 2, name: 'Gefüllte Liste', color: '#16a34a', icon: 'list-checks', sort_order: 1, can_manage: 'false', can_edit: 'true',
-      preferences: { selected_store_id: null, hide_empty_sections: true },
+      preferences: { hide_empty_sections: true },
       items: [{ id: 10, name: 'Milch', quantity_value: 1.5, quantity_unit: 'l', completed: false, section_id: 'produce' }],
       sections: [{ id: 'produce', name: 'Obst & Gemüse', sort_order: 0 }, { id: 'empty', name: 'Leer', sort_order: 1 }] },
     { id: 3, name: 'Bearbeitbar', color: '#7c3aed', icon: 'shopping-basket', sort_order: 2, can_manage: false, can_edit: true,
@@ -25,6 +25,26 @@ const fixtureSource = `
         { id: 'temp-shopping-item-3', name: 'Sehr langer responsiver Artikeltitel ohne horizontalen Überlauf', quantity_value: 0, quantity_unit: 'SehrLangeMengeneinheitOhneTrennzeichen', completed: false, section_id: null },
         { id: 31, name: 'Erledigt', quantity_value: 2, quantity_unit: 'kg', completed: true, section_id: null },
       ], sections: [] },
+    { id: 4, name: 'Markteinkauf', color: '#ea580c', icon: 'store', sort_order: 3, can_manage: false, can_edit: false,
+      preferences: { hide_empty_sections: true },
+      items: [
+        { id: 40, name: 'Überall', completed: false, section_id: 'market-section', store_ids: [] },
+        { id: 41, name: 'Nur REWE', completed: false, section_id: 'market-section', store_ids: ['store-rewe'] },
+        { id: 42, name: 'Nur ALDI', completed: false, section_id: 'aldi-only', store_ids: ['store-aldi'] },
+      ], sections: [
+        { id: 'market-section', name: 'Gemischt', sort_order: 0 },
+        { id: 'aldi-only', name: 'ALDI', sort_order: 1 },
+      ] },
+    { id: 5, name: 'Markt ohne Treffer', color: '#0891b2', icon: 'store', sort_order: 4, can_manage: false, can_edit: false,
+      preferences: { hide_empty_sections: true },
+      items: [{ id: 50, name: 'Nur ALDI', completed: false, section_id: 'only-other', store_ids: ['store-aldi'] }],
+      sections: [{ id: 'only-other', name: 'Nur anderer Markt', sort_order: 0 }] },
+  ];
+  let stores = [
+    { id: 'store-rewe', name: 'REWE', sort_order: 0, active: true },
+    { id: 'store-aldi', name: 'ALDI', sort_order: 1, active: true },
+    { id: 'store-lidl', name: 'LIDL', sort_order: 2, active: true },
+    { id: 'store-old', name: 'Alter Markt', sort_order: 3, active: false },
   ];
   document.body.innerHTML = \`
     <div id="shopping-list-sidebar" hidden></div>
@@ -40,15 +60,17 @@ const fixtureSource = `
     <main id="shopping-navigation-main" class="module-page module-empty-page"></main>
   \`;
   let navigation;
+  let mutationCommits = 0;
   const itemController = createShoppingItemsController({
     getLists: () => lists,
     setLists: next => { lists = next; },
     getActiveListId: () => navigation?.getActiveListId?.(),
-    commitMutation: async build => build(),
+    commitMutation: async build => { mutationCommits += 1; return build(); },
     render: () => navigation?.render?.(),
   });
   navigation = createShoppingNavigationFeature({
     getLists: () => lists, root: document,
+    getStores: () => stores,
     getElementById: id => document.getElementById(id),
     storage: localStorage, historyTarget: history, locationTarget: location, eventTarget: window,
     closeSidebar: () => false, onAdd: () => {}, onDetail: () => {},
@@ -64,6 +86,10 @@ const fixtureSource = `
     },
     setLanguage: async language => { await setLanguagePreference(language); navigation.render(); },
     setSearch: value => navigation.setSearchQuery(value),
+    mutationCommits: () => mutationCommits,
+    storeFilter: () => navigation.getStoreFilter(),
+    setStores: next => { stores = structuredClone(next); navigation.render(); },
+    stores: () => structuredClone(stores),
   };
 `;
 
@@ -139,6 +165,52 @@ try {
   assert.equal(await main.getAttribute('data-shopping-content-state'), 'search-empty');
   await page.evaluate(() => window.test.setSearch(''));
   assert.equal(await main.locator('.shopping-item-card').count(), 1, 'clearing shopping search must restore the complete current list');
+
+  await page.evaluate(() => window.test.select(4));
+  const marketSelect = page.locator('#shopping-store-filter');
+  await marketSelect.waitFor({ state: 'attached' });
+  assert.equal(await marketSelect.getAttribute('data-ui-select-hydrated'), 'true', 'the list filter must use the shipped select/dropdown primitive');
+  assert.deepEqual(await marketSelect.locator('option').allTextContents(), ['Alle Supermärkte', 'REWE', 'ALDI', 'LIDL'], 'only active visible stores belong in the current-list filter');
+  assert.deepEqual(await main.locator('.shopping-item-title').allTextContents(), ['Überall', 'Nur REWE', 'Nur ALDI']);
+  const desktopHeader = await header.evaluate(element => ({
+    titleTop: element.querySelector('h1').getBoundingClientRect().top,
+    filterTop: element.querySelector('.shopping-list-store-filter').getBoundingClientRect().top,
+  }));
+  assert(Math.abs(desktopHeader.titleTop - desktopHeader.filterTop) < 12, 'a short list title and its current-list filter must share the desktop header row');
+  const marketTrigger = page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger');
+  await marketTrigger.click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'REWE' }).click();
+  assert.deepEqual(await main.locator('.shopping-item-title').allTextContents(), ['Nur REWE'], 'a selected store must hide unassigned items and assignments for every other store');
+  assert.equal(await page.locator('.section-header:not(.section-unsorted)').count(), 1, 'hide-empty must apply after the current-list market filter');
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), 'store-rewe');
+  assert.equal(await page.evaluate(() => window.test.mutationCommits()), 0, 'a device-local store filter must not create an IndexedDB or sync-queue mutation');
+  await page.evaluate(() => window.test.select(5));
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), null, 'each shopping list must retain an independent device-local filter');
+  await page.evaluate(() => window.test.select(4));
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), 'store-rewe', 'returning to a list must restore its device-local filter');
+  const availableStores = await page.evaluate(() => window.test.stores());
+  await page.evaluate(() => window.test.setStores([]));
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-shopping-store-filter:4')), 'store-rewe', 'rendering lists before stores load must not delete the persisted filter');
+  await page.evaluate(stores => window.test.setStores(stores), availableStores);
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), 'store-rewe', 'the filter must resolve after the store projection arrives');
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.test));
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), 'store-rewe', 'the current-list filter must survive reload through localStorage');
+  assert.equal(await page.evaluate(() => window.test.mutationCommits()), 0, 'restoring a local filter must not create a sync mutation');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'LIDL' }).click();
+  assert.equal(await main.locator('.shopping-item-card').count(), 0, 'a selected store with no assignments must not retain unassigned items');
+  assert.equal(await page.evaluate(() => window.test.mutationCommits()), 0, 'changing the local filter repeatedly must remain outside the sync queue');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'Alle Supermärkte' }).click();
+  assert.equal(await main.locator('.shopping-item-card').count(), 3, 'the all-stores selection must restore the complete list');
+  await page.evaluate(() => window.test.select(5));
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'LIDL' }).click();
+  assert.equal(await main.getAttribute('data-shopping-content-state'), 'filter-empty');
+  assert.equal((await page.locator('.shopping-store-filter-empty-state h3').textContent()).trim(), 'Keine Artikel für diesen Supermarkt');
+  assert.equal(await page.locator('.shopping-list-empty-state').count(), 0, 'a market-filter result must never claim that the underlying list is empty');
+  await page.evaluate(() => window.test.select(2));
 
   const sectionDragFeedback = await page.locator('.section-header:not(.section-unsorted)').first().evaluate(element => {
     const dropzone = document.createElement('div');
@@ -262,19 +334,24 @@ try {
   assert.equal(desktopCardParity.pinnedMetaRadius, '26px', 'pinned todos with metadata must retain their expanded radius');
 
   await page.setViewportSize({ width: 320, height: 700 });
-  await page.evaluate(() => { window.test.select(2); window.test.setName('Sehr langer Name einer Einkaufsliste, der auf kleinen Bildschirmen sauber umbrechen muss'); });
-  const visibleSection = page.locator('.section-header:not(.section-unsorted)');
+  await page.evaluate(() => { window.test.select(4); window.test.setName('Sehr langer Name einer Einkaufsliste, der auf kleinen Bildschirmen sauber umbrechen muss'); });
+  const visibleSection = page.locator('.section-header:not(.section-unsorted)').first();
   await visibleSection.waitFor({ state: 'visible' });
   const mobile = await main.evaluate(element => ({
     paddingLeft: getComputedStyle(element).paddingLeft,
     bodyFits: document.documentElement.scrollWidth <= innerWidth,
     titleWidth: element.querySelector('h1').getBoundingClientRect().width,
     sectionWidth: element.querySelector('.section-header').getBoundingClientRect().width,
+    titleBottom: element.querySelector('h1').getBoundingClientRect().bottom,
+    filterTop: element.querySelector('.shopping-list-store-filter').getBoundingClientRect().top,
+    filterWidth: element.querySelector('.shopping-list-store-filter').getBoundingClientRect().width,
   }));
   assert.equal(mobile.paddingLeft, '16px');
   assert.equal(mobile.bodyFits, true);
   assert(mobile.titleWidth > 100);
   assert(mobile.sectionWidth > 100);
+  assert(mobile.filterTop >= mobile.titleBottom - 0.5, 'the current-list filter must wrap below a long title instead of crushing it');
+  assert(mobile.filterWidth >= 160, 'the existing dropdown must retain a usable mobile width');
   await page.evaluate(() => window.test.select(3));
   const itemMobile = await page.locator('#shopping-navigation-main .shopping-item-card').first().evaluate(element => ({
     fitsViewport: document.documentElement.scrollWidth <= innerWidth,
@@ -308,6 +385,39 @@ try {
     assert((await page.locator('.section-unsorted .section-name').textContent()).trim(), `${language} unsorted label must render`);
     assert.match(await page.locator('.shopping-item-check').first().getAttribute('aria-label'), /Sehr langer responsiver Artikeltitel/, `${language} completion label must interpolate the item name`);
   }
+
+  const cleanedLegacyState = await page.evaluate(async () => {
+    const indexedDb = await import('/static/js/storage/indexed-db.js');
+    await indexedDb.closeAndDeleteDatabase();
+    await new Promise((resolve, reject) => {
+      const request = window.indexedDB.open('nia-todo-db', 7);
+      request.onupgradeneeded = event => {
+        const database = event.target.result;
+        database.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+        database.createObjectStore('shoppingLists', { keyPath: 'id' });
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const database = request.result;
+        const tx = database.transaction(['syncQueue', 'shoppingLists'], 'readwrite');
+        tx.objectStore('syncQueue').put({ id: 1, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 4, changes: { selected_store_id: 'store-rewe' } } });
+        tx.objectStore('syncQueue').put({ id: 2, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 4, changes: { selected_store_id: 'store-rewe', hide_empty_sections: true } } });
+        tx.objectStore('syncQueue').put({ id: 3, action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 4, item_id: 41, changes: { completed: true } } });
+        tx.objectStore('shoppingLists').put({ id: 4, preferences: { selected_store_id: 'store-rewe', hide_empty_sections: true } });
+        tx.oncomplete = () => { database.close(); resolve(); };
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+    await indexedDb.openDatabase();
+    return {
+      queue: await indexedDb.getAll('syncQueue'),
+      lists: await indexedDb.getAll('shoppingLists'),
+    };
+  });
+  assert.deepEqual(cleanedLegacyState.queue.map(entry => entry.id), [2, 3], 'opening IndexedDB must delete legacy filter-only queue entries');
+  assert.deepEqual(cleanedLegacyState.queue[0].data.changes, { hide_empty_sections: true }, 'opening IndexedDB must strip legacy store filters from mixed preference mutations');
+  assert.deepEqual(cleanedLegacyState.lists[0].preferences, { hide_empty_sections: true }, 'opening IndexedDB must strip legacy store filters from cached list snapshots');
+
   assert.deepEqual(pageErrors, []);
   console.log('✅ Shopping selected-list shared section content passed');
 } finally {

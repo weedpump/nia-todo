@@ -82,19 +82,35 @@
 
 .shopping-list-content-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   min-width: 0;
   margin-bottom: 16px;
 }
 
-.shopping-list-content-header h1 {
+.shopping-list-content-identity {
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 max-content;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shopping-list-content-identity h1 {
   min-width: 0;
   margin: 0;
   color: var(--text-primary);
   font-size: 24px;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.shopping-list-store-filter {
+  width: min(240px, 100%);
+  min-width: 180px;
+  flex: 0 0 auto;
 }
 
 .shopping-list-content-marker,
@@ -241,7 +257,11 @@
     margin-bottom: 12px;
   }
 
-  .shopping-list-content-header h1 {
+  .shopping-list-content-identity {
+    gap: 10px;
+  }
+
+  .shopping-list-content-identity h1 {
     font-size: 22px;
   }
 

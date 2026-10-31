@@ -293,8 +293,12 @@ export function createSyncFeature({
         return { ...item, data: { shopping_list_id: data.shopping_list_id, item_id: data.item_id } };
       case 'DELETE_COMPLETED_SHOPPING_ITEMS':
         return { ...item, data: { shopping_list_id: data.shopping_list_id } };
-      case 'UPDATE_SHOPPING_PREFERENCES':
-        return { ...item, data: { shopping_list_id: data.shopping_list_id, changes: pickAllowed(changes, ['selected_store_id', 'hide_empty_sections']) } };
+      case 'UPDATE_SHOPPING_PREFERENCES': {
+        const preferenceChanges = pickAllowed(changes, ['hide_empty_sections']);
+        return Object.keys(preferenceChanges).length
+          ? { ...item, data: { shopping_list_id: data.shopping_list_id, changes: preferenceChanges } }
+          : null;
+      }
       default:
         return null;
     }
@@ -784,8 +788,8 @@ export function createSyncFeature({
         setProjects(nextProjects);
         setSections(nextSections);
         setWorkspaces(nextWorkspaces);
-        setShoppingLists(nextShoppingLists);
         setShoppingStores(nextShoppingStores);
+        setShoppingLists(nextShoppingLists);
         renderShopping();
       }
     } finally {

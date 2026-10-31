@@ -501,6 +501,18 @@ async function handleWsMessage(msg) {
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
       }
+      if (msg.shopping_stores) {
+        const queue = await dbGetAll('syncQueue');
+        const localStores = await dbGetAll('shoppingStores');
+        const nextShoppingStores = projectShoppingStoresSnapshot(msg.shopping_stores, localStores, queue);
+        const nextIds = new Set(nextShoppingStores.map(store => String(store.id)));
+        for (const localStore of localStores) {
+          if (!nextIds.has(String(localStore.id))) await deleteFromDB('shoppingStores', localStore.id);
+        }
+        await Promise.all(nextShoppingStores.map(store => dbPut('shoppingStores', store)));
+        setShoppingStores(nextShoppingStores);
+        renderShopping();
+      }
       if (msg.shopping_lists) {
         const queue = await dbGetAll('syncQueue');
         const localLists = await dbGetAll('shoppingLists');
@@ -511,18 +523,6 @@ async function handleWsMessage(msg) {
         }
         await Promise.all(shoppingLists.map(list => dbPut('shoppingLists', list)));
         setShoppingLists(shoppingLists);
-        renderShopping();
-      }
-      if (msg.shopping_stores) {
-        const queue = await dbGetAll('syncQueue');
-        const localStores = await dbGetAll('shoppingStores');
-        const shoppingStores = projectShoppingStoresSnapshot(msg.shopping_stores, localStores, queue);
-        const nextIds = new Set(shoppingStores.map(store => String(store.id)));
-        for (const localStore of localStores) {
-          if (!nextIds.has(String(localStore.id))) await deleteFromDB('shoppingStores', localStore.id);
-        }
-        await Promise.all(shoppingStores.map(store => dbPut('shoppingStores', store)));
-        setShoppingStores(shoppingStores);
         renderShopping();
       }
       if (msg.module_preferences) {

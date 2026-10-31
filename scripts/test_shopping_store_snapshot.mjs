@@ -46,16 +46,11 @@ const rewritten = rewriteShoppingQueueReferences([
     action: 'UPDATE_SHOPPING_ITEM',
     data: { changes: { store_ids: [1, 'temp-shopping-store-1'] } },
   },
-  {
-    action: 'UPDATE_SHOPPING_PREFERENCES',
-    data: { changes: { selected_store_id: 'temp-shopping-store-1' } },
-  },
 ], {
   storeIdFrom: 'temp-shopping-store-1',
   storeIdTo: 2,
 });
 assert.deepEqual(rewritten[0].data.item.store_ids, [2]);
 assert.deepEqual(rewritten[1].data.changes.store_ids, [1, 2]);
-assert.equal(rewritten[2].data.changes.selected_store_id, 2);
 
 console.log('✅ Shopping store snapshots and stable-ID references stay offline-safe');

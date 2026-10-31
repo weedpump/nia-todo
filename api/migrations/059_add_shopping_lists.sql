@@ -108,11 +108,9 @@ ON shopping_item_stores(shopping_item_id, sort_order, shopping_store_id);
 CREATE TABLE shopping_list_preferences (
     shopping_list_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
-    selected_store_id INTEGER,
     hide_empty_sections INTEGER NOT NULL DEFAULT 0 CHECK(hide_empty_sections IN (0, 1)),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (shopping_list_id, user_id),
     FOREIGN KEY (shopping_list_id) REFERENCES shopping_lists(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (selected_store_id) REFERENCES shopping_stores(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

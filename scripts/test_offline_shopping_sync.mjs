@@ -20,7 +20,7 @@ const serverList = {
   id: 7,
   name: 'Weekly',
   updated_at: '2026-10-28T16:00:00Z',
-  preferences: { hide_empty_sections: false, selected_store_id: null },
+  preferences: { hide_empty_sections: false },
   sections: [{ id: 10, shopping_list_id: 7, name: 'Produce', sort_order: 0 }],
   items: [{ id: 20, shopping_list_id: 7, section_id: 10, name: 'Milk', completed: false, stores: [] }],
 };
@@ -30,15 +30,19 @@ const queue = [
   { id: 2, action: 'CREATE_SHOPPING_SECTION', data: { shopping_list_id: 7, temp_id: 'temp-section-1', section: { name: 'Bakery', sort_order: 1 } } },
   { id: 5, action: 'UPDATE_SHOPPING_SECTION', data: { shopping_list_id: 7, section_id: 'temp-section-1', changes: { name: 'Bread' } } },
   { id: 3, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 7, temp_id: 'temp-item-1', item: { name: 'Bread', section_id: 'temp-section-1', store_ids: [2] } } },
-  { id: 4, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 7, changes: { selected_store_id: 2, hide_empty_sections: true } } },
+  { id: 4, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 7, changes: { hide_empty_sections: true } } },
 ];
 
 const projected = projectPendingShoppingChanges(serverList, queue);
 assert.equal(projected.items.find(item => item.id === 20).completed, true);
 assert.equal(projected.sections.find(section => section.id === 'temp-section-1').name, 'Bread');
 assert.equal(projected.items.find(item => item.id === 'temp-item-1').section_id, 'temp-section-1');
-assert.equal(projected.preferences.selected_store_id, 2);
 assert.equal(projected.preferences.hide_empty_sections, true);
+const legacyProjected = projectPendingShoppingChanges(serverList, [{
+  action: 'UPDATE_SHOPPING_PREFERENCES',
+  data: { shopping_list_id: 7, changes: { selected_store_id: 2 } },
+}]);
+assert.equal('selected_store_id' in legacyProjected.preferences, false, 'legacy store filters must not project into IndexedDB shopping-list snapshots');
 assert.equal(hasPendingShoppingChanges(queue, 7), true);
 assert.equal(queueItemReferencesShoppingList(queue[2], 7), true);
 assert.equal(projectPendingShoppingChanges(serverList, [{ action: 'DELETE_SHOPPING_LIST', data: { id: 7 } }]), null);
@@ -288,15 +292,24 @@ assert.equal(queueState.length, 0);
 assert.equal(shoppingState[0].sections.length, 0);
 assert.equal(shoppingState[0].items[0].section_id, null);
 
-queueState = [{ id: 13, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 70, changes: { selected_store_id: 999 } } }];
-shoppingState = [{ id: 70, name: 'Queued', sections: [], items: structuredClone(serverItems), preferences: { selected_store_id: 999 } }];
+let staleStorePreferenceCalls = 0;
+queueState = [{ id: 12, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 70, changes: { selected_store_id: 999 } } }];
+shoppingState = [{ id: 70, name: 'Queued', sections: [], items: structuredClone(serverItems), preferences: { hide_empty_sections: false } }];
+shoppingApi.updatePreferences = async () => { staleStorePreferenceCalls += 1; return {}; };
+const staleStorePreferenceResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
+assert.deepEqual(staleStorePreferenceResult, { successCount: 0, failCount: 0, skipped: false });
+assert.equal(staleStorePreferenceCalls, 0, 'legacy synchronized store-filter mutations must be discarded without contacting the server');
+assert.equal(queueState.length, 0, 'legacy synchronized store-filter mutations must be removed from the queue');
+
+queueState = [{ id: 13, action: 'UPDATE_SHOPPING_PREFERENCES', data: { shopping_list_id: 70, changes: { hide_empty_sections: true } } }];
+shoppingState = [{ id: 70, name: 'Queued', sections: [], items: structuredClone(serverItems), preferences: { hide_empty_sections: true } }];
 shoppingApi.updatePreferences = async () => { const error = new Error('invalid preference'); error.status = 422; throw error; };
-shoppingApi.getList = async id => ({ id, name: 'Queued', sections: [], items: structuredClone(serverItems), preferences: { selected_store_id: null } });
+shoppingApi.getList = async id => ({ id, name: 'Queued', sections: [], items: structuredClone(serverItems), preferences: { hide_empty_sections: false } });
 const recoveryResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
 assert.deepEqual(recoveryResult, { successCount: 1, failCount: 0, skipped: false });
 assert.equal(queueState.length, 0, 'permanently invalid mutation is removed from the queue');
 assert.equal(shoppingState.length, 1, 'validation recovery keeps the still-accessible list');
-assert.equal(shoppingState[0].preferences.selected_store_id, null, 'validation recovery restores authoritative preferences');
+assert.equal(shoppingState[0].preferences.hide_empty_sections, false, 'validation recovery restores authoritative preferences');
 
 let completedDeleteCalls = 0;
 queueState = [{ id: 27, action: 'DELETE_COMPLETED_SHOPPING_ITEMS', data: { shopping_list_id: 70 } }];

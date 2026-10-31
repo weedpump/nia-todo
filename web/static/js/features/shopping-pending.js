@@ -131,7 +131,12 @@ export function projectPendingShoppingChanges(serverList, queue = []) {
         projected.items = (projected.items || []).filter(item => !item.completed);
         break;
       case 'UPDATE_SHOPPING_PREFERENCES':
-        projected.preferences = { ...(projected.preferences || {}), ...clone(changes) };
+        if (Object.prototype.hasOwnProperty.call(changes, 'hide_empty_sections')) {
+          projected.preferences = {
+            ...(projected.preferences || {}),
+            hide_empty_sections: changes.hide_empty_sections === true,
+          };
+        }
         break;
       default:
         break;
@@ -181,7 +186,6 @@ export function rewriteShoppingQueueReferences(queue = [], {
       if (Array.isArray(data.changes?.store_ids)) {
         data.changes.store_ids = data.changes.store_ids.map(id => sameId(id, storeIdFrom) ? storeIdTo : id);
       }
-      if (sameId(data.changes?.selected_store_id, storeIdFrom)) data.changes.selected_store_id = storeIdTo;
     }
     return next;
   });

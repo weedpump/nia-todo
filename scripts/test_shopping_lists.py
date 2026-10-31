@@ -551,22 +551,17 @@ with tempfile.TemporaryDirectory() as tmp:
     owner_preferences = asyncio.run(
         update_shopping_preferences(
             household_id_value,
-            ShoppingPreferencesUpdate(
-                selected_store_id=rewe["id"],
-                hide_empty_sections=True,
-            ),
+            ShoppingPreferencesUpdate(hide_empty_sections=True),
             owner_id,
         )
     )
     assert owner_preferences == {
         "shopping_list_id": household_id_value,
         "user_id": owner_id,
-        "selected_store_id": rewe["id"],
         "hide_empty_sections": True,
     }, owner_preferences
 
     member_view = get_shopping_list(household_id_value, member_id)
-    assert member_view["preferences"]["selected_store_id"] is None, member_view
     assert member_view["preferences"]["hide_empty_sections"] is False, member_view
     assert "hide_completed" not in member_view["preferences"], member_view
     assert [section["id"] for section in member_view["sections"]] == [section_id], member_view
@@ -575,7 +570,7 @@ with tempfile.TemporaryDirectory() as tmp:
     with get_db() as db:
         owner_sync = get_sync_payload(db, owner_id)
     owner_sync_list = next(row for row in owner_sync["shopping_lists"] if row["id"] == household_id_value)
-    assert owner_sync_list["preferences"]["selected_store_id"] == rewe["id"], owner_sync_list
+    assert "selected_store_id" not in owner_sync_list["preferences"], owner_sync_list
     assert {item["id"] for item in owner_sync_list["items"]} == {milk["id"], unrestricted["id"]}, owner_sync_list
     assert {store["id"] for store in owner_sync["shopping_stores"]} == {
         owner_store["id"], other_owner_store["id"], rewe["id"]
@@ -585,7 +580,7 @@ with tempfile.TemporaryDirectory() as tmp:
     with get_db() as db:
         member_sync = get_sync_payload(db, member_id)
     member_sync_list = next(row for row in member_sync["shopping_lists"] if row["id"] == household_id_value)
-    assert member_sync_list["preferences"]["selected_store_id"] is None, member_sync_list
+    assert "selected_store_id" not in member_sync_list["preferences"], member_sync_list
     assert {store["id"] for store in member_sync["shopping_stores"]} == {rewe["id"], lidl["id"]}, member_sync
 
     asyncio.run(delete_shopping_store(lidl["id"], member_id))

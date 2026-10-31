@@ -4,14 +4,16 @@ import {
   renderEntitySidebarRow,
   renderEntitySidebarSection,
 } from './entity-sidebar.js';
-import { escapeHtml } from '../core/utils.js';
+import { escapeHtml, escapeHtmlAttr } from '../core/utils.js';
 import { iconSvg, markerHtml } from '../icons/lucide-icons.js';
 import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { getActiveLocale, t } from '../i18n/index.js';
 import { renderSectionCollection } from './section-ui.js';
 import { renderShoppingItem } from './shopping-items.js';
+import { closeOpenDropdown, hydrateSelect } from '../ui/dropdowns.js';
 
 export const SHOPPING_ACTIVE_LIST_KEY = 'nia-shopping-active-list';
+export const SHOPPING_STORE_FILTER_KEY_PREFIX = 'nia-shopping-store-filter:';
 
 function compareLists(left, right) {
   const leftOrder = Number.isFinite(Number(left?.sort_order)) ? Number(left.sort_order) : Number.MAX_SAFE_INTEGER;
@@ -22,6 +24,17 @@ function compareLists(left, right) {
 
 function openItemCount(list) {
   return (list?.items || []).filter(item => !item.completed).length;
+}
+
+function sameId(left, right) {
+  return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
+}
+
+function compareStores(left, right) {
+  const leftOrder = Number.isFinite(Number(left?.sort_order)) ? Number(left.sort_order) : Number.MAX_SAFE_INTEGER;
+  const rightOrder = Number.isFinite(Number(right?.sort_order)) ? Number(right.sort_order) : Number.MAX_SAFE_INTEGER;
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+  return String(left?.name || '').localeCompare(String(right?.name || '')) || String(left?.id || '').localeCompare(String(right?.id || ''));
 }
 
 export function resolveActiveShoppingListId(lists, storedId = null) {
@@ -73,6 +86,7 @@ export function renderShoppingSidebar({ lists = [], activeListId = null, labels 
 
 export function createShoppingNavigationFeature({
   getLists = () => [],
+  getStores = () => [],
   setLists = null,
   root = document,
   getElementById = id => document.getElementById(id),
@@ -122,6 +136,64 @@ export function createShoppingNavigationFeature({
     }
   }
 
+  function storeFilterKey(list) {
+    const identity = list?.client_mutation_id ?? list?.id;
+    return identity == null ? null : `${SHOPPING_STORE_FILTER_KEY_PREFIX}${identity}`;
+  }
+
+  function activeStores() {
+    return [...(getStores() || [])].filter(store => store?.active !== false).sort(compareStores);
+  }
+
+  function storeFilterForList(list, stores = activeStores()) {
+    const key = storeFilterKey(list);
+    if (!key) return null;
+    let storedId = null;
+    try {
+      storedId = storage?.getItem?.(key) || null;
+    } catch {
+      return null;
+    }
+    if (storedId == null) return null;
+    const store = stores.find(candidate => sameId(candidate.id, storedId) || sameId(candidate.client_mutation_id, storedId));
+    if (!store) {
+      if ((getStores() || []).length === 0) return storedId;
+      try {
+        storage?.removeItem?.(key);
+      } catch {
+        // Keep rendering without a filter when localStorage cleanup fails.
+      }
+      return null;
+    }
+    if (!sameId(store.id, storedId)) {
+      try {
+        storage?.setItem?.(key, String(store.id));
+      } catch {
+        // The resolved filter remains usable for this render.
+      }
+    }
+    return store.id;
+  }
+
+  function setStoreFilter(value) {
+    const list = lists().find(candidate => sameId(candidate.id, activeListId));
+    if (!list) return null;
+    const stores = activeStores();
+    const selected = value === undefined || value === null || String(value) === ''
+      ? null
+      : stores.find(store => sameId(store.id, value) || sameId(store.client_mutation_id, value)) || null;
+    if (value !== undefined && value !== null && String(value) !== '' && !selected) return storeFilterForList(list, stores);
+    const key = storeFilterKey(list);
+    try {
+      if (selected) storage?.setItem?.(key, String(selected.id));
+      else storage?.removeItem?.(key);
+    } catch {
+      // A localStorage failure must not enter any durable or synchronized path.
+    }
+    renderMain();
+    return selected?.id ?? null;
+  }
+
   function listIdFromNavigation(event = null) {
     if (event?.state?.niaShoppingList === true) return event.state.shoppingListId;
     if (historyTarget?.state?.niaShoppingList === true) return historyTarget.state.shoppingListId;
@@ -150,6 +222,8 @@ export function createShoppingNavigationFeature({
   function renderMain() {
     const main = getElementById('shopping-navigation-main');
     if (!main) return;
+    const previousStoreSelect = getElementById('shopping-store-filter');
+    if (previousStoreSelect?.nextElementSibling?.classList?.contains('is-open')) closeOpenDropdown('rerender');
     const selected = lists().find(list => String(list.id) === String(activeListId));
     if (!selected) {
       itemController?.bindRoot?.(null);
@@ -165,10 +239,20 @@ export function createShoppingNavigationFeature({
     }
     const sections = Array.isArray(selected.sections) ? selected.sections : [];
     const items = Array.isArray(selected.items) ? selected.items : [];
+    const stores = activeStores();
+    const storedStoreId = storeFilterForList(selected, stores);
+    const selectedStore = stores.find(store => sameId(store.id, storedStoreId)) || null;
+    const selectedStoreId = selectedStore?.id ?? null;
+    const marketItems = selectedStoreId == null
+      ? items
+      : items.filter(item => {
+        const storeIds = Array.isArray(item.store_ids) ? item.store_ids : [];
+        return storeIds.some(storeId => sameId(storeId, selectedStoreId) || sameId(storeId, selectedStore?.client_mutation_id));
+      });
     const search = normalizedSearch(searchQuery);
     const visibleItems = search
-      ? items.filter(item => normalizedSearch(item.name).includes(search))
-      : items;
+      ? marketItems.filter(item => normalizedSearch(item.name).includes(search))
+      : marketItems;
     const hideEmptySections = selected.preferences?.hide_empty_sections === true;
     const visibleSections = hideEmptySections || search
       ? sections.filter(section => visibleItems.some(item => String(item.section_id) === String(section.id)))
@@ -199,24 +283,44 @@ export function createShoppingNavigationFeature({
       showUnsorted: hasUnsortedItems,
     });
     main.dataset.shoppingNavigationState = 'selected';
-    main.dataset.shoppingContentState = hasSectionContent ? 'populated' : (search ? 'search-empty' : 'empty');
+    const emptyContentState = search ? 'search-empty' : (selectedStoreId != null ? 'filter-empty' : 'empty');
+    main.dataset.shoppingContentState = hasSectionContent ? 'populated' : emptyContentState;
     main.className = 'module-page shopping-list-content-page';
+    const storeOptions = stores.map(store => `
+      <option value="${escapeHtmlAttr(store.id)}" ${sameId(store.id, selectedStoreId) ? 'selected' : ''}>${escapeHtml(store.name || '')}</option>
+    `).join('');
     main.innerHTML = `
       <header class="shopping-list-content-header">
-        <span class="shopping-list-content-marker" aria-hidden="true">${markerHtml(selected)}</span>
-        <h1>${escapeHtml(selected.name || '')}</h1>
+        <div class="shopping-list-content-identity">
+          <span class="shopping-list-content-marker" aria-hidden="true">${markerHtml(selected)}</span>
+          <h1>${escapeHtml(selected.name || '')}</h1>
+        </div>
+        <div class="shopping-list-store-filter">
+          <label class="visually-hidden" for="shopping-store-filter">${escapeHtml(t('shopping.filter.store.label'))}</label>
+          <select id="shopping-store-filter" data-ui-select>
+            <option value="" ${selectedStoreId == null ? 'selected' : ''}>${escapeHtml(t('shopping.filter.store.all'))}</option>
+            ${storeOptions}
+          </select>
+        </div>
       </header>
       <div class="shopping-list-content-body" data-section-root="shopping">
         ${sectionHtml}
         ${hasSectionContent ? '' : `
-          <div class="empty-state ${search ? 'shopping-search-empty-state' : 'shopping-list-empty-state'}">
-            <div class="emoji" aria-hidden="true">${iconSvg(search ? 'search' : 'shopping-cart')}</div>
-            <h3>${escapeHtml(t(search ? 'shopping.search.empty' : 'shopping.list.emptyTitle'))}</h3>
-            ${search ? '' : `<p>${escapeHtml(t('shopping.list.emptyHint'))}</p>`}
+          <div class="empty-state ${search ? 'shopping-search-empty-state' : (selectedStoreId != null ? 'shopping-store-filter-empty-state' : 'shopping-list-empty-state')}">
+            <div class="emoji" aria-hidden="true">${iconSvg(search ? 'search' : (selectedStoreId != null ? 'store' : 'shopping-cart'))}</div>
+            <h3>${escapeHtml(t(search ? 'shopping.search.empty' : (selectedStoreId != null ? 'shopping.filter.store.empty' : 'shopping.list.emptyTitle')))}</h3>
+            ${search || selectedStoreId != null ? '' : `<p>${escapeHtml(t('shopping.list.emptyHint'))}</p>`}
           </div>
         `}
       </div>
     `;
+    const storeSelect = getElementById('shopping-store-filter');
+    if (storeSelect) {
+      storeSelect.addEventListener('change', () => {
+        setStoreFilter(storeSelect.value);
+      });
+      hydrateSelect(storeSelect);
+    }
     const nextSectionRoot = main.querySelector?.('[data-section-root="shopping"]') || null;
     if (registeredSectionRoot && registeredSectionRoot !== nextSectionRoot) sectionRegistry?.unregister?.(registeredSectionRoot);
     if (nextSectionRoot && sectionAdapter) sectionRegistry?.register?.(nextSectionRoot, sectionAdapter);
@@ -350,9 +454,14 @@ export function createShoppingNavigationFeature({
     replaceLists,
     setSearchQuery,
     selectList,
+    setStoreFilter,
     normalizeActiveListNavigation,
     focusActiveListAction,
     getActiveListId: () => activeListId,
+    getStoreFilter: () => {
+      const list = lists().find(candidate => sameId(candidate.id, activeListId));
+      return list ? storeFilterForList(list) : null;
+    },
     destroy() {
       binding?.destroy?.();
       eventTarget?.removeEventListener?.('popstate', handlePopState);

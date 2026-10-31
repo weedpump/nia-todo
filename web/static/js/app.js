@@ -822,6 +822,7 @@ const shoppingItemsController = createShoppingItemsController({
 shoppingSectionsAdapter.itemDrag = shoppingItemsController.dragAdapter;
 shoppingNavigationFeature = createShoppingNavigationFeature({
   getLists: () => shoppingLists,
+  getStores: () => shoppingStores,
   closeSidebar: options => uiShell.closeSidebar(options),
   onAdd: () => window.dispatchEvent(new CustomEvent('nia:shopping-list-add-request')),
   onDetail: id => window.dispatchEvent(new CustomEvent('nia:shopping-list-detail-request', { detail: { id } })),

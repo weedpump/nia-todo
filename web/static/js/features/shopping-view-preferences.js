@@ -59,7 +59,6 @@ export function createShoppingViewPreferencesFeature({
         if (!live) return null;
         const preferences = live.preferences || {};
         const changes = {
-          selected_store_id: preferences.selected_store_id ?? null,
           hide_empty_sections: preferences.hide_empty_sections !== true,
         };
         return {

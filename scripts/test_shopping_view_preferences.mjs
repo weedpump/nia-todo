@@ -28,7 +28,7 @@ const viewer = createHarness([{
   id: 'list-1',
   can_edit: false,
   can_manage: false,
-  preferences: { selected_store_id: 'store-7', hide_empty_sections: false },
+  preferences: { hide_empty_sections: false },
   sections: [],
   items: [],
 }]);
@@ -37,16 +37,16 @@ assert.equal(updated.preferences.hide_empty_sections, true, 'every authorized li
 assert.deepEqual(viewer.events, ['commit', 'publish'], 'memory and UI publish only after the durable mutation commits');
 assert.deepEqual(viewer.commits[0].data, {
   shopping_list_id: 'list-1',
-  changes: { selected_store_id: 'store-7', hide_empty_sections: true },
-}, 'the PUT-shaped queue mutation must preserve every neighboring preference field');
+  changes: { hide_empty_sections: true },
+}, 'the synced preference mutation must contain only the server-backed hide-empty setting');
 assert.equal(viewer.commits[0].action, 'UPDATE_SHOPPING_PREFERENCES');
-assert.equal(viewer.getLists()[0].preferences.selected_store_id, 'store-7');
+assert.equal('selected_store_id' in viewer.getLists()[0].preferences, false, 'the device-local store filter must never enter synchronized preferences');
 assert.equal(viewer.getRenderCount(), 1);
 
 const temp = createHarness([{
   id: 'server-list-1',
   client_mutation_id: 'temp-list-1',
-  preferences: { selected_store_id: null, hide_empty_sections: true },
+  preferences: { hide_empty_sections: true },
   sections: [],
   items: [],
 }]);
@@ -56,7 +56,7 @@ assert.equal(temp.commits[0].data.changes.hide_empty_sections, false);
 
 let queuedLists = [{
   id: 'list-queued',
-  preferences: { selected_store_id: null, hide_empty_sections: false },
+  preferences: { hide_empty_sections: false },
   sections: [],
   items: [],
 }];
@@ -91,7 +91,7 @@ assert.equal(queuedLists[0].preferences.hide_empty_sections, false, 'two rapid t
 
 let delayedLists = [{
   id: 'list-race',
-  preferences: { selected_store_id: 'store-before', hide_empty_sections: false },
+  preferences: { hide_empty_sections: false },
   sections: [],
   items: [],
 }];
@@ -112,14 +112,14 @@ const raceFeature = createShoppingViewPreferencesFeature({
 });
 const pendingRace = raceFeature.toggleHideEmptySections();
 await commitReached;
-delayedLists = delayedLists.map(list => ({ ...list, preferences: { ...list.preferences, selected_store_id: 'store-after' } }));
+delayedLists = delayedLists.map(list => ({ ...list, preferences: { ...list.preferences, hide_empty_sections: true } }));
 releaseCommit();
 await pendingRace;
-assert.equal(raceMutation.data.changes.selected_store_id, 'store-after', 'the mutation builder must re-read adjacent preferences after waiting for the queue-writer gate');
+assert.equal(raceMutation.data.changes.hide_empty_sections, false, 'the mutation builder must re-read the live preference after waiting for the queue-writer gate');
 
 let failedLists = [{
   id: 'list-failure',
-  preferences: { selected_store_id: null, hide_empty_sections: false },
+  preferences: { hide_empty_sections: false },
   sections: [],
   items: [],
 }];

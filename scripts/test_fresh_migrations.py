@@ -118,7 +118,8 @@ def main():
             assert {"name", "owner_user_id", "owner_household_id", "active", "client_mutation_id"}.issubset(shopping_store_columns), shopping_store_columns
             assert {"shopping_list_id", "section_id", "name", "quantity_value", "quantity_unit", "completed", "client_mutation_id"}.issubset(shopping_item_columns), shopping_item_columns
             assert {"shopping_item_id", "shopping_store_id", "sort_order"}.issubset(shopping_item_store_columns), shopping_item_store_columns
-            assert {"shopping_list_id", "user_id", "selected_store_id", "hide_empty_sections"}.issubset(shopping_preference_columns), shopping_preference_columns
+            assert {"shopping_list_id", "user_id", "hide_empty_sections"}.issubset(shopping_preference_columns), shopping_preference_columns
+            assert "selected_store_id" not in shopping_preference_columns, shopping_preference_columns
             assert "markets_json" not in shopping_item_columns, shopping_item_columns
             assert "quantity_text" not in shopping_item_columns, shopping_item_columns
             assert "hide_completed" not in shopping_preference_columns, shopping_preference_columns
@@ -139,6 +140,28 @@ def main():
             assert ("shopping_lists", "shopping_list_id", "id", "CASCADE") in item_foreign_keys, item_foreign_keys
             assert ("shopping_sections", "section_id", "id", "SET NULL") in item_foreign_keys, item_foreign_keys
             assert ("shopping_stores", "shopping_store_id", "id", "CASCADE") in item_store_foreign_keys, item_store_foreign_keys
+
+        with sqlite3.connect(db_path) as db:
+            db.execute("ALTER TABLE shopping_list_preferences ADD COLUMN selected_store_id INTEGER")
+            db.execute("UPDATE schema_version SET version = 59")
+            db.commit()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, 'api'); from migrate import run_migrations; run_migrations()",
+            ],
+            cwd=BASE,
+            env=env,
+            check=True,
+        )
+
+        with sqlite3.connect(db_path) as db:
+            version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
+            assert version == latest, (version, latest)
+            shopping_preference_columns = {row[1] for row in db.execute("PRAGMA table_info(shopping_list_preferences)")}
+            assert "selected_store_id" not in shopping_preference_columns, shopping_preference_columns
 
         with sqlite3.connect(db_path) as db:
             db.execute("DROP TABLE dashboard_preferences")

@@ -40,7 +40,7 @@ export function createOptimisticShoppingList({
     is_shared: false,
     sections: [],
     items: [],
-    preferences: { selected_store_id: null, hide_empty_sections: false },
+    preferences: { hide_empty_sections: false },
     is_pending: true,
     client_mutation_id: id,
   };

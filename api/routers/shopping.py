@@ -102,7 +102,6 @@ class ShoppingItemUpdate(BaseModel):
 
 
 class ShoppingPreferencesUpdate(BaseModel):
-    selected_store_id: Optional[int] = None
     hide_empty_sections: bool = False
 
 
@@ -279,7 +278,6 @@ def _preference_view(shopping_list_id: int, user_id: int, row=None) -> dict:
     return {
         "shopping_list_id": shopping_list_id,
         "user_id": user_id,
-        "selected_store_id": row["selected_store_id"] if row else None,
         "hide_empty_sections": bool(row["hide_empty_sections"]) if row else False,
     }
 
@@ -929,21 +927,16 @@ async def update_shopping_preferences(
 ):
     with get_db() as db:
         _permissions_for_list(db, shopping_list_id, user_id)
-        selected_store_id = data.selected_store_id
-        if selected_store_id is not None:
-            selected_store_id = _normalize_store_ids(db, user_id, [selected_store_id])[0]
         db.execute(
             """INSERT INTO shopping_list_preferences
-               (shopping_list_id, user_id, selected_store_id, hide_empty_sections, updated_at)
-               VALUES (?, ?, ?, ?, ?)
+               (shopping_list_id, user_id, hide_empty_sections, updated_at)
+               VALUES (?, ?, ?, ?)
                ON CONFLICT(shopping_list_id, user_id) DO UPDATE SET
-                   selected_store_id = excluded.selected_store_id,
                    hide_empty_sections = excluded.hide_empty_sections,
                    updated_at = excluded.updated_at""",
             (
                 shopping_list_id,
                 user_id,
-                selected_store_id,
                 int(data.hide_empty_sections),
                 now_iso(),
             ),

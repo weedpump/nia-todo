@@ -85,7 +85,7 @@ assert.deepEqual(partialReorder.list.sections.map(section => [section.id, Boolea
 lists = [{
   id: 'list-1',
   can_manage: true,
-  preferences: { selected_store_id: null, hide_empty_sections: true },
+  preferences: { hide_empty_sections: true },
   sections: [
     { id: 'hidden-1', name: 'Hidden 1', sort_order: 0 },
     { id: 'visible-a', name: 'Visible A', sort_order: 1 },
