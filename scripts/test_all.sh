@@ -145,6 +145,7 @@ run_step "Shared Select Actions" node scripts/test_ui_select_actions.mjs
 run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
 run_step "Shopping Sections" node scripts/test_shopping_sections.mjs
 run_step "Shopping View Preferences" node scripts/test_shopping_view_preferences.mjs
+run_step "Shopping Stores" node scripts/test_shopping_stores.mjs
 run_step "Shopping Items" node scripts/test_shopping_items.mjs
 run_step "Shopping Item Editor Browser" node scripts/test_frontend_shopping_item_create.mjs
 run_step "Shopping List Content Browser" node scripts/test_frontend_shopping_content.mjs

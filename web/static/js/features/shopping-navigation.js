@@ -10,6 +10,7 @@ import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { getActiveLocale, t } from '../i18n/index.js';
 import { renderSectionCollection } from './section-ui.js';
 import { renderShoppingItem } from './shopping-items.js';
+import { bindShoppingStoreCreator, renderShoppingStoreCreator } from './shopping-store-creator.js';
 import { closeOpenDropdown, hydrateSelect } from '../ui/dropdowns.js';
 
 export const SHOPPING_ACTIVE_LIST_KEY = 'nia-shopping-active-list';
@@ -102,6 +103,7 @@ export function createShoppingNavigationFeature({
   sectionRegistry = null,
   sectionAdapter = null,
   itemController = null,
+  storeController = null,
 } = {}) {
   let localLists = null;
   let activeListId = null;
@@ -109,6 +111,7 @@ export function createShoppingNavigationFeature({
   let binding = null;
   let applyingHistory = false;
   let registeredSectionRoot = null;
+  let storeCreator = null;
   let searchQuery = '';
 
   function normalizedSearch(value) {
@@ -175,8 +178,15 @@ export function createShoppingNavigationFeature({
     return store.id;
   }
 
-  function setStoreFilter(value) {
-    const list = lists().find(candidate => sameId(candidate.id, activeListId));
+  function sameList(left, right) {
+    if (!left || !right) return false;
+    return sameId(left.id, right.id)
+      || sameId(left.client_mutation_id, right.id)
+      || sameId(left.id, right.client_mutation_id)
+      || sameId(left.client_mutation_id, right.client_mutation_id);
+  }
+
+  function setStoreFilterForList(list, value) {
     if (!list) return null;
     const stores = activeStores();
     const selected = value === undefined || value === null || String(value) === ''
@@ -190,8 +200,14 @@ export function createShoppingNavigationFeature({
     } catch {
       // A localStorage failure must not enter any durable or synchronized path.
     }
-    renderMain();
+    const activeList = lists().find(candidate => sameId(candidate.id, activeListId));
+    if (sameList(activeList, list)) renderMain();
     return selected?.id ?? null;
+  }
+
+  function setStoreFilter(value) {
+    const list = lists().find(candidate => sameId(candidate.id, activeListId));
+    return setStoreFilterForList(list, value);
   }
 
   function listIdFromNavigation(event = null) {
@@ -222,6 +238,8 @@ export function createShoppingNavigationFeature({
   function renderMain() {
     const main = getElementById('shopping-navigation-main');
     if (!main) return;
+    storeCreator?.destroy?.();
+    storeCreator = null;
     const previousStoreSelect = getElementById('shopping-store-filter');
     if (previousStoreSelect?.nextElementSibling?.classList?.contains('is-open')) closeOpenDropdown('rerender');
     const selected = lists().find(list => String(list.id) === String(activeListId));
@@ -302,6 +320,7 @@ export function createShoppingNavigationFeature({
             ${storeOptions}
           </select>
         </div>
+        ${renderShoppingStoreCreator({ prefix: 'shopping-filter-store', className: 'shopping-list-store-creator' })}
       </header>
       <div class="shopping-list-content-body" data-section-root="shopping">
         ${sectionHtml}
@@ -316,10 +335,25 @@ export function createShoppingNavigationFeature({
     `;
     const storeSelect = getElementById('shopping-store-filter');
     if (storeSelect) {
+      storeCreator = bindShoppingStoreCreator({
+        document: root,
+        prefix: 'shopping-filter-store',
+        selectId: 'shopping-store-filter',
+        storeController,
+        getContext: () => ({ id: selected.id, client_mutation_id: selected.client_mutation_id }),
+        onCreated: (store, list) => setStoreFilterForList(list, store.client_mutation_id ?? store.id),
+      });
       storeSelect.addEventListener('change', () => {
         setStoreFilter(storeSelect.value);
       });
-      hydrateSelect(storeSelect);
+      hydrateSelect(storeSelect, {
+        action: {
+          label: t('shopping.item.store.add'),
+          ariaLabel: t('shopping.item.store.add'),
+          icon: 'plus',
+          onActivate: () => storeCreator?.show?.(),
+        },
+      });
     }
     const nextSectionRoot = main.querySelector?.('[data-section-root="shopping"]') || null;
     if (registeredSectionRoot && registeredSectionRoot !== nextSectionRoot) sectionRegistry?.unregister?.(registeredSectionRoot);
@@ -433,6 +467,10 @@ export function createShoppingNavigationFeature({
     applyingHistory = false;
   }
 
+  function handleLanguageChange() {
+    renderMain();
+  }
+
   function bind() {
     if (bound) return;
     bound = true;
@@ -445,6 +483,7 @@ export function createShoppingNavigationFeature({
       closeSidebar,
     });
     eventTarget?.addEventListener?.('popstate', handlePopState);
+    eventTarget?.addEventListener?.('nia-language-change', handleLanguageChange);
   }
 
   return {
@@ -465,6 +504,9 @@ export function createShoppingNavigationFeature({
     destroy() {
       binding?.destroy?.();
       eventTarget?.removeEventListener?.('popstate', handlePopState);
+      eventTarget?.removeEventListener?.('nia-language-change', handleLanguageChange);
+      storeCreator?.destroy?.();
+      storeCreator = null;
       itemController?.bindRoot?.(null);
       binding = null;
       bound = false;

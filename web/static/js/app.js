@@ -41,6 +41,7 @@ import { createNavigationFeature } from './features/navigation.js';
 import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
 import { createShoppingItemsController } from './features/shopping-items.js';
 import { createShoppingItemEditorFeature } from './features/shopping-item-editor.js';
+import { createShoppingStoresController } from './features/shopping-stores.js';
 import { createShoppingListDetailsFeature } from './features/shopping-list-details.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createSectionRootRegistry } from './features/section-ui.js';
@@ -820,6 +821,14 @@ const shoppingItemsController = createShoppingItemsController({
   onEdit: (listId, itemId, triggerElement) => shoppingItemEditorFeature?.showEdit?.(listId, itemId, triggerElement),
 });
 shoppingSectionsAdapter.itemDrag = shoppingItemsController.dragAdapter;
+const shoppingStoresController = createShoppingStoresController({
+  getStores: () => shoppingStores,
+  setStores: setShoppingStoresState,
+  commitMutation: commitShoppingMutation,
+  isOnlineForSync,
+  syncWithServer,
+  onError: error => console.error('Shopping store mutation failed', error),
+});
 shoppingNavigationFeature = createShoppingNavigationFeature({
   getLists: () => shoppingLists,
   getStores: () => shoppingStores,
@@ -831,6 +840,7 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
   sectionRegistry,
   sectionAdapter: shoppingSectionsAdapter,
   itemController: shoppingItemsController,
+  storeController: shoppingStoresController,
 });
 shoppingNavigationFeature.bind();
 shoppingViewPreferencesFeature = createShoppingViewPreferencesFeature({
@@ -858,12 +868,9 @@ shoppingItemEditorFeature = createShoppingItemEditorFeature({
   getLists: () => shoppingLists,
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
   getStores: () => shoppingStores,
-  setStores: setShoppingStoresState,
-  commitMutation: commitShoppingMutation,
+  storeController: shoppingStoresController,
   itemController: shoppingItemsController,
   confirmDanger,
-  isOnlineForSync,
-  syncWithServer,
   onError: error => console.error('Shopping item editor failed', error),
 });
 shoppingItemEditorFeature.bind();

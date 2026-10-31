@@ -9,6 +9,7 @@ assert(!moduleContentCss.includes('.shopping-section-'), 'Shopping must not crea
 const fixtureSource = `
   import { createShoppingNavigationFeature } from '/static/js/features/shopping-navigation.js';
   import { createShoppingItemsController } from '/static/js/features/shopping-items.js';
+  import { createShoppingStoresController } from '/static/js/features/shopping-stores.js';
   import { initI18n, setLanguagePreference } from '/static/js/i18n/index.js';
 
   localStorage.setItem('nia-todo-language', 'de');
@@ -61,12 +62,32 @@ const fixtureSource = `
   \`;
   let navigation;
   let mutationCommits = 0;
+  let storeSequence = 0;
+  let deferredStoreCommit = null;
+  const mutations = [];
   const itemController = createShoppingItemsController({
     getLists: () => lists,
     setLists: next => { lists = next; },
     getActiveListId: () => navigation?.getActiveListId?.(),
-    commitMutation: async build => { mutationCommits += 1; return build(); },
+    commitMutation: async build => {
+      mutationCommits += 1;
+      const mutation = build();
+      if (mutation) mutations.push(structuredClone(mutation));
+      return mutation;
+    },
     render: () => navigation?.render?.(),
+  });
+  const storeController = createShoppingStoresController({
+    getStores: () => stores,
+    setStores: next => { stores = structuredClone(next); navigation?.render(); },
+    commitMutation: async build => {
+      if (deferredStoreCommit) await deferredStoreCommit.promise;
+      mutationCommits += 1;
+      const mutation = build();
+      if (mutation) mutations.push(structuredClone(mutation));
+      return mutation;
+    },
+    createTempId: () => 'temp-store-filter-created-' + (++storeSequence),
   });
   navigation = createShoppingNavigationFeature({
     getLists: () => lists, root: document,
@@ -75,6 +96,7 @@ const fixtureSource = `
     storage: localStorage, historyTarget: history, locationTarget: location, eventTarget: window,
     closeSidebar: () => false, onAdd: () => {}, onDetail: () => {},
     itemController,
+    storeController,
   });
   navigation.bind();
   navigation.render();
@@ -84,9 +106,19 @@ const fixtureSource = `
       lists = lists.map(list => String(list.id) === String(navigation.getActiveListId()) ? { ...list, name } : list);
       navigation.replaceLists(lists);
     },
-    setLanguage: async language => { await setLanguagePreference(language); navigation.render(); },
+    setLanguage: async language => { await setLanguagePreference(language); },
     setSearch: value => navigation.setSearchQuery(value),
     mutationCommits: () => mutationCommits,
+    mutations: () => structuredClone(mutations),
+    deferStoreCommit: () => {
+      let release;
+      const promise = new Promise(resolve => { release = resolve; });
+      deferredStoreCommit = { promise, release };
+    },
+    releaseStoreCommit: () => {
+      deferredStoreCommit?.release();
+      deferredStoreCommit = null;
+    },
     storeFilter: () => navigation.getStoreFilter(),
     setStores: next => { stores = structuredClone(next); navigation.render(); },
     stores: () => structuredClone(stores),
@@ -204,6 +236,43 @@ try {
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
   await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'Alle Supermärkte' }).click();
   assert.equal(await main.locator('.shopping-item-card').count(), 3, 'the all-stores selection must restore the complete list');
+  const commitsBeforeStoreCreate = await page.evaluate(() => window.test.mutationCommits());
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  const addStoreAction = page.locator('#shopping-store-filter-ui-menu .ui-select-action');
+  assert.equal((await addStoreAction.textContent()).trim(), 'Supermarkt hinzufügen');
+  await addStoreAction.click();
+  const filterStoreName = page.locator('#shopping-filter-store-new-store-name');
+  assert.equal(await filterStoreName.isVisible(), true);
+  assert.equal(await filterStoreName.evaluate(element => document.activeElement === element), true, 'the filter dropdown action must focus the shared inline store creator');
+  await filterStoreName.fill('PENNY');
+  await page.locator('[data-shopping-store-creator="shopping-filter-store"][data-shopping-store-creator-action="save"]').click();
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), 'temp-store-filter-created-1', 'a newly created store must become the active device-local filter');
+  assert.equal(await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').evaluate(element => document.activeElement === element), true, 'successful store creation restores focus to the current-list store select');
+  assert.equal(await page.evaluate(() => window.test.mutationCommits()), commitsBeforeStoreCreate + 1, 'store creation must use exactly one durable mutation');
+  assert.equal((await page.evaluate(() => window.test.mutations().at(-1).action)), 'CREATE_SHOPPING_STORE');
+  assert.equal(await main.getAttribute('data-shopping-content-state'), 'filter-empty');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'Alle Supermärkte' }).click();
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-action').click();
+  await page.locator('#shopping-filter-store-new-store-name').fill('NETTO');
+  await page.evaluate(() => window.test.deferStoreCommit());
+  await page.locator('[data-shopping-store-creator="shopping-filter-store"][data-shopping-store-creator-action="save"]').click();
+  await page.evaluate(() => window.test.select(5));
+  await page.evaluate(() => window.test.releaseStoreCommit());
+  await page.waitForFunction(() => window.test.stores().some(store => store.name === 'NETTO'));
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-shopping-store-filter:4')), 'temp-store-filter-created-2', 'a delayed create must retain the list that opened the creator');
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-shopping-store-filter:5')), null, 'a delayed create must not overwrite the newly active list filter');
+  assert.equal(await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').evaluate(element => document.activeElement === element), true, 'a delayed create restores focus to the currently rendered store select');
+  await page.evaluate(() => window.test.setLanguage('en'));
+  assert.equal((await page.locator('#shopping-store-filter option').first().textContent()).trim(), 'All stores', 'the current-list filter must follow the production language-change event');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  assert.equal((await page.locator('#shopping-store-filter-ui-menu .ui-select-action').textContent()).trim(), 'Add store');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').press('Escape');
+  await page.evaluate(() => window.test.setLanguage('de'));
+  await page.evaluate(() => window.test.select(4));
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'Alle Supermärkte' }).click();
   await page.evaluate(() => window.test.select(5));
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
   await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'LIDL' }).click();
@@ -352,6 +421,19 @@ try {
   assert(mobile.sectionWidth > 100);
   assert(mobile.filterTop >= mobile.titleBottom - 0.5, 'the current-list filter must wrap below a long title instead of crushing it');
   assert(mobile.filterWidth >= 160, 'the existing dropdown must retain a usable mobile width');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-action').click();
+  const mobileCreator = await page.locator('#shopping-filter-store-new-store').evaluate(element => ({
+    fitsViewport: document.documentElement.scrollWidth <= innerWidth,
+    width: element.getBoundingClientRect().width,
+    columns: getComputedStyle(element.querySelector('.shopping-store-creator-row')).gridTemplateColumns,
+    buttonWidth: element.querySelector('button').getBoundingClientRect().width,
+  }));
+  assert.equal(mobileCreator.fitsViewport, true);
+  assert(mobileCreator.width > 200);
+  assert.equal(mobileCreator.columns.split(' ').length, 1, 'the shared store creator must stack on narrow screens');
+  assert(mobileCreator.buttonWidth > 200, 'the shared store creator actions must remain easy to tap');
+  await page.locator('[data-shopping-store-creator="shopping-filter-store"][data-shopping-store-creator-action="cancel"]').click();
   await page.evaluate(() => window.test.select(3));
   const itemMobile = await page.locator('#shopping-navigation-main .shopping-item-card').first().evaluate(element => ({
     fitsViewport: document.documentElement.scrollWidth <= innerWidth,

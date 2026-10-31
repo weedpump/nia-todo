@@ -20,6 +20,7 @@ const fixtureSource = `
   import { createShoppingItemsController } from '/static/js/features/shopping-items.js';
   import { createShoppingItemEditorFeature } from '/static/js/features/shopping-item-editor.js';
   import { createShoppingNavigationFeature } from '/static/js/features/shopping-navigation.js';
+  import { createShoppingStoresController } from '/static/js/features/shopping-stores.js';
 
   localStorage.setItem('nia-todo-language', 'de');
   await initI18n();
@@ -66,17 +67,21 @@ const fixtureSource = `
   navigation.bind();
   navigation.replaceLists(lists);
   navigation.selectList(activeListId, { updateNavigation: false });
+  const storeController = createShoppingStoresController({
+    getStores: () => stores,
+    setStores: next => { stores = next; },
+    commitMutation,
+    createTempId: () => 'temp-shopping-store-browser',
+  });
   editor = createShoppingItemEditorFeature({
     document,
     eventTarget: window,
     getLists: () => lists,
     getActiveListId: () => activeListId,
     getStores: () => stores,
-    setStores: next => { stores = next; },
-    commitMutation,
+    storeController,
     itemController,
     confirmDanger: async () => { confirmations += 1; return true; },
-    createStoreTempId: () => 'temp-shopping-store-browser',
   });
   editor.bind();
   document.body.insertAdjacentHTML('beforeend', SHOPPING_DIALOGS_HTML);
@@ -167,8 +172,9 @@ try {
   assert.equal(await storeName.isVisible(), true);
   assert.equal(await storeName.evaluate(element => document.activeElement === element), true, 'store action moves focus into the inline store form');
   await storeName.fill('REWE');
-  await page.locator('[data-shopping-item-create-action="save-store"]').click();
+  await page.locator('[data-shopping-store-creator="shopping-item"][data-shopping-store-creator-action="save"]').click();
   assert.equal(await page.locator('#shopping-item-store').inputValue(), 'temp-shopping-store-browser');
+  assert.equal(await storeTrigger.evaluate(element => document.activeElement === element), true, 'successful store creation restores focus to the item store select');
   assert.deepEqual(await page.evaluate(() => window.test.stores().map(store => [store.id, store.name, store.is_pending])), [['temp-shopping-store-browser', 'REWE', true]]);
   assert.equal(await page.evaluate(() => window.test.commits()[0].action), 'CREATE_SHOPPING_STORE');
 
@@ -244,7 +250,7 @@ try {
   await addStoreAction.click();
   await storeName.fill('Aldi');
   await page.evaluate(() => window.test.deferNextCommit());
-  await page.locator('[data-shopping-item-create-action="save-store"]').click();
+  await page.locator('[data-shopping-store-creator="shopping-item"][data-shopping-store-creator-action="save"]').click();
   await page.evaluate(() => window.test.setActive(2));
   await page.evaluate(() => window.test.releaseCommit());
   await page.waitForTimeout(0);

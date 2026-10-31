@@ -113,6 +113,11 @@
   flex: 0 0 auto;
 }
 
+.shopping-list-store-creator {
+  width: 100%;
+  flex: 1 0 100%;
+}
+
 .shopping-list-content-marker,
 .shopping-list-content-marker .entity-icon {
   width: 36px;

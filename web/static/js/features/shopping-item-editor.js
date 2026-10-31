@@ -1,21 +1,11 @@
 import { t, translatePage } from '../i18n/index.js';
 import { hydrateSelect, refreshSelect, isDropdownOpen } from '../ui/dropdowns.js';
 import { createFormSaveState } from './form-save-state.js';
+import { bindShoppingStoreCreator } from './shopping-store-creator.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 function sameId(left, right) {
   return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
-}
-
-function clone(value) {
-  return value == null ? value : structuredClone(value);
-}
-
-function nextSortOrder(records = []) {
-  return records.reduce((maximum, record) => {
-    const value = Number(record?.sort_order);
-    return Number.isFinite(value) ? Math.max(maximum, value) : maximum;
-  }, -1) + 1;
 }
 
 export function createShoppingItemEditorFeature({
@@ -24,19 +14,15 @@ export function createShoppingItemEditorFeature({
   getLists = () => [],
   getActiveListId = () => null,
   getStores = () => [],
-  setStores = () => {},
-  commitMutation,
+  storeController,
   itemController,
   confirmDanger = async () => false,
-  isOnlineForSync = () => false,
-  syncWithServer = async () => {},
   onError = console.error,
-  createStoreTempId = () => `temp-shopping-store-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
   let bound = false;
   let saveState = null;
   let submitting = false;
-  let submittingStore = false;
+  let storeCreator = null;
   let restoreFocus = null;
   let mode = 'create';
   let editingListIdentity = null;
@@ -104,10 +90,6 @@ export function createShoppingItemEditorFeature({
     if (target) target.textContent = key ? t(key) : '';
   }
 
-  function setStoreError(key = '') {
-    const target = doc?.getElementById?.('shopping-item-store-error');
-    if (target) target.textContent = key ? t(key) : '';
-  }
 
   function setInvalid(element, invalid) {
     if (!element) return;
@@ -137,27 +119,6 @@ export function createShoppingItemEditorFeature({
     refreshSelect(select);
   }
 
-  function showStoreCreator() {
-    const container = doc?.getElementById?.('shopping-item-new-store');
-    const input = doc?.getElementById?.('shopping-item-new-store-name');
-    if (!container || !input) return;
-    container.hidden = false;
-    input.value = '';
-    setStoreError();
-    input.focus?.();
-  }
-
-  function hideStoreCreator({ focusSelect = false } = {}) {
-    const container = doc?.getElementById?.('shopping-item-new-store');
-    const input = doc?.getElementById?.('shopping-item-new-store-name');
-    if (container) container.hidden = true;
-    if (input) {
-      input.value = '';
-      input.removeAttribute('aria-invalid');
-    }
-    setStoreError();
-    if (focusSelect) doc?.querySelector?.('[data-select-id="shopping-item-store"] .ui-select-trigger')?.focus?.();
-  }
 
   function populateStores(selected = '') {
     const select = doc?.getElementById?.('shopping-item-store');
@@ -179,7 +140,7 @@ export function createShoppingItemEditorFeature({
         label: t('shopping.item.store.add'),
         ariaLabel: t('shopping.item.store.add'),
         icon: 'plus',
-        onActivate: showStoreCreator,
+        onActivate: () => storeCreator?.show?.(),
       },
     });
     refreshSelect(select);
@@ -224,7 +185,7 @@ export function createShoppingItemEditorFeature({
     const target = modal();
     target?.classList?.remove?.('active');
     target?.setAttribute?.('aria-hidden', 'true');
-    hideStoreCreator();
+    storeCreator?.hide?.();
     const targetFocus = restoreFocus?.();
     restoreFocus = null;
     editingListIdentity = null;
@@ -261,8 +222,7 @@ export function createShoppingItemEditorFeature({
     editingItemIdentity = null;
     currentForm.reset?.();
     setError();
-    setStoreError();
-    hideStoreCreator();
+    storeCreator?.hide?.();
     populateSections();
     populateStores();
     restoreFocus = () => trigger();
@@ -282,8 +242,7 @@ export function createShoppingItemEditorFeature({
     editingItemIdentity = item.client_mutation_id ?? item.id;
     currentForm.reset?.();
     setError();
-    setStoreError();
-    hideStoreCreator();
+    storeCreator?.hide?.();
     const storeId = item.store_ids?.[0] ?? item.stores?.[0]?.id ?? null;
     populateSections(item.section_id ?? '');
     populateStores(storeId ?? '');
@@ -292,79 +251,6 @@ export function createShoppingItemEditorFeature({
     doc.getElementById('shopping-item-unit').value = item.quantity_unit || '';
     restoreFocus = () => editTrigger(editingItemIdentity) || (triggerElement?.isConnected ? triggerElement : null) || trigger();
     return openModal(target, currentForm);
-  }
-
-  async function createStore() {
-    if (submittingStore) return null;
-    const input = doc?.getElementById?.('shopping-item-new-store-name');
-    const name = input?.value?.trim?.() || '';
-    if (!name || name.length > 120) {
-      setInvalid(input, true);
-      setStoreError('shopping.store.error.invalidName');
-      input?.focus?.();
-      return null;
-    }
-    setInvalid(input, false);
-    setStoreError();
-    const duplicate = getStores().find(store => (
-      String(store.name || '').trim().toLocaleLowerCase() === name.toLocaleLowerCase()
-      && store.active !== false
-    ));
-    if (duplicate) {
-      populateStores(duplicate.client_mutation_id ?? duplicate.id);
-      hideStoreCreator();
-      ensureSaveState()?.refresh?.();
-      return duplicate;
-    }
-    const tempId = createStoreTempId();
-    submittingStore = true;
-    const buttons = Array.from(doc?.querySelectorAll?.('[data-shopping-item-create-action="save-store"], [data-shopping-item-create-action="cancel-store"]') || []);
-    buttons.forEach(button => { button.disabled = true; });
-    try {
-      const mutation = await commitMutation(() => {
-        if (!canMutate()) return null;
-        const store = {
-          id: tempId,
-          name,
-          owner_user_id: null,
-          owner_household_id: null,
-          ownership_type: 'user',
-          active: true,
-          sort_order: nextSortOrder(getStores()),
-          client_mutation_id: tempId,
-          is_pending: true,
-        };
-        return {
-          store,
-          action: 'CREATE_SHOPPING_STORE',
-          data: {
-            temp_id: tempId,
-            store: clone(store),
-            name,
-            household_id: null,
-            sort_order: store.sort_order,
-            client_mutation_id: tempId,
-          },
-          result: store,
-        };
-      });
-      const store = mutation?.result || mutation?.store;
-      if (!store) return null;
-      if (mutation.store) setStores([...getStores().filter(candidate => !sameId(candidate.id, store.id)), store]);
-      populateStores(store.client_mutation_id ?? store.id);
-      hideStoreCreator();
-      ensureSaveState()?.refresh?.();
-      if (mutation.store && isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
-      return store;
-    } catch (error) {
-      onError(error);
-      setStoreError('shopping.store.error.saveFailed');
-      input?.focus?.();
-      return null;
-    } finally {
-      submittingStore = false;
-      buttons.forEach(button => { button.disabled = false; });
-    }
   }
 
   function validateForSubmit(state) {
@@ -485,11 +371,6 @@ export function createShoppingItemEditorFeature({
       if (editorAction.dataset.shoppingItemEditorAction === 'delete') void deleteCurrentItem();
       return;
     }
-    const action = event.target?.closest?.('[data-shopping-item-create-action]');
-    if (!action) return;
-    event.preventDefault?.();
-    if (action.dataset.shoppingItemCreateAction === 'save-store') void createStore();
-    if (action.dataset.shoppingItemCreateAction === 'cancel-store') hideStoreCreator({ focusSelect: true });
   }
 
   function focusableElements() {
@@ -537,6 +418,18 @@ export function createShoppingItemEditorFeature({
   function bind() {
     if (bound) return;
     bound = true;
+    storeCreator = bindShoppingStoreCreator({
+      document: doc,
+      prefix: 'shopping-item',
+      selectId: 'shopping-item-store',
+      storeController,
+      authorize: canMutate,
+      onCreated: store => {
+        populateStores(store.client_mutation_id ?? store.id);
+        ensureSaveState()?.refresh?.();
+      },
+      onError,
+    });
     doc?.addEventListener?.('submit', handleSubmit);
     doc?.addEventListener?.('click', handleClick);
     doc?.addEventListener?.('keydown', handleKeydown);
@@ -552,7 +445,7 @@ export function createShoppingItemEditorFeature({
     showEdit,
     close: closeModal,
     reconcile,
-    createStore,
+    createStore: () => storeCreator?.save?.(),
     destroy() {
       if (!bound) return;
       bound = false;
@@ -560,6 +453,8 @@ export function createShoppingItemEditorFeature({
       doc?.removeEventListener?.('click', handleClick);
       doc?.removeEventListener?.('keydown', handleKeydown);
       eventTarget?.removeEventListener?.('nia-language-change', handleLanguageChange);
+      storeCreator?.destroy?.();
+      storeCreator = null;
       saveState?.destroy?.();
       saveState = null;
     },

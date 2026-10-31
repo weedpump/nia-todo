@@ -2,6 +2,7 @@ import { escapeHtmlAttr } from '../core/utils.js';
 import { t } from '../i18n/index.js';
 import { renderEntityAppearanceFields } from '../features/entity-appearance.js';
 import { renderEntityDetailHeader } from '../features/entity-detail-header.js';
+import { renderShoppingStoreCreator } from '../features/shopping-store-creator.js';
 
 export const SHOPPING_DIALOGS_HTML = `
   <div class="modal ui-detail-modal ui-detail-view" id="shopping-list-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="shopping-list-modal-title">
@@ -92,15 +93,7 @@ export const SHOPPING_DIALOGS_HTML = `
               <div class="form-group shopping-item-store-group">
                 <label for="shopping-item-store" data-i18n-key="shopping.item.store">${escapeHtmlAttr(t('shopping.item.store'))}</label>
                 <select class="ui-field" id="shopping-item-store" data-ui-select></select>
-                <div class="shopping-item-new-store" id="shopping-item-new-store" hidden>
-                  <label for="shopping-item-new-store-name" data-i18n-key="shopping.store.name">${escapeHtmlAttr(t('shopping.store.name'))}</label>
-                  <div class="shopping-item-new-store-row">
-                    <input class="ui-field" type="text" id="shopping-item-new-store-name" maxlength="120" autocomplete="off" data-i18n-placeholder-key="shopping.store.namePlaceholder" placeholder="${escapeHtmlAttr(t('shopping.store.namePlaceholder'))}">
-                    <button type="button" class="btn btn-primary" data-shopping-item-create-action="save-store" data-i18n-key="common.add">${escapeHtmlAttr(t('common.add'))}</button>
-                    <button type="button" class="btn btn-secondary" data-shopping-item-create-action="cancel-store" data-i18n-key="common.cancel">${escapeHtmlAttr(t('common.cancel'))}</button>
-                  </div>
-                  <div class="settings-field-error" id="shopping-item-store-error" role="alert"></div>
-                </div>
+                ${renderShoppingStoreCreator({ prefix: 'shopping-item' })}
               </div>
             </div>
           </section>
