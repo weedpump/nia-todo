@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Aceitar convite",
   "invite.decline": "Recusar",
   "invite.declineAria": "Recusar convite",
+  "entity.invitation.error.onlineOnly": "É necessário estar conectado à Internet para responder a convites.",
+  "entity.invitation.error.respondFailed": "Não foi possível atualizar o convite. Tente novamente.",
   "time.justNow": "agora mesmo",
   "time.minutesAgo": "{count} min. atrás",
   "time.hoursAgo": "{count} horas. atrás",

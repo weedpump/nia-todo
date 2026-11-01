@@ -386,6 +386,11 @@ const sharingFeature = createProjectSharingFeature({
   showToast: (...args) => showToast(...args),
   confirmDanger,
   projectsApi,
+  loadAuthoritativeProjection: async () => {
+    const result = await refreshFromServer();
+    if (!result?.refreshed) throw new Error('Authoritative project projection was not refreshed');
+    return { projects };
+  },
 });
 const projectsFeature = createProjectsFeature({
   getProjects: () => projects,
@@ -557,6 +562,10 @@ const wsClient = createWebSocketClient({
   },
   onAccessSnapshot: snapshot => {
     window.niaAccessSnapshot = snapshot;
+    sharingFeature?.setInvites?.(snapshot.projectInvites || []);
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'shoppingInvites')) {
+      shoppingNavigationFeature?.setInvites?.(snapshot.shoppingInvites || []);
+    }
     window.dispatchEvent(new CustomEvent('nia:access-snapshot', { detail: snapshot }));
   },
   onAvatarUpdate: async payload => {
@@ -623,7 +632,7 @@ async function syncWithServer() {
 }
 
 async function refreshFromServer() {
-  await trackBackgroundSyncOperation(() => syncController.refreshFromServer());
+  return trackBackgroundSyncOperation(() => syncController.refreshFromServer());
 }
 
 const calendarViewFeature = createCalendarViewFeature({
@@ -689,7 +698,6 @@ const renderProjects = appRendering.renderProjects;
 const renderStats = appRendering.renderStats;
 const renderTodos = appRendering.renderTodos;
 const countByProject = appRendering.countByProject;
-const renderInvites = appRendering.renderInvites;
 
 workspacesFeature = createWorkspacesFeature({
   workspacesApi,
@@ -720,6 +728,7 @@ syncController = createSyncController({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
+  onAuthoritativeRefreshCommitted: () => shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(),
 });
 const bindWorkspaceControls = workspacesFeature.bindWorkspaceControls;
 const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
@@ -852,6 +861,27 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
   sectionAdapter: shoppingSectionsAdapter,
   itemController: shoppingItemsController,
   storeController: shoppingStoresController,
+  shoppingApi,
+  loadAuthoritativeProjection: async () => {
+    const result = await refreshFromServer();
+    if (!result?.refreshed) throw new Error('Authoritative shopping projection was not refreshed');
+    return shoppingLists;
+  },
+  removePendingEntities: async (pendingIds, { signal } = {}) => {
+    const ids = pendingIds || [];
+    const blocked = new Set(ids.map(id => String(id)));
+    if (!blocked.size) return;
+    await appStorage.evictPendingShoppingEntities(ids, { signal });
+    if (signal?.aborted) throw new DOMException('Pending shopping eviction was aborted', 'AbortError');
+    const remainingLists = shoppingLists.filter(list => !blocked.has(String(list.id)));
+    const remainingStores = shoppingStores.filter(store => !blocked.has(String(store.shopping_list_id)));
+    if (remainingLists.length !== shoppingLists.length) {
+      setShoppingListsState(remainingLists, { reconcileDetails: false });
+    }
+    if (remainingStores.length !== shoppingStores.length) {
+      setShoppingStoresState(remainingStores);
+    }
+  },
 });
 shoppingNavigationFeature.bind();
 shoppingViewPreferencesFeature = createShoppingViewPreferencesFeature({
@@ -892,6 +922,7 @@ const refreshTasksModule = () => {
   renderProjects();
   renderStats();
   renderTodos();
+  sharingFeature.renderInvites();
   updateToggleDoneButton();
   updateSortButton();
   updateProjectWidgetButton();
@@ -1016,6 +1047,15 @@ const updatePushStatus = pushFeature.updatePushStatus;
 const updatePushSettingsUI = pushFeature.updatePushSettingsUI;
 const bindPushActions = pushFeature.bindPushActions;
 
+async function refreshEntityInvitations() {
+  const results = await Promise.all([
+    sharingFeature.loadInvites(),
+    shoppingNavigationFeature.loadInvites(),
+  ]);
+  const failed = results.find(result => result?.ok === false && !result?.stale);
+  return failed || { ok: true, results };
+}
+
 const appLifecycle = createAppLifecycle({
   authApi,
   initTheme,
@@ -1057,7 +1097,7 @@ const appLifecycle = createAppLifecycle({
   updateTodayFocusButton,
   updateMinimalTodosButton,
   renderWorkspaces,
-  refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.()),
+  refreshInvites: () => trackBackgroundSyncOperation(() => refreshEntityInvitations()),
   onAppReady: () => {
     dashboardPreferencesSyncFeature.initialize();
     serverUpdateIndicator.loadStatus();
@@ -1152,11 +1192,11 @@ export function startAppModule() {
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
   ui: { closeSidebar, closeModal, setupDescPreview, openMobileSearch },
   lifecycle: { initServiceWorker, initApp, loadFromLocalDB, loadAll },
-  rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject, renderInvites },
+  rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   todos: { markTodoDone, markTodoInProgress, deleteTodoComment, deleteTodoAttachment, saveTodo, editTodo, deleteTodoFromModal },
   projects: { showProjectModal, deleteProject, clearDoneFromModal },
-  projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
+  projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => refreshEntityInvitations() },
   viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
   toastUndo: { showToast, showBatchToast, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI },

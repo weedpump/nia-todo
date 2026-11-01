@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Принять приглашение",
   "invite.decline": "Снижение",
   "invite.declineAria": "Отклонить приглашение",
+  "entity.invitation.error.onlineOnly": "Для ответа на приглашение требуется подключение к Интернету.",
+  "entity.invitation.error.respondFailed": "Не удалось обновить приглашение. Повторите попытку.",
   "time.justNow": "только что",
   "time.minutesAgo": "{count} мин. назад",
   "time.hoursAgo": "{count} ч. назад",

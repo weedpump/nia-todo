@@ -64,15 +64,24 @@ await client.handleWsMessage({
   household: { id: 3, name: 'Home', members: [] },
   household_invites: [{ id: 11, household_id: 4, status: 'pending' }],
   project_invites: [{ id: 12, project_id: 8, status: 'pending' }],
+  shopping_invites: [{ id: 13, shopping_list_id: 9, status: 'pending' }],
 });
 
 assert.deepEqual(accessSnapshot, {
   household: { id: 3, name: 'Home', members: [] },
   householdInvites: [{ id: 11, household_id: 4, status: 'pending' }],
   projectInvites: [{ id: 12, project_id: 8, status: 'pending' }],
+  shoppingInvites: [{ id: 13, shopping_list_id: 9, status: 'pending' }],
 });
 assert.deepEqual(stores.projects[0].members, [{ id: 13, user_id: 2, status: 'pending' }]);
 assert.deepEqual(modulePreferences, { disabled_modules: ['shopping'] });
+
+await client.handleWsMessage({
+  type: 'sync_response',
+  todos: [], projects: [], sections: [], workspaces: [],
+  household: null, household_invites: [], project_invites: [],
+});
+assert.equal(Object.prototype.hasOwnProperty.call(accessSnapshot, 'shoppingInvites'), false, 'an older sync payload must not authoritatively clear shopping invitations');
 
 await client.handleWsMessage({
   type: 'module_preferences_update',
@@ -89,12 +98,14 @@ await client.handleWsMessage({
   household: null,
   household_invites: [],
   project_invites: [],
+  shopping_invites: [],
 });
 
 assert.deepEqual(accessSnapshot, {
   household: null,
   householdInvites: [],
   projectInvites: [],
+  shoppingInvites: [],
 });
 assert.deepEqual(stores.projects[0].members, []);
 
@@ -181,7 +192,7 @@ reconnectSyncRef.value = false;
 const staleResponse = reconnectClient.handleWsMessage({
   type: 'sync_response',
   todos: [], projects: [], sections: [], workspaces: [],
-  household: null, household_invites: [], project_invites: [],
+  household: null, household_invites: [], project_invites: [], shopping_invites: [],
 });
 await new Promise(resolve => setTimeout(resolve, 10));
 assert.equal(sentMessages.filter(message => message.type === 'sync_request').length, 1);

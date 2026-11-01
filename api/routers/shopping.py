@@ -3,24 +3,28 @@
 import sqlite3
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.appearance import normalize_color, normalize_icon
 from services.entity_access import (
+    get_entity_access_boundary_user_ids,
     get_entity_ownership,
     get_entity_participant_user_ids,
-    grant_entity_access,
+    invite_entity_access,
     is_household_participant,
     leave_entity_access,
+    list_entity_access_members,
+    remove_entity_access,
     register_household_entity,
     register_personal_entity,
     resolve_entity_access,
-    revoke_entity_access,
+    respond_to_entity_invite,
     transfer_entity_to_household,
 )
+from services.entity_sharing_notifications import notify_entity_share_invite
 from services.utils import sanitize_text
 from services.websocket import broadcast_change
 
@@ -51,6 +55,10 @@ class ShoppingListUpdate(BaseModel):
 
 class ShoppingListShareCreate(BaseModel):
     identifier: str = Field(..., max_length=320)
+
+
+class ShoppingListInviteResponse(BaseModel):
+    accept: bool
 
 
 class ShoppingListHouseholdTransfer(BaseModel):
@@ -116,7 +124,7 @@ def _clean_required(value: str, field: str, max_length: int) -> str:
 
 def _get_user_by_identifier(db, identifier: str) -> Optional[dict]:
     row = db.execute(
-        """SELECT id, username, display_name
+        """SELECT id, username, display_name, email, email_verified_at, language
            FROM users
            WHERE username = ?
               OR (lower(email) = lower(?) AND email_verified_at IS NOT NULL)
@@ -493,7 +501,8 @@ async def delete_shopping_list(shopping_list_id: int, user_id: int = Depends(req
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
         _permissions_for_list(db, shopping_list_id, user_id, manage=True)
-        recipient_ids = _recipient_ids(db, shopping_list_id)
+        content_recipient_ids = _recipient_ids(db, shopping_list_id)
+        boundary_recipient_ids = get_entity_access_boundary_user_ids(db, "shopping_list", shopping_list_id)
         db.execute(
             "DELETE FROM entity_access_grants WHERE entity_access_id IN (SELECT id FROM entity_access WHERE entity_type = 'shopping_list' AND entity_id = ?)",
             (shopping_list_id,),
@@ -502,7 +511,10 @@ async def delete_shopping_list(shopping_list_id: int, user_id: int = Depends(req
         db.execute("DELETE FROM shopping_lists WHERE id = ?", (shopping_list_id,))
         db.commit()
     result = {"id": shopping_list_id, "deleted": True}
-    await broadcast_change("shopping_list_delete", result, user_id, recipient_ids=recipient_ids)
+    await broadcast_change("shopping_list_delete", result, user_id, recipient_ids=content_recipient_ids)
+    pending_boundary_user_ids = boundary_recipient_ids - content_recipient_ids
+    if pending_boundary_user_ids:
+        await broadcast_sync_to_users(pending_boundary_user_ids)
     return result
 
 
@@ -520,7 +532,9 @@ async def transfer_shopping_list_to_household(
             raise HTTPException(409, "Shopping list already belongs to a household")
         if ownership.get("owner_user_id") != user_id or not permissions.can_manage_access:
             raise HTTPException(403, "Only the personal shopping-list owner can transfer it")
-        previous_recipient_ids = _recipient_ids(db, shopping_list_id)
+        previous_boundary_user_ids = get_entity_access_boundary_user_ids(
+            db, "shopping_list", shopping_list_id
+        )
         try:
             transfer_entity_to_household(db, "shopping_list", shopping_list_id, user_id, data.household_id)
             db.commit()
@@ -528,9 +542,11 @@ async def transfer_shopping_list_to_household(
             raise HTTPException(403, str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
-        current_recipient_ids = _recipient_ids(db, shopping_list_id)
+        current_boundary_user_ids = get_entity_access_boundary_user_ids(
+            db, "shopping_list", shopping_list_id
+        )
         result = _shopping_list_view(db, row, user_id)
-    await broadcast_sync_to_users(previous_recipient_ids | current_recipient_ids)
+    await broadcast_sync_to_users(previous_boundary_user_ids | current_boundary_user_ids)
     return result
 
 
@@ -572,36 +588,94 @@ def _require_personal_list_manager(db, shopping_list_id: int, user_id: int):
 def list_shopping_list_members(shopping_list_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
         _require_personal_list_manager(db, shopping_list_id, user_id)
-        rows = db.execute(
-            """SELECT user.id, user.username, user.display_name, grant_row.created_at
-               FROM entity_access access
-               JOIN entity_access_grants grant_row ON grant_row.entity_access_id = access.id
-               JOIN users user ON user.id = grant_row.user_id
-               WHERE access.entity_type = 'shopping_list' AND access.entity_id = ?
-               ORDER BY lower(COALESCE(user.display_name, user.username)), user.id""",
-            (shopping_list_id,),
-        ).fetchall()
-        return {"members": [dict(row) for row in rows]}
+        return {"members": list_entity_access_members(db, "shopping_list", shopping_list_id)}
 
 
 @router.post("/lists/{shopping_list_id}/members")
-async def share_shopping_list(shopping_list_id: int, data: ShoppingListShareCreate, user_id: int = Depends(require_auth)):
+async def share_shopping_list(
+    shopping_list_id: int,
+    data: ShoppingListShareCreate,
+    request: Request,
+    user_id: int = Depends(require_auth),
+):
     identifier = _clean_required(data.identifier, "User identifier", 320)
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        _require_personal_list_manager(db, shopping_list_id, user_id)
+        row = _require_personal_list_manager(db, shopping_list_id, user_id)
         target = _get_user_by_identifier(db, identifier)
         if not target:
             raise HTTPException(404, "User not found")
         try:
-            grant_entity_access(db, "shopping_list", shopping_list_id, user_id, int(target["id"]))
+            invite = invite_entity_access(
+                db,
+                "shopping_list",
+                shopping_list_id,
+                user_id,
+                int(target["id"]),
+                invite_identifier_type="email" if "@" in identifier else "username",
+            )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         db.commit()
-        sync_user_ids = _recipient_ids(db, shopping_list_id)
-        member = {key: target.get(key) for key in ("id", "username", "display_name")}
+        sync_user_ids = get_entity_access_boundary_user_ids(db, "shopping_list", shopping_list_id)
+        member = dict(invite)
+        member.update({key: target.get(key) for key in ("username", "display_name")})
+        actor_row = db.execute(
+            "SELECT id, username, display_name FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        notification_delivery = await notify_entity_share_invite(
+            db=db,
+            request=request,
+            target=target,
+            actor=dict(actor_row) if actor_row else {"id": user_id},
+            entity_type="shopping_list",
+            entity_id=shopping_list_id,
+            entity_name=row["name"],
+        )
+        db.commit()
     await broadcast_sync_to_users(sync_user_ids)
+    member["notification_delivery"] = notification_delivery
     return member
+
+
+@router.post("/lists/{shopping_list_id}/invites/{invite_id}")
+async def respond_to_shopping_list_invite(
+    shopping_list_id: int,
+    invite_id: int,
+    data: ShoppingListInviteResponse,
+    user_id: int = Depends(require_auth),
+):
+    with get_db() as db:
+        pending = db.execute(
+            """SELECT 1
+               FROM entity_access_grants grant_row
+               JOIN entity_access access ON access.id = grant_row.entity_access_id
+               WHERE grant_row.id = ? AND grant_row.user_id = ? AND grant_row.status = 'pending'
+                 AND access.entity_type = 'shopping_list' AND access.entity_id = ?""",
+            (invite_id, user_id, shopping_list_id),
+        ).fetchone()
+        if not pending:
+            raise HTTPException(404, "Shopping-list invite not found")
+        ownership = get_entity_ownership(db, "shopping_list", shopping_list_id)
+        if not ownership or ownership.get("owner_household_id") is not None:
+            raise HTTPException(404, "Shopping-list invite not found")
+        sync_user_ids = get_entity_access_boundary_user_ids(db, "shopping_list", shopping_list_id)
+        try:
+            invite = respond_to_entity_invite(
+                db,
+                "shopping_list",
+                shopping_list_id,
+                invite_id,
+                user_id,
+                accept=data.accept,
+            )
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        db.commit()
+        sync_user_ids.update(_recipient_ids(db, shopping_list_id))
+    await broadcast_sync_to_users(sync_user_ids | {user_id})
+    return invite
 
 
 @router.delete("/lists/{shopping_list_id}/members/{member_user_id}")
@@ -609,9 +683,9 @@ async def revoke_shopping_list_member(shopping_list_id: int, member_user_id: int
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
         _require_personal_list_manager(db, shopping_list_id, user_id)
-        sync_user_ids = _recipient_ids(db, shopping_list_id) | {member_user_id}
+        sync_user_ids = get_entity_access_boundary_user_ids(db, "shopping_list", shopping_list_id) | {member_user_id}
         try:
-            revoke_entity_access(db, "shopping_list", shopping_list_id, user_id, member_user_id)
+            remove_entity_access(db, "shopping_list", shopping_list_id, user_id, member_user_id)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         db.commit()

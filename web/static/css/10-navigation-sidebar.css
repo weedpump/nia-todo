@@ -44,7 +44,7 @@
   #app[data-desktop-sidebar-mode="rail"] .nav-btn > span[data-i18n-key],
   #app[data-desktop-sidebar-mode="rail"] .nav-btn .badge,
   #app[data-desktop-sidebar-mode="rail"] .nav-edit,
-  #app[data-desktop-sidebar-mode="rail"] #invites-section,
+  #app[data-desktop-sidebar-mode="rail"] .entity-invitations-section,
   #app[data-desktop-sidebar-mode="rail"] .sidebar-user-meta {
     display: none;
   }
@@ -269,6 +269,7 @@
 /* Invites */
 .invite-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -292,6 +293,23 @@
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.entity-invitation-error {
+  flex: 0 0 100%;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.entity-invitation-error[hidden],
+.entity-invitations-section[hidden] {
+  display: none !important;
+}
+
+.invite-action:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .invite-action,

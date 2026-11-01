@@ -20,8 +20,7 @@ with tempfile.TemporaryDirectory() as tmp:
     from starlette.requests import Request
 
     from db import get_db
-    import migrate as migrate_module
-    from migrate import repair_household_entity_access_migration, run_migrations
+    from migrate import run_migrations
     from paths import ATTACHMENT_DIR, DB_PATH
     from routers.admin import delete_user
     import routers.admin as admin_router
@@ -42,8 +41,10 @@ with tempfile.TemporaryDirectory() as tmp:
     from services.sharing import can_access_project, get_project_ids_for_user
     from services.entity_access import (
         create_household,
+        invite_entity_access,
         invite_household_member,
         remove_household_member,
+        respond_to_entity_invite,
         respond_to_household_invite,
         transfer_household_ownership,
     )
@@ -1077,6 +1078,21 @@ with tempfile.TemporaryDirectory() as tmp:
         create_todo(TodoCreate(title="Preserved relation todo", project_id=accepted_relation_project["id"]), owner_id)
     )
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        accepted_invite = invite_entity_access(
+            db, "project", accepted_relation_project["id"], owner_id, relationship_user_id
+        )
+        respond_to_entity_invite(
+            db,
+            "project",
+            accepted_relation_project["id"],
+            accepted_invite["id"],
+            relationship_user_id,
+            accept=True,
+        )
+        invite_entity_access(
+            db, "project", pending_relation_project["id"], owner_id, relationship_user_id
+        )
         db.execute(
             """INSERT INTO project_members (project_id, user_id, invited_by, status)
                VALUES (?, ?, ?, 'accepted')""",
@@ -1154,6 +1170,21 @@ with tempfile.TemporaryDirectory() as tmp:
             "SELECT id FROM projects WHERE user_id = ? AND workspace_id = ? AND is_inbox = 1",
             (owner_id, shared_workspace["id"]),
         ).fetchone()["id"]
+        db.execute("BEGIN IMMEDIATE")
+        accepted_workspace_invite = invite_entity_access(
+            db, "project", shared_workspace_inbox_id, owner_id, recipient_id
+        )
+        respond_to_entity_invite(
+            db,
+            "project",
+            shared_workspace_inbox_id,
+            accepted_workspace_invite["id"],
+            recipient_id,
+            accept=True,
+        )
+        invite_entity_access(
+            db, "project", shared_workspace_inbox_id, owner_id, ancestor_gain_id
+        )
         db.execute(
             """INSERT INTO project_members (project_id, user_id, invited_by, status, workspace_id)
                VALUES (?, ?, ?, 'accepted', ?)""",
@@ -1245,12 +1276,6 @@ with tempfile.TemporaryDirectory() as tmp:
             "SELECT 1 FROM entity_access WHERE entity_type = 'project' AND entity_id = ?",
             (source_inbox_id,),
         ).fetchone() is None
-        db.execute(
-            """INSERT INTO project_members (project_id, user_id, invited_by, status)
-               VALUES (?, ?, ?, 'pending')""",
-            (disposable_household_project["id"], ancestor_gain_id, owner_id),
-        )
-        db.commit()
     project_delete_payloads = {}
 
     async def capture_project_delete(user_id, message):
@@ -1262,21 +1287,13 @@ with tempfile.TemporaryDirectory() as tmp:
         asyncio.run(delete_project(disposable_household_project["id"], owner_id))
     finally:
         websocket_service.manager.broadcast_to_user = original_broadcast_to_user
-    for affected_user_id in (owner_id, successor_id, hierarchy_gain_id, ancestor_gain_id):
+    for affected_user_id in (owner_id, successor_id, hierarchy_gain_id):
         delete_syncs = [
             message for message in project_delete_payloads.get(affected_user_id, [])
             if message.get("type") == "sync_response"
         ]
         assert delete_syncs, project_delete_payloads
-    pending_project_delete_sync = [
-        message for message in project_delete_payloads[ancestor_gain_id]
-        if message.get("type") == "sync_response"
-    ][-1]
-    assert pending_project_delete_sync["project_invites"] == []
-    assert not any(
-        message.get("type") == "project_delete"
-        for message in project_delete_payloads[ancestor_gain_id]
-    ), project_delete_payloads[ancestor_gain_id]
+    assert ancestor_gain_id not in project_delete_payloads, project_delete_payloads
     hierarchy_delete_sync = [
         message for message in project_delete_payloads[hierarchy_gain_id]
         if message.get("type") == "sync_response"
@@ -1316,6 +1333,18 @@ with tempfile.TemporaryDirectory() as tmp:
     second_deleted_attachment_path.parent.mkdir(parents=True, exist_ok=True)
     second_deleted_attachment_path.write_text("delete second")
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        deleted_user_invite = invite_entity_access(
+            db, "project", deleted_user_project["id"], deleted_user_id, recipient_id
+        )
+        respond_to_entity_invite(
+            db,
+            "project",
+            deleted_user_project["id"],
+            deleted_user_invite["id"],
+            recipient_id,
+            accept=True,
+        )
         db.execute(
             """INSERT INTO project_members (project_id, user_id, invited_by, status)
                VALUES (?, ?, ?, 'accepted')""",
@@ -1389,6 +1418,18 @@ with tempfile.TemporaryDirectory() as tmp:
 
     legacy_project = asyncio.run(create_project(ProjectCreate(name="Legacy shared"), owner_id))
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        legacy_invite = invite_entity_access(
+            db, "project", legacy_project["id"], owner_id, recipient_id
+        )
+        respond_to_entity_invite(
+            db,
+            "project",
+            legacy_project["id"],
+            legacy_invite["id"],
+            recipient_id,
+            accept=True,
+        )
         db.execute(
             """INSERT INTO project_members
                (project_id, user_id, invited_by, status, workspace_id)
@@ -1430,12 +1471,18 @@ with tempfile.TemporaryDirectory() as tmp:
             "SELECT id FROM entity_access WHERE entity_type = 'project' AND entity_id = ?",
             (legacy_project["id"],),
         ).fetchone()["id"]
-        db.execute(
-            """INSERT INTO entity_access_grants (entity_access_id, user_id, granted_by_user_id)
-               VALUES (?, ?, ?)""",
-            (entity_access_id, migration_extra_user_id, owner_id),
-        )
-        db.commit()
+        try:
+            db.execute(
+                """INSERT INTO entity_access_grants
+                   (entity_access_id, user_id, invited_by_user_id, granted_by_user_id, status)
+                   VALUES (?, ?, ?, ?, 'accepted')""",
+                (entity_access_id, migration_extra_user_id, owner_id, owner_id),
+            )
+        except sqlite3.IntegrityError as error:
+            assert "only the entity manager can grant access" in str(error).lower(), error
+            db.rollback()
+        else:
+            raise AssertionError("household-owned entity accepted a direct personal grant")
     for shared_editor_id in (recipient_id, migration_extra_user_id):
         try:
             asyncio.run(delete_todo(legacy_shared_todo["id"], shared_editor_id))
@@ -1506,7 +1553,7 @@ with tempfile.TemporaryDirectory() as tmp:
                WHERE entity_access_id = ? AND user_id = ?""",
             (entity_access_id, migration_extra_user_id),
         ).fetchone()
-        assert preserved_grant and preserved_grant["granted_by_user_id"] is None, preserved_grant
+        assert preserved_grant is None, preserved_grant
         membership = db.execute(
             "SELECT invited_by, status FROM project_members WHERE project_id = ? AND user_id = ?",
             (legacy_project["id"], recipient_id),
@@ -1573,13 +1620,19 @@ with tempfile.TemporaryDirectory() as tmp:
             "SELECT id FROM entity_access WHERE entity_type = 'project' AND entity_id = ?",
             (private_household_root["id"],),
         ).fetchone()["id"]
-        db.execute(
-            """INSERT INTO entity_access_grants (entity_access_id, user_id, granted_by_user_id)
-               VALUES (?, ?, ?)""",
-            (private_root_access_id, ancestor_gain_id, successor_id),
-        )
+        try:
+            db.execute(
+                """INSERT INTO entity_access_grants
+                   (entity_access_id, user_id, invited_by_user_id, granted_by_user_id, status)
+                   VALUES (?, ?, ?, ?, 'accepted')""",
+                (private_root_access_id, ancestor_gain_id, successor_id, successor_id),
+            )
+        except sqlite3.IntegrityError as error:
+            assert "only the entity manager can grant access" in str(error).lower(), error
+            db.rollback()
+        else:
+            raise AssertionError("household-owned project accepted a stale direct grant")
         assert not can_access_project(db, inherited_child["id"], ancestor_gain_id)
-        db.commit()
     project_move_payloads = {}
 
     async def capture_project_move(user_id, message):
@@ -1623,498 +1676,5 @@ with tempfile.TemporaryDirectory() as tmp:
     for stale_grant_user_id in (recipient_id, migration_extra_user_id, ancestor_gain_id):
         assert stale_grant_user_id not in todo_move_payloads, todo_move_payloads
 
-    with get_db() as db:
-        db.execute(
-            """INSERT INTO project_members
-               (project_id, user_id, invited_by, status, workspace_id)
-               VALUES (?, ?, ?, 'accepted', ?)""",
-            (legacy_project["id"], recipient_id, successor_id, recipient_workspace_id),
-        )
-        original_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'project_members'"
-        ).fetchone()["sql"]
-        db.execute("ALTER TABLE project_members RENAME TO project_members_old_058")
-        db.execute(original_schema)
-        db.commit()
-        assert db.execute("SELECT COUNT(*) AS count FROM project_members").fetchone()["count"] == 0
-        assert db.execute("SELECT COUNT(*) AS count FROM project_members_old_058").fetchone()["count"] > 0
-        repair_household_entity_access_migration(db)
-        surviving_membership = db.execute(
-            "SELECT status FROM project_members WHERE project_id = ? AND user_id = ?",
-            (legacy_project["id"], recipient_id),
-        ).fetchone()
-        assert surviving_membership and surviving_membership["status"] == "accepted", surviving_membership
-
-        original_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'project_members'"
-        ).fetchone()["sql"]
-        db.execute("ALTER TABLE project_members RENAME TO project_members_old_058")
-        db.execute(original_schema)
-        db.execute(
-            """INSERT INTO project_members (project_id, user_id, invited_by, status)
-               VALUES (?, ?, ?, 'accepted')""",
-            (legacy_project["id"], migration_extra_user_id, successor_id),
-        )
-        db.commit()
-        assert db.execute("SELECT COUNT(*) AS count FROM project_members").fetchone()["count"] == 1
-        assert db.execute("SELECT COUNT(*) AS count FROM project_members_old_058").fetchone()["count"] == 1
-        repair_household_entity_access_migration(db)
-        preserved_user_ids = {
-            row["user_id"]
-            for row in db.execute(
-                "SELECT user_id FROM project_members WHERE project_id = ? AND status = 'accepted'",
-                (legacy_project["id"],),
-            ).fetchall()
-        }
-        assert preserved_user_ids == {recipient_id, migration_extra_user_id}, preserved_user_ids
-
-        original_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'project_members'"
-        ).fetchone()["sql"]
-        db.execute("ALTER TABLE project_members RENAME TO project_members_old_058")
-        db.execute(original_schema)
-        db.execute(
-            """UPDATE project_members_old_058
-               SET status = 'pending', workspace_id = NULL, updated_at = '2026-01-01T00:00:00+00:00'
-               WHERE project_id = ? AND user_id = ?""",
-            (legacy_project["id"], migration_extra_user_id),
-        )
-        db.execute(
-            """INSERT INTO project_members
-               (project_id, user_id, invited_by, status, workspace_id, updated_at)
-               VALUES (?, ?, ?, 'accepted', ?, '2026-02-01T00:00:00+00:00')""",
-            (legacy_project["id"], migration_extra_user_id, successor_id, recipient_workspace_id),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        reconciled_membership = db.execute(
-            """SELECT status, workspace_id, updated_at FROM project_members
-               WHERE project_id = ? AND user_id = ?""",
-            (legacy_project["id"], migration_extra_user_id),
-        ).fetchone()
-        assert dict(reconciled_membership) == {
-            "status": "accepted",
-            "workspace_id": recipient_workspace_id,
-            "updated_at": "2026-02-01T00:00:00+00:00",
-        }, reconciled_membership
-
-        project_members_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'project_members'"
-        ).fetchone()["sql"]
-        db.execute(
-            "UPDATE project_members SET updated_at = '2026-04-01T00:00:00+00:00' WHERE project_id = ? AND user_id = ?",
-            (legacy_project["id"], recipient_id),
-        )
-        db.execute("ALTER TABLE project_members RENAME TO project_members_old_058")
-        db.execute(project_members_schema)
-        db.execute(
-            """INSERT INTO project_members
-               (project_id, user_id, invited_by, status, created_at, updated_at, workspace_id)
-               VALUES (?, ?, NULL, 'pending', '2026-01-01T00:00:00+00:00', '2026-04-01T00:00:00+00:00', NULL)""",
-            (legacy_project["id"], recipient_id),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        tie_membership = db.execute(
-            "SELECT status, workspace_id FROM project_members WHERE project_id = ? AND user_id = ?",
-            (legacy_project["id"], recipient_id),
-        ).fetchone()
-        assert dict(tie_membership) == {
-            "status": "accepted",
-            "workspace_id": recipient_workspace_id,
-        }, tie_membership
-
-        db.execute(
-            project_members_schema.replace(
-                "CREATE TABLE project_members", "CREATE TABLE project_members_old_058", 1
-            )
-        )
-        db.execute(
-            """INSERT INTO project_members_old_058
-               (project_id, user_id, invited_by, status, created_at, updated_at, workspace_id)
-               VALUES (?, ?, NULL, 'pending', '2026-01-01T00:00:00+00:00', '2026-04-01T00:00:00+00:00', NULL)""",
-            (legacy_project["id"], recipient_id),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        inverse_tie_membership = db.execute(
-            "SELECT status, workspace_id FROM project_members WHERE project_id = ? AND user_id = ?",
-            (legacy_project["id"], recipient_id),
-        ).fetchone()
-        assert dict(inverse_tie_membership) == {
-            "status": "accepted",
-            "workspace_id": recipient_workspace_id,
-        }, inverse_tie_membership
-
-        db.execute(
-            "UPDATE project_members SET updated_at = NULL WHERE project_id = ? AND user_id = ?",
-            (legacy_project["id"], recipient_id),
-        )
-        db.execute(
-            project_members_schema.replace(
-                "CREATE TABLE project_members", "CREATE TABLE project_members_old_058", 1
-            )
-        )
-        db.execute(
-            """INSERT INTO project_members_old_058
-               (project_id, user_id, invited_by, status, created_at, updated_at, workspace_id)
-               VALUES (?, ?, NULL, 'pending', '2026-01-01T00:00:00+00:00', NULL, NULL)""",
-            (legacy_project["id"], recipient_id),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        null_tie_membership = db.execute(
-            "SELECT status, workspace_id FROM project_members WHERE project_id = ? AND user_id = ?",
-            (legacy_project["id"], recipient_id),
-        ).fetchone()
-        assert dict(null_tie_membership) == {
-            "status": "accepted",
-            "workspace_id": recipient_workspace_id,
-        }, null_tie_membership
-
-        db.execute(
-            "UPDATE todo_comments SET updated_at = '2026-04-01T00:00:00+00:00' WHERE id = ?",
-            (owner_comment["comment"]["id"],),
-        )
-        comments_tie_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'todo_comments'"
-        ).fetchone()["sql"]
-        owner_comment_row = dict(db.execute(
-            "SELECT * FROM todo_comments WHERE id = ?",
-            (owner_comment["comment"]["id"],),
-        ).fetchone())
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_old_058")
-        db.execute(comments_tie_schema)
-        db.execute(
-            """INSERT INTO todo_comments
-               (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-               VALUES (?, ?, ?, 'tie replacement', ?, ?, ?)""",
-            (
-                owner_comment_row["id"], owner_comment_row["todo_id"], owner_comment_row["user_id"],
-                owner_comment_row["created_at"], owner_comment_row["updated_at"],
-                owner_comment_row["client_mutation_id"],
-            ),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        tie_comment = db.execute(
-            "SELECT body FROM todo_comments WHERE id = ?",
-            (owner_comment["comment"]["id"],),
-        ).fetchone()
-        assert tie_comment["body"] == "Owner comment", tie_comment
-
-        # Matching non-null mutation IDs identify one edited logical comment.
-        edited_comment_id = db.execute(
-            """INSERT INTO todo_comments
-               (todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-               VALUES (?, ?, 'edit backup', '2026-06-01T00:00:00+00:00',
-                       '2026-06-01T00:00:00+00:00', 'migration-edit-key')""",
-            (owner_comment_row["todo_id"], recipient_id),
-        ).lastrowid
-        comments_edit_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'todo_comments'"
-        ).fetchone()["sql"]
-        edited_comment_row = dict(db.execute(
-            "SELECT * FROM todo_comments WHERE id = ?", (edited_comment_id,)
-        ).fetchone())
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_old_058")
-        db.execute(comments_edit_schema)
-        db.execute(
-            """INSERT INTO todo_comments
-               (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-               VALUES (?, ?, ?, 'edit current', ?, '2026-06-02T00:00:00+00:00', ?)""",
-            (
-                edited_comment_row["id"], edited_comment_row["todo_id"], edited_comment_row["user_id"],
-                edited_comment_row["created_at"], edited_comment_row["client_mutation_id"],
-            ),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        edited_comment = db.execute(
-            "SELECT body FROM todo_comments WHERE client_mutation_id = 'migration-edit-key'"
-        ).fetchall()
-        assert [row["body"] for row in edited_comment] == ["edit current"], edited_comment
-
-        edited_comment_row = dict(db.execute(
-            "SELECT * FROM todo_comments WHERE id = ?", (edited_comment_id,)
-        ).fetchone())
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_old_058")
-        db.execute(comments_edit_schema)
-        db.execute(
-            """INSERT INTO todo_comments
-               (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-               VALUES (?, ?, ?, 'older current', ?, '2026-06-01T12:00:00+00:00', ?)""",
-            (
-                edited_comment_row["id"], edited_comment_row["todo_id"], edited_comment_row["user_id"],
-                edited_comment_row["created_at"], edited_comment_row["client_mutation_id"],
-            ),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        edited_comment = db.execute(
-            "SELECT body FROM todo_comments WHERE client_mutation_id = 'migration-edit-key'"
-        ).fetchall()
-        assert [row["body"] for row in edited_comment] == ["edit current"], edited_comment
-
-        # Invalid backup timestamps remain authoritative conservatively.
-        db.execute(
-            "UPDATE todo_comments SET body = 'invalid backup', updated_at = 'not-a-date' WHERE id = ?",
-            (edited_comment_id,),
-        )
-        edited_comment_row = dict(db.execute(
-            "SELECT * FROM todo_comments WHERE id = ?", (edited_comment_id,)
-        ).fetchone())
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_old_058")
-        db.execute(comments_edit_schema)
-        db.execute(
-            """INSERT INTO todo_comments
-               (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-               VALUES (?, ?, ?, 'parseable current', ?, '2026-07-01T00:00:00+00:00', ?)""",
-            (
-                edited_comment_row["id"], edited_comment_row["todo_id"], edited_comment_row["user_id"],
-                edited_comment_row["created_at"], edited_comment_row["client_mutation_id"],
-            ),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        invalid_timestamp_comment = db.execute(
-            "SELECT body FROM todo_comments WHERE id = ?", (edited_comment_id,)
-        ).fetchone()
-        assert invalid_timestamp_comment["body"] == "invalid backup", invalid_timestamp_comment
-
-        # Candidate ordering cannot let an older duplicate mutation win.
-        db.execute(
-            "UPDATE todo_comments SET body = 'mutation base', updated_at = '2026-01-01T00:00:00+00:00' WHERE id = ?",
-            (edited_comment_id,),
-        )
-        edited_comment_row = dict(db.execute(
-            "SELECT * FROM todo_comments WHERE id = ?", (edited_comment_id,)
-        ).fetchone())
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_old_058")
-        db.execute(comments_edit_schema)
-        for offset, body, updated_at in (
-            (1000, 'mutation newest', '2026-03-01T00:00:00+00:00'),
-            (1001, 'mutation older', '2026-02-01T00:00:00+00:00'),
-        ):
-            db.execute(
-                """INSERT INTO todo_comments
-                   (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    edited_comment_row["id"] + offset, edited_comment_row["todo_id"],
-                    edited_comment_row["user_id"], body, edited_comment_row["created_at"],
-                    updated_at, edited_comment_row["client_mutation_id"],
-                ),
-            )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        ordered_mutation_comment = db.execute(
-            "SELECT body FROM todo_comments WHERE client_mutation_id = 'migration-edit-key'"
-        ).fetchall()
-        assert [row["body"] for row in ordered_mutation_comment] == ["mutation newest"], ordered_mutation_comment
-
-        # NULL authors do not form a unique mutation identity in SQLite.
-        null_author_comment_id = db.execute(
-            """INSERT INTO todo_comments
-               (todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-               VALUES (?, NULL, 'null author backup', '2026-08-01T00:00:00+00:00',
-                       '2026-08-01T00:00:00+00:00', 'null-author-key')""",
-            (owner_comment_row["todo_id"],),
-        ).lastrowid
-        null_author_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'todo_comments'"
-        ).fetchone()["sql"]
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_old_058")
-        db.execute(null_author_schema)
-        db.execute(
-            """INSERT INTO todo_comments
-               (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-               VALUES (?, ?, NULL, 'null author current', '2026-08-02T00:00:00+00:00',
-                       '2026-08-02T00:00:00+00:00', 'null-author-key')""",
-            (null_author_comment_id + 1000, owner_comment_row["todo_id"]),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        null_author_bodies = {
-            row["body"] for row in db.execute(
-                "SELECT body FROM todo_comments WHERE client_mutation_id = 'null-author-key'"
-            ).fetchall()
-        }
-        assert null_author_bodies == {"null author backup", "null author current"}, null_author_bodies
-
-        comments_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'todo_comments'"
-        ).fetchone()["sql"]
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_old_058")
-        db.execute(comments_schema)
-        db.execute(
-            """INSERT INTO todo_comments
-               (id, todo_id, user_id, body, created_at, updated_at)
-               VALUES (?, ?, ?, 'collision comment', '2026-03-01T00:00:00+00:00', '2026-03-01T00:00:00+00:00')""",
-            (owner_comment["comment"]["id"], private_todo["id"], successor_id),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        collision_comment_bodies = {
-            row["body"]
-            for row in db.execute(
-                "SELECT body FROM todo_comments WHERE body IN ('Owner comment', 'collision comment')"
-            ).fetchall()
-        }
-        assert collision_comment_bodies == {"Owner comment", "collision comment"}, collision_comment_bodies
-
-        same_todo_comment_row = dict(db.execute(
-            "SELECT * FROM todo_comments WHERE body = 'Owner comment'"
-        ).fetchone())
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_old_058")
-        db.execute(comments_schema)
-        db.execute(
-            """INSERT INTO todo_comments
-               (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
-               VALUES (?, ?, ?, 'same todo collision comment', ?, '2026-05-01T00:00:00+00:00', ?)""",
-            (
-                same_todo_comment_row["id"], same_todo_comment_row["todo_id"],
-                same_todo_comment_row["user_id"], same_todo_comment_row["created_at"],
-                same_todo_comment_row["client_mutation_id"],
-            ),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        same_todo_comment_bodies = {
-            row["body"]
-            for row in db.execute(
-                "SELECT body FROM todo_comments WHERE body IN ('Owner comment', 'same todo collision comment')"
-            ).fetchall()
-        }
-        assert same_todo_comment_bodies == {
-            "Owner comment", "same todo collision comment"
-        }, same_todo_comment_bodies
-
-        attachments_schema = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'todo_attachments'"
-        ).fetchone()["sql"]
-        db.execute("ALTER TABLE todo_attachments RENAME TO todo_attachments_old_058")
-        db.execute(attachments_schema)
-        db.execute(
-            """INSERT INTO todo_attachments
-               (id, todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at)
-               VALUES (?, ?, ?, 'collision.txt', 'collision.txt', 'text/plain', 9, '2026-03-01T00:00:00+00:00')""",
-            (attachment_id, private_todo["id"], successor_id),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        collision_attachment_names = {
-            row["stored_filename"]
-            for row in db.execute(
-                "SELECT stored_filename FROM todo_attachments WHERE stored_filename IN (?, 'collision.txt')",
-                (stored_filename,),
-            ).fetchall()
-        }
-        assert collision_attachment_names == {stored_filename, "collision.txt"}, collision_attachment_names
-
-        same_todo_attachment_row = dict(db.execute(
-            "SELECT * FROM todo_attachments WHERE stored_filename = ?", (stored_filename,)
-        ).fetchone())
-        db.execute("ALTER TABLE todo_attachments RENAME TO todo_attachments_old_058")
-        db.execute(attachments_schema)
-        db.execute(
-            """INSERT INTO todo_attachments
-               (id, todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at)
-               VALUES (?, ?, ?, 'same-todo.txt', 'same-todo.txt', 'text/plain', 12,
-                       '2026-05-01T00:00:00+00:00')""",
-            (same_todo_attachment_row["id"], same_todo_attachment_row["todo_id"], successor_id),
-        )
-        db.commit()
-        repair_household_entity_access_migration(db)
-        same_todo_attachment_names = {
-            row["stored_filename"]
-            for row in db.execute(
-                "SELECT stored_filename FROM todo_attachments WHERE stored_filename IN (?, 'same-todo.txt')",
-                (stored_filename,),
-            ).fetchall()
-        }
-        assert same_todo_attachment_names == {stored_filename, "same-todo.txt"}, same_todo_attachment_names
-
-        db.execute("CREATE INDEX migration_58_atomicity_marker ON project_members(status)")
-        db.commit()
-
-        def migration_58_snapshot(connection):
-            schema = [tuple(row) for row in connection.execute(
-                """SELECT type, name, tbl_name, sql FROM sqlite_master
-                   WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"""
-            ).fetchall()]
-            rows = {}
-            for table in ("project_members", "todo_comments", "todo_attachments", "schema_version"):
-                rows[table] = [tuple(row) for row in connection.execute(
-                    f"SELECT * FROM {table} ORDER BY 1"
-                ).fetchall()]
-            return schema, rows
-
-        atomicity_source = sqlite3.connect(":memory:")
-        atomicity_source.row_factory = sqlite3.Row
-        db.backup(atomicity_source)
-        original_schema_executor = migrate_module.execute_transactional_schema_script
-        for fault_marker in (
-            "ALTER TABLE project_members RENAME TO project_members_old_058",
-            "ALTER TABLE todo_comments RENAME TO todo_comments_old_058",
-            "ALTER TABLE todo_attachments RENAME TO todo_attachments_old_058",
-        ):
-            fault_db = sqlite3.connect(":memory:")
-            fault_db.row_factory = sqlite3.Row
-            atomicity_source.backup(fault_db)
-            before_fault = migration_58_snapshot(fault_db)
-
-            def injected_schema_executor(connection, script, marker=fault_marker):
-                original_schema_executor(connection, script)
-                if marker in script:
-                    raise sqlite3.OperationalError(f"fault after {marker}")
-
-            migrate_module.execute_transactional_schema_script = injected_schema_executor
-            try:
-                try:
-                    repair_household_entity_access_migration(fault_db)
-                except sqlite3.OperationalError as error:
-                    assert "fault after" in str(error), error
-                else:
-                    raise AssertionError(f"migration repair ignored injected fault after {fault_marker}")
-            finally:
-                migrate_module.execute_transactional_schema_script = original_schema_executor
-            assert migration_58_snapshot(fault_db) == before_fault, fault_marker
-            fault_db.close()
-        atomicity_source.close()
-
-        db.execute("DELETE FROM schema_version")
-        db.execute("INSERT INTO schema_version (version, applied_at) VALUES (57, datetime('now'))")
-        faulty_comment_rows = db.execute(
-            "SELECT id, todo_id, user_id, body, created_at, updated_at FROM todo_comments"
-        ).fetchall()
-        db.execute("ALTER TABLE todo_comments RENAME TO todo_comments_faulty_source")
-        db.execute(
-            """CREATE TABLE todo_comments (
-                   id INTEGER PRIMARY KEY AUTOINCREMENT,
-                   todo_id INTEGER NOT NULL,
-                   user_id INTEGER,
-                   body TEXT NOT NULL,
-                   created_at TEXT,
-                   updated_at TEXT
-               )"""
-        )
-        db.executemany(
-            """INSERT INTO todo_comments (id, todo_id, user_id, body, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            [tuple(row) for row in faulty_comment_rows],
-        )
-        db.execute("DROP TABLE todo_comments_faulty_source")
-        db.commit()
-        try:
-            repair_household_entity_access_migration(db)
-        except Exception as error:
-            assert "client_mutation_id" in str(error), error
-        else:
-            raise AssertionError("fault-injected migration repair unexpectedly succeeded")
-        assert db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'migration_58_atomicity_marker'"
-        ).fetchone() is not None
-        assert db.execute("SELECT version FROM schema_version").fetchone()["version"] == 57
 
 print("✅ Household content boundaries and deletion persistence remain intact")

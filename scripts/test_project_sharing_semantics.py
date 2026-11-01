@@ -125,19 +125,21 @@ with tempfile.TemporaryDirectory() as tmp:
 
     with get_db() as db:
         invite = db.execute(
-            "SELECT id FROM project_members WHERE project_id = ? AND user_id = ?",
+            """SELECT grant_row.id FROM entity_access_grants grant_row
+               JOIN entity_access ea ON ea.id = grant_row.entity_access_id
+               WHERE ea.entity_type = 'project' AND ea.entity_id = ? AND grant_row.user_id = ?""",
             (project_id, target_id),
         ).fetchone()
-        db.execute("UPDATE project_members SET status = 'removed' WHERE id = ?", (invite['id'],))
+        db.execute("UPDATE entity_access_grants SET status = 'removed' WHERE id = ?", (invite['id'],))
         db.commit()
         transitioned = transition_pending_invite(db, invite['id'], 'accepted', None)
         db.commit()
         assert transitioned is False
-        assert db.execute("SELECT status FROM project_members WHERE id = ?", (invite['id'],)).fetchone()['status'] == 'removed'
+        assert db.execute("SELECT status FROM entity_access_grants WHERE id = ?", (invite['id'],)).fetchone()['status'] == 'removed'
         assert transition_member_status(db, invite['id'], 'accepted', 'left') is False
         assert transition_member_status(db, invite['id'], 'left', 'accepted') is False
         db.commit()
-        assert db.execute("SELECT status FROM project_members WHERE id = ?", (invite['id'],)).fetchone()['status'] == 'removed'
+        assert db.execute("SELECT status FROM entity_access_grants WHERE id = ?", (invite['id'],)).fetchone()['status'] == 'removed'
 
     # Re-invite and verify normal owner withdrawal still works.
     result = asyncio.run(share_project(project_id, ShareProjectRequest(username='target'), request, owner_id))
@@ -149,7 +151,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # A departing member must receive a recipient-specific removal snapshot.
     result = asyncio.run(share_project(project_id, ShareProjectRequest(username='target'), request, owner_id))
     with get_db() as db:
-        db.execute("UPDATE project_members SET status = 'accepted' WHERE id = ?", (result['member']['id'],))
+        db.execute("UPDATE entity_access_grants SET status = 'accepted' WHERE id = ?", (result['member']['id'],))
         db.commit()
     websocket_messages = {}
     original_broadcast_to_user = websocket_service.manager.broadcast_to_user
@@ -171,6 +173,11 @@ with tempfile.TemporaryDirectory() as tmp:
         if message.get('type') == 'sync_response'
     ]
     assert gain_syncs, websocket_messages
+    assert all(
+        message.get('type') == 'sync_response'
+        for messages in websocket_messages.values()
+        for message in messages
+    ), websocket_messages
     assert project_id in {project['id'] for project in gain_syncs[-1]['projects']}
     websocket_messages.clear()
 

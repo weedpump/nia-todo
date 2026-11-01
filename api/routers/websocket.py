@@ -6,7 +6,7 @@ from fastapi import WebSocket
 
 from db import get_db, row_to_dict, now_iso
 from services.auth import get_current_user
-from services.entity_access import get_user_household
+from services.entity_access import get_user_household, list_entity_access_invites
 from services.sharing import get_project_ids_for_user, get_todo_reminder_recipient_user_id
 from services.server_updates import get_public_update_status
 from services.websocket import manager, get_project_view_for_user
@@ -183,17 +183,24 @@ def get_sync_payload(db, user_id: int) -> dict:
            ORDER BY hm.created_at, hm.id""",
         (user_id,),
     ).fetchall()
-    project_invite_rows = db.execute(
-        """SELECT pm.*, p.name AS project_name, p.color AS project_color,
-                  u.username AS invited_by_username, u.display_name AS invited_by_display_name
-           FROM project_members pm
-           JOIN projects p ON p.id = pm.project_id
-           JOIN entity_access ea ON ea.entity_type = 'project' AND ea.entity_id = p.id
-           LEFT JOIN users u ON u.id = pm.invited_by
-           WHERE pm.user_id = ? AND pm.status = 'pending' AND ea.owner_household_id IS NULL
-           ORDER BY pm.created_at, pm.id""",
-        (user_id,),
-    ).fetchall()
+    project_invite_rows = list_entity_access_invites(db, user_id, "project")
+    for invite in project_invite_rows:
+        project = db.execute(
+            "SELECT name, color FROM projects WHERE id = ?",
+            (invite["entity_id"],),
+        ).fetchone()
+        invite["project_id"] = invite["entity_id"]
+        invite["project_name"] = project["name"] if project else None
+        invite["project_color"] = project["color"] if project else None
+    shopping_invite_rows = list_entity_access_invites(db, user_id, "shopping_list")
+    for invite in shopping_invite_rows:
+        shopping_list = db.execute(
+            "SELECT name, color FROM shopping_lists WHERE id = ?",
+            (invite["entity_id"],),
+        ).fetchone()
+        invite["shopping_list_id"] = invite["entity_id"]
+        invite["shopping_list_name"] = shopping_list["name"] if shopping_list else None
+        invite["shopping_list_color"] = shopping_list["color"] if shopping_list else None
     return {
         "type": "sync_response",
         "todos": get_sync_todo_payloads(db, user_id),
@@ -205,7 +212,8 @@ def get_sync_payload(db, user_id: int) -> dict:
         "module_preferences": module_preferences_payload(user_module_row or {}),
         "household": household_payload,
         "household_invites": [dict(row) for row in household_invite_rows],
-        "project_invites": [dict(row) for row in project_invite_rows],
+        "project_invites": project_invite_rows,
+        "shopping_invites": shopping_invite_rows,
     }
 
 

@@ -2,6 +2,7 @@
 """Regression test: a fresh database must migrate from 001 to the latest schema."""
 
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -23,6 +24,31 @@ def latest_migration_version() -> int:
     return max(versions)
 
 
+def run_migrations(env: dict[str, str], migrations_dir: Path | None = None):
+    setup = "import sys; sys.path.insert(0, 'api'); import migrate; "
+    if migrations_dir is not None:
+        setup += f"migrate.MIGRATIONS_DIR = __import__('pathlib').Path({str(migrations_dir)!r}); "
+    subprocess.run(
+        [sys.executable, "-c", setup + "migrate.run_migrations()"],
+        cwd=BASE,
+        env=env,
+        check=True,
+    )
+
+
+def database_snapshot(db: sqlite3.Connection):
+    schema = db.execute(
+        """SELECT type, name, tbl_name, sql FROM sqlite_master
+           WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"""
+    ).fetchall()
+    rows = {}
+    for (table_name,) in db.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    ):
+        rows[table_name] = db.execute(f'SELECT * FROM "{table_name}" ORDER BY rowid').fetchall()
+    return schema, rows
+
+
 def main():
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
@@ -30,16 +56,7 @@ def main():
         env["NIA_TODO_DATA_DIR"] = str(tmp_path)
         env["NIA_TODO_DB"] = "fresh-migration-test.db"
 
-        subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "import sys; sys.path.insert(0, 'api'); from migrate import run_migrations; run_migrations()",
-            ],
-            cwd=BASE,
-            env=env,
-            check=True,
-        )
+        run_migrations(env)
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
@@ -175,151 +192,106 @@ def main():
             else:
                 raise AssertionError("Cross-list shopping store assignment bypassed database constraints")
 
-        with sqlite3.connect(db_path) as db:
-            db.execute("DROP TABLE dashboard_preferences")
-            db.execute("UPDATE schema_version SET version = 53")
-            db.commit()
+        v55_migrations = tmp_path / "migrations-through-55"
+        v55_migrations.mkdir()
+        for migration in MIGRATIONS_DIR.glob("*.sql"):
+            if int(migration.name.split("_", 1)[0]) <= 55:
+                shutil.copy2(migration, v55_migrations / migration.name)
 
-        subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "import sys; sys.path.insert(0, 'api'); from migrate import run_migrations; run_migrations()",
-            ],
-            cwd=BASE,
-            env=env,
-            check=True,
-        )
-
-        with sqlite3.connect(db_path) as db:
-            version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
-            assert version == latest, (version, latest)
-            table = db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'dashboard_preferences'").fetchone()
-            assert table == ("dashboard_preferences",), table
-            indexes = {row[1] for row in db.execute("PRAGMA index_list(dashboard_preferences)")}
-            assert "idx_dashboard_preferences_user" in indexes, indexes
-            workspace_columns = {row[1] for row in db.execute("PRAGMA table_info(workspaces)")}
-            user_columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
-            assert "hidden_modules_json" not in workspace_columns, workspace_columns
-            assert "disabled_modules_json" in user_columns, user_columns
-
-        with sqlite3.connect(db_path) as db:
-            db.execute("PRAGMA foreign_keys = OFF")
-            db.execute("DROP TABLE shopping_item_stores")
-            db.execute("""CREATE TABLE shopping_item_stores (
-                shopping_item_id INTEGER NOT NULL,
-                shopping_store_id INTEGER NOT NULL,
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY (shopping_item_id, shopping_store_id),
-                FOREIGN KEY (shopping_item_id) REFERENCES shopping_items(id) ON DELETE CASCADE,
-                FOREIGN KEY (shopping_store_id) REFERENCES shopping_stores(id)
-            )""")
-            db.execute("CREATE INDEX idx_shopping_item_stores_item_order ON shopping_item_stores(shopping_item_id, sort_order, shopping_store_id)")
-            db.execute("UPDATE schema_version SET version = 58")
-            db.commit()
-
-        subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "import sys; sys.path.insert(0, 'api'); from migrate import run_migrations; run_migrations()",
-            ],
-            cwd=BASE,
-            env=env,
-            check=True,
-        )
-
-        with sqlite3.connect(db_path) as db:
-            repaired_item_store_foreign_keys = {
-                (row[2], row[3], row[4], row[6])
-                for row in db.execute("PRAGMA foreign_key_list(shopping_item_stores)")
-            }
-            assert (
-                "shopping_stores", "shopping_store_id", "id", "CASCADE"
-            ) in repaired_item_store_foreign_keys, repaired_item_store_foreign_keys
-            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
-
-        with sqlite3.connect(db_path) as db:
-            db.execute("PRAGMA foreign_keys = OFF")
-            first_list_id = db.execute("INSERT INTO shopping_lists (name) VALUES ('Repair first')").lastrowid
-            second_list_id = db.execute("INSERT INTO shopping_lists (name) VALUES ('Repair second')").lastrowid
-            item_id = db.execute(
-                "INSERT INTO shopping_items (shopping_list_id, name) VALUES (?, 'Repair item')",
-                (first_list_id,),
+        v55_env = env.copy()
+        v55_env["NIA_TODO_DB"] = "published-v55-upgrade.db"
+        run_migrations(v55_env, v55_migrations)
+        v55_db_path = tmp_path / v55_env["NIA_TODO_DB"]
+        with sqlite3.connect(v55_db_path) as db:
+            owner_id = db.execute("INSERT INTO users (username) VALUES ('v55-owner')").lastrowid
+            accepted_id = db.execute("INSERT INTO users (username) VALUES ('v55-accepted')").lastrowid
+            pending_id = db.execute("INSERT INTO users (username) VALUES ('v55-pending')").lastrowid
+            declined_id = db.execute("INSERT INTO users (username) VALUES ('v55-declined')").lastrowid
+            project_id = db.execute(
+                "INSERT INTO projects (name, user_id) VALUES ('Published v55 project', ?)",
+                (owner_id,),
             ).lastrowid
-            store_id = db.execute(
-                "INSERT INTO shopping_stores (shopping_list_id, name) VALUES (?, 'Repair store')",
-                (second_list_id,),
-            ).lastrowid
-            db.execute("DROP TABLE shopping_item_stores")
-            db.execute("""CREATE TABLE shopping_item_stores (
-                shopping_item_id INTEGER NOT NULL,
-                shopping_store_id INTEGER NOT NULL,
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY (shopping_item_id, shopping_store_id),
-                FOREIGN KEY (shopping_item_id) REFERENCES shopping_items(id) ON DELETE CASCADE,
-                FOREIGN KEY (shopping_store_id) REFERENCES shopping_stores(id)
-            )""")
-            db.execute(
-                "INSERT INTO shopping_item_stores (shopping_item_id, shopping_store_id) VALUES (?, ?)",
-                (item_id, store_id),
+            legacy_members = (
+                (accepted_id, "accepted", "#112233", "2025-01-01T10:00:00Z", "2025-01-02T11:00:00Z", "username"),
+                (pending_id, "pending", None, "2025-02-01T10:00:00Z", "2025-02-02T11:00:00Z", "email"),
+                (declined_id, "declined", "#abcdef", "2025-03-01T10:00:00Z", "2025-03-02T11:00:00Z", "username"),
+            )
+            db.executemany(
+                """INSERT INTO project_members
+                   (project_id, user_id, invited_by, status, user_color, created_at, updated_at, invite_identifier_type)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                [
+                    (project_id, user_id, owner_id, status, color, created_at, updated_at, identifier_type)
+                    for user_id, status, color, created_at, updated_at, identifier_type in legacy_members
+                ],
             )
             db.commit()
 
-        rejected = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                (
-                    "import sqlite3, sys; from pathlib import Path; "
-                    "sys.path.insert(0, 'api'); "
-                    "from migrate import repair_shopping_lists_migration; "
-                    "db=sqlite3.connect(sys.argv[1]); db.row_factory=sqlite3.Row; "
-                    "repair_shopping_lists_migration(db, Path('api/migrations/059_add_shopping_lists.sql').read_text())"
-                ),
-                str(db_path),
-            ],
-            cwd=BASE,
-            env=env,
-            capture_output=True,
-            text=True,
-        )
-        assert rejected.returncode != 0, rejected.stdout
-        assert "invalid or cross-list" in rejected.stderr, rejected.stderr
-        with sqlite3.connect(db_path) as db:
-            columns = {row[1] for row in db.execute("PRAGMA table_info(shopping_item_stores)")}
-            assert "shopping_list_id" not in columns, columns
-            assert db.execute("SELECT count(*) FROM shopping_item_stores").fetchone()[0] == 1
-            assert not db.execute(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'shopping_item_stores__repair'"
-            ).fetchone()
+        v57_migrations = tmp_path / "migrations-through-57"
+        v57_migrations.mkdir()
+        for migration in MIGRATIONS_DIR.glob("*.sql"):
+            if int(migration.name.split("_", 1)[0]) <= 57:
+                shutil.copy2(migration, v57_migrations / migration.name)
+        rollback_db_path = tmp_path / "migration-58-rollback.db"
+        shutil.copy2(v55_db_path, rollback_db_path)
+        rollback_env = env.copy()
+        rollback_env["NIA_TODO_DB"] = rollback_db_path.name
+        run_migrations(rollback_env, v57_migrations)
+        sys.path.insert(0, str(BASE / "api"))
+        import migrate as migrate_module
 
-        legacy_db_path = tmp_path / "legacy-owner-store.db"
-        with sqlite3.connect(legacy_db_path) as db:
-            db.execute("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at TEXT)")
-            db.execute("INSERT INTO schema_version (version) VALUES (59)")
-            db.execute("""CREATE TABLE shopping_stores (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                owner_user_id INTEGER,
-                owner_household_id INTEGER
-            )""")
-            db.commit()
-        legacy_env = env.copy()
-        legacy_env["NIA_TODO_DB"] = legacy_db_path.name
-        legacy_result = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "import sys; sys.path.insert(0, 'api'); from migrate import run_migrations; run_migrations()",
-            ],
-            cwd=BASE,
-            env=legacy_env,
-            capture_output=True,
-            text=True,
-        )
-        assert legacy_result.returncode != 0, legacy_result.stdout
-        assert "explicit development-database transformation" in legacy_result.stderr, legacy_result.stderr
+        with sqlite3.connect(rollback_db_path) as db:
+            before_failure = database_snapshot(db)
+            broken_migration = (
+                (MIGRATIONS_DIR / "058_add_household_entity_access.sql").read_text()
+                + "\nSELECT * FROM migration_58_forced_failure;\n"
+            )
+            try:
+                migrate_module.apply_household_entity_access_migration(db, broken_migration)
+            except sqlite3.OperationalError as error:
+                assert "migration_58_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 58 unexpectedly succeeded")
+            assert database_snapshot(db) == before_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 57
+
+            migrate_module.apply_household_entity_access_migration(
+                db,
+                (MIGRATIONS_DIR / "058_add_household_entity_access.sql").read_text(),
+            )
+            before_migration_59_failure = database_snapshot(db)
+            broken_migration_59 = (
+                (MIGRATIONS_DIR / "059_add_shopping_lists.sql").read_text()
+                + "\nSELECT * FROM migration_59_forced_failure;\n"
+            )
+            try:
+                migrate_module.apply_atomic_migration(db, broken_migration_59, 59)
+            except sqlite3.OperationalError as error:
+                assert "migration_59_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 59 unexpectedly succeeded")
+            assert database_snapshot(db) == before_migration_59_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 58
+        run_migrations(v55_env)
+        with sqlite3.connect(v55_db_path) as db:
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 59
+            project_member_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
+            assert "is_direct_access_mirror" not in project_member_columns, project_member_columns
+            migrated_grants = db.execute(
+                """SELECT grant_row.user_id, grant_row.invited_by_user_id,
+                          grant_row.granted_by_user_id, grant_row.status,
+                          grant_row.invite_identifier_type, grant_row.created_at, grant_row.updated_at
+                   FROM entity_access_grants grant_row
+                   JOIN entity_access access ON access.id = grant_row.entity_access_id
+                   WHERE access.entity_type = 'project' AND access.entity_id = ?
+                   ORDER BY grant_row.user_id""",
+                (project_id,),
+            ).fetchall()
+            assert migrated_grants == [
+                (user_id, owner_id, owner_id, status, identifier_type, created_at, updated_at)
+                for user_id, status, _color, created_at, updated_at, identifier_type in legacy_members
+            ], migrated_grants
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
     print("✅ Fresh migration test passed")
 

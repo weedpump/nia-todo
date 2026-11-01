@@ -1,6 +1,7 @@
 import { t } from '../i18n/index.js';
 import { refreshSelect } from '../ui/dropdowns.js';
 import { createEntityDirectSharingFeature } from './entity-direct-sharing.js';
+import { createEntityInvitationsFeature, renderEntityInvitationsHost } from './entity-invitations.js';
 import { isHouseholdOwnedEntity } from './entity-ownership-field.js';
 
 export function createProjectSharingFeature({
@@ -12,9 +13,9 @@ export function createProjectSharingFeature({
   showToast,
   confirmDanger,
   projectsApi,
+  loadAuthoritativeProjection = () => projectsApi.list(),
 }) {
   let currentProject = null;
-  let projectSharingActionsBound = false;
   const localPendingMembersByProject = new Map();
 
   function isOwner(project) {
@@ -75,6 +76,31 @@ export function createProjectSharingFeature({
     },
   });
 
+  const invitations = createEntityInvitationsFeature({
+    entityType: 'project',
+    listInvitations: () => projectsApi.listInvites(),
+    normalizeInvitation: invite => ({
+      ...invite,
+      entityId: invite.project_id ?? invite.entity_id,
+      name: invite.project_name ?? invite.entity_name ?? invite.name,
+    }),
+    respondInvitation: (invite, accept) => projectsApi.respondInvite(invite.entityId, invite.id, accept),
+    loadAuthoritativeProjection,
+    applyAuthoritativeProjection: response => {
+      if (!Array.isArray(response?.projects)) return;
+      setProjects(response.projects);
+      renderProjects();
+      renderStats();
+      renderTodos();
+    },
+    render: state => renderEntityInvitationsHost({
+      sectionId: 'invites-section',
+      listId: 'invites-list',
+      entityType: 'project',
+      state,
+    }),
+  });
+
   async function loadMembers(projectId) {
     if (!currentProject || String(currentProject.id) !== String(projectId)) {
       currentProject = getProjects().find(project => String(project.id) === String(projectId)) || null;
@@ -125,51 +151,32 @@ export function createProjectSharingFeature({
   }
 
   async function acceptInvite(projectId, inviteId) {
-    await projectsApi.respondInvite(projectId, inviteId, true);
-    showToast(t('project.share.accepted'));
-    const response = await projectsApi.list();
-    if (response?.projects) {
-      setProjects(response.projects);
-      renderProjects();
-      renderStats();
-      renderTodos();
-    }
-    await loadInvites();
+    const accepted = await invitations.respond(inviteId, true);
+    if (accepted) showToast(t('project.share.accepted'));
+    return accepted;
   }
 
   async function declineInvite(projectId, inviteId) {
-    const row = document.querySelector(`[data-invite-id="${CSS.escape(String(inviteId))}"]`);
-    if (row) row.remove();
-    await projectsApi.respondInvite(projectId, inviteId, false);
-    showToast(t('project.share.declined'));
-    await loadInvites();
+    const declined = await invitations.respond(inviteId, false);
+    if (declined) showToast(t('project.share.declined'));
+    return declined;
   }
 
   async function loadInvites() {
-    try {
-      const response = await projectsApi.listInvites();
-      const invites = response?.invites || [];
-      if (typeof window.renderInvites === 'function') window.renderInvites(invites);
-      return { ok: true, invites };
-    } catch (error) {
-      console.warn('Failed to load invites:', error);
-      return { ok: false, error };
-    }
+    return invitations.load();
+  }
+
+  function setInvites(next) {
+    return invitations.setInvitations(next);
+  }
+
+  function renderInvites() {
+    invitations.render();
   }
 
   function bindProjectSharingActions() {
     directSharing.bind();
-    if (projectSharingActionsBound) return;
-    projectSharingActionsBound = true;
-    document.addEventListener('click', async event => {
-      const target = event.target?.closest?.('[data-project-sharing-action]');
-      if (!target) return;
-      const action = target.dataset.projectSharingAction;
-      if (action !== 'accept-invite' && action !== 'decline-invite') return;
-      event.preventDefault();
-      if (action === 'accept-invite') await acceptInvite(target.dataset.projectId, target.dataset.inviteId);
-      else await declineInvite(target.dataset.projectId, target.dataset.inviteId);
-    });
+    invitations.bind();
   }
 
   function showShareInput() {
@@ -221,6 +228,8 @@ export function createProjectSharingFeature({
     acceptInvite,
     declineInvite,
     loadInvites,
+    setInvites,
+    renderInvites,
     bindProjectSharingActions,
     applyProjectModalState,
     loadMembers,

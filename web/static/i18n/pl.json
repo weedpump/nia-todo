@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Zaakceptuj zaproszenie",
   "invite.decline": "Odmów",
   "invite.declineAria": "Odrzuć zaproszenie",
+  "entity.invitation.error.onlineOnly": "Odpowiadanie na zaproszenia wymaga połączenia z Internetem.",
+  "entity.invitation.error.respondFailed": "Nie udało się zaktualizować zaproszenia. Spróbuj ponownie.",
   "time.justNow": "właśnie teraz",
   "time.minutesAgo": "{count} min. temu",
   "time.hoursAgo": "{count} godz. temu",

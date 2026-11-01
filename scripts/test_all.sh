@@ -94,6 +94,11 @@ run_step "Security Tauri Vendor Sync" node scripts/test_tauri_vendor_sync.mjs
 run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py
+run_step "Generic Entity Sharing Lifecycle" python3 scripts/test_entity_sharing_lifecycle.py
+run_step "Generic Entity Sharing Adapters" python3 scripts/test_entity_sharing_adapters.py
+run_step "Generic Entity Sharing Router" python3 scripts/test_entity_sharing_router.py
+run_step "Generic Entity Sharing Notifications" python3 scripts/test_entity_sharing_notifications.py
+run_step "Entity Sharing Boundaries" python3 scripts/test_entity_sharing_boundaries.py
 run_step "Household Entity Access" python3 scripts/test_household_entity_access.py
 run_step "Shopping Lists" python3 scripts/test_shopping_lists.py
 run_step "Household API" python3 scripts/test_household_api.py
@@ -144,6 +149,8 @@ run_step "Shared Module Primary Action" node scripts/test_module_primary_action.
 run_step "Shared Select Actions" node scripts/test_ui_select_actions.mjs
 run_step "Shared Entity Ownership" node scripts/test_entity_ownership_field.mjs
 run_step "Shared Entity Direct Sharing" node scripts/test_entity_direct_sharing.mjs
+run_step "Shared Entity Invitations" node scripts/test_entity_invitations.mjs
+run_step "Entity Invitation i18n" node scripts/test_entity_invitation_i18n.mjs
 run_step "Shopping List Access Browser" node scripts/test_frontend_shopping_access.mjs
 run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
 run_step "Shopping Sections" node scripts/test_shopping_sections.mjs

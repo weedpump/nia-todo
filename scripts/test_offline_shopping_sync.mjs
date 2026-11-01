@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 globalThis.location = { origin: 'http://localhost' };
 
@@ -13,6 +14,7 @@ const {
 const {
   commitShoppingMutation,
   commitShoppingReplay,
+  evictPendingShoppingEntities,
 } = await import('../web/static/js/storage/indexed-db.js');
 const { DB_VERSION } = await import('../web/static/js/core/config.js');
 
@@ -139,6 +141,123 @@ await commitShoppingReplay({
 assert.equal(replayDb.calls.some(([name, id]) => name === 'shoppingLists.delete' && id === 7), true);
 assert.equal(replayDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 1), true);
 assert.equal(replayDb.calls.filter(([name]) => name === 'syncQueue.put').length, rewritten.length - 1);
+
+function createEvictionDatabase({ fail = false } = {}) {
+  const calls = [];
+  const values = {
+    shoppingStores: [
+      { id: 30, shopping_list_id: 7, name: 'Private store' },
+      { id: 31, shopping_list_id: 8, name: 'Other store' },
+    ],
+    syncQueue: [
+      { id: 40, action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 7, item_id: 1 } },
+      { id: 41, action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 8, item_id: 2 } },
+      { id: 42, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 30, changes: { name: 'Private renamed store' } } },
+      { id: 43, action: 'DELETE_SHOPPING_STORE', data: { store_id: 30 } },
+    ],
+  };
+  const database = {
+    transaction(names, mode) {
+      calls.push(['transaction', [...names], mode]);
+      let reads = 0;
+      const tx = {
+        objectStore(name) {
+          return {
+            delete(id) { calls.push([`${name}.delete`, id]); },
+            getAll() {
+              const request = {};
+              queueMicrotask(() => {
+                request.result = structuredClone(values[name]);
+                request.onsuccess?.();
+                reads += 1;
+                if (reads === 2) queueMicrotask(() => fail ? tx.onerror?.() : tx.oncomplete?.());
+              });
+              return request;
+            },
+          };
+        },
+        abort() { calls.push(['abort']); },
+        error: fail ? new Error('eviction failed') : null,
+      };
+      return tx;
+    },
+  };
+  return { database, calls };
+}
+
+const evictionDb = createEvictionDatabase();
+await evictPendingShoppingEntities(['7'], { database: evictionDb.database });
+assert.deepEqual(evictionDb.calls[0], ['transaction', ['shoppingLists', 'shoppingStores', 'syncQueue'], 'readwrite']);
+assert.equal(evictionDb.calls.some(([name, id]) => name === 'shoppingLists.delete' && id === 7), true);
+assert.equal(evictionDb.calls.some(([name, id]) => name === 'shoppingStores.delete' && id === 30), true);
+assert.equal(evictionDb.calls.some(([name, id]) => name === 'shoppingStores.delete' && id === 31), false);
+assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 40), true);
+assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 41), false);
+assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 42), true);
+assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 43), true);
+
+const numericEvictionDb = createEvictionDatabase();
+await evictPendingShoppingEntities([7], { database: numericEvictionDb.database });
+assert.equal(
+  numericEvictionDb.calls.some(([name, id]) => name === 'shoppingLists.delete' && id === '7'),
+  true,
+  'integer shopping IDs must also delete the digit-only string IndexedDB key',
+);
+assert.equal(
+  numericEvictionDb.calls.some(([name, id]) => name === 'shoppingLists.delete' && id === 7),
+  true,
+  'integer shopping IDs must keep deleting the numeric IndexedDB key',
+);
+assert.equal(
+  queueItemReferencesShoppingList(
+    { action: 'UPDATE_SHOPPING_STORE', data: { store_id: 999, changes: { name: 'Orphaned private store' } } },
+    7,
+    [],
+    { orphanedStoreMatches: true },
+  ),
+  true,
+  'privacy eviction must fail closed for legacy store-only mutations after the store snapshot was removed',
+);
+
+
+const appStorageSource = readFileSync(new URL('../web/static/js/storage/app-storage.js', import.meta.url), 'utf8');
+assert.match(appStorageSource, /evictPendingShoppingEntities\(listIds, options\)/);
+assert.match(appStorageSource, /indexedDb\.evictPendingShoppingEntities\(listIds, options\)/);
+
+const failedEvictionDb = createEvictionDatabase({ fail: true });
+await assert.rejects(
+  evictPendingShoppingEntities([7], { database: failedEvictionDb.database }),
+  /eviction failed/,
+  'pending privacy eviction must reject instead of reporting false success',
+);
+
+let abortedEvictionTransaction = false;
+const abortableEvictionDb = {
+  transaction() {
+    const tx = {
+      objectStore() {
+        return {
+          delete() {},
+          getAll() { return {}; },
+        };
+      },
+      abort() {
+        abortedEvictionTransaction = true;
+        queueMicrotask(() => tx.onabort?.());
+      },
+      error: null,
+    };
+    return tx;
+  },
+};
+const evictionController = new AbortController();
+const abortedEviction = evictPendingShoppingEntities([9], {
+  database: abortableEvictionDb,
+  signal: evictionController.signal,
+});
+evictionController.abort();
+await assert.rejects(abortedEviction, error => error?.name === 'AbortError');
+assert.equal(abortedEvictionTransaction, true, 'accept projection must abort the durable eviction transaction');
 
 assert.equal(DB_VERSION, 8, 'list-scoped shopping stores require IndexedDB schema version 8');
 

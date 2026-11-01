@@ -1053,6 +1053,8 @@
   "invite.acceptAria": "接受邀请",
   "invite.decline": "拒绝",
   "invite.declineAria": "拒绝邀请",
+  "entity.invitation.error.onlineOnly": "需要连接互联网才能回应邀请。",
+  "entity.invitation.error.respondFailed": "无法更新邀请，请重试。",
   "time.justNow": "刚才",
   "time.minutesAgo": "{count} 分钟前",
   "time.hoursAgo": "{count} 小时。前",

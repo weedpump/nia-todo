@@ -18,7 +18,6 @@ import secrets
 
 from db import get_db, now_iso
 from services.attachments import AttachmentCleanupBatch, commit_with_attachment_recovery
-from services.sharing import get_project_participant_user_ids
 from routers.websocket import broadcast_sync_to_users
 from services.auth import create_admin_jwt_token, invalidate_all_user_tokens, revoke_all_user_sessions, verify_admin_token
 from services.utils import normalize_email, password_within_bcrypt_limit, sanitize_text, validate_admin_password, validate_email, validate_password
@@ -30,7 +29,7 @@ from services.oidc_config import get_oidc_config, update_oidc_config
 from services.email import send_email, send_test_email
 from services.two_factor import clear_recovery_codes, get_two_factor_required, list_user_device_sessions, revoke_device_session, revoke_trusted_devices, set_two_factor_required
 from services.email_templates import password_setup_email
-from services.entity_access import register_personal_entity
+from services.entity_access import get_entity_access_boundary_user_ids, register_personal_entity
 from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
 from services.server_updates import get_update_progress, get_update_status, install_latest_deb_update, perform_update_check
@@ -783,13 +782,22 @@ async def delete_user(user_id: int, _: bool = Depends(require_admin)):
                     (household_id,),
                 ).fetchall()
             )
-        project_relationships = db.execute(
-            """SELECT project_id, invited_by FROM project_members
-               WHERE user_id = ? AND status IN ('pending', 'accepted')""",
+        entity_relationships = db.execute(
+            """SELECT ea.entity_type, ea.entity_id, ea.owner_user_id,
+                      eag.invited_by_user_id AS invited_by
+               FROM entity_access_grants eag
+               JOIN entity_access ea ON ea.id = eag.entity_access_id
+               WHERE eag.user_id = ? AND eag.status IN ('pending', 'accepted')""",
             (user_id,),
         ).fetchall()
-        for relationship in project_relationships:
-            sync_user_ids.update(get_project_participant_user_ids(db, relationship["project_id"]))
+        for relationship in entity_relationships:
+            sync_user_ids.update(get_entity_access_boundary_user_ids(
+                db,
+                relationship["entity_type"],
+                relationship["entity_id"],
+            ))
+            if relationship["owner_user_id"] is not None:
+                sync_user_ids.add(relationship["owner_user_id"])
             if relationship["invited_by"] is not None:
                 sync_user_ids.add(relationship["invited_by"])
         owned_household = db.execute("SELECT id FROM households WHERE owner_user_id = ?", (user_id,)).fetchone()
@@ -807,7 +815,7 @@ async def delete_user(user_id: int, _: bool = Depends(require_admin)):
         ).fetchall()
         project_ids = [row["entity_id"] for row in personal_projects]
         for project_id in project_ids:
-            sync_user_ids.update(get_project_participant_user_ids(db, project_id))
+            sync_user_ids.update(get_entity_access_boundary_user_ids(db, "project", project_id))
         if project_ids:
             project_placeholders = ",".join("?" for _ in project_ids)
             personal_todo_rows = db.execute(

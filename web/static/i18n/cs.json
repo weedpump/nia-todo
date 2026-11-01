@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Přijměte pozvání",
   "invite.decline": "Odmítnout",
   "invite.declineAria": "Odmítnout pozvání",
+  "entity.invitation.error.onlineOnly": "K odpovědi na pozvání je nutné připojení k internetu.",
+  "entity.invitation.error.respondFailed": "Pozvání se nepodařilo aktualizovat. Zkuste to znovu.",
   "time.justNow": "právě teď",
   "time.minutesAgo": "{count} min. před",
   "time.hoursAgo": "{count} hod. před",

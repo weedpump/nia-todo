@@ -20,6 +20,10 @@ export const shoppingModule = Object.freeze({
         <div id="shopping-list-sidebar"></div>
         ${renderEntitySidebarAddRow({ entityType: 'shopping-list', label: t('shopping.sidebar.add'), labelKey: 'shopping.sidebar.add' })}
       </nav>
+      <nav class="nav-section entity-invitations-section" id="shopping-invites-section" hidden>
+        <div class="nav-title" data-i18n-key="nav.invitations">${t('nav.invitations')}</div>
+        <div id="shopping-invites-list"></div>
+      </nav>
     `;
     slots.topbar.innerHTML = renderTopbarToggle({
       id: 'shopping-hide-empty-sections-btn',

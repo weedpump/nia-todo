@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Accepteer de uitnodiging",
   "invite.decline": "Weigeren",
   "invite.declineAria": "Uitnodiging afwijzen",
+  "entity.invitation.error.onlineOnly": "Je hebt een internetverbinding nodig om uitnodigingen te beantwoorden.",
+  "entity.invitation.error.respondFailed": "De uitnodiging kon niet worden bijgewerkt. Probeer het opnieuw.",
   "time.justNow": "zojuist",
   "time.minutesAgo": "{count} min. geleden",
   "time.hoursAgo": "{count} uur. geleden",

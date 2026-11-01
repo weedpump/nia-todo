@@ -104,7 +104,7 @@ export function createShoppingStoresController({
       return {
         store,
         action: 'UPDATE_SHOPPING_STORE',
-        data: { store_id: latest.id, changes: { name } },
+        data: { shopping_list_id: latest.shopping_list_id, store_id: latest.id, changes: { name } },
         result: store,
       };
     });
@@ -127,7 +127,7 @@ export function createShoppingStoresController({
       return {
         store,
         action: 'DELETE_SHOPPING_STORE',
-        data: { store_id: latest.id },
+        data: { shopping_list_id: latest.shopping_list_id, store_id: latest.id },
         result: store,
       };
     });

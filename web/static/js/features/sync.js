@@ -741,13 +741,13 @@ export function createSyncFeature({
   }
 
   async function refreshFromServer({ wsState, syncInProgressRef }) {
-    if (!isOnlineForSync(wsState) || !getDb()) return;
+    if (!isOnlineForSync(wsState) || !getDb()) return { refreshed: false, reason: 'unavailable' };
 
     if (syncInProgressRef.value) {
       const completed = await waitForActiveSync(syncInProgressRef);
       if (!completed) {
         console.warn('Skipping server refresh while local sync is still in progress');
-        return;
+        return { refreshed: false, reason: 'sync-in-progress' };
       }
     }
 
@@ -757,7 +757,7 @@ export function createSyncFeature({
       const remainingQueue = await dbGetAll('syncQueue');
       if (remainingQueue.length) {
         console.warn('Skipping server refresh while local sync queue still has pending changes');
-        return;
+        return { refreshed: false, reason: 'pending-queue' };
       }
     }
 
@@ -816,6 +816,7 @@ export function createSyncFeature({
       syncInProgressRef.requested = false;
       await syncWithServer({ wsState, syncInProgressRef });
     }
+    return { refreshed: !shouldDrainQueue, reason: shouldDrainQueue ? 'queue-before-commit' : null };
   }
 
   return { isOnlineForSync, syncWithServer, refreshFromServer };

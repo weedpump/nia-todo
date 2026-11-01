@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Acceptera inbjudan",
   "invite.decline": "Avböja",
   "invite.declineAria": "Avvisa inbjudan",
+  "entity.invitation.error.onlineOnly": "En internetanslutning krävs för att svara på inbjudningar.",
+  "entity.invitation.error.respondFailed": "Inbjudan kunde inte uppdateras. Försök igen.",
   "time.justNow": "just nu",
   "time.minutesAgo": "{count} min. sedan",
   "time.hoursAgo": "{count} tim. sedan",

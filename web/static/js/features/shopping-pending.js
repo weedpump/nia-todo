@@ -6,10 +6,15 @@ function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
-export function queueItemReferencesShoppingList(item, listId) {
+export function queueItemReferencesShoppingList(item, listId, stores = [], { orphanedStoreMatches = false } = {}) {
   const data = item?.data || {};
   if (['CREATE_SHOPPING_LIST', 'UPDATE_SHOPPING_LIST', 'DELETE_SHOPPING_LIST'].includes(item?.action)) {
     return sameId(data.id ?? data.temp_id, listId);
+  }
+  if (['UPDATE_SHOPPING_STORE', 'DELETE_SHOPPING_STORE'].includes(item?.action)) {
+    if (data.shopping_list_id != null) return sameId(data.shopping_list_id, listId);
+    const store = stores.find(candidate => sameId(candidate.id, data.store_id));
+    return store ? sameId(store.shopping_list_id, listId) : orphanedStoreMatches;
   }
   return sameId(data.shopping_list_id, listId);
 }

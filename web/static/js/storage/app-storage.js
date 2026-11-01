@@ -53,6 +53,10 @@ export function createAppStorage({ setDb }) {
     return indexedDb.commitShoppingReplay(replay);
   }
 
+  function evictPendingShoppingEntities(listIds, options) {
+    return indexedDb.evictPendingShoppingEntities(listIds, options);
+  }
+
   return {
     openDB,
     clearIndexedDB,
@@ -66,5 +70,6 @@ export function createAppStorage({ setDb }) {
     commitTodoUpdatesWithQueue,
     commitShoppingMutation,
     commitShoppingReplay,
+    evictPendingShoppingEntities,
   };
 }

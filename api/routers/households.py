@@ -184,6 +184,14 @@ async def invite_household_member_endpoint(
 ):
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
+        household = db.execute(
+            "SELECT owner_user_id FROM households WHERE id = ?",
+            (household_id,),
+        ).fetchone()
+        if not household:
+            raise HTTPException(404, "Household not found")
+        if household["owner_user_id"] != user_id:
+            raise HTTPException(403, "Only the household owner can invite members")
         identifier = data.username.strip()
         target = (
             get_user_by_verified_email(db, identifier)

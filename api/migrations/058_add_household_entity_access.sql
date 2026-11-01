@@ -75,7 +75,7 @@ END;
 
 CREATE TABLE IF NOT EXISTS entity_access (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entity_type TEXT NOT NULL CHECK(length(entity_type) BETWEEN 1 AND 64),
+    entity_type TEXT NOT NULL CHECK(entity_type IN ('project', 'shopping_list')),
     entity_id INTEGER NOT NULL CHECK(entity_id > 0),
     owner_user_id INTEGER,
     owner_household_id INTEGER,
@@ -96,13 +96,20 @@ ON entity_access(owner_household_id, entity_type)
 WHERE owner_household_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS entity_access_grants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     entity_access_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
+    invited_by_user_id INTEGER,
     granted_by_user_id INTEGER,
+    invite_identifier_type TEXT CHECK(invite_identifier_type IN ('username', 'email')),
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'accepted', 'declined', 'left', 'removed')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (entity_access_id, user_id),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(entity_access_id, user_id),
     FOREIGN KEY (entity_access_id) REFERENCES entity_access(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (invited_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (granted_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
@@ -114,25 +121,25 @@ BEFORE INSERT ON entity_access_grants
 WHEN NOT EXISTS (
     SELECT 1
     FROM entity_access ea
-    LEFT JOIN households h ON h.id = ea.owner_household_id
     WHERE ea.id = NEW.entity_access_id
-      AND COALESCE(ea.owner_user_id, h.owner_user_id) = NEW.granted_by_user_id
+      AND ea.owner_household_id IS NULL
+      AND ea.owner_user_id = NEW.invited_by_user_id
 )
 BEGIN
     SELECT RAISE(ABORT, 'only the entity manager can grant access');
 END;
 
 CREATE TRIGGER IF NOT EXISTS entity_access_grants_require_manager_update
-BEFORE UPDATE OF entity_access_id, granted_by_user_id ON entity_access_grants
-WHEN (NEW.granted_by_user_id IS NULL AND NEW.entity_access_id != OLD.entity_access_id)
+BEFORE UPDATE OF entity_access_id, invited_by_user_id ON entity_access_grants
+WHEN (NEW.invited_by_user_id IS NULL AND NEW.entity_access_id != OLD.entity_access_id)
    OR (
-       NEW.granted_by_user_id IS NOT NULL
+       NEW.invited_by_user_id IS NOT NULL
        AND NOT EXISTS (
            SELECT 1
            FROM entity_access ea
-           LEFT JOIN households h ON h.id = ea.owner_household_id
            WHERE ea.id = NEW.entity_access_id
-             AND COALESCE(ea.owner_user_id, h.owner_user_id) = NEW.granted_by_user_id
+             AND ea.owner_household_id IS NULL
+             AND ea.owner_user_id = NEW.invited_by_user_id
        )
    )
 BEGIN

@@ -924,30 +924,5 @@ export function createAppRenderingFeature({
     if (currentFilter === 'focus') hydrateFocusControls();
   }
 
-  function renderInvites(invites) {
-    const section = document.getElementById('invites-section');
-    const el = document.getElementById('invites-list');
-    if (!section || !el) return;
-    if (!invites || !invites.length) {
-      section.style.display = 'none';
-      el.innerHTML = '';
-      return;
-    }
-    section.style.display = '';
-    let html = '';
-    for (const invite of invites) {
-      html += `
-        <div class="invite-item" data-invite-id="${escapeHtmlAttr(invite.id)}">
-          <span class="invite-title">${iconSvg('mail')} ${escapeHtml(invite.project_name)}</span>
-          <div class="invite-actions">
-            <button class="btn btn-secondary btn-icon invite-action invite-accept" data-project-sharing-action="accept-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.accept'))}" aria-label="${escapeHtmlAttr(t('invite.acceptAria'))}">${iconSvg('check')}</button>
-            <button class="btn btn-danger btn-icon invite-action invite-decline" data-project-sharing-action="decline-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.decline'))}" aria-label="${escapeHtmlAttr(t('invite.declineAria'))}">${iconSvg('x')}</button>
-          </div>
-        </div>
-      `;
-    }
-    el.innerHTML = html;
-  }
-
-  return { renderVersionInfo, renderProjects, renderStats, renderTodos, countByProject, renderInvites };
+  return { renderVersionInfo, renderProjects, renderStats, renderTodos, countByProject };
 }

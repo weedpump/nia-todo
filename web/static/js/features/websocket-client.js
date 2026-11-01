@@ -531,13 +531,18 @@ async function handleWsMessage(msg) {
       if (
         Object.prototype.hasOwnProperty.call(msg, 'household') ||
         Object.prototype.hasOwnProperty.call(msg, 'household_invites') ||
-        Object.prototype.hasOwnProperty.call(msg, 'project_invites')
+        Object.prototype.hasOwnProperty.call(msg, 'project_invites') ||
+        Object.prototype.hasOwnProperty.call(msg, 'shopping_invites')
       ) {
-        onAccessSnapshot({
+        const accessSnapshot = {
           household: msg.household ?? null,
           householdInvites: Array.isArray(msg.household_invites) ? msg.household_invites : [],
           projectInvites: Array.isArray(msg.project_invites) ? msg.project_invites : [],
-        });
+        };
+        if (Object.prototype.hasOwnProperty.call(msg, 'shopping_invites')) {
+          accessSnapshot.shoppingInvites = Array.isArray(msg.shopping_invites) ? msg.shopping_invites : [];
+        }
+        onAccessSnapshot(accessSnapshot);
       }
       setTodos(todos);
       setProjects(projects);

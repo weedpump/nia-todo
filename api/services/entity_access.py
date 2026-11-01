@@ -1,14 +1,14 @@
 """Household ownership and shared entity permission contract."""
 
 from dataclasses import dataclass
-import re
 import sqlite3
 
 from db import now_iso
 
 
-_ENTITY_TYPE_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+ENTITY_TYPE_REGISTRY = frozenset({"project", "shopping_list"})
 _ACTIVE_HOUSEHOLD_STATUSES = ("pending", "accepted")
+_ENTITY_GRANT_STATUSES = frozenset({"pending", "accepted", "declined", "left", "removed"})
 
 
 def _ensure_write_transaction(db) -> None:
@@ -44,8 +44,8 @@ def _permissions(entity_exists: bool, sources: tuple[str, ...], *, manager: bool
 
 def _normalize_entity_key(entity_type: str, entity_id: int) -> tuple[str, int]:
     normalized_type = (entity_type or "").strip()
-    if not _ENTITY_TYPE_RE.fullmatch(normalized_type):
-        raise ValueError("Invalid entity type")
+    if normalized_type not in ENTITY_TYPE_REGISTRY:
+        raise ValueError("Unsupported entity type")
     if not isinstance(entity_id, int) or isinstance(entity_id, bool) or entity_id <= 0:
         raise ValueError("Invalid entity id")
     return normalized_type, entity_id
@@ -409,11 +409,20 @@ def get_entity_participant_user_ids(db, entity_type: str, entity_id: int) -> set
         user_ids.update(row["user_id"] for row in rows)
     if access["owner_user_id"] is not None:
         grants = db.execute(
-            "SELECT user_id FROM entity_access_grants WHERE entity_access_id = ?",
+            """SELECT user_id FROM entity_access_grants
+               WHERE entity_access_id = ? AND status = 'accepted'""",
             (access["id"],),
         ).fetchall()
         user_ids.update(row["user_id"] for row in grants)
     return user_ids
+
+
+def _entity_grant_row(db, entity_type: str, entity_id: int, user_id: int):
+    access = _get_entity_access(db, entity_type, entity_id)
+    return db.execute(
+        "SELECT * FROM entity_access_grants WHERE entity_access_id = ? AND user_id = ?",
+        (access["id"], user_id),
+    ).fetchone()
 
 
 def grant_entity_access(
@@ -423,6 +432,8 @@ def grant_entity_access(
     actor_user_id: int,
     target_user_id: int,
 ) -> None:
+    """Compatibility helper for trusted immediate grants."""
+    _ensure_write_transaction(db)
     access = _get_entity_access(db, entity_type, entity_id)
     if _entity_manager_user_id(db, access) != actor_user_id:
         raise PermissionError("Only the entity manager can grant access")
@@ -433,12 +444,206 @@ def grant_entity_access(
     _require_user(db, target_user_id)
     db.execute(
         """
-        INSERT INTO entity_access_grants (entity_access_id, user_id, granted_by_user_id)
-        VALUES (?, ?, ?)
-        ON CONFLICT(entity_access_id, user_id) DO NOTHING
+        INSERT INTO entity_access_grants (
+            entity_access_id, user_id, invited_by_user_id, granted_by_user_id, status, updated_at
+        ) VALUES (?, ?, ?, ?, 'accepted', ?)
+        ON CONFLICT(entity_access_id, user_id) DO UPDATE SET
+            invited_by_user_id = excluded.invited_by_user_id,
+            granted_by_user_id = excluded.granted_by_user_id,
+            status = 'accepted',
+            updated_at = excluded.updated_at
         """,
-        (access["id"], target_user_id, actor_user_id),
+        (access["id"], target_user_id, actor_user_id, actor_user_id, now_iso()),
     )
+
+
+def invite_entity_access(
+    db,
+    entity_type: str,
+    entity_id: int,
+    actor_user_id: int,
+    target_user_id: int,
+    *,
+    invite_identifier_type: str | None = None,
+) -> dict:
+    """Create or re-open a pending direct invitation without granting access."""
+    _ensure_write_transaction(db)
+    access = _get_entity_access(db, entity_type, entity_id)
+    if _entity_manager_user_id(db, access) != actor_user_id:
+        raise PermissionError("Only the entity manager can invite users")
+    if access["owner_household_id"] is not None:
+        raise ValueError("Household entities cannot be shared directly")
+    if target_user_id == actor_user_id:
+        raise ValueError("Entity manager already has access")
+    if invite_identifier_type not in (None, "username", "email"):
+        raise ValueError("Invalid invite identifier type")
+    _require_user(db, target_user_id)
+    existing = _entity_grant_row(db, entity_type, entity_id, target_user_id)
+    if existing and existing["status"] in ("pending", "accepted"):
+        raise ValueError("User already has access or a pending invite")
+    db.execute(
+        """
+        INSERT INTO entity_access_grants (
+            entity_access_id, user_id, invited_by_user_id, granted_by_user_id,
+            invite_identifier_type, status, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 'pending', ?)
+        ON CONFLICT(entity_access_id, user_id) DO UPDATE SET
+            invited_by_user_id = excluded.invited_by_user_id,
+            granted_by_user_id = excluded.granted_by_user_id,
+            invite_identifier_type = excluded.invite_identifier_type,
+            status = 'pending',
+            updated_at = excluded.updated_at
+        """,
+        (access["id"], target_user_id, actor_user_id, actor_user_id, invite_identifier_type, now_iso()),
+    )
+    return dict(_entity_grant_row(db, entity_type, entity_id, target_user_id))
+
+
+def respond_to_entity_invite(
+    db,
+    entity_type: str,
+    entity_id: int,
+    invite_id: int,
+    user_id: int,
+    *,
+    accept: bool,
+) -> dict:
+    """CAS-transition a recipient's pending invitation."""
+    _ensure_write_transaction(db)
+    access = _get_entity_access(db, entity_type, entity_id)
+    new_status = "accepted" if accept else "declined"
+    updated = db.execute(
+        """UPDATE entity_access_grants
+           SET status = ?, updated_at = ?
+           WHERE id = ? AND entity_access_id = ? AND user_id = ? AND status = 'pending'""",
+        (new_status, now_iso(), invite_id, access["id"], user_id),
+    )
+    if updated.rowcount != 1:
+        raise ValueError("Entity invitation is no longer pending")
+    row = db.execute("SELECT * FROM entity_access_grants WHERE id = ?", (invite_id,)).fetchone()
+    return dict(row)
+
+
+def remove_entity_access(
+    db,
+    entity_type: str,
+    entity_id: int,
+    actor_user_id: int,
+    target_user_id: int,
+) -> dict:
+    """CAS-remove a pending or accepted direct participant."""
+    _ensure_write_transaction(db)
+    access = _get_entity_access(db, entity_type, entity_id)
+    if _entity_manager_user_id(db, access) != actor_user_id:
+        raise PermissionError("Only the entity manager can remove access")
+    updated = db.execute(
+        """UPDATE entity_access_grants
+           SET status = 'removed', updated_at = ?
+           WHERE entity_access_id = ? AND user_id = ? AND status IN ('pending', 'accepted')""",
+        (now_iso(), access["id"], target_user_id),
+    )
+    if updated.rowcount != 1:
+        raise ValueError("Active entity participant not found")
+    return dict(_entity_grant_row(db, entity_type, entity_id, target_user_id))
+
+
+def restore_entity_access(
+    db,
+    entity_type: str,
+    entity_id: int,
+    actor_user_id: int,
+    target_user_id: int,
+    *,
+    status: str = "accepted",
+) -> dict:
+    """Restore an inactive grant; recipients may only undo their own leave."""
+    _ensure_write_transaction(db)
+    if status not in ("pending", "accepted"):
+        raise ValueError("Invalid restore status")
+    access = _get_entity_access(db, entity_type, entity_id)
+    grant = _entity_grant_row(db, entity_type, entity_id, target_user_id)
+    if not grant:
+        raise ValueError("Entity participant not found")
+    manager = _entity_manager_user_id(db, access)
+    if actor_user_id == target_user_id:
+        if grant["status"] != "left" or status != "accepted":
+            raise PermissionError("Recipients can only undo their own leave")
+        expected = ("left",)
+    elif actor_user_id == manager:
+        if grant["status"] in ("left", "declined") and status != "pending":
+            raise PermissionError(f"A {grant['status']} recipient must accept a new invitation")
+        expected = (grant["status"],) if grant["status"] in ("removed", "left", "declined") else ()
+    else:
+        raise PermissionError("Only the entity manager or recipient can restore access")
+    if not expected:
+        raise ValueError("Entity participant state changed")
+    placeholders = ",".join("?" for _ in expected)
+    updated = db.execute(
+        f"""UPDATE entity_access_grants
+            SET status = ?, invited_by_user_id = ?, granted_by_user_id = ?, updated_at = ?
+            WHERE id = ? AND status IN ({placeholders})""",
+        (status, manager, manager, now_iso(), grant["id"], *expected),
+    )
+    if updated.rowcount != 1:
+        raise ValueError("Entity participant state changed")
+    return dict(_entity_grant_row(db, entity_type, entity_id, target_user_id))
+
+
+def list_entity_access_members(
+    db,
+    entity_type: str,
+    entity_id: int,
+    *,
+    include_inactive: bool = False,
+) -> list[dict]:
+    access = _get_entity_access(db, entity_type, entity_id)
+    statuses = _ENTITY_GRANT_STATUSES if include_inactive else frozenset({"pending", "accepted"})
+    placeholders = ",".join("?" for _ in statuses)
+    rows = db.execute(
+        f"""SELECT grant_row.*, user.username, user.display_name
+            FROM entity_access_grants grant_row
+            JOIN users user ON user.id = grant_row.user_id
+            WHERE grant_row.entity_access_id = ? AND grant_row.status IN ({placeholders})
+            ORDER BY CASE grant_row.status WHEN 'accepted' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END,
+                     lower(COALESCE(user.display_name, user.username)), user.id""",
+        (access["id"], *sorted(statuses)),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_entity_access_invites(db, user_id: int, entity_type: str | None = None) -> list[dict]:
+    params: list[object] = [user_id]
+    type_clause = ""
+    if entity_type is not None:
+        normalized_type, _ = _normalize_entity_key(entity_type, 1)
+        type_clause = " AND access.entity_type = ?"
+        params.append(normalized_type)
+    rows = db.execute(
+        f"""SELECT grant_row.*, access.entity_type, access.entity_id,
+                   inviter.username AS invited_by_username,
+                   inviter.display_name AS invited_by_display_name
+            FROM entity_access_grants grant_row
+            JOIN entity_access access ON access.id = grant_row.entity_access_id
+            LEFT JOIN users inviter ON inviter.id = grant_row.invited_by_user_id
+            WHERE grant_row.user_id = ? AND grant_row.status = 'pending'
+              AND access.owner_household_id IS NULL{type_clause}
+            ORDER BY grant_row.created_at, grant_row.id""",
+        params,
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_entity_access_boundary_user_ids(db, entity_type: str, entity_id: int) -> set[int]:
+    """Return current participants plus pending invitees for boundary refreshes."""
+    access = _get_entity_access(db, entity_type, entity_id)
+    users = get_entity_participant_user_ids(db, entity_type, entity_id)
+    rows = db.execute(
+        """SELECT user_id FROM entity_access_grants
+           WHERE entity_access_id = ? AND status IN ('pending', 'accepted')""",
+        (access["id"],),
+    ).fetchall()
+    users.update(row["user_id"] for row in rows)
+    return users
 
 
 def revoke_entity_access(
@@ -448,30 +653,23 @@ def revoke_entity_access(
     actor_user_id: int,
     target_user_id: int,
 ) -> None:
-    access = _get_entity_access(db, entity_type, entity_id)
-    if _entity_manager_user_id(db, access) != actor_user_id:
-        raise PermissionError("Only the entity manager can revoke access")
-    db.execute(
-        "DELETE FROM entity_access_grants WHERE entity_access_id = ? AND user_id = ?",
-        (access["id"], target_user_id),
-    )
+    """Compatibility wrapper for manager removal."""
+    remove_entity_access(db, entity_type, entity_id, actor_user_id, target_user_id)
 
 
 def leave_entity_access(db, entity_type: str, entity_id: int, user_id: int) -> None:
-    """Remove the caller's direct grant without granting manager revoke rights."""
+    """CAS-transition the caller's accepted direct grant to left."""
+    _ensure_write_transaction(db)
     access = _get_entity_access(db, entity_type, entity_id)
     if _entity_manager_user_id(db, access) == user_id:
         raise ValueError("Entity manager cannot leave their own entity")
-    grant = db.execute(
-        "SELECT 1 FROM entity_access_grants WHERE entity_access_id = ? AND user_id = ?",
-        (access["id"], user_id),
-    ).fetchone()
-    if not grant:
-        raise PermissionError("User has no direct access grant")
-    db.execute(
-        "DELETE FROM entity_access_grants WHERE entity_access_id = ? AND user_id = ?",
-        (access["id"], user_id),
+    updated = db.execute(
+        """UPDATE entity_access_grants SET status = 'left', updated_at = ?
+           WHERE entity_access_id = ? AND user_id = ? AND status = 'accepted'""",
+        (now_iso(), access["id"], user_id),
     )
+    if updated.rowcount != 1:
+        raise PermissionError("User has no direct access grant")
 
 
 def resolve_entity_access(db, entity_type: str, entity_id: int, user_id: int) -> EntityPermissions:
@@ -497,7 +695,8 @@ def resolve_entity_access(db, entity_type: str, entity_id: int, user_id: int) ->
     ):
         sources.append("household")
     if access["owner_household_id"] is None and db.execute(
-        "SELECT 1 FROM entity_access_grants WHERE entity_access_id = ? AND user_id = ?",
+        """SELECT 1 FROM entity_access_grants
+           WHERE entity_access_id = ? AND user_id = ? AND status = 'accepted'""",
         (access["id"], user_id),
     ).fetchone():
         sources.append("direct")

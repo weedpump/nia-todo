@@ -47,7 +47,7 @@ export const tasksModule = Object.freeze({
         ${renderEntitySidebarAddRow({ entityType: 'project', label: t('nav.addProject'), labelKey: 'nav.addProject' })}
       </nav>
 
-      <nav class="nav-section" id="invites-section" style="display:none;">
+      <nav class="nav-section entity-invitations-section" id="invites-section" hidden>
         <div class="nav-title" data-i18n-key="nav.invitations">Einladungen</div>
         <div id="invites-list"></div>
       </nav>

@@ -5,7 +5,7 @@ from typing import Optional
 
 from db import get_db, row_to_dict, now_iso
 from services.auth import get_current_user
-from services.sharing import get_project_access_flags, get_project_participant_user_ids
+from services.sharing import get_project_access_flags, get_project_member_rows, get_project_participant_user_ids
 from rate_limit import rate_limiter, get_client_ip_ws
 
 
@@ -128,15 +128,10 @@ def get_project_view_for_user(db, project_id: int, viewer_user_id: int) -> dict 
     project["is_shared"] = 0 if flags["can_manage"] else 1
     project["is_owner"] = 1 if flags["can_manage"] else 0
     if flags["can_manage"]:
-        member_rows = db.execute(
-            """SELECT pm.*, u.username, u.display_name
-               FROM project_members pm
-               JOIN users u ON u.id = pm.user_id
-               WHERE pm.project_id = ? AND pm.status IN ('pending', 'accepted')
-               ORDER BY CASE pm.status WHEN 'accepted' THEN 0 ELSE 1 END, u.username""",
-            (project_id,),
-        ).fetchall()
-        project["members"] = [dict(member_row) for member_row in member_rows]
+        project["members"] = [
+            member for member in get_project_member_rows(db, project_id, include_pending=True)
+            if member["status"] in ("pending", "accepted")
+        ]
     if member:
         project["member_id"] = member["id"]
         project["member_status"] = member["status"]

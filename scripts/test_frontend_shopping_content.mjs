@@ -285,7 +285,7 @@ try {
   await page.waitForFunction(() => window.test.stores().some(store => store.id === 'store-rewe' && store.name === 'REWE Center'));
   assert.equal(await storeModal.getAttribute('aria-hidden'), 'true');
   assert.equal(await page.evaluate(() => window.test.mutations().at(-1).action), 'UPDATE_SHOPPING_STORE');
-  assert.deepEqual(await page.evaluate(() => window.test.mutations().at(-1).data), { store_id: 'store-rewe', changes: { name: 'REWE Center' } });
+  assert.deepEqual(await page.evaluate(() => window.test.mutations().at(-1).data), { shopping_list_id: 4, store_id: 'store-rewe', changes: { name: 'REWE Center' } });
   const commitsAfterStoreEdit = await page.evaluate(() => window.test.mutationCommits());
   await marketTrigger.click();
   await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'REWE Center' }).click();
@@ -395,7 +395,7 @@ try {
     confirmText: 'Supermarkt löschen',
   });
   assert.equal(await page.evaluate(() => window.test.mutations().at(-1).action), 'DELETE_SHOPPING_STORE');
-  assert.deepEqual(await page.evaluate(() => window.test.mutations().at(-1).data), { store_id: 'store-rewe' });
+  assert.deepEqual(await page.evaluate(() => window.test.mutations().at(-1).data), { shopping_list_id: 4, store_id: 'store-rewe' });
   assert.equal(await storeModal.getAttribute('aria-hidden'), 'true');
   assert.equal(await page.evaluate(() => window.test.storeFilter()), null, 'deleting the currently filtered store must fall back to all stores');
   assert.equal(await main.locator('.shopping-item-card').count(), 3, 'deleting a store must keep its shopping items');

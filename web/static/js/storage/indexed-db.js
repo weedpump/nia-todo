@@ -1,4 +1,5 @@
 import { DB_NAME, DB_VERSION } from '../core/config.js';
+import { queueItemReferencesShoppingList } from '../features/shopping-pending.js';
 
 let db = null;
 let dbReady = false;
@@ -236,6 +237,57 @@ export function commitShoppingReplay({
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error || new Error('Failed to commit shopping replay'));
     tx.onabort = () => reject(tx.error || new Error('Shopping replay transaction was aborted'));
+  });
+}
+
+export function evictPendingShoppingEntities(listIds, { database = db, signal } = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  const ids = [...new Set((listIds || []).filter(id => id != null))];
+  if (!ids.length) return Promise.resolve();
+  if (signal?.aborted) return Promise.reject(new DOMException('Pending shopping eviction was aborted', 'AbortError'));
+  const blocked = new Set(ids.map(id => String(id)));
+  return new Promise((resolve, reject) => {
+    let tx;
+    try {
+      tx = database.transaction(['shoppingLists', 'shoppingStores', 'syncQueue'], 'readwrite');
+      signal?.addEventListener?.('abort', () => {
+        try { tx.abort(); } catch {}
+      }, { once: true });
+      const listsStore = tx.objectStore('shoppingLists');
+      const storesStore = tx.objectStore('shoppingStores');
+      const queueStore = tx.objectStore('syncQueue');
+      for (const id of ids) {
+        listsStore.delete(id);
+        if (typeof id === 'number' && Number.isInteger(id)) listsStore.delete(String(id));
+        if (typeof id === 'string' && /^\d+$/.test(id)) listsStore.delete(Number(id));
+      }
+
+      const storesRequest = storesStore.getAll();
+      storesRequest.onsuccess = () => {
+        for (const store of storesRequest.result || []) {
+          if (blocked.has(String(store.shopping_list_id))) storesStore.delete(store.id);
+        }
+      };
+      storesRequest.onerror = () => tx.abort();
+
+      const queueRequest = queueStore.getAll();
+      queueRequest.onsuccess = () => {
+        const stores = storesRequest.result || [];
+        for (const entry of queueRequest.result || []) {
+          if (ids.some(id => queueItemReferencesShoppingList(entry, id, stores, { orphanedStoreMatches: true }))) queueStore.delete(entry.id);
+        }
+      };
+      queueRequest.onerror = () => tx.abort();
+    } catch (error) {
+      tx?.abort?.();
+      reject(error);
+      return;
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Failed to evict pending shopping entities'));
+    tx.onabort = () => reject(signal?.aborted
+      ? new DOMException('Pending shopping eviction was aborted', 'AbortError')
+      : (tx.error || new Error('Pending shopping eviction was aborted')));
   });
 }
 

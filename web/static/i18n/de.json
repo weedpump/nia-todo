@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Einladung annehmen",
   "invite.decline": "Ablehnen",
   "invite.declineAria": "Einladung ablehnen",
+  "entity.invitation.error.onlineOnly": "Einladungen können nur online beantwortet werden.",
+  "entity.invitation.error.respondFailed": "Die Einladung konnte nicht aktualisiert werden. Versuche es erneut.",
   "time.justNow": "gerade eben",
   "time.minutesAgo": "vor {count} Min.",
   "time.hoursAgo": "vor {count} Std.",

@@ -64,7 +64,7 @@ assert.equal(updated.is_pending, true);
 assert.deepEqual(commits.at(-1), {
   store: updated,
   action: 'UPDATE_SHOPPING_STORE',
-  data: { store_id: 'existing', changes: { name: 'REWE Center' } },
+  data: { shopping_list_id: 7, store_id: 'existing', changes: { name: 'REWE Center' } },
   result: updated,
 });
 assert.equal(stores.find(store => store.id === 'existing').name, 'REWE Center');
@@ -78,7 +78,7 @@ assert.equal(deleted.is_pending, true);
 assert.deepEqual(commits.at(-1), {
   store: deleted,
   action: 'DELETE_SHOPPING_STORE',
-  data: { store_id: 'existing' },
+  data: { shopping_list_id: 7, store_id: 'existing' },
   result: deleted,
 });
 assert.equal(stores.find(store => store.id === 'existing').active, false);

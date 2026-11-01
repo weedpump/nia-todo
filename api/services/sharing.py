@@ -1,8 +1,10 @@
 """Project sharing and household access helpers."""
 
 from services.entity_access import (
+    get_entity_access_boundary_user_ids,
     get_entity_ownership,
     get_entity_participant_user_ids,
+    list_entity_access_members,
     resolve_entity_access,
 )
 
@@ -28,7 +30,16 @@ def _accepted_project_member(db, project_ids: list[int], user_id: int):
         if ownership and ownership["owner_household_id"] is not None:
             continue
         row = db.execute(
-            "SELECT * FROM project_members WHERE project_id = ? AND user_id = ? AND status = 'accepted'",
+            """SELECT ea.entity_id AS project_id,
+                      grant_row.id, grant_row.user_id, grant_row.status,
+                      grant_row.invited_by_user_id, grant_row.created_at, grant_row.updated_at,
+                      preferences.workspace_id, preferences.user_color
+               FROM entity_access ea
+               JOIN entity_access_grants grant_row ON grant_row.entity_access_id = ea.id
+               LEFT JOIN project_members preferences
+                 ON preferences.project_id = ea.entity_id AND preferences.user_id = grant_row.user_id
+               WHERE ea.entity_type = 'project' AND ea.entity_id = ?
+                 AND grant_row.user_id = ? AND grant_row.status = 'accepted'""",
             (project_id, user_id),
         ).fetchone()
         if row:
@@ -47,9 +58,7 @@ def is_project_member(db, project_id: int, user_id: int) -> bool:
 
 def can_access_project(db, project_id: int, user_id: int) -> bool:
     ancestor_ids = get_project_ancestor_ids(db, project_id)
-    if any(resolve_entity_access(db, "project", ancestor_id, user_id).can_view for ancestor_id in ancestor_ids):
-        return True
-    return _accepted_project_member(db, ancestor_ids, user_id) is not None
+    return any(resolve_entity_access(db, "project", ancestor_id, user_id).can_view for ancestor_id in ancestor_ids)
 
 
 def can_edit_project(db, project_id: int, user_id: int) -> bool:
@@ -70,7 +79,7 @@ def get_project_access_flags(db, project_id: int, user_id: int) -> dict:
     )
     ownership = get_entity_ownership(db, "project", project_id)
     return {
-        "can_view": permissions.can_view or inherited_entity_view or direct_member is not None,
+        "can_view": permissions.can_view or inherited_entity_view,
         "can_manage": permissions.can_manage_metadata,
         "permissions": permissions,
         "direct_member": direct_member,
@@ -88,26 +97,13 @@ def get_project_participant_user_ids(db, project_id: int) -> set[int]:
     recipients = set()
     for ancestor_id in get_project_ancestor_ids(db, project_id):
         recipients.update(get_entity_participant_user_ids(db, "project", ancestor_id))
-        ownership = get_entity_ownership(db, "project", ancestor_id)
-        if ownership and ownership["owner_household_id"] is not None:
-            continue
-        rows = db.execute(
-            "SELECT user_id FROM project_members WHERE project_id = ? AND status = 'accepted'",
-            (ancestor_id,),
-        ).fetchall()
-        recipients.update(row["user_id"] for row in rows)
     return recipients
 
 
 def get_project_boundary_user_ids(db, project_id: int) -> set[int]:
-    """Return participants plus pending invitees affected by a boundary transition."""
+    """Return inherited participants plus direct pending invitees for boundary refreshes."""
     recipients = get_project_participant_user_ids(db, project_id)
-    rows = db.execute(
-        """SELECT user_id FROM project_members
-           WHERE project_id = ? AND status IN ('pending', 'accepted')""",
-        (project_id,),
-    ).fetchall()
-    recipients.update(row["user_id"] for row in rows)
+    recipients.update(get_entity_access_boundary_user_ids(db, "project", project_id))
     return recipients
 
 
@@ -151,26 +147,20 @@ def get_todo_reminder_recipient_user_id(db, todo) -> int | None:
 
 
 def get_project_member_rows(db, project_id: int, include_pending: bool = True):
-    if include_pending:
-        rows = db.execute(
-            """
-            SELECT pm.*, u.username, u.display_name
-            FROM project_members pm
-            JOIN users u ON u.id = pm.user_id
-            WHERE pm.project_id = ? AND pm.status IN ('pending', 'accepted', 'declined', 'left', 'removed')
-            ORDER BY CASE pm.status WHEN 'accepted' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, u.username
-            """,
-            (project_id,),
-        ).fetchall()
-    else:
-        rows = db.execute(
-            """
-            SELECT pm.*, u.username, u.display_name
-            FROM project_members pm
-            JOIN users u ON u.id = pm.user_id
-            WHERE pm.project_id = ? AND pm.status = 'accepted'
-            ORDER BY u.username
-            """,
-            (project_id,),
-        ).fetchall()
-    return [dict(row) for row in rows]
+    members = list_entity_access_members(
+        db,
+        "project",
+        project_id,
+        include_inactive=include_pending,
+    )
+    for member in members:
+        preferences = db.execute(
+            """SELECT workspace_id, user_color FROM project_members
+               WHERE project_id = ? AND user_id = ?""",
+            (project_id, member["user_id"]),
+        ).fetchone()
+        member["workspace_id"] = preferences["workspace_id"] if preferences else None
+        member["user_color"] = preferences["user_color"] if preferences else None
+    if not include_pending:
+        members = [member for member in members if member["status"] == "accepted"]
+    return members

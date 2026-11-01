@@ -415,6 +415,26 @@ assert.deepEqual(permanentFailureHarness.stores.syncQueue.map(item => item.actio
 assert.equal(permanentFailureHarness.stores.todos[0].comments[0].body, 'Original', 'a permanent child 4xx must restore authoritative server state even when another replay fails transiently');
 assert.equal(permanentFailureHarness.stores.todos[0].subtasks[0].is_done, true, 'authoritative recovery must project remaining retryable work');
 
+let skippedRefreshFetches = 0;
+const skippedRefreshHarness = createHarness({
+  queue: [{ id: 420, action: 'UPDATE_SUBTASK', data: { todo_id: 702, subtask_id: 89, changes: { is_done: true } } }],
+  todos: [{ id: 702, title: 'Queued', subtasks: [{ id: 89, title: 'Still pending', is_done: true }] }],
+  api: {
+    updateSubtask: async () => {
+      const error = new Error('still offline');
+      error.status = 503;
+      throw error;
+    },
+    list: async () => { skippedRefreshFetches += 1; return { todos: [] }; },
+  },
+});
+const skippedRefresh = await skippedRefreshHarness.feature.refreshFromServer({
+  wsState: 'connected',
+  syncInProgressRef: { value: false },
+});
+assert.equal(skippedRefresh.refreshed, false, 'a refresh skipped for pending queue work must report non-authoritative state');
+assert.equal(skippedRefreshFetches, 0);
+
 const missingParentRecoveryHarness = createHarness({
   queue: [
     { id: 44, action: 'UPDATE_COMMENT', data: { todo_id: 703, comment_id: 90, changes: { body: 'Rejected' } } },

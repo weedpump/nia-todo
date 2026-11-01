@@ -310,9 +310,19 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
             workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (data.workspace_id, user_id)).fetchone()
             if not workspace:
                 raise HTTPException(404, "Workspace not found")
+            invited_by_user_id = member["invited_by_user_id"]
+            preference_project_id = member["project_id"]
+            if invited_by_user_id is None:
+                ownership = get_entity_ownership(db, "project", preference_project_id) or {}
+                invited_by_user_id = ownership.get("owner_user_id")
             db.execute(
-                "UPDATE project_members SET workspace_id = ?, updated_at = ? WHERE id = ?",
-                (data.workspace_id, now_iso(), member['id']),
+                """INSERT INTO project_members
+                   (project_id, user_id, invited_by, status, workspace_id, updated_at)
+                   VALUES (?, ?, ?, 'accepted', ?, ?)
+                   ON CONFLICT(project_id, user_id) DO UPDATE SET
+                       workspace_id = excluded.workspace_id,
+                       updated_at = excluded.updated_at""",
+                (preference_project_id, user_id, invited_by_user_id, data.workspace_id, now_iso()),
             )
             db.commit()
             row = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()

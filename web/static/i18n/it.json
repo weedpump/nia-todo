@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Accetta l'invito",
   "invite.decline": "Rifiutare",
   "invite.declineAria": "Rifiuta l'invito",
+  "entity.invitation.error.onlineOnly": "Per rispondere agli inviti è necessaria una connessione Internet.",
+  "entity.invitation.error.respondFailed": "Non è stato possibile aggiornare l’invito. Riprova.",
   "time.justNow": "proprio adesso",
   "time.minutesAgo": "{count} min. fa",
   "time.hoursAgo": "{count} ore fa",

@@ -138,7 +138,7 @@ assert(!appSource.includes('window.NiaAndroidNative'), 'app core must consume no
 assert(!appSource.includes('markTodoDoneFromNative') && !appSource.includes('startNativeDoneActionPolling'), 'app core must not keep removed native notification done-action polling');
 assert(appSource.includes('activeBackgroundSyncOperations') && appSource.includes('waitForBackgroundSyncOperations'), 'logout must wait for in-flight REST sync work before clearing user data');
 assert(appSource.includes('return trackBackgroundSyncOperation(() => syncController.syncWithServer())'), 'app sync wrapper must preserve sync results for lifecycle recovery decisions');
-assert(appSource.includes('refreshInvites: () => trackBackgroundSyncOperation(() => sharingFeature?.loadInvites?.())'), 'invite refreshes must join the authenticated background-operation drain');
+assert(appSource.includes('refreshInvites: () => trackBackgroundSyncOperation(() => refreshEntityInvitations())'), 'all entity invite refreshes must join the authenticated background-operation drain');
 const websocketClientSource = readFileSync(new URL('../web/static/js/features/websocket-client.js', import.meta.url), 'utf8');
 assert(websocketClientSource.includes('activeMessageHandlers') && websocketClientSource.includes('Promise.allSettled([...activeMessageHandlers])'), 'WebSocket disconnect must drain message handlers before logout clears IndexedDB');
 const websocketDisconnectSource = websocketClientSource.slice(websocketClientSource.indexOf('function disconnectWebSocket()'), websocketClientSource.indexOf('function updateConnectionStatus()'));
@@ -193,11 +193,12 @@ assert(syncSource.includes('sanitizeQueueItem'), 'offline sync must sanitize que
 assert(syncSource.includes('pickAllowed'), 'offline sync must whitelist payload fields');
 
 const renderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
+const invitationsSource = readFileSync(new URL('../web/static/js/features/entity-invitations.js', import.meta.url), 'utf8');
 const entitySidebarSource = readFileSync(new URL('../web/static/js/features/entity-sidebar.js', import.meta.url), 'utf8');
 assert(renderingSource.includes('renderEntitySidebarRow({') && renderingSource.includes("detailAttributes: { 'data-project-id': project.id }"), 'projects must delegate edit-button rendering to the neutral entity sidebar');
 assert(entitySidebarSource.includes('data-entity-sidebar-action="detail"') && entitySidebarSource.includes('escapeHtmlAttr(id)'), 'shared detail buttons must use escaped data attributes instead of inline handlers');
 assert(!renderingSource.includes('onclick="editProject('), 'project edit must not use inline onclick handlers');
-assert(renderingSource.includes('invite-action invite-accept') && renderingSource.includes('invite-action invite-decline'), 'invite actions should use compact dedicated buttons');
+assert(invitationsSource.includes('invite-action invite-accept') && invitationsSource.includes('invite-action invite-decline') && invitationsSource.includes('data-entity-invitation-action'), 'neutral invite actions should use compact dedicated buttons');
 
 const mainSource = readFileSync(new URL('../api/main.py', import.meta.url), 'utf8');
 assert(mainSource.includes('app_shell_cache_control_middleware') && mainSource.includes('path.startswith("/static/")') && mainSource.includes('no-cache, max-age=0, must-revalidate'), 'server must revalidate app shell/static assets instead of letting the browser keep stale HTTP cache');

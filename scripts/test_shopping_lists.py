@@ -27,6 +27,7 @@ with tempfile.TemporaryDirectory() as tmp:
         ShoppingItemUpdate,
         ShoppingListCreate,
         ShoppingListHouseholdTransfer,
+        ShoppingListInviteResponse,
         ShoppingListShareCreate,
         ShoppingListUpdate,
         ShoppingPreferencesUpdate,
@@ -49,6 +50,7 @@ with tempfile.TemporaryDirectory() as tmp:
         list_shopping_list_members,
         leave_shopping_list,
         revoke_shopping_list_member,
+        respond_to_shopping_list_invite,
         share_shopping_list,
         transfer_shopping_list_to_household,
         update_shopping_item,
@@ -76,6 +78,26 @@ with tempfile.TemporaryDirectory() as tmp:
         invite_id = invite_household_member(db, household_id, owner_id, member_id)
         respond_to_household_invite(db, invite_id, member_id, accept=True)
         db.commit()
+
+    def share_and_accept(shopping_list_id: int, identifier: str, recipient_id: int):
+        invite = asyncio.run(
+            share_shopping_list(
+                shopping_list_id,
+                ShoppingListShareCreate(identifier=identifier),
+                None,
+                owner_id,
+            )
+        )
+        assert invite["status"] == "pending", invite
+        asyncio.run(
+            respond_to_shopping_list_invite(
+                shopping_list_id,
+                invite["id"],
+                ShoppingListInviteResponse(accept=True),
+                recipient_id,
+            )
+        )
+        return invite
 
     personal = asyncio.run(
         create_shopping_list(
@@ -138,6 +160,7 @@ with tempfile.TemporaryDirectory() as tmp:
         assert not db.execute("SELECT 1 FROM shopping_sections WHERE id = ?", (disposable_section["id"],)).fetchone()
         assert not db.execute("SELECT 1 FROM shopping_items WHERE id = ?", (disposable_item["id"],)).fetchone()
 
+
     duplicate = asyncio.run(
         create_shopping_list(
             ShoppingListCreate(
@@ -149,11 +172,45 @@ with tempfile.TemporaryDirectory() as tmp:
     )
     assert duplicate["id"] == personal_id, duplicate
 
-    shared_member = asyncio.run(
-        share_shopping_list(personal_id, ShoppingListShareCreate(identifier="shared"), owner_id)
+    notifications = []
+    original_notify = getattr(shopping_router, "notify_entity_share_invite", None)
+
+    async def capture_share_notification(**payload):
+        notifications.append(payload)
+        return "email"
+
+    shopping_router.notify_entity_share_invite = capture_share_notification
+    try:
+        shared_member = asyncio.run(
+            share_shopping_list(personal_id, ShoppingListShareCreate(identifier="shared"), None, owner_id)
+        )
+    finally:
+        if original_notify is None:
+            delattr(shopping_router, "notify_entity_share_invite")
+        else:
+            shopping_router.notify_entity_share_invite = original_notify
+    assert shared_member["user_id"] == shared_id, shared_member
+    assert shared_member["status"] == "pending", shared_member
+    assert shared_member["notification_delivery"] == "email", shared_member
+    assert len(notifications) == 1, notifications
+    assert notifications[0]["entity_type"] == "shopping_list", notifications
+    assert notifications[0]["entity_id"] == personal_id, notifications
+    assert notifications[0]["entity_name"] == "Weekly groceries", notifications
+    with get_db() as db:
+        pending_sync = get_sync_payload(db, shared_id)
+    assert [row["id"] for row in pending_sync["shopping_invites"]] == [shared_member["id"]], pending_sync
+    assert pending_sync["shopping_invites"][0]["shopping_list_id"] == personal_id, pending_sync
+    assert pending_sync["shopping_invites"][0]["shopping_list_name"] == "Weekly groceries", pending_sync
+    assert personal_id not in {row["id"] for row in pending_sync["shopping_lists"]}, pending_sync
+    asyncio.run(
+        respond_to_shopping_list_invite(
+            personal_id,
+            shared_member["id"],
+            ShoppingListInviteResponse(accept=True),
+            shared_id,
+        )
     )
-    assert shared_member["id"] == shared_id, shared_member
-    assert [row["id"] for row in list_shopping_list_members(personal_id, owner_id)["members"]] == [shared_id]
+    assert [row["user_id"] for row in list_shopping_list_members(personal_id, owner_id)["members"]] == [shared_id]
 
     shared_lists = list_shopping_lists(shared_id)["shopping_lists"]
     assert [row["id"] for row in shared_lists] == [personal_id]
@@ -182,10 +239,10 @@ with tempfile.TemporaryDirectory() as tmp:
     asyncio.run(revoke_shopping_list_member(personal_id, shared_id, owner_id))
     assert list_shopping_list_members(personal_id, owner_id)["members"] == []
     assert list_shopping_lists(shared_id)["shopping_lists"] == []
-    asyncio.run(share_shopping_list(personal_id, ShoppingListShareCreate(identifier="shared"), owner_id))
+    share_and_accept(personal_id, "shared", shared_id)
 
     leave_list = asyncio.run(create_shopping_list(ShoppingListCreate(name="Leave me"), owner_id))
-    asyncio.run(share_shopping_list(leave_list["id"], ShoppingListShareCreate(identifier="shared"), owner_id))
+    share_and_accept(leave_list["id"], "shared", shared_id)
     left = asyncio.run(leave_shopping_list(leave_list["id"], shared_id))
     assert left == {"id": leave_list["id"], "left": True}, left
     assert [row["id"] for row in list_shopping_lists(shared_id)["shopping_lists"]] == [personal_id]
@@ -198,7 +255,7 @@ with tempfile.TemporaryDirectory() as tmp:
         raise AssertionError("Personal shopping-list owner left their own list")
 
     transfer_list = asyncio.run(create_shopping_list(ShoppingListCreate(name="Transfer me"), owner_id))
-    asyncio.run(share_shopping_list(transfer_list["id"], ShoppingListShareCreate(identifier="shared"), owner_id))
+    share_and_accept(transfer_list["id"], "shared", shared_id)
     try:
         asyncio.run(
             transfer_shopping_list_to_household(
@@ -632,13 +689,7 @@ with tempfile.TemporaryDirectory() as tmp:
     with get_db() as db:
         lifecycle_user_id = db.execute("INSERT INTO users (username) VALUES ('lifecycle-user')").lastrowid
         db.commit()
-    asyncio.run(
-        share_shopping_list(
-            personal_id,
-            ShoppingListShareCreate(identifier="lifecycle-user"),
-            owner_id,
-        )
-    )
+    share_and_accept(personal_id, "lifecycle-user", lifecycle_user_id)
     lifecycle_store = asyncio.run(
         create_shopping_store(
             ShoppingStoreCreate(shopping_list_id=personal_id, name="Lifecycle store"),

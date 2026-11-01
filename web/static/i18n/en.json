@@ -1055,6 +1055,8 @@
   "invite.acceptAria": "Accept invitation",
   "invite.decline": "Decline",
   "invite.declineAria": "Decline invitation",
+  "entity.invitation.error.onlineOnly": "Invitation responses require an internet connection.",
+  "entity.invitation.error.respondFailed": "The invitation could not be updated. Try again.",
   "time.justNow": "just now",
   "time.minutesAgo": "{count} min. ago",
   "time.hoursAgo": "{count} hr. ago",
