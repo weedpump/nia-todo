@@ -57,6 +57,10 @@ export function createAppStorage({ setDb }) {
     return indexedDb.evictPendingShoppingEntities(listIds, options);
   }
 
+  function evictPendingProjectEntities(projectIds, options) {
+    return indexedDb.evictPendingProjectEntities(projectIds, options);
+  }
+
   return {
     openDB,
     clearIndexedDB,
@@ -71,5 +75,6 @@ export function createAppStorage({ setDb }) {
     commitShoppingMutation,
     commitShoppingReplay,
     evictPendingShoppingEntities,
+    evictPendingProjectEntities,
   };
 }

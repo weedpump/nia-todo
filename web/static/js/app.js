@@ -18,7 +18,8 @@ import { createWorkspacesFeature } from './features/workspaces.js';
 import { createProjectSharingFeature } from './features/project-sharing.js';
 import { createTodosFeature } from './features/todos.js';
 import { createSyncFeature } from './features/sync.js';
-import { beginSyncQueueWrite } from './features/todo-pending.js';
+import { acquireSyncCommitLock, beginSyncQueueWrite, enrichTaskQueueBoundary } from './features/todo-pending.js';
+import { runEntityPrivacyEviction } from './features/entity-access-privacy.js';
 import { createSyncController } from './features/sync-controller.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
@@ -261,7 +262,8 @@ async function updateConnectionStatusView(wsState = wsClient?.getWsState?.()) {
 async function addToSyncQueue(action, data, { reserved = false } = {}) {
   const finishQueueWrite = reserved ? () => {} : await beginSyncQueueWrite(syncInProgressRef);
   try {
-    const result = await appStorage.addToSyncQueue(action, data);
+    const enrichedData = enrichTaskQueueBoundary(action, data, { todos, sections, projects });
+    const result = await appStorage.addToSyncQueue(action, enrichedData);
     updateConnectionStatusView().catch(() => {});
     return result;
   } finally {
@@ -270,16 +272,37 @@ async function addToSyncQueue(action, data, { reserved = false } = {}) {
 }
 async function runSyncQueueMutation(operation) {
   const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
+  const boundaryState = {
+    todos: [...todos],
+    sections: [...sections],
+    projects: [...projects],
+  };
   try {
-    return await operation((action, data) => addToSyncQueue(action, data, { reserved: true }));
+    return await operation((action, data) => addToSyncQueue(
+      action,
+      enrichTaskQueueBoundary(action, data, boundaryState),
+      { reserved: true },
+    ));
   } finally {
     finishQueueWrite();
   }
 }
 async function commitTodoUpdatesWithQueue(operation) {
   const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
+  const boundaryState = {
+    todos: [...todos],
+    sections: [...sections],
+    projects: [...projects],
+  };
   try {
-    return await operation(updates => appStorage.commitTodoUpdatesWithQueue(updates));
+    return await operation(updates => appStorage.commitTodoUpdatesWithQueue(updates.map(update => ({
+      ...update,
+      queueData: enrichTaskQueueBoundary('UPDATE_TODO', {
+        id: update.todo.id,
+        project_id: update.todo.project_id,
+        changes: update.changes,
+      }, boundaryState),
+    }))));
   } finally {
     finishQueueWrite();
   }
@@ -348,6 +371,7 @@ const todosFeature = createTodosFeature({
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
+  getSections: () => sections,
   getCurrentProjectId: () => currentProjectId,
   getCurrentWorkspaceId: () => currentWorkspaceId,
   getCurrentUser: () => currentUser,
@@ -376,6 +400,7 @@ const todosFeature = createTodosFeature({
   syncDateTimePickers: () => dateTimePickerFeature.syncAll(),
   openDateTimePicker: (trigger, options) => dateTimePickerFeature.open(trigger, options),
   getActiveModule: () => moduleShell?.getActiveModule?.() || 'tasks',
+  syncInProgressRef,
 });
 const sharingFeature = createProjectSharingFeature({
   getProjects: () => projects,
@@ -391,6 +416,36 @@ const sharingFeature = createProjectSharingFeature({
     if (!result?.refreshed) throw new Error('Authoritative project projection was not refreshed');
     return { projects };
   },
+  removePendingEntities: async (pendingIds, { signal } = {}) => {
+    let projectedState;
+    return runEntityPrivacyEviction({
+      syncInProgressRef,
+      acquireCommitLock: acquireSyncCommitLock,
+      signal,
+      evict: () => {
+        projectedState = {
+          projects: [...projects],
+          sections: [...sections],
+          todos: [...todos],
+        };
+        return appStorage.evictPendingProjectEntities(pendingIds, {
+          signal,
+          ...projectedState,
+        });
+      },
+      publish: evicted => {
+        const blockedProjects = new Set(evicted.projectIds.map(String));
+        const blockedSections = new Set(evicted.sectionIds.map(String));
+        const blockedTodos = new Set(evicted.todoIds.map(String));
+        projects = projects.filter(project => !blockedProjects.has(String(project.id)));
+        sections = sections.filter(section => !blockedSections.has(String(section.id)));
+        setTodosState(todos.filter(todo => !blockedTodos.has(String(todo.id))));
+        renderProjects();
+        renderStats();
+        renderTodos();
+      },
+    });
+  },
 });
 const projectsFeature = createProjectsFeature({
   getProjects: () => projects,
@@ -401,7 +456,9 @@ const projectsFeature = createProjectsFeature({
   getWorkspaces: () => workspaces,
   setProjects: (next) => { projects = next; },
   dbPut,
+  dbGetAll,
   addToSyncQueue,
+  runSyncQueueMutation,
   deleteFromDB,
   isOnlineForSync,
   syncWithServer,
@@ -416,6 +473,7 @@ const projectsFeature = createProjectsFeature({
   sharingFeature,
   getCurrentUser: () => currentUser,
   getAccessSnapshot: () => window.niaAccessSnapshot || { household: null, householdInvites: [] },
+  syncInProgressRef,
 });
 let workspacesFeature = null;
 let householdsFeature = null;
@@ -567,6 +625,10 @@ const wsClient = createWebSocketClient({
       shoppingNavigationFeature?.setInvites?.(snapshot.shoppingInvites || []);
     }
     window.dispatchEvent(new CustomEvent('nia:access-snapshot', { detail: snapshot }));
+  },
+  onEntitySnapshotsCommitted: snapshots => {
+    if (Array.isArray(snapshots?.projects)) sharingFeature?.commitAuthoritativeSnapshot?.(snapshots.projects);
+    if (Array.isArray(snapshots?.shoppingLists)) shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(snapshots.shoppingLists);
   },
   onAvatarUpdate: async payload => {
     if (!currentUser) return;
@@ -728,7 +790,10 @@ syncController = createSyncController({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
-  onAuthoritativeRefreshCommitted: () => shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(),
+  onAuthoritativeRefreshCommitted: () => {
+    sharingFeature?.commitAuthoritativeSnapshot?.(projects);
+    shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(shoppingLists);
+  },
 });
 const bindWorkspaceControls = workspacesFeature.bindWorkspaceControls;
 const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
@@ -737,6 +802,7 @@ const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
 
 const navigationFeature = createNavigationFeature({
   sectionsApi,
+  getProjects: () => projects,
   getCurrentProjectId: () => currentProjectId,
   getCurrentFilter: () => currentFilter,
   setCurrentProjectId: (next) => { currentProjectId = next; },
@@ -753,6 +819,7 @@ const navigationFeature = createNavigationFeature({
   renderTodos: () => renderTodos(),
   showProjectModal: () => showProjectModal(),
   editProject: id => projectsFeature.editProject(id),
+  syncInProgressRef,
 });
 const setFilter = navigationFeature.setFilter;
 const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
@@ -871,16 +938,22 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
     const ids = pendingIds || [];
     const blocked = new Set(ids.map(id => String(id)));
     if (!blocked.size) return;
-    await appStorage.evictPendingShoppingEntities(ids, { signal });
-    if (signal?.aborted) throw new DOMException('Pending shopping eviction was aborted', 'AbortError');
-    const remainingLists = shoppingLists.filter(list => !blocked.has(String(list.id)));
-    const remainingStores = shoppingStores.filter(store => !blocked.has(String(store.shopping_list_id)));
-    if (remainingLists.length !== shoppingLists.length) {
-      setShoppingListsState(remainingLists, { reconcileDetails: false });
-    }
-    if (remainingStores.length !== shoppingStores.length) {
-      setShoppingStoresState(remainingStores);
-    }
+    return runEntityPrivacyEviction({
+      syncInProgressRef,
+      acquireCommitLock: acquireSyncCommitLock,
+      signal,
+      evict: () => appStorage.evictPendingShoppingEntities(ids, { signal }),
+      publish: () => {
+        const remainingLists = shoppingLists.filter(list => !blocked.has(String(list.id)));
+        const remainingStores = shoppingStores.filter(store => !blocked.has(String(store.shopping_list_id)));
+        if (remainingLists.length !== shoppingLists.length) {
+          setShoppingListsState(remainingLists, { reconcileDetails: false });
+        }
+        if (remainingStores.length !== shoppingStores.length) {
+          setShoppingStoresState(remainingStores);
+        }
+      },
+    });
   },
 });
 shoppingNavigationFeature.bind();
@@ -980,6 +1053,7 @@ const { consumeOidcErrorNotice } = createOidcNoticeFeature({
 const toastUndoFeature = createToastUndoFeature({
   getDb: () => db,
   getTodos: () => todos,
+  getProjects: () => projects,
   setTodos: setTodosState,
   dbPut,
   dbGetAll,

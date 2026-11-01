@@ -499,7 +499,8 @@ assert.match(shoppingApiSource, /\/api\/shopping\/lists\/\$\{encodeURIComponent\
 assert.match(shoppingNavigationSource, /removePendingEntities/, 'Shopping invite rendering must evict pending entities from the normal projection');
 assert.match(appSource, /evictPendingShoppingEntities/, 'Pending Shopping entities must be evicted atomically from IndexedDB');
 assert.match(appSource, /remainingStores/, 'Pending Shopping eviction must remove list-scoped stores from memory');
-assert.match(shoppingNavigationSource, /evictionGeneration/, 'Repeated renders must be bounded by a retryable eviction generation');
+assert.match(shoppingNavigationSource, /createEntityAccessPrivacyController/, 'Shopping must use the shared retryable privacy controller');
+assert.match(projectSharingSource, /createEntityAccessPrivacyController/, 'Projects must use the same retryable privacy controller');
 assert.doesNotMatch(projectSharingSource, /data-project-sharing-action="(?:accept|decline)-invite"/, 'Project invitation actions must be neutral');
 assert.match(tasksModuleSource, /entity-invitations-section/, 'Tasks must host the neutral invitation renderer');
 assert.match(shoppingModuleSource, /entity-invitations-section[\s\S]*shopping-invites-section/, 'Shopping invitations must have a Shopping-sidebar host');

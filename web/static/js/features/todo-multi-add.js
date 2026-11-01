@@ -42,6 +42,8 @@ export function createTodoMultiAddFeature({
   t,
   getTodos,
   setTodos,
+  getProjects = () => [],
+  getSections = () => [],
   getCurrentProjectId,
   getAppInitialized,
   getDb,
@@ -585,6 +587,19 @@ export function createTodoMultiAddFeature({
     let commitAborted = false;
     await commitQueuedMutation(async enqueue => {
       if (!isSaveSnapshotCurrent(saveSnapshot)) {
+        commitAborted = true;
+        return;
+      }
+      const liveProjects = getProjects();
+      const liveSections = getSections();
+      const invalidParent = prepared.some(({ todoData }) => {
+        if (todoData.project_id != null
+          && !liveProjects.some(project => String(project.id) === String(todoData.project_id))) return true;
+        if (todoData.section_id == null) return false;
+        const section = liveSections.find(candidate => String(candidate.id) === String(todoData.section_id));
+        return !section || String(section.project_id) !== String(todoData.project_id);
+      });
+      if (invalidParent) {
         commitAborted = true;
         return;
       }

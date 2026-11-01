@@ -202,6 +202,7 @@ let taskSections = [];
 let taskTodos = [{ id: 10, project_id: 1, section_id: null, title: 'Move me' }];
 const taskQueue = [];
 let taskRenderCount = 0;
+let taskMutationReservations = 0;
 let releaseTaskSync;
 const taskSyncPending = new Promise(resolve => { releaseTaskSync = resolve; });
 const taskActions = createSectionActionsFeature({
@@ -215,7 +216,10 @@ const taskActions = createSectionActionsFeature({
   dbGetAll: async () => [],
   deleteFromDB: async () => {},
   addToSyncQueue: async (action, data) => { taskQueue.push({ action, data }); },
-  runSyncQueueMutation: operation => operation(async (action, data) => { taskQueue.push({ action, data }); }),
+  runSyncQueueMutation: operation => {
+    taskMutationReservations += 1;
+    return operation(async (action, data) => { taskQueue.push({ action, data }); });
+  },
   isOnlineForSync: () => true,
   syncWithServer: () => taskSyncPending,
   renderTodos: () => { taskRenderCount += 1; },
@@ -231,12 +235,18 @@ assert.equal(taskSections.length, 1, 'Tasks publish the durable local projection
 assert.equal(taskRenderCount, 1, 'Tasks rerender immediately while online sync is still pending');
 releaseTaskSync();
 await pendingTaskCreate;
+assert.equal(taskMutationReservations, 1, 'Tasks section create must reserve the complete entity and queue mutation');
+await taskActions.adapter.renameSection(taskSections[0].id, 'Renamed');
+assert.equal(taskMutationReservations, 2, 'Tasks section rename must reserve the complete entity and queue mutation');
+await taskActions.adapter.deleteSection(taskSections[0].id);
+assert.equal(taskMutationReservations, 3, 'Tasks section delete must reserve the complete entity and queue mutation');
+const recreatedSection = await taskActions.adapter.createSection('Drag target');
 const movedTask = await taskActions.adapter.itemDrag.moveToSection(10, taskSections[0].id);
-assert.equal(movedTask.section_id, taskSections[0].id, 'the Tasks domain adapter must retain section assignment through the shared item DnD controller');
-assert.equal(taskTodos[0].section_id, taskSections[0].id);
+assert.equal(movedTask.section_id, recreatedSection.id, 'the Tasks domain adapter must retain section assignment through the shared item DnD controller');
+assert.equal(taskTodos[0].section_id, recreatedSection.id);
 assert.deepEqual(taskQueue.at(-1), {
   action: 'UPDATE_TODO',
-  data: { id: 10, changes: { section_id: taskSections[0].id } },
+  data: { id: 10, changes: { section_id: recreatedSection.id } },
 });
 
 const sectionActionsSource = readFileSync(new URL('../web/static/js/features/section-actions.js', import.meta.url), 'utf8');

@@ -1,8 +1,9 @@
-import { queueItemReferencesTodo } from './todo-pending.js';
+import { queueItemReferencesTodo, runCurrentEntityMutation } from './todo-pending.js';
 
 export function createToastUndoFeature({
   getDb,
   getTodos,
+  getProjects = () => [],
   setTodos,
   dbPut,
   dbGetAll,
@@ -89,14 +90,18 @@ export function createToastUndoFeature({
 
   async function restoreTodoFields(id, changes) {
     if (!getDb()) return;
-    const t = getTodos().find(x => String(x.id) === String(id));
-    if (!t) return;
-    const updatedTodo = { ...t, ...changes, updated_at: new Date().toISOString() };
-    await commitQueuedMutation(async enqueue => {
-      await dbPut('todos', updatedTodo);
-      setTodos(getTodos().map(todo => String(todo.id) === String(id) ? updatedTodo : todo));
-      await enqueue('UPDATE_TODO', { id, changes });
+    const updatedTodo = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (current, enqueue) => {
+        const updated = { ...current, ...changes, updated_at: new Date().toISOString() };
+        await dbPut('todos', updated);
+        setTodos(getTodos().map(todo => String(todo.id) === String(id) ? updated : todo));
+        await enqueue('UPDATE_TODO', { id: current.id, changes });
+        return updated;
+      },
     });
+    if (!updatedTodo) return;
     renderStats();
     renderTodos();
 
@@ -108,7 +113,9 @@ export function createToastUndoFeature({
     const { todos: deletedTodos } = pendingUndoBatch;
     await commitQueuedMutation(async enqueue => {
       let todos = getTodos();
+      const accessibleProjects = new Set((getProjects() || []).map(project => String(project.id)));
       for (const todoData of deletedTodos) {
+        if (todoData.project_id != null && !accessibleProjects.has(String(todoData.project_id))) continue;
         await dbPut('todos', todoData);
         const existing = todos.find(t => t.id === todoData.id);
         if (!existing) {
@@ -130,14 +137,19 @@ export function createToastUndoFeature({
 
   async function restoreTodo(id, data) {
     if (!getDb()) return;
-    await commitQueuedMutation(async enqueue => {
+    const restored = await commitQueuedMutation(async enqueue => {
+      const projectAccessible = data.project_id == null
+        || (getProjects() || []).some(project => String(project.id) === String(data.project_id));
+      if (!projectAccessible) return false;
       await dbPut('todos', data);
       const todos = getTodos();
       const existing = todos.find(t => t.id === data.id);
       setTodos(existing ? todos.map(t => t.id === data.id ? data : t) : [...todos, data]);
       const canceledPendingDelete = await cancelPendingTodoDelete(id);
       if (isOnlineForSync() && !canceledPendingDelete) await enqueue('CREATE_TODO', { ...data, _tempId: data.id });
+      return true;
     });
+    if (!restored) return;
     renderStats();
     renderTodos();
     if (isOnlineForSync()) {
@@ -147,12 +159,18 @@ export function createToastUndoFeature({
 
   async function undoDuplicatedTodo(id) {
     if (!getDb()) return;
-    await commitQueuedMutation(async enqueue => {
-      await deleteFromDB('todos', id);
-      setTodos(getTodos().filter(todo => String(todo.id) !== String(id)));
+    const removed = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (current, enqueue) => {
+      await deleteFromDB('todos', current.id);
+      setTodos(getTodos().filter(todo => String(todo.id) !== String(current.id)));
       const canceledPendingCreate = await cancelPendingTodoCreate(id);
-      if (isOnlineForSync() && !canceledPendingCreate) await enqueue('DELETE_TODO', { id });
+      if (isOnlineForSync() && !canceledPendingCreate) await enqueue('DELETE_TODO', { id: current.id });
+      return true;
+      },
     });
+    if (!removed) return;
     renderStats();
     renderTodos();
     if (isOnlineForSync()) {

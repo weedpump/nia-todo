@@ -4,12 +4,12 @@ import { createSyncFeature } from '../web/static/js/features/sync.js';
 import { createWebSocketClient } from '../web/static/js/features/websocket-client.js';
 import { acquireSyncCommitLock, beginSyncQueueWrite, projectPendingTodoChanges, queueItemReferencesTodo } from '../web/static/js/features/todo-pending.js';
 
-function createHarness({ queue, todos, api, projectApi = {} }) {
+function createHarness({ queue, todos, api, projectApi = {}, sectionApi = {}, projects = [], sections = [] }) {
   const stores = {
     syncQueue: structuredClone(queue),
     todos: structuredClone(todos),
-    projects: [],
-    sections: [],
+    projects: structuredClone(projects),
+    sections: structuredClone(sections),
     workspaces: [],
   };
   const feature = createSyncFeature({
@@ -33,7 +33,7 @@ function createHarness({ queue, todos, api, projectApi = {} }) {
     setWorkspaces: next => { stores.workspaces = structuredClone(next); },
     todosApi: { list: async () => ({ todos: structuredClone(stores.todos) }), ...api },
     projectsApi: { list: async () => ({ projects: [] }), ...projectApi },
-    sectionsApi: { listAll: async () => ({ sections: [] }) },
+    sectionsApi: { listAll: async () => ({ sections: [] }), ...sectionApi },
     workspacesApi: { list: async () => ({ workspaces: [] }) },
     renderStats: () => {},
     renderTodos: () => {},
@@ -483,6 +483,36 @@ await refreshRace;
 assert.equal(refreshRaceHarness.stores.todos.length, 0, 'a full refresh must not restore a todo deleted while its REST snapshot was loading');
 assert.deepEqual(refreshRaceHarness.stores.syncQueue.map(item => item.action), ['DELETE_TODO']);
 
+let releasePrivacyRefresh;
+let signalPrivacyRefresh;
+const privacyRefreshGate = new Promise(resolve => { releasePrivacyRefresh = resolve; });
+const privacyRefreshStarted = new Promise(resolve => { signalPrivacyRefresh = resolve; });
+const privacyRefreshHarness = createHarness({
+  queue: [],
+  todos: [],
+  api: {
+    list: async () => {
+      signalPrivacyRefresh();
+      await privacyRefreshGate;
+      return { todos: [{ id: 802, project_id: 82, title: 'Stale private refresh' }] };
+    },
+  },
+  projects: [{ id: 82, name: 'Private project' }],
+  sections: [],
+  projectApi: { list: async () => ({ projects: [{ id: 82, name: 'Private project' }] }) },
+});
+const privacyRefreshRef = { value: false, privacyGeneration: 0 };
+const stalePrivacyRefresh = privacyRefreshHarness.feature.refreshFromServer({ wsState: 'connected', syncInProgressRef: privacyRefreshRef });
+await privacyRefreshStarted;
+privacyRefreshHarness.stores.todos = [];
+privacyRefreshHarness.stores.projects = [];
+privacyRefreshRef.privacyGeneration += 1;
+releasePrivacyRefresh();
+const stalePrivacyRefreshResult = await stalePrivacyRefresh;
+assert.equal(stalePrivacyRefreshResult.refreshed, false, 'a REST full refresh started before privacy eviction must report a discarded response');
+assert.deepEqual(privacyRefreshHarness.stores.todos, [], 'a stale REST full refresh must not restore evicted todos');
+assert.deepEqual(privacyRefreshHarness.stores.projects, [], 'a stale REST full refresh must not restore evicted projects');
+
 const commitLockRef = {};
 const releaseCommitLock = await acquireSyncCommitLock(commitLockRef);
 let queueWriteStarted = false;
@@ -606,6 +636,107 @@ websocketStores.todos = [{ id: 902, title: 'Local create', comments: [], subtask
 websocketSyncRef.value = false;
 await realtimeOwnCreate;
 assert.deepEqual(websocketStores.todos.map(todo => todo.id), [902]);
+
+websocketSyncRef.value = false;
+websocketSyncRef.privacyGeneration = 0;
+websocketStores.projects = [{ id: 980, name: 'Private project' }];
+websocketStores.sections = [{ id: 981, project_id: 980, name: 'Private section' }];
+websocketStores.todos = [{ id: 982, project_id: 980, section_id: 981, title: 'Private todo', attachments: [] }];
+const releaseRealtimeEvictionLock = await acquireSyncCommitLock(websocketSyncRef);
+const staleProjectDelta = websocketClient.handleWsMessage({
+  type: 'project_update',
+  payload: { id: 980, name: 'Stale private project' },
+});
+const staleSectionDelta = websocketClient.handleWsMessage({
+  type: 'section_update',
+  payload: { id: 981, project_id: 980, name: 'Stale private section', updated_at: '2026-10-18T00:00:00Z' },
+});
+const staleAttachmentDelta = websocketClient.handleWsMessage({
+  type: 'todo_attachment_create',
+  payload: { todo_id: 982, attachment: { id: 983, filename: 'private.txt' }, attachments_count: 1 },
+});
+await new Promise(resolve => setTimeout(resolve, 10));
+websocketStores.projects = [];
+websocketStores.sections = [];
+websocketStores.todos = [];
+websocketSyncRef.privacyGeneration += 1;
+releaseRealtimeEvictionLock();
+await Promise.all([staleProjectDelta, staleSectionDelta, staleAttachmentDelta]);
+assert.deepEqual(websocketStores.projects, [], 'a stale project delta must not reinsert data after privacy eviction');
+assert.deepEqual(websocketStores.sections, [], 'a stale section delta must not reinsert data after privacy eviction');
+assert.deepEqual(websocketStores.todos, [], 'a stale attachment delta must not reinsert todo data after privacy eviction');
+
+await websocketClient.handleWsMessage({ type: 'project_update', payload: { id: 980, name: 'Post-eviction delta' } });
+await websocketClient.handleWsMessage({ type: 'project_update_many', payload: { projects: [{ id: 980, name: 'Post-eviction batch delta' }] } });
+await websocketClient.handleWsMessage({ type: 'project_create', payload: { id: 984, parent_id: 980, name: 'Missing-parent child' } });
+await websocketClient.handleWsMessage({ type: 'project_create', payload: { id: 985, parent_id: null, name: 'Root access gain' } });
+assert.deepEqual(
+  websocketStores.projects,
+  [],
+  'project deltas after completed eviction must require an existing local project/parent and root access gains must wait for a snapshot',
+);
+
+let releaseRevokedReplay;
+let signalRevokedReplay;
+const revokedReplayGate = new Promise(resolve => { releaseRevokedReplay = resolve; });
+const revokedReplayStarted = new Promise(resolve => { signalRevokedReplay = resolve; });
+const revokedReplayHarness = createHarness({
+  queue: [{ id: 70, action: 'UPDATE_TODO', data: { id: 970, changes: { title: 'Private edit' } } }],
+  todos: [{ id: 970, title: 'Private old', comments: [], subtasks: [] }],
+  api: {
+    update: async () => {
+      signalRevokedReplay();
+      await revokedReplayGate;
+      return { id: 970, title: 'Private edit', comments: [], subtasks: [] };
+    },
+  },
+});
+const revokedReplaySync = revokedReplayHarness.feature.syncWithServer({
+  wsState: 'connected',
+  syncInProgressRef: { value: false },
+});
+await revokedReplayStarted;
+revokedReplayHarness.stores.syncQueue = [];
+revokedReplayHarness.stores.todos = [];
+releaseRevokedReplay();
+await revokedReplaySync;
+assert.deepEqual(
+  revokedReplayHarness.stores.todos,
+  [],
+  'a replay response must not reinsert a todo after privacy eviction removed its queue entry',
+);
+
+let releaseRevokedProjectReplay;
+let signalRevokedProjectReplay;
+const revokedProjectReplayGate = new Promise(resolve => { releaseRevokedProjectReplay = resolve; });
+const revokedProjectReplayStarted = new Promise(resolve => { signalRevokedProjectReplay = resolve; });
+const revokedProjectReplayHarness = createHarness({
+  queue: [{ id: 71, action: 'UPDATE_PROJECT', data: { id: 971, changes: { name: 'Private project' } } }],
+  todos: [],
+  projects: [{ id: 971, name: 'Private old' }],
+  api: {},
+  projectApi: {
+    update: async () => {
+      signalRevokedProjectReplay();
+      await revokedProjectReplayGate;
+      return { id: 971, name: 'Private project' };
+    },
+  },
+});
+const revokedProjectReplaySync = revokedProjectReplayHarness.feature.syncWithServer({
+  wsState: 'connected',
+  syncInProgressRef: { value: false },
+});
+await revokedProjectReplayStarted;
+revokedProjectReplayHarness.stores.syncQueue = [];
+revokedProjectReplayHarness.stores.projects = [];
+releaseRevokedProjectReplay();
+await revokedProjectReplaySync;
+assert.deepEqual(
+  revokedProjectReplayHarness.stores.projects,
+  [],
+  'a project replay response must not reinsert a project after privacy eviction removed its queue entry',
+);
 
 await websocketClient.disconnectWebSocket();
 globalThis.WebSocket = originalWebSocket;

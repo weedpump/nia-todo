@@ -18,6 +18,8 @@ const lucideIconsSource = readFileSync(new URL('../web/static/js/icons/lucide-ic
 const colorPickerSource = readFileSync(new URL('../web/static/js/ui/color-picker.js', import.meta.url), 'utf8');
 const ownershipFieldSource = readFileSync(new URL('../web/static/js/features/entity-ownership-field.js', import.meta.url), 'utf8');
 const directSharingSource = readFileSync(new URL('../web/static/js/features/entity-direct-sharing.js', import.meta.url), 'utf8');
+const entityInvitationsSource = readFileSync(new URL('../web/static/js/features/entity-invitations.js', import.meta.url), 'utf8');
+const entityAccessPrivacySource = readFileSync(new URL('../web/static/js/features/entity-access-privacy.js', import.meta.url), 'utf8');
 
 assert.match(indexSource, /data-settings-page-target="household"/, 'household must be a separate settings page');
 assert.match(indexSource, /data-settings-page="household"/, 'household settings page markup must exist');
@@ -190,6 +192,10 @@ try {
         getCurrentWorkspaceId: () => currentWorkspaceId, getWorkspaces: () => [{ id: 10, name: 'Personal', is_default: true }, { id: 20, name: 'Work', is_default: false }],
         setProjects: next => { projects = next; }, dbPut: async (_store, project) => { if (project?.id === 46) throw new Error('simulated IndexedDB write failure'); }, deleteFromDB: async () => {},
         addToSyncQueue: async (action, data) => calls.push(['queue', action, data]), isOnlineForSync: () => false,
+        runSyncQueueMutation: operation => {
+          calls.push(['project-mutation']);
+          return operation(async (action, data) => calls.push(['queue', action, data]));
+        },
         syncWithServer: async () => {},
         refreshFromServer: async () => { calls.push(['refresh-projects']); throw new Error('simulated blocked authoritative refresh'); },
         renderProjects: () => {}, renderStats: () => {}, renderTodos: () => {}, closeModal: () => {},
@@ -231,6 +237,8 @@ try {
     if (pathname === '/static/js/features/entity-appearance.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-appearance.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/entity-ownership-field.js') return route.fulfill({ contentType: 'text/javascript', body: ownershipFieldSource });
     if (pathname === '/static/js/features/entity-direct-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: directSharingSource });
+    if (pathname === '/static/js/features/entity-invitations.js') return route.fulfill({ contentType: 'text/javascript', body: entityInvitationsSource });
+    if (pathname === '/static/js/features/entity-access-privacy.js') return route.fulfill({ contentType: 'text/javascript', body: entityAccessPrivacySource });
     if (pathname === '/static/js/features/form-save-state.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/form-save-state.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/project-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: sharingSource });
     if (pathname === '/static/js/features/app-rendering.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(renderingSourceUrl, 'utf8') });
@@ -341,6 +349,7 @@ try {
   await page.dispatchEvent('#project-name', 'input');
   await page.click('#project-save-btn');
   const createCall = (await page.evaluate(() => window.test.calls)).find(call => call[0] === 'queue' && call[1] === 'CREATE_PROJECT');
+  assert.equal((await page.evaluate(() => window.test.calls)).some(call => call[0] === 'project-mutation'), true, 'project create must reserve the complete entity and queue mutation');
   assert.equal(createCall[2].household_id, 7, 'CREATE_PROJECT sync payload must include household_id');
   assert.equal(createCall[2].workspace_id, 10, 'household projects must be created in the personal default workspace');
   assert.equal((await page.evaluate(() => window.test.getProjects().at(-1).ownership_type)), 'household', 'new household projects must be marked locally before sync');
@@ -398,7 +407,7 @@ try {
   assert.equal(confirmation.confirmText, 'project.transferHousehold.confirm');
   assert.deepEqual(projectCalls.find(call => call[0] === 'project-transfer'), ['project-transfer', 44, 7, 49]);
   assert.ok(!projectCalls.some(call => call[0] === 'refresh-projects'), 'complete transfer response must not depend on a queue-blockable full refresh');
-  assert.equal((await page.evaluate(() => window.test.getProjects().find(project => project.id === 46)?.ownership_type)), 'household', 'complete transfer response must reconcile transferred descendants despite a local persistence failure');
+  assert.equal((await page.evaluate(() => window.test.getProjects().find(project => project.id === 46)?.ownership_type)), 'user', 'a transferred descendant whose durable write failed must not be published to memory');
 
   await page.evaluate(() => {
     window.test.clearCalls();

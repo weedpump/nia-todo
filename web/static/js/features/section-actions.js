@@ -106,59 +106,72 @@ export function createSectionActionsFeature({
     itemDrag,
     render: renderTodos,
     async createSection(name) {
-      const currentProjectId = getCurrentProjectId();
-      if (!name || !currentProjectId) return null;
-      const currentSections = getSections();
-      const now = new Date().toISOString();
-      const tempId = `temp-section-${Date.now()}`;
-      const section = {
-        id: tempId,
-        name,
-        project_id: currentProjectId,
-        sort_order: currentSections.length,
-        created_at: now,
-        updated_at: now,
-      };
-      await dbPut('sections', section);
-      await addToSyncQueue('CREATE_SECTION', { ...section, _tempId: tempId });
-      setSections([...currentSections, section]);
-      renderTodos();
-      if (isOnlineForSync()) await syncWithServer();
+      const section = await commitQueuedMutation(async enqueue => {
+        const currentProjectId = getCurrentProjectId();
+        const project = (getProjects?.() || []).find(candidate => String(candidate.id) === String(currentProjectId));
+        if (!name || !project) return null;
+        const currentSections = getSections();
+        const now = new Date().toISOString();
+        const tempId = `temp-section-${Date.now()}`;
+        const nextSection = {
+          id: tempId,
+          name,
+          project_id: project.id,
+          sort_order: currentSections.length,
+          created_at: now,
+          updated_at: now,
+        };
+        await dbPut('sections', nextSection);
+        await enqueue('CREATE_SECTION', { ...nextSection, _tempId: tempId });
+        setSections([...currentSections, nextSection]);
+        renderTodos();
+        return nextSection;
+      });
+      if (section && isOnlineForSync()) await syncWithServer();
       return section;
     },
     async renameSection(id, name) {
-      const sectionId = resolveSectionId(id);
-      const currentSections = getSections();
-      const current = currentSections.find(section => String(section.id) === String(sectionId));
-      if (!current || !name) return null;
-      const updated = { ...current, name, updated_at: new Date().toISOString() };
-      await dbPut('sections', updated);
-      await addToSyncQueue('UPDATE_SECTION', { id: sectionId, changes: { name } });
-      setSections(currentSections.map(section => String(section.id) === String(sectionId) ? updated : section));
-      renderTodos();
-      if (isOnlineForSync()) await syncWithServer();
+      const updated = await commitQueuedMutation(async enqueue => {
+        const sectionId = resolveSectionId(id);
+        const currentSections = getSections();
+        const current = currentSections.find(section => String(section.id) === String(sectionId));
+        const project = (getProjects?.() || []).find(candidate => String(candidate.id) === String(current?.project_id));
+        if (!current || !project || !name) return null;
+        const nextSection = { ...current, name, updated_at: new Date().toISOString() };
+        await dbPut('sections', nextSection);
+        await enqueue('UPDATE_SECTION', { id: sectionId, changes: { name } });
+        setSections(currentSections.map(section => String(section.id) === String(sectionId) ? nextSection : section));
+        renderTodos();
+        return nextSection;
+      });
+      if (updated && isOnlineForSync()) await syncWithServer();
       return updated;
     },
     async deleteSection(id) {
-      const sectionId = resolveSectionId(id);
-      const currentSections = getSections();
-      if (!currentSections.some(section => String(section.id) === String(sectionId))) return null;
-      const previousTodos = getTodos();
-      const now = new Date().toISOString();
-      const nextTodos = previousTodos.map(todo => String(todo.section_id) === String(sectionId)
-        ? { ...todo, section_id: null, updated_at: now }
-        : todo);
-      await deleteFromDB('sections', sectionId);
-      for (const todo of nextTodos) {
-        const previous = previousTodos.find(candidate => String(candidate.id) === String(todo.id));
-        if (todo.section_id === null && String(previous?.section_id) === String(sectionId)) await dbPut('todos', todo);
-      }
-      await addToSyncQueue('DELETE_SECTION', { id: sectionId });
-      setSections(currentSections.filter(section => String(section.id) !== String(sectionId)));
-      setTodos(nextTodos);
-      renderTodos();
-      if (isOnlineForSync()) await syncWithServer();
-      return { id: sectionId };
+      const result = await commitQueuedMutation(async enqueue => {
+        const sectionId = resolveSectionId(id);
+        const currentSections = getSections();
+        const current = currentSections.find(section => String(section.id) === String(sectionId));
+        const project = (getProjects?.() || []).find(candidate => String(candidate.id) === String(current?.project_id));
+        if (!current || !project) return null;
+        const previousTodos = getTodos();
+        const now = new Date().toISOString();
+        const nextTodos = previousTodos.map(todo => String(todo.section_id) === String(sectionId)
+          ? { ...todo, section_id: null, updated_at: now }
+          : todo);
+        await deleteFromDB('sections', sectionId);
+        for (const todo of nextTodos) {
+          const previous = previousTodos.find(candidate => String(candidate.id) === String(todo.id));
+          if (todo.section_id === null && String(previous?.section_id) === String(sectionId)) await dbPut('todos', todo);
+        }
+        await enqueue('DELETE_SECTION', { id: sectionId });
+        setSections(currentSections.filter(section => String(section.id) !== String(sectionId)));
+        setTodos(nextTodos);
+        renderTodos();
+        return { id: sectionId };
+      });
+      if (result && isOnlineForSync()) await syncWithServer();
+      return result;
     },
   };
 

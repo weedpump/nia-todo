@@ -3,6 +3,7 @@ import { refreshSelect } from '../ui/dropdowns.js';
 import { createEntityDirectSharingFeature } from './entity-direct-sharing.js';
 import { createEntityInvitationsFeature, renderEntityInvitationsHost } from './entity-invitations.js';
 import { isHouseholdOwnedEntity } from './entity-ownership-field.js';
+import { createEntityAccessPrivacyController } from './entity-access-privacy.js';
 
 export function createProjectSharingFeature({
   getProjects,
@@ -14,9 +15,14 @@ export function createProjectSharingFeature({
   confirmDanger,
   projectsApi,
   loadAuthoritativeProjection = () => projectsApi.list(),
+  removePendingEntities = async () => {},
 }) {
   let currentProject = null;
   const localPendingMembersByProject = new Map();
+  const privacy = createEntityAccessPrivacyController({
+    evictEntities: removePendingEntities,
+    onError: error => console.error('Failed to evict pending project data', error),
+  });
 
   function isOwner(project) {
     if (!project) return false;
@@ -78,7 +84,11 @@ export function createProjectSharingFeature({
 
   const invitations = createEntityInvitationsFeature({
     entityType: 'project',
-    listInvitations: () => projectsApi.listInvites(),
+    listInvitations: async () => {
+      const response = await projectsApi.listInvites();
+      privacy.beginGeneration();
+      return response;
+    },
     normalizeInvitation: invite => ({
       ...invite,
       entityId: invite.project_id ?? invite.entity_id,
@@ -86,19 +96,23 @@ export function createProjectSharingFeature({
     }),
     respondInvitation: (invite, accept) => projectsApi.respondInvite(invite.entityId, invite.id, accept),
     loadAuthoritativeProjection,
-    applyAuthoritativeProjection: response => {
+    applyAuthoritativeProjection: (response, invitation, context) => {
       if (!Array.isArray(response?.projects)) return;
       setProjects(response.projects);
+      if (context?.isCurrent?.()) privacy.commitAccessible([invitation.entityId]);
       renderProjects();
       renderStats();
       renderTodos();
     },
-    render: state => renderEntityInvitationsHost({
-      sectionId: 'invites-section',
-      listId: 'invites-list',
-      entityType: 'project',
-      state,
-    }),
+    render: state => {
+      privacy.schedulePending(state.invitations.map(invite => invite.entityId));
+      renderEntityInvitationsHost({
+        sectionId: 'invites-section',
+        listId: 'invites-list',
+        entityType: 'project',
+        state,
+      });
+    },
   });
 
   async function loadMembers(projectId) {
@@ -167,7 +181,14 @@ export function createProjectSharingFeature({
   }
 
   function setInvites(next) {
+    privacy.beginGeneration();
     return invitations.setInvitations(next);
+  }
+
+  function commitAuthoritativeSnapshot(authoritativeProjects) {
+    const accessibleProjects = Array.isArray(authoritativeProjects) ? authoritativeProjects : getProjects();
+    privacy.commitAccessible(accessibleProjects.map(project => project?.id));
+    invitations.render();
   }
 
   function renderInvites() {
@@ -229,6 +250,7 @@ export function createProjectSharingFeature({
     declineInvite,
     loadInvites,
     setInvites,
+    commitAuthoritativeSnapshot,
     renderInvites,
     bindProjectSharingActions,
     applyProjectModalState,

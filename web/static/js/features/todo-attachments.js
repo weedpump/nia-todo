@@ -1,14 +1,18 @@
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { acquireSyncCommitLock, projectPendingTodoChanges } from './todo-pending.js';
+import { runAccessFencedCommit } from './entity-access-privacy.js';
 
 export function createTodoAttachmentsFeature({
   getTodos,
   setTodos,
   getProjects,
+  getSections = () => [],
   getCurrentUser,
   setCurrentUser,
   getAppInitialized,
   getDb,
   dbPut,
+  dbGetAll = async () => [],
   isOnlineForSync,
   todosApi,
   renderStats,
@@ -22,6 +26,7 @@ export function createTodoAttachmentsFeature({
   refreshTodoActionButtonState,
   refreshTodoSaveButtonState,
   nativeBridge = null,
+  syncInProgressRef = {},
 }) {
   let attachmentPreviewObjectUrl = '';
   let attachmentPreviewDownload = null;
@@ -274,14 +279,35 @@ export function createTodoAttachmentsFeature({
     }
   }
 
-  async function applyAttachmentTodoResponse(response) {
+  async function applyAttachmentTodoResponse(response, privacyGeneration) {
     const updatedTodo = response?.todo;
-    if (!updatedTodo) return;
-    await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
-    renderTodoAttachments(updatedTodo.attachments || [], updatedTodo);
-    renderStats();
-    renderTodos();
+    if (!updatedTodo) return false;
+    let applied = false;
+    const committed = await runAccessFencedCommit({
+      syncInProgressRef,
+      acquireCommitLock: acquireSyncCommitLock,
+      privacyGeneration,
+      commit: async () => {
+        const currentTodo = getTodos().find(todo => String(todo.id) === String(updatedTodo.id));
+        if (!currentTodo) return;
+        const queue = await dbGetAll('syncQueue');
+        const projectedTodo = projectPendingTodoChanges(updatedTodo, queue);
+        if (!projectedTodo) return;
+        if (projectedTodo.project_id != null
+          && !getProjects().some(project => String(project.id) === String(projectedTodo.project_id))) return;
+        if (projectedTodo.section_id != null) {
+          const section = getSections().find(candidate => String(candidate.id) === String(projectedTodo.section_id));
+          if (!section || String(section.project_id) !== String(projectedTodo.project_id)) return;
+        }
+        await dbPut('todos', projectedTodo);
+        setTodos(getTodos().map(todo => String(todo.id) === String(projectedTodo.id) ? projectedTodo : todo));
+        renderTodoAttachments(projectedTodo.attachments || [], projectedTodo);
+        renderStats();
+        renderTodos();
+        applied = true;
+      },
+    });
+    return committed && applied;
   }
 
   async function uploadTodoAttachmentFromInput() {
@@ -325,11 +351,13 @@ export function createTodoAttachmentsFeature({
     const uploadButton = document.getElementById('todo-attachment-upload-btn');
     const previousDisabled = uploadButton?.disabled;
     if (uploadButton) uploadButton.disabled = true;
+    const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
     try {
       let latestResponse = null;
       let latestUser = currentUser;
       for (const file of files) {
         latestResponse = await todosApi.uploadAttachment(id, file);
+        if (Number(syncInProgressRef?.privacyGeneration || 0) !== privacyGeneration) return false;
         if (latestResponse?.usage && latestUser && typeof setCurrentUser === 'function') {
           latestUser = {
             ...latestUser,
@@ -343,7 +371,7 @@ export function createTodoAttachmentsFeature({
           setCurrentUser(latestUser);
         }
       }
-      if (latestResponse) await applyAttachmentTodoResponse(latestResponse);
+      if (latestResponse && !await applyAttachmentTodoResponse(latestResponse, privacyGeneration)) return false;
       setSelectedAttachmentFileName([]);
       if (input) input.value = '';
       showToast(files.length === 1 ? t('todo.attachments.uploaded') : t('todo.attachments.uploadedMany', { count: files.length }));
@@ -443,9 +471,10 @@ export function createTodoAttachmentsFeature({
       confirmText: t('todo.attachments.deleteConfirm'),
     });
     if (!confirmed) return;
+    const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
     try {
       const response = await todosApi.deleteAttachment(todoId, attachmentId);
-      await applyAttachmentTodoResponse(response);
+      await applyAttachmentTodoResponse(response, privacyGeneration);
     } catch (error) {
       console.error('Failed to delete todo attachment', error);
       showToast(t('todo.attachments.deleteFailed'));

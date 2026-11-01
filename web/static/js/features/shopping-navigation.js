@@ -14,6 +14,7 @@ import { bindShoppingStoreCreator, renderShoppingStoreCreator } from './shopping
 import { shoppingStoreOptionAction } from './shopping-store-option-action.js';
 import { closeOpenDropdown, hydrateSelect } from '../ui/dropdowns.js';
 import { createEntityInvitationsFeature, renderEntityInvitationsHost } from './entity-invitations.js';
+import { createEntityAccessPrivacyController } from './entity-access-privacy.js';
 
 export const SHOPPING_ACTIVE_LIST_KEY = 'nia-shopping-active-list';
 export const SHOPPING_STORE_FILTER_KEY_PREFIX = 'nia-shopping-store-filter:';
@@ -119,66 +120,17 @@ export function createShoppingNavigationFeature({
   let registeredSectionRoot = null;
   let storeCreator = null;
   let searchQuery = '';
-  let evictionGeneration = 0;
-  let scheduledEvictions = new Set();
-  const activeEvictions = new Map();
-
-  function beginEvictionGeneration() {
-    evictionGeneration += 1;
-    scheduledEvictions = new Set();
-  }
-
-  function trackActiveEviction(id, operation) {
-    const key = String(id);
-    const operations = activeEvictions.get(key) || new Set();
-    operations.add(operation);
-    activeEvictions.set(key, operations);
-  }
-
-  function untrackActiveEviction(id, operation) {
-    const key = String(id);
-    const operations = activeEvictions.get(key);
-    operations?.delete(operation);
-    if (!operations?.size) activeEvictions.delete(key);
-  }
-
-  function abortMatchingEvictions(id) {
-    for (const operation of activeEvictions.get(String(id)) || []) operation.controller.abort();
-  }
-
-  function schedulePendingEviction(entityIds) {
-    const ids = [...new Map((entityIds || [])
-      .filter(id => id != null)
-      .map(id => [String(id), id])).values()];
-    const generation = evictionGeneration;
-    for (const id of ids) {
-      const key = String(id);
-      if (scheduledEvictions.has(key)) continue;
-      scheduledEvictions.add(key);
-      const operation = { generation, controller: new AbortController() };
-      trackActiveEviction(id, operation);
-      let eviction;
-      try {
-        eviction = removePendingEntities([id], { signal: operation.controller.signal });
-      } catch (error) {
-        eviction = Promise.reject(error);
-      }
-      void Promise.resolve(eviction)
-        .catch(error => {
-          if (generation === evictionGeneration && error?.name !== 'AbortError') scheduledEvictions.delete(key);
-          if (error?.name === 'AbortError') return;
-          console.error('Failed to evict pending shopping entities', error);
-        })
-        .finally(() => untrackActiveEviction(id, operation));
-    }
-  }
+  const privacy = createEntityAccessPrivacyController({
+    evictEntities: removePendingEntities,
+    onError: error => console.error('Failed to evict pending shopping entities', error),
+  });
 
   const invitations = createEntityInvitationsFeature({
     entityType: 'shopping-list',
     listInvitations: async () => {
       const response = await (shoppingApi?.listInvites?.() || { invitations: [] });
       const values = response?.invitations ?? response?.invites ?? response;
-      beginEvictionGeneration();
+      privacy.beginGeneration();
       return (Array.isArray(values) ? values : []).filter(invite => !invite?.entity_type || invite.entity_type === 'shopping_list');
     },
     normalizeInvitation: invite => ({
@@ -192,10 +144,10 @@ export function createShoppingNavigationFeature({
       const nextLists = projection?.shopping_lists ?? projection?.lists ?? projection;
       if (!Array.isArray(nextLists)) throw new Error('Authoritative shopping projection was not applicable');
       replaceLists(nextLists);
-      if (context?.isCurrent?.()) abortMatchingEvictions(invitation.entityId);
+      if (context?.isCurrent?.()) privacy.commitAccessible([invitation.entityId]);
     },
     render: state => {
-      schedulePendingEviction(state.invitations.map(invite => invite.entityId));
+      privacy.schedulePending(state.invitations.map(invite => invite.entityId));
       renderEntityInvitationsHost({
         document: root,
         sectionId: 'shopping-invites-section',
@@ -598,11 +550,12 @@ export function createShoppingNavigationFeature({
     loadInvites: () => invitations.load(),
     respondInvite: (invitationId, accept) => invitations.respond(invitationId, accept),
     setInvites: next => {
-      beginEvictionGeneration();
+      privacy.beginGeneration();
       return invitations.setInvitations(next);
     },
-    commitAuthoritativeSnapshot: () => {
-      beginEvictionGeneration();
+    commitAuthoritativeSnapshot: authoritativeLists => {
+      const accessibleLists = Array.isArray(authoritativeLists) ? authoritativeLists : lists();
+      privacy.commitAccessible(accessibleLists.map(list => list?.id));
       invitations.render();
     },
     replaceLists,

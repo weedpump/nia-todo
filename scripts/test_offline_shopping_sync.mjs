@@ -541,4 +541,44 @@ assert.equal(createThenDeleteCalls, 1, 'offline create then delete must issue ex
 assert.equal(queueState.length, 0);
 assert.equal(shoppingState.length, 0, 'offline create then delete must not resurrect the list projection');
 
+let resolveStaleShoppingResponse;
+let signalStaleShoppingRequest;
+const staleShoppingGate = new Promise(resolve => { resolveStaleShoppingResponse = resolve; });
+const staleShoppingStarted = new Promise(resolve => { signalStaleShoppingRequest = resolve; });
+let staleShoppingQueue = [{ id: 90, action: 'UPDATE_SHOPPING_LIST', data: { id: 90, changes: { name: 'Private edit' } } }];
+let staleShoppingLists = [{ id: 90, name: 'Private old', sections: [], items: [], preferences: {} }];
+let staleShoppingCommits = 0;
+const staleShoppingFeature = createSyncFeature({
+  getDb: () => ({}),
+  dbGetAll: async store => store === 'syncQueue' ? structuredClone(staleShoppingQueue) : [],
+  dbPut: async () => {}, dbClear: async () => {}, getFromDB: async () => null, deleteFromDB: async () => {},
+  getTodos: () => [], setTodos: () => {}, getProjects: () => [], setProjects: () => {},
+  getSections: () => [], setSections: () => {}, getWorkspaces: () => [], setWorkspaces: () => {},
+  getShoppingLists: () => staleShoppingLists,
+  setShoppingLists: next => { staleShoppingLists = structuredClone(next); },
+  getShoppingStores: () => [], setShoppingStores: () => {},
+  todosApi: {}, projectsApi: {}, sectionsApi: {}, workspacesApi: {},
+  shoppingApi: {
+    updateList: async () => {},
+    getList: async () => {
+      signalStaleShoppingRequest();
+      await staleShoppingGate;
+      return { id: 90, name: 'Stale private response', sections: [], items: [], preferences: {} };
+    },
+    snapshot: async () => ({ shopping_lists: [] }),
+  },
+  commitShoppingReplay: async () => { staleShoppingCommits += 1; },
+  renderStats: () => {}, renderTodos: () => {}, renderShopping: () => {},
+});
+const staleShoppingRef = { value: false, requested: false, privacyGeneration: 0 };
+const staleShoppingReplay = staleShoppingFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: staleShoppingRef });
+await staleShoppingStarted;
+staleShoppingQueue = [];
+staleShoppingLists = [];
+staleShoppingRef.privacyGeneration += 1;
+resolveStaleShoppingResponse();
+await staleShoppingReplay;
+assert.equal(staleShoppingCommits, 0, 'a shopping response must not persist after privacy eviction removed its queue entry');
+assert.deepEqual(staleShoppingLists, [], 'a stale shopping response must not republish an evicted list');
+
 console.log('✅ Offline shopping projection and atomic IndexedDB contracts passed');

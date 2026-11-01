@@ -8,6 +8,8 @@ import { createTodoAttachmentsFeature } from './todo-attachments.js';
 import { createTodoQuickAddFeature } from './todo-quick-add.js';
 import { createTodoMultiAddFeature } from './todo-multi-add.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { acquireSyncCommitLock, projectPendingSectionsSnapshot, projectPendingTodoChanges, runCurrentEntityMutation } from './todo-pending.js';
+import { runAccessFencedCommit } from './entity-access-privacy.js';
 
 const TODO_META_SUMMARY_CONTROL_IDS = new Set([
   'todo-project',
@@ -56,6 +58,7 @@ export function createTodosFeature({
   getTodos,
   setTodos,
   getProjects,
+  getSections,
   getCurrentProjectId,
   getCurrentWorkspaceId,
   getCurrentUser,
@@ -84,6 +87,7 @@ export function createTodosFeature({
   syncDateTimePickers,
   openDateTimePicker,
   getActiveModule = () => 'tasks',
+  syncInProgressRef = {},
 }) {
   const nativeBridge = createNativeBridge();
   const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
@@ -113,11 +117,13 @@ export function createTodosFeature({
     getTodos,
     setTodos,
     getProjects,
+    getSections,
     getCurrentUser,
     setCurrentUser,
     getAppInitialized,
     getDb,
     dbPut,
+    dbGetAll,
     isOnlineForSync,
     todosApi,
     renderStats,
@@ -131,6 +137,7 @@ export function createTodosFeature({
     refreshTodoActionButtonState,
     refreshTodoSaveButtonState,
     nativeBridge,
+    syncInProgressRef,
   });
 
   const {
@@ -152,6 +159,8 @@ export function createTodosFeature({
     t,
     getTodos,
     setTodos,
+    getProjects,
+    getSections,
     getCurrentProjectId,
     getAppInitialized,
     getDb,
@@ -1082,27 +1091,28 @@ export function createTodosFeature({
       showToast(t('todo.subtasks.saveFirst'));
       return false;
     }
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return false;
-    const nowIso = new Date().toISOString();
-    const subtask = {
-      id: `temp-subtask-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      title,
-      is_done: Boolean(isDone),
-      sort_order: normalizeSubtasks(existing.subtasks).length,
-      created_at: nowIso,
-      updated_at: nowIso,
-      is_pending: true,
-    };
-    let persisted = false;
-    await commitQueuedMutation(async enqueue => {
+    const persisted = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const nowIso = new Date().toISOString();
+      const subtask = {
+        id: `temp-subtask-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        title,
+        is_done: Boolean(isDone),
+        sort_order: normalizeSubtasks(existing.subtasks).length,
+        created_at: nowIso,
+        updated_at: nowIso,
+        is_pending: true,
+      };
       await enqueue('CREATE_SUBTASK', {
         todo_id: existing.id,
         temp_id: subtask.id,
         subtask: { title: subtask.title, is_done: subtask.is_done, sort_order: subtask.sort_order },
         local_subtask: subtask,
       });
-      persisted = await persistTodoSubtasks(todoId, [...normalizeSubtasks(existing.subtasks), subtask]);
+      return persistTodoSubtasks(existing.id, [...normalizeSubtasks(existing.subtasks), subtask]);
+      },
     });
     if (!persisted) return false;
     await finishTodoSubtaskMutation(todoId);
@@ -1111,17 +1121,18 @@ export function createTodosFeature({
 
   async function updateTodoSubtask(todoId, subtaskId, changes) {
     if (!todoId || !subtaskId) return false;
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return false;
-    const subtasks = normalizeSubtasks(existing.subtasks).map(subtask => (
-      String(subtask.id) === String(subtaskId)
-        ? { ...subtask, ...changes, updated_at: new Date().toISOString() }
-        : subtask
-    ));
-    let persisted = false;
-    await commitQueuedMutation(async enqueue => {
+    const persisted = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const subtasks = normalizeSubtasks(existing.subtasks).map(subtask => (
+        String(subtask.id) === String(subtaskId)
+          ? { ...subtask, ...changes, updated_at: new Date().toISOString() }
+          : subtask
+      ));
       await enqueue('UPDATE_SUBTASK', { todo_id: existing.id, subtask_id: subtaskId, changes });
-      persisted = await persistTodoSubtasks(todoId, subtasks);
+      return persistTodoSubtasks(existing.id, subtasks);
+      },
     });
     if (!persisted) return false;
     await finishTodoSubtaskMutation(todoId);
@@ -1130,13 +1141,14 @@ export function createTodosFeature({
 
   async function deleteTodoSubtask(todoId, subtaskId) {
     if (!todoId || !subtaskId) return false;
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return false;
-    const subtasks = normalizeSubtasks(existing.subtasks).filter(subtask => String(subtask.id) !== String(subtaskId));
-    let persisted = false;
-    await commitQueuedMutation(async enqueue => {
+    const persisted = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const subtasks = normalizeSubtasks(existing.subtasks).filter(subtask => String(subtask.id) !== String(subtaskId));
       await enqueue('DELETE_SUBTASK', { todo_id: existing.id, subtask_id: subtaskId });
-      persisted = await persistTodoSubtasks(todoId, subtasks);
+      return persistTodoSubtasks(existing.id, subtasks);
+      },
     });
     if (!persisted) return false;
     await finishTodoSubtaskMutation(todoId);
@@ -1447,14 +1459,34 @@ export function createTodosFeature({
     placeCaretAtEnd(editor);
   }
 
-  async function applyCommentTodoResponse(response) {
+  async function applyCommentTodoResponse(response, privacyGeneration) {
     const updatedTodo = response?.todo;
-    if (!updatedTodo) return;
-    await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
-    renderTodoComments(updatedTodo.comments || [], updatedTodo);
-    renderStats();
-    renderTodos();
+    if (!updatedTodo) return false;
+    let applied = false;
+    const committed = await runAccessFencedCommit({
+      syncInProgressRef,
+      acquireCommitLock: acquireSyncCommitLock,
+      privacyGeneration,
+      commit: async () => {
+        if (!getTodos().some(todo => String(todo.id) === String(updatedTodo.id))) return;
+        const queue = await dbGetAll('syncQueue');
+        const projectedTodo = projectPendingTodoChanges(updatedTodo, queue);
+        if (!projectedTodo) return;
+        if (projectedTodo.project_id != null
+          && !getProjects().some(project => String(project.id) === String(projectedTodo.project_id))) return;
+        if (projectedTodo.section_id != null) {
+          const section = getSections().find(candidate => String(candidate.id) === String(projectedTodo.section_id));
+          if (!section || String(section.project_id) !== String(projectedTodo.project_id)) return;
+        }
+        await dbPut('todos', projectedTodo);
+        setTodos(getTodos().map(todo => String(todo.id) === String(projectedTodo.id) ? projectedTodo : todo));
+        renderTodoComments(projectedTodo.comments || [], projectedTodo);
+        renderStats();
+        renderTodos();
+        applied = true;
+      },
+    });
+    return committed && applied;
   }
 
   async function persistLocalTodoComments(todoId, comments) {
@@ -1515,10 +1547,11 @@ export function createTodosFeature({
       refreshTodoSaveButtonState();
       return;
     }
-    const existing = getTodos().find(todo => String(todo.id) === String(id));
-    if (!existing) return;
-    const comment = pendingTodoComment(existing.id, body);
-    await commitQueuedMutation(async enqueue => {
+    const saved = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const comment = pendingTodoComment(existing.id, body);
       await enqueue('CREATE_COMMENT', {
         todo_id: existing.id,
         temp_id: comment.id,
@@ -1526,7 +1559,10 @@ export function createTodosFeature({
         local_comment: comment,
       });
       await persistLocalTodoComments(existing.id, [...(existing.comments || []), comment]);
+      return true;
+      },
     });
+    if (!saved) return;
     if (input) {
       clearTodoCommentEditor(input);
       input.focus();
@@ -1541,17 +1577,21 @@ export function createTodosFeature({
       return;
     }
     if (!todoId || !commentId) return;
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return;
-    const comments = (existing.comments || []).map(comment => (
-      String(comment.id) === String(commentId)
-        ? { ...comment, body: normalized, updated_at: new Date().toISOString(), is_pending: true }
-        : comment
-    ));
-    await commitQueuedMutation(async enqueue => {
+    const saved = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const comments = (existing.comments || []).map(comment => (
+        String(comment.id) === String(commentId)
+          ? { ...comment, body: normalized, updated_at: new Date().toISOString(), is_pending: true }
+          : comment
+      ));
       await enqueue('UPDATE_COMMENT', { todo_id: existing.id, comment_id: commentId, changes: { body: normalized } });
       await persistLocalTodoComments(existing.id, comments);
+      return true;
+      },
     });
+    if (!saved) return;
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -1563,13 +1603,17 @@ export function createTodosFeature({
       confirmText: t('todo.comments.deleteConfirm'),
     });
     if (!confirmed) return;
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return;
-    const comments = (existing.comments || []).filter(comment => String(comment.id) !== String(commentId));
-    await commitQueuedMutation(async enqueue => {
+    const saved = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const comments = (existing.comments || []).filter(comment => String(comment.id) !== String(commentId));
       await enqueue('DELETE_COMMENT', { todo_id: existing.id, comment_id: commentId });
       await persistLocalTodoComments(existing.id, comments);
+      return true;
+      },
     });
+    if (!saved) return;
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -1948,32 +1992,44 @@ export function createTodosFeature({
 
   async function setTodoStatus(id, status) {
     if (!getAppInitialized() || !getDb()) return;
-    const todo = getTodos().find(x => String(x.id) === String(id));
-    if (!todo || todo.status === status) return;
-    const changes = { status };
-    const openSubtasks = getOpenSubtaskCount(todo);
+    const initialTodo = getTodos().find(x => String(x.id) === String(id));
+    if (!initialTodo || initialTodo.status === status) return;
+    const openSubtasks = getOpenSubtaskCount(initialTodo);
+    let confirmedOpenSubtasks = false;
     if (status === 'done' && openSubtasks > 0) {
-      const confirmed = await confirmDanger({
+      confirmedOpenSubtasks = await confirmDanger({
         title: t('todo.subtasks.completeWithOpenTitle'),
         message: t('todo.subtasks.completeWithOpenMessage', { count: openSubtasks }),
         confirmText: t('todo.subtasks.completeAnyway'),
       });
-      if (!confirmed) return;
-      changes.confirm_incomplete_subtasks_completion = true;
+      if (!confirmedOpenSubtasks) return;
     }
-    const nowIso = new Date().toISOString();
-    const completed_at = status === 'done' ? nowIso : null;
-    const updatedTodo = { ...todo, status, completed_at, updated_at: nowIso };
-    await commitQueuedMutation(async enqueue => {
-      await dbPut('todos', updatedTodo);
-      setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
-      await enqueue('UPDATE_TODO', { id: todo.id, changes });
+    const result = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (todo, enqueue) => {
+        if (todo.status === status) return null;
+        const changes = { status };
+        const currentOpenSubtasks = getOpenSubtaskCount(todo);
+        if (status === 'done' && currentOpenSubtasks > 0) {
+          if (!confirmedOpenSubtasks) return null;
+          changes.confirm_incomplete_subtasks_completion = true;
+        }
+        const nowIso = new Date().toISOString();
+        const completed_at = status === 'done' ? nowIso : null;
+        const updatedTodo = { ...todo, status, completed_at, updated_at: nowIso };
+        await dbPut('todos', updatedTodo);
+        setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+        await enqueue('UPDATE_TODO', { id: todo.id, changes });
+        return { previous: todo, updated: updatedTodo };
+      },
     });
+    if (!result) return;
     renderStats();
     renderTodos();
     runHapticFeedback(status === 'done' ? 18 : 10);
-    if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
-    else if (todo.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: todo.id, previousStatus: todo.status });
+    if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: result.updated.id, previousStatus: result.previous.status });
+    else if (result.previous.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: result.updated.id, previousStatus: result.previous.status });
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -2488,15 +2544,31 @@ export function createTodosFeature({
       let projectSections;
       if (isOnlineForSync()) {
         try {
+          const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
           const data = await sectionsApi.listByProject(projectId);
-          projectSections = data.sections || [];
-          const serverIds = new Set(projectSections.map(s => String(s.id)));
-          const allLocal = await dbGetAll('sections');
-          const localProjectSections = allLocal.filter(s => String(s.project_id) === String(projectId));
-          for (const local of localProjectSections) {
-            if (!serverIds.has(String(local.id))) await deleteFromDB('sections', local.id);
-          }
-          for (const s of projectSections) await dbPut('sections', s);
+          const serverSections = data.sections || [];
+          let applied = false;
+          const committed = await runAccessFencedCommit({
+            syncInProgressRef,
+            acquireCommitLock: acquireSyncCommitLock,
+            privacyGeneration,
+            commit: async () => {
+              if (document.getElementById('todo-project')?.value !== projectId) return;
+              if (!getProjects().some(project => String(project.id) === String(projectId))) return;
+              const allLocal = await dbGetAll('sections');
+              const localProjectSections = allLocal.filter(s => String(s.project_id) === String(projectId));
+              const queue = await dbGetAll('syncQueue');
+              projectSections = projectPendingSectionsSnapshot(serverSections, localProjectSections, queue, projectId);
+              if (projectSections.some(section => String(section.project_id) !== String(projectId))) return;
+              const projectedIds = new Set(projectSections.map(section => String(section.id)));
+              for (const local of localProjectSections) {
+                if (!projectedIds.has(String(local.id))) await deleteFromDB('sections', local.id);
+              }
+              for (const section of projectSections) await dbPut('sections', section);
+              applied = true;
+            },
+          });
+          if (!committed || !applied) return;
         } catch (serverError) {
           console.warn('Failed to load sections from server, using local cache', serverError);
           projectSections = await loadLocalSections();
@@ -2597,35 +2669,63 @@ export function createTodosFeature({
     }
     if (id) delete todoData.subtasks;
     if (id) {
-      const existing = getTodos().find(t => t.id === parseInt(id));
-      if (existing) {
-        const nowIso = new Date().toISOString();
-        const updated = { ...existing, ...todoData, completed_at: todoData.status === 'done' ? (existing.completed_at || nowIso) : null, updated_at: nowIso };
-        await commitQueuedMutation(async enqueue => {
-          await dbPut('todos', updated);
-          setTodos(getTodos().map(t => t.id === parseInt(id) ? updated : t));
+      const updated = await runCurrentEntityMutation(parseInt(id), {
+        getEntities: getTodos,
+        commit: commitQueuedMutation,
+        mutate: async (existing, enqueue) => {
+          const targetProject = todoData.project_id == null
+            ? null
+            : getProjects().find(project => String(project.id) === String(todoData.project_id));
+          if (todoData.project_id != null && !targetProject) return null;
+          if (todoData.section_id != null) {
+            const targetSection = getSections().find(section => String(section.id) === String(todoData.section_id));
+            if (!targetSection || String(targetSection.project_id) !== String(todoData.project_id)) return null;
+          }
+          const nowIso = new Date().toISOString();
+          const nextTodo = { ...existing, ...todoData, completed_at: todoData.status === 'done' ? (existing.completed_at || nowIso) : null, updated_at: nowIso };
+          await dbPut('todos', nextTodo);
+          setTodos(getTodos().map(todo => todo.id === parseInt(id) ? nextTodo : todo));
           await enqueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
-        });
-        if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
-        if (isOnlineForSync()) await syncWithServer();
-      }
-    } else if (hasPostCreateDrafts && isOnlineForSync()) {
-      let createdTodo = await todosApi.create(todoData);
-      await dbPut('todos', createdTodo);
+          return nextTodo;
+        },
+      });
+      if (!updated) return;
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
-      setTodos([...getTodos(), createdTodo]);
+      if (isOnlineForSync()) await syncWithServer();
+    } else if (hasPostCreateDrafts && isOnlineForSync()) {
+      const createPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
+      let createdTodo = await todosApi.create(todoData);
+      let createApplied = false;
+      const createCommitted = await runAccessFencedCommit({
+        syncInProgressRef,
+        acquireCommitLock: acquireSyncCommitLock,
+        privacyGeneration: createPrivacyGeneration,
+        commit: async () => {
+          const targetProject = createdTodo.project_id == null
+            ? null
+            : getProjects().find(project => String(project.id) === String(createdTodo.project_id));
+          if (createdTodo.project_id != null && !targetProject) return;
+          if (createdTodo.section_id != null) {
+            const targetSection = getSections().find(section => String(section.id) === String(createdTodo.section_id));
+            if (!targetSection || String(targetSection.project_id) !== String(createdTodo.project_id)) return;
+          }
+          await dbPut('todos', createdTodo);
+          setTodos([...getTodos(), createdTodo]);
+          createApplied = true;
+        },
+      });
+      if (!createCommitted || !createApplied) return;
+      if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       document.getElementById('todo-id').value = String(createdTodo.id);
       for (const body of draftComments) {
+        const commentPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
         const response = await todosApi.createComment(createdTodo.id, { body });
         createdTodo = response?.todo || createdTodo;
-        await applyCommentTodoResponse(response);
+        if (!await applyCommentTodoResponse(response, commentPrivacyGeneration)) return;
       }
       if (draftAttachmentFiles.length > 0) {
         const uploaded = await uploadTodoAttachmentFromInput();
         if (!uploaded) return;
-      } else {
-        await dbPut('todos', createdTodo);
-        setTodos(getTodos().map(todo => String(todo.id) === String(createdTodo.id) ? createdTodo : todo));
       }
       renderProjects();
       renderStats();
@@ -2646,7 +2746,15 @@ export function createTodosFeature({
         comments: pendingComments,
         comments_count: pendingComments.length,
       };
-      await commitQueuedMutation(async enqueue => {
+      const created = await commitQueuedMutation(async enqueue => {
+        const targetProject = todoData.project_id == null
+          ? null
+          : getProjects().find(project => String(project.id) === String(todoData.project_id));
+        if (todoData.project_id != null && !targetProject) return null;
+        if (todoData.section_id != null) {
+          const targetSection = getSections().find(section => String(section.id) === String(todoData.section_id));
+          if (!targetSection || String(targetSection.project_id) !== String(todoData.project_id)) return null;
+        }
         await dbPut('todos', newTodo);
         setTodos([...getTodos(), newTodo]);
         await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId });
@@ -2658,7 +2766,9 @@ export function createTodosFeature({
             local_comment: comment,
           });
         }
+        return newTodo;
       });
+      if (!created) return;
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       renderProjects();
       renderStats();
@@ -2681,28 +2791,32 @@ export function createTodosFeature({
 
   async function updateTodoFields(id, changes, toastMessage = null, { sync = true } = {}) {
     if (!getAppInitialized() || !getDb()) return;
-    const todo = getTodos().find(x => String(x.id) === String(id));
-    if (!todo) return;
-    const nowIso = new Date().toISOString();
-    const statusChanged = Object.prototype.hasOwnProperty.call(changes, 'status');
-    const completed_at = statusChanged ? (changes.status === 'done' ? (todo.completed_at || nowIso) : null) : todo.completed_at;
-    const updatedTodo = { ...todo, ...changes, completed_at, updated_at: nowIso };
-    await commitQueuedMutation(async enqueue => {
-      await dbPut('todos', updatedTodo);
-      setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
-      await enqueue('UPDATE_TODO', { id: todo.id, changes });
+    const result = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (todo, enqueue) => {
+        const nowIso = new Date().toISOString();
+        const statusChanged = Object.prototype.hasOwnProperty.call(changes, 'status');
+        const completed_at = statusChanged ? (changes.status === 'done' ? (todo.completed_at || nowIso) : null) : todo.completed_at;
+        const updatedTodo = { ...todo, ...changes, completed_at, updated_at: nowIso };
+        await dbPut('todos', updatedTodo);
+        setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+        await enqueue('UPDATE_TODO', { id: todo.id, changes });
+        return { previous: todo, updated: updatedTodo };
+      },
     });
+    if (!result) return;
     renderStats();
     renderTodos();
     if (toastMessage) {
       const previousChanges = Object.fromEntries(Object.keys(changes).map((key) => {
-        if (key === 'remind_at') return [key, getTodoReminderTime(todo)?.toISOString() || null];
-        return [key, todo[key] ?? null];
+        if (key === 'remind_at') return [key, getTodoReminderTime(result.previous)?.toISOString() || null];
+        return [key, result.previous[key] ?? null];
       }));
-      showToast(toastMessage, { type: 'fields', id: todo.id, changes: previousChanges });
+      showToast(toastMessage, { type: 'fields', id: result.updated.id, changes: previousChanges });
     }
     if (sync && isOnlineForSync()) await syncWithServer();
-    return updatedTodo;
+    return result.updated;
   }
 
   async function removeAllLocationReminders() {
@@ -2781,36 +2895,40 @@ export function createTodosFeature({
 
   async function duplicateTodo(id) {
     if (!getAppInitialized() || !getDb()) return;
-    const todo = getTodos().find(x => String(x.id) === String(id));
-    if (!todo) return;
-    const reminder = getTodoReminderTime(todo);
-    const todoData = {
-      title: todo.title,
-      description: todo.description || '',
-      priority: Number(todo.priority) || 3,
-      is_pinned: Boolean(todo.is_pinned),
-      project_id: todo.project_id ?? null,
-      section_id: todo.section_id ?? null,
-      status: 'pending',
-      due_date: todo.due_date || null,
-      remind_at: reminder ? reminder.toISOString() : null,
-      recurring_rule: todo.recurring_rule || null,
-      subtasks: normalizeSubtasks(todo.subtasks || []).map((subtask, index) => ({ title: subtask.title, is_done: false, sort_order: index })),
-      location_reminder: cloneLocationReminderPayload(todo),
-    };
-    todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
-    const tempId = 'temp-' + Date.now();
-    const nowIso = new Date().toISOString();
-    const duplicated = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: todoData.remind_at ? [{ remind_at: todoData.remind_at }] : [] };
-    await commitQueuedMutation(async enqueue => {
-      await dbPut('todos', duplicated);
-      setTodos([...getTodos(), duplicated]);
-      await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
+    const duplicated = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (todo, enqueue) => {
+        const reminder = getTodoReminderTime(todo);
+        const todoData = {
+          title: todo.title,
+          description: todo.description || '',
+          priority: Number(todo.priority) || 3,
+          is_pinned: Boolean(todo.is_pinned),
+          project_id: todo.project_id ?? null,
+          section_id: todo.section_id ?? null,
+          status: 'pending',
+          due_date: todo.due_date || null,
+          remind_at: reminder ? reminder.toISOString() : null,
+          recurring_rule: todo.recurring_rule || null,
+          subtasks: normalizeSubtasks(todo.subtasks || []).map((subtask, index) => ({ title: subtask.title, is_done: false, sort_order: index })),
+          location_reminder: cloneLocationReminderPayload(todo),
+        };
+        todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
+        const tempId = 'temp-' + Date.now();
+        const nowIso = new Date().toISOString();
+        const nextTodo = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: todoData.remind_at ? [{ remind_at: todoData.remind_at }] : [] };
+        await dbPut('todos', nextTodo);
+        setTodos([...getTodos(), nextTodo]);
+        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
+        return nextTodo;
+      },
     });
-    if (todoData.location_reminder) await resetLocationPermissionGuidanceForUserIntent();
+    if (!duplicated) return;
+    if (duplicated.location_reminder) await resetLocationPermissionGuidanceForUserIntent();
     renderStats();
     renderTodos();
-    showToast(t('todo.toast.duplicated'), { type: 'duplicate', id: tempId });
+    showToast(t('todo.toast.duplicated'), { type: 'duplicate', id: duplicated.id });
 
     if (isOnlineForSync()) await syncWithServer();
     setTimeout(() => {
@@ -2835,13 +2953,17 @@ export function createTodosFeature({
       confirmText: t('todo.deleteConfirm'),
     });
     if (!confirmed) return;
-    const todo = getTodos().find(t => t.id === id);
-    if (!todo) return;
-    await commitQueuedMutation(async enqueue => {
-      await deleteFromDB('todos', id);
-      setTodos(getTodos().filter(t => t.id !== id));
-      await enqueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 });
+    const todo = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (current, enqueue) => {
+        await deleteFromDB('todos', current.id);
+        setTodos(getTodos().filter(candidate => String(candidate.id) !== String(current.id)));
+        await enqueue('DELETE_TODO', { id: current.id, undo_grace_until: Date.now() + 5000 });
+        return current;
+      },
     });
+    if (!todo) return;
     renderStats();
     renderTodos();
     closeModal('todo-modal');

@@ -78,10 +78,13 @@ export function createSyncFeature({
   async function commitShoppingStoreState(item, serverStore, {
     removeStoreIds = [],
     rewrite = {},
-  } = {}, syncInProgressRef) {
+  } = {}, syncInProgressRef, privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0)) {
     const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
     try {
-      const currentQueue = (await dbGetAll('syncQueue')).filter(entry => String(entry.id) !== String(item.id));
+      if (Number(syncInProgressRef?.privacyGeneration || 0) !== privacyGeneration) return false;
+      const queue = await dbGetAll('syncQueue');
+      if (!queue.some(entry => String(entry.id) === String(item.id))) return false;
+      const currentQueue = queue.filter(entry => String(entry.id) !== String(item.id));
       const rewrittenQueue = rewriteShoppingQueueReferences(currentQueue, rewrite);
       const removed = new Set(removeStoreIds.map(String));
       let authoritative = getShoppingStores().filter(store => !removed.has(String(store.id)));
@@ -105,6 +108,7 @@ export function createSyncFeature({
         queueRecords: rewrittenQueue,
       });
       replaceShoppingStores(projectedStores);
+      return true;
     } finally {
       releaseCommitLock();
     }
@@ -113,10 +117,13 @@ export function createSyncFeature({
   async function commitShoppingServerState(item, serverList, {
     removeListIds = [],
     rewrite = {},
-  } = {}, syncInProgressRef) {
+  } = {}, syncInProgressRef, privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0)) {
     const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
     try {
-      const currentQueue = (await dbGetAll('syncQueue')).filter(entry => String(entry.id) !== String(item.id));
+      if (Number(syncInProgressRef?.privacyGeneration || 0) !== privacyGeneration) return false;
+      const queue = await dbGetAll('syncQueue');
+      if (!queue.some(entry => String(entry.id) === String(item.id))) return false;
+      const currentQueue = queue.filter(entry => String(entry.id) !== String(item.id));
       const rewrittenQueue = rewriteShoppingQueueReferences(currentQueue, rewrite);
       const projected = projectPendingShoppingChanges(serverList, rewrittenQueue);
       const idsToRemove = [...removeListIds];
@@ -135,6 +142,7 @@ export function createSyncFeature({
       });
       replaceShoppingList(projected, idsToRemove);
       if (remappedStores.length) replaceShoppingStores(projectPendingShoppingStores(remappedStores, rewrittenQueue));
+      return true;
     } finally {
       releaseCommitLock();
     }
@@ -185,11 +193,15 @@ export function createSyncFeature({
     }
   }
 
-  async function commitQueueItem(item, applyResult, syncInProgressRef) {
+  async function commitQueueItem(item, applyResult, syncInProgressRef, privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0)) {
     const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
     try {
-      await applyResult();
+      if (Number(syncInProgressRef?.privacyGeneration || 0) !== privacyGeneration) return false;
+      const currentQueueItem = await getFromDB('syncQueue', item.id);
+      if (!currentQueueItem) return false;
+      if (await applyResult() === false) return false;
       await deleteFromDB('syncQueue', item.id);
+      return true;
     } finally {
       releaseCommitLock();
     }
@@ -197,10 +209,12 @@ export function createSyncFeature({
 
   async function recoverTodosFromServer(todoIds, syncInProgressRef) {
     if (!todoIds.size) return true;
+    const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
     const response = await todosApi.list();
     const serverTodos = new Map((response?.todos || []).map(todo => [String(todo.id), todo]));
     const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
     try {
+      if (Number(syncInProgressRef?.privacyGeneration || 0) !== privacyGeneration) return false;
       const queue = await dbGetAll('syncQueue');
       for (const todoId of todoIds) {
         const serverTodo = serverTodos.get(String(todoId));
@@ -210,6 +224,8 @@ export function createSyncFeature({
           await deleteQueuedTodoOperations(todoId);
           continue;
         }
+        if (serverTodo.project_id != null
+          && !getProjects().some(project => String(project.id) === String(serverTodo.project_id))) continue;
         const projected = projectPendingTodoChanges(serverTodo, queue);
         if (projected) {
           await dbPut('todos', projected);
@@ -249,38 +265,46 @@ export function createSyncFeature({
     const shoppingItemFields = ['name', 'section_id', 'quantity_value', 'quantity_unit', 'store_ids', 'sort_order', 'client_mutation_id'];
     const localCommentFields = ['id', 'todo_id', 'user_id', 'body', 'created_at', 'updated_at', 'author_username', 'author_display_name', 'is_pending'];
     const localSubtaskFields = ['id', 'title', 'is_done', 'sort_order', 'created_at', 'updated_at', 'is_pending'];
+    const withProjectBoundary = sanitizedData => {
+      const boundary = {};
+      if (data.project_id !== undefined && data.project_id !== null) boundary.project_id = data.project_id;
+      if (Array.isArray(data.project_boundary_ids) && data.project_boundary_ids.length) {
+        boundary.project_boundary_ids = [...data.project_boundary_ids];
+      }
+      return Object.keys(boundary).length ? { ...sanitizedData, ...boundary } : sanitizedData;
+    };
 
     switch (item.action) {
       case 'CREATE_TODO':
         return { ...item, data: { ...pickAllowed(data, todoFields), undo_grace_until: data.undo_grace_until } };
       case 'UPDATE_TODO':
-        return { ...item, data: { id: data.id, changes: pickAllowed(changes, todoFields.filter(f => f !== '_tempId')) } };
+        return { ...item, data: withProjectBoundary({ id: data.id, changes: pickAllowed(changes, todoFields.filter(f => f !== '_tempId')) }) };
       case 'DELETE_TODO':
-        return { ...item, data: { id: data.id, undo_grace_until: data.undo_grace_until } };
+        return { ...item, data: withProjectBoundary({ id: data.id, undo_grace_until: data.undo_grace_until }) };
       case 'CREATE_COMMENT':
-        return { ...item, data: { todo_id: data.todo_id, temp_id: data.temp_id, body: data.body, local_comment: pickAllowed(data.local_comment, localCommentFields) } };
+        return { ...item, data: withProjectBoundary({ todo_id: data.todo_id, temp_id: data.temp_id, body: data.body, local_comment: pickAllowed(data.local_comment, localCommentFields) }) };
       case 'UPDATE_COMMENT':
-        return { ...item, data: { todo_id: data.todo_id, comment_id: data.comment_id, changes: pickAllowed(changes, ['body']) } };
+        return { ...item, data: withProjectBoundary({ todo_id: data.todo_id, comment_id: data.comment_id, changes: pickAllowed(changes, ['body']) }) };
       case 'DELETE_COMMENT':
-        return { ...item, data: { todo_id: data.todo_id, comment_id: data.comment_id } };
+        return { ...item, data: withProjectBoundary({ todo_id: data.todo_id, comment_id: data.comment_id }) };
       case 'CREATE_SUBTASK':
-        return { ...item, data: { todo_id: data.todo_id, temp_id: data.temp_id, subtask: pickAllowed(data.subtask, ['title', 'is_done', 'sort_order']), local_subtask: pickAllowed(data.local_subtask, localSubtaskFields) } };
+        return { ...item, data: withProjectBoundary({ todo_id: data.todo_id, temp_id: data.temp_id, subtask: pickAllowed(data.subtask, ['title', 'is_done', 'sort_order']), local_subtask: pickAllowed(data.local_subtask, localSubtaskFields) }) };
       case 'UPDATE_SUBTASK':
-        return { ...item, data: { todo_id: data.todo_id, subtask_id: data.subtask_id, changes: pickAllowed(changes, ['title', 'is_done', 'sort_order']) } };
+        return { ...item, data: withProjectBoundary({ todo_id: data.todo_id, subtask_id: data.subtask_id, changes: pickAllowed(changes, ['title', 'is_done', 'sort_order']) }) };
       case 'DELETE_SUBTASK':
-        return { ...item, data: { todo_id: data.todo_id, subtask_id: data.subtask_id } };
+        return { ...item, data: withProjectBoundary({ todo_id: data.todo_id, subtask_id: data.subtask_id }) };
       case 'CREATE_PROJECT':
         return { ...item, data: pickAllowed(data, projectFields) };
       case 'UPDATE_PROJECT':
-        return { ...item, data: { id: data.id, changes: pickAllowed(changes, projectFields.filter(f => f !== '_tempId')) } };
+        return { ...item, data: withProjectBoundary({ id: data.id, changes: pickAllowed(changes, projectFields.filter(f => f !== '_tempId')) }) };
       case 'DELETE_PROJECT':
-        return { ...item, data: { id: data.id } };
+        return { ...item, data: withProjectBoundary({ id: data.id }) };
       case 'CREATE_SECTION':
         return { ...item, data: pickAllowed(data, sectionFields) };
       case 'UPDATE_SECTION':
-        return { ...item, data: { id: data.id, changes: pickAllowed(changes, sectionFields.filter(f => !['_tempId', 'project_id'].includes(f))) } };
+        return { ...item, data: withProjectBoundary({ id: data.id, changes: pickAllowed(changes, sectionFields.filter(f => !['_tempId', 'project_id'].includes(f))) }) };
       case 'DELETE_SECTION':
-        return { ...item, data: { id: data.id } };
+        return { ...item, data: withProjectBoundary({ id: data.id }) };
       case 'CREATE_SHOPPING_LIST':
         return { ...item, data: { ...pickAllowed(data, shoppingListFields), temp_id: data.temp_id, list: data.list } };
       case 'UPDATE_SHOPPING_LIST':
@@ -344,13 +368,36 @@ export function createSyncFeature({
       attemptedQueueIds.add(String(queuedItem.id));
       const currentQueuedItem = (await dbGetAll('syncQueue')).find(item => String(item.id) === String(queuedItem.id));
       if (!currentQueuedItem) continue;
-      const item = sanitizeQueueItem(currentQueuedItem);
+      let item = sanitizeQueueItem(currentQueuedItem);
+      let requestPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
       try {
         if (!item) {
           await deleteFromDB('syncQueue', queuedItem.id);
           continue;
         }
         if (item.action === 'CREATE_TODO') {
+          const releaseRequestLock = await acquireSyncCommitLock(syncInProgressRef);
+          try {
+            const currentQueueItem = await getFromDB('syncQueue', item.id);
+            const currentItem = sanitizeQueueItem(currentQueueItem);
+            if (!currentItem || currentItem.action !== 'CREATE_TODO') continue;
+            const currentTempTodo = currentItem.data._tempId
+              ? await getFromDB('todos', currentItem.data._tempId)
+              : null;
+            if (currentItem.data._tempId && !currentTempTodo) continue;
+            const projectId = currentTempTodo?.project_id ?? currentItem.data.project_id;
+            const sectionId = currentTempTodo?.section_id ?? currentItem.data.section_id;
+            if (projectId != null
+              && !getProjects().some(project => String(project.id) === String(projectId))) continue;
+            if (sectionId != null) {
+              const targetSection = getSections().find(section => String(section.id) === String(sectionId));
+              if (!targetSection || String(targetSection.project_id) !== String(projectId)) continue;
+            }
+            item = currentItem;
+            requestPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
+          } finally {
+            releaseRequestLock();
+          }
           const undoGraceUntil = Number(item.data.undo_grace_until || 0);
           if (undoGraceUntil && Date.now() < undoGraceUntil) {
             continue;
@@ -358,21 +405,55 @@ export function createSyncFeature({
           const createData = { ...item.data };
           delete createData.undo_grace_until;
           let res = await todosApi.create(createData);
-          await commitQueueItem(item, async () => {
+          let capturedTempTodo = null;
+          if (createData._tempId) {
+            const releaseCaptureLock = await acquireSyncCommitLock(syncInProgressRef);
+            try {
+              if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration) continue;
+              const currentQueueItem = await getFromDB('syncQueue', item.id);
+              capturedTempTodo = await getFromDB('todos', createData._tempId);
+              if (!currentQueueItem || !capturedTempTodo) continue;
+              if (capturedTempTodo.project_id != null
+                && !getProjects().some(project => String(project.id) === String(capturedTempTodo.project_id))) continue;
+              if (capturedTempTodo.section_id != null) {
+                const targetSection = getSections().find(section => String(section.id) === String(capturedTempTodo.section_id));
+                if (!targetSection || String(targetSection.project_id) !== String(capturedTempTodo.project_id)) continue;
+              }
+            } finally {
+              releaseCaptureLock();
+            }
+            if (String(capturedTempTodo.section_id ?? '') !== String(createData.section_id ?? '')) {
+              res = await todosApi.update(res.id, { section_id: capturedTempTodo.section_id });
+            }
+          }
+          const committed = await commitQueueItem(item, async () => {
             let localTempTodo = null;
             if (createData._tempId) {
               localTempTodo = await getFromDB('todos', createData._tempId);
-              const localSectionChanged = localTempTodo && localTempTodo.section_id !== createData.section_id;
-              if (localSectionChanged) {
-                res = await todosApi.update(res.id, { section_id: localTempTodo.section_id });
+              if (!localTempTodo) return false;
+              if (localTempTodo.project_id != null
+                && !getProjects().some(project => String(project.id) === String(localTempTodo.project_id))) return false;
+              if (localTempTodo.section_id != null) {
+                const targetSection = getSections().find(section => String(section.id) === String(localTempTodo.section_id));
+                if (!targetSection || String(targetSection.project_id) !== String(localTempTodo.project_id)) return false;
               }
+            }
+            const createdTodo = localTempTodo ? { ...localTempTodo, ...res, id: res.id } : res;
+            if (createdTodo.project_id != null
+              && !getProjects().some(project => String(project.id) === String(createdTodo.project_id))) return false;
+            if (createdTodo.section_id != null) {
+              const targetSection = getSections().find(section => String(section.id) === String(createdTodo.section_id));
+              if (!targetSection || String(targetSection.project_id) !== String(createdTodo.project_id)) return false;
+            }
+            if (createData._tempId) {
               await deleteFromDB('todos', createData._tempId);
               setTodos(getTodos().filter(t => t.id !== createData._tempId));
               await rewriteQueuedReferences({ todoIdFrom: createData._tempId, todoIdTo: res.id });
             }
-            const createdTodo = localTempTodo ? { ...localTempTodo, ...res, id: res.id } : res;
             await persistTodoWithPending(createdTodo, item.id);
-          }, syncInProgressRef);
+            return true;
+          }, syncInProgressRef, requestPrivacyGeneration);
+          if (!committed) continue;
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_TODO') {
@@ -391,7 +472,7 @@ export function createSyncFeature({
               renderStats?.();
               renderTodos?.();
             }
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'CREATE_COMMENT') {
@@ -404,17 +485,17 @@ export function createSyncFeature({
               });
             }
             await persistTodoWithPending(response?.todo, item.id);
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_COMMENT') {
           const response = await todosApi.updateComment(item.data.todo_id, item.data.comment_id, item.data.changes);
-          await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef);
+          await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_COMMENT') {
           const response = await todosApi.deleteComment(item.data.todo_id, item.data.comment_id);
-          await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef);
+          await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'CREATE_SUBTASK') {
@@ -427,17 +508,17 @@ export function createSyncFeature({
               });
             }
             await persistTodoWithPending(response?.todo, item.id);
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_SUBTASK') {
           const response = await todosApi.updateSubtask(item.data.todo_id, item.data.subtask_id, item.data.changes);
-          await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef);
+          await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_SUBTASK') {
           const response = await todosApi.deleteSubtask(item.data.todo_id, item.data.subtask_id);
-          await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef);
+          await commitQueueItem(item, () => persistTodoWithPending(response?.todo, item.id), syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_TODO') {
@@ -450,7 +531,7 @@ export function createSyncFeature({
             await deleteFromDB('todos', item.data.id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
             await deleteQueuedTodoOperations(item.data.id);
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'CREATE_SHOPPING_STORE') {
@@ -458,17 +539,17 @@ export function createSyncFeature({
           await commitShoppingStoreState(item, created, {
             removeStoreIds: [item.data.temp_id],
             rewrite: { storeIdFrom: item.data.temp_id, storeIdTo: created.id },
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_SHOPPING_STORE') {
           const updated = await shoppingApi.updateStore(item.data.store_id, item.data.changes);
-          await commitShoppingStoreState(item, updated, {}, syncInProgressRef);
+          await commitShoppingStoreState(item, updated, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_SHOPPING_STORE') {
           const updated = await shoppingApi.deleteStore(item.data.store_id);
-          await commitShoppingStoreState(item, updated, {}, syncInProgressRef);
+          await commitShoppingStoreState(item, updated, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'CREATE_SHOPPING_LIST') {
@@ -477,18 +558,18 @@ export function createSyncFeature({
           await commitShoppingServerState(item, serverList, {
             removeListIds: [item.data.temp_id],
             rewrite: { listIdFrom: item.data.temp_id, listIdTo: created.id },
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_SHOPPING_LIST') {
           await shoppingApi.updateList(item.data.id, item.data.changes);
           const serverList = await shoppingApi.getList(item.data.id);
-          await commitShoppingServerState(item, serverList, {}, syncInProgressRef);
+          await commitShoppingServerState(item, serverList, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_SHOPPING_LIST') {
           await shoppingApi.deleteList(item.data.id);
-          await commitShoppingServerState(item, null, { removeListIds: [item.data.id] }, syncInProgressRef);
+          await commitShoppingServerState(item, null, { removeListIds: [item.data.id] }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'CREATE_SHOPPING_SECTION') {
@@ -499,7 +580,7 @@ export function createSyncFeature({
           const serverList = await shoppingApi.getList(item.data.shopping_list_id);
           await commitShoppingServerState(item, serverList, {
             rewrite: { sectionIdFrom: item.data.temp_id, sectionIdTo: created.id },
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'CREATE_SHOPPING_ITEM') {
@@ -510,98 +591,114 @@ export function createSyncFeature({
           const serverList = await shoppingApi.getList(item.data.shopping_list_id);
           await commitShoppingServerState(item, serverList, {
             rewrite: { itemIdFrom: item.data.temp_id, itemIdTo: created.id },
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_SHOPPING_SECTION') {
           await shoppingApi.updateSection(item.data.section_id, item.data.changes);
           const serverList = await shoppingApi.getList(item.data.shopping_list_id);
-          await commitShoppingServerState(item, serverList, {}, syncInProgressRef);
+          await commitShoppingServerState(item, serverList, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_SHOPPING_SECTION') {
           await shoppingApi.deleteSection(item.data.section_id);
           const serverList = await shoppingApi.getList(item.data.shopping_list_id);
-          await commitShoppingServerState(item, serverList, {}, syncInProgressRef);
+          await commitShoppingServerState(item, serverList, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_SHOPPING_ITEM') {
           await shoppingApi.updateItem(item.data.item_id, item.data.changes);
           const serverList = await shoppingApi.getList(item.data.shopping_list_id);
-          await commitShoppingServerState(item, serverList, {}, syncInProgressRef);
+          await commitShoppingServerState(item, serverList, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_SHOPPING_ITEM') {
           await shoppingApi.deleteItem(item.data.item_id);
           const serverList = await shoppingApi.getList(item.data.shopping_list_id);
-          await commitShoppingServerState(item, serverList, {}, syncInProgressRef);
+          await commitShoppingServerState(item, serverList, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_COMPLETED_SHOPPING_ITEMS') {
           await shoppingApi.deleteCompletedItems(item.data.shopping_list_id);
           const serverList = await shoppingApi.getList(item.data.shopping_list_id);
-          await commitShoppingServerState(item, serverList, {}, syncInProgressRef);
+          await commitShoppingServerState(item, serverList, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_SHOPPING_PREFERENCES') {
           await shoppingApi.updatePreferences(item.data.shopping_list_id, item.data.changes);
           const serverList = await shoppingApi.getList(item.data.shopping_list_id);
-          await commitShoppingServerState(item, serverList, {}, syncInProgressRef);
+          await commitShoppingServerState(item, serverList, {}, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           continue;
         } else if (item.action === 'CREATE_PROJECT') {
           const res = await projectsApi.create(item.data);
-          if (item.data._tempId) {
-            await deleteFromDB('projects', item.data._tempId);
-            setProjects(getProjects().filter(p => p.id !== item.data._tempId));
-          }
-          await dbPut('projects', res);
-          if (!getProjects().find(p => p.id === res.id)) setProjects([...getProjects(), res]);
+          await commitQueueItem(item, async () => {
+            if (item.data._tempId) {
+              await deleteFromDB('projects', item.data._tempId);
+              setProjects(getProjects().filter(p => p.id !== item.data._tempId));
+            }
+            await dbPut('projects', res);
+            if (!getProjects().find(p => p.id === res.id)) setProjects([...getProjects(), res]);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
+          continue;
         } else if (item.action === 'DELETE_PROJECT') {
           const res = await projectsApi.delete(item.data.id);
           const deletedIds = res.deleted_ids || [item.data.id];
-          await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
-          needsAuthoritativeRefresh = true;
+          const committed = await commitQueueItem(item, async () => {
+            await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
+          }, syncInProgressRef, requestPrivacyGeneration);
+          if (committed) needsAuthoritativeRefresh = true;
           successCount++;
+          continue;
         } else if (item.action === 'UPDATE_PROJECT') {
           const serverProject = await projectsApi.update(item.data.id, item.data.changes);
           const updatedProjects = Array.isArray(serverProject?.updated_projects) ? serverProject.updated_projects : (serverProject ? [serverProject] : []);
-          if (updatedProjects.length) {
-            await Promise.all(updatedProjects.map(project => dbPut('projects', project)));
-            const byId = new Map(updatedProjects.map(project => [String(project.id), project]));
-            const existingIds = new Set(getProjects().map(project => String(project.id)));
-            const mergedProjects = getProjects().map(project => byId.get(String(project.id)) || project);
-            for (const project of updatedProjects) {
-              if (!existingIds.has(String(project.id))) mergedProjects.push(project);
+          const committed = await commitQueueItem(item, async () => {
+            if (updatedProjects.length) {
+              await Promise.all(updatedProjects.map(project => dbPut('projects', project)));
+              const byId = new Map(updatedProjects.map(project => [String(project.id), project]));
+              const existingIds = new Set(getProjects().map(project => String(project.id)));
+              const mergedProjects = getProjects().map(project => byId.get(String(project.id)) || project);
+              for (const project of updatedProjects) {
+                if (!existingIds.has(String(project.id))) mergedProjects.push(project);
+              }
+              setProjects(mergedProjects);
+            } else {
+              const localProject = await getFromDB('projects', item.data.id);
+              if (localProject) await dbPut('projects', { ...localProject, ...item.data.changes, updated_at: new Date().toISOString() });
             }
-            setProjects(mergedProjects);
-          } else {
-            const localProject = await getFromDB('projects', item.data.id);
-            if (localProject) await dbPut('projects', { ...localProject, ...item.data.changes, updated_at: new Date().toISOString() });
-          }
-          if (item.data.changes && Object.prototype.hasOwnProperty.call(item.data.changes, 'workspace_id')) {
+          }, syncInProgressRef, requestPrivacyGeneration);
+          if (committed && item.data.changes && Object.prototype.hasOwnProperty.call(item.data.changes, 'workspace_id')) {
             needsAuthoritativeRefresh = true;
           }
           successCount++;
+          continue;
         } else if (item.action === 'CREATE_SECTION') {
           const res = await sectionsApi.create(item.data.project_id, item.data);
-          if (item.data._tempId) {
-            await deleteFromDB('sections', item.data._tempId);
-            setSections(getSections().filter(s => s.id !== item.data._tempId));
-          }
-          await dbPut('sections', res);
-          if (!getSections().find(s => s.id === res.id)) setSections([...getSections(), res]);
+          await commitQueueItem(item, async () => {
+            if (item.data._tempId) {
+              await deleteFromDB('sections', item.data._tempId);
+              setSections(getSections().filter(s => s.id !== item.data._tempId));
+            }
+            await dbPut('sections', res);
+            if (!getSections().find(s => s.id === res.id)) setSections([...getSections(), res]);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
+          continue;
         } else if (item.action === 'UPDATE_SECTION') {
           await sectionsApi.update(item.data.id, item.data.changes);
-          const localSection = await getFromDB('sections', item.data.id);
-          if (localSection) await dbPut('sections', { ...localSection, ...item.data.changes, updated_at: new Date().toISOString() });
+          await commitQueueItem(item, async () => {
+            const localSection = await getFromDB('sections', item.data.id);
+            if (localSection) await dbPut('sections', { ...localSection, ...item.data.changes, updated_at: new Date().toISOString() });
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
+          continue;
         } else if (item.action === 'DELETE_SECTION') {
           await sectionsApi.delete(item.data.id);
-          await deleteFromDB('sections', item.data.id);
+          await commitQueueItem(item, () => deleteFromDB('sections', item.data.id), syncInProgressRef, requestPrivacyGeneration);
           successCount++;
+          continue;
         }
         await deleteFromDB('syncQueue', item.id);
       } catch (err) {
@@ -612,7 +709,7 @@ export function createSyncFeature({
             await deleteFromDB('todos', item.data.id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));
             await deleteQueuedTodoOperations(item.data.id);
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           successCount++;
           handledPermanentAbsence = true;
         } else if (['CREATE_COMMENT', 'CREATE_SUBTASK'].includes(item?.action) && err?.status === 404) {
@@ -620,7 +717,7 @@ export function createSyncFeature({
             await deleteFromDB('todos', item.data.todo_id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.todo_id)));
             await deleteQueuedTodoOperations(item.data.todo_id);
-          }, syncInProgressRef);
+          }, syncInProgressRef, requestPrivacyGeneration);
           needsAuthoritativeRefresh = true;
           handledPermanentAbsence = true;
         } else if (['UPDATE_COMMENT', 'DELETE_COMMENT', 'UPDATE_SUBTASK', 'DELETE_SUBTASK'].includes(item?.action) && err?.status === 404) {
@@ -652,7 +749,7 @@ export function createSyncFeature({
             ) || null;
             await commitShoppingStoreState(item, serverStore, {
               removeStoreIds: serverStore ? [] : [localId],
-            }, syncInProgressRef);
+            }, syncInProgressRef, requestPrivacyGeneration);
             successCount++;
             handledPermanentAbsence = true;
           } catch (recoveryError) {
@@ -670,7 +767,7 @@ export function createSyncFeature({
           if (item.action !== 'CREATE_SHOPPING_LIST') {
             try {
               const serverList = await shoppingApi.getList(shoppingListId);
-              await commitShoppingServerState(item, serverList, {}, syncInProgressRef);
+              await commitShoppingServerState(item, serverList, {}, syncInProgressRef, requestPrivacyGeneration);
               successCount++;
               handledPermanentAbsence = true;
             } catch (recoveryError) {
@@ -764,15 +861,23 @@ export function createSyncFeature({
     syncInProgressRef.value = true;
     syncInProgressRef.refreshing = true;
     syncInProgressRef.requested = false;
+    const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
     let releaseCommitLock = null;
     let shouldDrainQueue = false;
     try {
       const [todosData, projectsData, sectionsData, workspacesData, shoppingData] = await Promise.all([
         todosApi.list(), projectsApi.list(), sectionsApi.listAll(), workspacesApi.list(), shoppingApi.snapshot(),
       ]);
-      const nextTodos = todosData.todos || [];
       const nextProjects = projectsData.projects || [];
-      const nextSections = sectionsData.sections || [];
+      const nextProjectIds = new Set(nextProjects.map(project => String(project.id)));
+      const nextSections = (sectionsData.sections || []).filter(section =>
+        section.project_id == null || nextProjectIds.has(String(section.project_id))
+      );
+      const nextSectionIds = new Set(nextSections.map(section => String(section.id)));
+      const nextTodos = (todosData.todos || []).filter(todo =>
+        (todo.project_id == null || nextProjectIds.has(String(todo.project_id)))
+        && (todo.section_id == null || nextSectionIds.has(String(todo.section_id)))
+      );
       const nextWorkspaces = workspacesData.workspaces || [];
       const nextShoppingLists = shoppingData.shopping_lists || [];
       const nextShoppingStores = projectShoppingStoresSnapshot(
@@ -782,6 +887,9 @@ export function createSyncFeature({
       );
 
       releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
+      if (Number(syncInProgressRef?.privacyGeneration || 0) !== privacyGeneration) {
+        return { refreshed: false, reason: 'privacy-generation' };
+      }
       const queueBeforeCommit = await dbGetAll('syncQueue');
       if (queueBeforeCommit.length) {
         shouldDrainQueue = true;

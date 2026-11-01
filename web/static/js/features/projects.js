@@ -4,6 +4,8 @@ import { openUiLayer } from './ui-history.js';
 import { createEntityAppearanceController } from './entity-appearance.js';
 import { createEntityOwnershipField, isHouseholdOwnedEntity } from './entity-ownership-field.js';
 import { createFormSaveState } from './form-save-state.js';
+import { acquireSyncCommitLock, projectPendingProjectChanges } from './todo-pending.js';
+import { runAccessFencedCommit } from './entity-access-privacy.js';
 
 export function createProjectsFeature({
   getProjects,
@@ -14,7 +16,9 @@ export function createProjectsFeature({
   getWorkspaces,
   setProjects,
   dbPut,
+  dbGetAll = async () => [],
   addToSyncQueue,
+  runSyncQueueMutation,
   deleteFromDB,
   isOnlineForSync,
   syncWithServer,
@@ -29,7 +33,9 @@ export function createProjectsFeature({
   sharingFeature,
   getCurrentUser,
   getAccessSnapshot = () => window.niaAccessSnapshot || null,
+  syncInProgressRef = {},
 }) {
+  const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
   let projectFormBound = false;
   let projectActionsBound = false;
   let projectAppearance = null;
@@ -364,6 +370,7 @@ export function createProjectsFeature({
         refreshProjectSaveButtonState();
         return;
       }
+      const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
       const transferred = await projectsApi.transferToHousehold(
         existing.id,
         selectedHouseholdId,
@@ -372,14 +379,43 @@ export function createProjectsFeature({
       const transferredProjects = Array.isArray(transferred?.transferred_projects)
         ? transferred.transferred_projects
         : [transferred];
-      const transferredById = new Map(transferredProjects.map(project => [String(project.id), project]));
-      const persistenceResults = await Promise.allSettled(
-        transferredProjects.map(project => dbPut('projects', project)),
-      );
-      if (persistenceResults.some(result => result.status === 'rejected')) {
-        console.warn('Some transferred projects could not be persisted locally');
-      }
-      setProjects(getProjects().map(project => transferredById.get(String(project.id)) || project));
+      let applied = false;
+      const committed = await runAccessFencedCommit({
+        syncInProgressRef,
+        acquireCommitLock: acquireSyncCommitLock,
+        privacyGeneration,
+        commit: async () => {
+          const current = getProjects().find(project => String(project.id) === String(existing.id));
+          if (!current) return;
+          if (!isOwner(current) || isHouseholdProject(current)) return;
+          if (String(currentHousehold()?.id || '') !== String(selectedHouseholdId || '')) return;
+          if (parentIdVal && !getProjects().some(project => String(project.id) === String(parentIdVal))) return;
+          const queue = await dbGetAll('syncQueue');
+          const currentProjectIds = new Set(getProjects().map(project => String(project.id)));
+          const projectedProjects = transferredProjects
+            .filter(project => currentProjectIds.has(String(project.id)))
+            .map(project => projectPendingProjectChanges(project, queue))
+            .filter(Boolean);
+          if (!projectedProjects.some(project => String(project.id) === String(existing.id))) return;
+          const availableProjectIds = new Set([
+            ...getProjects().map(project => String(project.id)),
+            ...projectedProjects.map(project => String(project.id)),
+          ]);
+          if (projectedProjects.some(project => project.parent_id != null && !availableProjectIds.has(String(project.parent_id)))) return;
+          const persistenceResults = await Promise.allSettled(
+            projectedProjects.map(project => dbPut('projects', project)),
+          );
+          const persistedProjects = projectedProjects.filter((_project, index) => persistenceResults[index]?.status === 'fulfilled');
+          if (!persistedProjects.some(project => String(project.id) === String(existing.id))) return;
+          if (persistedProjects.length !== projectedProjects.length) {
+            console.warn('Some transferred projects could not be persisted locally');
+          }
+          const persistedById = new Map(persistedProjects.map(project => [String(project.id), project]));
+          setProjects(getProjects().map(project => persistedById.get(String(project.id)) || project));
+          applied = true;
+        },
+      });
+      if (!committed || !applied) return;
       closeModal('project-modal');
       renderProjects();
       renderStats?.();
@@ -401,38 +437,52 @@ export function createProjectsFeature({
     };
 
     if (id) {
-      if (existing) {
-        const updated = { ...existing, ...projectData, updated_at: new Date().toISOString() };
-        await dbPut('projects', updated);
-        setProjects(getProjects().map(p => String(p.id) === String(id) ? updated : p));
+      const updated = await commitQueuedMutation(async enqueue => {
+        const current = getProjects().find(project => String(project.id) === String(id));
+        if (!current) return null;
+        if (ownerProject && (!isOwner(current) || current.is_inbox)) return null;
+        if (sharedMemberProject && (!current.is_shared || isOwner(current))) return null;
+        const nextProject = { ...current, ...projectData, updated_at: new Date().toISOString() };
+        await dbPut('projects', nextProject);
+        setProjects(getProjects().map(project => String(project.id) === String(id) ? nextProject : project));
         if (!String(id).startsWith('temp-')) {
-          await addToSyncQueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
-          if (isOnlineForSync()) await syncWithServer();
+          await enqueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
         }
         closeModal('project-modal');
         renderProjects();
         renderStats?.();
         renderTodos?.();
-      }
+        return nextProject;
+      });
+      if (updated && !String(id).startsWith('temp-') && isOnlineForSync()) await syncWithServer();
     } else {
-      const tempId = 'temp-project-' + Date.now();
-      const household = selectedHouseholdId ? currentHousehold() : null;
-      const newProject = {
-        id: tempId,
-        ...projectData,
-        created_at: new Date().toISOString(),
-        is_owner: true,
-        is_shared: false,
-        ownership_type: selectedHouseholdId ? 'household' : 'user',
-        owner_household_id: selectedHouseholdId,
-        household_name: household?.name || null,
-      };
-      await dbPut('projects', newProject);
-      setProjects([...getProjects(), newProject]);
-      await addToSyncQueue('CREATE_PROJECT', { ...projectData, _tempId: tempId });
-      if (isOnlineForSync()) await syncWithServer();
-      closeModal('project-modal');
-      renderProjects();
+      const newProject = await commitQueuedMutation(async enqueue => {
+        const parentProject = parentIdVal
+          ? getProjects().find(project => String(project.id) === String(parentIdVal))
+          : null;
+        if (parentIdVal && !parentProject) return null;
+        if (selectedHouseholdId && String(currentHousehold()?.id) !== String(selectedHouseholdId)) return null;
+        const tempId = 'temp-project-' + Date.now();
+        const household = selectedHouseholdId ? currentHousehold() : null;
+        const nextProject = {
+          id: tempId,
+          ...projectData,
+          parent_id: parentProject?.id ?? null,
+          created_at: new Date().toISOString(),
+          is_owner: true,
+          is_shared: false,
+          ownership_type: selectedHouseholdId ? 'household' : 'user',
+          owner_household_id: selectedHouseholdId,
+          household_name: household?.name || null,
+        };
+        await dbPut('projects', nextProject);
+        await enqueue('CREATE_PROJECT', { ...projectData, parent_id: nextProject.parent_id, _tempId: tempId });
+        setProjects([...getProjects(), nextProject]);
+        closeModal('project-modal');
+        renderProjects();
+        return nextProject;
+      });
+      if (newProject && isOnlineForSync()) await syncWithServer();
     }
   }
 
@@ -459,27 +509,31 @@ export function createProjectsFeature({
       return ids;
     }
 
-    const rootProject = getProjects().find(project => project.id === id);
-    const deletedIds = collectProjectTreeIds(id);
-    const inboxProject = getProjects().find(project => project.is_inbox && String(project.workspace_id || '') === String(rootProject?.workspace_id || ''));
-    await Promise.all([...deletedIds].map(projectId => deleteFromDB('projects', projectId)));
-    if (inboxProject) {
-      const nextTodos = getTodos().map(todo => deletedIds.has(todo.project_id)
-        ? { ...todo, project_id: inboxProject.id, section_id: null, updated_at: new Date().toISOString() }
-        : todo);
-      await Promise.all(nextTodos
-        .filter((todo, index) => todo !== getTodos()[index])
-        .map(todo => dbPut('todos', todo)));
-      setTodos(nextTodos);
-    }
-    setProjects(getProjects().filter(p => !deletedIds.has(p.id)));
-    renderProjects();
-    renderStats();
-    renderTodos();
-    closeModal('project-modal');
-
-    await addToSyncQueue('DELETE_PROJECT', { id });
-    if (isOnlineForSync()) await syncWithServer();
+    const deleted = await commitQueuedMutation(async enqueue => {
+      const rootProject = getProjects().find(project => String(project.id) === String(id));
+      if (!rootProject) return false;
+      const deletedIds = collectProjectTreeIds(rootProject.id);
+      const inboxProject = getProjects().find(project => project.is_inbox && String(project.workspace_id || '') === String(rootProject.workspace_id || ''));
+      await Promise.all([...deletedIds].map(projectId => deleteFromDB('projects', projectId)));
+      if (inboxProject) {
+        const currentTodos = getTodos();
+        const nextTodos = currentTodos.map(todo => deletedIds.has(todo.project_id)
+          ? { ...todo, project_id: inboxProject.id, section_id: null, updated_at: new Date().toISOString() }
+          : todo);
+        await Promise.all(nextTodos
+          .filter((todo, index) => todo !== currentTodos[index])
+          .map(todo => dbPut('todos', todo)));
+        setTodos(nextTodos);
+      }
+      await enqueue('DELETE_PROJECT', { id: rootProject.id });
+      setProjects(getProjects().filter(project => !deletedIds.has(project.id)));
+      renderProjects();
+      renderStats();
+      renderTodos();
+      closeModal('project-modal');
+      return true;
+    });
+    if (deleted && isOnlineForSync()) await syncWithServer();
   }
 
   function deleteProjectFromModal() {

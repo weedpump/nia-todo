@@ -1,5 +1,6 @@
 import { DB_NAME, DB_VERSION } from '../core/config.js';
 import { queueItemReferencesShoppingList } from '../features/shopping-pending.js';
+import { queueItemReferencesTodo } from '../features/todo-pending.js';
 
 let db = null;
 let dbReady = false;
@@ -145,7 +146,12 @@ export function commitTodoUpdatesWithQueue(updates, {
         todosStore.put(update.todo);
         queueStore.put({
           action: 'UPDATE_TODO',
-          data: { id: update.todo.id, changes: update.changes },
+          data: update.queueData || {
+            id: update.todo.id,
+            project_id: update.todo.project_id,
+            project_boundary_ids: update.todo.project_id == null ? [] : [update.todo.project_id],
+            changes: update.changes,
+          },
           timestamp,
           localUpdatedAt,
         });
@@ -288,6 +294,195 @@ export function evictPendingShoppingEntities(listIds, { database = db, signal } 
     tx.onabort = () => reject(signal?.aborted
       ? new DOMException('Pending shopping eviction was aborted', 'AbortError')
       : (tx.error || new Error('Pending shopping eviction was aborted')));
+  });
+}
+
+export function evictPendingProjectEntities(projectIds, {
+  database = db,
+  signal,
+  projects: projectedProjects = [],
+  sections: projectedSections = [],
+  todos: projectedTodos = [],
+} = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  const roots = [...new Set((projectIds || []).filter(id => id !== undefined && id !== null).map(String))];
+  if (!roots.length) return Promise.resolve({ projectIds: [], sectionIds: [], todoIds: [] });
+  if (signal?.aborted) return Promise.reject(new DOMException('Pending project eviction was aborted', 'AbortError'));
+
+  return new Promise((resolve, reject) => {
+    let tx;
+    const records = {};
+    try {
+      tx = database.transaction(['projects', 'sections', 'todos', 'syncQueue'], 'readwrite');
+      signal?.addEventListener?.('abort', () => {
+        try { tx.abort(); } catch {}
+      }, { once: true });
+      const stores = Object.fromEntries(['projects', 'sections', 'todos', 'syncQueue']
+        .map(name => [name, tx.objectStore(name)]));
+      let pendingReads = 4;
+
+      const mergeRecords = (stored, projected) => {
+        const merged = new Map();
+        for (const record of [...(stored || []), ...(projected || [])]) {
+          if (record?.id !== undefined && record?.id !== null) merged.set(String(record.id), record);
+        }
+        return [...merged.values()];
+      };
+      const deleteTypedKey = (store, id) => {
+        store.delete(id);
+        if (typeof id === 'number' && Number.isInteger(id)) store.delete(String(id));
+        if (typeof id === 'string' && /^\d+$/.test(id)) store.delete(Number(id));
+      };
+      const finalize = () => {
+        if (--pendingReads > 0) return;
+        const projects = mergeRecords(records.projects, projectedProjects);
+        const sections = mergeRecords(records.sections, projectedSections);
+        const todos = mergeRecords(records.todos, projectedTodos);
+        const blockedProjects = new Set(roots);
+        const blockedSections = new Set();
+        const blockedTodos = new Set();
+        const queueEntries = records.syncQueue || [];
+        const hasProject = id => projects.some(project => String(project?.id) === String(id));
+        const hasSection = id => sections.some(section => String(section?.id) === String(id));
+        const hasTodo = id => todos.some(todo => String(todo?.id) === String(id));
+        const queueBoundaryTouchesRevokedRoot = item => {
+          const data = item?.data || {};
+          return [
+            ...(Array.isArray(data.project_boundary_ids) ? data.project_boundary_ids : []),
+            data.project_id,
+          ].some(id => id !== undefined && id !== null && roots.includes(String(id)));
+        };
+        for (const item of queueEntries) {
+          if (!queueBoundaryTouchesRevokedRoot(item)) continue;
+          const action = String(item?.action || '');
+          const data = item?.data || {};
+          if (action === 'CREATE_PROJECT' && data._tempId != null && hasProject(data._tempId)) blockedProjects.add(String(data._tempId));
+          if (['UPDATE_PROJECT', 'DELETE_PROJECT'].includes(action) && data.id != null && hasProject(data.id)) blockedProjects.add(String(data.id));
+          if (action === 'CREATE_SECTION' && data._tempId != null && hasSection(data._tempId)) blockedSections.add(String(data._tempId));
+          if (['UPDATE_SECTION', 'DELETE_SECTION'].includes(action) && data.id != null && hasSection(data.id)) blockedSections.add(String(data.id));
+          if (action === 'CREATE_TODO' && data._tempId != null && hasTodo(data._tempId)) blockedTodos.add(String(data._tempId));
+          if (['UPDATE_TODO', 'DELETE_TODO'].includes(action) && data.id != null && hasTodo(data.id)) blockedTodos.add(String(data.id));
+          if (data.todo_id != null && hasTodo(data.todo_id)) blockedTodos.add(String(data.todo_id));
+        }
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const project of projects) {
+            if (project?.id == null || project?.parent_id == null) continue;
+            const id = String(project.id);
+            if (!blockedProjects.has(id) && blockedProjects.has(String(project.parent_id))) {
+              blockedProjects.add(id);
+              changed = true;
+            }
+          }
+          for (const section of sections) {
+            if (section?.id == null || !blockedProjects.has(String(section.project_id))) continue;
+            const id = String(section.id);
+            if (!blockedSections.has(id)) {
+              blockedSections.add(id);
+              changed = true;
+            }
+          }
+          for (const todo of todos) {
+            if (todo?.id == null || (!blockedProjects.has(String(todo.project_id)) && !blockedSections.has(String(todo.section_id)))) continue;
+            const id = String(todo.id);
+            if (!blockedTodos.has(id)) {
+              blockedTodos.add(id);
+              changed = true;
+            }
+          }
+        }
+
+        const knownProjectIds = new Set(projects.filter(project => project?.id != null).map(project => String(project.id)));
+        const knownSectionIds = new Set(sections.filter(section => section?.id != null).map(section => String(section.id)));
+        const knownTodoIds = new Set(todos.filter(todo => todo?.id != null).map(todo => String(todo.id)));
+        const queueReferencesBoundary = item => {
+          const action = String(item?.action || '');
+          const data = item?.data || {};
+          const changes = data.changes || {};
+          const explicitProjectId = data.project_id ?? changes.project_id;
+          const boundaryProjectIds = [
+            ...(Array.isArray(data.project_boundary_ids) ? data.project_boundary_ids : []),
+            data.project_id,
+            changes.project_id,
+          ].filter(id => id !== undefined && id !== null);
+          if (boundaryProjectIds.some(id => blockedProjects.has(String(id)))) return true;
+          if (action === 'CREATE_PROJECT') {
+            return blockedProjects.has(String(data._tempId)) || blockedProjects.has(String(data.parent_id));
+          }
+          if (action === 'UPDATE_PROJECT' || action === 'DELETE_PROJECT') {
+            if (blockedProjects.has(String(data.id))) return true;
+            return action === 'UPDATE_PROJECT' && data.id != null && !knownProjectIds.has(String(data.id));
+          }
+          if (action === 'CREATE_SECTION') {
+            return blockedSections.has(String(data._tempId)) || blockedProjects.has(String(data.project_id));
+          }
+          if (action === 'UPDATE_SECTION' || action === 'DELETE_SECTION') {
+            if (blockedSections.has(String(data.id))) return true;
+            return action === 'UPDATE_SECTION'
+              && explicitProjectId == null
+              && data.id != null
+              && !knownSectionIds.has(String(data.id));
+          }
+          if (action === 'CREATE_TODO') {
+            return blockedTodos.has(String(data._tempId))
+              || blockedProjects.has(String(data.project_id))
+              || blockedSections.has(String(data.section_id));
+          }
+          if (action === 'UPDATE_TODO' || action === 'DELETE_TODO') {
+            if (blockedTodos.has(String(data.id))
+              || blockedProjects.has(String(changes.project_id))
+              || blockedSections.has(String(changes.section_id))) return true;
+            return action === 'UPDATE_TODO'
+              && explicitProjectId == null
+              && data.id != null
+              && !knownTodoIds.has(String(data.id));
+          }
+          const todoId = data.todo_id;
+          if (todoId != null && blockedTodos.has(String(todoId))) return true;
+          if (['CREATE_COMMENT', 'UPDATE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK'].includes(action)) {
+            return explicitProjectId == null && todoId != null && !knownTodoIds.has(String(todoId));
+          }
+          return [...blockedTodos].some(blockedTodoId => queueItemReferencesTodo(item, blockedTodoId));
+        };
+
+        for (const project of projects) {
+          if (project?.id != null && blockedProjects.has(String(project.id))) deleteTypedKey(stores.projects, project.id);
+        }
+        for (const section of sections) {
+          if (section?.id != null && blockedSections.has(String(section.id))) deleteTypedKey(stores.sections, section.id);
+        }
+        for (const todo of todos) {
+          if (todo?.id != null && blockedTodos.has(String(todo.id))) deleteTypedKey(stores.todos, todo.id);
+        }
+        for (const item of records.syncQueue || []) {
+          if (queueReferencesBoundary(item)) stores.syncQueue.delete(item.id);
+        }
+        records.result = {
+          projectIds: [...blockedProjects],
+          sectionIds: [...blockedSections],
+          todoIds: [...blockedTodos],
+        };
+      };
+
+      for (const [name, store] of Object.entries(stores)) {
+        const request = store.getAll();
+        request.onsuccess = () => {
+          records[name] = request.result || [];
+          finalize();
+        };
+        request.onerror = () => tx.abort();
+      }
+    } catch (error) {
+      tx?.abort?.();
+      reject(error);
+      return;
+    }
+    tx.oncomplete = () => resolve(records.result || { projectIds: [], sectionIds: [], todoIds: [] });
+    tx.onerror = () => reject(tx.error || new Error('Failed to evict pending project data'));
+    tx.onabort = () => reject(signal?.aborted
+      ? new DOMException('Pending project eviction was aborted', 'AbortError')
+      : (tx.error || new Error('Pending project eviction was aborted')));
   });
 }
 

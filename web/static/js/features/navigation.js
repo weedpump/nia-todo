@@ -1,7 +1,10 @@
 import { bindEntitySidebarNavigation } from './entity-sidebar.js';
+import { acquireSyncCommitLock, projectPendingSectionsSnapshot } from './todo-pending.js';
+import { runAccessFencedCommit } from './entity-access-privacy.js';
 
 export function createNavigationFeature({
   sectionsApi,
+  getProjects = () => [],
   getCurrentProjectId,
   getCurrentFilter,
   setCurrentProjectId,
@@ -18,6 +21,7 @@ export function createNavigationFeature({
   renderTodos,
   showProjectModal = null,
   editProject = null,
+  syncInProgressRef = {},
 }) {
   const baseFilters = ['all','focus','calendar','pending','in_progress','done'];
   let applyingHistory = false;
@@ -78,19 +82,34 @@ export function createNavigationFeature({
 
     if (isOnlineForSync()) {
       try {
+        const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
         const data = await sectionsApi.listByProject(currentProjectId);
         const serverSections = data.sections || [];
+        let applied = false;
+        const committed = await runAccessFencedCommit({
+          syncInProgressRef,
+          acquireCommitLock: acquireSyncCommitLock,
+          privacyGeneration,
+          commit: async () => {
+            if (String(getCurrentProjectId()) !== String(currentProjectId)) return;
+            if (!getProjects().some(project => String(project.id) === String(currentProjectId))) return;
+            const allLocal = await dbGetAll('sections');
+            const localProjectSections = allLocal.filter(s => String(s.project_id) === String(currentProjectId));
+            const queue = await dbGetAll('syncQueue');
+            const projectedSections = projectPendingSectionsSnapshot(serverSections, localProjectSections, queue, currentProjectId);
+            if (projectedSections.some(section => String(section.project_id) !== String(currentProjectId))) return;
+            for (const section of projectedSections) await dbPut('sections', section);
 
-        for (const section of serverSections) await dbPut('sections', section);
+            const projectedIds = new Set(projectedSections.map(section => String(section.id)));
+            for (const local of localProjectSections) {
+              if (!projectedIds.has(String(local.id))) await deleteFromDB('sections', local.id);
+            }
 
-        const serverIds = new Set(serverSections.map(s => s.id));
-        const allLocal = await dbGetAll('sections');
-        const localProjectSections = allLocal.filter(s => s.project_id === currentProjectId);
-        for (const local of localProjectSections) {
-          if (!serverIds.has(local.id)) await deleteFromDB('sections', local.id);
-        }
-
-        setSections(serverSections);
+            setSections(projectedSections);
+            applied = true;
+          },
+        });
+        if (committed && applied) return;
         return;
       } catch (e) {
         console.error('Failed to load sections from server', e);

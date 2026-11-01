@@ -1,4 +1,5 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
+import { runAccessFencedCommit } from './entity-access-privacy.js';
 import { projectShoppingSnapshot, projectShoppingStoresSnapshot } from './shopping-pending.js';
 
 export function createWebSocketClient({
@@ -41,6 +42,7 @@ export function createWebSocketClient({
   onModulePreferencesUpdate = () => {},
   onAvatarUpdate = () => {},
   onAccessSnapshot = () => {},
+  onEntitySnapshotsCommitted = () => {},
 }) {
 let ws = null;
 let wsState = 'disconnected'; // connected, connecting, reconnecting, disconnected
@@ -235,6 +237,14 @@ function disconnectWebSocket() {
 function updateConnectionStatus() {
   renderConnectionStatus(wsState);
 }
+function commitRealtimeEntity(commit, privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0)) {
+  return runAccessFencedCommit({
+    syncInProgressRef,
+    acquireCommitLock: acquireSyncCommitLock,
+    privacyGeneration,
+    commit,
+  });
+}
 async function handleWsMessage(msg) {
   let todos = getTodos();
   let projects = getProjects();
@@ -260,8 +270,9 @@ async function handleWsMessage(msg) {
   }
 
   async function applyProjectPayload(projectPayload) {
-    if (!projectPayload?.id) return;
+    if (!projectPayload?.id) return false;
     const local = await getFromDB('projects', projectPayload.id);
+    if (!local) return false;
     if (local) {
       const localTime = new Date(local.updated_at || 0).getTime();
       const serverTime = new Date(projectPayload.updated_at || 0).getTime();
@@ -272,15 +283,17 @@ async function handleWsMessage(msg) {
     projects = existing
       ? projects.map(p => String(p.id) === String(projectPayload.id) ? projectPayload : p)
       : [...projects, projectPayload];
+    return true;
   }
 
   async function applyTodoCommentPayload(payload, mode) {
-    const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
-    try {
+    let applied = false;
+    const committed = await commitRealtimeEntity(async () => {
+      todos = getTodos();
       const todoId = payload?.todo_id;
-      if (!todoId) return false;
+      if (!todoId) return;
       const local = await getFromDB('todos', todoId);
-      if (!local) return false;
+      if (!local) return;
       const comments = Array.isArray(local.comments) ? [...local.comments] : [];
       let nextComments = comments;
       if (mode === 'delete') {
@@ -298,46 +311,51 @@ async function handleWsMessage(msg) {
         comments_count: Number.isFinite(Number(payload.comments_count)) ? Number(payload.comments_count) : nextComments.length,
         updated_at: payload.updated_at || local.updated_at,
       };
-      return await persistTodoPayloadWithPending(updatedTodo);
-    } finally {
-      releaseCommitLock();
-    }
+      applied = await persistTodoPayloadWithPending(updatedTodo);
+    });
+    return committed && applied;
   }
 
   async function applyTodoAttachmentPayload(payload, mode) {
-    const todoId = payload?.todo_id;
-    if (!todoId) return false;
-    const local = await getFromDB('todos', todoId);
-    if (!local) return false;
-    const attachments = Array.isArray(local.attachments) ? [...local.attachments] : [];
-    let nextAttachments = attachments;
-    if (mode === 'delete') {
-      nextAttachments = attachments.filter(attachment => String(attachment.id) !== String(payload.attachment_id));
-    } else if (payload.attachment?.id) {
-      const existing = attachments.find(attachment => String(attachment.id) === String(payload.attachment.id));
-      nextAttachments = existing
-        ? attachments.map(attachment => String(attachment.id) === String(payload.attachment.id) ? payload.attachment : attachment)
-        : [...attachments, payload.attachment];
-      nextAttachments.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime() || Number(a.id || 0) - Number(b.id || 0));
-    }
-    const updatedTodo = {
-      ...local,
-      attachments: nextAttachments,
-      attachments_count: Number.isFinite(Number(payload.attachments_count)) ? Number(payload.attachments_count) : nextAttachments.length,
-      updated_at: payload.updated_at || local.updated_at,
-    };
-    await dbPut('todos', updatedTodo);
-    todos = todos.map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo);
-    return true;
+    let applied = false;
+    const committed = await commitRealtimeEntity(async () => {
+      todos = getTodos();
+      const todoId = payload?.todo_id;
+      if (!todoId) return;
+      const local = await getFromDB('todos', todoId);
+      if (!local) return;
+      const attachments = Array.isArray(local.attachments) ? [...local.attachments] : [];
+      let nextAttachments = attachments;
+      if (mode === 'delete') {
+        nextAttachments = attachments.filter(attachment => String(attachment.id) !== String(payload.attachment_id));
+      } else if (payload.attachment?.id) {
+        const existing = attachments.find(attachment => String(attachment.id) === String(payload.attachment.id));
+        nextAttachments = existing
+          ? attachments.map(attachment => String(attachment.id) === String(payload.attachment.id) ? payload.attachment : attachment)
+          : [...attachments, payload.attachment];
+        nextAttachments.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime() || Number(a.id || 0) - Number(b.id || 0));
+      }
+      const updatedTodo = {
+        ...local,
+        attachments: nextAttachments,
+        attachments_count: Number.isFinite(Number(payload.attachments_count)) ? Number(payload.attachments_count) : nextAttachments.length,
+        updated_at: payload.updated_at || local.updated_at,
+      };
+      await dbPut('todos', updatedTodo);
+      todos = todos.map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo);
+      applied = true;
+    });
+    return committed && applied;
   }
 
   async function applyTodoSubtaskPayload(payload, mode) {
-    const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
-    try {
+    let applied = false;
+    const committed = await commitRealtimeEntity(async () => {
+      todos = getTodos();
       const todoId = payload?.todo_id;
-      if (!todoId) return false;
+      if (!todoId) return;
       const local = await getFromDB('todos', todoId);
-      if (!local) return false;
+      if (!local) return;
       const subtasks = Array.isArray(local.subtasks) ? [...local.subtasks] : [];
       let nextSubtasks = subtasks;
       if (mode === 'delete') {
@@ -355,10 +373,9 @@ async function handleWsMessage(msg) {
         subtasks: nextSubtasks,
         updated_at: payload.updated_at || local.updated_at,
       };
-      return await persistTodoPayloadWithPending(updatedTodo);
-    } finally {
-      releaseCommitLock();
-    }
+      applied = await persistTodoPayloadWithPending(updatedTodo);
+    });
+    return committed && applied;
   }
 
   switch (msg.type) {
@@ -401,8 +418,7 @@ async function handleWsMessage(msg) {
         wsSend({ type: 'sync_request' });
         break;
       }
-      const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
-      try {
+      const committed = await commitRealtimeEntity(async () => {
       // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
         const serverTodoIds = new Set(msg.todos.map(todo => String(todo.id)));
@@ -525,6 +541,13 @@ async function handleWsMessage(msg) {
         setShoppingLists(shoppingLists);
         renderShopping();
       }
+      if (Object.prototype.hasOwnProperty.call(msg, 'projects')
+        || Object.prototype.hasOwnProperty.call(msg, 'shopping_lists')) {
+        onEntitySnapshotsCommitted({
+          projects: Array.isArray(msg.projects) ? msg.projects : null,
+          shoppingLists: Array.isArray(msg.shopping_lists) ? msg.shopping_lists : null,
+        });
+      }
       if (msg.module_preferences) {
         onModulePreferencesUpdate(msg.module_preferences);
       }
@@ -550,19 +573,25 @@ async function handleWsMessage(msg) {
       renderProjects();
       renderStats();
       renderTodos();
-      } finally {
-        releaseCommitLock();
-      }
+      });
+      if (!committed) return;
       break;
     }
     case 'todo_create':
       if (msg.payload) {
+        const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
         while (syncInProgressRef?.value) {
           await new Promise(resolve => setTimeout(resolve, 10));
         }
-        todos = getTodos();
-        const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
-        try {
+        let applied = false;
+        const committed = await commitRealtimeEntity(async () => {
+          projects = getProjects();
+          sections = getSections();
+          todos = getTodos();
+          if (msg.payload.project_id != null
+            && !projects.some(project => String(project.id) === String(msg.payload.project_id))) return;
+          if (msg.payload.section_id != null
+            && !sections.some(section => String(section.id) === String(msg.payload.section_id))) return;
           const local = await getFromDB('todos', msg.payload.id);
           const queue = await dbGetAll('syncQueue');
           const incomingTodo = projectPendingTodoChanges(
@@ -571,11 +600,12 @@ async function handleWsMessage(msg) {
           );
           await dbPut('todos', incomingTodo);
           const existing = todos.find(t => t.id === incomingTodo.id);
-          if (!existing) todos.push(incomingTodo);
-          else todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
-        } finally {
-          releaseCommitLock();
-        }
+          todos = existing
+            ? todos.map(t => t.id === incomingTodo.id ? incomingTodo : t)
+            : [...todos, incomingTodo];
+          applied = true;
+        }, privacyGeneration);
+        if (!committed || !applied) return;
         renderProjects();
         renderStats();
         renderTodos();
@@ -583,25 +613,28 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_update':
       if (msg.payload) {
-        const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
-        try {
+        let applied = false;
+        const committed = await commitRealtimeEntity(async () => {
+          todos = getTodos();
           const local = await getFromDB('todos', msg.payload.id);
+          if (!local) return;
           const queue = await dbGetAll('syncQueue');
           const incomingTodo = mergeTodoPayloadWithLocalSubtasks(msg.payload, local);
           if (hasPendingTodoChanges(queue, msg.payload.id)) {
-            await persistTodoPayloadWithPending(incomingTodo);
-          } else {
-            if (local) {
-              const localTime = new Date(local.updated_at || 0).getTime();
-              const serverTime = new Date(msg.payload.updated_at || 0).getTime();
-              if (serverTime < localTime) break;
-            }
-            await dbPut('todos', incomingTodo);
-            todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
+            applied = await persistTodoPayloadWithPending(incomingTodo);
+            return;
           }
-        } finally {
-          releaseCommitLock();
-        }
+          const localTime = new Date(local.updated_at || 0).getTime();
+          const serverTime = new Date(msg.payload.updated_at || 0).getTime();
+          if (serverTime < localTime) {
+            applied = true;
+            return;
+          }
+          await dbPut('todos', incomingTodo);
+          todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
+          applied = true;
+        });
+        if (!committed || !applied) return;
         renderProjects();
         renderStats();
         renderTodos();
@@ -609,16 +642,18 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_delete':
       if (msg.payload?.id) {
-        const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
-        try {
+        let applied = false;
+        const committed = await commitRealtimeEntity(async () => {
+          todos = getTodos();
+          if (!todos.some(todo => String(todo.id) === String(msg.payload.id))) return;
           const queue = await dbGetAll('syncQueue');
           const childOperations = queue.filter(item => queueItemReferencesTodo(item, msg.payload.id));
           await Promise.all(childOperations.map(item => deleteFromDB('syncQueue', item.id)));
           await deleteFromDB('todos', msg.payload.id);
           todos = todos.filter(t => t.id !== msg.payload.id);
-        } finally {
-          releaseCommitLock();
-        }
+          applied = true;
+        });
+        if (!committed || !applied) return;
         renderProjects();
         renderStats();
         renderTodos();
@@ -626,93 +661,97 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_comment_create':
     case 'todo_comment_update':
-      if (await applyTodoCommentPayload(msg.payload, 'upsert')) {
-        renderStats();
-        renderTodos();
-      }
+      if (!await applyTodoCommentPayload(msg.payload, 'upsert')) return;
+      renderStats();
+      renderTodos();
       break;
     case 'todo_comment_delete':
-      if (await applyTodoCommentPayload(msg.payload, 'delete')) {
-        renderStats();
-        renderTodos();
-      }
+      if (!await applyTodoCommentPayload(msg.payload, 'delete')) return;
+      renderStats();
+      renderTodos();
       break;
     case 'todo_subtask_create':
     case 'todo_subtask_update':
-      if (await applyTodoSubtaskPayload(msg.payload, 'upsert')) {
-        renderStats();
-        renderTodos();
-      }
+      if (!await applyTodoSubtaskPayload(msg.payload, 'upsert')) return;
+      renderStats();
+      renderTodos();
       break;
     case 'todo_subtask_delete':
-      if (await applyTodoSubtaskPayload(msg.payload, 'delete')) {
-        renderStats();
-        renderTodos();
-      }
+      if (!await applyTodoSubtaskPayload(msg.payload, 'delete')) return;
+      renderStats();
+      renderTodos();
       break;
     case 'todo_attachment_create':
-      if (await applyTodoAttachmentPayload(msg.payload, 'upsert')) {
-        renderStats();
-        renderTodos();
-      }
+      if (!await applyTodoAttachmentPayload(msg.payload, 'upsert')) return;
+      renderStats();
+      renderTodos();
       break;
     case 'todo_attachment_delete':
-      if (await applyTodoAttachmentPayload(msg.payload, 'delete')) {
-        renderStats();
-        renderTodos();
-      }
+      if (!await applyTodoAttachmentPayload(msg.payload, 'delete')) return;
+      renderStats();
+      renderTodos();
       break;
     case 'project_create':
       if (msg.payload) {
-        await dbPut('projects', msg.payload);
-        // Remove temp project with same name to avoid duplicates
-        const tempProject = projects.find(p =>
-          p.name === msg.payload.name &&
-          String(p.id).startsWith('temp-')
-        );
-        if (tempProject) {
-          projects = projects.filter(p => p.id !== tempProject.id);
-        }
-        const existing = projects.find(p => p.id === msg.payload.id);
-        if (existing) {
-          // Server response for our create → replace temp entry
-          projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
-        } else {
-          // Broadcast from another client → add to list
-          projects.push(msg.payload);
-        }
-        renderProjects();
-        renderStats();
-        renderTodos();
+        const committed = await commitRealtimeEntity(async () => {
+          projects = getProjects();
+          if (msg.payload.parent_id == null) return;
+          if (!projects.some(project => String(project.id) === String(msg.payload.parent_id))) return;
+          await dbPut('projects', msg.payload);
+          const tempProject = projects.find(p =>
+            p.name === msg.payload.name &&
+            String(p.id).startsWith('temp-')
+          );
+          if (tempProject) projects = projects.filter(p => p.id !== tempProject.id);
+          const existing = projects.find(p => p.id === msg.payload.id);
+          projects = existing
+            ? projects.map(p => p.id === msg.payload.id ? msg.payload : p)
+            : [...projects, msg.payload];
+          renderProjects();
+          renderStats();
+          renderTodos();
+        });
+        if (!committed) return;
       }
       break;
     case 'project_update':
       if (msg.payload) {
-        await applyProjectPayload(msg.payload);
-        setProjects(projects);
-        renderProjects();
-        renderStats();
-        renderTodos();
+        const committed = await commitRealtimeEntity(async () => {
+          projects = getProjects();
+          await applyProjectPayload(msg.payload);
+          setProjects(projects);
+          renderProjects();
+          renderStats();
+          renderTodos();
+        });
+        if (!committed) return;
       }
       break;
     case 'project_update_many':
       if (Array.isArray(msg.payload?.projects)) {
-        for (const projectPayload of msg.payload.projects) {
-          await applyProjectPayload(projectPayload);
-        }
-        setProjects(projects);
-        renderProjects();
-        renderStats();
-        renderTodos();
+        const committed = await commitRealtimeEntity(async () => {
+          projects = getProjects();
+          for (const projectPayload of msg.payload.projects) {
+            await applyProjectPayload(projectPayload);
+          }
+          setProjects(projects);
+          renderProjects();
+          renderStats();
+          renderTodos();
+        });
+        if (!committed) return;
       }
       break;
     case 'project_delete':
       if (msg.payload?.id) {
         const deletedIds = msg.payload.deleted_ids || [msg.payload.id];
-        await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
-        projects = projects.filter(p => !deletedIds.includes(p.id));
-        setProjects(projects);
-        await refreshFromServer?.();
+        const committed = await commitRealtimeEntity(async () => {
+          projects = getProjects();
+          await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
+          projects = projects.filter(p => !deletedIds.includes(p.id));
+          setProjects(projects);
+        });
+        if (committed) await refreshFromServer?.();
         return;
       }
       break;
@@ -770,29 +809,35 @@ async function handleWsMessage(msg) {
       return;
     case 'section_create':
       if (msg.payload) {
-        await dbPut('sections', msg.payload);
-        // Remove temp section with same name+project to avoid duplicates
-        const tempSection = sections.find(s =>
-          s.name === msg.payload.name &&
-          s.project_id === msg.payload.project_id &&
-          String(s.id).startsWith('temp-')
-        );
-        if (tempSection) {
-          sections = sections.filter(s => s.id !== tempSection.id);
-        }
-        const existing = sections.find(s => s.id === msg.payload.id);
-        if (!existing) {
-          sections.push(msg.payload);
-        } else {
-          sections = sections.map(s => s.id === msg.payload.id ? msg.payload : s);
-        }
-        renderTodos();
+        let applied = false;
+        const committed = await commitRealtimeEntity(async () => {
+          projects = getProjects();
+          sections = getSections();
+          if (!projects.some(project => String(project.id) === String(msg.payload.project_id))) return;
+          await dbPut('sections', msg.payload);
+          const tempSection = sections.find(s =>
+            s.name === msg.payload.name &&
+            s.project_id === msg.payload.project_id &&
+            String(s.id).startsWith('temp-')
+          );
+          if (tempSection) sections = sections.filter(s => s.id !== tempSection.id);
+          const existing = sections.find(s => s.id === msg.payload.id);
+          sections = existing
+            ? sections.map(s => s.id === msg.payload.id ? msg.payload : s)
+            : [...sections, msg.payload];
+          renderTodos();
+          applied = true;
+        });
+        if (!committed || !applied) return;
       }
       break;
     case 'section_update':
       if (msg.payload) {
-        const local = await getFromDB('sections', msg.payload.id);
-        if (local) {
+        let applied = false;
+        const committed = await commitRealtimeEntity(async () => {
+          sections = getSections();
+          const local = await getFromDB('sections', msg.payload.id);
+          if (!local) return;
           const localTime = new Date(local.updated_at || 0).getTime();
           const serverTime = new Date(msg.payload.updated_at || 0).getTime();
           if (serverTime >= localTime) {
@@ -800,25 +845,30 @@ async function handleWsMessage(msg) {
             sections = sections.map(s => s.id === msg.payload.id ? msg.payload : s);
             renderTodos();
           }
-        } else {
-          await dbPut('sections', msg.payload);
-          sections = sections.map(s => s.id === msg.payload.id ? msg.payload : s);
-          renderTodos();
-        }
+          applied = true;
+        });
+        if (!committed || !applied) return;
       }
       break;
     case 'section_delete':
       if (msg.payload?.id) {
-        await deleteFromDB('sections', msg.payload.id);
-        sections = sections.filter(s => s.id !== msg.payload.id);
-        // Move todos in this section to unsorted
-        for (const todo of todos) {
-          if (todo.section_id === msg.payload.id) {
-            todo.section_id = null;
-            await dbPut('todos', todo);
+        let applied = false;
+        const committed = await commitRealtimeEntity(async () => {
+          sections = getSections();
+          todos = getTodos();
+          if (!sections.some(section => String(section.id) === String(msg.payload.id))) return;
+          await deleteFromDB('sections', msg.payload.id);
+          sections = sections.filter(s => s.id !== msg.payload.id);
+          for (const todo of todos) {
+            if (todo.section_id === msg.payload.id) {
+              todo.section_id = null;
+              await dbPut('todos', todo);
+            }
           }
-        }
-        renderTodos();
+          renderTodos();
+          applied = true;
+        });
+        if (!committed || !applied) return;
       }
       break;
     default:

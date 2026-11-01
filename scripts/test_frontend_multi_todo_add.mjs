@@ -138,11 +138,18 @@ try {
             t: (key, params = {}) => key.startsWith('todo.multiAdd.create.') ? 'Save ' + params.count : key,
             getTodos: () => [],
             setTodos: () => {},
+            getProjects: () => window.__multiTodoProjects,
+            getSections: () => window.__multiTodoSections,
             getCurrentProjectId: () => 1,
             getAppInitialized: () => true,
             getDb: () => ({}),
             dbPut: async (...args) => window.__multiTodoDbWrites.push(args),
             addToSyncQueue: async (...args) => window.__multiTodoQueueWrites.push(args),
+            runSyncQueueMutation: async operation => {
+              window.__multiTodoCommitEntered = true;
+              if (window.__multiTodoCommitGate) await window.__multiTodoCommitGate;
+              return operation(async (...args) => window.__multiTodoQueueWrites.push(args));
+            },
             isOnlineForSync: () => false,
             syncWithServer: async () => {},
             parseQuickAddTitle: raw => new Promise(resolve => {
@@ -160,6 +167,10 @@ try {
             showToast: () => {},
           });
           window.__multiTodoParses = [];
+          window.__multiTodoProjects = [{ id: 1 }];
+          window.__multiTodoSections = [];
+          window.__multiTodoCommitGate = null;
+          window.__multiTodoCommitEntered = false;
           window.__multiTodoDbWrites = [];
           window.__multiTodoQueueWrites = [];
           window.__multiTodoSectionRequests = [];
@@ -283,6 +294,27 @@ try {
   assert.equal(await page.evaluate(() => window.__multiTodoQueueWrites.length), 1, 'Overlapping saves must enqueue exactly once');
   assert.equal(await page.evaluate(() => window.__multiTodoDbWrites[0][1].title), 'Baseline', 'The persisted todo must use the title present when save started');
   assert.equal(await page.evaluate(() => window.__multiTodoQueueWrites[0][1].title), 'Baseline', 'The queued todo must use the title present when save started');
+
+  const writesBeforeRevocation = await page.evaluate(() => ({ db: window.__multiTodoDbWrites.length, queue: window.__multiTodoQueueWrites.length }));
+  await page.evaluate(() => {
+    window.__holdMultiTodoSections = false;
+    window.__multiTodoCommitEntered = false;
+    window.__multiTodoCommitGate = new Promise(resolve => { window.__releaseMultiTodoCommit = resolve; });
+    window.__revokedMultiTodoSave = window.__multiTodoFeature.save();
+  });
+  await waitForParse('Baseline');
+  await resolveParse('Baseline');
+  await page.waitForFunction(() => window.__multiTodoCommitEntered === true);
+  await page.evaluate(() => {
+    window.__multiTodoProjects = [];
+    window.__releaseMultiTodoCommit();
+  });
+  await page.evaluate(() => window.__revokedMultiTodoSave);
+  assert.deepEqual(
+    await page.evaluate(() => ({ db: window.__multiTodoDbWrites.length, queue: window.__multiTodoQueueWrites.length })),
+    writesBeforeRevocation,
+    'if any prepared todo loses its project before the atomic commit, the whole batch must write neither todos nor queue entries',
+  );
   assert.equal(pageErrors.length, 0, `Multi-todo state transitions must not throw: ${pageErrors.join('; ')}`);
 } finally {
   await browser.close();
