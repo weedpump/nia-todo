@@ -16,6 +16,13 @@ import { closeOpenDropdown, hydrateSelect } from '../ui/dropdowns.js';
 import { createEntityInvitationsFeature, renderEntityInvitationsHost } from './entity-invitations.js';
 import { createEntityAccessPrivacyController } from './entity-access-privacy.js';
 
+export function shoppingListNavigationUrl(location = globalThis.location) {
+  const params = new URLSearchParams(location?.search || '');
+  params.delete('shoppingList');
+  const search = params.toString();
+  return `/${search ? `?${search}` : ''}`;
+}
+
 export const SHOPPING_ACTIVE_LIST_KEY = 'nia-shopping-active-list';
 export const SHOPPING_STORE_FILTER_KEY_PREFIX = 'nia-shopping-store-filter:';
 
@@ -264,12 +271,8 @@ export function createShoppingNavigationFeature({
     return new URLSearchParams(locationTarget?.search || '').get('shoppingList');
   }
 
-  function navigationUrl(id) {
-    const params = new URLSearchParams(locationTarget?.search || '');
-    if (id == null) params.delete('shoppingList');
-    else params.set('shoppingList', String(id));
-    const search = params.toString();
-    return `${locationTarget?.pathname || '/'}${search ? `?${search}` : ''}${locationTarget?.hash || ''}`;
+  function navigationUrl() {
+    return shoppingListNavigationUrl(locationTarget);
   }
 
   function updateHistory(id, replace = false) {

@@ -1270,7 +1270,7 @@ export function startAppModule() {
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   todos: { markTodoDone, markTodoInProgress, deleteTodoComment, deleteTodoAttachment, saveTodo, editTodo, deleteTodoFromModal },
   projects: { showProjectModal, deleteProject, clearDoneFromModal },
-  projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => refreshEntityInvitations() },
+  projectSharing: { setProject: (project) => sharingFeature.setProject(project), loadInvites: () => refreshEntityInvitations() },
   viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
   toastUndo: { showToast, showBatchToast, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI },

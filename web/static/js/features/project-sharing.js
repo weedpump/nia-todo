@@ -1,8 +1,6 @@
 import { t } from '../i18n/index.js';
-import { refreshSelect } from '../ui/dropdowns.js';
 import { createEntityDirectSharingFeature } from './entity-direct-sharing.js';
 import { createEntityInvitationsFeature, renderEntityInvitationsHost } from './entity-invitations.js';
-import { isHouseholdOwnedEntity } from './entity-ownership-field.js';
 import { createEntityAccessPrivacyController } from './entity-access-privacy.js';
 
 export function createProjectSharingFeature({
@@ -24,14 +22,6 @@ export function createProjectSharingFeature({
     onError: error => console.error('Failed to evict pending project data', error),
   });
 
-  function isOwner(project) {
-    if (!project) return false;
-    if (Object.prototype.hasOwnProperty.call(project, 'is_owner')) {
-      return project.is_owner === true || project.is_owner === 1 || project.is_owner === '1';
-    }
-    if (project.is_shared) return false;
-    return !!project.user_id;
-  }
 
   function pendingMembers(projectId) {
     return localPendingMembersByProject.get(Number(projectId)) || [];
@@ -204,38 +194,9 @@ export function createProjectSharingFeature({
     return directSharing.showShareInput();
   }
 
-  function applyProjectModalState(project, canEdit, shared) {
+  function setEntity(project) {
     currentProject = project;
-    const own = isOwner(project);
-    const householdProject = isHouseholdOwnedEntity(project);
-    const fields = ['project-name', 'project-color', 'project-parent-id', 'project-icon'];
-    const displayWorkspace = document.getElementById('project-display-workspace-id');
-    const iconPicker = document.getElementById('project-icon-picker');
-    const saveBtn = document.getElementById('project-save-btn');
-
-    const projectForm = document.getElementById('project-form');
-    if (projectForm) projectForm.classList.toggle('readonly-project', !!project && !canEdit);
-    for (const id of fields) {
-      const element = document.getElementById(id);
-      if (element) {
-        element.disabled = !canEdit;
-        element.setAttribute('aria-readonly', canEdit ? 'false' : 'true');
-        if (element.tagName === 'SELECT') refreshSelect(element);
-      }
-    }
-    const canMoveSharedDisplay = !!project && shared && !own && !householdProject;
-    const canMoveOwnProject = !!project && own && !project.is_inbox && !householdProject;
-    if (displayWorkspace) {
-      displayWorkspace.disabled = !(canMoveSharedDisplay || canMoveOwnProject);
-      refreshSelect(displayWorkspace);
-    }
-    if (iconPicker) {
-      iconPicker.style.pointerEvents = canEdit ? '' : 'none';
-      iconPicker.style.opacity = canEdit ? '' : '0.6';
-      iconPicker.setAttribute('aria-disabled', canEdit ? 'false' : 'true');
-    }
-    if (saveBtn) saveBtn.style.display = (canEdit || canMoveSharedDisplay || canMoveOwnProject) ? '' : 'none';
-    directSharing.setEntity(project).catch(() => {});
+    return directSharing.setEntity(project);
   }
 
   return {
@@ -253,7 +214,7 @@ export function createProjectSharingFeature({
     commitAuthoritativeSnapshot,
     renderInvites,
     bindProjectSharingActions,
-    applyProjectModalState,
+    setEntity,
     loadMembers,
     showShareInput,
   };

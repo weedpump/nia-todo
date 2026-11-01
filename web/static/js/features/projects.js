@@ -1,9 +1,8 @@
 import { t } from '../i18n/index.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
-import { openUiLayer } from './ui-history.js';
 import { createEntityAppearanceController } from './entity-appearance.js';
+import { createEntityEditorModalController } from './entity-editor-modal.js';
 import { createEntityOwnershipField, isHouseholdOwnedEntity } from './entity-ownership-field.js';
-import { createFormSaveState } from './form-save-state.js';
 import { acquireSyncCommitLock, projectPendingProjectChanges } from './todo-pending.js';
 import { runAccessFencedCommit } from './entity-access-privacy.js';
 
@@ -25,7 +24,6 @@ export function createProjectsFeature({
   renderProjects,
   renderStats,
   renderTodos,
-  closeModal,
   confirmDanger,
   showToast,
   showBatchToast,
@@ -36,18 +34,17 @@ export function createProjectsFeature({
   syncInProgressRef = {},
 }) {
   const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
-  let projectFormBound = false;
   let projectActionsBound = false;
   let projectAppearance = null;
+  let projectModalController = null;
   let projectOwnershipField = null;
   let ownershipProject = null;
-  let projectSaveState = null;
 
   function ensureProjectAppearance() {
     if (!projectAppearance) {
       projectAppearance = createEntityAppearanceController({
         prefix: 'project',
-        onChange: () => projectSaveState?.refresh?.(),
+        onChange: () => projectModalController?.refreshSaveState?.(),
       });
     }
     return projectAppearance;
@@ -65,30 +62,16 @@ export function createProjectsFeature({
   }
 
   function canSaveProject() {
-    return projectSaveState?.canSave?.() || false;
+    return projectModalController?.canSave?.() || false;
   }
 
   function refreshProjectSaveButtonState() {
-    projectSaveState?.refresh?.();
+    projectModalController?.refreshSaveState?.();
   }
 
-  function resetProjectSaveSnapshot() {
-    projectSaveState?.reset?.();
-  }
 
   function bindProjectForm() {
-    if (projectFormBound) return;
-    const form = document.getElementById('project-form');
-    if (!form) return;
-    projectFormBound = true;
-    ensureProjectAppearance();
-    projectSaveState = createFormSaveState({
-      form,
-      button: document.getElementById('project-save-btn'),
-      readState: getProjectSaveRelevantState,
-      isValid: state => Boolean(state.name) && state.name.length <= 200,
-    });
-    form.addEventListener('submit', saveProject);
+    ensureProjectModalController().bind();
   }
 
   function isOwner(project) {
@@ -252,84 +235,101 @@ export function createProjectsFeature({
     refreshSelect(select);
   }
 
-  function renderProjectHouseholdSelect(project = null) {
-    ownershipProject = project;
-    ensureProjectOwnershipField().render(project, {
-      canManage: !project || (isOwner(project) && !project.is_inbox),
+
+  function projectDetailButton(id) {
+    return Array.from(document.querySelectorAll('[data-entity-sidebar-action="detail"][data-entity-type="project"]'))
+      .find(button => String(button.dataset.entityId) === String(id)) || null;
+  }
+
+  function projectAddButton() {
+    return document.querySelector('[data-entity-sidebar-action="add"][data-entity-type="project"]');
+  }
+
+  function applyProjectModalPermissions(project, view) {
+    const canEditAppearance = view.appearanceEditable !== false;
+    const form = document.getElementById('project-form');
+    form?.classList.toggle('entity-editor-appearance-readonly', Boolean(project && !canEditAppearance));
+    for (const id of ['project-name', 'project-color', 'project-parent-id', 'project-icon']) {
+      const field = document.getElementById(id);
+      if (!field) continue;
+      field.disabled = !canEditAppearance;
+      field.setAttribute('aria-readonly', canEditAppearance ? 'false' : 'true');
+      if (field.tagName === 'SELECT') refreshSelect(field);
+    }
+    const workspace = document.getElementById('project-display-workspace-id');
+    if (workspace) {
+      workspace.disabled = !(view.canMoveSharedDisplay || view.canMoveOwnProject);
+      refreshSelect(workspace);
+    }
+    const iconPicker = document.getElementById('project-icon-picker');
+    if (iconPicker) {
+      iconPicker.style.pointerEvents = canEditAppearance ? '' : 'none';
+      iconPicker.style.opacity = canEditAppearance ? '' : '0.6';
+      iconPicker.setAttribute('aria-disabled', canEditAppearance ? 'false' : 'true');
+    }
+    const save = document.getElementById('project-save-btn');
+    if (save) save.style.display = (canEditAppearance || view.canMoveSharedDisplay || view.canMoveOwnProject) ? '' : 'none';
+  }
+
+  function ensureProjectModalController() {
+    if (projectModalController) return projectModalController;
+    const appearance = ensureProjectAppearance();
+    projectModalController = createEntityEditorModalController({
+      prefix: 'project',
+      appearanceController: appearance,
+      ownershipController: {
+        render(project, options) {
+          ownershipProject = project;
+          ensureProjectOwnershipField().render(project, options);
+        },
+      },
+      sharingController: {
+        setEntity(project) {
+          return sharingFeature?.setEntity?.(project);
+        },
+      },
+      readState: getProjectSaveRelevantState,
+      isValid: state => Boolean(state.name) && state.name.length <= 200,
+      resolveView({ entity: project, context }) {
+        const owner = !project || isOwner(project);
+        const householdProject = isHouseholdProject(project);
+        const canMoveSharedDisplay = Boolean(project && project.is_shared && !owner && !householdProject);
+        const canMoveOwnProject = Boolean(project && owner && !project.is_inbox && !householdProject);
+        return {
+          mode: project ? 'edit' : (context?.parentId ? 'create-child' : 'create'),
+          titleKey: project ? 'project.edit' : (context?.parentId ? 'project.newSubproject' : 'project.new'),
+          appearance: project || { name: '', color: '#6366f1', icon: '' },
+          appearanceEditable: owner,
+          ownershipCanManage: !project || (owner && !project.is_inbox),
+          canDelete: Boolean(project && owner && !project.is_inbox),
+          readOnly: Boolean(project && !owner && !canMoveSharedDisplay),
+          canMoveSharedDisplay,
+          canMoveOwnProject,
+          restoreFocus: project
+            ? () => projectDetailButton(document.getElementById('project-id')?.value || project.id)
+              || document.querySelector('[data-entity-sidebar-action="detail"][data-entity-type="project"][aria-current="true"]')
+              || projectAddButton()
+            : projectAddButton,
+        };
+      },
+      renderDomain({ entity: project, context }) {
+        renderParentProjectSelect(project, context?.parentId || project?.parent_id || '', project?.workspace_id || getCurrentWorkspaceId?.());
+        const parentFormGroup = document.getElementById('project-parent-id')?.closest('.form-group');
+        if (parentFormGroup) parentFormGroup.style.display = project?.is_inbox ? 'none' : '';
+        renderProjectWorkspaceSelect(project);
+      },
+      applyDomainPermissions({ entity: project, view }) {
+        applyProjectModalPermissions(project, view);
+      },
+      onSubmit: saveProject,
+      onDelete: deleteProjectFromModal,
     });
+    return projectModalController;
   }
 
   function showProjectModal(project = null, parentId = null) {
     bindProjectForm();
-    document.getElementById('project-form')?.reset();
-    document.getElementById('project-id').value = '';
-    const saveBtn = document.getElementById('project-save-btn');
-    if (saveBtn) {
-      saveBtn.hidden = false;
-      saveBtn.disabled = false;
-      saveBtn.style.display = '';
-    }
-    const modalTitle = document.getElementById('project-modal-title');
-    if (modalTitle) {
-      modalTitle.dataset.i18nKey = project ? 'project.edit' : (parentId ? 'project.newSubproject' : 'project.new');
-      modalTitle.textContent = t(modalTitle.dataset.i18nKey);
-    }
-
-    renderParentProjectSelect(project, parentId || (project ? project.parent_id : '') || '', project?.workspace_id || getCurrentWorkspaceId?.());
-
-    const parentFormGroup = document.getElementById('project-parent-id')?.closest('.form-group');
-    if (parentFormGroup) parentFormGroup.style.display = (project && project.is_inbox) ? 'none' : '';
-    renderProjectWorkspaceSelect(project);
-    renderProjectHouseholdSelect(project);
-
-    const sharingSection = document.getElementById('project-sharing-section');
-    const deleteBtn = document.getElementById('project-delete-btn');
-    const headerMenu = document.getElementById('project-detail-header-menu');
-
-    if (project) {
-      document.getElementById('project-id').value = project.id;
-      const owner = isOwner(project);
-      ensureProjectAppearance().setValues(project, { editable: owner });
-      const shared = !!project.is_shared;
-      const canDelete = owner && !project.is_inbox;
-      if (deleteBtn) deleteBtn.style.display = canDelete ? '' : 'none';
-      if (headerMenu) {
-        headerMenu.hidden = !canDelete;
-        headerMenu.removeAttribute('open');
-      }
-      if (sharingFeature?.applyProjectModalState) {
-        sharingFeature.applyProjectModalState(project, owner, shared);
-      }
-    } else {
-      if (sharingSection) {
-        sharingSection.hidden = true;
-        sharingSection.style.removeProperty('display');
-      }
-      if (deleteBtn) deleteBtn.style.display = 'none';
-      if (headerMenu) {
-        headerMenu.hidden = true;
-        headerMenu.removeAttribute('open');
-      }
-      document.getElementById('project-form')?.classList.remove('readonly-project');
-      ensureProjectAppearance().setValues({ name: '', color: '#6366f1', icon: '' }, { editable: true });
-      renderProjectWorkspaceSelect(null);
-      renderProjectHouseholdSelect(null);
-      ['project-parent-id'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.disabled = false;
-          el.setAttribute('aria-readonly', 'false');
-        }
-      });
-    }
-
-    document.getElementById('project-modal')?.classList.add('active');
-    document.getElementById('project-modal')?.setAttribute('aria-hidden', 'false');
-    openUiLayer('project-modal');
-    resetProjectSaveSnapshot();
-    if (!project) {
-      window.setTimeout(() => document.getElementById('project-name')?.focus(), 0);
-    }
+    return ensureProjectModalController().open(project, { parentId });
   }
 
   function editProject(id) {
@@ -416,7 +416,7 @@ export function createProjectsFeature({
         },
       });
       if (!committed || !applied) return;
-      closeModal('project-modal');
+      ensureProjectModalController().close();
       renderProjects();
       renderStats?.();
       renderTodos?.();
@@ -448,7 +448,7 @@ export function createProjectsFeature({
         if (!String(id).startsWith('temp-')) {
           await enqueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
         }
-        closeModal('project-modal');
+        ensureProjectModalController().close();
         renderProjects();
         renderStats?.();
         renderTodos?.();
@@ -478,7 +478,7 @@ export function createProjectsFeature({
         await dbPut('projects', nextProject);
         await enqueue('CREATE_PROJECT', { ...projectData, parent_id: nextProject.parent_id, _tempId: tempId });
         setProjects([...getProjects(), nextProject]);
-        closeModal('project-modal');
+        ensureProjectModalController().close();
         renderProjects();
         return nextProject;
       });
@@ -530,7 +530,7 @@ export function createProjectsFeature({
       renderProjects();
       renderStats();
       renderTodos();
-      closeModal('project-modal');
+      ensureProjectModalController().close();
       return true;
     });
     if (deleted && isOnlineForSync()) await syncWithServer();
@@ -551,10 +551,7 @@ export function createProjectsFeature({
       if (!target) return;
       const action = target.dataset.projectAction;
       event.preventDefault();
-      if (action === 'delete-from-modal') {
-        document.getElementById('project-detail-header-menu')?.removeAttribute('open');
-        deleteProjectFromModal();
-      } else if (action === 'clear-done-current') {
+      if (action === 'clear-done-current') {
         clearDoneInProject();
       }
     });

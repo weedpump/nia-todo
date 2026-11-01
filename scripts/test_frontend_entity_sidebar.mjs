@@ -187,8 +187,8 @@ assert.match(mountedSlots.sidebar.innerHTML, /id="shopping-list-sidebar"/);
 assert.match(mountedSlots.sidebar.innerHTML, /data-i18n-key="shopping.sidebar.personal"/);
 assert.match(mountedSlots.sidebar.innerHTML, /data-entity-sidebar-action="add"/);
 assert.match(mountedSlots.main.innerHTML, /id="shopping-navigation-main"/);
-assert.equal(mountedSlots.topbar.innerHTML, '');
-assert.equal(mountedSlots.floating.innerHTML, '');
+assert.match(mountedSlots.topbar.innerHTML, /id="shopping-hide-empty-sections-btn"/, 'shopping must mount its shared topbar preference control');
+assert.match(mountedSlots.floating.innerHTML, /data-shopping-item-action="open-create"/, 'shopping must mount its primary add-item action');
 
 const sidebarTarget = { innerHTML: '' };
 const mainTarget = { innerHTML: '', dataset: {}, className: '' };
@@ -258,29 +258,40 @@ assert.doesNotMatch(mainTarget.innerHTML, /class="section-header section-unsorte
 assert.doesNotMatch(mainTarget.innerHTML, /data-shopping-list-action=/, 'the content header must not introduce list actions');
 assert.deepEqual(featureHistoryCalls, [], 'background rendering must not mutate browser history');
 navigationFeature.activate();
-assert.deepEqual(featureHistoryCalls, [['replace', '10', '/?shoppingList=10']], 'module activation must normalize the initially visible list');
+assert.deepEqual(featureHistoryCalls, [['replace', '10', '/']], 'module activation must normalize the initially visible list while keeping the app base URL');
 navigationFeature.selectList(20);
 assert.equal(navigationFeature.getActiveListId(), 20);
 assert.equal(featureStorage.get('nia-shopping-active-list'), '20');
-assert.deepEqual(featureHistoryCalls.at(-1), ['push', '20', '/?shoppingList=20']);
+assert.deepEqual(featureHistoryCalls.at(-1), ['push', '20', '/'], 'list navigation must keep identity in history state without exposing it in the URL');
+const deleteFallbackHistoryCount = featureHistoryCalls.length;
 navigationFeature.replaceLists([{ ...entities[0], id: 10, items: [] }]);
 assert.equal(navigationFeature.getActiveListId(), 10, 'deleting the active list must select the deterministic fallback');
 navigationFeature.normalizeActiveListNavigation();
-assert.deepEqual(featureHistoryCalls.at(-1), ['replace', '10', '/?shoppingList=10'], 'automatic delete fallback must replace the stale list URL');
+assert.deepEqual(featureHistoryCalls.at(-1), ['replace', '10', '/'], 'automatic delete fallback must replace the stale list state at the app base URL');
+assert.deepEqual(featureHistoryCalls.slice(deleteFallbackHistoryCount), [['replace', '10', '/']], 'delete fallback must add exactly one replaceState and no pushState');
 assert.equal(navigationFeature.focusActiveListAction(), true);
 assert.equal(featureRoot.remappedFocusId, '10', 'fallback focus must target the live active-list detail action');
+navigationFeature.replaceLists([
+  { ...entities[0], id: 10, items: [] },
+  { ...entities[1], id: 20, items: [] },
+]);
+navigationFeature.selectList(20);
+const popStateHistoryCount = featureHistoryCalls.length;
 featurePopState({ state: { niaShoppingList: true, shoppingListId: '10' } });
 assert.equal(navigationFeature.getActiveListId(), 10, 'popstate must restore the initially visible shopping list');
+assert.equal(featureHistoryCalls.length, popStateHistoryCount, 'popstate restoration must not create or replace history entries');
 navigationFeature.replaceLists([{ ...entities[0], id: 'temp-shopping-list-1', items: [] }]);
 navigationFeature.selectList('temp-shopping-list-1');
 featureRoot.activeElement = {
   dataset: { entityType: 'shopping-list', entityId: 'temp-shopping-list-1' },
   matches: selector => selector === '[data-entity-sidebar-action="detail"][data-entity-type="shopping-list"]',
 };
+const remapHistoryCount = featureHistoryCalls.length;
 navigationFeature.replaceLists([{ ...entities[0], id: 77, client_mutation_id: 'temp-shopping-list-1', items: [] }]);
 assert.equal(navigationFeature.getActiveListId(), 77, 'temporary shopping-list selection must follow the server ID remap');
 assert.equal(featureStorage.get('nia-shopping-active-list'), '77');
-assert.deepEqual(featureHistoryCalls.at(-1), ['replace', '77', '/?shoppingList=77'], 'ID remapping must replace the temporary URL instead of adding another history entry');
+assert.deepEqual(featureHistoryCalls.at(-1), ['replace', '77', '/'], 'ID remapping must replace temporary history state without adding another entry or URL parameter');
+assert.deepEqual(featureHistoryCalls.slice(remapHistoryCount), [['replace', '77', '/']], 'Temp-ID remapping must add exactly one replaceState and no pushState');
 assert.deepEqual(featureCalls.at(-1), ['remap', 'temp-shopping-list-1', 77], 'ID remapping must notify an open details editor');
 assert.equal(featureRoot.remappedFocusId, '77', 'ID remapping must restore focus to the live server-ID detail button');
 navigationFeature.replaceLists([
@@ -307,10 +318,41 @@ assert.equal(featureStorage.has('nia-shopping-active-list'), false);
 assert.equal(mainTarget.dataset.shoppingNavigationState, 'empty');
 assert.equal(mainTarget.dataset.shoppingContentState, 'no-list');
 assert.equal(mainTarget.className, 'module-page module-empty-page');
+const finalDeleteHistoryCount = featureHistoryCalls.length;
 navigationFeature.normalizeActiveListNavigation();
 assert.deepEqual(featureHistoryCalls.at(-1), ['replace', null, '/'], 'deleting the final list must remove shoppingList from history and URL');
+assert.deepEqual(featureHistoryCalls.slice(finalDeleteHistoryCount), [['replace', null, '/']], 'final-list deletion must add exactly one replaceState and no pushState');
 assert.equal(navigationFeature.focusActiveListAction(), true);
 assert.equal(featureRoot.addFocused, true, 'the empty state must focus the add-list action');
+
+const deepLinkHistoryCalls = [];
+const deepLinkHistory = {
+  state: { niaModuleRoute: true, moduleId: 'shopping' },
+  replaceState(state, _title, url) { this.state = state; deepLinkHistoryCalls.push(['replace', state, url]); },
+  pushState(state, _title, url) { this.state = state; deepLinkHistoryCalls.push(['push', state, url]); },
+};
+const deepLinkFeature = createShoppingNavigationFeature({
+  getLists: () => [
+    { ...entities[0], id: 10, items: [] },
+    { ...entities[1], id: 20, items: [] },
+  ],
+  root: featureRoot,
+  getElementById: id => id === 'shopping-list-sidebar' ? { innerHTML: '' } : id === 'shopping-navigation-main' ? { innerHTML: '', dataset: {}, className: '' } : null,
+  storage: { getItem: () => null, setItem() {}, removeItem() {} },
+  historyTarget: deepLinkHistory,
+  locationTarget: { pathname: '/shopping', search: '?share=abc&shoppingList=20', hash: '#fragment' },
+  eventTarget: { addEventListener() {}, removeEventListener() {} },
+});
+deepLinkFeature.activate();
+assert.equal(deepLinkFeature.getActiveListId(), 20, 'legacy shoppingList query must select the requested list before URL normalization');
+assert.equal(deepLinkHistoryCalls.length, 1, 'legacy deep-link activation must normalize one existing history entry');
+assert.equal(deepLinkHistoryCalls[0][0], 'replace');
+assert.equal(deepLinkHistoryCalls[0][2], '/?share=abc', 'normalization must remove module path, shoppingList and hash while preserving unrelated query deep-links');
+assert.deepEqual(
+  deepLinkHistory.state,
+  { niaModuleRoute: true, moduleId: 'shopping', niaShoppingList: true, shoppingListId: '20' },
+  'normalization must retain module state and add shopping-list identity to the same history entry',
+);
 
 const appRenderingSource = readFileSync(new URL('web/static/js/features/app-rendering.js', root), 'utf8');
 const appSource = readFileSync(new URL('web/static/js/app.js', root), 'utf8');

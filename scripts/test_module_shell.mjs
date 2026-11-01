@@ -11,6 +11,8 @@ import {
 } from '../web/static/js/modules/registry.js';
 import { createEmptyModule } from '../web/static/js/modules/module-factory.js';
 import { appBaseUrl, moduleIdFromNavigation } from '../web/static/js/features/module-shell.js';
+import { shouldAutoFocusEntityEditorTitle } from '../web/static/js/features/entity-editor-focus.js';
+import { shoppingListNavigationUrl } from '../web/static/js/features/shopping-navigation.js';
 import {
   disabledModuleIdsForUser,
   enabledModulesForUser,
@@ -21,6 +23,9 @@ import {
 
 const root = new URL('../', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8');
+
+assert.equal(shouldAutoFocusEntityEditorTitle('create'), true, 'entity create editors must focus their title');
+assert.equal(shouldAutoFocusEntityEditorTitle('edit'), false, 'entity edit surfaces must not automatically focus their title');
 
 assert.deepEqual(MODULES.map(module => module.id), ['tasks', 'shopping', 'recipes']);
 assert.deepEqual([...REGISTERED_MODULE_IDS], MODULES.map(module => module.id));
@@ -39,6 +44,8 @@ for (const module of MODULES) {
 }
 assert.equal(appBaseUrl({ pathname: '/tasks', search: '' }), '/');
 assert.equal(appBaseUrl({ pathname: '/shopping', search: '?share=abc' }), '/?share=abc');
+assert.equal(shoppingListNavigationUrl({ pathname: '/', search: '?shoppingList=10', hash: '' }), '/');
+assert.equal(shoppingListNavigationUrl({ pathname: '/', search: '?share=abc&shoppingList=10', hash: '' }), '/?share=abc');
 assert.equal(moduleIdFromNavigation({
   state: { niaModuleRoute: true, moduleId: 'shopping' },
   storage: { getItem: () => 'tasks' },
@@ -63,6 +70,16 @@ assert.deepEqual(
   'Back and Forward must recover each module from history state without exposing module paths',
 );
 assert(navigationStack.every(entry => entry.url === '/'), 'every module history entry must keep the visible base URL');
+const shoppingListNavigationStack = [
+  { state: { niaShoppingList: true, shoppingListId: 10 }, url: '/' },
+  { state: { niaShoppingList: true, shoppingListId: 20 }, url: '/' },
+];
+assert.deepEqual(
+  shoppingListNavigationStack.map(entry => entry.state.shoppingListId),
+  [10, 20],
+  'Back and Forward must retain shopping-list identity in history state',
+);
+assert(shoppingListNavigationStack.every(entry => entry.url === '/'), 'shopping-list history must keep the visible app base URL');
 assert.deepEqual(normalizeDisabledModuleIds(['recipes', 'tasks', 'recipes', 'unknown']), ['tasks', 'recipes']);
 assert.deepEqual(normalizeDisabledModuleIds(['tasks', 'shopping', 'recipes']), ['shopping', 'recipes'], 'at least one module must remain enabled');
 assert.deepEqual(disabledModuleIdsForUser({ disabled_modules: '["tasks"]' }), ['tasks']);
@@ -148,7 +165,8 @@ assert(tasksSource.includes('id="project-list"'), 'tasks module must own project
 assert(tasksSource.includes('id="todo-list"'), 'tasks module must own task content');
 for (const modalId of ['dashboard-preferences-modal', 'todo-modal', 'project-modal', 'attachment-preview-modal', 'android-location-permission-modal']) {
   assert(!indexSource.includes(`id="${modalId}"`), `${modalId} must no longer be static app-shell markup`);
-  assert(taskDialogsSource.includes(`id="${modalId}"`), `tasks module must own ${modalId}`);
+  if (modalId === 'project-modal') assert(taskDialogsSource.includes("prefix: 'project'"), 'tasks module must own project-modal through the shared renderer');
+  else assert(taskDialogsSource.includes(`id="${modalId}"`), `tasks module must own ${modalId}`);
 }
 assert(tasksSource.includes('id="module-user-menu-slot"') === false, 'tasks must fill the provided user-menu slot rather than define the shell slot');
 const shortcutsModalSource = indexSource.slice(indexSource.indexOf('id="shortcuts-modal"'), indexSource.indexOf('id="app-downloads-modal"'));
@@ -168,9 +186,8 @@ assert(shoppingSource.includes('id="shopping-navigation-main"'), 'shopping must 
 assert(recipesSource.includes('createEmptyModule'), 'recipes must remain an empty registered module');
 assert(!existsSync(new URL('web/static/js/modules/shopping-preview.js', root)), 'shopping feature implementation must not exist yet');
 assert(shoppingSource.includes('SHOPPING_DIALOGS_HTML'), 'shopping must mount its own dialogs through the module slot');
-assert(shoppingDialogsSource.includes('id="shopping-list-modal"'), 'shopping must own the list-details dialog');
-assert(shoppingDialogsSource.includes('id="shopping-list-detail-header-menu"'), 'shopping details must own the shared overflow-menu shell');
-assert(shoppingDialogsSource.includes('data-shopping-list-action="delete-from-modal"'), 'shopping details must expose deletion only through the overflow menu');
+assert(shoppingDialogsSource.includes("prefix: 'shopping-list'"), 'shopping must own the list-details dialog through the shared renderer');
+assert(shoppingDialogsSource.includes("deleteKey: 'shopping.list.delete.confirm'"), 'shopping details must expose deletion through the shared overflow menu');
 assert(!indexSource.includes('shopping-list-modal'), 'shopping-specific dialogs must not leak into the global shell');
 assert(moduleCss.includes('.shopping-item-card'), 'shopping item cards must have scoped component styling');
 assert(!moduleCss.includes('.shopping-item-card.todo-item'), 'shopping styling must not couple item cards to todo contracts');

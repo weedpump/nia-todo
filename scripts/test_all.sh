@@ -160,6 +160,7 @@ run_step "Shopping Stores" node scripts/test_shopping_stores.mjs
 run_step "Shopping Items" node scripts/test_shopping_items.mjs
 run_step "Shopping Item Editor Browser" node scripts/test_frontend_shopping_item_create.mjs
 run_step "Shopping List Content Browser" node scripts/test_frontend_shopping_content.mjs
+run_step "Shared Entity Editor Modal" node scripts/test_entity_editor_modal.mjs
 run_step "Shared Entity Appearance" node scripts/test_frontend_entity_appearance.mjs
 run_step "Shared Entity Appearance Browser" node scripts/test_frontend_entity_appearance_browser.mjs
 run_step "Shopping List Delete Browser" node scripts/test_frontend_shopping_delete.mjs

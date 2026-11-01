@@ -1,5 +1,6 @@
 import { t, translatePage } from '../i18n/index.js';
 import { hydrateSelect, refreshSelect, isDropdownOpen } from '../ui/dropdowns.js';
+import { shouldAutoFocusEntityEditorTitle } from './entity-editor-focus.js';
 import { createFormSaveState } from './form-save-state.js';
 import { bindShoppingStoreCreator } from './shopping-store-creator.js';
 import { shoppingStoreOptionAction } from './shopping-store-option-action.js';
@@ -229,7 +230,9 @@ export function createShoppingItemEditorFeature({
     target.setAttribute('aria-hidden', 'false');
     openUiLayer('shopping-item-modal');
     ensureSaveState()?.reset();
-    globalThis.setTimeout?.(() => doc?.getElementById?.('shopping-item-name')?.focus?.(), 0);
+    if (shouldAutoFocusEntityEditorTitle(mode)) {
+      globalThis.setTimeout?.(() => doc?.getElementById?.('shopping-item-name')?.focus?.(), 0);
+    }
     return true;
   }
 

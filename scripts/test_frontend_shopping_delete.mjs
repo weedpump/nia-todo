@@ -269,7 +269,7 @@ try {
   const modal = page.locator('#shopping-list-modal');
   const menu = page.locator('#shopping-list-detail-header-menu');
   const menuTrigger = page.locator('#shopping-list-detail-header-menu-trigger');
-  const deleteAction = page.locator('[data-shopping-list-action="delete-from-modal"]');
+  const deleteAction = page.locator('#shopping-list-delete-btn');
   const confirmModal = page.locator('#confirm-modal');
   const confirmButton = page.locator('#confirm-confirm-btn');
   const cancelButton = page.locator('#confirm-cancel-btn');

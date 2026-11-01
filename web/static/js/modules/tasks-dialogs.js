@@ -1,7 +1,6 @@
 import { escapeHtmlAttr } from '../core/utils.js';
-import { renderEntityAppearanceFields } from '../features/entity-appearance.js';
-import { renderEntityDetailHeader } from '../features/entity-detail-header.js';
 import { renderEntityDirectSharingSection } from '../features/entity-direct-sharing.js';
+import { renderEntityEditorModal } from '../features/entity-editor-modal.js';
 import { renderEntityOwnershipField } from '../features/entity-ownership-field.js';
 import { t } from '../i18n/index.js';
 
@@ -491,29 +490,13 @@ export const TASK_DIALOGS_HTML = `
     </div>
   </div>
 
-  <div class="modal ui-detail-modal ui-detail-view" id="project-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="project-modal-title">
-    <div class="modal-overlay" data-close-modal="project-modal"></div>
-    <div class="modal-content entity-modal-content project-modal-content ui-detail-modal-content">
-      ${renderEntityDetailHeader({
-        headerClassNames: ['project-modal-header'],
-        icon: 'folder',
-        title: { id: 'project-modal-title', key: 'project.new' },
-        subtitle: { key: 'project.modalHint' },
-        actionsHtml: `
-          <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">${escapeHtmlAttr(t('common.save'))}</button>
-          <details class="ui-detail-header-menu-toggle" id="project-detail-header-menu" hidden>
-            <summary aria-label="${escapeHtmlAttr(t('common.more'))}" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
-            <div class="ui-detail-header-menu ui-menu" role="menu">
-              <button type="button" class="ui-menu-item danger" id="project-delete-btn" data-project-action="delete-from-modal" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">${escapeHtmlAttr(t('project.delete'))}</span></button>
-            </div>
-          </details>
-          <button type="button" class="modal-close-x" data-close-modal="project-modal" aria-label="${escapeHtmlAttr(t('common.close'))}" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
-        `,
-      })}
-      <div class="modal-body entity-modal-body ui-detail-modal-body">
-        <form id="project-form" class="entity-modal-form ui-detail-shell">
-          <input type="hidden" id="project-id">
-          ${renderEntityAppearanceFields({ prefix: 'project' })}
+  ${renderEntityEditorModal({
+    prefix: 'project',
+    icon: 'folder',
+    createTitleKey: 'project.new',
+    subtitleKey: 'project.modalHint',
+    deleteKey: 'project.delete',
+    formContentHtml: `
           <section class="ui-section-card ui-detail-section ui-section-divider">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
@@ -536,12 +519,9 @@ export const TASK_DIALOGS_HTML = `
               </div>
             </div>
           </section>
-        </form>
-
-        ${renderEntityDirectSharingSection({ prefix: 'project', leaveKey: 'project.share.leave' })}
-      </div>
-    </div>
-  </div>
+    `,
+    sharingHtml: renderEntityDirectSharingSection({ prefix: 'project', leaveKey: 'project.share.leave' }),
+  })}
 
   <div class="modal" id="attachment-preview-modal">
     <div class="modal-overlay" data-todo-action="close-attachment-preview"></div>

@@ -115,13 +115,11 @@ const shoppingModuleSource = read('web/static/js/modules/shopping.js');
 const appSource = read('web/static/js/app.js');
 
 assert(projectSource.includes("from './entity-appearance.js'"), 'projects must consume the shared appearance controller');
-assert(projectSource.includes('createFormSaveState'), 'projects must consume the shared save-state controller');
+assert(projectSource.includes('createEntityEditorModalController'), 'projects must consume the shared editor lifecycle and save-state controller');
 assert(shoppingDetailsSource.includes("from './entity-appearance.js'"), 'shopping must consume the same appearance controller');
-assert(shoppingDetailsSource.includes('createFormSaveState'), 'shopping must consume the same save-state controller');
-assert(taskDialogsSource.includes('renderEntityAppearanceFields'), 'project markup must use the shared appearance renderer');
-assert(shoppingDialogsSource.includes('renderEntityAppearanceFields'), 'shopping markup must use the shared appearance renderer');
-assert(taskDialogsSource.includes('renderEntityDetailHeader'), 'project header must use the shared detail-header renderer');
-assert(shoppingDialogsSource.includes('renderEntityDetailHeader'), 'shopping header must use the shared detail-header renderer');
+assert(shoppingDetailsSource.includes('createEntityEditorModalController'), 'shopping must consume the same editor lifecycle and save-state controller');
+assert(taskDialogsSource.includes("renderEntityEditorModal({\n    prefix: 'project'"), 'project markup must use the shared editor-modal renderer');
+assert(shoppingDialogsSource.includes("renderEntityEditorModal({\n    prefix: 'shopping-list'"), 'shopping markup must use the same editor-modal renderer');
 assert(!taskDialogsSource.includes("text: 'New project'"), 'project detail headers must not hardcode an English fallback');
 assert(!taskDialogsSource.includes('Strukturiere Todos mit Farbe'), 'project detail headers must not hardcode a German fallback');
 assert(!taskDialogsSource.includes('aria-label="Close"'), 'project detail actions must not hardcode an English close label');

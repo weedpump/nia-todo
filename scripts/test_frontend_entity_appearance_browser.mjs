@@ -207,6 +207,7 @@ try {
 
   await page.getByRole('button', { name: 'Household manager' }).click();
   assert.equal(await name.isEnabled(), true, 'household managers must edit metadata');
+  assert.equal(await name.evaluate(element => document.activeElement === element), false, 'editing a shopping list must not automatically focus its title');
   assert.equal(await save.isHidden(), true, 'unchanged metadata must hide Save');
   await name.fill('Household weekend');
   assert.equal(await save.isVisible(), true, 'dirty valid metadata must show Save');
@@ -236,6 +237,8 @@ try {
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.entityId), '102', 'save must restore focus after the sidebar row rerenders');
 
   await page.getByRole('button', { name: 'Add' }).click();
+  await page.waitForTimeout(20);
+  assert.equal(await name.evaluate(element => document.activeElement === element), true, 'creating a shopping list must continue to focus its title');
   await name.fill('Must not persist');
   await page.evaluate(() => window.test.failNextMutation());
   await save.click();
@@ -318,8 +321,18 @@ try {
     const measure = modal => {
       const content = modal.querySelector('.ui-detail-modal-content');
       const grid = modal.querySelector('.entity-appearance-grid');
+      const header = modal.querySelector('.ui-detail-modal-header');
+      const titleSection = modal.querySelector('.ui-detail-title-section');
+      const body = modal.querySelector('.ui-detail-modal-body');
+      const form = modal.querySelector('.entity-modal-form');
       const contentStyle = getComputedStyle(content);
       const gridStyle = getComputedStyle(grid);
+      const bodyStyle = getComputedStyle(body);
+      const formStyle = getComputedStyle(form);
+      const headerRect = header.getBoundingClientRect();
+      const bodyRect = body.getBoundingClientRect();
+      const formRect = form.getBoundingClientRect();
+      const titleRect = titleSection.getBoundingClientRect();
       return {
         width: contentStyle.width,
         maxWidth: contentStyle.maxWidth,
@@ -327,6 +340,15 @@ try {
         borderRadius: contentStyle.borderRadius,
         gridTemplateColumns: gridStyle.gridTemplateColumns,
         gridGap: gridStyle.gap,
+        headerToTitleSection: titleRect.top - headerRect.bottom,
+        nestedShells: modal.querySelectorAll('.ui-detail-section.ui-detail-shell').length,
+        bodyPaddingTop: bodyStyle.paddingTop,
+        bodyScrollTop: body.scrollTop,
+        formGap: formStyle.gap,
+        formPaddingTop: formStyle.paddingTop,
+        headerToBody: bodyRect.top - headerRect.bottom,
+        bodyToForm: formRect.top - bodyRect.top,
+        formToTitleSection: titleRect.top - formRect.top,
       };
     };
     const result = { project: measure(project), shopping: measure(shopping) };
@@ -335,6 +357,8 @@ try {
     return result;
   });
   assert.deepEqual(mobileParity.shopping, mobileParity.project, 'project and shopping appearance surfaces must share identical mobile computed styles');
+  assert.equal(mobileParity.project.formToTitleSection, 0, 'the first shared title section must start without a legacy top offset');
+  assert.equal(mobileParity.project.headerToTitleSection, 18, 'the mobile header-to-title distance must equal the shared body padding');
   await page.getByRole('button', { name: 'Personal' }).click();
   assert.equal(await modal.isVisible(), true, 'details must open at the mobile viewport');
   assert.equal(await name.isEnabled(), true, 'personal list metadata stays editable on mobile');

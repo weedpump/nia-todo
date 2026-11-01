@@ -3,6 +3,7 @@ import { getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/in
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { registerItemSwipeAdapter } from '../ui/item-swipe.js';
+import { shouldAutoFocusEntityEditorTitle } from './entity-editor-focus.js';
 import { createNativeBridge } from './native-bridge.js';
 import { createTodoAttachmentsFeature } from './todo-attachments.js';
 import { createTodoQuickAddFeature } from './todo-quick-add.js';
@@ -2523,7 +2524,7 @@ export function createTodosFeature({
     openUiLayer('todo-modal');
     resizeTodoTitleField();
     window.requestAnimationFrame?.(resizeTodoTitleField);
-    if (!todo) focusTodoTitle();
+    if (shouldAutoFocusEntityEditorTitle(todo ? 'edit' : 'create')) focusTodoTitle();
   }
 
   async function onProjectChange(selectedSectionId = null) {

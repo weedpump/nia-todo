@@ -258,6 +258,8 @@ try {
   await modal.waitFor({ state: 'visible' });
   assert.equal((await page.locator('#shopping-item-modal-title').textContent()).trim(), 'Artikel bearbeiten');
   assert.equal(await page.locator('#shopping-item-detail-menu-toggle').isVisible(), true);
+  await page.waitForTimeout(20);
+  assert.equal(await page.locator('#shopping-item-name').evaluate(element => document.activeElement === element), false, 'editing an item must not automatically focus its title');
   assert.equal(await page.locator('#shopping-item-name').inputValue(), 'Tomaten');
   assert.equal(await page.locator('#shopping-item-quantity').inputValue(), '0');
   assert.equal(await page.locator('#shopping-item-unit').inputValue(), 'Stück');

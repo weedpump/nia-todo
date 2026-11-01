@@ -264,8 +264,8 @@ async function run() {
     await openProjectEdit('Sharing Test Project');
     await page.locator('#project-owner-info').waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText(/Geteilt von|Shared by/).waitFor({ state: 'visible', timeout: 10000 });
-    const readonlyClass = await page.locator('#project-form').evaluate(el => el.classList.contains('readonly-project'));
-    if (!readonlyClass) throw new Error('Shared project form should have readonly-project styling');
+    const readonlyClass = await page.locator('#project-form').evaluate(el => el.classList.contains('entity-editor-appearance-readonly'));
+    if (!readonlyClass) throw new Error('Shared project form should have neutral entity-editor read-only styling');
     const nameDisabled = await page.locator('#project-name').isDisabled();
     if (!nameDisabled) throw new Error('Shared project name field should be disabled for non-owner');
     const iconPickerDisabled = await page.locator('#project-icon-picker').getAttribute('aria-disabled');

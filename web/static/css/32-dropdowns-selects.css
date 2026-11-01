@@ -579,7 +579,7 @@ input[type="color"]:disabled {
   border-color: rgba(100,116,139,0.35);
 }
 
-.readonly-project .form-group label {
+.entity-editor-appearance-readonly .form-group label {
   color: var(--text-muted);
 }
 

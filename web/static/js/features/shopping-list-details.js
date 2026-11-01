@@ -2,9 +2,8 @@ import { t } from '../i18n/index.js';
 import { safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { createEntityAppearanceController } from './entity-appearance.js';
 import { createEntityDirectSharingFeature } from './entity-direct-sharing.js';
+import { createEntityEditorModalController } from './entity-editor-modal.js';
 import { createEntityOwnershipField, isHouseholdOwnedEntity } from './entity-ownership-field.js';
-import { createFormSaveState } from './form-save-state.js';
-import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 const DEFAULT_COLOR = '#6366f1';
 const DEFAULT_ICON = 'shopping-cart';
@@ -84,11 +83,10 @@ export function createShoppingListDetailsFeature({
   let bound = false;
   let appearance = null;
   let directSharing = null;
+  let modalController = null;
   let ownershipField = null;
-  let saveState = null;
   let submitting = false;
   let deleting = false;
-  let restoreFocus = null;
 
   function listById(id) {
     return getLists().find(list => String(list.id) === String(id)) || null;
@@ -127,7 +125,7 @@ export function createShoppingListDetailsFeature({
         document: doc,
         defaultColor: DEFAULT_COLOR,
         defaultIcon: DEFAULT_ICON,
-        onChange: () => saveState?.refresh?.(),
+        onChange: () => modalController?.refreshSaveState?.(),
       });
     }
     return appearance;
@@ -143,7 +141,7 @@ export function createShoppingListDetailsFeature({
         icon: list.icon || '',
       }, { editable: canManageShoppingListMetadata(list) && !transferMode });
     }
-    ensureSaveState()?.refresh?.();
+    modalController?.refreshSaveState?.();
   }
 
   function ownershipController() {
@@ -181,54 +179,20 @@ export function createShoppingListDetailsFeature({
     return directSharing;
   }
 
-  function ensureSaveState() {
-    const form = doc?.getElementById?.('shopping-list-form');
-    const button = doc?.getElementById?.('shopping-list-save-btn');
-    if (!form || !button) return null;
-    if (!saveState || saveState.form !== form) {
-      saveState?.destroy?.();
-      saveState = createFormSaveState({
-        form,
-        button,
-        readState,
-        isValid: state => Boolean(state.name) && state.name.length <= 200,
-        canSubmit,
-      });
-      saveState.form = form;
-    }
-    return saveState;
-  }
-
   function setError(key = '') {
     const error = doc?.getElementById?.('shopping-list-error');
     if (error) error.textContent = key ? t(key) : '';
   }
 
   function syncDeleteMenu(list = editingList()) {
-    const menu = doc?.getElementById?.('shopping-list-detail-header-menu');
-    const button = doc?.getElementById?.('shopping-list-delete-btn');
     const visible = Boolean(list && canManageShoppingListMetadata(list));
-    if (menu) {
-      menu.hidden = !visible;
-      if (!visible) menu.removeAttribute('open');
-    }
+    ensureModalController().syncDeleteMenu(visible);
+    const button = doc?.getElementById?.('shopping-list-delete-btn');
     if (button) button.disabled = deleting || !visible;
   }
 
-  function hideModal() {
-    const modal = doc?.getElementById?.('shopping-list-modal');
-    modal?.classList?.remove?.('active');
-    modal?.setAttribute?.('aria-hidden', 'true');
-    const focusTarget = restoreFocus?.();
-    restoreFocus = null;
-    focusTarget?.focus?.();
-  }
-
   function closeModal(afterClose = null) {
-    const callback = typeof afterClose === 'function' ? afterClose : null;
-    if (requestCloseUiLayer('shopping-list-modal', { reason: 'ui' }, { afterClose: callback })) return;
-    hideModal();
-    callback?.();
+    return ensureModalController().close({ afterClose: typeof afterClose === 'function' ? afterClose : null });
   }
 
   function detailButton(id) {
@@ -240,39 +204,46 @@ export function createShoppingListDetailsFeature({
     return doc?.querySelector?.('[data-entity-sidebar-action="add"][data-entity-type="shopping-list"]') || null;
   }
 
+  function ensureModalController() {
+    if (modalController) return modalController;
+    modalController = createEntityEditorModalController({
+      prefix: 'shopping-list',
+      document: doc,
+      appearanceController: appearanceController(),
+      ownershipController: ownershipController(),
+      sharingController: sharingController(),
+      readState,
+      isValid: state => Boolean(state.name) && state.name.length <= 200,
+      canSubmit,
+      resolveView({ entity: list }) {
+        const canManage = !list || canManageShoppingListMetadata(list);
+        return {
+          mode: list ? 'edit' : 'create',
+          titleKey: list ? 'shopping.list.modal.editTitle' : 'shopping.list.modal.createTitle',
+          appearance: {
+            name: list?.name || '',
+            color: list?.color || DEFAULT_COLOR,
+            icon: list ? (list.icon || '') : DEFAULT_ICON,
+          },
+          appearanceEditable: canManage,
+          ownershipCanManage: canManage,
+          canDelete: Boolean(list && canManage),
+          readOnly: Boolean(list && !canManage),
+          restoreFocus: list
+            ? () => detailButton(doc?.getElementById?.('shopping-list-id')?.value || list.id)
+            : addButton,
+        };
+      },
+      clearError: setError,
+      onSubmit: save,
+      onDelete: deleteCurrentList,
+      onError,
+    });
+    return modalController;
+  }
+
   function showListModal(list = null) {
-    const modal = doc?.getElementById?.('shopping-list-modal');
-    const form = doc?.getElementById?.('shopping-list-form');
-    if (!modal || !form) return false;
-    form.reset?.();
-    doc.getElementById('shopping-list-id').value = list?.id ?? '';
-    const canManage = !list || canManageShoppingListMetadata(list);
-    appearanceController().setValues({
-      name: list?.name || '',
-      color: list?.color || DEFAULT_COLOR,
-      icon: list ? (list.icon || '') : DEFAULT_ICON,
-    }, { editable: canManage });
-    ownershipController().render(list, { canManage });
-    sharingController().setEntity(list).catch(onError);
-    const title = doc.getElementById('shopping-list-modal-title');
-    if (title) {
-      title.dataset.i18nKey = list ? 'shopping.list.modal.editTitle' : 'shopping.list.modal.createTitle';
-      title.textContent = t(title.dataset.i18nKey);
-    }
-    setError();
-    syncDeleteMenu(list);
-    restoreFocus = list
-      ? () => detailButton(doc?.getElementById?.('shopping-list-id')?.value || list.id)
-      : addButton;
-    modal.classList.add('active');
-    modal.setAttribute('aria-hidden', 'false');
-    openUiLayer('shopping-list-modal');
-    ensureSaveState()?.reset();
-    globalThis.setTimeout?.(() => {
-      if (canManage) appearanceController().focusName();
-      else modal.querySelector?.('.modal-close-x')?.focus?.();
-    }, 0);
-    return true;
+    return ensureModalController().open(list);
   }
 
   async function persistCreate(state) {
@@ -329,7 +300,7 @@ export function createShoppingListDetailsFeature({
       color: current.color || DEFAULT_COLOR,
       icon: current.icon || '',
     }, { editable: canManageShoppingListMetadata(current) });
-    ensureSaveState()?.reset?.();
+    ensureModalController().resetSaveState();
   }
 
   async function persistHouseholdTransfer(current, state) {
@@ -369,7 +340,7 @@ export function createShoppingListDetailsFeature({
       color: latest.color,
       icon: latest.icon || '',
     }, { editable: false });
-    ensureSaveState()?.reset();
+    ensureModalController().resetSaveState();
     syncDeleteMenu(latest);
     doc?.getElementById?.('shopping-list-modal')?.querySelector?.('.modal-close-x')?.focus?.();
   }
@@ -463,11 +434,12 @@ export function createShoppingListDetailsFeature({
       return;
     }
     if (current && !canManageShoppingListMetadata(current)) return;
-    const controller = ensureSaveState();
-    controller?.refresh?.();
-    if (!controller?.canSave?.()) return;
+    const controller = ensureModalController();
+    controller.refreshSaveState();
+    if (!controller.canSave()) return;
     submitting = true;
-    controller.button.disabled = true;
+    const saveButton = doc?.getElementById?.('shopping-list-save-btn');
+    if (saveButton) saveButton.disabled = true;
     let transferRequested = false;
     try {
       transferRequested = Boolean(current && !isHouseholdOwnedEntity(current) && state.household_id);
@@ -488,7 +460,7 @@ export function createShoppingListDetailsFeature({
     } catch (error) {
       onError(error);
       setError('shopping.list.error.saveFailed');
-      controller.refresh();
+      controller.refreshSaveState();
       if (transferRequested) {
         globalThis.setTimeout?.(() => doc?.querySelector?.('[data-select-id="shopping-list-household-id"] .ui-select-trigger')?.focus?.(), 0);
       }
@@ -506,12 +478,6 @@ export function createShoppingListDetailsFeature({
     if (list) showListModal(list);
   }
 
-  function handleAction(event) {
-    const action = event.target?.closest?.('[data-shopping-list-action]');
-    if (!action) return;
-    event.preventDefault?.();
-    if (action.dataset.shoppingListAction === 'delete-from-modal') deleteCurrentList();
-  }
 
   function remapListId(fromId, toId) {
     const idInput = doc?.getElementById?.('shopping-list-id');
@@ -523,13 +489,10 @@ export function createShoppingListDetailsFeature({
   function bind() {
     if (bound) return;
     bound = true;
-    const form = doc?.getElementById?.('shopping-list-form');
-    form?.addEventListener?.('submit', save);
-    doc?.addEventListener?.('click', handleAction);
+    ensureModalController().bind();
     sharingController().bind();
     eventTarget?.addEventListener?.('nia:shopping-list-add-request', handleAddRequest);
     eventTarget?.addEventListener?.('nia:shopping-list-detail-request', handleDetailRequest);
-    registerUiLayer('shopping-list-modal', hideModal);
   }
 
   return {

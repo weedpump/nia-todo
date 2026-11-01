@@ -13,6 +13,7 @@ const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.ur
 const renderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
 const syncSource = readFileSync(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');
 const sharingSource = readFileSync(new URL('../web/static/js/features/project-sharing.js', import.meta.url), 'utf8');
+const projectFeatureSource = readFileSync(new URL('../web/static/js/features/projects.js', import.meta.url), 'utf8');
 const iconsSource = readFileSync(new URL('../web/static/js/icons/lucide-generated.js', import.meta.url), 'utf8');
 const lucideIconsSource = readFileSync(new URL('../web/static/js/icons/lucide-icons.js', import.meta.url), 'utf8');
 const colorPickerSource = readFileSync(new URL('../web/static/js/ui/color-picker.js', import.meta.url), 'utf8');
@@ -32,9 +33,9 @@ assert.match(projectsApiSource, /transferToHousehold/, 'projects API must expose
 assert.match(appSource, /householdsApi/, 'household API must be wired into the app');
 assert.match(renderingSource, /house-heart/, 'household project section must render the bundled house-heart icon');
 assert.match(syncSource, /const projectFields = \[[^\]]*'household_id'/, 'offline CREATE_PROJECT sanitization must retain household_id');
-assert.match(sharingSource, /isHouseholdOwnedEntity\(project\)/, 'project sharing must use the shared household-ownership contract');
+assert.match(projectFeatureSource, /isHouseholdOwnedEntity\(project\)/, 'project modal adapter must use the shared household-ownership contract');
 assert.match(directSharingSource, /if \(!entity \|\| isHouseholdOwnedEntity\(entity\) \|\| !canManage\(\)\) return;/, 'shared direct sharing must skip member loading for household entities');
-assert.match(sharingSource, /canMoveSharedDisplay = [^;]*!householdProject/, 'household projects must not regain workspace movement through sharing state');
+assert.match(projectFeatureSource, /canMoveSharedDisplay = [^;]*!householdProject/, 'household projects must not regain workspace movement through modal state');
 assert.match(iconsSource, /"house-heart"/, 'house-heart must be bundled');
 
 const transferWarningTerms = {
@@ -90,6 +91,8 @@ const settingsCss = readFileSync(new URL('../web/static/css/71-settings.css', im
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
+  page.on('pageerror', error => console.error(`household fixture page error: ${error.message}`));
+  page.on('requestfailed', request => console.error(`household fixture request failed: ${request.url()}`));
   const testHtml = `<!doctype html><html><head><link rel="stylesheet" href="/static/css/71-settings.css"></head><body>
     <div id="app" data-desktop-sidebar-mode="expanded"><button id="sidebar-toggle-btn"><span id="sidebar-toggle-household-indicator" class="sidebar-toggle-household-indicator" hidden></span></button></div>
     <button id="household-nav" data-settings-page-target="household"><span id="settings-household-nav-badge" class="settings-nav-notification-dot" hidden></span></button>
@@ -112,6 +115,7 @@ try {
       </div>
       <div id="settings-household-incoming-section"><div id="settings-household-incoming"></div></div>
     </div>
+    <button id="project-add-button" data-entity-sidebar-action="add" data-entity-type="project">add project</button>
     <div id="project-modal"><form id="project-form">
       <input id="project-id"><input id="project-name"><input id="project-color" value="#6366f1"><input id="project-icon">
       <div id="project-icon-picker"></div><div id="project-color-picker"></div>
@@ -235,11 +239,14 @@ try {
     if (pathname === '/static/js/features/households.js') return route.fulfill({ contentType: 'text/javascript', body: householdsSource });
     if (pathname === '/static/js/features/projects.js') return route.fulfill({ contentType: 'text/javascript', body: projectsSource });
     if (pathname === '/static/js/features/entity-appearance.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-appearance.js', import.meta.url), 'utf8') });
+    if (pathname === '/static/js/features/entity-detail-header.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-detail-header.js', import.meta.url), 'utf8') });
+    if (pathname === '/static/js/features/entity-editor-modal.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-editor-modal.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/entity-ownership-field.js') return route.fulfill({ contentType: 'text/javascript', body: ownershipFieldSource });
     if (pathname === '/static/js/features/entity-direct-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: directSharingSource });
     if (pathname === '/static/js/features/entity-invitations.js') return route.fulfill({ contentType: 'text/javascript', body: entityInvitationsSource });
     if (pathname === '/static/js/features/entity-access-privacy.js') return route.fulfill({ contentType: 'text/javascript', body: entityAccessPrivacySource });
     if (pathname === '/static/js/features/form-save-state.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/form-save-state.js', import.meta.url), 'utf8') });
+    if (pathname === '/static/js/features/todo-pending.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/todo-pending.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/project-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: sharingSource });
     if (pathname === '/static/js/features/app-rendering.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(renderingSourceUrl, 'utf8') });
     if (pathname === '/static/js/features/section-ui.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/section-ui.js', import.meta.url), 'utf8') });
@@ -250,7 +257,7 @@ try {
     if (pathname === '/static/js/icons/lucide-generated.js') return route.fulfill({ contentType: 'text/javascript', body: iconsSource });
     if (pathname === '/static/js/ui/color-picker.js') return route.fulfill({ contentType: 'text/javascript', body: colorPickerSource });
     if (pathname === '/static/js/ui/dropdowns.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const hydrateSelect=()=>{}; export const refreshSelect=()=>{};' });
-    if (pathname === '/static/js/features/ui-history.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const openUiLayer=()=>{};' });
+    if (pathname === '/static/js/features/ui-history.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const openUiLayer=()=>{}; export const registerUiLayer=()=>{}; export const requestCloseUiLayer=()=>false;' });
     if (pathname === '/static/js/core/config.js') return route.fulfill({ contentType: 'text/javascript', body: "export const apiResourceUrl=value=>value;" });
     if (pathname === '/static/js/core/utils.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/core/utils.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/core/authenticated-image.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const loadAuthenticatedImage=async()=>false; export const releaseAuthenticatedImage=()=>{};' });
@@ -342,6 +349,8 @@ try {
     window.test.clearCalls();
     window.test.projectFeature.showProjectModal();
   });
+  await page.waitForTimeout(20);
+  assert.equal(await page.locator('#project-name').evaluate(element => document.activeElement === element), true, 'creating a project must focus the shared title field');
   assert.equal(await page.locator('#project-household-group').isHidden(), false, 'project ownership field must be visible with a household');
   assert.equal(await page.locator('#project-household-id').inputValue(), '', 'new project must default to personal');
   await page.selectOption('#project-household-id', '7');
@@ -360,7 +369,9 @@ try {
   await page.selectOption('#project-household-id', '7');
   assert.equal(await page.locator('#project-parent-id option', { hasText: 'Family chores' }).count(), 1, 'new household projects must offer existing household projects as parents even when another workspace is active');
 
-  await page.evaluate(() => {
+  const projectEditFocus = await page.evaluate(() => {
+    document.getElementById('sidebar-toggle-btn')?.focus();
+    const beforeOpen = document.activeElement?.id || document.activeElement?.className || '';
     window.test.clearCalls();
     window.test.setProjects([
       { id: 44, name: 'Personal plan', color: '#123456', icon: null, parent_id: null, workspace_id: 20, user_id: 1, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'user', owner_household_id: null },
@@ -368,7 +379,11 @@ try {
       { id: 49, name: 'Household parent', color: '#abcdef', icon: null, parent_id: null, workspace_id: 10, user_id: 1, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'household', owner_household_id: 7, household_name: 'Family Home' },
     ]);
     window.test.projectFeature.showProjectModal(window.test.getProjects()[0]);
+    return { beforeOpen, immediatelyAfterOpen: document.activeElement?.id || document.activeElement?.className || '' };
   });
+  await page.waitForTimeout(20);
+  projectEditFocus.afterDelay = await page.evaluate(() => document.activeElement?.id || document.activeElement?.className || '');
+  assert.notEqual(projectEditFocus.afterDelay, 'project-name', `editing a project must not automatically focus its title: ${JSON.stringify(projectEditFocus)}`);
   await page.fill('#project-name', 'Unsaved rename');
   await page.click('#project-color-picker .color-picker-current');
   await page.click('#project-color-picker [data-color="#f43f5e"]');
@@ -430,6 +445,15 @@ try {
   assert.equal(await page.locator('#project-save-btn').evaluate(element => element.hidden), true, 'normal members do not get a project save action');
   assert.equal(await page.locator('#project-sharing-section').isHidden(), true, 'household projects must not expose direct sharing controls to normal members');
   assert.equal(await page.locator('#project-share-start-row').isHidden(), true, 'explicit non-owner household creators must not receive sharing controls');
+
+  await page.evaluate(() => {
+    window.test.clearCalls();
+    window.test.setProjects([{ id: 60, name: 'Delete me', color: '#123456', icon: null, parent_id: null, workspace_id: 10, user_id: 1, is_owner: 1, is_shared: 0, is_inbox: 0, ownership_type: 'user', owner_household_id: null }]);
+    window.test.projectFeature.showProjectModal(window.test.getProjects()[0]);
+  });
+  await page.click('#project-delete-btn');
+  await page.waitForFunction(() => window.test.calls.some(call => call[0] === 'queue' && call[1] === 'DELETE_PROJECT'));
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'project-add-button', 'deleting the edited project must focus a live project action');
 
   await page.evaluate(() => window.test.renderProjectList([
     { id: 1, name: 'Personal', color: '#111111', parent_id: null, workspace_id: 10, ownership_type: 'user' },
