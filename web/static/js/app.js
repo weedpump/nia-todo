@@ -874,6 +874,8 @@ shoppingListDetailsFeature = createShoppingListDetailsFeature({
   confirmDanger,
   normalizeActiveListNavigation: () => shoppingNavigationFeature.normalizeActiveListNavigation(),
   focusActiveListAction: () => shoppingNavigationFeature.focusActiveListAction(),
+  getAccessSnapshot: () => window.niaAccessSnapshot || null,
+  shoppingApi,
 });
 shoppingItemEditorFeature = createShoppingItemEditorFeature({
   getLists: () => shoppingLists,

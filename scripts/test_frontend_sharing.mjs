@@ -63,7 +63,7 @@ async function run() {
     if (!inputVisible) throw new Error('Input should appear after clicking Teilen');
 
     // 5. Unknown usernames and email addresses must fail explicitly.
-    await page.fill('#project-share-username', 'missing@example.invalid');
+    await page.fill('#project-share-identifier', 'missing@example.invalid');
     await page.locator('#project-share-row button').click();
     await page.getByText(/nicht gefunden|not found/i).waitFor({ state: 'visible', timeout: 10000 });
     const undoVisibleAfterError = await page.locator('#toast-undo').isVisible().catch(() => false);
@@ -143,21 +143,21 @@ async function run() {
       localStorage.setItem('csrf_token', data.csrf_token);
     });
 
-    await page.fill('#project-share-username', 'emailtarget@example.invalid');
+    await page.fill('#project-share-identifier', 'emailtarget@example.invalid');
     await page.locator('#project-share-row button').click();
     await page.getByText(/Einladung gesendet|Invitation sent/).waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal('project-modal'));
     await page.reload({ waitUntil: 'networkidle' });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     await openProjectEdit('Sharing Test Project');
-    const emailPendingRow = page.locator('.sharing-member-row').filter({ hasText: 'Email Target' });
+    const emailPendingRow = page.locator('.entity-sharing-member-row').filter({ hasText: 'Email Target' });
     await emailPendingRow.waitFor({ state: 'visible', timeout: 10000 });
-    await emailPendingRow.locator('[data-remove-member]').click();
+    await emailPendingRow.locator('[data-entity-sharing-action="revoke"]').click();
     await page.locator('#confirm-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.click('#confirm-confirm-btn');
     await emailPendingRow.waitFor({ state: 'hidden', timeout: 10000 });
 
-    await page.fill('#project-share-username', 'moni');
+    await page.fill('#project-share-identifier', 'moni');
     await page.locator('#project-share-row button').click();
     await page.getByText(/Einladung gesendet|Invitation sent/).waitFor({ state: 'visible', timeout: 10000 });
     // Pending invites are no longer visible in member list (privacy-safe)
@@ -178,12 +178,14 @@ async function run() {
     if (teilenVisibleAfterInvite) throw new Error('Already shared projects should show sharing content without clicking Teilen');
 
     // 7. Member row should be compact and not use the old large Entfernen button
-    await page.locator('.sharing-member-row').filter({ hasText: 'Moni' }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('.entity-sharing-member-row').filter({ hasText: 'Moni' }).waitFor({ state: 'visible', timeout: 10000 });
     const oldRemoveVisible = await page.getByText(/Entfernen|Remove/).isVisible().catch(() => false);
     if (oldRemoveVisible) throw new Error('Member removal should be a compact x button, not a large remove button');
 
     // 8. Owner should NOT have "Verlassen" button visible
-    const leaveBtn = await page.locator('#project-leave-btn').first();
+    const leaveBtn = page.locator('#project-leave-row [data-entity-sharing-action="leave"]');
+    const leaveCount = await leaveBtn.count();
+    if (leaveCount !== 1) throw new Error(`Expected exactly one Project Leave control, found ${leaveCount}`);
     const leaveVisible = await leaveBtn.isVisible();
     if (leaveVisible) throw new Error('Owner should NOT see "Verlassen" button');
 

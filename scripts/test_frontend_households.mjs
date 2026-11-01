@@ -16,19 +16,22 @@ const sharingSource = readFileSync(new URL('../web/static/js/features/project-sh
 const iconsSource = readFileSync(new URL('../web/static/js/icons/lucide-generated.js', import.meta.url), 'utf8');
 const lucideIconsSource = readFileSync(new URL('../web/static/js/icons/lucide-icons.js', import.meta.url), 'utf8');
 const colorPickerSource = readFileSync(new URL('../web/static/js/ui/color-picker.js', import.meta.url), 'utf8');
+const ownershipFieldSource = readFileSync(new URL('../web/static/js/features/entity-ownership-field.js', import.meta.url), 'utf8');
+const directSharingSource = readFileSync(new URL('../web/static/js/features/entity-direct-sharing.js', import.meta.url), 'utf8');
 
 assert.match(indexSource, /data-settings-page-target="household"/, 'household must be a separate settings page');
 assert.match(indexSource, /data-settings-page="household"/, 'household settings page markup must exist');
 assert.match(indexSource, /data-user-menu-action="household"/, 'user menu must link directly to household settings');
 assert.match(indexSource, /id="user-menu-household-badge"/, 'user menu must expose a pending household invite badge');
-assert.match(dialogsSource, /id="project-household-id"/, 'project modal must contain the project ownership field');
-assert.match(dialogsSource, /data-i18n-key="project.for"/, 'project ownership field must use the Project for label');
+assert.match(dialogsSource, /renderEntityOwnershipField\(\{ prefix: 'project', labelKey: 'entity\.ownership\.for' \}\)/, 'project modal must use the shared ownership field');
+assert.match(ownershipFieldSource, /id="\$\{safePrefix\}-household-id"/, 'the shared ownership field must own the select markup');
 assert.match(apiIndexSource, /householdsApi/, 'household API must be exported');
 assert.match(projectsApiSource, /transferToHousehold/, 'projects API must expose household transfer');
 assert.match(appSource, /householdsApi/, 'household API must be wired into the app');
 assert.match(renderingSource, /house-heart/, 'household project section must render the bundled house-heart icon');
 assert.match(syncSource, /const projectFields = \[[^\]]*'household_id'/, 'offline CREATE_PROJECT sanitization must retain household_id');
-assert.match(sharingSource, /function isHouseholdProject\(project\)[\s\S]*owner_household_id[\s\S]*ownership_type === 'household'/, 'sharing modal state must identify household projects');
+assert.match(sharingSource, /isHouseholdOwnedEntity\(project\)/, 'project sharing must use the shared household-ownership contract');
+assert.match(directSharingSource, /if \(!entity \|\| isHouseholdOwnedEntity\(entity\) \|\| !canManage\(\)\) return;/, 'shared direct sharing must skip member loading for household entities');
 assert.match(sharingSource, /canMoveSharedDisplay = [^;]*!householdProject/, 'household projects must not regain workspace movement through sharing state');
 assert.match(iconsSource, /"house-heart"/, 'house-heart must be bundled');
 
@@ -64,7 +67,7 @@ for (const locale of ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', '
     'settings.household.removeMember', 'settings.household.transferTitle', 'settings.household.transferMessage',
     'settings.household.transferOwner', 'settings.household.dissolveTitle', 'settings.household.dissolveMessage',
     'settings.household.dissolveNameLabel', 'settings.household.dissolveNameMismatch',
-    'project.for', 'project.forPersonal', 'project.forHousehold', 'project.householdBadge',
+    'entity.ownership.for', 'entity.ownership.personal', 'entity.ownership.household', 'project.householdBadge',
     'project.transferHousehold.title', 'project.transferHousehold.message',
     'project.transferHousehold.confirm', 'project.transferHousehold.cancel',
   ]) assert.equal(typeof messages[key], 'string', `${locale} must define ${key}`);
@@ -226,13 +229,15 @@ try {
     if (pathname === '/static/js/features/households.js') return route.fulfill({ contentType: 'text/javascript', body: householdsSource });
     if (pathname === '/static/js/features/projects.js') return route.fulfill({ contentType: 'text/javascript', body: projectsSource });
     if (pathname === '/static/js/features/entity-appearance.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-appearance.js', import.meta.url), 'utf8') });
+    if (pathname === '/static/js/features/entity-ownership-field.js') return route.fulfill({ contentType: 'text/javascript', body: ownershipFieldSource });
+    if (pathname === '/static/js/features/entity-direct-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: directSharingSource });
     if (pathname === '/static/js/features/form-save-state.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/form-save-state.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/project-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: sharingSource });
     if (pathname === '/static/js/features/app-rendering.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(renderingSourceUrl, 'utf8') });
     if (pathname === '/static/js/features/section-ui.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/section-ui.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/entity-sidebar.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-sidebar.js', import.meta.url), 'utf8') });
     if (pathname === '/static/css/71-settings.css') return route.fulfill({ contentType: 'text/css', body: settingsCss });
-    if (pathname === '/static/js/i18n/index.js') return route.fulfill({ contentType: 'text/javascript', body: "export const t=(key,args={})=>key==='project.forHousehold'?`Household “${args.name}”`:key==='project.householdBadge'?`Household: ${args.name}`:key; export const getActiveLocale=()=> 'en-US';" });
+    if (pathname === '/static/js/i18n/index.js') return route.fulfill({ contentType: 'text/javascript', body: "export const t=(key,args={})=>key==='entity.ownership.personal'?'Only for me':key==='entity.ownership.household'?`Household “${args.name}”`:key==='project.householdBadge'?`Household: ${args.name}`:key; export const getActiveLocale=()=> 'en-US';" });
     if (pathname === '/static/js/icons/lucide-icons.js') return route.fulfill({ contentType: 'text/javascript', body: lucideIconsSource });
     if (pathname === '/static/js/icons/lucide-generated.js') return route.fulfill({ contentType: 'text/javascript', body: iconsSource });
     if (pathname === '/static/js/ui/color-picker.js') return route.fulfill({ contentType: 'text/javascript', body: colorPickerSource });

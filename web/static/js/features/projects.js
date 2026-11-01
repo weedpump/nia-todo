@@ -2,6 +2,7 @@ import { t } from '../i18n/index.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { openUiLayer } from './ui-history.js';
 import { createEntityAppearanceController } from './entity-appearance.js';
+import { createEntityOwnershipField, isHouseholdOwnedEntity } from './entity-ownership-field.js';
 import { createFormSaveState } from './form-save-state.js';
 
 export function createProjectsFeature({
@@ -32,6 +33,8 @@ export function createProjectsFeature({
   let projectFormBound = false;
   let projectActionsBound = false;
   let projectAppearance = null;
+  let projectOwnershipField = null;
+  let ownershipProject = null;
   let projectSaveState = null;
 
   function ensureProjectAppearance() {
@@ -96,7 +99,23 @@ export function createProjectsFeature({
   }
 
   function isHouseholdProject(project) {
-    return Boolean(project?.owner_household_id || project?.ownership_type === 'household');
+    return isHouseholdOwnedEntity(project);
+  }
+
+  function ensureProjectOwnershipField() {
+    if (!projectOwnershipField) {
+      projectOwnershipField = createEntityOwnershipField({
+        prefix: 'project',
+        getHousehold: currentHousehold,
+        onChange: () => {
+          const project = ownershipProject;
+          renderParentProjectSelect(project, null, project?.workspace_id || getCurrentWorkspaceId?.());
+          applyHouseholdTransferMode(project);
+          refreshProjectSaveButtonState();
+        },
+      });
+    }
+    return projectOwnershipField;
   }
 
   function applyHouseholdTransferMode(project) {
@@ -228,34 +247,10 @@ export function createProjectsFeature({
   }
 
   function renderProjectHouseholdSelect(project = null) {
-    const group = document.getElementById('project-household-group');
-    const select = document.getElementById('project-household-id');
-    const readonly = document.getElementById('project-household-readonly');
-    if (!group || !select) return;
-    const household = currentHousehold();
-    group.style.display = household ? '' : 'none';
-    if (!household) {
-      select.innerHTML = '';
-      select.value = '';
-      return;
-    }
-    const householdProject = isHouseholdProject(project);
-    const normalMemberHouseholdProject = householdProject && !isOwner(project);
-    select.innerHTML = `<option value="">${t('project.forPersonal')}</option><option value="${household.id}">${t('project.forHousehold', { name: household.name })}</option>`;
-    select.value = householdProject ? String(project.owner_household_id || household.id) : '';
-    select.disabled = householdProject || Boolean(project?.is_inbox);
-    if (readonly) {
-      readonly.hidden = !normalMemberHouseholdProject;
-      readonly.textContent = normalMemberHouseholdProject ? t('project.forHousehold', { name: project.household_name || household.name }) : '';
-    }
-    select.onchange = () => {
-      renderParentProjectSelect(project, null, project?.workspace_id || getCurrentWorkspaceId?.());
-      applyHouseholdTransferMode(project);
-      refreshSelect(select);
-      refreshProjectSaveButtonState();
-    };
-    hydrateSelect(select);
-    refreshSelect(select);
+    ownershipProject = project;
+    ensureProjectOwnershipField().render(project, {
+      canManage: !project || (isOwner(project) && !project.is_inbox),
+    });
   }
 
   function showProjectModal(project = null, parentId = null) {
@@ -300,7 +295,10 @@ export function createProjectsFeature({
         sharingFeature.applyProjectModalState(project, owner, shared);
       }
     } else {
-      if (sharingSection) sharingSection.style.display = 'none';
+      if (sharingSection) {
+        sharingSection.hidden = true;
+        sharingSection.style.removeProperty('display');
+      }
       if (deleteBtn) deleteBtn.style.display = 'none';
       if (headerMenu) {
         headerMenu.hidden = true;

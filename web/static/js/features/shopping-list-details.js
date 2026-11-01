@@ -1,6 +1,8 @@
 import { t } from '../i18n/index.js';
 import { safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { createEntityAppearanceController } from './entity-appearance.js';
+import { createEntityDirectSharingFeature } from './entity-direct-sharing.js';
+import { createEntityOwnershipField, isHouseholdOwnedEntity } from './entity-ownership-field.js';
 import { createFormSaveState } from './form-save-state.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
@@ -22,7 +24,10 @@ export function createOptimisticShoppingList({
   icon = DEFAULT_ICON,
   sort_order = 0,
   createdAt = new Date().toISOString(),
+  household = null,
+  householdManager = false,
 } = {}) {
+  const householdOwned = household?.id != null;
   return {
     id,
     name: String(name || '').trim(),
@@ -32,12 +37,13 @@ export function createOptimisticShoppingList({
     created_at: createdAt,
     updated_at: createdAt,
     owner_user_id: null,
-    owner_household_id: null,
-    ownership_type: 'user',
+    owner_household_id: householdOwned ? household.id : null,
+    ownership_type: householdOwned ? 'household' : 'user',
+    household_name: householdOwned ? (household.name || null) : null,
     can_edit: true,
-    can_manage: true,
-    is_owner: true,
-    is_shared: false,
+    can_manage: householdOwned ? householdManager === true : true,
+    is_owner: householdOwned ? householdManager === true : true,
+    is_shared: householdOwned ? householdManager !== true : false,
     sections: [],
     items: [],
     preferences: { hide_empty_sections: false },
@@ -70,10 +76,15 @@ export function createShoppingListDetailsFeature({
   confirmDanger = async () => false,
   normalizeActiveListNavigation = () => {},
   focusActiveListAction = () => false,
+  getAccessSnapshot = () => globalThis.window?.niaAccessSnapshot || null,
+  shoppingApi = null,
+  createTempListId = () => `temp-shopping-list-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
   onError = console.error,
 } = {}) {
   let bound = false;
   let appearance = null;
+  let directSharing = null;
+  let ownershipField = null;
   let saveState = null;
   let submitting = false;
   let deleting = false;
@@ -87,8 +98,19 @@ export function createShoppingListDetailsFeature({
     return listById(doc?.getElementById?.('shopping-list-id')?.value);
   }
 
+  function currentHousehold() {
+    return getAccessSnapshot?.()?.household || null;
+  }
+
+  function isHouseholdManager() {
+    return currentHousehold()?.role === 'owner';
+  }
+
   function readState() {
-    return appearanceController().readState();
+    return {
+      ...appearanceController().readState(),
+      household_id: ownershipController().value(),
+    };
   }
 
   function canSubmit() {
@@ -109,6 +131,54 @@ export function createShoppingListDetailsFeature({
       });
     }
     return appearance;
+  }
+
+  function applyOwnershipMode(list = editingList()) {
+    const householdSelected = Boolean(ownershipController().value());
+    const transferMode = Boolean(list && !isHouseholdOwnedEntity(list) && canManageShoppingListMetadata(list) && householdSelected);
+    if (list) {
+      appearanceController().setValues({
+        name: list.name || '',
+        color: list.color || DEFAULT_COLOR,
+        icon: list.icon || '',
+      }, { editable: canManageShoppingListMetadata(list) && !transferMode });
+    }
+    ensureSaveState()?.refresh?.();
+  }
+
+  function ownershipController() {
+    if (!ownershipField) {
+      ownershipField = createEntityOwnershipField({
+        document: doc,
+        prefix: 'shopping-list',
+        getHousehold: currentHousehold,
+        onChange: () => applyOwnershipMode(),
+      });
+    }
+    return ownershipField;
+  }
+
+  function sharingController() {
+    if (!directSharing) {
+      directSharing = createEntityDirectSharingFeature({
+        document: doc,
+        prefix: 'shopping-list',
+        listMembers: listId => shoppingApi?.listMembers?.(listId) || { members: [] },
+        grantMember: (listId, identifier) => shoppingApi?.shareList?.(listId, { identifier }),
+        revokeMember: (listId, userId) => shoppingApi?.revokeMember?.(listId, userId),
+        leaveEntity: listId => shoppingApi?.leaveList?.(listId),
+        confirmDanger,
+        onMemberAdded: (_member, list) => {
+          list.has_sharing_activity = true;
+        },
+        onLeft: list => {
+          setLists(getLists().filter(candidate => String(candidate.id) !== String(list.id)));
+          closeAfterDeletedList({ sync: false });
+        },
+        onError,
+      });
+    }
+    return directSharing;
   }
 
   function ensureSaveState() {
@@ -182,6 +252,8 @@ export function createShoppingListDetailsFeature({
       color: list?.color || DEFAULT_COLOR,
       icon: list ? (list.icon || '') : DEFAULT_ICON,
     }, { editable: canManage });
+    ownershipController().render(list, { canManage });
+    sharingController().setEntity(list).catch(onError);
     const title = doc.getElementById('shopping-list-modal-title');
     if (title) {
       title.dataset.i18nKey = list ? 'shopping.list.modal.editTitle' : 'shopping.list.modal.createTitle';
@@ -203,19 +275,17 @@ export function createShoppingListDetailsFeature({
     return true;
   }
 
-  function createTempListId() {
-    const suffix = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    return `temp-shopping-list-${suffix}`;
-  }
-
   async function persistCreate(state) {
     const id = createTempListId();
+    const household = state.household_id ? currentHousehold() : null;
     const created = createOptimisticShoppingList({
       id,
       name: state.name,
       color: state.color,
       icon: state.icon,
       sort_order: getLists().length,
+      household,
+      householdManager: isHouseholdManager(),
     });
     await commitMutation(() => ({
       list: created,
@@ -227,7 +297,7 @@ export function createShoppingListDetailsFeature({
         color: created.color,
         icon: created.icon,
         sort_order: created.sort_order,
-        household_id: null,
+        household_id: household?.id ?? null,
         client_mutation_id: id,
       },
     }));
@@ -250,6 +320,41 @@ export function createShoppingListDetailsFeature({
     if (!committed) return null;
     setLists(getLists().map(list => String(list.id) === String(committed.data.id) ? committed.list : list));
     return committed.list;
+  }
+
+  function resetCancelledTransfer(current) {
+    ownershipController().render(current, { canManage: canManageShoppingListMetadata(current) });
+    appearanceController().setValues({
+      name: current.name || '',
+      color: current.color || DEFAULT_COLOR,
+      icon: current.icon || '',
+    }, { editable: canManageShoppingListMetadata(current) });
+    ensureSaveState()?.reset?.();
+  }
+
+  async function persistHouseholdTransfer(current, state) {
+    const household = currentHousehold();
+    const householdId = Number(state.household_id);
+    if (!household || !Number.isInteger(householdId) || householdId !== Number(household.id)) return null;
+    if (String(current.id).startsWith('temp-') || !isOnlineForSync() || !shoppingApi?.transferToHousehold) {
+      setError('shopping.list.error.transferRequiresOnline');
+      return null;
+    }
+    const confirmed = await confirmDanger({
+      title: t('shopping.list.transferHousehold.title'),
+      message: t('shopping.list.transferHousehold.message', { list: current.name || '', household: household.name || '' }),
+      confirmText: t('shopping.list.transferHousehold.confirm'),
+      cancelText: t('shopping.list.transferHousehold.cancel'),
+      returnFocus: () => doc?.querySelector?.('[data-select-id="shopping-list-household-id"] .ui-select-trigger'),
+    });
+    if (!confirmed) {
+      resetCancelledTransfer(current);
+      return null;
+    }
+    const transferred = await shoppingApi.transferToHousehold(current.id, householdId);
+    if (!transferred?.id) throw new Error('Household transfer did not return the shopping list');
+    setLists(getLists().map(list => String(list.id) === String(current.id) ? transferred : list));
+    return transferred;
   }
 
   function reconcileBlockedUpdate() {
@@ -363,10 +468,14 @@ export function createShoppingListDetailsFeature({
     if (!controller?.canSave?.()) return;
     submitting = true;
     controller.button.disabled = true;
+    let transferRequested = false;
     try {
-      const saved = current ? await persistUpdate(current, state) : await persistCreate(state);
+      transferRequested = Boolean(current && !isHouseholdOwnedEntity(current) && state.household_id);
+      const saved = transferRequested
+        ? await persistHouseholdTransfer(current, state)
+        : (current ? await persistUpdate(current, state) : await persistCreate(state));
       if (!saved) {
-        if (current) reconcileBlockedUpdate();
+        if (current && !transferRequested) reconcileBlockedUpdate();
         return;
       }
       closeModal(() => {
@@ -380,6 +489,9 @@ export function createShoppingListDetailsFeature({
       onError(error);
       setError('shopping.list.error.saveFailed');
       controller.refresh();
+      if (transferRequested) {
+        globalThis.setTimeout?.(() => doc?.querySelector?.('[data-select-id="shopping-list-household-id"] .ui-select-trigger')?.focus?.(), 0);
+      }
     } finally {
       submitting = false;
     }
@@ -414,6 +526,7 @@ export function createShoppingListDetailsFeature({
     const form = doc?.getElementById?.('shopping-list-form');
     form?.addEventListener?.('submit', save);
     doc?.addEventListener?.('click', handleAction);
+    sharingController().bind();
     eventTarget?.addEventListener?.('nia:shopping-list-add-request', handleAddRequest);
     eventTarget?.addEventListener?.('nia:shopping-list-detail-request', handleDetailRequest);
     registerUiLayer('shopping-list-modal', hideModal);

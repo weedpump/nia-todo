@@ -2,6 +2,8 @@ import { escapeHtmlAttr } from '../core/utils.js';
 import { t } from '../i18n/index.js';
 import { renderEntityAppearanceFields } from '../features/entity-appearance.js';
 import { renderEntityDetailHeader } from '../features/entity-detail-header.js';
+import { renderEntityDirectSharingSection } from '../features/entity-direct-sharing.js';
+import { renderEntityOwnershipField } from '../features/entity-ownership-field.js';
 import { renderShoppingStoreCreator } from '../features/shopping-store-creator.js';
 
 export const SHOPPING_DIALOGS_HTML = `
@@ -32,8 +34,12 @@ export const SHOPPING_DIALOGS_HTML = `
         <form id="shopping-list-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="shopping-list-id">
           ${renderEntityAppearanceFields({ prefix: 'shopping-list' })}
+          <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-shell">
+            ${renderEntityOwnershipField({ prefix: 'shopping-list', labelKey: 'entity.ownership.for' })}
+          </section>
           <div class="settings-field-error" id="shopping-list-error" role="alert"></div>
         </form>
+        ${renderEntityDirectSharingSection({ prefix: 'shopping-list', leaveKey: 'shopping.list.share.leave' })}
       </div>
     </div>
   </div>

@@ -1,6 +1,8 @@
 import { escapeHtmlAttr } from '../core/utils.js';
 import { renderEntityAppearanceFields } from '../features/entity-appearance.js';
 import { renderEntityDetailHeader } from '../features/entity-detail-header.js';
+import { renderEntityDirectSharingSection } from '../features/entity-direct-sharing.js';
+import { renderEntityOwnershipField } from '../features/entity-ownership-field.js';
 import { t } from '../i18n/index.js';
 
 // Task-owned dialogs are mounted with the tasks module.
@@ -521,11 +523,7 @@ export const TASK_DIALOGS_HTML = `
               </div>
             </div>
             <div class="ui-field-grid two-columns project-organization-grid">
-              <div class="form-group" id="project-household-group" style="display:none;">
-                <label for="project-household-id" data-i18n-key="project.for">Projekt für</label>
-                <select class="ui-field" id="project-household-id"></select>
-                <div id="project-household-readonly" class="settings-readonly-value" hidden></div>
-              </div>
+              ${renderEntityOwnershipField({ prefix: 'project', labelKey: 'entity.ownership.for' })}
               <div class="form-group" id="project-display-workspace-group" style="display:none;">
                 <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
                 <select class="ui-field" id="project-display-workspace-id"></select>
@@ -540,33 +538,7 @@ export const TASK_DIALOGS_HTML = `
           </section>
         </form>
 
-        <section id="project-sharing-section" class="ui-section-card ui-detail-section ui-section-divider project-sharing-card ui-detail-shell" style="display:none;">
-          <div class="ui-section-heading ui-detail-section-heading">
-            <div class="ui-section-icon ui-detail-section-icon" data-icon="share-2"></div>
-            <div>
-              <h4 data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
-              <p data-i18n-key="project.share.hint">Lade andere Nutzer zu diesem Projekt ein oder verwalte bestehende Mitglieder.</p>
-            </div>
-          </div>
-          <div id="project-owner-info" class="project-owner-info" style="display:none;"><span class="project-owner-label" data-i18n-key="project.share.ownerLabel">Geteilt von</span><span class="project-owner-name"></span></div>
-          <div id="project-sharing-content">
-            <div id="project-members-list"></div>
-            <div id="project-share-row" class="form-group project-share-row">
-              <label data-i18n-key="project.share.inviteUser">Invite user</label>
-              <div class="project-share-inline">
-                <input id="project-share-username" type="text" class="ui-field" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
-                <button type="button" class="btn btn-primary" data-project-sharing-action="invite" data-i18n-key="project.share.invite">Einladen</button>
-              </div>
-              <div id="project-share-error" class="form-error"></div>
-            </div>
-          </div>
-          <div id="project-share-start-row" class="project-share-start-row ui-detail-action-row">
-            <button type="button" class="btn btn-secondary" data-project-sharing-action="show-share-input"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
-          </div>
-          <div class="project-share-start-row ui-detail-action-row" id="project-leave-row" style="display:none;">
-            <button type="button" class="btn btn-secondary" id="project-leave-btn" data-project-sharing-action="leave" data-i18n-key="project.share.leave">Leave project</button>
-          </div>
-        </section>
+        ${renderEntityDirectSharingSection({ prefix: 'project', leaveKey: 'project.share.leave' })}
       </div>
     </div>
   </div>

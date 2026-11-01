@@ -142,6 +142,9 @@ run_step "Module Topbar Browser" node scripts/test_module_topbar_browser.mjs
 run_step "Shared Entity Sidebar" node scripts/test_frontend_entity_sidebar.mjs
 run_step "Shared Module Primary Action" node scripts/test_module_primary_action.mjs
 run_step "Shared Select Actions" node scripts/test_ui_select_actions.mjs
+run_step "Shared Entity Ownership" node scripts/test_entity_ownership_field.mjs
+run_step "Shared Entity Direct Sharing" node scripts/test_entity_direct_sharing.mjs
+run_step "Shopping List Access Browser" node scripts/test_frontend_shopping_access.mjs
 run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
 run_step "Shopping Sections" node scripts/test_shopping_sections.mjs
 run_step "Shopping View Preferences" node scripts/test_shopping_view_preferences.mjs
