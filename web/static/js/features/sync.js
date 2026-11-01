@@ -93,11 +93,14 @@ export function createSyncFeature({
       }
       const projectedStores = projectPendingShoppingStores(authoritative, rewrittenQueue);
       const projectedStore = serverStore
-        ? projectedStores.find(store => String(store.id) === String(serverStore.id)) || serverStore
+        ? projectedStores.find(store => String(store.id) === String(serverStore.id)) || null
         : null;
+      const projectedRemoveStoreIds = serverStore && !projectedStore
+        ? [...new Set([...removeStoreIds, serverStore.id].map(String))]
+        : removeStoreIds;
       await commitShoppingReplay({
         store: projectedStore,
-        removeStoreIds,
+        removeStoreIds: projectedRemoveStoreIds,
         queueDeleteId: item.id,
         queueRecords: rewrittenQueue,
       });

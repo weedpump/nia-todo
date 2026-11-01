@@ -11,6 +11,7 @@ import { getActiveLocale, t } from '../i18n/index.js';
 import { renderSectionCollection } from './section-ui.js';
 import { renderShoppingItem } from './shopping-items.js';
 import { bindShoppingStoreCreator, renderShoppingStoreCreator } from './shopping-store-creator.js';
+import { shoppingStoreOptionAction } from './shopping-store-option-action.js';
 import { closeOpenDropdown, hydrateSelect } from '../ui/dropdowns.js';
 
 export const SHOPPING_ACTIVE_LIST_KEY = 'nia-shopping-active-list';
@@ -98,6 +99,7 @@ export function createShoppingNavigationFeature({
   closeSidebar,
   onAdd,
   onDetail,
+  onStoreEdit = () => {},
   onListIdRemap = () => {},
   onRender = () => {},
   sectionRegistry = null,
@@ -351,6 +353,12 @@ export function createShoppingNavigationFeature({
         setStoreFilter(storeSelect.value);
       });
       hydrateSelect(storeSelect, {
+        optionAction: option => shoppingStoreOptionAction({
+          list: selected,
+          stores,
+          option,
+          onEdit: onStoreEdit,
+        }),
         action: selected.can_edit === true ? {
           label: t('shopping.item.store.add'),
           ariaLabel: t('shopping.item.store.add'),

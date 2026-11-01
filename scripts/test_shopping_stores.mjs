@@ -56,6 +56,75 @@ assert.deepEqual(commits[0], {
 assert.deepEqual(stores.map(store => store.name), ['REWE', 'PENNY']);
 assert.equal(syncCalls, 1);
 
+const updated = await controller.update('existing', '  REWE Center  ', { authorize: () => true });
+assert.equal(updated.id, 'existing');
+assert.equal(updated.shopping_list_id, 7);
+assert.equal(updated.name, 'REWE Center');
+assert.equal(updated.is_pending, true);
+assert.deepEqual(commits.at(-1), {
+  store: updated,
+  action: 'UPDATE_SHOPPING_STORE',
+  data: { store_id: 'existing', changes: { name: 'REWE Center' } },
+  result: updated,
+});
+assert.equal(stores.find(store => store.id === 'existing').name, 'REWE Center');
+assert.equal(syncCalls, 2);
+
+const deleted = await controller.remove('existing', { authorize: () => true });
+assert.equal(deleted.id, 'existing');
+assert.equal(deleted.shopping_list_id, 7);
+assert.equal(deleted.active, false);
+assert.equal(deleted.is_pending, true);
+assert.deepEqual(commits.at(-1), {
+  store: deleted,
+  action: 'DELETE_SHOPPING_STORE',
+  data: { store_id: 'existing' },
+  result: deleted,
+});
+assert.equal(stores.find(store => store.id === 'existing').active, false);
+assert.equal(syncCalls, 3);
+
+const missingDeleteCount = commits.length;
+assert.equal(await controller.remove('missing', { authorize: () => true }), null, 'missing stores must not create delete mutations');
+assert.equal(commits.length, missingDeleteCount);
+
+stores = stores.map(store => store.id === 'existing' ? { ...store, active: true, is_pending: false } : store);
+let deleteAllowed = true;
+const delayedDeleteGate = deferred();
+const delayedDelete = createShoppingStoresController({
+  getStores: () => stores,
+  setStores: next => { stores = structuredClone(next); },
+  commitMutation: async build => {
+    await delayedDeleteGate.promise;
+    return build();
+  },
+});
+const deniedDelete = delayedDelete.remove('existing', { authorize: () => deleteAllowed });
+deleteAllowed = false;
+delayedDeleteGate.resolve();
+assert.equal(await deniedDelete, null, 'permission loss before the durable builder runs must cancel store deletion');
+assert.equal(stores.find(store => store.id === 'existing').active, true);
+
+const duplicateUpdateCount = commits.length;
+assert.equal(await controller.update('existing', 'PENNY', { authorize: () => true }), null, 'renaming to an active store in the same list must be rejected');
+assert.equal(commits.length, duplicateUpdateCount);
+
+let updateAllowed = true;
+const delayedUpdateGate = deferred();
+const delayedUpdate = createShoppingStoresController({
+  getStores: () => stores,
+  setStores: next => { stores = structuredClone(next); },
+  commitMutation: async build => {
+    await delayedUpdateGate.promise;
+    return build();
+  },
+});
+const deniedUpdate = delayedUpdate.update('existing', 'REWE City', { authorize: () => updateAllowed });
+updateAllowed = false;
+delayedUpdateGate.resolve();
+assert.equal(await deniedUpdate, null, 'permission loss before the durable builder runs must cancel store updates');
+assert.equal(stores.find(store => store.id === 'existing').name, 'REWE Center');
+
 const sameNameOnAnotherList = await controller.create('REWE', { shoppingListId: 8 });
 assert.equal(sameNameOnAnotherList.shopping_list_id, 8, 'store names deduplicate only inside one shopping list');
 

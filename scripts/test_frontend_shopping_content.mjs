@@ -10,6 +10,8 @@ const fixtureSource = `
   import { createShoppingNavigationFeature } from '/static/js/features/shopping-navigation.js';
   import { createShoppingItemsController } from '/static/js/features/shopping-items.js';
   import { createShoppingStoresController } from '/static/js/features/shopping-stores.js';
+  import { createShoppingStoreEditorFeature } from '/static/js/features/shopping-store-editor.js';
+  import { SHOPPING_DIALOGS_HTML } from '/static/js/modules/shopping-dialogs.js';
   import { initI18n, setLanguagePreference } from '/static/js/i18n/index.js';
 
   localStorage.setItem('nia-todo-language', 'de');
@@ -26,7 +28,7 @@ const fixtureSource = `
         { id: 'temp-shopping-item-3', name: 'Sehr langer responsiver Artikeltitel ohne horizontalen Überlauf', quantity_value: 0, quantity_unit: 'SehrLangeMengeneinheitOhneTrennzeichen', completed: false, section_id: null },
         { id: 31, name: 'Erledigt', quantity_value: 2, quantity_unit: 'kg', completed: true, section_id: null },
       ], sections: [] },
-    { id: 4, name: 'Markteinkauf', color: '#ea580c', icon: 'store', sort_order: 3, can_manage: false, can_edit: true,
+    { id: 4, name: 'Markteinkauf', color: '#ea580c', icon: 'store', sort_order: 3, can_manage: true, can_edit: true,
       preferences: { hide_empty_sections: true },
       items: [
         { id: 40, name: 'Überall', completed: false, section_id: 'market-section', store_ids: [] },
@@ -59,13 +61,17 @@ const fixtureSource = `
       <span id="todo-badge-reference" class="todo-meta-chip ui-badge">Referenz</span>
       <span id="todo-reminder-reference" class="todo-meta-chip ui-badge todo-reminder">Erinnerung</span>
     </div>
+    <button id="test-confirm-button" type="button" style="position:fixed;left:-9999px">Confirm</button>
     <main id="shopping-navigation-main" class="module-page module-empty-page"></main>
   \`;
   let navigation;
   let mutationCommits = 0;
   let storeSequence = 0;
   let deferredStoreCommit = null;
+  let storeCommitError = null;
+  let confirmResult = true;
   const mutations = [];
+  const confirmations = [];
   const itemController = createShoppingItemsController({
     getLists: () => lists,
     setLists: next => { lists = next; },
@@ -83,6 +89,11 @@ const fixtureSource = `
     setStores: next => { stores = structuredClone(next); navigation?.render(); },
     commitMutation: async build => {
       if (deferredStoreCommit) await deferredStoreCommit.promise;
+      if (storeCommitError) {
+        const error = storeCommitError;
+        storeCommitError = null;
+        throw error;
+      }
       mutationCommits += 1;
       const mutation = build();
       if (mutation) mutations.push(structuredClone(mutation));
@@ -90,12 +101,27 @@ const fixtureSource = `
     },
     createTempId: () => 'temp-store-filter-created-' + (++storeSequence),
   });
+  const storeEditor = createShoppingStoreEditorFeature({
+    document,
+    getLists: () => lists,
+    getStores: () => stores,
+    storeController,
+    confirmDanger: async options => {
+      confirmations.push({ title: options.title, message: options.message, confirmText: options.confirmText });
+      document.getElementById('test-confirm-button')?.focus();
+      if (!confirmResult) options.returnFocus?.()?.focus?.();
+      return confirmResult;
+    },
+  });
+  storeEditor.bind();
+  document.body.insertAdjacentHTML('beforeend', SHOPPING_DIALOGS_HTML);
   navigation = createShoppingNavigationFeature({
     getLists: () => lists, root: document,
     getStores: () => stores,
     getElementById: id => document.getElementById(id),
     storage: localStorage, historyTarget: history, locationTarget: location, eventTarget: window,
     closeSidebar: () => false, onAdd: () => {}, onDetail: () => {},
+    onStoreEdit: (listId, storeId, trigger) => storeEditor.showEdit(listId, storeId, trigger),
     itemController,
     storeController,
   });
@@ -123,9 +149,12 @@ const fixtureSource = `
       deferredStoreCommit?.release();
       deferredStoreCommit = null;
     },
+    failStoreCommit: () => { storeCommitError = new Error('IndexedDB unavailable'); },
+    setConfirmResult: value => { confirmResult = Boolean(value); },
     storeFilter: () => navigation.getStoreFilter(),
     setStores: next => { stores = structuredClone(next); navigation.render(); },
     stores: () => structuredClone(stores),
+    confirmations: () => structuredClone(confirmations),
   };
 `;
 
@@ -215,15 +244,60 @@ try {
   assert(Math.abs(desktopHeader.titleTop - desktopHeader.filterTop) < 12, 'a short list title and its current-list filter must share the desktop header row');
   const marketTrigger = page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger');
   await marketTrigger.click();
-  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'REWE' }).click();
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').count(), 3, 'each manageable store option must expose its own edit action');
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().getAttribute('aria-label'), 'REWE bearbeiten');
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().evaluate(element => element.closest('[role="listbox"]')), null, 'store edit actions must remain outside the listbox semantics');
+  const firstOptionCenters = await page.locator('#shopping-store-filter-ui-menu').evaluate(menu => {
+    const option = menu.querySelector('.ui-select-option[data-index="1"]');
+    const action = menu.querySelector('.ui-select-option-action[data-index="1"]');
+    const optionRect = option.getBoundingClientRect();
+    const actionRect = action.getBoundingClientRect();
+    return { option: optionRect.top + optionRect.height / 2, action: actionRect.top + actionRect.height / 2 };
+  });
+  assert(Math.abs(firstOptionCenters.option - firstOptionCenters.action) < 1, `each detached edit action must remain vertically aligned with its store option: ${JSON.stringify(firstOptionCenters)}`);
+  await marketTrigger.press('ArrowDown');
+  await marketTrigger.press('ArrowRight');
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().evaluate(element => document.activeElement === element), true, 'ArrowRight must focus the highlighted option action');
+  await page.keyboard.press('ArrowLeft');
+  assert.equal(await marketTrigger.evaluate(element => document.activeElement === element), true, 'ArrowLeft must return focus to the select trigger');
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().click();
+  const storeModal = page.locator('#shopping-store-modal');
+  assert.equal(await storeModal.getAttribute('aria-hidden'), 'false');
+  const storeNameInput = page.locator('#shopping-store-name');
+  assert.equal(await storeNameInput.inputValue(), 'REWE');
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), null, 'editing a dropdown option must not select it as the local filter');
+  const focusCycle = await storeModal.evaluate(modal => {
+    const elements = Array.from(modal.querySelectorAll('button:not([disabled]):not([hidden]), input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), summary, [tabindex]:not([tabindex="-1"])'))
+      .filter(element => !element.closest('[hidden]') && element.offsetParent !== null);
+    elements.at(-1)?.focus();
+    return { first: elements[0]?.id || '', last: elements.at(-1)?.id || '' };
+  });
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement?.id || ''), focusCycle.first, 'Tab from the final modal control must wrap to the first control');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.getElementById('shopping-store-modal')?.getAttribute('aria-hidden') === 'true');
+  assert.equal(await marketTrigger.evaluate(element => document.activeElement === element), true, 'Escape must close the store editor and restore dropdown-trigger focus');
+  await marketTrigger.click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().click();
+  await storeNameInput.waitFor({ state: 'visible' });
+  await storeNameInput.fill('REWE Center');
+  await page.locator('#shopping-store-save-btn').click();
+  await page.waitForFunction(() => window.test.stores().some(store => store.id === 'store-rewe' && store.name === 'REWE Center'));
+  assert.equal(await storeModal.getAttribute('aria-hidden'), 'true');
+  assert.equal(await page.evaluate(() => window.test.mutations().at(-1).action), 'UPDATE_SHOPPING_STORE');
+  assert.deepEqual(await page.evaluate(() => window.test.mutations().at(-1).data), { store_id: 'store-rewe', changes: { name: 'REWE Center' } });
+  const commitsAfterStoreEdit = await page.evaluate(() => window.test.mutationCommits());
+  await marketTrigger.click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'REWE Center' }).click();
   assert.deepEqual(await main.locator('.shopping-item-title').allTextContents(), ['Nur REWE'], 'a selected store must hide unassigned items and assignments for every other store');
   assert.equal(await page.locator('.section-header:not(.section-unsorted)').count(), 1, 'hide-empty must apply after the current-list market filter');
   assert.equal(await page.evaluate(() => window.test.storeFilter()), 'store-rewe');
-  assert.equal(await page.evaluate(() => window.test.mutationCommits()), 0, 'a device-local store filter must not create an IndexedDB or sync-queue mutation');
+  assert.equal(await page.evaluate(() => window.test.mutationCommits()), commitsAfterStoreEdit, 'a device-local store filter must not create an IndexedDB or sync-queue mutation');
   await page.evaluate(() => window.test.select(5));
   assert.equal(await page.evaluate(() => window.test.storeFilter()), null, 'each shopping list must retain an independent device-local filter');
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
   assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-action').count(), 0, 'read-only list members may filter but must not create stores');
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').count(), 0, 'read-only list members must not receive store edit actions');
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').press('Escape');
   await page.evaluate(() => window.test.select(4));
   assert.equal(await page.evaluate(() => window.test.storeFilter()), 'store-rewe', 'returning to a list must restore its device-local filter');
@@ -293,8 +367,50 @@ try {
   await page.evaluate(() => window.test.select(4));
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
   assert.equal((await page.locator('#shopping-store-filter-ui-menu .ui-select-action').textContent()).trim(), 'Add store');
-  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').press('Escape');
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().getAttribute('aria-label'), 'Edit REWE');
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().click();
+  await page.locator('#shopping-store-detail-menu-trigger').click();
+  assert.equal((await page.locator('[data-shopping-store-editor-action="delete"]').textContent()).trim(), 'Delete store');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.getElementById('shopping-store-modal')?.getAttribute('aria-hidden') === 'true');
   await page.evaluate(() => window.test.setLanguage('de'));
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'REWE' }).click();
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), 'store-rewe');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().click();
+  await page.locator('#shopping-store-detail-menu-trigger').click();
+  await page.evaluate(() => window.test.setConfirmResult(false));
+  await page.locator('[data-shopping-store-editor-action="delete"]').click();
+  assert.equal(await page.locator('#shopping-store-detail-menu-trigger').evaluate(element => document.activeElement === element), true, 'cancelling store deletion must restore focus to the visible detail-menu trigger');
+  assert.equal(await page.evaluate(() => window.test.stores().some(store => store.id === 'store-rewe' && store.active !== false)), true, 'cancelling store deletion must keep the store active');
+  assert.equal(await storeModal.getAttribute('aria-hidden'), 'false');
+  await page.evaluate(() => window.test.setConfirmResult(true));
+  await page.locator('#shopping-store-detail-menu-trigger').click();
+  await page.locator('[data-shopping-store-editor-action="delete"]').click();
+  await page.waitForFunction(() => window.test.stores().some(store => store.id === 'store-rewe' && store.active === false));
+  assert.deepEqual(await page.evaluate(() => window.test.confirmations().at(-1)), {
+    title: 'Supermarkt löschen',
+    message: '„REWE“ wirklich löschen? Die Artikel bleiben erhalten.',
+    confirmText: 'Supermarkt löschen',
+  });
+  assert.equal(await page.evaluate(() => window.test.mutations().at(-1).action), 'DELETE_SHOPPING_STORE');
+  assert.deepEqual(await page.evaluate(() => window.test.mutations().at(-1).data), { store_id: 'store-rewe' });
+  assert.equal(await storeModal.getAttribute('aria-hidden'), 'true');
+  assert.equal(await page.evaluate(() => window.test.storeFilter()), null, 'deleting the currently filtered store must fall back to all stores');
+  assert.equal(await main.locator('.shopping-item-card').count(), 3, 'deleting a store must keep its shopping items');
+  assert.equal(await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').evaluate(element => document.activeElement === element), true, 'store deletion must restore focus to the rerendered store-filter trigger');
+  await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().click();
+  await page.locator('#shopping-store-detail-menu-trigger').click();
+  await page.evaluate(() => window.test.failStoreCommit());
+  await page.locator('[data-shopping-store-editor-action="delete"]').click();
+  await page.waitForFunction(() => document.getElementById('shopping-store-edit-error')?.textContent === 'Der Supermarkt konnte nicht gelöscht werden.');
+  assert.equal(await page.evaluate(() => window.test.stores().some(store => store.id === 'store-aldi' && store.active !== false)), true, 'a failed durable delete must keep the store active');
+  assert.equal(await storeModal.getAttribute('aria-hidden'), 'false', 'a failed delete must keep the store editor open');
+  assert.equal(await page.locator('#shopping-store-detail-menu-trigger').evaluate(element => document.activeElement === element), true, 'a failed delete must move focus out of the closed confirmation dialog');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.getElementById('shopping-store-modal')?.getAttribute('aria-hidden') === 'true');
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
   await page.locator('#shopping-store-filter-ui-menu .ui-select-option').filter({ hasText: 'Alle Supermärkte' }).click();
   await page.evaluate(() => window.test.select(5));
@@ -446,6 +562,11 @@ try {
   assert(mobile.filterTop >= mobile.titleBottom - 0.5, 'the current-list filter must wrap below a long title instead of crushing it');
   assert(mobile.filterWidth >= 160, 'the existing dropdown must retain a usable mobile width');
   await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').click();
+  const mobileStoreEditAction = await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().evaluate(element => ({
+    width: element.getBoundingClientRect().width,
+    height: element.getBoundingClientRect().height,
+  }));
+  assert(mobileStoreEditAction.width >= 44 && mobileStoreEditAction.height >= 44, 'per-store edit actions must retain a 44px mobile touch target');
   await page.locator('#shopping-store-filter-ui-menu .ui-select-action').click();
   const mobileCreator = await page.locator('#shopping-filter-store-new-store').evaluate(element => ({
     fitsViewport: document.documentElement.scrollWidth <= innerWidth,

@@ -40,6 +40,7 @@ try {
             <script type="module">
               import { hydrateSelect } from '/static/js/ui/dropdowns.js';
               window.actionCalls = 0;
+              window.optionActionCalls = 0;
               window.disabledActionCalls = 0;
               window.focusFromAction = false;
               window.instance = hydrateSelect(document.querySelector('#entity-select'), {
@@ -52,6 +53,14 @@ try {
                     window.actionCalls += 1;
                     if (window.focusFromAction) document.querySelector('#caller-focus-target').focus();
                   },
+                },
+                optionAction(option) {
+                  if (option.value !== 'two') return null;
+                  return {
+                    icon: 'pencil',
+                    ariaLabel: 'Edit Two',
+                    onActivate() { window.optionActionCalls += 1; },
+                  };
                 },
               });
               window.disabledInstance = hydrateSelect(document.querySelector('#disabled-select'), {
@@ -87,15 +96,18 @@ try {
   assert.equal(await action.evaluate(element => getComputedStyle(element).borderTopWidth), '0px', 'the desktop action row must not introduce a separator line');
   await page.setViewportSize({ width: 390, height: 800 });
   assert.equal(await action.evaluate(element => element.closest('[role="listbox"]')), null, 'the action must not be nested inside the listbox');
+  const optionAction = page.locator('.ui-select-option-action');
+  assert.equal(await optionAction.evaluate(element => element.closest('[role="listbox"]')), null, 'per-option actions must remain outside the listbox semantics');
   assert.equal(await page.locator('[role="listbox"] .ui-select-option').count(), 2, 'native options remain inside the listbox');
   assert.deepEqual(
     await page.locator('.ui-select-menu').evaluate(menu => Array.from(menu.children).map(child => child.className)),
-    ['ui-select-search', 'ui-select-options', 'ui-select-empty', 'ui-select-action'],
+    ['ui-select-search', 'ui-select-options', 'ui-select-option-actions', 'ui-select-empty', 'ui-select-action'],
     'the action follows search and listbox content',
   );
   assert.ok(await action.evaluate(element => element.getBoundingClientRect().height >= 44), 'the action keeps a 44px mobile pointer target');
   await page.locator('.ui-select-search-input').fill('no matching option');
   assert.equal(await action.isVisible(), true, 'filtering options keeps the generic action available');
+  assert.equal(await optionAction.isVisible(), false, 'filtering an option also hides its detached action');
 
   await action.click();
   assert.equal(await page.evaluate(() => window.actionCalls), 1, 'pointer activation invokes the callback once');
@@ -124,6 +136,30 @@ try {
   assert.equal(await trigger.getAttribute('aria-expanded'), 'false', 'Escape from the action closes the dropdown');
   assert.equal(await trigger.evaluate(element => element === document.activeElement), true, 'Escape from the action restores focus to the trigger');
   assert.equal(await page.evaluate(() => window.actionCalls), 2, 'Escape does not activate the action');
+
+  await page.evaluate(() => {
+    window.focusFromAction = false;
+    const select = document.querySelector('#entity-select');
+    select.value = 'one';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await trigger.press('Enter');
+  await search.fill('Two');
+  assert.equal(await page.locator('.ui-select-option.is-highlighted').textContent(), 'Two', 'search must highlight the first matching visible option');
+  await search.press('ArrowRight');
+  assert.equal(await optionAction.evaluate(element => element === document.activeElement), true, 'ArrowRight from a searchable select reaches the highlighted option action');
+  await optionAction.press('ArrowLeft');
+  assert.equal(await trigger.evaluate(element => element === document.activeElement), true, `ArrowLeft from an option action returns to the trigger (active=${await page.evaluate(() => document.activeElement?.className || document.activeElement?.id || document.activeElement?.tagName)})`);
+  await trigger.press('ArrowRight');
+  await optionAction.press('Enter');
+  assert.equal(await page.evaluate(() => window.optionActionCalls), 1, 'keyboard activation invokes a per-option action once');
+  assert.equal(await trigger.getAttribute('aria-expanded'), 'false', 'per-option action activation closes the dropdown');
+
+  await trigger.press('Enter');
+  await search.fill('Two');
+  await search.press('Enter');
+  assert.equal(await page.locator('#entity-select').inputValue(), 'two', 'Enter selects the highlighted search result');
+  assert.equal(await trigger.getAttribute('aria-expanded'), 'false', 'selecting a search result closes the dropdown');
 
   await page.evaluate(() => { window.escapeBubbledWithoutDefault = false; });
   await trigger.press('Enter');

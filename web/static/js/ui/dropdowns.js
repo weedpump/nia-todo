@@ -113,6 +113,8 @@ function applySearchFilter(instance) {
   rows.forEach(row => {
     const matches = !term || normalizeSearch(row.dataset.label || '').includes(term);
     row.hidden = !matches;
+    const action = optionActionButton(instance, Number(row.dataset.index));
+    if (action) action.hidden = !matches;
     if (matches) visibleCount += 1;
   });
   const empty = instance.menu.querySelector('.ui-select-empty');
@@ -135,6 +137,7 @@ function renderSearch(instance) {
   input.value = instance.searchTerm || '';
   input.placeholder = instance.options.searchPlaceholder || 'Projekte suchen';
   input.setAttribute('aria-label', instance.options.searchLabel || input.placeholder);
+  input.addEventListener('focus', () => { instance.searchReceivedFocus = true; });
   input.addEventListener('input', () => {
     instance.searchTerm = input.value;
     applySearchFilter(instance);
@@ -142,7 +145,7 @@ function renderSearch(instance) {
   });
   input.addEventListener('keydown', (event) => {
     event.stopPropagation();
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'ArrowRight' || event.key === 'Enter') {
       onMenuKeydown(event);
     }
   });
@@ -176,6 +179,19 @@ function renderAction(instance) {
   instance.menu.appendChild(row);
 }
 
+function activateOptionAction(instance, action, option, index) {
+  if (!action || typeof action.onActivate !== 'function' || instance.select.disabled || option.disabled) return;
+  closeOpenDropdown('option-action');
+  instance.trigger.focus();
+  action.onActivate({
+    option,
+    value: option.value,
+    index,
+    select: instance.select,
+    trigger: instance.trigger,
+  });
+}
+
 function renderMenu(instance) {
   instance.menu.innerHTML = '';
   renderSearch(instance);
@@ -186,8 +202,13 @@ function renderMenu(instance) {
   const labelId = instance.menu.dataset.labelledby;
   if (labelId) listbox.setAttribute('aria-labelledby', labelId);
   instance.menu.appendChild(listbox);
+  const actionLayer = document.createElement('div');
+  actionLayer.className = 'ui-select-option-actions';
   const options = visibleOptions(instance.select);
   options.forEach((option, index) => {
+    const optionAction = typeof instance.options.optionAction === 'function'
+      ? instance.options.optionAction(option, index)
+      : null;
     const row = document.createElement('button');
     row.type = 'button';
     row.id = optionId(instance, index);
@@ -204,6 +225,7 @@ function renderMenu(instance) {
     const marker = optionMarker(option);
     row.classList.toggle('has-project-marker', Boolean(option.dataset?.projectColor || option.dataset?.projectIcon));
     row.classList.toggle('has-option-marker', Boolean(marker));
+    row.classList.toggle('has-option-action', Boolean(optionAction?.icon && typeof optionAction.onActivate === 'function' && !option.disabled));
     row.innerHTML = `<span class="ui-select-option-branch" aria-hidden="true"></span>${marker}<span class="ui-select-option-label">${escapeHtml(optionLabel(option))}</span><span class="ui-select-option-check" aria-hidden="true">${iconSvg('check')}</span>`;
     row.addEventListener('click', () => {
       if (option.disabled) return;
@@ -211,7 +233,21 @@ function renderMenu(instance) {
     });
     row.addEventListener('mouseenter', () => highlightIndex(instance, index));
     listbox.appendChild(row);
+    if (optionAction?.icon && typeof optionAction.onActivate === 'function' && !option.disabled) {
+      const actionButton = document.createElement('button');
+      actionButton.type = 'button';
+      actionButton.className = 'ui-select-option-action';
+      actionButton.dataset.index = String(index);
+      actionButton.setAttribute('aria-label', optionAction.ariaLabel || optionAction.label || optionLabel(option));
+      actionButton.innerHTML = iconSvg(optionAction.icon);
+      actionButton.addEventListener('click', event => {
+        event.stopPropagation();
+        activateOptionAction(instance, optionAction, option, index);
+      });
+      actionLayer.appendChild(actionButton);
+    }
   });
+  if (actionLayer.children.length) instance.menu.appendChild(actionLayer);
   if (isSearchable(instance)) {
     const empty = document.createElement('div');
     empty.className = 'ui-select-empty';
@@ -221,6 +257,18 @@ function renderMenu(instance) {
     applySearchFilter(instance);
   }
   renderAction(instance);
+}
+
+function layoutOptionActions(instance) {
+  if (!instance) return;
+  const listbox = instance.menu.querySelector('.ui-select-options');
+  if (!listbox) return;
+  instance.menu.querySelectorAll('.ui-select-option-action').forEach(action => {
+    const option = instance.menu.querySelector(`.ui-select-option[data-index="${action.dataset.index}"]`);
+    action.hidden = !option || option.hidden;
+    if (action.hidden) return;
+    action.style.top = `${option.offsetTop + Math.max(0, (option.offsetHeight - action.offsetHeight) / 2)}px`;
+  });
 }
 
 function positionDropdown(trigger, menu) {
@@ -261,6 +309,7 @@ function positionDropdown(trigger, menu) {
   menu.style.top = `${Math.max(edge, top)}px`;
   menu.style.visibility = '';
   menu.classList.toggle('opens-above', openAbove);
+  layoutOptionActions(openState?.instance || registry.get(document.getElementById(menu.dataset.selectId)));
 }
 
 function highlightedOption(instance) {
@@ -269,6 +318,10 @@ function highlightedOption(instance) {
 
 function menuOptionRows(instance) {
   return Array.from(instance.menu.querySelectorAll('.ui-select-option')).filter(row => !row.hidden);
+}
+
+function optionActionButton(instance, index) {
+  return instance.menu.querySelector(`.ui-select-option-action[data-index="${index}"]`);
 }
 
 function actionRow(instance) {
@@ -295,7 +348,11 @@ function moveOptionHighlight(instance, currentIndex, direction) {
 function highlightIndex(instance, index) {
   const options = Array.from(instance.menu.querySelectorAll('.ui-select-option'));
   options.forEach(option => option.classList.remove('is-highlighted'));
-  const target = options.find(option => Number(option.dataset.index) === Number(index) && !option.hidden);
+  const target = options.find(option => (
+    Number(option.dataset.index) === Number(index)
+    && !option.hidden
+    && !option.closest('.ui-select-option-row')?.hidden
+  ));
   if (!target || target.disabled) return;
   target.classList.add('is-highlighted');
   instance.trigger.setAttribute('aria-activedescendant', target.id);
@@ -343,6 +400,9 @@ function openDropdown(instance) {
     return;
   }
   closeOpenDropdown('open-another');
+  instance.openSequence = Number(instance.openSequence || 0) + 1;
+  const openSequence = instance.openSequence;
+  instance.searchReceivedFocus = false;
   instance.searchTerm = '';
   renderMenu(instance);
   document.body.appendChild(instance.menu);
@@ -355,6 +415,8 @@ function openDropdown(instance) {
   openState = { instance };
   if (isSearchable(instance)) {
     window.setTimeout(() => {
+      if (openState?.instance !== instance || instance.openSequence !== openSequence) return;
+      if (instance.searchReceivedFocus) return;
       const input = instance.menu.querySelector('.ui-select-search-input');
       if (!input) return;
       if (document.activeElement !== instance.trigger && document.activeElement !== document.body) return;
@@ -380,6 +442,16 @@ export function closeOpenDropdown(reason = 'programmatic') {
 
 function onTriggerKeydown(instance, event) {
   const isOpen = openState?.instance === instance;
+  if (event.key === 'ArrowRight' && isOpen) {
+    const current = highlightedOption(instance);
+    const index = current ? Number(current.dataset.index) : selectedIndex(instance);
+    const action = optionActionButton(instance, index);
+    if (action) {
+      event.preventDefault();
+      action.focus();
+    }
+    return;
+  }
   if ((event.key === 'Enter' || event.key === ' ') && isOpen) {
     event.preventDefault();
     const target = highlightedOption(instance);
@@ -405,6 +477,7 @@ function onMenuKeydown(event) {
   if (!openState) return;
   const instance = openState.instance;
   const action = event.target.closest?.('.ui-select-action');
+  const optionAction = event.target.closest?.('.ui-select-option-action');
   if (event.key === 'Escape') {
     event.preventDefault();
     closeOpenDropdown('escape');
@@ -428,8 +501,33 @@ function onMenuKeydown(event) {
     if (target) highlightIndex(instance, Number(target.dataset.index));
     return;
   }
+  if (optionAction && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault();
+    const index = Number(optionAction.dataset.index);
+    const option = visibleOptions(instance.select)[index];
+    const descriptor = typeof instance.options.optionAction === 'function'
+      ? instance.options.optionAction(option, index)
+      : null;
+    activateOptionAction(instance, descriptor, option, index);
+    return;
+  }
+  if (optionAction && event.key === 'ArrowLeft') {
+    event.preventDefault();
+    const index = Number(optionAction.dataset.index);
+    instance.trigger.focus();
+    highlightIndex(instance, index);
+    return;
+  }
   const current = highlightedOption(instance);
   const currentIndex = current ? Number(current.dataset.index) : selectedIndex(instance);
+  if (event.key === 'ArrowRight') {
+    const action = optionActionButton(instance, currentIndex);
+    if (action && !action.hidden) {
+      event.preventDefault();
+      action.focus();
+    }
+    return;
+  }
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault();
     const direction = event.key === 'ArrowDown' ? 1 : -1;
@@ -512,6 +610,7 @@ export function hydrateSelect(select, options = {}) {
   const menu = document.createElement('div');
   menu.id = `${select.id}-ui-menu`;
   menu.className = `ui-select-menu ${options.menuClassName || ''}`.trim();
+  menu.dataset.selectId = select.id;
   menu.hidden = true;
   menu.addEventListener('keydown', onMenuKeydown);
   trigger.setAttribute('aria-controls', `${select.id}-ui-listbox`);

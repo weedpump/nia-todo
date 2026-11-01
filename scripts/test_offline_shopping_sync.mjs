@@ -150,6 +150,7 @@ let queueState = [
 ];
 let shoppingState = [{ id: 'temp-list-2', name: 'Queued', sections: [], items: [{ id: 'temp-item-2', name: 'Eggs', section_id: null, store_ids: ['temp-store-list-remap'], stores: [], completed: false }], preferences: {} }];
 let shoppingStoreState = [{ id: 'temp-store-list-remap', shopping_list_id: 'temp-list-2', name: 'Market', active: true }];
+let persistedShoppingStoreState = structuredClone(shoppingStoreState);
 let serverItems = [];
 const shoppingApi = {
   createList: async data => ({ id: 70, ...data }),
@@ -202,6 +203,7 @@ const syncFeature = createSyncFeature({
       const exists = shoppingStoreState.some(entry => String(entry.id) === String(replayStore.id));
       shoppingStoreState = exists ? shoppingStoreState.map(entry => String(entry.id) === String(replayStore.id) ? structuredClone(replayStore) : entry) : [...shoppingStoreState, structuredClone(replayStore)];
     }
+    persistedShoppingStoreState = structuredClone(shoppingStoreState);
     const deletes = new Set([...queueDeleteIds, queueDeleteId].filter(id => id != null).map(String));
     const records = new Map(queueRecords.map(entry => [String(entry.id), structuredClone(entry)]));
     queueState = queueState.filter(entry => !deletes.has(String(entry.id))).map(entry => records.get(String(entry.id)) || entry);
@@ -240,6 +242,35 @@ assert.equal(queueState.length, 0);
 assert.deepEqual(shoppingStoreState.map(store => [store.id, store.name]), [[90, 'REWE Center']]);
 assert.deepEqual(shoppingState[0].items.find(item => item.id === 201).store_ids, [90]);
 
+queueState = [
+  { id: 29, action: 'CREATE_SHOPPING_STORE', data: { shopping_list_id: 70, temp_id: 'temp-store-pending-delete', name: 'NETTO', sort_order: 1, client_mutation_id: 'temp-store-pending-delete' } },
+  { id: 30, action: 'DELETE_SHOPPING_STORE', data: { store_id: 'temp-store-pending-delete' } },
+];
+shoppingStoreState = [{ id: 'temp-store-pending-delete', shopping_list_id: 70, name: 'NETTO', active: false, client_mutation_id: 'temp-store-pending-delete', is_pending: true }];
+persistedShoppingStoreState = structuredClone(shoppingStoreState);
+shoppingApi.createStore = async data => ({ id: 92, ...data, active: true });
+shoppingApi.deleteStore = async () => { const error = new Error('temporarily unavailable'); error.status = 503; throw error; };
+const pendingStoreDeleteResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
+assert.deepEqual(pendingStoreDeleteResult, { successCount: 1, failCount: 1, skipped: false });
+assert.deepEqual(queueState.map(entry => [entry.action, entry.data.store_id]), [['DELETE_SHOPPING_STORE', 92]], 'pending delete must be rewritten to the created server store ID');
+assert.deepEqual(shoppingStoreState, [], 'a pending delete must remain absent from the persisted offline projection after create sync');
+assert.deepEqual(persistedShoppingStoreState, [], 'IndexedDB must not persist the newly created active store while its rewritten delete remains queued');
+
+queueState = [
+  { id: 27, action: 'CREATE_SHOPPING_STORE', data: { shopping_list_id: 70, temp_id: 'temp-store-delete', name: 'ALDI', sort_order: 1, client_mutation_id: 'temp-store-delete' } },
+  { id: 28, action: 'DELETE_SHOPPING_STORE', data: { store_id: 'temp-store-delete' } },
+];
+shoppingStoreState = [{ id: 'temp-store-delete', shopping_list_id: 70, name: 'ALDI', active: false, client_mutation_id: 'temp-store-delete', is_pending: true }];
+shoppingApi.createStore = async data => ({ id: 91, ...data, active: true });
+shoppingApi.deleteStore = async storeId => {
+  assert.equal(storeId, 91, 'deleting an offline-created store uses its remapped server ID');
+  return { id: 91, shopping_list_id: 70, name: 'ALDI', active: false };
+};
+const createDeleteStoreReplayResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
+assert.deepEqual(createDeleteStoreReplayResult, { successCount: 2, failCount: 0, skipped: false });
+assert.equal(queueState.length, 0);
+assert.deepEqual(shoppingStoreState.map(store => [store.id, store.active]), [[91, false]]);
+
 queueState = [{ id: 24, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 90, changes: { name: '' } } }];
 shoppingStoreState = [{ id: 90, shopping_list_id: 70, name: '', active: true }];
 shoppingApi.updateStore = async () => { const error = new Error('invalid store'); error.status = 422; throw error; };
@@ -249,6 +280,26 @@ assert.deepEqual(storeRecoveryResult, { successCount: 1, failCount: 0, skipped: 
 assert.equal(queueState.length, 0);
 assert.deepEqual(shoppingStoreState.map(store => [store.id, store.name]), [[90, 'REWE Center']]);
 assert.equal(shoppingState[0].id, 70, 'store recovery must not delete a shopping list with the same numeric id');
+
+queueState = [{ id: 25, action: 'DELETE_SHOPPING_STORE', data: { store_id: 90 } }];
+shoppingStoreState = [{ id: 90, shopping_list_id: 70, name: 'REWE Center', active: false, is_pending: true }];
+shoppingApi.deleteStore = async storeId => {
+  assert.equal(storeId, 90);
+  return { id: 90, shopping_list_id: 70, name: 'REWE Center', active: false };
+};
+const storeDeleteResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
+assert.deepEqual(storeDeleteResult, { successCount: 1, failCount: 0, skipped: false });
+assert.equal(queueState.length, 0);
+assert.deepEqual(shoppingStoreState.map(store => [store.id, store.active]), [[90, false]], 'store deletion keeps the authoritative inactive projection');
+
+queueState = [{ id: 26, action: 'DELETE_SHOPPING_STORE', data: { store_id: 90 } }];
+shoppingStoreState = [{ id: 90, shopping_list_id: 70, name: 'REWE Center', active: false, is_pending: true }];
+shoppingApi.deleteStore = async () => { const error = new Error('store cannot be deleted'); error.status = 422; throw error; };
+shoppingApi.listStores = async () => ({ shopping_stores: [{ id: 90, shopping_list_id: 70, name: 'REWE Center', active: true }] });
+const storeDeleteRecoveryResult = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: { value: false, requested: false } });
+assert.deepEqual(storeDeleteRecoveryResult, { successCount: 1, failCount: 0, skipped: false });
+assert.equal(queueState.length, 0);
+assert.deepEqual(shoppingStoreState.map(store => [store.id, store.active]), [[90, true]], 'rejected store deletion restores the authoritative active store');
 
 let createdSectionPayload = null;
 let updatedSectionId = null;

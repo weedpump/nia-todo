@@ -42,6 +42,7 @@ import { createShoppingNavigationFeature } from './features/shopping-navigation.
 import { createShoppingItemsController } from './features/shopping-items.js';
 import { createShoppingItemEditorFeature } from './features/shopping-item-editor.js';
 import { createShoppingStoresController } from './features/shopping-stores.js';
+import { createShoppingStoreEditorFeature } from './features/shopping-store-editor.js';
 import { createShoppingListDetailsFeature } from './features/shopping-list-details.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createSectionRootRegistry } from './features/section-ui.js';
@@ -90,6 +91,7 @@ let moduleSwitcher = null;
 let shoppingNavigationFeature = null;
 let shoppingListDetailsFeature = null;
 let shoppingItemEditorFeature = null;
+let shoppingStoreEditorFeature = null;
 let shoppingViewPreferencesFeature = null;
 
 function renderShopping() {
@@ -829,12 +831,21 @@ const shoppingStoresController = createShoppingStoresController({
   syncWithServer,
   onError: error => console.error('Shopping store mutation failed', error),
 });
+shoppingStoreEditorFeature = createShoppingStoreEditorFeature({
+  getLists: () => shoppingLists,
+  getStores: () => shoppingStores,
+  storeController: shoppingStoresController,
+  confirmDanger,
+  onError: error => console.error('Shopping store editor failed', error),
+});
+shoppingStoreEditorFeature.bind();
 shoppingNavigationFeature = createShoppingNavigationFeature({
   getLists: () => shoppingLists,
   getStores: () => shoppingStores,
   closeSidebar: options => uiShell.closeSidebar(options),
   onAdd: () => window.dispatchEvent(new CustomEvent('nia:shopping-list-add-request')),
   onDetail: id => window.dispatchEvent(new CustomEvent('nia:shopping-list-detail-request', { detail: { id } })),
+  onStoreEdit: (listId, storeId, trigger) => shoppingStoreEditorFeature?.showEdit?.(listId, storeId, trigger),
   onListIdRemap: (fromId, toId) => shoppingListDetailsFeature?.remapListId(fromId, toId),
   onRender: () => shoppingViewPreferencesFeature?.updateButton?.(),
   sectionRegistry,
@@ -871,6 +882,7 @@ shoppingItemEditorFeature = createShoppingItemEditorFeature({
   storeController: shoppingStoresController,
   itemController: shoppingItemsController,
   confirmDanger,
+  onStoreEdit: (listId, storeId, triggerElement) => shoppingStoreEditorFeature?.showEdit?.(listId, storeId, triggerElement),
   onError: error => console.error('Shopping item editor failed', error),
 });
 shoppingItemEditorFeature.bind();

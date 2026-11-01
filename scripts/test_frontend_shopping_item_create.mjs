@@ -5,6 +5,8 @@ import { chromium } from 'playwright';
 
 const shoppingModuleSource = readFileSync(new URL('../web/static/js/modules/shopping.js', import.meta.url), 'utf8');
 const shoppingDialogsSource = readFileSync(new URL('../web/static/js/modules/shopping-dialogs.js', import.meta.url), 'utf8');
+const shoppingItemEditorSource = readFileSync(new URL('../web/static/js/features/shopping-item-editor.js', import.meta.url), 'utf8');
+const shoppingNavigationSource = readFileSync(new URL('../web/static/js/features/shopping-navigation.js', import.meta.url), 'utf8');
 assert.match(shoppingModuleSource, /renderModulePrimaryAction/);
 assert.match(shoppingModuleSource, /data-shopping-item-action/);
 assert.match(shoppingDialogsSource, /id="shopping-item-modal"/);
@@ -13,12 +15,15 @@ assert.doesNotMatch(shoppingDialogsSource, /icon:\s*'shopping-basket'/, 'unknown
 assert.match(shoppingDialogsSource, /id="shopping-item-section"[^>]*data-ui-select/);
 assert.match(shoppingDialogsSource, /id="shopping-item-store"[^>]*data-ui-select/);
 assert.match(shoppingDialogsSource, /data-shopping-item-editor-action="delete"/);
+assert.match(shoppingItemEditorSource, /shoppingStoreOptionAction/);
+assert.match(shoppingNavigationSource, /shoppingStoreOptionAction/);
 
 const fixtureSource = `
   import { initI18n, translatePage } from '/static/js/i18n/index.js';
   import { SHOPPING_DIALOGS_HTML } from '/static/js/modules/shopping-dialogs.js';
   import { createShoppingItemsController } from '/static/js/features/shopping-items.js';
   import { createShoppingItemEditorFeature } from '/static/js/features/shopping-item-editor.js';
+  import { createShoppingStoreEditorFeature } from '/static/js/features/shopping-store-editor.js';
   import { createShoppingNavigationFeature } from '/static/js/features/shopping-navigation.js';
   import { createShoppingStoresController } from '/static/js/features/shopping-stores.js';
 
@@ -32,6 +37,7 @@ const fixtureSource = `
   let stores = [{ id: 'other-list-store', shopping_list_id: 2, name: 'Other list market', active: true, sort_order: 0 }];
   let navigation = null;
   let editor = null;
+  let storeEditor = null;
   const commits = [];
   let confirmations = 0;
   let deferredCommit = null;
@@ -69,10 +75,18 @@ const fixtureSource = `
   navigation.selectList(activeListId, { updateNavigation: false });
   const storeController = createShoppingStoresController({
     getStores: () => stores,
-    setStores: next => { stores = next; },
+    setStores: next => { stores = next; editor?.reconcile?.(); },
     commitMutation,
     createTempId: () => 'temp-shopping-store-browser',
   });
+  storeEditor = createShoppingStoreEditorFeature({
+    document,
+    getLists: () => lists,
+    getStores: () => stores,
+    storeController,
+    confirmDanger: async () => { confirmations += 1; return true; },
+  });
+  storeEditor.bind();
   editor = createShoppingItemEditorFeature({
     document,
     eventTarget: window,
@@ -82,12 +96,18 @@ const fixtureSource = `
     storeController,
     itemController,
     confirmDanger: async () => { confirmations += 1; return true; },
+    onStoreEdit: (listId, storeId, triggerElement) => storeEditor.showEdit(listId, storeId, triggerElement),
   });
   editor.bind();
   document.body.insertAdjacentHTML('beforeend', SHOPPING_DIALOGS_HTML);
   translatePage(document);
   window.test = {
     setActive: id => { activeListId = id; navigation.selectList(id, { updateNavigation: false }); editor.reconcile(); },
+    setCanManage: (id, canManage) => {
+      lists = lists.map(list => list.id === id ? { ...list, can_manage: canManage } : list);
+      navigation.replaceLists(lists);
+      editor.reconcile();
+    },
     deferNextCommit: () => {
       let release;
       const promise = new Promise(resolve => { release = resolve; });
@@ -182,6 +202,43 @@ try {
   assert.equal(await page.evaluate(() => window.test.commits()[0].action), 'CREATE_SHOPPING_STORE');
   assert.equal(await page.evaluate(() => window.test.commits()[0].data.shopping_list_id), 1);
 
+  await storeTrigger.click();
+  assert.equal(await page.locator('#shopping-item-store-ui-menu .ui-select-option-action').count(), 0, 'list editors must not receive store edit actions in the item modal');
+  await storeTrigger.press('Escape');
+  await page.evaluate(() => window.test.setCanManage(1, true));
+  await storeTrigger.click();
+  const itemStoreEditAction = page.locator('#shopping-item-store-ui-menu .ui-select-option-action');
+  assert.equal(await itemStoreEditAction.count(), 1, 'list managers receive one edit action for each concrete item-modal store option');
+  assert.equal(await itemStoreEditAction.getAttribute('aria-label'), 'REWE bearbeiten');
+  const itemStoreSearch = page.locator('#shopping-item-store-ui-menu .ui-select-search-input');
+  await itemStoreSearch.fill('REWE');
+  await itemStoreSearch.press('ArrowRight');
+  assert.equal(await itemStoreEditAction.evaluate(element => document.activeElement === element), true, 'the searchable item-store dropdown reaches the shared edit action by keyboard');
+  await itemStoreEditAction.press('Enter');
+  const storeModal = page.locator('#shopping-store-modal');
+  assert.equal(await storeModal.getAttribute('aria-hidden'), 'false');
+  assert.equal(await modal.evaluate(element => element.classList.contains('active')), true, 'editing a store must keep the underlying item layer open');
+  assert.equal(await modal.getAttribute('aria-hidden'), 'true', 'the underlying item modal must be hidden from assistive technology while the nested store editor is active');
+  assert.equal(await modal.getAttribute('inert'), '', 'the underlying item modal must be inert while the nested store editor is active');
+  assert.equal(await page.locator('#shopping-item-store').inputValue(), 'temp-shopping-store-browser', 'opening the store editor must not change the item store selection');
+  await page.locator('#shopping-store-name').press('Escape');
+  await page.waitForFunction(() => document.querySelector('#shopping-store-modal')?.getAttribute('aria-hidden') === 'true');
+  assert.equal(await modal.getAttribute('aria-hidden'), 'false', 'Escape from the nested store editor must reveal only the underlying item modal');
+  assert.equal(await modal.getAttribute('inert'), null);
+  assert.equal(await storeTrigger.evaluate(element => document.activeElement === element), true);
+  await storeTrigger.click();
+  await page.locator('#shopping-item-store-ui-menu .ui-select-search-input').fill('REWE');
+  await page.locator('#shopping-item-store-ui-menu .ui-select-search-input').press('ArrowRight');
+  await page.locator('#shopping-item-store-ui-menu .ui-select-option-action').press('Enter');
+  await page.locator('#shopping-store-name').fill('REWE Center');
+  await page.locator('#shopping-store-save-btn').click();
+  await page.waitForFunction(() => document.querySelector('#shopping-store-modal')?.getAttribute('aria-hidden') === 'true');
+  assert.equal(await modal.getAttribute('aria-hidden'), 'false');
+  assert.equal(await modal.getAttribute('inert'), null);
+  assert.equal(await page.locator('#shopping-item-store').inputValue(), 'temp-shopping-store-browser', 'renaming a store must preserve the selected stable store ID');
+  assert.deepEqual(await page.locator('#shopping-item-store option').allTextContents(), ['Kein Supermarkt', 'REWE Center']);
+  assert.equal(await storeTrigger.evaluate(element => document.activeElement === element), true, 'closing the nested store editor restores focus to the item-modal store trigger');
+
   await page.locator('#shopping-item-name').fill('Tomaten');
   await page.locator('#shopping-item-quantity').fill('0');
   await page.locator('#shopping-item-unit').fill('Stück');
@@ -193,7 +250,7 @@ try {
     { name: created.name, quantity: created.quantity_value, unit: created.quantity_unit, section: created.section_id, stores: created.store_ids },
     { name: 'Tomaten', quantity: 0, unit: 'Stück', section: 'produce', stores: ['temp-shopping-store-browser'] },
   );
-  assert.equal(await page.evaluate(() => window.test.commits()[1].action), 'CREATE_SHOPPING_ITEM');
+  assert.equal(await page.evaluate(() => window.test.commits().find(commit => commit.action === 'CREATE_SHOPPING_ITEM')?.action), 'CREATE_SHOPPING_ITEM');
   assert.deepEqual(await page.locator('.shopping-item-title').allTextContents(), ['Tomaten'], 'the production shopping renderer must show the durable item immediately');
   assert.equal(await trigger.evaluate(element => document.activeElement === element), true, 'closing restores focus to the shared FAB');
 
@@ -250,6 +307,18 @@ try {
   assert.equal(await trigger.evaluate(element => document.activeElement === element), true, 'deleting an item falls back to the shared FAB');
 
   await trigger.click();
+  await page.locator('[data-select-id="shopping-item-store"] .ui-select-trigger').click();
+  await page.locator('#shopping-item-store-ui-menu .ui-select-option').filter({ hasText: 'REWE Center' }).click();
+  assert.equal(await page.locator('#shopping-item-store').inputValue(), 'temp-shopping-store-browser');
+  await page.locator('[data-select-id="shopping-item-store"] .ui-select-trigger').click();
+  await page.locator('#shopping-item-store-ui-menu .ui-select-option-action').click();
+  await page.locator('#shopping-store-detail-menu-trigger').click();
+  await page.locator('[data-shopping-store-editor-action="delete"]').click();
+  await page.waitForFunction(() => document.querySelector('#shopping-store-modal')?.getAttribute('aria-hidden') === 'true');
+  assert.equal(await modal.getAttribute('aria-hidden'), 'false', 'deleting a store must return to the underlying item modal');
+  assert.equal(await page.locator('#shopping-item-store').inputValue(), '', 'deleting the selected store must fall back to no store');
+  assert.deepEqual(await page.locator('#shopping-item-store option').allTextContents(), ['Kein Supermarkt']);
+  assert.equal(await storeTrigger.evaluate(element => document.activeElement === element), true, 'store deletion restores focus to the item-modal store trigger');
   await page.locator('[data-select-id="shopping-item-store"] .ui-select-trigger').click();
   await addStoreAction.click();
   await storeName.fill('Aldi');

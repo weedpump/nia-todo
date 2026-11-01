@@ -38,6 +38,45 @@ export const SHOPPING_DIALOGS_HTML = `
     </div>
   </div>
 
+  <div class="modal ui-detail-modal ui-detail-view" id="shopping-store-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="shopping-store-modal-title">
+    <div class="modal-overlay" data-close-modal="shopping-store-modal"></div>
+    <div class="modal-content entity-modal-content ui-detail-modal-content">
+      ${renderEntityDetailHeader({
+        icon: 'store',
+        title: {
+          id: 'shopping-store-modal-title',
+          key: 'shopping.store.modal.editTitle',
+        },
+        subtitle: {
+          key: 'shopping.store.modal.subtitle',
+        },
+        actionsHtml: `
+          <button type="submit" form="shopping-store-form" class="btn btn-primary" id="shopping-store-save-btn" data-i18n-key="common.save">${escapeHtmlAttr(t('common.save'))}</button>
+          <details class="ui-detail-header-menu-toggle" id="shopping-store-detail-menu-toggle">
+            <summary id="shopping-store-detail-menu-trigger" aria-label="${escapeHtmlAttr(t('common.more'))}" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
+            <div class="ui-detail-header-menu ui-menu" role="menu">
+              <button type="button" class="ui-menu-item danger" data-shopping-store-editor-action="delete" role="menuitem"><span data-icon="trash-2"></span><span data-i18n-key="shopping.store.delete">${escapeHtmlAttr(t('shopping.store.delete'))}</span></button>
+            </div>
+          </details>
+          <button type="button" class="modal-close-x" data-close-modal="shopping-store-modal" aria-label="${escapeHtmlAttr(t('common.close'))}" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
+        `,
+      })}
+      <div class="modal-body entity-modal-body ui-detail-modal-body">
+        <form id="shopping-store-form" class="entity-modal-form ui-detail-shell">
+          <input type="hidden" id="shopping-store-list-id">
+          <input type="hidden" id="shopping-store-id">
+          <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section">
+            <div class="form-group ui-detail-title-group">
+              <label for="shopping-store-name" data-i18n-key="shopping.store.name">${escapeHtmlAttr(t('shopping.store.name'))}</label>
+              <input class="ui-field ui-detail-title-field" type="text" id="shopping-store-name" required maxlength="120" autocomplete="off" data-i18n-placeholder-key="shopping.store.namePlaceholder" placeholder="${escapeHtmlAttr(t('shopping.store.namePlaceholder'))}">
+            </div>
+          </section>
+          <div class="settings-field-error" id="shopping-store-edit-error" role="alert"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="modal ui-detail-modal ui-detail-view" id="shopping-item-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="shopping-item-modal-title">
     <div class="modal-overlay" data-close-modal="shopping-item-modal"></div>
     <div class="modal-content entity-modal-content ui-detail-modal-content">

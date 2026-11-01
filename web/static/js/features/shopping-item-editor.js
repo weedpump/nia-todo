@@ -2,6 +2,7 @@ import { t, translatePage } from '../i18n/index.js';
 import { hydrateSelect, refreshSelect, isDropdownOpen } from '../ui/dropdowns.js';
 import { createFormSaveState } from './form-save-state.js';
 import { bindShoppingStoreCreator } from './shopping-store-creator.js';
+import { shoppingStoreOptionAction } from './shopping-store-option-action.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 function sameId(left, right) {
@@ -17,6 +18,7 @@ export function createShoppingItemEditorFeature({
   storeController,
   itemController,
   confirmDanger = async () => false,
+  onStoreEdit = () => {},
   onError = console.error,
 } = {}) {
   let bound = false;
@@ -149,6 +151,12 @@ export function createShoppingItemEditorFeature({
       searchPlaceholder: t('shopping.item.store.search'),
       searchLabel: t('shopping.item.store.search'),
       emptyText: t('shopping.item.store.empty'),
+      optionAction: option => shoppingStoreOptionAction({
+        list,
+        stores,
+        option,
+        onEdit: onStoreEdit,
+      }),
       action: canMutate() ? {
         label: t('shopping.item.store.add'),
         ariaLabel: t('shopping.item.store.add'),
@@ -392,7 +400,7 @@ export function createShoppingItemEditorFeature({
   }
 
   function handleKeydown(event) {
-    if (!modal()?.classList?.contains?.('active')) return;
+    if (!modal()?.classList?.contains?.('active') || modal()?.getAttribute?.('aria-hidden') === 'true') return;
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       form()?.requestSubmit?.();

@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'nia-v4-module-platform-preview-239';
+const CACHE_REVISION = 'nia-v4-module-platform-preview-244';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -131,6 +131,8 @@ const PRECACHE_ASSETS = [
   '/static/js/features/shopping-items.js',
   '/static/js/features/shopping-item-editor.js',
   '/static/js/features/shopping-store-creator.js',
+  '/static/js/features/shopping-store-editor.js',
+  '/static/js/features/shopping-store-option-action.js',
   '/static/js/features/shopping-stores.js',
   '/static/js/features/shopping-sections.js',
   '/static/js/features/shopping-list-details.js',
