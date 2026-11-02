@@ -99,6 +99,7 @@ export function createShoppingListDetailsFeature({
   let ownershipField = null;
   let submitting = false;
   let deleting = false;
+  let modalGeneration = 0;
   const listQueues = new Map();
 
   function enqueueLocallyForList(identity, task) {
@@ -119,6 +120,10 @@ export function createShoppingListDetailsFeature({
 
   function editingList() {
     return listById(doc?.getElementById?.('shopping-list-id')?.value);
+  }
+
+  function listByIdentity(identity) {
+    return getLists().find(list => String(list.client_mutation_id ?? list.id) === String(identity)) || null;
   }
 
   function currentHousehold() {
@@ -217,6 +222,7 @@ export function createShoppingListDetailsFeature({
   }
 
   function closeModal(afterClose = null) {
+    modalGeneration += 1;
     return ensureModalController().close({ afterClose: typeof afterClose === 'function' ? afterClose : null });
   }
 
@@ -268,6 +274,7 @@ export function createShoppingListDetailsFeature({
   }
 
   function showListModal(list = null) {
+    modalGeneration += 1;
     return ensureModalController().open(list);
   }
 
@@ -305,8 +312,7 @@ export function createShoppingListDetailsFeature({
     const stableIdentity = current.client_mutation_id ?? current.id;
     return runListMutation(stableIdentity, async () => {
       const committed = await commitMutation(() => {
-        const currentId = doc?.getElementById?.('shopping-list-id')?.value || current.id;
-        const latest = listById(currentId);
+        const latest = listByIdentity(stableIdentity);
         if (!latest || !canManageShoppingListMetadata(latest)) return null;
         const changes = { name: state.name, color: state.color, icon: state.icon };
         return {
@@ -409,6 +415,8 @@ export function createShoppingListDetailsFeature({
       syncDeleteMenu(current);
       return;
     }
+    const stableIdentity = current.client_mutation_id ?? current.id;
+    const generation = modalGeneration;
     doc?.getElementById?.('shopping-list-detail-header-menu')?.removeAttribute?.('open');
     deleting = true;
     syncDeleteMenu(current);
@@ -420,14 +428,12 @@ export function createShoppingListDetailsFeature({
         returnFocus: () => doc?.getElementById?.('shopping-list-detail-header-menu-trigger'),
       });
       if (!confirmed) {
-        if (!editingList()) closeAfterDeletedList();
+        if (generation === modalGeneration && !editingList()) closeAfterDeletedList();
         return;
       }
-      const stableIdentity = current.client_mutation_id ?? current.id;
       const committed = await runListMutation(stableIdentity, async () => {
         const mutation = await commitMutation(() => {
-          const currentId = doc?.getElementById?.('shopping-list-id')?.value || current.id;
-          const latest = listById(currentId);
+          const latest = listByIdentity(stableIdentity);
           if (!latest || !canManageShoppingListMetadata(latest)) return null;
           return {
             deleteListId: latest.id,
@@ -438,6 +444,10 @@ export function createShoppingListDetailsFeature({
         if (mutation) setLists(getLists().filter(list => String(list.id) !== String(mutation.data.id)));
         return mutation;
       });
+      if (generation !== modalGeneration) {
+        if (committed && isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
+        return;
+      }
       if (!committed) {
         const latest = editingList();
         if (latest) reconcileBlockedUpdate();
@@ -447,8 +457,11 @@ export function createShoppingListDetailsFeature({
       closeAfterDeletedList();
     } catch (error) {
       onError(error);
+      if (generation !== modalGeneration) return;
       setError('shopping.list.error.deleteFailed');
-      globalThis.setTimeout?.(() => doc?.getElementById?.('shopping-list-detail-header-menu-trigger')?.focus?.(), 0);
+      globalThis.setTimeout?.(() => {
+        if (generation === modalGeneration) doc?.getElementById?.('shopping-list-detail-header-menu-trigger')?.focus?.();
+      }, 0);
     } finally {
       deleting = false;
       syncDeleteMenu();
@@ -472,6 +485,7 @@ export function createShoppingListDetailsFeature({
       return;
     }
     if (current && !canManageShoppingListMetadata(current)) return;
+    const generation = modalGeneration;
     const controller = ensureModalController();
     controller.refreshSaveState();
     if (!controller.canSave()) return;
@@ -484,6 +498,10 @@ export function createShoppingListDetailsFeature({
       const saved = transferRequested
         ? await persistHouseholdTransfer(current, state)
         : (current ? await persistUpdate(current, state) : await persistCreate(state));
+      if (generation !== modalGeneration) {
+        if (saved && isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
+        return;
+      }
       if (!saved) {
         if (current && !transferRequested) reconcileBlockedUpdate();
         return;
@@ -497,6 +515,7 @@ export function createShoppingListDetailsFeature({
       });
     } catch (error) {
       onError(error);
+      if (generation !== modalGeneration) return;
       setError('shopping.list.error.saveFailed');
       controller.refreshSaveState();
       if (transferRequested) {

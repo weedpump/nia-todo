@@ -24,6 +24,7 @@ export function createShoppingStoresController({
   commitMutation,
   enqueueListMutation = null,
   resolveListIdentity = identity => identity,
+  resolveListId = identity => identity,
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   onError = console.error,
@@ -57,22 +58,28 @@ export function createShoppingStoresController({
   function create(value, { authorize = () => true, shoppingListId = null } = {}) {
     const name = validShoppingStoreName(value);
     if (!name || shoppingListId == null) return Promise.resolve(null);
-    const duplicate = activeDuplicate(name, shoppingListId);
+    const stableListIdentity = resolveListIdentity(shoppingListId);
+    const initialListId = resolveListId(stableListIdentity);
+    if (initialListId == null) return Promise.resolve(null);
+    const duplicate = activeDuplicate(name, initialListId);
     if (duplicate) return Promise.resolve(duplicate);
-    const key = `${shoppingListId}\u0000${name.toLocaleLowerCase()}`;
+    const key = `${stableListIdentity}\u0000${name.toLocaleLowerCase()}`;
     if (pendingCreates.has(key)) return pendingCreates.get(key);
 
-    const operation = runListMutation(resolveListIdentity(shoppingListId), async () => {
+    const operation = runListMutation(stableListIdentity, async () => {
       const tempId = createTempId();
+      let duplicateAfterWait = null;
       const mutation = await commitMutation(() => {
-        if (!authorize()) return null;
-        if (activeDuplicate(name, shoppingListId)) return null;
+        const latestListId = resolveListId(stableListIdentity);
+        if (latestListId == null || !authorize()) return null;
+        duplicateAfterWait = activeDuplicate(name, latestListId);
+        if (duplicateAfterWait) return null;
         const store = {
           id: tempId,
-          shopping_list_id: shoppingListId,
+          shopping_list_id: latestListId,
           name,
           active: true,
-          sort_order: nextSortOrder(getStores().filter(candidate => sameId(candidate.shopping_list_id, shoppingListId))),
+          sort_order: nextSortOrder(getStores().filter(candidate => sameId(candidate.shopping_list_id, latestListId))),
           client_mutation_id: tempId,
           is_pending: true,
         };
@@ -82,7 +89,7 @@ export function createShoppingStoresController({
           data: {
             temp_id: tempId,
             store: clone(store),
-            shopping_list_id: shoppingListId,
+            shopping_list_id: latestListId,
             name,
             sort_order: store.sort_order,
             client_mutation_id: tempId,
@@ -90,7 +97,7 @@ export function createShoppingStoresController({
           result: store,
         };
       });
-      const store = mutation?.result || mutation?.store || activeDuplicate(name, shoppingListId);
+      const store = mutation?.result || mutation?.store || duplicateAfterWait;
       if (!store) return null;
       if (mutation?.store) {
         setStores([...getStores().filter(candidate => !sameId(candidate.id, store.id)), store]);

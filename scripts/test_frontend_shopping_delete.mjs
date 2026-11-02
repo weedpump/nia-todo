@@ -57,6 +57,9 @@ const fixtureSource = `
   let holdNextMutation = false;
   let mutationWaiting = false;
   let releaseHeldMutation = null;
+  let heldQueue = null;
+  let bindingConfirm = null;
+  let bindingOperation = null;
   let normalizedNavigationCount = 0;
   let projectConfirmOptions = null;
 
@@ -128,6 +131,10 @@ const fixtureSource = `
   const feature = createShoppingListDetailsFeature({
     getLists: () => lists,
     setLists,
+    enqueueListMutation: async (_identity, task) => {
+      if (heldQueue) await heldQueue.promise;
+      return task();
+    },
     commitMutation: async buildMutation => {
       if (holdNextMutation) {
         holdNextMutation = false;
@@ -145,7 +152,7 @@ const fixtureSource = `
       mutations.push(structuredClone(mutation));
       return mutation;
     },
-    confirmDanger: options => confirmFeature.confirmDanger(options),
+    confirmDanger: options => bindingConfirm ? bindingConfirm.promise : confirmFeature.confirmDanger(options),
     normalizeActiveListNavigation,
     focusActiveListAction,
     isOnlineForSync: () => false,
@@ -192,6 +199,43 @@ const fixtureSource = `
   });
 
   window.test = {
+    startBindingRace: (action, wait) => {
+      const origin = { id: 'temp-binding-origin', client_mutation_id: 'temp-binding-origin', name: 'Origin', color: '#6366f1', icon: 'shopping-cart', can_manage: true, can_edit: true, items: [], sections: [] };
+      setLists([origin, { ...origin, id: 802, client_mutation_id: 'other', name: 'Other' }]);
+      feature.showListModal(origin);
+      if (wait === 'queue') {
+        let release;
+        const promise = new Promise(resolve => { release = resolve; });
+        heldQueue = { promise, release };
+      }
+      if (wait === 'commit') holdNextMutation = true;
+      if (action === 'delete') {
+        let release;
+        const promise = new Promise(resolve => { release = () => resolve(true); });
+        bindingConfirm = { promise, release };
+      }
+      if (action === 'save') {
+        document.getElementById('shopping-list-name').value = 'Updated origin';
+        bindingOperation = feature.save();
+      } else bindingOperation = feature.deleteCurrentList();
+    },
+    switchBindingTarget: outcome => {
+      lists = lists.flatMap(list => {
+        if (list.client_mutation_id !== 'temp-binding-origin') return [list];
+        if (outcome === 'missing') return [];
+        return [{ ...list, id: 801, can_manage: outcome !== 'denied' }];
+      });
+      feature.remapListId('temp-binding-origin', 801);
+      feature.showListModal(lists.find(list => list.id === 802));
+      document.getElementById('shopping-list-name').value = 'Unsaved other';
+    },
+    confirmBindingRace: () => bindingConfirm.release(),
+    finishBindingRace: async () => {
+      heldQueue?.release();
+      heldQueue = null;
+      releaseHeldMutation?.();
+      await bindingOperation;
+    },
     getLists: () => structuredClone(lists),
     getMutations: () => structuredClone(mutations),
     getActiveListId: () => activeListId,
@@ -483,6 +527,33 @@ try {
     );
   }
 
+  for (const action of ['save', 'delete']) {
+    for (const wait of action === 'save' ? ['queue', 'commit'] : ['confirmation', 'queue', 'commit']) {
+      for (const outcome of ['allowed', 'denied', 'missing']) {
+        await page.goto('http://nia.test/');
+        await page.waitForFunction(() => Boolean(window.test));
+        await page.evaluate(({ action, wait }) => window.test.startBindingRace(action, wait), { action, wait });
+        if (action === 'delete' && wait !== 'confirmation') await page.evaluate(() => window.test.confirmBindingRace());
+        if (wait === 'commit') await page.waitForFunction(() => window.test.isMutationWaiting());
+        await page.evaluate(outcome => window.test.switchBindingTarget(outcome), outcome);
+        if (action === 'delete' && wait === 'confirmation') await page.evaluate(() => window.test.confirmBindingRace());
+        await page.evaluate(() => window.test.finishBindingRace());
+        const result = await page.evaluate(() => ({ lists: window.test.getLists(), mutations: window.test.getMutations(), id: document.getElementById('shopping-list-id').value, name: document.getElementById('shopping-list-name').value, open: document.getElementById('shopping-list-modal').classList.contains('active'), editable: !document.getElementById('shopping-list-name').disabled }));
+        const label = action + '/' + wait + '/' + outcome;
+        assert.equal(result.mutations.length, outcome === 'allowed' ? 1 : 0, label + ': recheck origin permission/existence');
+        if (outcome === 'allowed') {
+          assert.equal(result.mutations[0].data.id, 801, label + ': mutation must use the original list after remapping, not the newer modal');
+          assert.equal(result.lists.some(list => list.id === 801), action === 'save');
+          if (action === 'save') assert.equal(result.lists.find(list => list.id === 801).name, 'Updated origin');
+        }
+        assert.equal(result.lists.find(list => list.id === 802).name, 'Other', label + ': unrelated list must remain unchanged');
+        assert.equal(result.id, '802');
+        assert.equal(result.name, 'Unsaved other');
+        assert.equal(result.open, true, label + ': stale completion must not close the newer modal');
+        assert.equal(result.editable, true, label + ': stale cancellation must not make the newer modal read-only');
+      }
+    }
+  }
   assert.deepEqual(pageErrors, []);
   console.log('✅ Shopping deletion roles, confirmation, races, history, focus, and offline commit passed');
 } finally {

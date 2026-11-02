@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { createShoppingStoresController } from '../web/static/js/features/shopping-stores.js';
 import { createShoppingItemsController } from '../web/static/js/features/shopping-items.js';
 
@@ -208,5 +210,72 @@ allowed = false;
 gate.resolve();
 assert.equal(await pending, null, 'permission loss before the durable builder runs must cancel creation');
 assert.deepEqual(delayedStores, []);
+
+for (const wait of ['queue', 'commit']) {
+  for (const outcome of ['allowed', 'duplicate', 'denied', 'missing']) {
+    let originLists = [{ id: 'temp-list-origin', client_mutation_id: 'temp-list-origin', can_edit: true }];
+    let scopedStores = [];
+    const gate = deferred();
+    const queueKeys = [];
+    const mutations = [];
+    const resolveList = identity => originLists.find(list => String(list.id) === String(identity) || list.client_mutation_id === identity);
+    const creating = createShoppingStoresController({
+      getStores: () => scopedStores,
+      setStores: next => { scopedStores = next; },
+      resolveListIdentity: identity => resolveList(identity)?.client_mutation_id ?? identity,
+      resolveListId: identity => resolveList(identity)?.id ?? null,
+      enqueueListMutation: async (identity, task) => {
+        queueKeys.push(identity);
+        if (wait === 'queue') await gate.promise;
+        return task();
+      },
+      commitMutation: async build => {
+        if (wait === 'commit') await gate.promise;
+        const mutation = build();
+        if (mutation) mutations.push(structuredClone(mutation));
+        return mutation;
+      },
+    });
+    const pendingCreate = creating.create('Market', {
+      shoppingListId: 'temp-list-origin',
+      authorize: () => outcome === 'missing' || resolveList('temp-list-origin')?.can_edit === true,
+    });
+    originLists = outcome === 'missing' ? [] : [{ ...originLists[0], id: 99, can_edit: outcome !== 'denied' }];
+    if (outcome === 'duplicate') scopedStores = [{ id: 55, shopping_list_id: 99, name: 'Market', active: true }];
+    else scopedStores = [{ id: 56, shopping_list_id: 99, name: 'Other', active: true, sort_order: 7 }];
+    gate.resolve();
+    const result = await pendingCreate;
+    const label = wait + '/' + outcome;
+    assert.deepEqual(queueKeys, ['temp-list-origin'], label + ': queue must retain the stable list key');
+    assert.equal(mutations.length, outcome === 'allowed' ? 1 : 0, label + ': recheck duplicate, authority and existence after waits');
+    if (outcome === 'allowed') {
+      assert.equal(result.shopping_list_id, 99, label + ': cache must use current canonical list ID');
+      assert.equal(mutations[0].data.shopping_list_id, 99, label + ': API payload must use current canonical list ID');
+      assert.equal(mutations[0].data.store.shopping_list_id, 99);
+      assert.equal(result.sort_order, 8, label + ': ordering must use the remapped list scope');
+      assert.equal(scopedStores.at(-1).shopping_list_id, 99);
+    } else if (outcome === 'duplicate') assert.equal(result.id, 55, label + ': return canonical-scope duplicate');
+    else assert.equal(result, null, label + ': revoked/absent origin must not publish a store');
+  }
+}
+
+// Exercise the shipped composition-root resolvers against a live remapping collection.
+const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
+const composition = appSource.match(/const shoppingStoresController = createShoppingStoresController\(\{[\s\S]*?\n\}\);/)?.[0];
+assert(composition, 'production store controller composition must exist');
+const compositionLists = [{ id: 'temp-composition', client_mutation_id: 'temp-composition' }];
+const options = runInNewContext(composition + '\nshoppingStoresController;', {
+  createShoppingStoresController: options => options,
+  shoppingLists: compositionLists, shoppingStores: [],
+  setShoppingStoresState() {}, commitShoppingMutation() {}, enqueueShoppingListMutation() {},
+  isOnlineForSync() {}, syncWithServer() {}, console,
+});
+assert.equal(options.resolveListIdentity('temp-composition'), 'temp-composition');
+assert.equal(options.resolveListId('temp-composition'), 'temp-composition');
+compositionLists[0].id = 701;
+assert.equal(options.resolveListIdentity(701), 'temp-composition');
+assert.equal(options.resolveListId('temp-composition'), 701);
+compositionLists.length = 0;
+assert.equal(options.resolveListId('temp-composition'), null);
 
 console.log('✅ Shared shopping store create controller contracts passed');

@@ -961,6 +961,10 @@ const shoppingStoresController = createShoppingStoresController({
     ));
     return list?.client_mutation_id ?? list?.id ?? listIdentity;
   },
+  resolveListId: listIdentity => shoppingLists.find(candidate => (
+    String(candidate.id) === String(listIdentity)
+    || String(candidate.client_mutation_id) === String(listIdentity)
+  ))?.id ?? null,
   isOnlineForSync,
   syncWithServer,
   onError: error => console.error('Shopping store mutation failed', error),

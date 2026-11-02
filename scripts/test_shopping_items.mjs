@@ -178,7 +178,7 @@ for (const race of ['permission', 'list', 'item']) {
   const pending = racing.toggleCompleted(4, 5);
   await Promise.resolve();
   if (race === 'permission') raceLists = [{ ...raceLists[0], can_edit: false }];
-  if (race === 'list') raceActive = 99;
+  if (race === 'list') raceLists = [];
   if (race === 'item') raceLists = [{ ...raceLists[0], items: [] }];
   assert.equal(typeof buildMutation, 'function');
   assert.equal(await pending, null, `${race} race must cancel the mutation`);
@@ -708,7 +708,7 @@ const createFailure = createShoppingItemsController({
 await assert.rejects(() => createFailure.create({ name: 'Milk' }), /create disk full/);
 assert.equal(createFailurePublishes, 0, 'failed create commit must not publish or render');
 
-for (const race of ['active-list', 'permission', 'list', 'section', 'store']) {
+for (const race of ['permission', 'list', 'section', 'store']) {
   let raceCreateLists = [{
     id: 'create-race-list',
     can_edit: true,
@@ -735,7 +735,7 @@ for (const race of ['active-list', 'permission', 'list', 'section', 'store']) {
     storeId: 'temp-shopping-store-race',
   });
   await Promise.resolve();
-  if (race === 'active-list') raceCreateActive = 'another-list';
+
   if (race === 'permission') raceCreateLists = [{ ...raceCreateLists[0], can_edit: false }];
   if (race === 'list') raceCreateLists = [];
   if (race === 'section') raceCreateLists = [{ ...raceCreateLists[0], sections: [] }];
@@ -743,6 +743,66 @@ for (const race of ['active-list', 'permission', 'list', 'section', 'store']) {
   releaseCreateBuild();
   assert.equal(await pendingCreate, null, `${race} change must cancel queued create`);
   assert.equal(raceCreatePublishes, 0, `${race} change must not publish`);
+}
+
+// Once admitted on the active list, every queued action owns that original identity.
+for (const action of ['create', 'update', 'remove', 'toggleCompleted', 'moveToSection']) {
+  for (const wait of ['queue', 'commit']) {
+    for (const outcome of ['allowed', 'denied', 'missing']) {
+      const origin = { id: 'temp-origin', client_mutation_id: 'temp-origin', can_edit: true, sections: [{ id: 9 }], items: [{ id: 5, name: 'Original', completed: false, section_id: null }] };
+      const other = { ...structuredClone(origin), id: 2, client_mutation_id: 'other' };
+      let targetLists = [origin, other];
+      let active = origin.id;
+      const gate = deferred();
+      const mutations = [];
+      const queueKeys = [];
+      const target = createShoppingItemsController({
+        getLists: () => targetLists,
+        setLists: next => { targetLists = next; },
+        getActiveListId: () => active,
+        enqueueListMutation: async (identity, task) => {
+          queueKeys.push(identity);
+          if (wait === 'queue') await gate.promise;
+          return task();
+        },
+        commitMutation: async build => {
+          if (wait === 'commit') await gate.promise;
+          const mutation = build();
+          if (mutation) mutations.push(structuredClone(mutation));
+          return mutation;
+        },
+      });
+      const invoke = () => action === 'create' ? target.create({ name: 'Created' })
+        : action === 'update' ? target.update('temp-origin', 5, { name: 'Updated' })
+          : action === 'moveToSection' ? target.moveToSection('temp-origin', 5, 9)
+            : target[action]('temp-origin', 5);
+      if (action !== 'create') {
+        active = 2;
+        assert.equal(await invoke(), null, action + ': inactive list must not admit a new action');
+        assert.equal(queueKeys.length, 0);
+        active = origin.id;
+      }
+      const pending = invoke();
+      active = 2;
+      targetLists = outcome === 'missing' ? [other] : [{ ...origin, id: 101, can_edit: outcome !== 'denied' }, other];
+      gate.resolve();
+      const result = await pending;
+      const label = action + '/' + wait + '/' + outcome;
+      assert.deepEqual(queueKeys, ['temp-origin'], label + ': stable queue key');
+      assert.equal(mutations.length, outcome === 'allowed' ? 1 : 0, label + ': revalidate original list, not active selection');
+      assert.deepEqual(targetLists.find(list => list.id === 2), other, label + ': newer active list must remain untouched');
+      if (outcome === 'allowed') {
+        assert(result, label + ': admitted action must survive navigation');
+        assert.equal(mutations[0].data.shopping_list_id, 101, label + ': use remapped original ID');
+        const items = targetLists.find(list => list.id === 101).items;
+        if (action === 'create') assert.equal(items.at(-1).name, 'Created');
+        if (action === 'update') assert.equal(items[0].name, 'Updated');
+        if (action === 'remove') assert.equal(items.length, 0);
+        if (action === 'toggleCompleted') assert.equal(items[0].completed, true);
+        if (action === 'moveToSection') assert.equal(items[0].section_id, 9);
+      } else assert.equal(result, null, label + ': revoked/absent origin must cancel');
+    }
+  }
 }
 
 const todoRenderingSource = readFileSync(new URL('../web/static/js/features/todo-rendering.js', import.meta.url), 'utf8');

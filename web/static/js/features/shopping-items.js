@@ -113,11 +113,15 @@ export function createShoppingItemsController({
     },
   });
 
-  function currentList(listId) {
-    const list = getLists().find(candidate => (
+  function listByIdentity(listId) {
+    return getLists().find(candidate => (
       sameId(candidate.id, listId)
       || sameId(candidate.client_mutation_id, listId)
     )) || null;
+  }
+
+  function currentList(listId) {
+    const list = listByIdentity(listId);
     if (!list) return null;
     const activeId = getActiveListId();
     if (!sameId(list.id, activeId) && !sameId(list.client_mutation_id, activeId)) return null;
@@ -202,7 +206,7 @@ export function createShoppingItemsController({
     const tempId = createTempId();
     const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
-        const latest = currentList(stableListIdentity);
+        const latest = listByIdentity(stableListIdentity);
         if (latest?.can_edit !== true) return null;
         const section = stableSectionIdentity == null
           ? null
@@ -302,7 +306,7 @@ export function createShoppingItemsController({
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
     const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
-        const latest = currentList(stableListIdentity);
+        const latest = listByIdentity(stableListIdentity);
         if (latest?.can_edit !== true) return null;
         const item = (latest.items || []).find(candidate => (
           sameId(candidate.id, itemId)
@@ -372,7 +376,7 @@ export function createShoppingItemsController({
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
     const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
-        const latest = currentList(stableListIdentity);
+        const latest = listByIdentity(stableListIdentity);
         if (latest?.can_edit !== true) return null;
         const item = (latest.items || []).find(candidate => (
           sameId(candidate.id, itemId)
@@ -408,7 +412,7 @@ export function createShoppingItemsController({
     if (inFlight.has(key)) return inFlight.get(key);
     const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
-        const latest = currentList(stableListIdentity);
+        const latest = listByIdentity(stableListIdentity);
         if (latest?.can_edit !== true) return null;
         const item = (latest.items || []).find(candidate => (
           sameId(candidate.id, itemId)
@@ -453,7 +457,7 @@ export function createShoppingItemsController({
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
     const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
-        const latest = currentList(stableListIdentity);
+        const latest = listByIdentity(stableListIdentity);
         if (latest?.can_edit !== true) return null;
         const item = (latest.items || []).find(candidate => (
           sameId(candidate.id, itemId)
