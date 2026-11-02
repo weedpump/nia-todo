@@ -367,7 +367,7 @@ async def create_shopping_store(data: ShoppingStoreCreate, user_id: int = Depend
 async def update_shopping_store(store_id: int, data: ShoppingStoreUpdate, user_id: int = Depends(require_auth)):
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        store = _store_row_for_user(db, store_id, user_id, manage=True)
+        store = _store_row_for_user(db, store_id, user_id)
         updates = []
         values = []
         if "name" in data.model_fields_set:
@@ -396,7 +396,7 @@ async def update_shopping_store(store_id: int, data: ShoppingStoreUpdate, user_i
 async def delete_shopping_store(store_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        store = _store_row_for_user(db, store_id, user_id, manage=True)
+        store = _store_row_for_user(db, store_id, user_id)
         db.execute("UPDATE shopping_stores SET active = 0, updated_at = ? WHERE id = ?", (now_iso(), store_id))
         db.commit()
         updated = db.execute("SELECT * FROM shopping_stores WHERE id = ?", (store_id,)).fetchone()
@@ -721,7 +721,7 @@ async def create_shopping_section(shopping_list_id: int, data: ShoppingSectionCr
     name = _clean_required(data.name, "Section name", 200)
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        _permissions_for_list(db, shopping_list_id, user_id, manage=True)
+        _permissions_for_list(db, shopping_list_id, user_id, write=True)
         if data.client_mutation_id:
             existing = db.execute(
                 "SELECT * FROM shopping_sections WHERE shopping_list_id = ? AND client_mutation_id = ?",
@@ -762,7 +762,7 @@ async def update_shopping_section(section_id: int, data: ShoppingSectionUpdate, 
         if not section:
             raise HTTPException(404, "Shopping section not found")
         shopping_list_id = section["shopping_list_id"]
-        _permissions_for_list(db, shopping_list_id, user_id, manage=True)
+        _permissions_for_list(db, shopping_list_id, user_id, write=True)
         updates = []
         values = []
         if "name" in data.model_fields_set:
@@ -792,7 +792,7 @@ async def delete_shopping_section(section_id: int, user_id: int = Depends(requir
         if not section:
             raise HTTPException(404, "Shopping section not found")
         shopping_list_id = section["shopping_list_id"]
-        _permissions_for_list(db, shopping_list_id, user_id, manage=True)
+        _permissions_for_list(db, shopping_list_id, user_id, write=True)
         db.execute("UPDATE shopping_items SET section_id = NULL, updated_at = ? WHERE section_id = ?", (now_iso(), section_id))
         db.execute("DELETE FROM shopping_sections WHERE id = ?", (section_id,))
         db.commit()
@@ -892,7 +892,7 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
                 data.store_ids,
             )
         if "sort_order" in fields_set:
-            _permissions_for_list(db, shopping_list_id, user_id, manage=True)
+            _permissions_for_list(db, shopping_list_id, user_id, write=True)
             updates["sort_order"] = data.sort_order
         if "completed" in fields_set:
             updates["completed"] = int(bool(data.completed))
@@ -944,7 +944,7 @@ async def delete_shopping_item(item_id: int, user_id: int = Depends(require_auth
 async def delete_completed_shopping_items(shopping_list_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        _permissions_for_list(db, shopping_list_id, user_id, manage=True)
+        _permissions_for_list(db, shopping_list_id, user_id, write=True)
         recipient_ids = _recipient_ids(db, shopping_list_id)
         item_ids = [int(row["id"]) for row in db.execute(
             "SELECT id FROM shopping_items WHERE shopping_list_id = ? AND completed = 1",

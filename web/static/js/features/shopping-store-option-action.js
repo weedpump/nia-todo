@@ -10,7 +10,7 @@ export function shoppingStoreOptionAction({
   option,
   onEdit = () => {},
 } = {}) {
-  if (list?.can_manage !== true || !option?.value) return null;
+  if (list?.can_edit !== true || !option?.value) return null;
   const store = stores.find(candidate => (
     candidate?.active !== false
     && (sameId(candidate.id, option.value) || sameId(candidate.client_mutation_id, option.value))

@@ -11,6 +11,8 @@ const fixtureSource = `
   import { createShoppingItemsController } from '/static/js/features/shopping-items.js';
   import { createShoppingStoresController } from '/static/js/features/shopping-stores.js';
   import { createShoppingStoreEditorFeature } from '/static/js/features/shopping-store-editor.js';
+  import { createShoppingSectionsAdapter } from '/static/js/features/shopping-sections.js';
+  import { createCompletedCleanupController, createSectionController, createSectionRootRegistry } from '/static/js/features/section-ui.js';
   import { SHOPPING_DIALOGS_HTML } from '/static/js/modules/shopping-dialogs.js';
   import { initI18n, setLanguagePreference } from '/static/js/i18n/index.js';
 
@@ -23,11 +25,11 @@ const fixtureSource = `
       preferences: { hide_empty_sections: true },
       items: [{ id: 10, name: 'Milch', quantity_value: 1.5, quantity_unit: 'l', completed: false, section_id: 'produce' }],
       sections: [{ id: 'produce', name: 'Obst & Gemüse', sort_order: 0 }, { id: 'empty', name: 'Leer', sort_order: 1 }] },
-    { id: 3, name: 'Bearbeitbar', color: '#7c3aed', icon: 'shopping-basket', sort_order: 2, can_manage: false, can_edit: true,
+    { id: 3, name: 'Geteilte Liste', color: '#7c3aed', icon: 'shopping-basket', sort_order: 2, can_manage: false, can_edit: true, ownership_type: 'user', is_shared: true,
       items: [
         { id: 'temp-shopping-item-3', name: 'Sehr langer responsiver Artikeltitel ohne horizontalen Überlauf', quantity_value: 0, quantity_unit: 'SehrLangeMengeneinheitOhneTrennzeichen', completed: false, section_id: null },
         { id: 31, name: 'Erledigt', quantity_value: 2, quantity_unit: 'kg', completed: true, section_id: null },
-      ], sections: [] },
+      ], sections: [{ id: 'shared-section', name: 'Gemeinsam', sort_order: 0 }] },
     { id: 4, name: 'Markteinkauf', color: '#ea580c', icon: 'store', sort_order: 3, can_manage: true, can_edit: true,
       preferences: { hide_empty_sections: true },
       items: [
@@ -42,6 +44,14 @@ const fixtureSource = `
       preferences: { hide_empty_sections: true },
       items: [{ id: 50, name: 'Nur ALDI', completed: false, section_id: 'only-other', store_ids: [] }],
       sections: [{ id: 'only-other', name: 'Nur anderer Markt', sort_order: 0 }] },
+    { id: 6, name: 'Aufräumliste', color: '#dc2626', icon: 'list-checks', sort_order: 5, can_manage: true, can_edit: true,
+      preferences: { hide_empty_sections: false },
+      items: [
+        { id: 60, name: 'Offen', completed: false, section_id: null, store_ids: [] },
+        { id: 61, name: 'Gekauft', completed: true, section_id: null, store_ids: [] },
+      ], sections: [] },
+    { id: 7, name: 'Haushaltsliste', color: '#9333ea', icon: 'house-heart', sort_order: 6, can_manage: false, can_edit: true, ownership_type: 'household',
+      preferences: { hide_empty_sections: false }, items: [], sections: [] },
   ];
   let stores = [
     { id: 'store-rewe', shopping_list_id: 4, name: 'REWE', sort_order: 0, active: true },
@@ -65,6 +75,7 @@ const fixtureSource = `
     <main id="shopping-navigation-main" class="module-page module-empty-page"></main>
   \`;
   let navigation;
+  let hideDone = true;
   let mutationCommits = 0;
   let storeSequence = 0;
   let deferredStoreCommit = null;
@@ -72,9 +83,49 @@ const fixtureSource = `
   let confirmResult = true;
   const mutations = [];
   const confirmations = [];
+  const sectionRegistry = createSectionRootRegistry();
+  const sectionAdapter = createShoppingSectionsAdapter({
+    getLists: () => lists,
+    setLists: next => {
+      lists = structuredClone(next);
+      navigation?.replaceLists(lists);
+    },
+    getActiveListId: () => navigation?.getActiveListId?.(),
+    getRoot: () => document.querySelector('[data-section-root="shopping"]'),
+    commitMutation: async build => {
+      mutationCommits += 1;
+      const mutation = build();
+      if (mutation) mutations.push(structuredClone(mutation));
+      return mutation;
+    },
+    render: () => navigation?.render?.(),
+    labels: {
+      clearCompletedTitle: 'Gekaufte Artikel löschen?',
+      clearCompletedMessage: ({ count }) => String(count) + ' gekaufte Artikel löschen',
+      clearCompletedConfirm: 'Gekaufte löschen',
+    },
+  });
+  const cleanupController = createCompletedCleanupController({
+    registry: sectionRegistry,
+    root: document,
+    confirmDanger: async options => {
+      confirmations.push({ title: options.title, message: options.message, confirmText: options.confirmText });
+      return confirmResult;
+    },
+  });
+  cleanupController.bind();
+  const sectionController = createSectionController({
+    registry: sectionRegistry,
+    root: document,
+    confirmDanger: async () => true,
+  });
+  sectionController.bind();
   const itemController = createShoppingItemsController({
     getLists: () => lists,
-    setLists: next => { lists = next; },
+    setLists: next => {
+      lists = structuredClone(next);
+      navigation?.replaceLists(lists);
+    },
     getActiveListId: () => navigation?.getActiveListId?.(),
     commitMutation: async build => {
       mutationCommits += 1;
@@ -122,8 +173,11 @@ const fixtureSource = `
     storage: localStorage, historyTarget: history, locationTarget: location, eventTarget: window,
     closeSidebar: () => false, onAdd: () => {}, onDetail: () => {},
     onStoreEdit: (listId, storeId, trigger) => storeEditor.showEdit(listId, storeId, trigger),
+    sectionRegistry,
+    sectionAdapter,
     itemController,
     storeController,
+    getHideDone: () => hideDone,
   });
   navigation.bind();
   navigation.render();
@@ -135,6 +189,7 @@ const fixtureSource = `
     },
     setLanguage: async language => { await setLanguagePreference(language); },
     setSearch: value => navigation.setSearchQuery(value),
+    setHideDone: value => { hideDone = Boolean(value); navigation.render(); },
     setCanEdit: (id, canEdit) => {
       lists = lists.map(list => String(list.id) === String(id) ? { ...list, can_edit: canEdit } : list);
     },
@@ -205,6 +260,18 @@ try {
   assert.equal(desktop.paddingLeft, '24px');
   assert(desktop.headerTop < 100);
   assert.equal(desktop.emptyPaddingTop, '60px');
+
+  await page.evaluate(() => { window.test.setHideDone(false); window.test.select(6); });
+  assert.deepEqual(await page.locator('.add-section-row .btn').allTextContents(), [' Abschnitt hinzufügen', ' Gekaufte löschen'], 'Shopping must use the same two-button section management row as Tasks');
+  const cleanupButton = page.locator('[data-section-collection-action="clear-completed"]');
+  await cleanupButton.click();
+  await page.waitForFunction(() => window.test.mutations().some(mutation => mutation.action === 'DELETE_COMPLETED_SHOPPING_ITEMS'));
+  assert.deepEqual(await main.locator('.shopping-item-title').allTextContents(), ['Offen']);
+  const cleanupMutation = (await page.evaluate(() => window.test.mutations())).find(mutation => mutation.action === 'DELETE_COMPLETED_SHOPPING_ITEMS');
+  assert.deepEqual(cleanupMutation.data, { shopping_list_id: 6 });
+  assert.equal((await page.evaluate(() => window.test.confirmations())).at(-1).title, 'Gekaufte Artikel löschen?');
+  assert.equal(await cleanupButton.evaluate(element => document.activeElement === element), true, 'cleanup restores focus to the live shared action after rerender');
+  await page.evaluate(() => window.test.setHideDone(true));
 
   await page.evaluate(() => window.test.select(2));
   assert.equal(await main.getAttribute('data-shopping-content-state'), 'populated');
@@ -488,6 +555,18 @@ try {
   assert.equal(sectionDragFeedback.nativeActiveDropzoneHeight, '28px');
 
   await page.evaluate(() => window.test.select(3));
+  assert.equal(await page.locator('[data-section-action="show-add"]').count(), 1, 'direct recipients must see Add section');
+  assert.equal(await page.locator('[data-section-collection-action="clear-completed"]').count(), 1, 'direct recipients must see Delete purchased');
+  assert.equal(await page.locator('[data-section-action="edit"]').count(), 1, 'direct recipients can rename existing sections');
+  assert.equal(await page.locator('[data-section-action="delete"]').count(), 1, 'direct recipients can delete existing sections');
+  assert.equal(await page.locator('.section-header[draggable="true"]').count(), 1, 'direct recipients can reorder existing sections');
+  await page.evaluate(() => window.test.select(7));
+  assert.equal(await page.locator('[data-section-action="show-add"]').count(), 1, 'household members must see Add section');
+  assert.equal(await page.locator('[data-section-collection-action="clear-completed"]').count(), 1, 'household members must see Delete purchased');
+  await page.evaluate(() => window.test.select(3));
+  assert.deepEqual(await main.locator('.shopping-item-title').allTextContents(), ['Sehr langer responsiver Artikeltitel ohne horizontalen Überlauf'], 'the app-wide hidden state must hide purchased Shopping items by default');
+  await page.evaluate(() => window.test.setHideDone(false));
+  assert.deepEqual(await main.locator('.shopping-item-title').allTextContents(), ['Sehr langer responsiver Artikeltitel ohne horizontalen Überlauf', 'Erledigt'], 'showing completed entries must project purchased items in every Shopping list');
   const editableCard = page.locator('.shopping-item-card').filter({ hasText: 'Sehr langer responsiver' });
   const editableCheck = editableCard.locator('.shopping-item-check');
   assert.equal(await editableCheck.isEnabled(), true);
@@ -612,6 +691,17 @@ try {
     assert((await page.locator('.section-unsorted .section-name').textContent()).trim(), `${language} unsorted label must render`);
     assert.match(await page.locator('.shopping-item-check').first().getAttribute('aria-label'), /Sehr langer responsiver Artikeltitel/, `${language} completion label must interpolate the item name`);
   }
+
+  await page.locator('[data-section-action="show-add"]').click();
+  await page.locator('[data-section-input="new"]').fill('Gemeinsam erstellt');
+  await page.locator('[data-section-action="save-new"]').click();
+  await page.waitForFunction(() => window.test.mutations().some(mutation => mutation.action === 'CREATE_SHOPPING_SECTION' && mutation.data.shopping_list_id === 3));
+  assert.equal(await page.locator('.section-name').filter({ hasText: 'Gemeinsam erstellt' }).count(), 1);
+  assert.equal(await page.locator('[data-section-action="edit"]').count(), 2, 'the recipient-created section remains fully editable content');
+  assert.equal(await page.locator('[data-section-action="delete"]').count(), 2);
+  await page.locator('[data-section-collection-action="clear-completed"]').click();
+  await page.waitForFunction(() => window.test.mutations().some(mutation => mutation.action === 'DELETE_COMPLETED_SHOPPING_ITEMS' && mutation.data.shopping_list_id === 3));
+  assert.deepEqual(await main.locator('.shopping-item-title').allTextContents(), []);
 
   const cleanedLegacyState = await page.evaluate(async () => {
     const indexedDb = await import('/static/js/storage/indexed-db.js');

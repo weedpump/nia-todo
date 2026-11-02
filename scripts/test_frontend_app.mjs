@@ -346,8 +346,8 @@ async function run() {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.waitForTimeout(500);
 
+    await page.click('#tasks-completed-visibility-btn');
     await page.click('#user-menu-button');
-    await page.click('#toggle-done-btn');
     await page.click('#sort-toggle-btn');
     await page.click('#sort-toggle-btn');
     await page.keyboard.press('Escape');

@@ -103,11 +103,6 @@ const fixtureSource = `
   translatePage(document);
   window.test = {
     setActive: id => { activeListId = id; navigation.selectList(id, { updateNavigation: false }); editor.reconcile(); },
-    setCanManage: (id, canManage) => {
-      lists = lists.map(list => list.id === id ? { ...list, can_manage: canManage } : list);
-      navigation.replaceLists(lists);
-      editor.reconcile();
-    },
     deferNextCommit: () => {
       let release;
       const promise = new Promise(resolve => { release = resolve; });
@@ -203,12 +198,8 @@ try {
   assert.equal(await page.evaluate(() => window.test.commits()[0].data.shopping_list_id), 1);
 
   await storeTrigger.click();
-  assert.equal(await page.locator('#shopping-item-store-ui-menu .ui-select-option-action').count(), 0, 'list editors must not receive store edit actions in the item modal');
-  await storeTrigger.press('Escape');
-  await page.evaluate(() => window.test.setCanManage(1, true));
-  await storeTrigger.click();
   const itemStoreEditAction = page.locator('#shopping-item-store-ui-menu .ui-select-option-action');
-  assert.equal(await itemStoreEditAction.count(), 1, 'list managers receive one edit action for each concrete item-modal store option');
+  assert.equal(await itemStoreEditAction.count(), 1, 'every list content editor can edit concrete store options');
   assert.equal(await itemStoreEditAction.getAttribute('aria-label'), 'REWE bearbeiten');
   const itemStoreSearch = page.locator('#shopping-item-store-ui-menu .ui-select-search-input');
   await itemStoreSearch.fill('REWE');

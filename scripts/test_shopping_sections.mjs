@@ -5,6 +5,7 @@ import { createShoppingSectionsAdapter } from '../web/static/js/features/shoppin
 let lists = [{
   id: 'list-1',
   can_manage: true,
+  can_edit: true,
   sections: [
     { id: 'opaque-a', name: 'A', sort_order: 0 },
     { id: 'opaque-b', name: 'B', sort_order: 1 },
@@ -67,6 +68,7 @@ assert.deepEqual(lists, duplicateOrderSnapshot, 'duplicate reorder IDs cannot co
 lists = [{
   id: 'list-1',
   can_manage: true,
+  can_edit: true,
   sections: [
     { id: 'opaque-a', name: 'A', sort_order: 0, is_pending: false },
     { id: 'opaque-b', name: 'B', sort_order: 1, is_pending: false },
@@ -85,6 +87,7 @@ assert.deepEqual(partialReorder.list.sections.map(section => [section.id, Boolea
 lists = [{
   id: 'list-1',
   can_manage: true,
+  can_edit: true,
   preferences: { hide_empty_sections: true },
   sections: [
     { id: 'hidden-1', name: 'Hidden 1', sort_order: 0 },
@@ -106,8 +109,80 @@ assert.deepEqual(visibleReorder.list.sections.map(section => section.sort_order)
 assert.deepEqual(visibleReorder.mutations.map(mutation => mutation.data.section_id), ['visible-b', 'visible-a']);
 
 const commitCountBeforePermissionLoss = commits.length;
-lists = lists.map(list => ({ ...list, can_manage: false }));
+
+let cleanupLists = [{
+  id: 'cleanup-list',
+  can_manage: true,
+  can_edit: true,
+  sections: [],
+  items: [
+    { id: 'open', completed: false },
+    { id: 'done-a', completed: true },
+    { id: 'done-b', completed: true },
+  ],
+}];
+const cleanupCommits = [];
+const cleanupAdapter = createShoppingSectionsAdapter({
+  getLists: () => cleanupLists,
+  setLists: next => { cleanupLists = structuredClone(next); },
+  getActiveListId: () => 'cleanup-list',
+  getRoot: () => null,
+  commitMutation: async build => {
+    const mutation = build();
+    if (!mutation) return null;
+    cleanupCommits.push(structuredClone(mutation));
+    return mutation;
+  },
+});
+assert.equal(cleanupAdapter.completedCount(), 2);
+const cleanupResult = await cleanupAdapter.clearCompleted();
+assert.equal(cleanupResult.deleted_count, 2);
+assert.deepEqual(cleanupLists[0].items.map(item => item.id), ['open']);
+assert.equal(cleanupCommits[0].action, 'DELETE_COMPLETED_SHOPPING_ITEMS');
+assert.deepEqual(cleanupCommits[0].data, { shopping_list_id: 'cleanup-list' });
+
+let collaboratorLists = [{
+  id: 'collaborator-list',
+  can_edit: true,
+  can_manage: false,
+  sections: [{ id: 'owner-section', name: 'Owner section', sort_order: 0 }],
+  items: [{ id: 'purchased', completed: true, section_id: 'owner-section' }],
+}];
+const collaboratorCommits = [];
+const collaboratorAdapter = createShoppingSectionsAdapter({
+  getLists: () => collaboratorLists,
+  setLists: next => { collaboratorLists = structuredClone(next); },
+  getActiveListId: () => 'collaborator-list',
+  getRoot: () => null,
+  commitMutation: async build => {
+    const mutation = build();
+    if (!mutation) return null;
+    collaboratorCommits.push(structuredClone(mutation));
+    return mutation;
+  },
+});
+assert.equal(collaboratorAdapter.canCreate(), true);
+assert.equal(collaboratorAdapter.canCleanup(), true);
+assert.equal(collaboratorAdapter.canManage(), true, 'section management follows content-edit access, not list ownership');
+const collaboratorCreated = await collaboratorAdapter.createSection('Shared section');
+assert(collaboratorCreated, 'a direct recipient or household member can add a section');
+assert(await collaboratorAdapter.renameSection('owner-section', 'Shared rename'), 'a collaborator can rename an existing section');
+const reorderedIds = collaboratorLists[0].sections.map(section => section.id).reverse();
+assert(await collaboratorAdapter.reorderSections(reorderedIds), 'a collaborator can reorder existing sections');
+assert.deepEqual(collaboratorLists[0].sections.map(section => section.id), reorderedIds);
+assert(await collaboratorAdapter.deleteSection('owner-section'), 'a collaborator can delete an existing section');
+assert(await collaboratorAdapter.clearCompleted(), 'a direct recipient or household member can delete purchased items');
+assert.deepEqual(collaboratorCommits.map(mutation => mutation.action), [
+  'CREATE_SHOPPING_SECTION',
+  'UPDATE_SHOPPING_SECTION',
+  undefined,
+  'DELETE_SHOPPING_SECTION',
+  'DELETE_COMPLETED_SHOPPING_ITEMS',
+]);
+
+lists = lists.map(list => ({ ...list, can_manage: false, can_edit: false }));
 assert.equal(adapter.canManage(), false);
+assert.equal(adapter.canCreate(), false);
 assert.equal(await adapter.createSection('Forbidden'), null);
 assert.equal(await adapter.renameSection('opaque-a', 'Forbidden'), null);
 assert.equal(await adapter.deleteSection('opaque-a'), null);
@@ -116,9 +191,9 @@ assert.equal(commits.length, commitCountBeforePermissionLoss, 'direct controller
 assert(renderCount >= 4);
 
 for (const invalidPermission of ['0', 'false', 0, null, undefined]) {
-  lists = [{ id: 'list-1', can_manage: invalidPermission, sections: [], items: [] }];
+  lists = [{ id: 'list-1', can_edit: invalidPermission, can_manage: true, sections: [], items: [] }];
   const before = commits.length;
-  assert.equal(adapter.canManage(), false, `can_manage=${String(invalidPermission)} must fail closed`);
+  assert.equal(adapter.canManage(), false, `can_edit=${String(invalidPermission)} must fail closed`);
   assert.equal(await adapter.createSection('Forbidden'), null);
   assert.equal(commits.length, before);
 }
@@ -139,10 +214,10 @@ const delayedAdapter = createShoppingSectionsAdapter({
   render: () => {},
   isOnlineForSync: () => false,
 });
-lists = lists.map(list => ({ ...list, can_manage: true }));
+lists = lists.map(list => ({ ...list, can_edit: true }));
 const pending = delayedAdapter.renameSection('opaque-a', 'Stale');
 await commitReached;
-lists = lists.map(list => ({ ...list, can_manage: false }));
+lists = lists.map(list => ({ ...list, can_edit: false }));
 releaseCommit();
 assert.equal(await pending, null, 'mutation builder re-resolves permission after the queue-writer gate');
 
@@ -150,6 +225,7 @@ async function assertStaleSectionRaceFailsClosed(mutateLiveLists, message) {
   let raceLists = [{
     id: 'race-list',
     can_manage: true,
+    can_edit: true,
     sections: [{ id: 'temp-shopping-section-race', client_mutation_id: 'mutation-race', name: 'Before', sort_order: 0 }],
     items: [],
   }];
@@ -182,7 +258,8 @@ await assertStaleSectionRaceFailsClosed(
   'an external delete while waiting for the writer gate cannot recreate or update the missing section',
 );
 
-let storageLists = [{ id: 'storage-list', can_manage: true, sections: [], items: [] }];
+let storageLists = [{ id: 'storage-list', can_manage: true,
+  can_edit: true, sections: [], items: [] }];
 const storageSnapshot = structuredClone(storageLists);
 const storageFailureAdapter = createShoppingSectionsAdapter({
   getLists: () => storageLists,

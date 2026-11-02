@@ -23,6 +23,7 @@ import { runEntityPrivacyEviction } from './features/entity-access-privacy.js';
 import { createSyncController } from './features/sync-controller.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
+import { createCompletedVisibilityFeature } from './features/completed-visibility.js';
 import { getEffectiveDashboardPreferences, loadDashboardPreferences, saveDashboardPreferences } from './features/dashboard-preferences.js';
 import { createDashboardPreferencesFeature } from './features/dashboard-preferences-dialog.js';
 import { createDashboardPreferencesSync } from './features/dashboard-preferences-sync.js';
@@ -94,11 +95,13 @@ let shoppingListDetailsFeature = null;
 let shoppingItemEditorFeature = null;
 let shoppingStoreEditorFeature = null;
 let shoppingViewPreferencesFeature = null;
+let completedVisibilityFeature = null;
 
 function renderShopping() {
   shoppingNavigationFeature?.render();
   shoppingItemEditorFeature?.reconcile?.();
   shoppingViewPreferencesFeature?.updateButton?.();
+  completedVisibilityFeature?.updateButtons?.();
 }
 
 function setShoppingListsState(next, { reconcileDetails = true } = {}) {
@@ -203,8 +206,6 @@ const brainDumpLiveFeature = createBrainDumpLiveFeature({
   placesApi,
 });
 const viewPreferences = createViewPreferencesFeature({
-  getHideDone: () => hideDone,
-  setHideDone: (value) => { hideDone = value; },
   getSortMode: () => sortMode,
   setSortMode: (value) => { sortMode = value; },
   getShowProjectWidget: () => showProjectWidget,
@@ -222,8 +223,14 @@ const viewPreferences = createViewPreferencesFeature({
   renderTodos: () => renderTodos(),
   renderStats: () => renderStats(),
 });
-const toggleHideDone = viewPreferences.toggleHideDone;
-const updateToggleDoneButton = viewPreferences.updateToggleDoneButton;
+completedVisibilityFeature = createCompletedVisibilityFeature({
+  getHidden: () => hideDone,
+  setHidden: value => { hideDone = value; },
+  translate: t,
+  renderTasks: () => renderTodos(),
+  renderShopping: () => renderShopping(),
+});
+const updateToggleDoneButton = completedVisibilityFeature.updateButtons;
 const cycleSort = viewPreferences.cycleSort;
 const updateSortButton = viewPreferences.updateSortButton;
 const sortTodoList = viewPreferences.sortTodoList;
@@ -486,7 +493,6 @@ const userMenuFeature = createUserMenuFeature({
   cycleTheme: () => cycleTheme(),
   toggleAccentPresetMenu: (event) => toggleAccentPresetMenu(event),
   cycleSort: () => cycleSort(),
-  toggleHideDone: () => toggleHideDone(),
   toggleProjectWidget: () => toggleProjectWidget(),
   logout: () => logout(),
 });
@@ -722,6 +728,21 @@ const sectionActions = createSectionActionsFeature({
   renderTodos: () => renderTodos(),
   renderProjects: () => renderProjects(),
   confirmDanger,
+  completedCount: () => todos.filter(todo => Number(todo.project_id) === Number(currentProjectId) && todo.status === 'done').length,
+  clearCompleted: () => projectsFeature.clearDoneInProject(),
+  onCompletedEmpty: () => showToast(t('project.done.empty')),
+  onCompletedError: error => {
+    console.error('Clear done error:', error);
+    showToast(t('project.done.deleteFailed'));
+  },
+  completedLabels: {
+    clearCompletedTitle: () => t('project.done.deleteTitle'),
+    clearCompletedMessage: ({ count }) => t('project.done.deleteMessage', {
+      count,
+      project: projects.find(project => Number(project.id) === Number(currentProjectId))?.name || '',
+    }),
+    clearCompletedConfirm: () => t('project.done.deleteConfirm'),
+  },
   sectionsFeature,
   sectionRegistry,
 });
@@ -833,7 +854,6 @@ const bindDashboardDrilldownActions = dashboardDrilldownFeature.bindDashboardDri
 
 const showProjectModal = projectsFeature.showProjectModal;
 const deleteProject = projectsFeature.deleteProject;
-const bindProjectActions = projectsFeature.bindProjectActions;
 const clearDoneFromModal = projectsFeature.clearDoneFromModal;
 
 const markTodoDone = todosFeature.markTodoDone;
@@ -881,9 +901,20 @@ const shoppingSectionsAdapter = createShoppingSectionsAdapter({
   render: () => shoppingNavigationFeature?.render?.(),
   isOnlineForSync,
   syncWithServer,
-  onError: error => console.error('Shopping section mutation failed', error),
+  onError: (error, context) => {
+    console.error('Shopping section mutation failed', error);
+    if (context?.action === 'clear-completed') showToast(t('shopping.done.deleteFailed'));
+  },
+  onCompletedEmpty: () => showToast(t('shopping.done.empty')),
+  onCompletedSuccess: result => showToast(t('shopping.done.deleted', { count: result.deleted_count })),
   labels: {
     deleteMessage: () => t('shopping.section.deleteMessage'),
+    clearCompletedTitle: () => t('shopping.done.deleteTitle'),
+    clearCompletedMessage: ({ count }) => t('shopping.done.deleteMessage', {
+      count,
+      list: shoppingLists.find(list => String(list.id) === String(shoppingNavigationFeature?.getActiveListId?.()))?.name || '',
+    }),
+    clearCompletedConfirm: () => t('shopping.done.deleteConfirm'),
   },
 });
 const shoppingItemsController = createShoppingItemsController({
@@ -928,6 +959,7 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
   sectionAdapter: shoppingSectionsAdapter,
   itemController: shoppingItemsController,
   storeController: shoppingStoresController,
+  getHideDone: () => hideDone,
   shoppingApi,
   loadAuthoritativeProjection: async () => {
     const result = await refreshFromServer();
@@ -1221,6 +1253,7 @@ export function startAppModule() {
   bindNativePointerDragDrop();
   bindMobileSearchEvents();
   bindTopbarPreferenceButtons();
+  completedVisibilityFeature.bind();
   shoppingViewPreferencesFeature.bind();
   bindDashboardPreferencesActions();
   window.addEventListener('online', () => dashboardPreferencesSyncFeature.refresh());
@@ -1231,7 +1264,6 @@ export function startAppModule() {
   bindWorkspaceControls();
   bindTodoActions();
   sharingFeature.bindProjectSharingActions();
-  bindProjectActions();
   bindSectionActions();
   bindNavigationActions();
   bindDashboardDrilldownActions();

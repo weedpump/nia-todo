@@ -30,9 +30,9 @@ export function createShoppingStoreEditorFeature({
     return getStores().find(store => sameId(store.id, id) || sameId(store.client_mutation_id, id)) || null;
   }
 
-  function canManage(listId, store = null) {
+  function canEditStore(listId, store = null) {
     const list = listById(listId);
-    return Boolean(list?.can_manage === true && (!store || sameId(store.shopping_list_id, list.id) || sameId(store.shopping_list_id, list.client_mutation_id)));
+    return Boolean(list?.can_edit === true && (!store || sameId(store.shopping_list_id, list.id) || sameId(store.shopping_list_id, list.client_mutation_id)));
   }
 
   function readState() {
@@ -53,7 +53,7 @@ export function createShoppingStoreEditorFeature({
         canSubmit: () => {
           const listId = doc?.getElementById?.('shopping-store-list-id')?.value;
           const store = storeById(doc?.getElementById?.('shopping-store-id')?.value);
-          return Boolean(store && canManage(listId, store));
+          return Boolean(store && canEditStore(listId, store));
         },
       });
       saveState.form = form;
@@ -93,7 +93,7 @@ export function createShoppingStoreEditorFeature({
   function showEdit(listId, storeId, trigger = null) {
     const modal = doc?.getElementById?.('shopping-store-modal');
     const store = storeById(storeId);
-    if (!modal || !store || store.active === false || !canManage(listId, store)) return false;
+    if (!modal || !store || store.active === false || !canEditStore(listId, store)) return false;
     const listInput = doc.getElementById('shopping-store-list-id');
     const storeInput = doc.getElementById('shopping-store-id');
     const nameInput = doc.getElementById('shopping-store-name');
@@ -126,7 +126,7 @@ export function createShoppingStoreEditorFeature({
     const store = storeById(storeId);
     const name = validShoppingStoreName(readState().name);
     const input = doc?.getElementById?.('shopping-store-name');
-    if (!store || !name || !canManage(listId, store)) {
+    if (!store || !name || !canEditStore(listId, store)) {
       input?.setAttribute?.('aria-invalid', 'true');
       setError(!name ? 'shopping.store.error.invalidName' : 'shopping.store.error.saveFailed');
       input?.focus?.();
@@ -139,7 +139,7 @@ export function createShoppingStoreEditorFeature({
     if (button) button.disabled = true;
     try {
       const updated = await storeController?.update?.(store.id, name, {
-        authorize: latestStore => canManage(listId, latestStore),
+        authorize: latestStore => canEditStore(listId, latestStore),
       });
       if (!updated) {
         setError('shopping.store.error.saveFailed');
@@ -182,7 +182,7 @@ export function createShoppingStoreEditorFeature({
     if (submitting) return null;
     const listId = doc?.getElementById?.('shopping-store-list-id')?.value;
     const store = storeById(doc?.getElementById?.('shopping-store-id')?.value);
-    if (!store || !canManage(listId, store)) {
+    if (!store || !canEditStore(listId, store)) {
       closeModal();
       return null;
     }
@@ -198,10 +198,10 @@ export function createShoppingStoreEditorFeature({
     if (button) button.disabled = true;
     try {
       const deleted = await storeController?.remove?.(store.id, {
-        authorize: latestStore => canManage(listId, latestStore),
+        authorize: latestStore => canEditStore(listId, latestStore),
       });
       if (!deleted) {
-        if (!canManage(listId, storeById(store.id))) {
+        if (!canEditStore(listId, storeById(store.id))) {
           closeModal();
         } else {
           setError('shopping.store.error.deleteFailed');

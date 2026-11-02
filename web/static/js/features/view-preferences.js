@@ -2,7 +2,7 @@ import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { updateTopbarToggle } from '../ui/topbar-toggle.js';
 
-export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, saveShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos, renderStats = () => {} }) {
+export function createViewPreferencesFeature({ getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, saveShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos, renderStats = () => {} }) {
   let todayIconRefreshTimer = null;
 
   function renderTodayCalendarIcon(date = new Date()) {
@@ -19,32 +19,6 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
       updateTodayFocusButton();
       scheduleTodayIconRefresh();
     }, nextDay.getTime() - now.getTime());
-  }
-
-  function toggleHideDone() {
-    const next = !getHideDone();
-    setHideDone(next);
-    localStorage.setItem('nia-hide-done', next ? 'true' : 'false');
-    updateToggleDoneButton();
-    renderTodos();
-  }
-
-  function updateToggleDoneButton() {
-    const btn = document.getElementById('toggle-done-btn');
-    if (!btn) return;
-    const iconEl = btn.querySelector('.menu-item-icon');
-    const labelEl = btn.querySelector('.menu-item-label');
-    const hidden = getHideDone();
-    btn.classList.toggle('active', !hidden);
-    const icon = hidden ? iconSvg('ban') : iconSvg('check-circle');
-    const title = hidden ? t('menu.showDone') : t('menu.hideDone');
-    if (iconEl && labelEl) {
-      iconEl.innerHTML = icon;
-      labelEl.textContent = title;
-    } else {
-      btn.textContent = icon;
-    }
-    btn.title = title;
   }
 
   function toggleProjectWidget() {
@@ -210,5 +184,5 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     });
   }
 
-  return { toggleHideDone, updateToggleDoneButton, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, bindTopbarPreferenceButtons, cycleSort, updateSortButton, sortTodoList };
+  return { toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, bindTopbarPreferenceButtons, cycleSort, updateSortButton, sortTodoList };
 }

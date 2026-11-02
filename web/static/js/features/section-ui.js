@@ -36,13 +36,23 @@ export function renderSectionHeader({ section = null, count = 0, canManage = tru
   `;
 }
 
+export function renderSectionManagementRow({ newLabel = '', clearCompletedLabel = '', canCreate = true, canCleanup = true } = {}) {
+  return `<div class="add-section-row">
+    ${canCreate ? `<button type="button" class="btn btn-secondary btn-small" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(newLabel)}</button>` : ''}
+    ${canCleanup && clearCompletedLabel ? `<button type="button" class="btn btn-secondary btn-small" data-section-collection-action="clear-completed">${iconSvg('trash-2')} ${escapeHtml(clearCompletedLabel)}</button>` : ''}
+  </div>`;
+}
+
 export function renderSectionCollection({
   sections = [],
   items = [],
   canManage = true,
+  canCreate = canManage,
+  canCleanup = canManage,
   unsortedLabel = '',
   deleteLabel = '',
   newLabel = '',
+  clearCompletedLabel = '',
   renderItem = () => '',
   sortItems = values => values,
   renderAddRow = null,
@@ -63,10 +73,95 @@ export function renderSectionCollection({
     html += renderSectionHeader({ count: unsorted.length, canManage: false, unsortedLabel });
     html += `<div class="section-todos" data-section-id="null">${unsorted.map(renderItem).join('')}</div>`;
   }
-  if (canManage) {
-    html += renderAddRow ? renderAddRow() : `<div class="add-section-row"><button type="button" class="btn btn-secondary btn-small" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(newLabel)}</button></div>`;
+  if (canCreate || canCleanup) {
+    html += renderAddRow ? renderAddRow() : renderSectionManagementRow({ newLabel, clearCompletedLabel, canCreate, canCleanup });
   }
   return html;
+}
+
+export function createCompletedCleanupController({
+  registry,
+  root = document,
+  confirmDanger,
+  labels = {},
+} = {}) {
+  let bound = false;
+  const busy = new WeakSet();
+
+  function label(adapter, key, context = {}) {
+    const value = adapter?.labels?.[key] ?? labels[key];
+    return typeof value === 'function' ? value(context) : (value || '');
+  }
+
+  function focusAction(adapter) {
+    queueMicrotask(() => adapter?.getRoot?.()?.querySelector?.('[data-section-collection-action="clear-completed"]')?.focus?.());
+  }
+
+  function setBusy(adapter, value) {
+    const button = adapter?.getRoot?.()?.querySelector?.('[data-section-collection-action="clear-completed"]');
+    if (!button) return;
+    button.disabled = value;
+    if (value) button.setAttribute?.('aria-busy', 'true');
+    else button.removeAttribute?.('aria-busy');
+  }
+
+  async function clearCompleted(adapter) {
+    const canCleanup = typeof adapter?.canCleanup === 'function'
+      ? adapter.canCleanup() === true
+      : adapter?.canManage?.() === true;
+    if (!adapter || busy.has(adapter) || !canCleanup) return false;
+    const count = Number(adapter.completedCount?.() || 0);
+    if (count <= 0) {
+      adapter.onCompletedEmpty?.();
+      focusAction(adapter);
+      return false;
+    }
+    busy.add(adapter);
+    setBusy(adapter, true);
+    try {
+      const confirmed = await confirmDanger?.({
+        title: label(adapter, 'clearCompletedTitle', { count }),
+        message: label(adapter, 'clearCompletedMessage', { count }),
+        confirmText: label(adapter, 'clearCompletedConfirm', { count }),
+        returnFocus: () => adapter?.getRoot?.()?.querySelector?.('[data-section-collection-action="clear-completed"]') || null,
+      });
+      const stillCanCleanup = typeof adapter.canCleanup === 'function'
+        ? adapter.canCleanup() === true
+        : adapter.canManage?.() === true;
+      if (!confirmed || !stillCanCleanup) return false;
+      const result = await adapter.clearCompleted?.();
+      if (!result) return false;
+      adapter.onCompletedSuccess?.(result);
+      focusAction(adapter);
+      return true;
+    } catch (error) {
+      adapter.onError?.(error, { action: 'clear-completed' });
+      focusAction(adapter);
+      return false;
+    } finally {
+      setBusy(adapter, false);
+      busy.delete(adapter);
+    }
+  }
+
+  async function onClick(event) {
+    const target = event.target?.closest?.('[data-section-collection-action]');
+    if (!target || target.dataset.sectionCollectionAction !== 'clear-completed') return;
+    const adapter = registry?.resolve?.(target);
+    if (!adapter) return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    return clearCompleted(adapter);
+  }
+
+  return {
+    bind() {
+      if (bound) return;
+      bound = true;
+      root?.addEventListener?.('click', onClick);
+    },
+    clearCompleted,
+  };
 }
 
 export function createSectionRootRegistry() {
@@ -131,7 +226,10 @@ export function createSectionController({
   }
 
   function showAdd(adapter) {
-    if (!adapter?.canManage?.()) return false;
+    const canCreate = typeof adapter?.canCreate === 'function'
+      ? adapter.canCreate() === true
+      : adapter?.canManage?.() === true;
+    if (!canCreate) return false;
     const row = liveRoot(adapter)?.querySelector?.('.add-section-row');
     if (!row) return false;
     const inputId = adapter.newInputId?.() || 'new-section-name';
@@ -163,7 +261,10 @@ export function createSectionController({
   }
 
   async function saveNew(adapter, input) {
-    if (!adapter?.canManage?.()) return false;
+    const canCreate = typeof adapter?.canCreate === 'function'
+      ? adapter.canCreate() === true
+      : adapter?.canManage?.() === true;
+    if (!canCreate) return false;
     const name = input?.value?.trim();
     if (!name) return false;
     try {

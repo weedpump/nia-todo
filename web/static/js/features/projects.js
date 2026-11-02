@@ -34,7 +34,6 @@ export function createProjectsFeature({
   syncInProgressRef = {},
 }) {
   const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
-  let projectActionsBound = false;
   let projectAppearance = null;
   let projectModalController = null;
   let projectOwnershipField = null;
@@ -543,19 +542,6 @@ export function createProjectsFeature({
     });
   }
 
-  function bindProjectActions() {
-    if (projectActionsBound) return;
-    projectActionsBound = true;
-    document.addEventListener('click', (event) => {
-      const target = event.target?.closest?.('[data-project-action]');
-      if (!target) return;
-      const action = target.dataset.projectAction;
-      event.preventDefault();
-      if (action === 'clear-done-current') {
-        clearDoneInProject();
-      }
-    });
-  }
 
   async function removeDeletedTodosFromLocalState(deletedIds) {
     const ids = new Set((deletedIds || []).map(id => Number(id)));
@@ -592,28 +578,18 @@ export function createProjectsFeature({
 
   async function clearDoneInProject() {
     const currentProjectId = getCurrentProjectId();
-    if (!currentProjectId) return;
+    if (!currentProjectId) return null;
     const project = getProjects().find(p => p.id === currentProjectId);
-    if (!project) return;
+    if (!project) return null;
     const doneTodos = getTodos().filter(t => t.project_id === currentProjectId && t.status === 'done');
-    if (doneTodos.length === 0) return showToast(t('project.done.empty'));
-    const confirmed = await confirmDanger({
-      title: t('project.done.deleteTitle'),
-      message: t('project.done.deleteMessage', { count: doneTodos.length, project: project.name }),
-      confirmText: t('project.done.deleteConfirm'),
-    });
-    if (!confirmed) return;
-    try {
-      const result = await projectsApi.clearDone(currentProjectId);
-      await removeDeletedTodosFromLocalState(result.deleted_ids);
-      renderStats();
-      renderTodos();
-      showToast(t('project.done.deleted', { count: result.deleted_count }));
-    } catch (err) {
-      console.error('Clear done error:', err);
-      showToast(t('project.done.deleteFailed'));
-    }
+    if (doneTodos.length === 0) return null;
+    const result = await projectsApi.clearDone(currentProjectId);
+    await removeDeletedTodosFromLocalState(result.deleted_ids);
+    renderStats();
+    renderTodos();
+    showToast(t('project.done.deleted', { count: result.deleted_count }));
+    return result;
   }
 
-  return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, bindProjectActions, clearDoneFromModal, clearDoneInProject };
+  return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject };
 }

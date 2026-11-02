@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 
 const tasksSource = readFileSync(new URL('../web/static/js/modules/tasks.js', import.meta.url), 'utf8');
 const shoppingSource = readFileSync(new URL('../web/static/js/modules/shopping.js', import.meta.url), 'utf8');
+const userMenuSource = readFileSync(new URL('../web/static/js/features/user-menu.js', import.meta.url), 'utf8');
 const iconsSource = readFileSync(new URL('../web/static/js/icons/lucide-generated.js', import.meta.url), 'utf8');
 assert.match(tasksSource, /renderTopbarToggle/);
 assert.match(shoppingSource, /renderTopbarToggle/);
@@ -13,10 +14,15 @@ assert.match(shoppingSource, /icon:\s*'layers-minus'/);
 assert.match(iconsSource, /"layers-minus"/);
 assert.doesNotMatch(iconsSource, /"eye-off"/);
 assert.doesNotMatch(tasksSource, /class="today-focus-btn"|class="minimal-todos-btn"/);
+assert.doesNotMatch(tasksSource, /id="toggle-done-btn"[\s\S]*data-user-menu-action="toggle-done"/, 'completed visibility must leave the Tasks user menu');
+assert.doesNotMatch(userMenuSource, /toggle-done|toggleHideDone/, 'the retired user-menu action must not remain as a second completed-visibility controller');
+assert.match(tasksSource, /id:\s*'tasks-completed-visibility-btn'[\s\S]*data-completed-visibility-toggle/, 'Tasks must render the shared completed visibility toggle as its third topbar action');
+assert.match(shoppingSource, /id:\s*'shopping-completed-visibility-btn'[\s\S]*data-completed-visibility-toggle/, 'Shopping must render the same shared completed visibility toggle');
 
 const fixtureSource = `
   import { initI18n } from '/static/js/i18n/index.js';
   import { createModuleShell } from '/static/js/features/module-shell.js';
+  import { createCompletedVisibilityFeature } from '/static/js/features/completed-visibility.js';
   import { openUiLayer } from '/static/js/features/ui-history.js';
   localStorage.setItem('nia-todo-language', 'de');
   localStorage.setItem('nia-active-module', 'tasks');
@@ -45,6 +51,16 @@ const fixtureSource = `
   \`;
   const shell = createModuleShell({ getUser: () => ({ disabled_modules: ['recipes'] }) });
   shell.bind();
+  let hideDone = true;
+  const completedVisibility = createCompletedVisibilityFeature({
+    getHidden: () => hideDone,
+    setHidden: value => { hideDone = value; },
+    root: document,
+    storage: localStorage,
+    translate: key => key,
+  });
+  completedVisibility.bind();
+  completedVisibility.updateButtons();
   window.test = {
     navigate: id => shell.navigateToModule(id),
     active: () => shell.getActiveModule(),
@@ -61,7 +77,7 @@ try {
   await page.route('http://nia.test/**', async route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/') {
-      await route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><link rel="stylesheet" href="/static/style.css"></head><body><script type="module" src="/fixture.js"></script></body></html>' });
+      await route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/static/style.css"></head><body><script type="module" src="/fixture.js"></script></body></html>' });
       return;
     }
     if (url.pathname === '/fixture.js') {
@@ -83,9 +99,21 @@ try {
 
   await page.goto('http://nia.test/');
   await page.waitForFunction(() => Boolean(window.test));
+  assert.equal(await page.evaluate(() => document.documentElement.clientWidth), 390, 'the mobile fixture must use the physical viewport rather than a scaled desktop layout viewport');
   assert.equal(await page.evaluate(() => window.test.active()), 'tasks');
   assert.equal(await page.locator('#today-focus-btn.ui-topbar-toggle').count(), 1);
   assert.equal(await page.locator('#minimal-todos-btn.ui-topbar-toggle').count(), 1);
+  assert.equal(await page.locator('#tasks-completed-visibility-btn.ui-topbar-toggle').count(), 1);
+  assert.deepEqual(await page.locator('[data-module-panel="tasks"][data-module-slot="topbar"] .ui-topbar-toggle').evaluateAll(elements => elements.map(element => element.id)), [
+    'today-focus-btn',
+    'minimal-todos-btn',
+    'tasks-completed-visibility-btn',
+  ]);
+  assert.equal(await page.locator('[data-module-panel="tasks"][data-module-slot="userMenu"] [data-completed-visibility-toggle]').count(), 0);
+  assert.equal(await page.locator('#tasks-completed-visibility-btn').getAttribute('aria-pressed'), 'false');
+  await page.locator('#tasks-completed-visibility-btn').click();
+  assert.equal(await page.locator('#tasks-completed-visibility-btn').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-hide-done')), 'false');
   assert.equal(await page.locator('#workspace-switcher').evaluate(element => getComputedStyle(element).display !== 'none'), true);
   assert.equal(await page.locator('#search-box').evaluate(element => getComputedStyle(element).display !== 'none'), true);
 
@@ -103,6 +131,12 @@ try {
   });
 
   assert.equal(await page.locator('#shopping-hide-empty-sections-btn.ui-topbar-toggle').count(), 1);
+  assert.equal(await page.locator('#shopping-completed-visibility-btn.ui-topbar-toggle').count(), 1);
+  assert.deepEqual(await page.locator('[data-module-panel="shopping"][data-module-slot="topbar"] .ui-topbar-toggle').evaluateAll(elements => elements.map(element => element.id)), [
+    'shopping-hide-empty-sections-btn',
+    'shopping-completed-visibility-btn',
+  ]);
+  assert.equal(await page.locator('#shopping-completed-visibility-btn').getAttribute('aria-pressed'), 'true', 'the Shopping entrypoint must hydrate the state changed from Tasks');
   assert.equal(await page.locator('#search-box').getAttribute('hidden'), null);
   assert.notEqual(await page.locator('#search-box').evaluate(element => getComputedStyle(element).display), 'none');
   assert.equal(await page.locator('#workspace-switcher').getAttribute('hidden'), '');
@@ -113,12 +147,16 @@ try {
   assert.equal(await page.locator('#workspace-menu').evaluate(element => element.classList.contains('open')), false);
   assert.equal(await page.locator('#workspace-current-btn').getAttribute('aria-expanded'), 'false');
   assert.deepEqual(await page.evaluate(() => history.state?.niaTodoUi?.layers || []), ['mobile-search'], 'switching between searchable modules must keep the active search layer');
+  await page.locator('#shopping-completed-visibility-btn').click();
+  assert.equal(await page.locator('#shopping-completed-visibility-btn').getAttribute('aria-pressed'), 'false');
+  assert.equal(await page.evaluate(() => localStorage.getItem('nia-hide-done')), 'true');
 
   await page.locator('#search-input').fill('milk');
   await page.evaluate(() => window.test.search('milk'));
 
   await page.evaluate(() => window.test.navigate('tasks'));
   assert.equal(await page.locator('#search-box').evaluate(element => getComputedStyle(element).display !== 'none'), true);
+  assert.equal(await page.locator('#tasks-completed-visibility-btn').getAttribute('aria-pressed'), 'false', 'the Tasks entrypoint must reflect the state changed from Shopping');
   assert.equal(await page.locator('#search-input').inputValue(), 'remember this task query');
   await page.evaluate(() => window.test.navigate('shopping'));
   assert.equal(await page.locator('#search-input').inputValue(), 'milk');

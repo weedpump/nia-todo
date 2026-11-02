@@ -16,6 +16,8 @@ export function createShoppingSectionsAdapter({
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   onError = () => {},
+  onCompletedEmpty = () => {},
+  onCompletedSuccess = () => {},
   labels = {},
   itemDrag = null,
   now = () => new Date().toISOString(),
@@ -43,10 +45,10 @@ export function createShoppingSectionsAdapter({
   }
 
   async function commit(build) {
-    if (currentList()?.can_manage !== true) return null;
+    if (currentList()?.can_edit !== true) return null;
     const mutation = await commitMutation(() => {
       const live = currentList();
-      if (live?.can_manage !== true) return null;
+      if (live?.can_edit !== true) return null;
       return build(live);
     });
     return publish(mutation);
@@ -57,7 +59,10 @@ export function createShoppingSectionsAdapter({
     labels,
     getSections: () => visibleSections(),
     getItems: () => currentList()?.items || [],
-    canManage: () => currentList()?.can_manage === true,
+    canManage: () => currentList()?.can_edit === true,
+    canCreate: () => currentList()?.can_edit === true,
+    canCleanup: () => currentList()?.can_edit === true,
+    completedCount: () => (currentList()?.items || []).filter(item => item.completed === true).length,
     newInputId: () => 'shopping-new-section-name',
     editInputId: id => `shopping-edit-section-name-${id}`,
     resolveSectionId(id) {
@@ -66,6 +71,8 @@ export function createShoppingSectionsAdapter({
     itemDrag,
     render,
     onError,
+    onCompletedEmpty,
+    onCompletedSuccess,
     async createSection(name) {
       const cleanName = name?.trim();
       if (!cleanName) return null;
@@ -125,6 +132,18 @@ export function createShoppingSectionsAdapter({
           action: 'DELETE_SHOPPING_SECTION',
           data: { shopping_list_id: live.id, section_id: section.id },
           result: { id: section.id },
+        };
+      });
+    },
+    async clearCompleted() {
+      return commit((live) => {
+        const completed = (live.items || []).filter(item => item.completed === true);
+        if (!completed.length) return null;
+        return {
+          list: { ...clone(live), items: live.items.filter(item => item.completed !== true).map(clone) },
+          action: 'DELETE_COMPLETED_SHOPPING_ITEMS',
+          data: { shopping_list_id: live.id },
+          result: { deleted_count: completed.length, deleted_ids: completed.map(item => item.id) },
         };
       });
     },

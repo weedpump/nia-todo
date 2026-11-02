@@ -11,7 +11,6 @@ export function createUserMenuFeature({
   cycleTheme = null,
   toggleAccentPresetMenu = null,
   cycleSort = null,
-  toggleHideDone = null,
   toggleProjectWidget = null,
   logout = null,
 }) {
@@ -134,7 +133,6 @@ export function createUserMenuFeature({
     if (action === 'theme') cycleTheme?.();
     if (action === 'accent-preset') toggleAccentPresetMenu?.(event);
     if (action === 'sort') cycleSort?.();
-    if (action === 'toggle-done') toggleHideDone?.();
     if (action === 'project-widget') toggleProjectWidget?.();
     if (action === 'logout') logout?.();
   }

@@ -143,6 +143,7 @@ run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 run_step "Product Branding" node scripts/test_product_branding.mjs
 run_step "Module Shell" node scripts/test_module_shell.mjs
 run_step "Shared Topbar Toggle" node scripts/test_topbar_toggle.mjs
+run_step "Shared Completed Visibility" node scripts/test_shared_completed_visibility.mjs
 run_step "Module Topbar Browser" node scripts/test_module_topbar_browser.mjs
 run_step "Shared Entity Sidebar" node scripts/test_frontend_entity_sidebar.mjs
 run_step "Shared Module Primary Action" node scripts/test_module_primary_action.mjs

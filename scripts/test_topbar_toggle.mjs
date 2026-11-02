@@ -8,6 +8,10 @@ const markup = renderTopbarToggle({
   label: 'Calm',
   labelKey: 'minimalTodos.short',
   title: 'Enable calm view',
+  attributes: {
+    'data-completed-visibility-toggle': 'tasks',
+    'data-completed-show-key': 'menu.showDone',
+  },
 });
 assert.match(markup, /class="ui-topbar-toggle"/);
 assert.match(markup, /id="example-toggle"/);
@@ -16,6 +20,8 @@ assert.match(markup, /data-icon="leaf"/);
 assert.match(markup, /data-topbar-toggle-label/);
 assert.match(markup, /data-i18n-key="minimalTodos.short"/);
 assert.match(markup, /title="Enable calm view"/);
+assert.match(markup, /data-completed-visibility-toggle="tasks"/);
+assert.match(markup, /data-completed-show-key="menu.showDone"/);
 
 const classes = new Set();
 const attributes = new Map();

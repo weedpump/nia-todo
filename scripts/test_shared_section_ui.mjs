@@ -18,8 +18,10 @@ globalThis.document = {
 };
 globalThis.CSS = { escape: value => String(value).replaceAll('"', '\\"') };
 const {
+  createCompletedCleanupController,
   createSectionController,
   createSectionRootRegistry,
+  renderSectionManagementRow,
   renderSectionCollection,
   resolveSectionDragSourceAdapter,
   resolveSectionDropAdapter,
@@ -42,6 +44,7 @@ const html = renderSectionCollection({
   unsortedLabel: 'Ohne Abschnitt',
   deleteLabel: 'Delete',
   newLabel: 'Add section',
+  clearCompletedLabel: 'Delete completed',
   renderItem: item => `<div class="section-item-name">${item.name.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</div>`,
 });
 assert.match(html, /class="section-dropzone" data-drop-index="0"/);
@@ -53,6 +56,8 @@ assert.match(html, /data-section-id="empty-id"[\s\S]*class="section-count">0</, 
 assert.match(html, /class="section-header section-unsorted" data-section-id="null"[\s\S]*Ohne Abschnitt[\s\S]*class="section-count">2</, 'null, missing and unknown section IDs share the final unsorted group');
 assert.match(html, /&lt;Milk&gt;/);
 assert.match(html, /data-section-action="show-add"/);
+assert.match(html, /data-section-collection-action="clear-completed"/);
+assert.equal(renderSectionManagementRow({ newLabel: 'Add section', clearCompletedLabel: 'Delete completed' }).match(/class="add-section-row"/g)?.length, 1);
 
 const stableTieHtml = renderSectionCollection({
   sections: [
@@ -77,6 +82,22 @@ const readonlyHtml = renderSectionCollection({
 assert.doesNotMatch(readonlyHtml, /data-section-action=/, 'read-only sections expose no mutation controls');
 assert.doesNotMatch(readonlyHtml, /draggable="true"/, 'read-only sections cannot be reordered');
 assert.doesNotMatch(readonlyHtml, /section-dropzone/, 'read-only sections expose no reorder targets');
+
+const contentEditorHtml = renderSectionCollection({
+  sections,
+  items,
+  canManage: false,
+  canCreate: true,
+  canCleanup: true,
+  unsortedLabel: 'Ohne Abschnitt',
+  deleteLabel: 'Delete',
+  newLabel: 'Add section',
+  clearCompletedLabel: 'Delete completed',
+  renderItem: item => `<div>${item.name}</div>`,
+});
+assert.match(contentEditorHtml, /data-section-action="show-add"/, 'content editors can add Shopping sections without list-management authority');
+assert.match(contentEditorHtml, /data-section-collection-action="clear-completed"/, 'content editors can bulk-delete purchased items');
+assert.doesNotMatch(contentEditorHtml, /data-section-action="edit"|data-section-action="delete"/, 'content editing does not grant section metadata management');
 
 function root(scope) {
   return {
@@ -197,6 +218,78 @@ await controllerListeners['confirm-click']({ target: actionTarget('delete', 'opa
 await Promise.resolve();
 assert.equal(focusedControl, deleteFocus, 'delete completion restores focus inside the live section root');
 
+let cleanupCount = 2;
+let cleanupCalls = 0;
+let cleanupEmptyCalls = 0;
+let cleanupSuccessCount = 0;
+let releaseCleanup;
+let cleanupConfirmOptions = null;
+const cleanupButton = {
+  ...focusable('cleanup-button'),
+  disabled: false,
+  attributes: new Map(),
+  setAttribute(name, value) { this.attributes.set(name, String(value)); },
+  removeAttribute(name) { this.attributes.delete(name); },
+};
+const cleanupRoot = root('cleanup');
+const cleanupLiveRoot = { querySelector: selector => selector === '[data-section-collection-action="clear-completed"]' ? cleanupButton : null };
+const cleanupAdapter = {
+  getRoot: () => cleanupLiveRoot,
+  canManage: () => true,
+  completedCount: () => cleanupCount,
+  clearCompleted: async () => {
+    cleanupCalls += 1;
+    await new Promise(resolve => { releaseCleanup = resolve; });
+    cleanupCount = 0;
+    return { deleted_count: 2 };
+  },
+  onCompletedEmpty: () => { cleanupEmptyCalls += 1; },
+  onCompletedSuccess: result => { cleanupSuccessCount = result.deleted_count; },
+  labels: {
+    clearCompletedTitle: 'Delete completed?',
+    clearCompletedMessage: ({ count }) => `Delete ${count}`,
+    clearCompletedConfirm: 'Delete',
+  },
+};
+registry.register(cleanupRoot, cleanupAdapter);
+const cleanupListeners = {};
+const cleanupController = createCompletedCleanupController({
+  registry,
+  root: { addEventListener(type, listener) { cleanupListeners[type] = listener; } },
+  confirmDanger: async options => { cleanupConfirmOptions = options; return true; },
+});
+cleanupController.bind();
+const cleanupTarget = {
+  dataset: { sectionCollectionAction: 'clear-completed' },
+  closest(selector) {
+    if (selector === '[data-section-collection-action]') return this;
+    if (selector === '[data-section-root]') return cleanupRoot;
+    return null;
+  },
+};
+const firstCleanup = cleanupListeners.click({ target: cleanupTarget, preventDefault() {}, stopPropagation() {} });
+const duplicateCleanup = cleanupListeners.click({ target: cleanupTarget, preventDefault() {}, stopPropagation() {} });
+await Promise.resolve();
+assert.equal(cleanupButton.disabled, true, 'the shared cleanup action must expose a busy disabled state while confirmation or persistence is active');
+assert.equal(cleanupButton.attributes.get('aria-busy'), 'true');
+assert.equal(cleanupCalls, 1, 'the shared cleanup controller must single-flight duplicate activation');
+assert.equal(cleanupConfirmOptions.message, 'Delete 2');
+releaseCleanup();
+await Promise.all([firstCleanup, duplicateCleanup]);
+await Promise.resolve();
+assert.equal(cleanupButton.disabled, false, 'the shared cleanup action must leave busy state after settlement');
+assert.equal(cleanupButton.attributes.has('aria-busy'), false);
+assert.equal(focusedControl, cleanupButton, 'completed cleanup restores focus to the live shared action');
+assert.equal(cleanupSuccessCount, 2, 'the shared cleanup controller reports the domain result after success');
+await cleanupListeners.click({ target: cleanupTarget, preventDefault() {}, stopPropagation() {} });
+assert.equal(cleanupEmptyCalls, 1, 'an empty cleanup uses the domain adapter feedback without opening another confirmation');
+cleanupCount = 1;
+let permissionChecks = 0;
+cleanupAdapter.canManage = () => ++permissionChecks === 1;
+assert.equal(await cleanupController.clearCompleted(cleanupAdapter), false, 'permission loss after confirmation must abort the durable cleanup');
+assert.equal(cleanupCalls, 1, 'permission loss must not reach the domain mutation');
+cleanupAdapter.canManage = () => true;
+
 const { createSectionActionsFeature } = await import('../web/static/js/features/section-actions.js');
 let taskSections = [];
 let taskTodos = [{ id: 10, project_id: 1, section_id: null, title: 'Move me' }];
@@ -225,9 +318,20 @@ const taskActions = createSectionActionsFeature({
   renderTodos: () => { taskRenderCount += 1; },
   renderProjects: () => {},
   confirmDanger: async () => false,
+  completedCount: () => taskTodos.filter(todo => todo.status === 'done').length,
+  clearCompleted: async () => ({ deleted_count: 0 }),
+  onCompletedEmpty: () => {},
+  completedLabels: {
+    clearCompletedTitle: 'Delete completed?',
+    clearCompletedMessage: ({ count }) => `Delete ${count}`,
+    clearCompletedConfirm: 'Delete',
+  },
   sectionsFeature: { renderSectionHeader: () => '' },
   sectionRegistry: createSectionRootRegistry(),
 });
+assert.equal(taskActions.adapter.completedCount(), 0, 'the Tasks adapter exposes the shared cleanup count contract');
+assert.equal(typeof taskActions.adapter.clearCompleted, 'function');
+assert.equal(taskActions.adapter.labels.clearCompletedTitle, 'Delete completed?');
 const pendingTaskCreate = taskActions.adapter.createSection('Immediate');
 await Promise.resolve();
 await Promise.resolve();
@@ -268,10 +372,16 @@ for (const locale of Object.keys(addSectionLabels)) {
   assert.equal(messages['section.new'], addSectionLabels[locale], `${locale} must use the action label for adding a section`);
   assert(messages['shopping.section.unsorted'], `${locale} must localize the final Shopping unsorted group`);
   assert(messages['shopping.section.deleteMessage'], `${locale} must localize the Shopping-specific delete consequence`);
+  for (const key of ['shopping.item.clearCompleted', 'shopping.done.empty', 'shopping.done.deleteTitle', 'shopping.done.deleteMessage', 'shopping.done.deleteConfirm', 'shopping.done.deleted', 'shopping.done.deleteFailed']) {
+    assert(messages[key], `${locale} must localize ${key}`);
+  }
+  assert.match(messages['shopping.done.deleteMessage'], /\{count\}/);
+  assert.match(messages['shopping.done.deleteMessage'], /\{list\}/);
 }
 assert.match(sectionActionsSource, /createSectionController/, 'Tasks CRUD must use the shared controller');
 assert.match(sectionsSource, /renderSectionHeader/, 'Tasks headers must use the shared renderer');
 assert.match(appRenderingSource, /renderSectionCollection/, 'Tasks and Shopping must use the same section collection renderer');
+assert.doesNotMatch(appRenderingSource, /renderAddRow|data-project-action="clear-done-current"/, 'Tasks must use the neutral section management row instead of a project-only cleanup button');
 assert.doesNotMatch(dragDropSource, /parseInt\(section\.dataset\.sectionId/, 'section IDs are opaque in desktop and pointer DnD');
 assert.match(shoppingNavigationSource, /renderSectionCollection/, 'Shopping must use the shared section renderer');
 assert.doesNotMatch(shoppingNavigationSource, /shopping-section-/, 'Shopping must not introduce parallel section UI classes');

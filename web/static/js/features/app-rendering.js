@@ -761,13 +761,10 @@ export function createAppRenderingFeature({
         unsortedLabel: t('section.unsorted'),
         deleteLabel: t('section.delete'),
         newLabel: t('section.new'),
+        clearCompletedLabel: t('todo.clearDone'),
         renderItem: todo => renderTodoItem(todo),
         sortItems: sortProjectSectionTodos,
         showUnsorted: Boolean(unsortedCount || sections.length),
-        renderAddRow: () => `<div class="add-section-row">
-          <button type="button" class="btn btn-secondary btn-small" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
-          <button type="button" class="btn btn-secondary btn-small" data-project-action="clear-done-current">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
-        </div>`,
       });
 
       if (!filtered.length && !sections.length) {

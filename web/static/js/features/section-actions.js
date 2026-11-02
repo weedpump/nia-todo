@@ -1,4 +1,4 @@
-import { createSectionController } from './section-ui.js';
+import { createCompletedCleanupController, createSectionController } from './section-ui.js';
 import { t } from '../i18n/index.js';
 
 export function createSectionActionsFeature({
@@ -18,6 +18,12 @@ export function createSectionActionsFeature({
   renderTodos,
   renderProjects,
   confirmDanger,
+  completedCount = () => 0,
+  clearCompleted = async () => null,
+  onCompletedEmpty = () => {},
+  onCompletedSuccess = () => {},
+  onCompletedError = () => {},
+  completedLabels = {},
   sectionsFeature,
   sectionRegistry,
 }) {
@@ -98,8 +104,16 @@ export function createSectionActionsFeature({
 
   const adapter = {
     getRoot: () => document.getElementById('todo-list'),
+    labels: completedLabels,
     getSections,
     canManage: () => Boolean(getCurrentProjectId()),
+    completedCount,
+    clearCompleted,
+    onCompletedEmpty,
+    onCompletedSuccess,
+    onError: (error, context) => {
+      if (context?.action === 'clear-completed') onCompletedError(error);
+    },
     newInputId: () => 'new-section-name',
     editInputId: id => `edit-section-name-${id}`,
     resolveSectionId,
@@ -187,6 +201,10 @@ export function createSectionActionsFeature({
       deleteConfirm: () => t('section.deleteConfirm'),
     },
   });
+  const completedCleanupController = createCompletedCleanupController({
+    registry: sectionRegistry,
+    confirmDanger,
+  });
 
   let registeredRoot = null;
   function registerRoot() {
@@ -201,6 +219,7 @@ export function createSectionActionsFeature({
   function bindSectionActions() {
     registerRoot();
     controller.bind();
+    completedCleanupController.bind();
   }
 
   return {

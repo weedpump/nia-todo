@@ -25,13 +25,26 @@ export const shoppingModule = Object.freeze({
         <div id="shopping-invites-list"></div>
       </nav>
     `;
-    slots.topbar.innerHTML = renderTopbarToggle({
-      id: 'shopping-hide-empty-sections-btn',
-      icon: 'layers-minus',
-      label: t('shopping.preferences.hideEmpty.short'),
-      labelKey: 'shopping.preferences.hideEmpty.short',
-      title: t('shopping.preferences.hideEmpty.enable'),
-    });
+    slots.topbar.innerHTML = `
+      ${renderTopbarToggle({
+        id: 'shopping-hide-empty-sections-btn',
+        icon: 'layers-minus',
+        label: t('shopping.preferences.hideEmpty.short'),
+        labelKey: 'shopping.preferences.hideEmpty.short',
+        title: t('shopping.preferences.hideEmpty.enable'),
+      })}
+      ${renderTopbarToggle({
+        id: 'shopping-completed-visibility-btn',
+        icon: 'check-circle',
+        label: t('menu.showDone'),
+        title: t('menu.showDone'),
+        attributes: {
+          'data-completed-visibility-toggle': 'shopping',
+          'data-completed-show-key': 'menu.showDone',
+          'data-completed-hide-key': 'menu.hideDone',
+        },
+      })}
+    `;
     slots.main.innerHTML = `
       <div id="shopping-navigation-main" class="module-page module-empty-page">
         <div class="module-empty-icon" aria-hidden="true">${niaIconSvg('shopping')}</div>

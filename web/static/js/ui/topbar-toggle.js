@@ -18,11 +18,15 @@ export function renderTopbarToggle({
   label = '',
   labelKey = '',
   title = '',
+  attributes = {},
 } = {}) {
   const renderedIcon = iconMarkup || (icon ? `<span data-icon="${escapeHtmlAttr(icon)}"></span>` : '');
   const i18nAttribute = labelKey ? ` data-i18n-key="${escapeHtmlAttr(labelKey)}"` : '';
+  const extraAttributes = Object.entries(attributes)
+    .map(([name, value]) => ` ${escapeHtmlAttr(name)}="${escapeHtmlAttr(value)}"`)
+    .join('');
   return `
-    <button type="button" class="ui-topbar-toggle" id="${escapeHtmlAttr(id || '')}" aria-pressed="false" aria-label="${escapeHtmlAttr(title)}" title="${escapeHtmlAttr(title)}">
+    <button type="button" class="ui-topbar-toggle" id="${escapeHtmlAttr(id || '')}" aria-pressed="false" aria-label="${escapeHtmlAttr(title)}" title="${escapeHtmlAttr(title)}"${extraAttributes}>
       ${renderedIcon}
       <span data-topbar-toggle-label${i18nAttribute}>${escapeHtml(label)}</span>
     </button>

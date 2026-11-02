@@ -68,6 +68,17 @@ export const tasksModule = Object.freeze({
         labelKey: 'minimalTodos.short',
         title: t('minimalTodos.enable'),
       })}
+      ${renderTopbarToggle({
+        id: 'tasks-completed-visibility-btn',
+        icon: 'check-circle',
+        label: t('menu.showDone'),
+        title: t('menu.showDone'),
+        attributes: {
+          'data-completed-visibility-toggle': 'tasks',
+          'data-completed-show-key': 'menu.showDone',
+          'data-completed-hide-key': 'menu.hideDone',
+        },
+      })}
     `;
 
     slots.main.innerHTML = `
@@ -87,7 +98,6 @@ export const tasksModule = Object.freeze({
 
     slots.userMenu.innerHTML = `
       <button type="button" class="ui-menu-item user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
-      <button type="button" class="ui-menu-item user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
       <button type="button" class="ui-menu-item user-menu-item" id="dashboard-preferences-menu-btn" data-dashboard-preferences-action="open" role="menuitem"><span class="menu-item-icon" data-icon="sliders-horizontal"></span><span class="menu-item-label" data-i18n-key="dashboard.preferences.open">Dashboard anpassen</span></button>
     `;
 

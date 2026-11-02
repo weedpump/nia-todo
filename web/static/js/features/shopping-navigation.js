@@ -115,6 +115,7 @@ export function createShoppingNavigationFeature({
   sectionAdapter = null,
   itemController = null,
   storeController = null,
+  getHideDone = () => true,
   shoppingApi = null,
   loadAuthoritativeProjection = async () => null,
   removePendingEntities = async () => {},
@@ -318,10 +319,13 @@ export function createShoppingNavigationFeature({
         const storeIds = Array.isArray(item.store_ids) ? item.store_ids : [];
         return storeIds.some(storeId => sameId(storeId, selectedStoreId) || sameId(storeId, selectedStore?.client_mutation_id));
       });
+    const completionItems = getHideDone() !== false
+      ? marketItems.filter(item => item.completed !== true)
+      : marketItems;
     const search = normalizedSearch(searchQuery);
     const visibleItems = search
-      ? marketItems.filter(item => normalizedSearch(item.name).includes(search))
-      : marketItems;
+      ? completionItems.filter(item => normalizedSearch(item.name).includes(search))
+      : completionItems;
     const hideEmptySections = selected.preferences?.hide_empty_sections === true;
     const visibleSections = hideEmptySections || search
       ? sections.filter(section => visibleItems.some(item => String(item.section_id) === String(section.id)))
@@ -333,10 +337,13 @@ export function createShoppingNavigationFeature({
     const sectionHtml = renderSectionCollection({
       sections: visibleSections,
       items: visibleItems,
-      canManage: selected.can_manage === true,
+      canManage: selected.can_edit === true,
+      canCreate: selected.can_edit === true,
+      canCleanup: selected.can_edit === true,
       unsortedLabel: t('shopping.section.unsorted'),
       deleteLabel: t('section.delete'),
       newLabel: t('section.new'),
+      clearCompletedLabel: t('shopping.item.clearCompleted'),
       renderItem: item => renderShoppingItem({
         item,
         canEdit: selected.can_edit === true,

@@ -368,6 +368,33 @@ with tempfile.TemporaryDirectory() as tmp:
     shared_list_view = get_shopping_list(personal_id, shared_id)
     assert shared_list_view["can_edit"] is True, shared_list_view
     assert shared_list_view["can_manage"] is False, shared_list_view
+    recipient_created_section = asyncio.run(
+        create_shopping_section(personal_id, ShoppingSectionCreate(name="Recipient section"), shared_id)
+    )
+    assert recipient_created_section["name"] == "Recipient section", recipient_created_section
+    recipient_renamed_section = asyncio.run(
+        update_shopping_section(
+            recipient_created_section["id"],
+            ShoppingSectionUpdate(name="Recipient renamed section"),
+            shared_id,
+        )
+    )
+    assert recipient_renamed_section["name"] == "Recipient renamed section", recipient_renamed_section
+    assert asyncio.run(delete_shopping_section(recipient_created_section["id"], shared_id))["deleted"] == recipient_created_section["id"]
+    recipient_completed_item = asyncio.run(
+        create_shopping_item(personal_id, ShoppingItemCreate(name="Recipient purchased"), shared_id)
+    )
+    asyncio.run(
+        update_shopping_item(
+            recipient_completed_item["id"],
+            ShoppingItemUpdate(completed=True),
+            shared_id,
+        )
+    )
+    recipient_cleanup = asyncio.run(delete_completed_shopping_items(personal_id, shared_id))
+    assert recipient_completed_item["id"] in recipient_cleanup["deleted_ids"], recipient_cleanup
+    with get_db() as db:
+        assert not db.execute("SELECT 1 FROM shopping_items WHERE id = ?", (recipient_completed_item["id"],)).fetchone()
     personal_section = asyncio.run(
         create_shopping_section(personal_id, ShoppingSectionCreate(name="Personal section"), owner_id)
     )
@@ -435,18 +462,26 @@ with tempfile.TemporaryDirectory() as tmp:
     assert owner_household_list["can_edit"] is True, owner_household_list
     assert owner_household_list["can_manage"] is True, owner_household_list
 
-    try:
-        asyncio.run(
-            create_shopping_section(
-                household_id_value,
-                ShoppingSectionCreate(name="Forbidden member section"),
-                member_id,
-            )
+    member_created_section = asyncio.run(
+        create_shopping_section(
+            household_id_value,
+            ShoppingSectionCreate(name="Member section"),
+            member_id,
         )
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Household member managed list sections")
+    )
+    assert member_created_section["name"] == "Member section", member_created_section
+    member_completed_item = asyncio.run(
+        create_shopping_item(household_id_value, ShoppingItemCreate(name="Member purchased"), member_id)
+    )
+    asyncio.run(
+        update_shopping_item(
+            member_completed_item["id"],
+            ShoppingItemUpdate(completed=True),
+            member_id,
+        )
+    )
+    member_cleanup = asyncio.run(delete_completed_shopping_items(household_id_value, member_id))
+    assert member_completed_item["id"] in member_cleanup["deleted_ids"], member_cleanup
 
     produce = asyncio.run(
         create_shopping_section(
@@ -456,12 +491,10 @@ with tempfile.TemporaryDirectory() as tmp:
         )
     )
     section_id = produce["id"]
-    try:
-        asyncio.run(update_shopping_section(section_id, ShoppingSectionUpdate(name="Forbidden rename"), member_id))
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Household member updated list sections")
+    member_renamed_section = asyncio.run(
+        update_shopping_section(section_id, ShoppingSectionUpdate(name="Member renamed produce"), member_id)
+    )
+    assert member_renamed_section["name"] == "Member renamed produce", member_renamed_section
     renamed_section = asyncio.run(
         update_shopping_section(section_id, ShoppingSectionUpdate(name="Fresh produce"), owner_id)
     )
@@ -481,18 +514,14 @@ with tempfile.TemporaryDirectory() as tmp:
     )
     assert {store["id"] for store in list_shopping_stores(member_id)["shopping_stores"]} == {rewe["id"], lidl["id"]}
     assert list_shopping_stores(outsider_id)["shopping_stores"] == []
-    try:
-        asyncio.run(
-            update_shopping_store(
-                lidl["id"],
-                ShoppingStoreUpdate(name="Forbidden rename"),
-                member_id,
-            )
+    member_renamed_lidl = asyncio.run(
+        update_shopping_store(
+            lidl["id"],
+            ShoppingStoreUpdate(name="Lidl gemeinsam"),
+            member_id,
         )
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Household member renamed a shopping store")
+    )
+    assert member_renamed_lidl["name"] == "Lidl gemeinsam", member_renamed_lidl
     renamed_lidl = asyncio.run(
         update_shopping_store(
             lidl["id"],
@@ -607,12 +636,10 @@ with tempfile.TemporaryDirectory() as tmp:
     assert completed["completed"] is True, completed
     assert completed["completed_by_user_id"] == member_id, completed
     assert completed["completed_at"], completed
-    try:
-        asyncio.run(update_shopping_item(milk["id"], ShoppingItemUpdate(sort_order=99), member_id))
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Household member reordered a shopping item")
+    reordered_by_member = asyncio.run(
+        update_shopping_item(milk["id"], ShoppingItemUpdate(sort_order=99), member_id)
+    )
+    assert reordered_by_member["sort_order"] == 99, reordered_by_member
 
     owner_preferences = asyncio.run(
         update_shopping_preferences(
@@ -630,7 +657,7 @@ with tempfile.TemporaryDirectory() as tmp:
     member_view = get_shopping_list(household_id_value, member_id)
     assert member_view["preferences"]["hide_empty_sections"] is False, member_view
     assert "hide_completed" not in member_view["preferences"], member_view
-    assert [section["id"] for section in member_view["sections"]] == [section_id], member_view
+    assert {section["id"] for section in member_view["sections"]} == {member_created_section["id"], section_id}, member_view
     assert {item["id"] for item in member_view["items"]} == {milk["id"], unrestricted["id"]}, member_view
 
     with get_db() as db:
@@ -649,38 +676,21 @@ with tempfile.TemporaryDirectory() as tmp:
     assert "selected_store_id" not in member_sync_list["preferences"], member_sync_list
     assert {store["id"] for store in member_sync["shopping_stores"]} == {rewe["id"], lidl["id"]}, member_sync
 
-    try:
-        asyncio.run(delete_shopping_store(lidl["id"], member_id))
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Household member deleted a shopping store")
-    asyncio.run(delete_shopping_store(lidl["id"], owner_id))
+    asyncio.run(delete_shopping_store(lidl["id"], member_id))
     inactive_lidl = next(store for store in list_shopping_stores(member_id)["shopping_stores"] if store["id"] == lidl["id"])
     assert inactive_lidl["active"] is False, inactive_lidl
     after_store_delete = get_shopping_list(household_id_value, member_id)
     milk_after_store_delete = next(item for item in after_store_delete["items"] if item["id"] == milk["id"])
     assert [store["id"] for store in milk_after_store_delete["stores"]] == [rewe["id"], lidl["id"]], milk_after_store_delete
 
-    try:
-        asyncio.run(delete_shopping_section(section_id, member_id))
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Household member deleted a shopping section")
-    asyncio.run(delete_shopping_section(section_id, owner_id))
+    asyncio.run(delete_shopping_section(section_id, member_id))
     after_section_delete = get_shopping_list(household_id_value, owner_id)
     moved_milk = next(item for item in after_section_delete["items"] if item["id"] == milk["id"])
     assert moved_milk["section_id"] is None, moved_milk
 
-    try:
-        asyncio.run(delete_completed_shopping_items(household_id_value, member_id))
-    except HTTPException as error:
-        assert error.status_code == 404, error
-    else:
-        raise AssertionError("Household member bulk-deleted completed items")
-    deleted_completed = asyncio.run(delete_completed_shopping_items(household_id_value, owner_id))
+    deleted_completed = asyncio.run(delete_completed_shopping_items(household_id_value, member_id))
     assert deleted_completed["deleted_ids"] == [milk["id"]], deleted_completed
+    assert asyncio.run(delete_completed_shopping_items(household_id_value, owner_id))["deleted_ids"] == []
     after_completed_delete = get_shopping_list(household_id_value, member_id)
     assert [item["id"] for item in after_completed_delete["items"]] == [unrestricted["id"]], after_completed_delete
     asyncio.run(delete_shopping_item(unrestricted["id"], owner_id))
