@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { createShoppingStoresController } from '../web/static/js/features/shopping-stores.js';
+import { createShoppingItemsController } from '../web/static/js/features/shopping-items.js';
 
 function deferred() {
   let resolve;
@@ -133,6 +134,62 @@ assert.equal(stores.find(store => store.id === 'existing').name, 'REWE Center');
 
 const sameNameOnAnotherList = await controller.create('REWE', { shoppingListId: 8 });
 assert.equal(sameNameOnAnotherList.shopping_list_id, 8, 'store names deduplicate only inside one shopping list');
+
+const remappedQueue = new Map();
+const enqueueRemappedListMutation = (identity, task) => {
+  const key = String(identity);
+  const previous = remappedQueue.get(key);
+  const operation = (previous ? previous.catch(() => null) : Promise.resolve()).then(task);
+  remappedQueue.set(key, operation);
+  operation.finally(() => {
+    if (remappedQueue.get(key) === operation) remappedQueue.delete(key);
+  }).catch(() => {});
+  return operation;
+};
+let remappedLists = [{
+  id: 42,
+  client_mutation_id: 'temp-list-42',
+  can_edit: true,
+  sections: [],
+  items: [{ id: 20, name: 'Milk', completed: false, store_ids: [], stores: [] }],
+}];
+let remappedStores = [{ id: 9, shopping_list_id: 42, name: 'Market', active: true }];
+const remappedDeleteGate = deferred();
+let remappedCommitCalls = 0;
+const remappedStoreController = createShoppingStoresController({
+  getStores: () => remappedStores,
+  setStores: next => { remappedStores = structuredClone(next); },
+  commitMutation: async build => {
+    remappedCommitCalls += 1;
+    const mutation = build();
+    await remappedDeleteGate.promise;
+    return mutation;
+  },
+  enqueueListMutation: enqueueRemappedListMutation,
+  resolveListIdentity: listId => remappedLists.find(list => String(list.id) === String(listId))?.client_mutation_id ?? listId,
+});
+const remappedItemController = createShoppingItemsController({
+  getLists: () => remappedLists,
+  setLists: next => { remappedLists = structuredClone(next); },
+  getActiveListId: () => 42,
+  getStores: () => remappedStores,
+  commitMutation: async build => {
+    remappedCommitCalls += 1;
+    return build();
+  },
+  enqueueListMutation: enqueueRemappedListMutation,
+});
+const remappedDelete = remappedStoreController.remove(9);
+const remappedItemUpdate = remappedItemController.update(42, 20, {
+  name: 'Fresh milk', quantity: '', unit: '', sectionId: null, storeId: 9,
+});
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(remappedCommitCalls, 1, 'store and item mutations must share the stable queue after list ID remapping');
+remappedDeleteGate.resolve();
+await remappedDelete;
+assert.equal(await remappedItemUpdate, null, 'the queued item update must observe the completed store deletion');
+assert.deepEqual(remappedLists[0].items[0].store_ids, []);
 
 const gate = deferred();
 let delayedStores = [];

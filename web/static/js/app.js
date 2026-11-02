@@ -954,6 +954,13 @@ const shoppingStoresController = createShoppingStoresController({
   setStores: setShoppingStoresState,
   commitMutation: commitShoppingMutation,
   enqueueListMutation: enqueueShoppingListMutation,
+  resolveListIdentity: listIdentity => {
+    const list = shoppingLists.find(candidate => (
+      String(candidate.id) === String(listIdentity)
+      || String(candidate.client_mutation_id) === String(listIdentity)
+    ));
+    return list?.client_mutation_id ?? list?.id ?? listIdentity;
+  },
   isOnlineForSync,
   syncWithServer,
   onError: error => console.error('Shopping store mutation failed', error),

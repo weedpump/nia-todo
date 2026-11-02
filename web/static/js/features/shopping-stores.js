@@ -23,6 +23,7 @@ export function createShoppingStoresController({
   setStores = () => {},
   commitMutation,
   enqueueListMutation = null,
+  resolveListIdentity = identity => identity,
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   onError = console.error,
@@ -61,7 +62,7 @@ export function createShoppingStoresController({
     const key = `${shoppingListId}\u0000${name.toLocaleLowerCase()}`;
     if (pendingCreates.has(key)) return pendingCreates.get(key);
 
-    const operation = runListMutation(shoppingListId, async () => {
+    const operation = runListMutation(resolveListIdentity(shoppingListId), async () => {
       const tempId = createTempId();
       const mutation = await commitMutation(() => {
         if (!authorize()) return null;
@@ -110,7 +111,7 @@ export function createShoppingStoresController({
     if (!name) return null;
     const current = getStores().find(store => sameId(store.id, storeId) || sameId(store.client_mutation_id, storeId));
     if (!current || current.active === false || activeDuplicate(name, current.shopping_list_id, current.id)) return null;
-    return runListMutation(current.shopping_list_id, async () => {
+    return runListMutation(resolveListIdentity(current.shopping_list_id), async () => {
       const mutation = await commitMutation(() => {
         const latest = getStores().find(store => sameId(store.id, current.id) || sameId(store.client_mutation_id, current.id));
         if (!latest || latest.active === false || !authorize(latest)) return null;
@@ -136,7 +137,7 @@ export function createShoppingStoresController({
   async function remove(storeId, { authorize = () => true } = {}) {
     const current = getStores().find(store => sameId(store.id, storeId) || sameId(store.client_mutation_id, storeId));
     if (!current || current.active === false) return null;
-    return runListMutation(current.shopping_list_id, async () => {
+    return runListMutation(resolveListIdentity(current.shopping_list_id), async () => {
       const mutation = await commitMutation(() => {
         const latest = getStores().find(store => sameId(store.id, current.id) || sameId(store.client_mutation_id, current.id));
         if (!latest || latest.active === false || !authorize(latest)) return null;
