@@ -111,6 +111,7 @@ export function createShoppingNavigationFeature({
   onStoreEdit = () => {},
   onListIdRemap = () => {},
   onRender = () => {},
+  onPrimaryActionAvailabilityChange = () => {},
   sectionRegistry = null,
   sectionAdapter = null,
   itemController = null,
@@ -296,6 +297,7 @@ export function createShoppingNavigationFeature({
     if (previousStoreSelect?.nextElementSibling?.classList?.contains('is-open')) closeOpenDropdown('rerender');
     const selected = lists().find(list => String(list.id) === String(activeListId));
     if (!selected) {
+      onPrimaryActionAvailabilityChange(false);
       itemController?.bindRoot?.(null);
       main.dataset.shoppingNavigationState = 'empty';
       main.dataset.shoppingContentState = 'no-list';
@@ -327,6 +329,7 @@ export function createShoppingNavigationFeature({
       ? completionItems.filter(item => normalizedSearch(item.name).includes(search))
       : completionItems;
     const hideEmptySections = selected.preferences?.hide_empty_sections === true;
+    const sectionFilterActive = Boolean(search || selectedStoreId != null || hideEmptySections);
     const visibleSections = hideEmptySections || search
       ? sections.filter(section => visibleItems.some(item => String(item.section_id) === String(section.id)))
       : sections;
@@ -338,6 +341,7 @@ export function createShoppingNavigationFeature({
       sections: visibleSections,
       items: visibleItems,
       canManage: selected.can_edit === true,
+      canReorder: selected.can_edit === true && !sectionFilterActive,
       canCreate: selected.can_edit === true,
       canCleanup: selected.can_edit === true,
       unsortedLabel: t('shopping.section.unsorted'),
@@ -359,6 +363,7 @@ export function createShoppingNavigationFeature({
       showUnsorted: hasUnsortedItems,
     });
     main.dataset.shoppingNavigationState = 'selected';
+    onPrimaryActionAvailabilityChange(selected.can_edit === true);
     const emptyContentState = search ? 'search-empty' : (selectedStoreId != null ? 'filter-empty' : 'empty');
     main.dataset.shoppingContentState = hasSectionContent ? 'populated' : emptyContentState;
     main.className = 'module-page shopping-list-content-page';
@@ -563,9 +568,10 @@ export function createShoppingNavigationFeature({
       privacy.beginGeneration();
       return invitations.setInvitations(next);
     },
-    commitAuthoritativeSnapshot: authoritativeLists => {
+    commitAuthoritativeSnapshot: (authoritativeLists, revokedListIds = []) => {
       const accessibleLists = Array.isArray(authoritativeLists) ? authoritativeLists : lists();
       privacy.commitAccessible(accessibleLists.map(list => list?.id));
+      privacy.schedulePending(revokedListIds);
       invitations.render();
     },
     replaceLists,
@@ -578,6 +584,13 @@ export function createShoppingNavigationFeature({
     getStoreFilter: () => {
       const list = lists().find(candidate => sameId(candidate.id, activeListId));
       return list ? storeFilterForList(list) : null;
+    },
+    canReorderSections: () => {
+      const list = lists().find(candidate => sameId(candidate.id, activeListId));
+      if (list?.can_edit !== true) return false;
+      return !normalizedSearch(searchQuery)
+        && storeFilterForList(list, activeStores(list)) == null
+        && list.preferences?.hide_empty_sections !== true;
     },
     destroy() {
       binding?.destroy?.();

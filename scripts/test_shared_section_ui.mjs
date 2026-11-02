@@ -83,6 +83,21 @@ assert.doesNotMatch(readonlyHtml, /data-section-action=/, 'read-only sections ex
 assert.doesNotMatch(readonlyHtml, /draggable="true"/, 'read-only sections cannot be reordered');
 assert.doesNotMatch(readonlyHtml, /section-dropzone/, 'read-only sections expose no reorder targets');
 
+const filteredEditorHtml = renderSectionCollection({
+  sections,
+  items,
+  canManage: true,
+  canReorder: false,
+  unsortedLabel: 'Ohne Abschnitt',
+  deleteLabel: 'Delete',
+  newLabel: 'Add section',
+  renderItem: item => `<div>${item.name}</div>`,
+});
+assert.match(filteredEditorHtml, /data-section-action="edit"/, 'filtered views keep ordinary section editing available');
+assert.match(filteredEditorHtml, /data-section-action="delete"/, 'filtered views keep ordinary section deletion available');
+assert.doesNotMatch(filteredEditorHtml, /draggable="true"/, 'filtered views must not offer a partial section reorder');
+assert.doesNotMatch(filteredEditorHtml, /section-dropzone/, 'filtered views must not expose invalid partial reorder targets');
+
 const contentEditorHtml = renderSectionCollection({
   sections,
   items,
@@ -110,6 +125,7 @@ const shoppingRoot = root('shopping');
 const tasksAdapter = { name: 'tasks', canManage: () => true, resolveSectionId: id => `task:${id}` };
 const shoppingAdapter = { name: 'shopping', canManage: () => true, resolveSectionId: id => `shop:${id}` };
 const readonlyShoppingAdapter = { name: 'shopping-readonly', canManage: () => false, resolveSectionId: id => `readonly:${id}` };
+const filteredShoppingAdapter = { name: 'shopping-filtered', canManage: () => true, canReorder: () => false, resolveSectionId: id => `filtered:${id}` };
 const registry = createSectionRootRegistry();
 registry.register(tasksRoot, tasksAdapter);
 registry.register(shoppingRoot, shoppingAdapter);
@@ -120,6 +136,8 @@ assert.equal(registry.resolveSectionId(shoppingRoot, 'same-id'), 'shop:same-id')
 assert.equal(resolveSectionDragSourceAdapter({ registry, taskAdapter: tasksAdapter, target: shoppingRoot }), shoppingAdapter);
 registry.register(shoppingRoot, readonlyShoppingAdapter);
 assert.equal(resolveSectionDragSourceAdapter({ registry, taskAdapter: tasksAdapter, target: shoppingRoot }), null, 'read-only roots cannot start desktop or long-press section DnD');
+registry.register(shoppingRoot, filteredShoppingAdapter);
+assert.equal(resolveSectionDragSourceAdapter({ registry, taskAdapter: tasksAdapter, target: shoppingRoot }), null, 'filtered roots cannot start a partial section reorder');
 registry.register(shoppingRoot, shoppingAdapter);
 assert.equal(resolveSectionDropAdapter({ registry, taskAdapter: tasksAdapter, sourceAdapter: tasksAdapter, target: tasksRoot }), tasksAdapter);
 assert.equal(resolveSectionDropAdapter({ registry, taskAdapter: tasksAdapter, sourceAdapter: shoppingAdapter, target: shoppingRoot }), shoppingAdapter);

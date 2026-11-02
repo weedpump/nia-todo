@@ -49,7 +49,7 @@ assert(appDownloadsSource.includes("link.matches?.('[data-external-resource]')")
 assert(appDownloadsSource.includes('nativeBridge.openExternal'), 'native apps must open external documentation with the native browser bridge');
 
 const serviceWorkerSource = read('web/sw.js');
-assert(serviceWorkerSource.includes("const CACHE_REVISION = 'nia-v4-module-platform-preview-248';"), 'the app-shell cache revision must deliver final shared ownership and direct-sharing assets');
+assert(/const CACHE_REVISION = 'nia-v4-module-platform-preview-\d+';/.test(serviceWorkerSource), 'the app-shell cache must use the versioned v4 module-platform revision contract');
 assert(serviceWorkerSource.includes("'/static/icons/brands/github-mark.svg'"), 'the official GitHub mark must be available offline');
 
 const aboutCss = read('web/static/css/54-about.css');

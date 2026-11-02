@@ -193,6 +193,7 @@ assert.match(mountedSlots.floating.innerHTML, /data-shopping-item-action="open-c
 const sidebarTarget = { innerHTML: '' };
 const mainTarget = { innerHTML: '', dataset: {}, className: '' };
 const featureCalls = [];
+const primaryActionStates = [];
 const featureStorage = new Map([['nia-shopping-active-list', '404']]);
 const featureHistoryCalls = [];
 const featureHistory = {
@@ -224,8 +225,8 @@ const featureRoot = {
 };
 const navigationFeature = createShoppingNavigationFeature({
   getLists: () => [
-    { ...entities[0], id: 10, items: [] },
-    { ...entities[1], id: 20, items: [] },
+    { ...entities[0], id: 10, can_edit: true, items: [] },
+    { ...entities[1], id: 20, can_edit: false, items: [] },
   ],
   root: featureRoot,
   getElementById: id => id === 'shopping-list-sidebar' ? sidebarTarget : id === 'shopping-navigation-main' ? mainTarget : null,
@@ -241,6 +242,7 @@ const navigationFeature = createShoppingNavigationFeature({
   onAdd: () => featureCalls.push(['add']),
   onDetail: id => featureCalls.push(['detail', id]),
   onListIdRemap: (fromId, toId) => featureCalls.push(['remap', fromId, toId]),
+  onPrimaryActionAvailabilityChange: available => primaryActionStates.push(available),
 });
 navigationFeature.bind();
 navigationFeature.render();
@@ -251,6 +253,7 @@ assert.match(sidebarTarget.innerHTML, /entity-sidebar-select active/);
 assert.equal(mainTarget.dataset.shoppingNavigationState, 'selected');
 assert.equal(mainTarget.dataset.shoppingContentState, 'empty');
 assert.equal(mainTarget.className, 'module-page shopping-list-content-page');
+assert.equal(primaryActionStates.at(-1), true, 'the add-item action is available for the active editable list');
 assert.match(mainTarget.innerHTML, /class="shopping-list-content-header"/);
 assert.match(mainTarget.innerHTML, /class="shopping-list-content-body"/);
 assert.match(mainTarget.innerHTML, /class="empty-state shopping-list-empty-state"/);
@@ -261,6 +264,7 @@ navigationFeature.activate();
 assert.deepEqual(featureHistoryCalls, [['replace', '10', '/']], 'module activation must normalize the initially visible list while keeping the app base URL');
 navigationFeature.selectList(20);
 assert.equal(navigationFeature.getActiveListId(), 20);
+assert.equal(primaryActionStates.at(-1), false, 'the add-item action is unavailable for a read-only list');
 assert.equal(featureStorage.get('nia-shopping-active-list'), '20');
 assert.deepEqual(featureHistoryCalls.at(-1), ['push', '20', '/'], 'list navigation must keep identity in history state without exposing it in the URL');
 const deleteFallbackHistoryCount = featureHistoryCalls.length;
@@ -318,6 +322,7 @@ assert.equal(featureStorage.has('nia-shopping-active-list'), false);
 assert.equal(mainTarget.dataset.shoppingNavigationState, 'empty');
 assert.equal(mainTarget.dataset.shoppingContentState, 'no-list');
 assert.equal(mainTarget.className, 'module-page module-empty-page');
+assert.equal(primaryActionStates.at(-1), false, 'the add-item action is unavailable when no shopping list exists');
 const finalDeleteHistoryCount = featureHistoryCalls.length;
 navigationFeature.normalizeActiveListNavigation();
 assert.deepEqual(featureHistoryCalls.at(-1), ['replace', null, '/'], 'deleting the final list must remove shoppingList from history and URL');

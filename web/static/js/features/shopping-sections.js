@@ -20,9 +20,25 @@ export function createShoppingSectionsAdapter({
   onCompletedSuccess = () => {},
   labels = {},
   itemDrag = null,
+  enqueueListMutation = null,
+  canReorder = () => true,
   now = () => new Date().toISOString(),
   createTempId = () => `temp-shopping-section-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
+  const listQueues = new Map();
+
+  function enqueueLocallyForList(identity, task) {
+    const key = String(identity);
+    const previous = listQueues.get(key);
+    const operation = (previous ? previous.catch(() => null) : Promise.resolve()).then(task);
+    listQueues.set(key, operation);
+    operation.finally(() => {
+      if (listQueues.get(key) === operation) listQueues.delete(key);
+    }).catch(() => {});
+    return operation;
+  }
+  const runListMutation = enqueueListMutation || enqueueLocallyForList;
+
   function currentList() {
     const activeId = getActiveListId();
     return getLists().find(list => sameId(list.id, activeId) || sameId(list.client_mutation_id, activeId)) || null;
@@ -45,13 +61,17 @@ export function createShoppingSectionsAdapter({
   }
 
   async function commit(build) {
-    if (currentList()?.can_edit !== true) return null;
-    const mutation = await commitMutation(() => {
-      const live = currentList();
-      if (live?.can_edit !== true) return null;
-      return build(live);
+    const initial = currentList();
+    if (initial?.can_edit !== true) return null;
+    const stableIdentity = initial.client_mutation_id ?? initial.id;
+    return runListMutation(stableIdentity, async () => {
+      const mutation = await commitMutation(() => {
+        const live = currentList();
+        if (live?.can_edit !== true) return null;
+        return build(live);
+      });
+      return publish(mutation);
     });
-    return publish(mutation);
   }
 
   const adapter = {
@@ -60,6 +80,7 @@ export function createShoppingSectionsAdapter({
     getSections: () => visibleSections(),
     getItems: () => currentList()?.items || [],
     canManage: () => currentList()?.can_edit === true,
+    canReorder: () => currentList()?.can_edit === true && canReorder(currentList()) === true,
     canCreate: () => currentList()?.can_edit === true,
     canCleanup: () => currentList()?.can_edit === true,
     completedCount: () => (currentList()?.items || []).filter(item => item.completed === true).length,

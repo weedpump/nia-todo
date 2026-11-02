@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { createShoppingViewPreferencesFeature } from '../web/static/js/features/shopping-view-preferences.js';
+import { createShoppingItemsController } from '../web/static/js/features/shopping-items.js';
 
 function createHarness(initialLists) {
   let lists = structuredClone(initialLists);
@@ -116,6 +117,61 @@ delayedLists = delayedLists.map(list => ({ ...list, preferences: { ...list.prefe
 releaseCommit();
 await pendingRace;
 assert.equal(raceMutation.data.changes.hide_empty_sections, false, 'the mutation builder must re-read the live preference after waiting for the queue-writer gate');
+
+let sharedLists = [{
+  id: 'list-shared-queue',
+  can_edit: true,
+  preferences: { hide_empty_sections: false },
+  sections: [],
+  items: [{ id: 'item-shared-queue', name: 'Milk', completed: false }],
+}];
+const sharedQueue = new Map();
+const enqueueListMutation = (identity, task) => {
+  const key = String(identity);
+  const previous = sharedQueue.get(key);
+  const operation = (previous ? previous.catch(() => null) : Promise.resolve()).then(task);
+  sharedQueue.set(key, operation);
+  operation.finally(() => {
+    if (sharedQueue.get(key) === operation) sharedQueue.delete(key);
+  }).catch(() => {});
+  return operation;
+};
+let sharedCommitCalls = 0;
+let releaseSharedCommit;
+let reachSharedCommit;
+const sharedCommitReached = new Promise(resolve => { reachSharedCommit = resolve; });
+const commitSharedMutation = async build => {
+  sharedCommitCalls += 1;
+  const mutation = build();
+  if (sharedCommitCalls === 1) {
+    reachSharedCommit();
+    await new Promise(resolve => { releaseSharedCommit = resolve; });
+  }
+  return mutation;
+};
+const sharedItems = createShoppingItemsController({
+  getLists: () => sharedLists,
+  setLists: next => { sharedLists = structuredClone(next); },
+  getActiveListId: () => 'list-shared-queue',
+  commitMutation: commitSharedMutation,
+  enqueueListMutation,
+});
+const sharedPreferences = createShoppingViewPreferencesFeature({
+  getLists: () => sharedLists,
+  setLists: next => { sharedLists = structuredClone(next); },
+  getActiveListId: () => 'list-shared-queue',
+  commitMutation: commitSharedMutation,
+  enqueueListMutation,
+});
+const sharedCompletion = sharedItems.toggleCompleted('list-shared-queue', 'item-shared-queue');
+await sharedCommitReached;
+const sharedPreference = sharedPreferences.toggleHideEmptySections();
+await Promise.resolve();
+assert.equal(sharedCommitCalls, 1, 'all controllers must share one build-to-publish queue for the same shopping list');
+releaseSharedCommit();
+await Promise.all([sharedCompletion, sharedPreference]);
+assert.equal(sharedLists[0].items[0].completed, true, 'a later preference mutation must preserve the committed item state');
+assert.equal(sharedLists[0].preferences.hide_empty_sections, true, 'the serialized preference mutation must still publish its own state');
 
 let failedLists = [{
   id: 'list-failure',

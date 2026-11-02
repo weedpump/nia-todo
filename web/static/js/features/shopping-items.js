@@ -89,6 +89,7 @@ export function createShoppingItemsController({
   syncWithServer = async () => {},
   onError = () => {},
   onEdit = () => {},
+  enqueueListMutation = null,
   createTempId = () => `temp-shopping-item-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
   const inFlight = new Map();
@@ -147,7 +148,7 @@ export function createShoppingItemsController({
     return visible;
   }
 
-  function enqueueForList(listIdentity, task) {
+  function enqueueLocallyForList(listIdentity, task) {
     const key = String(listIdentity);
     const previous = listQueues.get(key);
     const ready = previous ? previous.catch(() => null) : Promise.resolve();
@@ -158,6 +159,7 @@ export function createShoppingItemsController({
     }).catch(() => {});
     return operation;
   }
+  const runListMutation = enqueueListMutation || enqueueLocallyForList;
 
   function create(input = {}) {
     const live = currentList(getActiveListId());
@@ -198,7 +200,7 @@ export function createShoppingItemsController({
     const submissionKey = `create\u0000${String(stableListIdentity)}\u0000${JSON.stringify([name, quantity, unit, stableSectionIdentity, stableStoreIdentity])}`;
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
     const tempId = createTempId();
-    const operation = enqueueForList(stableListIdentity, async () => {
+    const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
         const latest = currentList(stableListIdentity);
         if (latest?.can_edit !== true) return null;
@@ -298,7 +300,7 @@ export function createShoppingItemsController({
     const stableListIdentity = live.client_mutation_id ?? live.id;
     const submissionKey = `update\u0000${String(stableListIdentity)}\u0000${String(stableItemIdentity)}`;
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
-    const operation = enqueueForList(stableListIdentity, async () => {
+    const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
         const latest = currentList(stableListIdentity);
         if (latest?.can_edit !== true) return null;
@@ -368,7 +370,7 @@ export function createShoppingItemsController({
     const stableItemIdentity = initialItem.client_mutation_id ?? initialItem.id;
     const submissionKey = `delete\u0000${String(stableListIdentity)}\u0000${String(stableItemIdentity)}`;
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
-    const operation = enqueueForList(stableListIdentity, async () => {
+    const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
         const latest = currentList(stableListIdentity);
         if (latest?.can_edit !== true) return null;
@@ -404,7 +406,7 @@ export function createShoppingItemsController({
     const stableIdentity = initialItem.client_mutation_id ?? initialItem.id;
     const key = `${String(stableListIdentity)}\u0000${String(stableIdentity)}`;
     if (inFlight.has(key)) return inFlight.get(key);
-    const operation = enqueueForList(stableListIdentity, async () => {
+    const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
         const latest = currentList(stableListIdentity);
         if (latest?.can_edit !== true) return null;
@@ -449,7 +451,7 @@ export function createShoppingItemsController({
     const stableSectionIdentity = initialSection?.client_mutation_id ?? initialSection?.id ?? null;
     const submissionKey = `move-section\u0000${String(stableListIdentity)}\u0000${String(stableItemIdentity)}`;
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
-    const operation = enqueueForList(stableListIdentity, async () => {
+    const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
         const latest = currentList(stableListIdentity);
         if (latest?.can_edit !== true) return null;

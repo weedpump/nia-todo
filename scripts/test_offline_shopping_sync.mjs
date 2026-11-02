@@ -57,6 +57,11 @@ const snapshot = projectShoppingSnapshot([serverList], [temporaryList], [
 ]);
 assert.equal(snapshot.some(list => list.id === 'temp-list-1'), true, 'pending offline lists survive authoritative snapshots');
 assert.equal(snapshot.find(list => list.id === 7).items.find(item => item.id === 20).completed, true);
+assert.equal(
+  projectShoppingSnapshot([], [serverList], queue).some(list => list.id === 7),
+  false,
+  'a revoked server list must not survive an authoritative snapshot merely because it has pending mutations',
+);
 
 const rewritten = rewriteShoppingQueueReferences(queue, {
   listIdFrom: 7,

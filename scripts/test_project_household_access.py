@@ -173,24 +173,30 @@ with tempfile.TemporaryDirectory() as tmp:
         ).fetchone()
         stale_member_id = stale_member["id"]
 
-    for operation in (
-        lambda: asyncio.run(
-            respond_to_invite(
-                household_in_special_workspace["id"],
-                stale_member_id,
-                AcceptInviteRequest(accept=True),
-                outsider_id,
-            )
+    for operation, expected_status in (
+        (
+            lambda: asyncio.run(
+                respond_to_invite(
+                    household_in_special_workspace["id"],
+                    stale_member_id,
+                    AcceptInviteRequest(accept=True),
+                    outsider_id,
+                )
+            ),
+            404,
         ),
-        lambda: asyncio.run(
-            remove_member(household_in_special_workspace["id"], outsider_id, outsider_id)
+        (
+            lambda: asyncio.run(
+                remove_member(household_in_special_workspace["id"], outsider_id, outsider_id)
+            ),
+            403,
         ),
     ):
         try:
             operation()
             raise AssertionError("stale household project membership exposed sharing policy")
         except HTTPException as error:
-            assert error.status_code == 403, error
+            assert error.status_code == expected_status, error
 
     with get_db() as db:
         db.execute("UPDATE project_members SET status = 'removed' WHERE id = ?", (stale_member_id,))
@@ -206,7 +212,7 @@ with tempfile.TemporaryDirectory() as tmp:
         )
         raise AssertionError("stale removed household membership exposed sharing policy")
     except HTTPException as error:
-        assert error.status_code == 403, error
+        assert error.status_code == 404, error
 
     with get_db() as db:
         db.execute("UPDATE project_members SET status = 'left' WHERE id = ?", (stale_member_id,))

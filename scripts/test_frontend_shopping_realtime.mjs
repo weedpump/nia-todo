@@ -129,6 +129,47 @@ assert.deepEqual(
   [44],
   'the authoritative realtime snapshot must prevent the older pending-invitation eviction from removing the accepted list',
 );
+
+let revokedLists = [{ id: 77, name: 'Revoked private list', can_edit: true, sections: [], items: [{ id: 78, name: 'Secret' }], preferences: {} }];
+const revokedStores = {
+  todos: [], projects: [], sections: [], workspaces: [], shoppingStores: [],
+  shoppingLists: structuredClone(revokedLists),
+  syncQueue: [{ id: 79, action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 77, item_id: 78, changes: { completed: true } } }],
+};
+const revokedIds = [];
+const revokedClient = createWebSocketClient({
+  wsUrl: 'ws://unused.invalid',
+  getAuthToken: () => null,
+  syncWithServer: async () => {},
+  syncInProgressRef: { value: false, requested: false },
+  refreshFromServer: async () => {},
+  renderConnectionStatus: () => {},
+  dbGetAll: async store => structuredClone(revokedStores[store] || []),
+  dbPut: async (store, value) => {
+    const records = revokedStores[store];
+    const index = records.findIndex(record => String(record.id) === String(value.id));
+    if (index >= 0) records[index] = structuredClone(value);
+    else records.push(structuredClone(value));
+  },
+  getFromDB: async (store, id) => (revokedStores[store] || []).find(record => String(record.id) === String(id)) || null,
+  deleteFromDB: async (store, id) => { revokedStores[store] = (revokedStores[store] || []).filter(record => String(record.id) !== String(id)); },
+  getTodos: () => [], setTodos: () => {},
+  getProjects: () => [], setProjects: () => {},
+  getSections: () => [], setSections: () => {},
+  getWorkspaces: () => [], setWorkspaces: () => {},
+  getShoppingLists: () => revokedLists,
+  setShoppingLists: next => { revokedLists = structuredClone(next); },
+  getShoppingStores: () => [], setShoppingStores: () => {},
+  renderWorkspaces: () => {}, renderProjects: () => {}, renderStats: () => {}, renderTodos: () => {}, renderShopping: () => {},
+  onEntitySnapshotsCommitted: snapshots => revokedIds.push(...(snapshots.revokedShoppingListIds || [])),
+});
+await revokedClient.handleWsMessage({
+  type: 'sync_response',
+  todos: [], projects: [], sections: [], workspaces: [], shopping_stores: [], shopping_lists: [],
+});
+assert.deepEqual(revokedLists, [], 'a revoked server list must disappear from the live projection immediately');
+assert.deepEqual(revokedStores.shoppingLists, [], 'a revoked server list must disappear from IndexedDB immediately');
+assert.deepEqual(revokedIds, [77], 'the privacy controller must receive every revoked server-list identity so it can remove queued mutations');
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 assert.match(
   appSource,

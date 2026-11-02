@@ -100,6 +100,7 @@ run_step "Generic Entity Sharing Router" python3 scripts/test_entity_sharing_rou
 run_step "Generic Entity Sharing Notifications" python3 scripts/test_entity_sharing_notifications.py
 run_step "Entity Sharing Boundaries" python3 scripts/test_entity_sharing_boundaries.py
 run_step "Household Entity Access" python3 scripts/test_household_entity_access.py
+run_step "Frontend Households" node scripts/test_frontend_households.mjs
 run_step "Shopping Lists" python3 scripts/test_shopping_lists.py
 run_step "Household API" python3 scripts/test_household_api.py
 run_step "Project Household Access" python3 scripts/test_project_household_access.py
@@ -122,6 +123,7 @@ run_step "Todo Comments API" python3 scripts/test_todo_comments.py
 run_step "Todo Attachments API" python3 scripts/test_todo_attachments.py
 run_step "Location Reminder Backend" python3 scripts/test_location_reminders.py
 run_step "Location Reminder WebSocket" python3 scripts/test_websocket_location_reminders.py
+run_step "Location Reminder Opt-Out Transaction" node scripts/test_location_reminder_opt_out_transaction.mjs
 run_step "WebSocket Auth Registration" python3 scripts/test_websocket_auth_registration.py
 run_step "Email Services" python3 scripts/test_email_services.py
 run_step "2FA Service/Security" python3 scripts/test_two_factor_services.py
@@ -180,6 +182,7 @@ run_step "Frontend Multi Todo Add" node scripts/test_frontend_multi_todo_add.mjs
 run_step "Frontend Project Counters" node scripts/test_frontend_project_counters.mjs
 run_step "Frontend Security" node scripts/test_frontend_security.mjs
 run_step "Frontend Rich Text Editor" node scripts/test_frontend_rich_text_editor.mjs
+run_step "Unified Date-Time Picker" node scripts/test_unified_datetime_picker.mjs
 run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.mjs
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs

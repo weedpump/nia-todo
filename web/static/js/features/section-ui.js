@@ -17,7 +17,7 @@ function sameId(left, right) {
   return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
 }
 
-export function renderSectionHeader({ section = null, count = 0, canManage = true, unsortedLabel = '', deleteLabel = '' } = {}) {
+export function renderSectionHeader({ section = null, count = 0, canManage = true, canReorder = canManage, unsortedLabel = '', deleteLabel = '' } = {}) {
   if (!section) {
     return `
       <div class="section-header section-unsorted" data-section-id="null">
@@ -28,7 +28,7 @@ export function renderSectionHeader({ section = null, count = 0, canManage = tru
   }
   const id = escapeHtmlAttr(section.id);
   return `
-    <div class="section-header" data-section-id="${id}"${canManage ? ' draggable="true"' : ''}>
+    <div class="section-header" data-section-id="${id}"${canReorder ? ' draggable="true"' : ''}>
       <span class="section-name"${canManage ? ` data-section-action="edit" data-section-id="${id}"` : ''}>${escapeHtml(section.name)}</span>
       <span class="section-count">${count}</span>
       ${canManage ? `<button class="section-delete" data-section-action="delete" data-section-id="${id}" title="${escapeHtmlAttr(deleteLabel)}">${iconSvg('x')}</button>` : ''}
@@ -47,6 +47,7 @@ export function renderSectionCollection({
   sections = [],
   items = [],
   canManage = true,
+  canReorder = canManage,
   canCreate = canManage,
   canCleanup = canManage,
   unsortedLabel = '',
@@ -63,11 +64,11 @@ export function renderSectionCollection({
   let html = '';
   ordered.forEach((section, index) => {
     const sectionItems = sortItems(items.filter(item => sameId(item.section_id, section.id)));
-    if (canManage) html += `<div class="section-dropzone" data-drop-index="${index}"></div>`;
-    html += renderSectionHeader({ section, count: sectionItems.length, canManage, deleteLabel });
+    if (canReorder) html += `<div class="section-dropzone" data-drop-index="${index}"></div>`;
+    html += renderSectionHeader({ section, count: sectionItems.length, canManage, canReorder, deleteLabel });
     html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}">${sectionItems.map(renderItem).join('')}</div>`;
   });
-  if (canManage && ordered.length) html += `<div class="section-dropzone" data-drop-index="${ordered.length}"></div>`;
+  if (canReorder && ordered.length) html += `<div class="section-dropzone" data-drop-index="${ordered.length}"></div>`;
   const unsorted = sortItems(items.filter(item => item.section_id == null || !validIds.has(String(item.section_id))));
   if (showUnsorted) {
     html += renderSectionHeader({ count: unsorted.length, canManage: false, unsortedLabel });
@@ -192,12 +193,18 @@ export function createSectionRootRegistry() {
 
 export function resolveSectionDropAdapter({ registry, taskAdapter, sourceAdapter, target } = {}) {
   const targetAdapter = registry?.resolve?.(target) || taskAdapter || null;
-  return targetAdapter && targetAdapter === sourceAdapter ? sourceAdapter : null;
+  const canReorder = typeof targetAdapter?.canReorder === 'function'
+    ? targetAdapter.canReorder() === true
+    : targetAdapter?.canManage?.() === true;
+  return targetAdapter && targetAdapter === sourceAdapter && canReorder ? sourceAdapter : null;
 }
 
 export function resolveSectionDragSourceAdapter({ registry, taskAdapter, target } = {}) {
   const adapter = registry?.resolve?.(target) || taskAdapter || null;
-  return adapter?.canManage?.() ? adapter : null;
+  const canReorder = typeof adapter?.canReorder === 'function'
+    ? adapter.canReorder() === true
+    : adapter?.canManage?.() === true;
+  return canReorder ? adapter : null;
 }
 
 export function createSectionController({

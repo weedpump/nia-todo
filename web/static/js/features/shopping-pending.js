@@ -23,6 +23,11 @@ export function hasPendingShoppingChanges(queue = [], listId) {
   return queue.some(item => queueItemReferencesShoppingList(item, listId));
 }
 
+export function hasPendingShoppingListCreate(queue = [], listId) {
+  return queue.some(item => item?.action === 'CREATE_SHOPPING_LIST'
+    && sameId(item.data?.temp_id ?? item.data?.id, listId));
+}
+
 export function projectShoppingSnapshot(serverLists = [], localLists = [], queue = []) {
   const result = [];
   const serverIds = new Set();
@@ -32,7 +37,7 @@ export function projectShoppingSnapshot(serverLists = [], localLists = [], queue
     if (projected) result.push(projected);
   }
   for (const localList of localLists) {
-    if (serverIds.has(String(localList.id)) || !hasPendingShoppingChanges(queue, localList.id)) continue;
+    if (serverIds.has(String(localList.id)) || !hasPendingShoppingListCreate(queue, localList.id)) continue;
     const projected = projectPendingShoppingChanges(localList, queue);
     if (projected) result.push(projected);
   }

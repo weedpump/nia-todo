@@ -97,7 +97,7 @@
   row-gap: 0;
 }
 
-.ui-detail-shell > .ui-section-divider:first-of-type,
+.ui-detail-shell > .ui-section-divider:first-child,
 #workspace-form > .ui-section-divider:first-of-type,
 .settings-page > .ui-section-divider:first-child {
   margin-top: 0;

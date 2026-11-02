@@ -69,6 +69,7 @@ export function createShoppingListDetailsFeature({
   getLists = () => [],
   setLists = () => {},
   commitMutation = async () => {},
+  enqueueListMutation = null,
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   selectList = () => false,
@@ -87,6 +88,19 @@ export function createShoppingListDetailsFeature({
   let ownershipField = null;
   let submitting = false;
   let deleting = false;
+  const listQueues = new Map();
+
+  function enqueueLocallyForList(identity, task) {
+    const key = String(identity);
+    const previous = listQueues.get(key);
+    const operation = (previous ? previous.catch(() => null) : Promise.resolve()).then(task);
+    listQueues.set(key, operation);
+    operation.finally(() => {
+      if (listQueues.get(key) === operation) listQueues.delete(key);
+    }).catch(() => {});
+    return operation;
+  }
+  const runListMutation = enqueueListMutation || enqueueLocallyForList;
 
   function listById(id) {
     return getLists().find(list => String(list.id) === String(id)) || null;
@@ -277,20 +291,23 @@ export function createShoppingListDetailsFeature({
   }
 
   async function persistUpdate(current, state) {
-    const committed = await commitMutation(() => {
-      const currentId = doc?.getElementById?.('shopping-list-id')?.value || current.id;
-      const latest = listById(currentId);
-      if (!latest || !canManageShoppingListMetadata(latest)) return null;
-      const changes = { name: state.name, color: state.color, icon: state.icon };
-      return {
-        list: updateShoppingListProjection(latest, changes),
-        action: 'UPDATE_SHOPPING_LIST',
-        data: { id: latest.id, changes },
-      };
+    const stableIdentity = current.client_mutation_id ?? current.id;
+    return runListMutation(stableIdentity, async () => {
+      const committed = await commitMutation(() => {
+        const currentId = doc?.getElementById?.('shopping-list-id')?.value || current.id;
+        const latest = listById(currentId);
+        if (!latest || !canManageShoppingListMetadata(latest)) return null;
+        const changes = { name: state.name, color: state.color, icon: state.icon };
+        return {
+          list: updateShoppingListProjection(latest, changes),
+          action: 'UPDATE_SHOPPING_LIST',
+          data: { id: latest.id, changes },
+        };
+      });
+      if (!committed) return null;
+      setLists(getLists().map(list => String(list.id) === String(committed.data.id) ? committed.list : list));
+      return committed.list;
     });
-    if (!committed) return null;
-    setLists(getLists().map(list => String(list.id) === String(committed.data.id) ? committed.list : list));
-    return committed.list;
   }
 
   function resetCancelledTransfer(current) {
@@ -322,10 +339,15 @@ export function createShoppingListDetailsFeature({
       resetCancelledTransfer(current);
       return null;
     }
-    const transferred = await shoppingApi.transferToHousehold(current.id, householdId);
-    if (!transferred?.id) throw new Error('Household transfer did not return the shopping list');
-    setLists(getLists().map(list => String(list.id) === String(current.id) ? transferred : list));
-    return transferred;
+    const stableIdentity = current.client_mutation_id ?? current.id;
+    return runListMutation(stableIdentity, async () => {
+      const latest = listById(current.id);
+      if (!latest || !canManageShoppingListMetadata(latest)) return null;
+      const transferred = await shoppingApi.transferToHousehold(latest.id, householdId);
+      if (!transferred?.id) throw new Error('Household transfer did not return the shopping list');
+      setLists(getLists().map(list => String(list.id) === String(latest.id) ? transferred : list));
+      return transferred;
+    });
   }
 
   function reconcileBlockedUpdate() {
@@ -389,15 +411,20 @@ export function createShoppingListDetailsFeature({
         if (!editingList()) closeAfterDeletedList();
         return;
       }
-      const committed = await commitMutation(() => {
-        const currentId = doc?.getElementById?.('shopping-list-id')?.value || current.id;
-        const latest = listById(currentId);
-        if (!latest || !canManageShoppingListMetadata(latest)) return null;
-        return {
-          deleteListId: latest.id,
-          action: 'DELETE_SHOPPING_LIST',
-          data: { id: latest.id },
-        };
+      const stableIdentity = current.client_mutation_id ?? current.id;
+      const committed = await runListMutation(stableIdentity, async () => {
+        const mutation = await commitMutation(() => {
+          const currentId = doc?.getElementById?.('shopping-list-id')?.value || current.id;
+          const latest = listById(currentId);
+          if (!latest || !canManageShoppingListMetadata(latest)) return null;
+          return {
+            deleteListId: latest.id,
+            action: 'DELETE_SHOPPING_LIST',
+            data: { id: latest.id },
+          };
+        });
+        if (mutation) setLists(getLists().filter(list => String(list.id) !== String(mutation.data.id)));
+        return mutation;
       });
       if (!committed) {
         const latest = editingList();
@@ -405,7 +432,6 @@ export function createShoppingListDetailsFeature({
         else closeAfterDeletedList();
         return;
       }
-      setLists(getLists().filter(list => String(list.id) !== String(committed.data.id)));
       closeAfterDeletedList();
     } catch (error) {
       onError(error);

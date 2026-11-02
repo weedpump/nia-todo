@@ -325,6 +325,17 @@ async function commitShoppingMutation(buildMutation) {
     finishQueueWrite();
   }
 }
+const shoppingListMutationQueues = new Map();
+function enqueueShoppingListMutation(listIdentity, task) {
+  const key = String(listIdentity);
+  const previous = shoppingListMutationQueues.get(key);
+  const operation = (previous ? previous.catch(() => null) : Promise.resolve()).then(task);
+  shoppingListMutationQueues.set(key, operation);
+  operation.finally(() => {
+    if (shoppingListMutationQueues.get(key) === operation) shoppingListMutationQueues.delete(key);
+  }).catch(() => {});
+  return operation;
+}
 const syncInProgressRef = { value: syncInProgress };
 const activeBackgroundSyncOperations = new Set();
 
@@ -634,7 +645,12 @@ const wsClient = createWebSocketClient({
   },
   onEntitySnapshotsCommitted: snapshots => {
     if (Array.isArray(snapshots?.projects)) sharingFeature?.commitAuthoritativeSnapshot?.(snapshots.projects);
-    if (Array.isArray(snapshots?.shoppingLists)) shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(snapshots.shoppingLists);
+    if (Array.isArray(snapshots?.shoppingLists)) {
+      shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(
+        snapshots.shoppingLists,
+        snapshots.revokedShoppingListIds || [],
+      );
+    }
   },
   onAvatarUpdate: async payload => {
     if (!currentUser) return;
@@ -898,6 +914,8 @@ const shoppingSectionsAdapter = createShoppingSectionsAdapter({
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
   getRoot: () => document.querySelector('[data-section-root="shopping"]'),
   commitMutation: commitShoppingMutation,
+  enqueueListMutation: enqueueShoppingListMutation,
+  canReorder: () => shoppingNavigationFeature?.canReorderSections?.() !== false,
   render: () => shoppingNavigationFeature?.render?.(),
   isOnlineForSync,
   syncWithServer,
@@ -923,6 +941,7 @@ const shoppingItemsController = createShoppingItemsController({
   getStores: () => shoppingStores,
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
   commitMutation: commitShoppingMutation,
+  enqueueListMutation: enqueueShoppingListMutation,
   render: () => shoppingNavigationFeature?.render?.(),
   isOnlineForSync,
   syncWithServer,
@@ -955,6 +974,12 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
   onStoreEdit: (listId, storeId, trigger) => shoppingStoreEditorFeature?.showEdit?.(listId, storeId, trigger),
   onListIdRemap: (fromId, toId) => shoppingListDetailsFeature?.remapListId(fromId, toId),
   onRender: () => shoppingViewPreferencesFeature?.updateButton?.(),
+  onPrimaryActionAvailabilityChange: available => {
+    const action = document.querySelector('[data-shopping-item-action="open-create"]');
+    if (!action) return;
+    action.hidden = available !== true;
+    action.disabled = available !== true;
+  },
   sectionRegistry,
   sectionAdapter: shoppingSectionsAdapter,
   itemController: shoppingItemsController,
@@ -994,6 +1019,7 @@ shoppingViewPreferencesFeature = createShoppingViewPreferencesFeature({
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
   commitMutation: commitShoppingMutation,
+  enqueueListMutation: enqueueShoppingListMutation,
   render: renderShopping,
   isOnlineForSync,
   syncWithServer,
@@ -1003,6 +1029,7 @@ shoppingListDetailsFeature = createShoppingListDetailsFeature({
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
   commitMutation: commitShoppingMutation,
+  enqueueListMutation: enqueueShoppingListMutation,
   isOnlineForSync,
   syncWithServer,
   selectList: id => shoppingNavigationFeature.selectList(id),

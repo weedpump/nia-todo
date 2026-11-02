@@ -18,6 +18,7 @@ export function createShoppingViewPreferencesFeature({
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   onError = () => {},
+  enqueueListMutation = null,
 } = {}) {
   let bound = false;
   const listQueues = new Map();
@@ -26,7 +27,7 @@ export function createShoppingViewPreferencesFeature({
     return getLists().find(list => sameId(list.id, identity) || sameId(list.client_mutation_id, identity)) || null;
   }
 
-  function enqueueForList(identity, task) {
+  function enqueueLocallyForList(identity, task) {
     const key = String(identity);
     const previous = listQueues.get(key);
     const ready = previous ? previous.catch(() => null) : Promise.resolve();
@@ -37,6 +38,7 @@ export function createShoppingViewPreferencesFeature({
     }).catch(() => {});
     return operation;
   }
+  const runListMutation = enqueueListMutation || enqueueLocallyForList;
 
   function updateButton() {
     const button = globalThis.document?.getElementById?.('shopping-hide-empty-sections-btn');
@@ -53,7 +55,7 @@ export function createShoppingViewPreferencesFeature({
     const initial = currentList();
     if (!initial) return null;
     const stableIdentity = initial.client_mutation_id ?? initial.id;
-    return enqueueForList(stableIdentity, async () => {
+    return runListMutation(stableIdentity, async () => {
       const mutation = await commitMutation(() => {
         const live = currentList(stableIdentity);
         if (!live) return null;
