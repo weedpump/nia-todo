@@ -79,6 +79,9 @@
 .ui-module-primary-action:active {
   transform: translateY(0) scale(0.98);
 }
+.ui-module-primary-action[hidden] {
+  display: none;
+}
 
 .user-menu-wrap {
   position: relative;

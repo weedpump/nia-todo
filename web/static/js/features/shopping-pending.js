@@ -28,6 +28,34 @@ export function hasPendingShoppingListCreate(queue = [], listId) {
     && sameId(item.data?.temp_id ?? item.data?.id, listId));
 }
 
+function shoppingListIdForQueueItem(item, stores = []) {
+  const data = item?.data || {};
+  if (['CREATE_SHOPPING_LIST', 'UPDATE_SHOPPING_LIST', 'DELETE_SHOPPING_LIST'].includes(item?.action)) {
+    return data.id ?? data.temp_id ?? null;
+  }
+  if (['UPDATE_SHOPPING_STORE', 'DELETE_SHOPPING_STORE'].includes(item?.action)) {
+    if (data.shopping_list_id != null) return data.shopping_list_id;
+    return stores.find(store => sameId(store.id, data.store_id))?.shopping_list_id ?? null;
+  }
+  return data.shopping_list_id ?? null;
+}
+
+export function collectRevokedShoppingListIds(serverLists = [], localLists = [], queue = [], stores = []) {
+  const authoritativeIds = new Set((serverLists || []).map(list => String(list.id)));
+  const candidates = new Map();
+  for (const list of localLists || []) {
+    if (list?.id != null) candidates.set(String(list.id), list.id);
+  }
+  for (const item of queue || []) {
+    const listId = shoppingListIdForQueueItem(item, stores);
+    if (listId != null) candidates.set(String(listId), listId);
+  }
+  return [...candidates.values()].filter(listId => (
+    !authoritativeIds.has(String(listId))
+    && !hasPendingShoppingListCreate(queue, listId)
+  ));
+}
+
 export function projectShoppingSnapshot(serverLists = [], localLists = [], queue = []) {
   const result = [];
   const serverIds = new Set();

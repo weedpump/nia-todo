@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { chromium } from 'playwright';
 import { renderModulePrimaryAction } from '../web/static/js/ui/module-primary-action.js';
 
 const root = new URL('../', import.meta.url);
@@ -72,6 +73,20 @@ assert.match(todoRefreshCss, /\.ui-module-primary-action\s*\{[\s\S]*?right:\s*ca
 for (const property of ['width: 62px', 'height: 62px', 'box-shadow: 0 12px 28px']) {
   const occurrences = cssSources.reduce((count, [, css]) => count + css.split(property).length - 1, 0);
   assert.equal(occurrences, 1, `base FAB geometry must have one neutral authority for ${property}`);
+}
+
+const browser = await chromium.launch({ headless: true });
+try {
+  const page = await browser.newPage();
+  await page.setContent(`<style>${shellCss}</style>${shoppingMarkup}`);
+  const action = page.locator('.ui-module-primary-action');
+  await action.evaluate(element => {
+    element.hidden = true;
+    element.disabled = true;
+  });
+  assert.equal(await action.isVisible(), false, 'the shared FAB CSS must honor hidden state for read-only and no-target module states');
+} finally {
+  await browser.close();
 }
 
 console.log('✅ Shared module primary action markup and neutral FAB CSS authority passed');

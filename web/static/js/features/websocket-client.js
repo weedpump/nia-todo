@@ -1,6 +1,6 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
 import { runAccessFencedCommit } from './entity-access-privacy.js';
-import { hasPendingShoppingListCreate, projectShoppingSnapshot, projectShoppingStoresSnapshot } from './shopping-pending.js';
+import { collectRevokedShoppingListIds, projectShoppingSnapshot, projectShoppingStoresSnapshot } from './shopping-pending.js';
 
 export function createWebSocketClient({
   wsUrl,
@@ -533,10 +533,8 @@ async function handleWsMessage(msg) {
       if (msg.shopping_lists) {
         const queue = await dbGetAll('syncQueue');
         const localLists = await dbGetAll('shoppingLists');
-        const authoritativeIds = new Set(msg.shopping_lists.map(list => String(list.id)));
-        revokedShoppingListIds = localLists
-          .filter(list => !authoritativeIds.has(String(list.id)) && !hasPendingShoppingListCreate(queue, list.id))
-          .map(list => list.id);
+        const localStores = await dbGetAll('shoppingStores');
+        revokedShoppingListIds = collectRevokedShoppingListIds(msg.shopping_lists, localLists, queue, localStores);
         shoppingLists = projectShoppingSnapshot(msg.shopping_lists, localLists, queue);
         const nextIds = new Set(shoppingLists.map(list => String(list.id)));
         for (const localList of localLists) {

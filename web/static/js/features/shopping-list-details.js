@@ -63,6 +63,17 @@ export function updateShoppingListProjection(list, changes = {}, updatedAt = new
   };
 }
 
+export function mergeShoppingListMetadata(list, metadata) {
+  if (!list || !metadata) return null;
+  return {
+    ...list,
+    ...metadata,
+    sections: list.sections || [],
+    items: list.items || [],
+    preferences: list.preferences || {},
+  };
+}
+
 export function createShoppingListDetailsFeature({
   document: doc = globalThis.document,
   eventTarget = globalThis.window,
@@ -345,8 +356,9 @@ export function createShoppingListDetailsFeature({
       if (!latest || !canManageShoppingListMetadata(latest)) return null;
       const transferred = await shoppingApi.transferToHousehold(latest.id, householdId);
       if (!transferred?.id) throw new Error('Household transfer did not return the shopping list');
-      setLists(getLists().map(list => String(list.id) === String(latest.id) ? transferred : list));
-      return transferred;
+      const projected = mergeShoppingListMetadata(latest, transferred);
+      setLists(getLists().map(list => String(list.id) === String(latest.id) ? projected : list));
+      return projected;
     });
   }
 

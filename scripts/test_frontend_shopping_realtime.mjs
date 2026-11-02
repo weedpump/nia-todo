@@ -170,6 +170,11 @@ await revokedClient.handleWsMessage({
 assert.deepEqual(revokedLists, [], 'a revoked server list must disappear from the live projection immediately');
 assert.deepEqual(revokedStores.shoppingLists, [], 'a revoked server list must disappear from IndexedDB immediately');
 assert.deepEqual(revokedIds, [77], 'the privacy controller must receive every revoked server-list identity so it can remove queued mutations');
+await revokedClient.handleWsMessage({
+  type: 'sync_response',
+  todos: [], projects: [], sections: [], workspaces: [], shopping_stores: [], shopping_lists: [],
+});
+assert.deepEqual(revokedIds, [77, 77], 'a later authoritative snapshot must retry privacy eviction while revoked queue entries still exist');
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 assert.match(
   appSource,

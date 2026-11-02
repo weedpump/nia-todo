@@ -2,8 +2,23 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { mergeShoppingListMetadata } from '../web/static/js/features/shopping-list-details.js';
 
 const root = new URL('../', import.meta.url);
+const transferProjection = mergeShoppingListMetadata(
+  {
+    id: 101,
+    name: 'Before',
+    sections: [{ id: 1, name: 'Produce' }],
+    items: [{ id: 2, name: 'Milk' }],
+    preferences: { hide_empty_sections: true },
+  },
+  { id: 101, name: 'After', owner_household_id: 7, ownership_type: 'household' },
+);
+assert.equal(transferProjection.name, 'After');
+assert.deepEqual(transferProjection.sections, [{ id: 1, name: 'Produce' }], 'household transfer metadata must preserve sections');
+assert.deepEqual(transferProjection.items, [{ id: 2, name: 'Milk' }], 'household transfer metadata must preserve items');
+assert.deepEqual(transferProjection.preferences, { hide_empty_sections: true }, 'household transfer metadata must preserve preferences');
 const appSource = readFileSync(new URL('web/static/js/app.js', root), 'utf8');
 assert.match(appSource, /shoppingListDetailsFeature\?\.reconcileListsChanged\?\.\(\)/, 'the production app must reconcile an open shopping-list editor after authoritative list replacement');
 assert.match(appSource, /moduleShell\?\.getActiveModule\?\.\(\) === 'shopping'[\s\S]*normalizeActiveListNavigation\(\)[\s\S]*focusActiveListAction\(\)/, 'authoritative deletion in the active Shopping module must normalize navigation and focus');

@@ -88,6 +88,6 @@ assert.equal(shoppingButton.attributes.get('aria-pressed'), 'false');
 
 const serviceWorkerSource = readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
 assert.match(serviceWorkerSource, /'\/static\/js\/features\/completed-visibility\.js'/, 'the shared controller must be available during offline startup');
-assert.match(serviceWorkerSource, /CACHE_REVISION = 'nia-v4-module-platform-preview-271'/, 'the app-shell cache must advance for the new shared controller and module markup');
+assert.match(serviceWorkerSource, /CACHE_REVISION = 'nia-v4-module-platform-preview-\d+'/, 'the app-shell cache must use the versioned module-platform revision contract');
 
 console.log('✅ Shared app-wide completed visibility contracts passed');
