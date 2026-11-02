@@ -22,12 +22,26 @@ export function createShoppingStoresController({
   getStores = () => [],
   setStores = () => {},
   commitMutation,
+  enqueueListMutation = null,
   isOnlineForSync = () => false,
   syncWithServer = async () => {},
   onError = console.error,
   createTempId = () => `temp-shopping-store-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
   const pendingCreates = new Map();
+  const listQueues = new Map();
+
+  function enqueueLocallyForList(identity, task) {
+    const key = String(identity);
+    const previous = listQueues.get(key);
+    const operation = (previous ? previous.catch(() => null) : Promise.resolve()).then(task);
+    listQueues.set(key, operation);
+    operation.finally(() => {
+      if (listQueues.get(key) === operation) listQueues.delete(key);
+    }).catch(() => {});
+    return operation;
+  }
+  const runListMutation = enqueueListMutation || enqueueLocallyForList;
 
   function activeDuplicate(name, shoppingListId, excludeId = null) {
     const normalized = String(name || '').trim().toLocaleLowerCase();
@@ -47,7 +61,7 @@ export function createShoppingStoresController({
     const key = `${shoppingListId}\u0000${name.toLocaleLowerCase()}`;
     if (pendingCreates.has(key)) return pendingCreates.get(key);
 
-    const operation = (async () => {
+    const operation = runListMutation(shoppingListId, async () => {
       const tempId = createTempId();
       const mutation = await commitMutation(() => {
         if (!authorize()) return null;
@@ -82,7 +96,7 @@ export function createShoppingStoresController({
         if (isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
       }
       return store;
-    })();
+    });
 
     pendingCreates.set(key, operation);
     operation.finally(() => {
@@ -96,48 +110,52 @@ export function createShoppingStoresController({
     if (!name) return null;
     const current = getStores().find(store => sameId(store.id, storeId) || sameId(store.client_mutation_id, storeId));
     if (!current || current.active === false || activeDuplicate(name, current.shopping_list_id, current.id)) return null;
-    const mutation = await commitMutation(() => {
-      const latest = getStores().find(store => sameId(store.id, current.id) || sameId(store.client_mutation_id, current.id));
-      if (!latest || latest.active === false || !authorize(latest)) return null;
-      if (activeDuplicate(name, latest.shopping_list_id, latest.id)) return null;
-      const store = { ...latest, name, is_pending: true };
-      return {
-        store,
-        action: 'UPDATE_SHOPPING_STORE',
-        data: { shopping_list_id: latest.shopping_list_id, store_id: latest.id, changes: { name } },
-        result: store,
-      };
+    return runListMutation(current.shopping_list_id, async () => {
+      const mutation = await commitMutation(() => {
+        const latest = getStores().find(store => sameId(store.id, current.id) || sameId(store.client_mutation_id, current.id));
+        if (!latest || latest.active === false || !authorize(latest)) return null;
+        if (activeDuplicate(name, latest.shopping_list_id, latest.id)) return null;
+        const store = { ...latest, name, is_pending: true };
+        return {
+          store,
+          action: 'UPDATE_SHOPPING_STORE',
+          data: { shopping_list_id: latest.shopping_list_id, store_id: latest.id, changes: { name } },
+          result: store,
+        };
+      });
+      const store = mutation?.result || mutation?.store || null;
+      if (!store) return null;
+      if (mutation?.store) {
+        setStores(getStores().map(candidate => sameId(candidate.id, store.id) ? store : candidate));
+        if (isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
+      }
+      return store;
     });
-    const store = mutation?.result || mutation?.store || null;
-    if (!store) return null;
-    if (mutation?.store) {
-      setStores(getStores().map(candidate => sameId(candidate.id, store.id) ? store : candidate));
-      if (isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
-    }
-    return store;
   }
 
   async function remove(storeId, { authorize = () => true } = {}) {
     const current = getStores().find(store => sameId(store.id, storeId) || sameId(store.client_mutation_id, storeId));
     if (!current || current.active === false) return null;
-    const mutation = await commitMutation(() => {
-      const latest = getStores().find(store => sameId(store.id, current.id) || sameId(store.client_mutation_id, current.id));
-      if (!latest || latest.active === false || !authorize(latest)) return null;
-      const store = { ...latest, active: false, is_pending: true };
-      return {
-        store,
-        action: 'DELETE_SHOPPING_STORE',
-        data: { shopping_list_id: latest.shopping_list_id, store_id: latest.id },
-        result: store,
-      };
+    return runListMutation(current.shopping_list_id, async () => {
+      const mutation = await commitMutation(() => {
+        const latest = getStores().find(store => sameId(store.id, current.id) || sameId(store.client_mutation_id, current.id));
+        if (!latest || latest.active === false || !authorize(latest)) return null;
+        const store = { ...latest, active: false, is_pending: true };
+        return {
+          store,
+          action: 'DELETE_SHOPPING_STORE',
+          data: { shopping_list_id: latest.shopping_list_id, store_id: latest.id },
+          result: store,
+        };
+      });
+      const store = mutation?.result || mutation?.store || null;
+      if (!store) return null;
+      if (mutation?.store) {
+        setStores(getStores().map(candidate => sameId(candidate.id, store.id) ? store : candidate));
+        if (isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
+      }
+      return store;
     });
-    const store = mutation?.result || mutation?.store || null;
-    if (!store) return null;
-    if (mutation?.store) {
-      setStores(getStores().map(candidate => sameId(candidate.id, store.id) ? store : candidate));
-      if (isOnlineForSync()) Promise.resolve(syncWithServer()).catch(onError);
-    }
-    return store;
   }
 
   return { create, update, remove };

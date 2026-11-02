@@ -1,6 +1,6 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
 import { runAccessFencedCommit } from './entity-access-privacy.js';
-import { collectRevokedShoppingListIds, projectShoppingSnapshot, projectShoppingStoresSnapshot } from './shopping-pending.js';
+import { backfillShoppingStoreQueueListIds, collectRevokedShoppingListIds, projectShoppingSnapshot, projectShoppingStoresSnapshot } from './shopping-pending.js';
 
 export function createWebSocketClient({
   wsUrl,
@@ -518,8 +518,10 @@ async function handleWsMessage(msg) {
         renderWorkspaces?.();
       }
       if (msg.shopping_stores) {
-        const queue = await dbGetAll('syncQueue');
+        const storedQueue = await dbGetAll('syncQueue');
         const localStores = await dbGetAll('shoppingStores');
+        const queue = backfillShoppingStoreQueueListIds(storedQueue, localStores);
+        await Promise.all(queue.map((entry, index) => entry === storedQueue[index] ? null : dbPut('syncQueue', entry)));
         const nextShoppingStores = projectShoppingStoresSnapshot(msg.shopping_stores, localStores, queue);
         const nextIds = new Set(nextShoppingStores.map(store => String(store.id)));
         for (const localStore of localStores) {
@@ -531,9 +533,11 @@ async function handleWsMessage(msg) {
       }
       let revokedShoppingListIds = [];
       if (msg.shopping_lists) {
-        const queue = await dbGetAll('syncQueue');
+        const storedQueue = await dbGetAll('syncQueue');
         const localLists = await dbGetAll('shoppingLists');
         const localStores = await dbGetAll('shoppingStores');
+        const queue = backfillShoppingStoreQueueListIds(storedQueue, localStores);
+        await Promise.all(queue.map((entry, index) => entry === storedQueue[index] ? null : dbPut('syncQueue', entry)));
         revokedShoppingListIds = collectRevokedShoppingListIds(msg.shopping_lists, localLists, queue, localStores);
         shoppingLists = projectShoppingSnapshot(msg.shopping_lists, localLists, queue);
         const nextIds = new Set(shoppingLists.map(list => String(list.id)));

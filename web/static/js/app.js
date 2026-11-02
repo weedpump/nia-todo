@@ -953,6 +953,7 @@ const shoppingStoresController = createShoppingStoresController({
   getStores: () => shoppingStores,
   setStores: setShoppingStoresState,
   commitMutation: commitShoppingMutation,
+  enqueueListMutation: enqueueShoppingListMutation,
   isOnlineForSync,
   syncWithServer,
   onError: error => console.error('Shopping store mutation failed', error),

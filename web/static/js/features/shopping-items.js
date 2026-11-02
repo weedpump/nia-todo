@@ -193,7 +193,7 @@ export function createShoppingItemsController({
         sameId(candidate.id, storeInput)
         || sameId(candidate.client_mutation_id, storeInput)
       ));
-    if (storeInput != null && !initialStore) return Promise.resolve(null);
+    if (storeInput != null && (!initialStore || initialStore.active === false)) return Promise.resolve(null);
     const stableSectionIdentity = initialSection?.client_mutation_id ?? initialSection?.id ?? null;
     const stableStoreIdentity = initialStore?.client_mutation_id ?? initialStore?.id ?? null;
     const stableListIdentity = live.client_mutation_id ?? live.id;
@@ -217,7 +217,7 @@ export function createShoppingItemsController({
             sameId(candidate.id, stableStoreIdentity)
             || sameId(candidate.client_mutation_id, stableStoreIdentity)
           ));
-        if (stableStoreIdentity != null && !store) return null;
+        if (stableStoreIdentity != null && (!store || store.active === false)) return null;
         const sortOrder = (latest.items || []).reduce((maximum, item) => {
           const candidate = Number(item.sort_order);
           return Number.isFinite(candidate) ? Math.max(maximum, candidate) : maximum;
@@ -293,7 +293,7 @@ export function createShoppingItemsController({
         sameId(candidate.id, storeInput)
         || sameId(candidate.client_mutation_id, storeInput)
       ));
-    if (storeInput != null && !initialStore) return Promise.resolve(null);
+    if (storeInput != null && (!initialStore || initialStore.active === false)) return Promise.resolve(null);
     const stableItemIdentity = initialItem.client_mutation_id ?? initialItem.id;
     const stableSectionIdentity = initialSection?.client_mutation_id ?? initialSection?.id ?? null;
     const stableStoreIdentity = initialStore?.client_mutation_id ?? initialStore?.id ?? null;
@@ -322,7 +322,7 @@ export function createShoppingItemsController({
             sameId(candidate.id, stableStoreIdentity)
             || sameId(candidate.client_mutation_id, stableStoreIdentity)
           ));
-        if (stableStoreIdentity != null && !store) return null;
+        if (stableStoreIdentity != null && (!store || store.active === false)) return null;
         const enumerableStores = getStores();
         const retainedHiddenStoreIds = (item.store_ids || []).filter(storeId => !enumerableStores.some(candidate => (
           sameId(candidate.id, storeId)

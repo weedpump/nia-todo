@@ -56,17 +56,41 @@ export function collectRevokedShoppingListIds(serverLists = [], localLists = [],
   ));
 }
 
+export function backfillShoppingStoreQueueListIds(queue = [], stores = []) {
+  return queue.map((entry) => {
+    if (!['UPDATE_SHOPPING_STORE', 'DELETE_SHOPPING_STORE'].includes(entry?.action)) return entry;
+    const data = entry.data || {};
+    if (data.shopping_list_id != null) return entry;
+    const store = stores.find(candidate => sameId(candidate.id, data.store_id));
+    if (store?.shopping_list_id == null) return entry;
+    return { ...entry, data: { ...data, shopping_list_id: store.shopping_list_id } };
+  });
+}
+
 export function projectShoppingSnapshot(serverLists = [], localLists = [], queue = []) {
   const result = [];
   const serverIds = new Set();
+  const confirmedClientMutationIds = new Set();
+  let projectedQueue = queue;
+  for (const serverList of serverLists) {
+    if (serverList?.client_mutation_id == null) continue;
+    confirmedClientMutationIds.add(String(serverList.client_mutation_id));
+    projectedQueue = rewriteShoppingQueueReferences(projectedQueue, {
+      listIdFrom: serverList.client_mutation_id,
+      listIdTo: serverList.id,
+    });
+  }
   for (const serverList of serverLists) {
     serverIds.add(String(serverList.id));
-    const projected = projectPendingShoppingChanges(serverList, queue);
+    const projected = projectPendingShoppingChanges(serverList, projectedQueue);
     if (projected) result.push(projected);
   }
   for (const localList of localLists) {
-    if (serverIds.has(String(localList.id)) || !hasPendingShoppingListCreate(queue, localList.id)) continue;
-    const projected = projectPendingShoppingChanges(localList, queue);
+    if (serverIds.has(String(localList.id))
+      || confirmedClientMutationIds.has(String(localList.id))
+      || confirmedClientMutationIds.has(String(localList.client_mutation_id))
+      || !hasPendingShoppingListCreate(queue, localList.id)) continue;
+    const projected = projectPendingShoppingChanges(localList, projectedQueue);
     if (projected) result.push(projected);
   }
   return result;

@@ -57,6 +57,18 @@ const snapshot = projectShoppingSnapshot([serverList], [temporaryList], [
 ]);
 assert.equal(snapshot.some(list => list.id === 'temp-list-1'), true, 'pending offline lists survive authoritative snapshots');
 assert.equal(snapshot.find(list => list.id === 7).items.find(item => item.id === 20).completed, true);
+
+const recoveredTempId = 'temp-shopping-list-recovered';
+const recoveredSnapshot = projectShoppingSnapshot(
+  [{ id: 42, client_mutation_id: recoveredTempId, name: 'Recovered', sections: [], items: [], preferences: {} }],
+  [{ id: recoveredTempId, client_mutation_id: recoveredTempId, name: 'Offline', sections: [], items: [], preferences: {}, is_pending: true }],
+  [
+    { id: 501, action: 'CREATE_SHOPPING_LIST', data: { temp_id: recoveredTempId, list: { id: recoveredTempId } } },
+    { id: 502, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: recoveredTempId, temp_id: 'temp-item-recovered', item: { name: 'Milk' } } },
+  ],
+);
+assert.deepEqual(recoveredSnapshot.map(list => list.id), [42], 'an idempotently recovered offline list must not remain duplicated under its temp ID');
+assert.equal(recoveredSnapshot[0].items[0].name, 'Milk', 'pending child mutations must move onto the canonical recovered list projection');
 assert.equal(
   projectShoppingSnapshot([], [serverList], queue).some(list => list.id === 7),
   false,

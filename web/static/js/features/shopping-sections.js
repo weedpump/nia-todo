@@ -39,9 +39,8 @@ export function createShoppingSectionsAdapter({
   }
   const runListMutation = enqueueListMutation || enqueueLocallyForList;
 
-  function currentList() {
-    const activeId = getActiveListId();
-    return getLists().find(list => sameId(list.id, activeId) || sameId(list.client_mutation_id, activeId)) || null;
+  function currentList(identity = getActiveListId()) {
+    return getLists().find(list => sameId(list.id, identity) || sameId(list.client_mutation_id, identity)) || null;
   }
 
   function visibleSections(list = currentList()) {
@@ -66,7 +65,7 @@ export function createShoppingSectionsAdapter({
     const stableIdentity = initial.client_mutation_id ?? initial.id;
     return runListMutation(stableIdentity, async () => {
       const mutation = await commitMutation(() => {
-        const live = currentList();
+        const live = currentList(stableIdentity);
         if (live?.can_edit !== true) return null;
         return build(live);
       });

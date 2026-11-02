@@ -132,9 +132,10 @@ assert.deepEqual(
 
 let revokedLists = [{ id: 77, name: 'Revoked private list', can_edit: true, sections: [], items: [{ id: 78, name: 'Secret' }], preferences: {} }];
 const revokedStores = {
-  todos: [], projects: [], sections: [], workspaces: [], shoppingStores: [],
+  todos: [], projects: [], sections: [], workspaces: [],
+  shoppingStores: [{ id: 88, shopping_list_id: 77, name: 'Legacy private store', active: true }],
   shoppingLists: structuredClone(revokedLists),
-  syncQueue: [{ id: 79, action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 77, item_id: 78, changes: { completed: true } } }],
+  syncQueue: [{ id: 79, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 88, changes: { name: 'Secret rename' } } }],
 };
 const revokedIds = [];
 const revokedClient = createWebSocketClient({
@@ -169,6 +170,7 @@ await revokedClient.handleWsMessage({
 });
 assert.deepEqual(revokedLists, [], 'a revoked server list must disappear from the live projection immediately');
 assert.deepEqual(revokedStores.shoppingLists, [], 'a revoked server list must disappear from IndexedDB immediately');
+assert.equal(revokedStores.syncQueue[0].data.shopping_list_id, 77, 'legacy store mutations must be durably linked to their list before the authoritative store snapshot removes that lookup');
 assert.deepEqual(revokedIds, [77], 'the privacy controller must receive every revoked server-list identity so it can remove queued mutations');
 await revokedClient.handleWsMessage({
   type: 'sync_response',

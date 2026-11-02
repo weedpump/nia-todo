@@ -597,6 +597,32 @@ assert.deepEqual(updatedItem.stores.map(store => store.id), [91]);
 assert.equal(updatedItem.is_pending, true);
 assert.equal(updatePublishes, 1);
 
+let inactiveStoreLists = [{
+  id: 'inactive-store-list',
+  can_edit: true,
+  sections: [],
+  items: [{ id: 'inactive-store-item', name: 'Milk', completed: false, store_ids: [], stores: [] }],
+}];
+let inactiveStores = [{ id: 88, shopping_list_id: 'inactive-store-list', name: 'Market', active: true }];
+const inactiveStoreGate = deferred();
+const inactiveStoreEditor = createShoppingItemsController({
+  getLists: () => inactiveStoreLists,
+  setLists: next => { inactiveStoreLists = next; },
+  getActiveListId: () => 'inactive-store-list',
+  getStores: () => inactiveStores,
+  commitMutation: async build => {
+    await inactiveStoreGate.promise;
+    return build();
+  },
+});
+const staleStoreUpdate = inactiveStoreEditor.update('inactive-store-list', 'inactive-store-item', {
+  name: 'Fresh milk', quantity: '', unit: '', sectionId: null, storeId: 88,
+});
+inactiveStores = inactiveStores.map(store => ({ ...store, active: false }));
+inactiveStoreGate.resolve();
+assert.equal(await staleStoreUpdate, null, 'an item mutation must not reattach a store deleted while waiting for the shared list queue');
+assert.deepEqual(inactiveStoreLists[0].items[0].store_ids, []);
+
 let hiddenStoreMutation = null;
 const hiddenStoreEditor = createShoppingItemsController({
   getLists: () => [{

@@ -10,6 +10,7 @@ function deferred() {
 
 let stores = [{ id: 'existing', shopping_list_id: 7, name: 'REWE', active: true, sort_order: 0 }];
 const commits = [];
+const queuedListIds = [];
 let syncCalls = 0;
 const controller = createShoppingStoresController({
   getStores: () => stores,
@@ -19,6 +20,10 @@ const controller = createShoppingStoresController({
     if (!mutation) return null;
     commits.push(structuredClone(mutation));
     return mutation;
+  },
+  enqueueListMutation: async (listId, task) => {
+    queuedListIds.push(listId);
+    return task();
   },
   createTempId: () => 'temp-store-created',
   isOnlineForSync: () => true,
@@ -83,6 +88,7 @@ assert.deepEqual(commits.at(-1), {
 });
 assert.equal(stores.find(store => store.id === 'existing').active, false);
 assert.equal(syncCalls, 3);
+assert.deepEqual(queuedListIds.slice(0, 3), [7, 7, 7], 'create, update and delete must use the shared per-list mutation queue');
 
 const missingDeleteCount = commits.length;
 assert.equal(await controller.remove('missing', { authorize: () => true }), null, 'missing stores must not create delete mutations');

@@ -110,6 +110,32 @@ assert.deepEqual(visibleReorder.mutations.map(mutation => mutation.data.section_
 
 const commitCountBeforePermissionLoss = commits.length;
 
+let switchedActiveListId = 'switch-a';
+let switchedLists = [
+  { id: 'switch-a', can_edit: true, sections: [], items: [] },
+  { id: 'switch-b', can_edit: true, sections: [], items: [] },
+];
+let releaseSwitchedQueue;
+const switchedQueueGate = new Promise(resolve => { releaseSwitchedQueue = resolve; });
+const switchedAdapter = createShoppingSectionsAdapter({
+  getLists: () => switchedLists,
+  setLists: next => { switchedLists = structuredClone(next); },
+  getActiveListId: () => switchedActiveListId,
+  getRoot: () => null,
+  enqueueListMutation: async (_listId, task) => {
+    await switchedQueueGate;
+    return task();
+  },
+  commitMutation: async build => build(),
+  createTempId: () => 'temp-switch-section',
+});
+const switchedCreate = switchedAdapter.createSection('Produce');
+switchedActiveListId = 'switch-b';
+releaseSwitchedQueue();
+await switchedCreate;
+assert.deepEqual(switchedLists.find(list => list.id === 'switch-a').sections.map(section => section.name), ['Produce'], 'a queued section mutation must remain bound to its original list');
+assert.deepEqual(switchedLists.find(list => list.id === 'switch-b').sections, [], 'switching lists while queued must not redirect the mutation');
+
 let cleanupLists = [{
   id: 'cleanup-list',
   can_manage: true,
