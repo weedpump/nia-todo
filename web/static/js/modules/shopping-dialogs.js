@@ -89,7 +89,9 @@ export const SHOPPING_DIALOGS_HTML = `
           <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section">
             <div class="form-group ui-detail-title-group">
               <label for="shopping-item-name" data-i18n-key="shopping.item.name">${escapeHtmlAttr(t('shopping.item.name'))}</label>
-              <input class="ui-field ui-detail-title-field" type="text" id="shopping-item-name" required maxlength="500" autocomplete="off" data-i18n-placeholder-key="shopping.item.namePlaceholder" placeholder="${escapeHtmlAttr(t('shopping.item.namePlaceholder'))}">
+              <input class="ui-field ui-detail-title-field" type="text" id="shopping-item-name" required maxlength="500" autocomplete="off" aria-describedby="shopping-item-quick-add-hint shopping-item-quick-add-preview" data-i18n-placeholder-key="shopping.item.namePlaceholder" placeholder="${escapeHtmlAttr(t('shopping.item.namePlaceholder'))}">
+              <div class="quick-add-hint" id="shopping-item-quick-add-hint" data-i18n-key="shopping.quickAdd.hint">${escapeHtmlAttr(t('shopping.quickAdd.hint'))}</div>
+              <div class="quick-add-preview" id="shopping-item-quick-add-preview" aria-live="polite" hidden></div>
             </div>
           </section>
           <section class="ui-section-card ui-detail-section ui-section-divider">

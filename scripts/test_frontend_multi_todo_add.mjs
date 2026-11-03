@@ -101,6 +101,10 @@ try {
       await route.fulfill({ status: 200, contentType: 'text/javascript', body: source });
       return;
     }
+    if (pathname === '/quick-add.js') {
+      await route.fulfill({ status: 200, contentType: 'text/javascript', body: await readFile(path.join(root, 'web/static/js/features/quick-add.js'), 'utf8') });
+      return;
+    }
     if (pathname === '/todo-multi-add.css') {
       await route.fulfill({ status: 200, contentType: 'text/css', body: stylesheet });
       return;

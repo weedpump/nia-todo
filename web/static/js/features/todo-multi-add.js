@@ -1,3 +1,5 @@
+import { renderQuickAddPreview } from './quick-add.js';
+
 const MAX_MULTI_TODOS = 50;
 
 function stripListPrefix(value) {
@@ -246,25 +248,13 @@ export function createTodoMultiAddFeature({
     row.classList.remove('is-invalid');
     input.setAttribute('aria-invalid', 'false');
     row._multiParsed = result;
-    const previewContent = document.createDocumentFragment();
     const validationKey = getMultiTodoValidationKey(result.changes || {});
     if (validationKey) {
       row.classList.add('is-invalid');
       input.setAttribute('aria-invalid', 'true');
       message.textContent = t(validationKey);
     }
-    for (const match of result.matches || []) {
-      const chip = document.createElement('span');
-      chip.className = `quick-add-chip ${match.type}`;
-      const label = document.createElement('span');
-      label.className = 'quick-add-chip-label';
-      label.textContent = match.label;
-      const value = document.createElement('strong');
-      value.textContent = match.value || match.token || '';
-      chip.append(label, value);
-      previewContent.appendChild(chip);
-    }
-    preview.replaceChildren(previewContent);
+    renderQuickAddPreview(preview, result, t);
     updateState();
     return true;
   }

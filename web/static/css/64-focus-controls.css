@@ -56,7 +56,7 @@
 }
 
 .quick-add-hint {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.35;
@@ -66,7 +66,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .quick-add-preview[hidden] {
@@ -74,6 +74,9 @@
 }
 
 .quick-add-chip {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   display: inline-flex;
   align-items: center;
   gap: 5px;

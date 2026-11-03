@@ -19,7 +19,7 @@ assert.match(shoppingItemEditorSource, /shoppingStoreOptionAction/);
 assert.match(shoppingNavigationSource, /shoppingStoreOptionAction/);
 
 const fixtureSource = `
-  import { initI18n, translatePage } from '/static/js/i18n/index.js';
+  import { initI18n, translatePage, setLanguagePreference } from '/static/js/i18n/index.js';
   import { SHOPPING_DIALOGS_HTML } from '/static/js/modules/shopping-dialogs.js';
   import { createShoppingItemsController } from '/static/js/features/shopping-items.js';
   import { createShoppingItemEditorFeature } from '/static/js/features/shopping-item-editor.js';
@@ -40,6 +40,7 @@ const fixtureSource = `
   let storeEditor = null;
   const commits = [];
   let confirmations = 0;
+  let itemSequence = 0;
   let deferredCommit = null;
   const commitMutation = async build => {
     if (deferredCommit) await deferredCommit.promise;
@@ -60,7 +61,7 @@ const fixtureSource = `
     getStores: () => stores,
     commitMutation,
     render: () => navigation?.render(),
-    createTempId: () => 'temp-shopping-item-browser',
+    createTempId: () => itemSequence++ === 0 ? 'temp-shopping-item-browser' : 'temp-shopping-item-browser-' + itemSequence,
     onEdit: (listId, itemId, triggerElement) => editor?.showEdit?.(listId, itemId, triggerElement),
   });
   navigation = createShoppingNavigationFeature({
@@ -125,6 +126,7 @@ const fixtureSource = `
       navigation.render();
       editor.reconcile();
     },
+    setLanguage: language => setLanguagePreference(language),
     lists: () => lists,
     stores: () => stores,
     commits: () => commits,
@@ -139,7 +141,7 @@ try {
   page.on('pageerror', error => errors.push(String(error?.stack || error)));
   await page.route('http://shopping-create.test/**', async route => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><link rel="stylesheet" href="/static/style.css"></head><body><script type="module" src="/fixture.js"></script></body></html>' });
+    if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/static/style.css"></head><body><script type="module" src="/fixture.js"></script></body></html>' });
     if (url.pathname === '/fixture.js') return route.fulfill({ contentType: 'text/javascript', body: fixtureSource });
     if (url.pathname.startsWith('/static/')) {
       try {
@@ -168,6 +170,29 @@ try {
   assert.equal(await page.locator('#shopping-item-name').evaluate(element => document.activeElement === element), true, 'item name receives initial focus');
   assert.deepEqual(await page.locator('#shopping-item-section option').allTextContents(), ['Ohne Abschnitt', 'Obst & Gemüse']);
   assert.deepEqual(await page.locator('#shopping-item-store option').allTextContents(), ['Kein Supermarkt']);
+  assert.equal(await page.locator('#shopping-item-quick-add-preview').count(), 1, 'creation must mount the shared Quick Add preview');
+  await page.locator('#shopping-item-name').fill('500g ');
+  await page.waitForFunction(() => document.querySelector('#shopping-item-quick-add-preview .quick-add-error') !== null);
+  await page.locator('#shopping-item-name').evaluate(input => {
+    input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    input.value = '500g emmenta';
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.dispatchEvent(new CompositionEvent('compositionupdate', { bubbles: true, data: 'emmenta' }));
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertCompositionText', data: 'emmenta', isComposing: true }));
+  });
+  await page.waitForFunction(() => document.querySelector('#shopping-item-quick-add-preview .quantity strong')?.textContent === '500');
+  assert.equal(await page.locator('#shopping-item-quick-add-preview .unit strong').textContent(), 'g');
+  assert.equal(await page.locator('#shopping-item-quick-add-preview .quick-add-error').count(), 0, 'composing product text clears the previous missing-name error immediately');
+  assert.equal(await page.locator('#shopping-item-name').inputValue(), '500g emmenta', 'live composition preview needs no trailing space or rewritten input');
+  assert.equal(await page.locator('#shopping-item-name').evaluate(input => input.selectionStart === input.value.length && input.selectionEnd === input.value.length && document.activeElement === input), true, 'preview preserves caret and input focus');
+  await page.locator('#shopping-item-name').evaluate(input => input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: 'emmenta' })));
+  await page.locator('#shopping-item-name').fill('2 l Milch /Obst & Gemüse');
+  await page.waitForFunction(() => document.querySelectorAll('#shopping-item-quick-add-preview .quick-add-chip').length === 3);
+  assert.deepEqual(await page.locator('#shopping-item-quick-add-preview strong').allTextContents(), ['2', 'l', 'Obst & Gemüse']);
+  await page.locator('#shopping-item-quantity').fill('0');
+  await page.waitForFunction(() => document.querySelector('#shopping-item-quick-add-preview strong')?.textContent === '0');
+  await page.locator('#shopping-item-name').fill('');
+  await page.locator('#shopping-item-quantity').fill('');
 
   const storeTrigger = page.locator('[data-select-id="shopping-item-store"] .ui-select-trigger');
   await storeTrigger.click();
@@ -335,6 +360,51 @@ try {
   assert(mobile.width <= 320);
   assert.equal(mobile.saveVisible, true);
   assert.equal(mobile.closeVisible, true);
+
+  await page.locator('#shopping-item-name').fill('2 l Milch @Aldi /Obst & Gemüse');
+  await page.waitForFunction(() => document.querySelectorAll('#shopping-item-quick-add-preview .quick-add-chip').length === 4);
+  await page.locator('#shopping-item-quantity').fill('0');
+  await page.locator('#shopping-item-unit').fill('Packungen');
+  await page.waitForFunction(() => document.querySelector('#shopping-item-quick-add-preview .unit strong')?.textContent === 'Packungen');
+  await page.locator('#shopping-item-save-btn').click();
+  await page.waitForFunction(() => document.querySelector('#shopping-item-modal')?.getAttribute('aria-hidden') === 'true');
+  const quickCreated = await page.evaluate(() => window.test.commits().at(-1).data.item);
+  assert.deepEqual({ name: quickCreated.name, quantity: quickCreated.quantity_value, unit: quickCreated.quantity_unit, section: quickCreated.section_id, stores: quickCreated.store_ids }, {
+    name: 'Milch', quantity: 0, unit: 'Packungen', section: 'produce', stores: ['temp-shopping-store-browser'],
+  }, 'Quick Add must preserve explicit overrides and opaque offline associations in the durable payload');
+  await page.locator('.shopping-item-edit-trigger').click();
+  assert.equal(await page.locator('#shopping-item-quick-add-preview').isHidden(), true);
+  assert.equal(await page.locator('#shopping-item-quick-add-hint').isHidden(), true);
+  await page.locator('#shopping-item-name').fill('3x Milch @Aldi');
+  await page.locator('#shopping-item-save-btn').click();
+  await page.waitForFunction(() => document.querySelector('#shopping-item-modal')?.getAttribute('aria-hidden') === 'true');
+  assert.equal(await page.evaluate(() => window.test.commits().at(-1).data.changes.name), '3x Milch @Aldi', 'edit mode must not reinterpret literal item names');
+
+  await trigger.click();
+  await page.locator('#shopping-item-name').fill('2x Milch menge:3');
+  await page.waitForFunction(expected => document.querySelector('#shopping-item-quick-add-preview')?.textContent.includes(expected), JSON.parse(readFileSync(new URL('../web/static/i18n/de.json', import.meta.url), 'utf8'))['shopping.quickAdd.error.conflict']);
+  const beforeInvalid = await page.evaluate(() => window.test.commits().length);
+  await page.evaluate(() => document.querySelector('#shopping-item-form').requestSubmit());
+  assert.equal(await page.evaluate(() => window.test.commits().length), beforeInvalid, 'conflicting syntax cannot persist or enqueue');
+  await page.locator('#shopping-item-name').fill('1,5 l Milch');
+  await page.waitForFunction(() => document.querySelector('#shopping-item-quick-add-preview .quantity strong')?.textContent === '1,5');
+  await page.evaluate(() => window.test.setLanguage('en'));
+  await page.locator('#shopping-item-name').fill('1.5 l Milk');
+  await page.waitForFunction(() => document.querySelector('#shopping-item-quick-add-preview .quantity strong')?.textContent === '1.5');
+  assert.equal(await page.locator('#shopping-item-quick-add-hint').textContent(), JSON.parse(readFileSync(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8'))['shopping.quickAdd.hint']);
+  await page.locator('#shopping-item-name').fill('Milk @Unknown');
+  await page.waitForFunction(expected => document.querySelector('#shopping-item-quick-add-preview')?.textContent.includes(expected), JSON.parse(readFileSync(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8'))['shopping.quickAdd.warning.unrecognized']);
+  await page.locator('#shopping-item-save-btn').click();
+  await page.waitForFunction(() => document.querySelector('#shopping-item-modal')?.getAttribute('aria-hidden') === 'true');
+  assert.equal(await page.evaluate(() => window.test.commits().at(-1).data.item.name), 'Milk @Unknown', 'unresolved assignment must remain literal item text');
+  await page.evaluate(() => window.test.setLanguage('de'));
+  await trigger.click();
+  await page.locator('#shopping-item-name').fill('2 l Milch');
+  await page.locator('#shopping-item-name').press('Escape');
+  await page.waitForFunction(() => document.querySelector('#shopping-item-modal')?.getAttribute('aria-hidden') === 'true');
+  await trigger.click();
+  assert.equal(await page.locator('#shopping-item-name').inputValue(), '');
+  assert.equal(await page.locator('#shopping-item-quick-add-preview').isHidden(), true, 'reopen must not retain previous syntax or previews');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();

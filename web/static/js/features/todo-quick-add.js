@@ -1,3 +1,5 @@
+import { getQuickAddAliases, normalizeQuickAddName, escapeQuickAddRegExp, renderQuickAddPreview as renderSharedQuickAddPreview, createQuickAddPreviewController } from './quick-add.js';
+
 export function createTodoQuickAddFeature({
   getActiveLanguage,
   t,
@@ -21,7 +23,7 @@ export function createTodoQuickAddFeature({
   }
 
   function normalizedName(value) {
-    return String(value || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+    return normalizeQuickAddName(value);
   }
 
   function compactName(value) {
@@ -29,9 +31,7 @@ export function createTodoQuickAddFeature({
   }
 
   function quickAddAliases(key) {
-    const value = t(key);
-    if (!value || value === key) return [];
-    return value.split('|').map(item => item.trim().toLowerCase()).filter(Boolean);
+    return getQuickAddAliases(t, key);
   }
 
   function findProjectByQuickAddName(rawName) {
@@ -116,7 +116,7 @@ export function createTodoQuickAddFeature({
   }
 
   function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return escapeQuickAddRegExp(value);
   }
 
   function aliasPattern(aliases) {
@@ -410,41 +410,37 @@ export function createTodoQuickAddFeature({
   }
 
   function renderQuickAddPreview(result) {
-    const preview = document.getElementById('quick-add-preview');
-    if (!preview) return;
-    const matches = result?.matches || [];
-    preview.innerHTML = '';
-    preview.hidden = !matches.length;
-    if (!matches.length) return;
-    for (const match of matches) {
-      const chip = document.createElement('span');
-      chip.className = `quick-add-chip ${match.type}`;
-      const label = document.createElement('span');
-      label.className = 'quick-add-chip-label';
-      label.textContent = match.label;
-      const value = document.createElement('strong');
-      value.textContent = match.value || match.token || '';
-      chip.append(label, value);
-      preview.appendChild(chip);
-    }
+    renderSharedQuickAddPreview(document.getElementById('quick-add-preview'), result, t);
   }
+
+  let previewController = null;
+  let previewInput = null;
 
   function bindQuickAddPreview() {
     const input = document.getElementById('todo-title');
-    if (!input || input.dataset.quickAddPreviewBound === '1') return;
-    input.dataset.quickAddPreviewBound = '1';
-    let seq = 0;
-    const update = async () => {
-      const id = document.getElementById('todo-id')?.value;
-      if (id) { renderQuickAddPreview(null); return; }
-      const mySeq = ++seq;
-      const projectId = document.getElementById('todo-project')?.value || null;
-      const result = await parseQuickAddTitle(input.value, getCurrentProjectId(), projectId);
-      if (mySeq === seq) renderQuickAddPreview(result);
-    };
-    input.addEventListener('input', update);
-    document.getElementById('todo-project')?.addEventListener('change', update);
-    window.setTimeout(update, 0);
+    if (!input) return;
+    if (previewInput !== input) {
+      previewController?.destroy();
+      previewInput = input;
+      previewController = createQuickAddPreviewController({
+        input,
+        getContext: () => JSON.stringify([
+          getActiveLanguage(),
+          getCurrentProjectId(),
+          document.getElementById('todo-project')?.value || null,
+          document.getElementById('todo-id')?.value || '',
+        ]),
+        isActive: () => !document.getElementById('todo-id')?.value
+          && Boolean(document.getElementById('todo-modal')?.classList.contains('active'))
+          && !document.getElementById('todo-modal')?.classList.contains('todo-multi-add-mode'),
+        parse: raw => parseQuickAddTitle(raw, getCurrentProjectId(), document.getElementById('todo-project')?.value || null),
+        render: renderQuickAddPreview,
+      });
+      document.getElementById('todo-project')?.addEventListener('change', () => void previewController?.refresh());
+      globalThis.window?.addEventListener('nia-language-change', () => void previewController?.refresh());
+    }
+    previewController.invalidate();
+    globalThis.setTimeout(() => void previewController?.refresh(), 0);
   }
 
 

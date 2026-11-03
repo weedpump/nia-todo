@@ -22,6 +22,7 @@ run "Todo Attachments API" python3 scripts/test_todo_attachments.py
 run "Frontend Smoke" node scripts/test_frontend_smoke.mjs
 run "Frontend App Core" node scripts/test_frontend_app.mjs
 run "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
+run "Shared Quick Add" node scripts/test_quick_add.mjs
 run "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
 run "Frontend Multi Todo Add" node scripts/test_frontend_multi_todo_add.mjs
 run "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs

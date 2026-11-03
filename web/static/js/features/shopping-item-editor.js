@@ -1,4 +1,6 @@
-import { t, translatePage } from '../i18n/index.js';
+import { t, translatePage, getActiveLocale } from '../i18n/index.js';
+import { parseShoppingQuickAdd } from './shopping-quick-add.js';
+import { renderQuickAddPreview, createQuickAddPreviewController } from './quick-add.js';
 import { hydrateSelect, refreshSelect, isDropdownOpen } from '../ui/dropdowns.js';
 import { shouldAutoFocusEntityEditorTitle } from './entity-editor-focus.js';
 import { createFormSaveState } from './form-save-state.js';
@@ -8,6 +10,19 @@ import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.
 
 function sameId(left, right) {
   return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
+}
+
+export function resolveShoppingQuickAddState(state, parsed) {
+  if (!parsed) return { ...state };
+  const changes = parsed.changes || {};
+  return {
+    ...state,
+    name: parsed.title,
+    quantity: state.quantity !== '' && state.quantity != null ? state.quantity : (changes.quantity_value ?? ''),
+    unit: state.unit || changes.quantity_unit || '',
+    sectionId: state.sectionId ?? changes.section_id ?? null,
+    storeId: state.storeId ?? changes.store_ids?.[0] ?? null,
+  };
 }
 
 export function createShoppingItemEditorFeature({
@@ -30,6 +45,9 @@ export function createShoppingItemEditorFeature({
   let mode = 'create';
   let editingListIdentity = null;
   let editingItemIdentity = null;
+  let editorGeneration = 0;
+  let quickAddController = null;
+  let quickAddInput = null;
 
   function activeList() {
     const id = getActiveListId();
@@ -168,7 +186,7 @@ export function createShoppingItemEditorFeature({
     refreshSelect(select);
   }
 
-  function readState() {
+  function readFormState() {
     return {
       name: doc?.getElementById?.('shopping-item-name')?.value?.trim?.() || '',
       quantity: doc?.getElementById?.('shopping-item-quantity')?.value ?? '',
@@ -176,6 +194,65 @@ export function createShoppingItemEditorFeature({
       sectionId: doc?.getElementById?.('shopping-item-section')?.value || null,
       storeId: doc?.getElementById?.('shopping-item-store')?.value || null,
     };
+  }
+
+  function quickAddResult(raw = readFormState().name) {
+    if (mode !== 'create') return null;
+    return parseShoppingQuickAdd(raw, { list: activeList(), stores: getStores(), locale: getActiveLocale(), t });
+  }
+
+  function readState() {
+    const raw = readFormState();
+    return resolveShoppingQuickAddState(raw, quickAddResult(raw.name));
+  }
+
+  function renderEffectiveQuickAdd(result) {
+    const target = doc?.getElementById?.('shopping-item-quick-add-preview');
+    if (!result || !readFormState().name) {
+      renderQuickAddPreview(target, null, t);
+      return;
+    }
+    const state = resolveShoppingQuickAddState(readFormState(), result);
+    const list = activeList();
+    const values = {
+      quantity: state.quantity === '' ? '' : new Intl.NumberFormat(getActiveLocale(), { maximumFractionDigits: 20 }).format(Number(state.quantity)),
+      unit: state.unit,
+      section: (list?.sections || []).find(section => sameId(section.id, state.sectionId))?.name,
+      store: getStores().find(store => sameId(store.id, state.storeId))?.name,
+    };
+    renderQuickAddPreview(target, {
+      ...result,
+      matches: result.matches.map(match => ({ ...match, value: values[match.type] ?? match.value })),
+    }, t);
+    setInvalid(doc?.getElementById?.('shopping-item-name'), result.errors.length > 0);
+  }
+
+  function ensureQuickAdd() {
+    const input = doc?.getElementById?.('shopping-item-name');
+    if (!input) return;
+    if (quickAddInput !== input) {
+      quickAddController?.destroy();
+      quickAddInput = input;
+      quickAddController = createQuickAddPreviewController({
+        input,
+        getContext: () => JSON.stringify([editorGeneration, getActiveListId(), getActiveLocale(), readFormState(), activeList()?.sections, getStores()]),
+        isActive: () => mode === 'create' && modal()?.classList.contains('active') && canMutate(),
+        parse: quickAddResult,
+        render: renderEffectiveQuickAdd,
+        onError,
+      });
+    }
+    quickAddController.invalidate();
+    const hint = doc?.getElementById?.('shopping-item-quick-add-hint');
+    if (hint) hint.hidden = mode !== 'create';
+    if (mode === 'create') void quickAddController.refresh();
+    else renderEffectiveQuickAdd(null);
+  }
+
+  function handleFormChange(event) {
+    if (event.target?.closest?.('#shopping-item-form') == null || !modal()?.classList.contains('active')) return;
+    if (event.target !== quickAddInput) void quickAddController?.refresh();
+    setError();
   }
 
   function validState(state) {
@@ -195,8 +272,8 @@ export function createShoppingItemEditorFeature({
         form: currentForm,
         button,
         readState,
-        isValid: validState,
-        canSubmit: canMutate,
+        isValid: state => validState(state) && !(quickAddResult()?.errors.length),
+        canSubmit: () => !submitting && canMutate(),
       });
       saveState.form = currentForm;
     }
@@ -204,6 +281,9 @@ export function createShoppingItemEditorFeature({
   }
 
   function hideModal() {
+    editorGeneration += 1;
+    quickAddController?.invalidate();
+    renderEffectiveQuickAdd(null);
     const target = modal();
     target?.classList?.remove?.('active');
     target?.setAttribute?.('aria-hidden', 'true');
@@ -224,14 +304,18 @@ export function createShoppingItemEditorFeature({
   }
 
   function openModal(target, currentForm) {
+    const generation = ++editorGeneration;
     translatePage(target);
     setMode(mode);
     target.classList.add('active');
     target.setAttribute('aria-hidden', 'false');
     openUiLayer('shopping-item-modal');
     ensureSaveState()?.reset();
+    ensureQuickAdd();
     if (shouldAutoFocusEntityEditorTitle(mode)) {
-      globalThis.setTimeout?.(() => doc?.getElementById?.('shopping-item-name')?.focus?.(), 0);
+      globalThis.setTimeout?.(() => {
+        if (generation === editorGeneration && mode === 'create' && target.classList.contains('active')) doc?.getElementById?.('shopping-item-name')?.focus?.();
+      }, 0);
     }
     return true;
   }
@@ -242,7 +326,7 @@ export function createShoppingItemEditorFeature({
     const currentForm = form();
     if (!target || !currentForm) return false;
     mode = 'create';
-    editingListIdentity = null;
+    editingListIdentity = activeList()?.client_mutation_id ?? activeList()?.id;
     editingItemIdentity = null;
     currentForm.reset?.();
     setError();
@@ -297,13 +381,29 @@ export function createShoppingItemEditorFeature({
 
   async function save(event) {
     event?.preventDefault?.();
-    if (submitting) return;
-    const state = readState();
+    if (submitting || !modal()?.classList.contains('active')) return;
+    const list = activeList();
+    if (!canMutate() || (!sameId(list?.id, editingListIdentity) && !sameId(list?.client_mutation_id, editingListIdentity)) || (mode === 'edit' && !resolveEditingItem())) {
+      closeModal();
+      return;
+    }
+    const raw = readFormState();
+    const parsed = quickAddResult(raw.name);
+    const state = resolveShoppingQuickAddState(raw, parsed);
+    if (parsed?.errors.length) {
+      renderEffectiveQuickAdd(parsed);
+      setError(parsed.errors[0]);
+      doc?.getElementById?.('shopping-item-name')?.focus?.();
+      return;
+    }
     if (!validateForSubmit(state)) return;
     const controller = ensureSaveState();
     controller?.refresh?.();
     if (!controller?.canSave?.()) return;
     submitting = true;
+    const generation = editorGeneration;
+    form()?.setAttribute('inert', '');
+    modal()?.setAttribute('aria-busy', 'true');
     controller.button.disabled = true;
     try {
       const saved = mode === 'edit'
@@ -313,14 +413,17 @@ export function createShoppingItemEditorFeature({
         if (!canMutate()) closeModal();
         return;
       }
-      closeModal();
+      if (generation === editorGeneration) closeModal();
     } catch (error) {
       onError(error);
+      if (generation !== editorGeneration) return;
       setError('shopping.item.error.saveFailed');
       controller.refresh();
       doc?.getElementById?.('shopping-item-name')?.focus?.();
     } finally {
       submitting = false;
+      form()?.removeAttribute('inert');
+      modal()?.removeAttribute('aria-busy');
       controller?.refresh?.();
     }
   }
@@ -366,7 +469,8 @@ export function createShoppingItemEditorFeature({
   function reconcile() {
     const allowed = canMutate();
     if (!modal()?.classList?.contains?.('active')) return;
-    if (!allowed) {
+    const list = activeList();
+    if (!allowed || (!sameId(list?.id, editingListIdentity) && !sameId(list?.client_mutation_id, editingListIdentity))) {
       closeModal();
       return;
     }
@@ -378,6 +482,7 @@ export function createShoppingItemEditorFeature({
     const storeValue = doc?.getElementById?.('shopping-item-store')?.value || '';
     populateSections(sectionValue);
     populateStores(storeValue);
+    void quickAddController?.refresh();
     ensureSaveState()?.refresh?.();
   }
 
@@ -437,6 +542,7 @@ export function createShoppingItemEditorFeature({
     setMode(mode);
     populateSections(sectionValue);
     populateStores(storeValue);
+    void quickAddController?.refresh();
   }
 
   function bind() {
@@ -451,10 +557,13 @@ export function createShoppingItemEditorFeature({
       getContext: () => ({ id: activeList()?.id, client_mutation_id: activeList()?.client_mutation_id }),
       onCreated: store => {
         populateStores(store.client_mutation_id ?? store.id);
+        void quickAddController?.refresh();
         ensureSaveState()?.refresh?.();
       },
       onError,
     });
+    doc?.addEventListener?.('input', handleFormChange);
+    doc?.addEventListener?.('change', handleFormChange);
     doc?.addEventListener?.('submit', handleSubmit);
     doc?.addEventListener?.('click', handleClick);
     doc?.addEventListener?.('keydown', handleKeydown);
@@ -474,6 +583,11 @@ export function createShoppingItemEditorFeature({
     destroy() {
       if (!bound) return;
       bound = false;
+      quickAddController?.destroy();
+      quickAddController = null;
+      quickAddInput = null;
+      doc?.removeEventListener?.('input', handleFormChange);
+      doc?.removeEventListener?.('change', handleFormChange);
       doc?.removeEventListener?.('submit', handleSubmit);
       doc?.removeEventListener?.('click', handleClick);
       doc?.removeEventListener?.('keydown', handleKeydown);
