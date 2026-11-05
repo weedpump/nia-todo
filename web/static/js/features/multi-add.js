@@ -367,7 +367,7 @@ export function createMultiAddFeature({prefix, root, document: doc = globalThis.
   listen(rowsContainer(),'paste',event=>{const row=event.target.closest('.ui-multi-add-row');if(row&&!saveInFlight)handlePaste(event,row);});
   listen(rowsContainer(),'click',event=>{const b=event.target.closest('.ui-multi-add-remove');if(b&&!saveInFlight)removeRow(b.closest('.ui-multi-add-row'));});
   listen(rowsContainer(),'keydown',event=>{
-   if(event.isComposing || event.keyCode===229) return;
+   if(event.defaultPrevented || event.isComposing || event.keyCode===229) return;
    const input=event.target.closest('.ui-multi-add-input');if(!input || saveInFlight)return;
    const row=input.closest('.ui-multi-add-row');
    if(event.key==='Enter' && !event.ctrlKey&&!event.metaKey) {event.preventDefault();createRow('',{focus:true,after:row});}

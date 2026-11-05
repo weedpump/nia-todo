@@ -215,7 +215,7 @@ try {
     const count = await page.evaluate(shortcut => {
       const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...shortcut });
       if (shortcut.handled) event.preventDefault();
-      const target = document.querySelector(shortcut.handled ? '#shopping-item-save-btn' : '.ui-multi-add-input');
+      const target = document.querySelector('.ui-multi-add-input');
       target.dispatchEvent(event);
       return window.test.submitCalls();
     }, shortcut);
@@ -297,7 +297,7 @@ try {
     const panel = root.querySelector('.ui-multi-add-panel').getBoundingClientRect();
     return { modeBottom: mode.bottom, panelTop: panel.top };
   });
-  assert(captureGeometry.panelTop - captureGeometry.modeBottom >= 24, `Shopping capture tabs need at least 24px separation before the capture heading: ${JSON.stringify(captureGeometry)}`);
+  assert.equal(captureGeometry.panelTop - captureGeometry.modeBottom, 24, `Shopping capture tabs need exactly 24px separation before the capture heading: ${JSON.stringify(captureGeometry)}`);
   assert.equal(await modal.locator('.ui-multi-add-defaults-grid').evaluate(grid => getComputedStyle(grid).gridTemplateColumns.split(/\s+/).length), 2, 'Shopping defaults fill two columns without reserving a third Tasks-only field');
   assert.equal(await modal.locator('.ui-multi-add-intro-heading p').isVisible(), true, 'the shared keyboard/paste instructions must remain visible inside the Shopping detail shell');
   assert.equal(await modal.locator('.ui-multi-add-defaults-head p').isVisible(), true, 'default precedence instructions must match the canonical Tasks surface');
@@ -469,7 +469,7 @@ try {
   assert.equal(await page.locator('#shopping-item-modal-title').textContent(), english['shopping.multiAdd.title'], 'runtime translation must preserve the current capture mode');
   assert.equal(await page.locator('#shopping-item-modal-subtitle').textContent(), english['shopping.multiAdd.subtitle']);
   assert.equal(await mode.textContent(), english['shopping.multiAdd.modeMultiple']);
-  for (const width of [1280, 390, 320]) {
+  for (const width of [1280, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await load();
     await mode.click();
@@ -494,7 +494,7 @@ try {
       assert(geometry.title.right <= geometry.save.left + 1, `${width}/${language}: title cannot overlap Save`);
       assert(geometry.save.right <= geometry.close.left + 1, `${width}/${language}: Save cannot overlap Close`);
       assert(geometry.row.left >= 0 && geometry.row.right <= width, `${width}/${language}: bulk rows remain inside the viewport`);
-      assert(geometry.panel.top - geometry.switcher.bottom >= 24, `${width}/${language}: capture tabs keep their24px separation`);
+      assert.equal(geometry.panel.top - geometry.switcher.bottom, 24, `${width}/${language}: capture tabs keep exactly 24px separation`);
       assert.equal(geometry.columns, width <= 768 ? 1 : 2, `${width}/${language}: defaults use the shared responsive grid`);
       await modal.locator('[data-multi-add-mode="single"]').click();
       const singleGap = await modal.evaluate(root => {

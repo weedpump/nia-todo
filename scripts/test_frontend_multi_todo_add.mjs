@@ -168,6 +168,26 @@ try {
   await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
   const productionInputs = productionPage.locator('#todo-multi-add-rows .ui-multi-add-input');
   await productionInputs.first().fill('First production task');
+  for (const shortcut of [
+    { ctrlKey: true, isComposing: true },
+    { metaKey: true, isComposing: true },
+    { ctrlKey: true, keyCode: 229 },
+    { metaKey: true, keyCode: 229 },
+    { ctrlKey: true, handled: true },
+    { metaKey: true, handled: true },
+  ]) {
+    await productionInputs.first().evaluate((input, shortcut) => {
+      const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...shortcut });
+      if (shortcut.handled) event.preventDefault();
+      input.dispatchEvent(event);
+    }, shortcut);
+    const blockedResult = await productionPage.evaluate(async () => ({
+      submits: window.production.events.submits,
+      todos: await window.production.all('todos'),
+      queue: await window.production.all('syncQueue'),
+    }));
+    assert.deepEqual(blockedResult, { submits: 0, todos: [], queue: [] }, `production Tasks row must ignore composing or handled shortcuts: ${JSON.stringify(shortcut)}`);
+  }
   await productionInputs.first().press('Enter');
   await productionInputs.nth(1).fill('Second production task');
   await productionPage.click('#todo-save-btn');
@@ -246,6 +266,23 @@ try {
   }
   console.log('✅ Dashboard → Work/J2jw: native button persists duplicate and unique batches; empty lines omitted');
 
+  await productionPage.click('#new-todo');
+  await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
+  await productionInputs.first().fill('Meta shortcut task');
+  const submitsBeforeMeta = await productionPage.evaluate(() => window.production.events.submits);
+  await productionInputs.first().press('Meta+Enter');
+  await productionPage.waitForFunction(() => !document.getElementById('todo-modal').classList.contains('active'));
+  persistedTasks++;
+  const metaResult = await productionPage.evaluate(async () => ({
+    submits: window.production.events.submits,
+    todos: await window.production.all('todos'), queue: await window.production.all('syncQueue'),
+  }));
+  assert.equal(metaResult.submits, submitsBeforeMeta + 1, 'Meta+Enter must submit exactly once');
+  assert.equal(metaResult.todos.length, persistedTasks);
+  assert.equal(metaResult.queue.length, persistedTasks);
+  assert.equal(metaResult.queue.at(-1).data.title, 'Meta shortcut task');
+
   // Revocation at the actual commit boundary must still reject the whole batch.
   await productionPage.click('#new-todo');
   await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
@@ -262,8 +299,8 @@ try {
   }));
   assert.equal(revokedResult.todos.length, persistedTasks, 'Revoked project must not persist a todo');
   assert.equal(revokedResult.queue.length, persistedTasks, 'Revoked project must not enqueue a todo');
-  assert.equal(revokedResult.events.closes.length, 4);
-  assert.equal(revokedResult.events.toasts.length, 4);
+  assert.equal(revokedResult.events.closes.length, 5);
+  assert.equal(revokedResult.events.toasts.length, 5);
   assert.equal(revokedResult.active, true);
   assert.deepEqual(productionErrors, []);
   assert.deepEqual(productionConsole, []);

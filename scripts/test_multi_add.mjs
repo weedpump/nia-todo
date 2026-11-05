@@ -68,8 +68,34 @@ try {
  await page.locator('.ui-multi-add-input').evaluate(input=>input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,isComposing:true,bubbles:true,cancelable:true})));
  assert.equal(await page.locator('.ui-multi-add-input').count(),1);
  assert.equal(await page.evaluate(()=>window.submitCount),0,'Composing Ctrl+Enter must not submit');
- await page.locator('.ui-multi-add-input').press('Control+Enter');
- assert.equal(await page.evaluate(()=>window.submitCount),1,'Ctrl+Enter submits through the existing domain form');
+ const handledSubmits=[];
+ for (const modifier of ['ctrlKey','metaKey']) {
+  await page.locator('.ui-multi-add-input').evaluate((input,modifier)=>{
+   const event=new KeyboardEvent('keydown',{key:'Enter',[modifier]:true,bubbles:true,cancelable:true});
+   event.preventDefault();input.dispatchEvent(event);
+  },modifier);
+  handledSubmits.push(await page.evaluate(()=>window.submitCount));
+ }
+ assert.deepEqual(handledSubmits,[0,0],'Handled Ctrl/Meta+Enter on a row must not submit');
+ await page.locator('.ui-multi-add-input').evaluate(input=>{
+  const event=new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true});
+  event.preventDefault();input.dispatchEvent(event);
+ });
+ assert.equal(await page.locator('.ui-multi-add-input').count(),1,'Handled Enter must not create a row');
+ await page.locator('#sample-multi-add-more').click();
+ const handledEmptyRow=page.locator('.ui-multi-add-input').nth(1);
+ const handledEmptyRowId=await handledEmptyRow.getAttribute('id');
+ await handledEmptyRow.evaluate(input=>{
+  const event=new KeyboardEvent('keydown',{key:'Backspace',bubbles:true,cancelable:true});
+  event.preventDefault();input.dispatchEvent(event);
+ });
+ assert.equal(await page.locator('.ui-multi-add-input').count(),2,'Handled Backspace must not remove an empty row');
+ assert.equal(await handledEmptyRow.getAttribute('id'),handledEmptyRowId);
+ await handledEmptyRow.press('Backspace');
+ for (const [index,modifier] of ['Control','Meta'].entries()) {
+  await page.locator('.ui-multi-add-input').press(`${modifier}+Enter`);
+  assert.equal(await page.evaluate(()=>window.submitCount),index+1,`${modifier}+Enter submits exactly once through the existing domain form`);
+ }
  // Enter, Backspace, stable ARIA, mode preservation and native restoration.
  const first=page.locator('.ui-multi-add-input').first();
  const firstId=await first.getAttribute('id');
