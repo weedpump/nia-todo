@@ -19,20 +19,13 @@ const taskDialogsSource = await readFile(taskDialogsPath, 'utf8');
 const todosFeatureSource = await readFile(todosFeaturePath, 'utf8');
 const iconsSource = await readFile(iconsPath, 'utf8');
 
-assert.match(taskDialogsSource, /todo-multi-add-intro-heading ui-section-heading ui-detail-section-heading[\s\S]*todo-multi-add-intro-icon ui-section-icon ui-detail-section-icon[^>]*data-icon="lightbulb"[\s\S]*todo\.multiAdd\.introTitle/, 'the quick-capture heading must reuse the canonical todo section heading and icon');
-assert.match(taskDialogsSource, /todo-multi-add-defaults-head ui-section-heading ui-detail-section-heading[\s\S]*todo-multi-add-defaults-icon ui-section-icon ui-detail-section-icon[^>]*data-icon="sliders-horizontal"[\s\S]*todo\.multiAdd\.defaultsTitle/, 'the shared-defaults heading must reuse the canonical todo section heading and icon');
-assert.match(iconsSource, /"lightbulb":/, 'the quick-capture section icon must exist in the local Lucide bundle');
-assert.match(stylesheet, /#todo-modal\.todo-detail-view \.todo-multi-add-panel \.ui-detail-section-heading p\s*\{[^}]*display:\s*block;/s, 'multi-todo section subtitles must remain visible despite the compact todo-detail heading rule');
-assert.match(taskDialogsSource, /todo-multi-add-defaults ui-section-divider/, 'the shared defaults area must use the global section divider');
-
-assert.match(stylesheet, /\.todo-create-mode-switch\s*\{[^}]*border:\s*0;/s, 'the single/multiple todo mode switch must not have an outer border');
-assert.match(stylesheet, /\.todo-multi-add-editor\s*\{[^}]*border:\s*0;/s, 'the multi-todo entry area must not have an outer border');
-assert.match(stylesheet, /\.todo-multi-add-editor\s*\{[^}]*background:\s*transparent;/s, 'the multi-todo entry area must not have a container background');
-assert.match(stylesheet, /\.todo-multi-add-editor\s*\{[^}]*box-shadow:\s*none;/s, 'the multi-todo entry area must not retain the rounded inset top line');
-assert.match(stylesheet, /\.todo-multi-add-toolbar\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;/s, 'the inner multi-todo editor toolbar must not have a border or container background');
-assert.doesNotMatch(stylesheet, /\.todo-multi-add-defaults::before/, 'the shared defaults area must not retain the old separator before the global divider');
-assert.match(stylesheet, /\.todo-multi-add-panel\s*\{[^}]*gap:\s*0;/s, 'the global divider must not accumulate the old panel grid gap');
-
+const sharedRenderer = await readFile(path.join(root,'web/static/js/features/multi-add.js'),'utf8');
+assert.match(taskDialogsSource, /renderMultiAddPanel\(/);
+assert.match(taskDialogsSource, /renderMultiAddModeSwitch\(/);
+assert.match(sharedRenderer, /ui-multi-add-intro-heading ui-section-heading ui-detail-section-heading/);
+assert.match(sharedRenderer, /capture\.multiAdd\.defaultsTitle/);
+assert.match(stylesheet, /\.ui-multi-add-editor\s*\{[^}]*border:\s*0;/s);
+assert.match(stylesheet, /\.ui-multi-add-mode-switch\s*\{[^}]*border:\s*0;/s);
 assert.match(taskDialogsSource, /id="todo-recurring-panel"/, 'recurrence must be a first-class todo detail section');
 assert.match(taskDialogsSource, /id="todo-location-reminder-panel"/, 'location reminders must be a first-class todo detail section');
 assert.doesNotMatch(taskDialogsSource, /todo-recurring-subsection/, 'recurrence and location reminders must not remain nested schedule subsections');
@@ -75,8 +68,8 @@ assert.deepEqual(a11y, {
   inputId: 'todo-multi-add-input-row-7',
   previewId: 'todo-multi-add-preview-row-7',
   messageId: 'todo-multi-add-message-row-7',
-  inputLabel: 'todo.multiAdd.rowLabel:2',
-  removeLabel: 'todo.multiAdd.removeRow:2',
+  inputLabel: 'capture.multiAdd.rowLabel:2',
+  removeLabel: 'capture.multiAdd.removeRow:2',
 });
 
 assert.equal(feature.shouldOpenCreateTodoMetaDrawer({ matches: false }), true);
@@ -84,25 +77,286 @@ assert.equal(feature.shouldOpenCreateTodoMetaDrawer({ matches: true }), false);
 assert.equal(feature.shouldOpenCreateTodoMetaDrawer(null), true);
 
 const source = await readFile(modulePath, 'utf8');
-assert.match(source, /syncMultiAddNativeValidation\(multi\)/, 'Mode switching must apply native validation state');
-assert.match(source, /getMultiTodoValidationKey\(todoData\)/, 'Save must validate each parsed todo before persistence');
-assert.match(source, /splitMultiTodoPaste\(text, availableRows\)/, 'Paste handling must use the bounded split result');
-assert.match(source, /getMultiTodoRowA11y\(/, 'Rendered rows must use accessible row metadata');
-assert.match(source, /shouldOpenCreateTodoMetaDrawer\(/, 'Single mode must restore the canonical drawer rule');
-
+const sharedSource = await readFile(path.join(root,'web/static/js/features/multi-add.js'),'utf8');
+assert.match(source, /createMultiAddFeature\(/, 'Tasks must delegate the shared engine');
+assert.doesNotMatch(source, /function (?:createRow|parseRow|performSave|handlePaste)\(/, 'Tasks must not retain a parallel engine');
+assert.match(sharedSource, /splitMultiAddPaste\(text,/);
 const browser = await chromium.launch({ headless: true });
 try {
+  // Exercise the production editor, lazy mounting and native form validation.
+  // Persistence is isolated browser IndexedDB; no service/API or live data.
+  const productionPage = await browser.newPage();
+  const productionErrors = [];
+  const productionConsole = [];
+  productionPage.on('pageerror', error => productionErrors.push(error.message));
+  productionPage.on('console', message => {
+    if (message.type() === 'error' || message.type() === 'warning') productionConsole.push(message.text());
+  });
+  await productionPage.route('http://multi-todo-production.test/**', async route => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname.startsWith('/static/')) {
+      const file = path.resolve(root, 'web', pathname.slice(1));
+      assert.ok(file.startsWith(path.join(root, 'web/static') + path.sep));
+      try {
+        await route.fulfill({ contentType: pathname.endsWith('.js') ? 'text/javascript'
+          : pathname.endsWith('.css') ? 'text/css' : 'application/json', body: await readFile(file, 'utf8') });
+      } catch { await route.fulfill({ status: 404, body: `Unknown production fixture asset: ${pathname}` }); }
+      return;
+    }
+    assert.equal(pathname, '/', `Unexpected production fixture request: ${pathname}`);
+    await route.fulfill({ contentType: 'text/html', body: `<!doctype html><html><head>
+      <link rel="stylesheet" href="/static/style.css"></head><body>
+      <button data-todo-action="new" id="new-todo">New</button><script type="module">
+      import { TASK_DIALOGS_HTML } from '/static/js/modules/tasks-dialogs.js';
+      import { createTodosFeature } from '/static/js/features/todos.js';
+      import { initI18n } from '/static/js/i18n/index.js';
+      localStorage.setItem('nia-todo-language', 'de');
+      await initI18n();
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('multi-todo-production', 1);
+        request.onupgradeneeded = () => {
+          for (const store of ['todos', 'syncQueue', 'sections']) request.result.createObjectStore(store, { keyPath: 'id' });
+        };
+        request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+      });
+      const put = (store, value) => new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite'); tx.objectStore(store).put(value);
+        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+      });
+      const all = store => new Promise((resolve, reject) => {
+        const request = db.transaction(store).objectStore(store).getAll();
+        request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+      });
+      let todos = [], projects = [{id: 1, name: 'Inbox', is_inbox: true}, {id: 2, name: 'Work'}];
+      const catalogSections = [{id: 21, project_id: 2, name: 'J2jw'}];
+      const sections = []; // Dashboard has no selected-project section projection.
+      for (const section of catalogSections) await put('sections', section);
+      const events = { submits: 0, invalid: [], puts: 0, enqueues: 0, closes: [], toasts: [] };
+      let queueId = 0;
+      const enqueue = async (action, data) => { events.enqueues++; await put('syncQueue', {id: ++queueId, action, data}); };
+      const feature = createTodosFeature({
+        getTodos: () => todos, setTodos: next => { todos = next; },
+        getProjects: () => projects, getSections: () => sections,
+        getCurrentProjectId: () => null, getCurrentWorkspaceId: () => null,
+        getCurrentUser: () => null, setCurrentUser: () => {},
+        getAppInitialized: () => true, getDb: () => db,
+        dbPut: async (store, value) => { events.puts++; await put(store, value); }, dbGetAll: all,
+        deleteFromDB: async () => {}, addToSyncQueue: enqueue,
+        runSyncQueueMutation: async operation => {
+          if (window.production?.beforeCommit) await window.production.beforeCommit();
+          return operation(enqueue);
+        },
+        isOnlineForSync: () => false, syncWithServer: async () => {},
+        todosApi: {}, sectionsApi: {}, placesApi: null,
+        renderProjects: () => {}, renderStats: () => {}, renderTodos: () => {},
+        closeModal: id => { events.closes.push(id); document.getElementById(id).classList.remove('active'); },
+        confirmDanger: async () => false, showToast: text => events.toasts.push(text),
+        setupDescPreview: () => {}, renderMarkdown: value => String(value || ''),
+      });
+      // App creates the feature before Tasks mounts its dialogs.
+      document.body.insertAdjacentHTML('beforeend', TASK_DIALOGS_HTML);
+      feature.bindTodoActions();
+      document.getElementById('todo-form').addEventListener('submit', () => events.submits++);
+      document.getElementById('todo-form').addEventListener('invalid', e => events.invalid.push(e.target.id), true);
+      window.production = {events, all, todos: () => todos, revokeProjects: () => {projects = [];} };
+      </script></body></html>` });
+  });
+  await productionPage.goto('http://multi-todo-production.test/');
+  await productionPage.waitForFunction(() => window.production);
+  await productionPage.click('#new-todo');
+  await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
+  const productionInputs = productionPage.locator('#todo-multi-add-rows .ui-multi-add-input');
+  await productionInputs.first().fill('First production task');
+  await productionInputs.first().press('Enter');
+  await productionInputs.nth(1).fill('Second production task');
+  await productionPage.click('#todo-save-btn');
+  await productionPage.waitForTimeout(250);
+  const productionResult = await productionPage.evaluate(async () => ({
+    events: window.production.events, todos: await window.production.all('todos'),
+    queue: await window.production.all('syncQueue'), memory: window.production.todos(),
+    active: document.getElementById('todo-modal').classList.contains('active'),
+  }));
+  console.log('Production Tasks native-submit diagnostics:', JSON.stringify({
+    events: productionResult.events, todos: productionResult.todos.map(({title, project_id, section_id}) => ({title, project_id, section_id})),
+    queue: productionResult.queue.map(({action, data}) => ({action, title: data.title})),
+    active: productionResult.active, errors: productionErrors, console: productionConsole,
+  }));
+  assert.equal(productionResult.todos.length, 2, 'Native production save must persist both Tasks');
+  assert.equal(productionResult.queue.length, 2, 'Native production save must enqueue both Tasks');
+  assert.deepEqual(productionResult.todos.map(todo => todo.title), ['First production task', 'Second production task']);
+  assert.deepEqual(productionResult.todos.map(todo => todo.project_id), [1, 1]);
+  assert.deepEqual(productionResult.queue.map(entry => entry.data.title), productionResult.todos.map(todo => todo.title));
+  assert.equal(productionResult.memory.length, 2);
+  assert.equal(productionResult.events.submits, 1);
+  assert.deepEqual(productionResult.events.invalid, []);
+  assert.deepEqual(productionResult.events.closes, ['todo-modal']);
+  assert.equal(productionResult.events.toasts.length, 1);
+  assert.equal(productionResult.active, false);
+
+  // Reopen the same production editor: native field states must restore, then
+  // project/section defaults and Ctrl+Enter must reach the same real save path.
+  await productionPage.click('#new-todo');
+  await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  assert.equal(await productionPage.locator('#todo-title').evaluate(field => field.required && !field.disabled), true);
+  await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
+  await productionPage.selectOption('#todo-multi-project', '2');
+  await productionPage.waitForFunction(() => document.querySelector('#todo-multi-section option[value="21"]'));
+  await productionPage.selectOption('#todo-multi-section', '21');
+  await productionPage.selectOption('#todo-multi-priority', '2');
+  await productionInputs.first().fill('Project default task');
+  await productionInputs.first().press('Control+Enter');
+  await productionPage.waitForFunction(() => document.getElementById('todo-modal').getAttribute('aria-busy') !== 'true');
+  const defaultResult = await productionPage.evaluate(async () => ({
+    todos: await window.production.all('todos'), queue: await window.production.all('syncQueue'), events: window.production.events,
+  }));
+  assert.equal(defaultResult.todos.length, 3);
+  assert.equal(defaultResult.queue.length, 3);
+  const defaultTodo = defaultResult.todos.find(todo => todo.title === 'Project default task');
+  assert.deepEqual([defaultTodo.project_id, defaultTodo.section_id, defaultTodo.priority], [2, 21, 2]);
+  assert.deepEqual(defaultResult.queue.at(-1).data, {
+    ...Object.fromEntries(Object.entries(defaultTodo).filter(([key]) => !['id','created_at','updated_at','completed_at','reminders'].includes(key))),
+    _tempId: defaultTodo.id,
+  });
+  assert.equal(defaultResult.events.submits, 2, 'Ctrl+Enter must submit exactly once');
+  assert.deepEqual(defaultResult.events.invalid, []);
+
+  let persistedTasks = defaultResult.todos.length;
+  for (const titles of [['Test', 'Test', 'Jdjdjd'], ['First unique', 'Second unique', 'Third unique']]) {
+    await productionPage.click('#new-todo');
+    await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+    await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
+    await productionPage.selectOption('#todo-multi-project', '2');
+    await productionPage.waitForFunction(() => document.querySelector('#todo-multi-section option[value="21"]'));
+    await productionPage.selectOption('#todo-multi-section', '21');
+    for (const [index, title] of titles.entries()) {
+      await productionInputs.nth(index).fill(title);
+      await productionInputs.nth(index).press('Enter');
+    }
+    await productionPage.click('#todo-save-btn');
+    await productionPage.waitForFunction(() => document.getElementById('todo-modal').getAttribute('aria-busy') !== 'true');
+    const result = await productionPage.evaluate(async () => ({todos: await window.production.all('todos'), queue: await window.production.all('syncQueue')}));
+    persistedTasks += titles.length;
+    assert.equal(result.todos.length, persistedTasks, 'Dashboard to Work/J2jw must persist all nonempty lines via the native button');
+    assert.equal(result.queue.length, persistedTasks);
+    const latest = result.queue.slice(-titles.length);
+    assert.deepEqual(latest.map(entry => entry.data.title), titles);
+    assert(latest.every(entry => entry.data.project_id === 2 && entry.data.section_id === 21));
+    assert.equal(new Set(latest.map(entry => entry.data._tempId)).size, titles.length);
+  }
+  console.log('✅ Dashboard → Work/J2jw: native button persists duplicate and unique batches; empty lines omitted');
+
+  // Revocation at the actual commit boundary must still reject the whole batch.
+  await productionPage.click('#new-todo');
+  await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
+  await productionInputs.first().fill('Revoked task');
+  await productionPage.evaluate(() => {
+    window.production.beforeCommit = async () => { window.production.revokeProjects(); };
+  });
+  await productionPage.click('#todo-save-btn');
+  await productionPage.waitForFunction(() => document.getElementById('todo-modal').getAttribute('aria-busy') !== 'true');
+  const revokedResult = await productionPage.evaluate(async () => ({
+    todos: await window.production.all('todos'), queue: await window.production.all('syncQueue'), events: window.production.events,
+    active: document.getElementById('todo-modal').classList.contains('active'),
+  }));
+  assert.equal(revokedResult.todos.length, persistedTasks, 'Revoked project must not persist a todo');
+  assert.equal(revokedResult.queue.length, persistedTasks, 'Revoked project must not enqueue a todo');
+  assert.equal(revokedResult.events.closes.length, 4);
+  assert.equal(revokedResult.events.toasts.length, 4);
+  assert.equal(revokedResult.active, true);
+  assert.deepEqual(productionErrors, []);
+  assert.deepEqual(productionConsole, []);
+  await productionPage.close();
+
+  // Geometry must see the complete production cascade, including the late
+  // shared section-divider rules, and the actual Tasks dialog markup.
+  const geometryPage = await browser.newPage();
+  const geometryErrors = [];
+  geometryPage.on('pageerror', error => geometryErrors.push(error.message));
+  await geometryPage.route('http://multi-todo-geometry.test/**', async route => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname.startsWith('/static/')) {
+      const file = path.resolve(root, 'web', pathname.slice(1));
+      assert.ok(file.startsWith(path.join(root, 'web/static') + path.sep));
+      const contentType = pathname.endsWith('.js') ? 'text/javascript'
+        : pathname.endsWith('.css') ? 'text/css' : 'application/json';
+      try {
+        await route.fulfill({ status: 200, contentType, body: await readFile(file, 'utf8') });
+      } catch {
+        await route.fulfill({ status: 404, body: `Unknown geometry fixture asset: ${pathname}` });
+      }
+      return;
+    }
+    assert.equal(pathname, '/', `Unexpected geometry fixture request: ${pathname}`);
+    await route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html>
+      <html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/static/style.css"></head><body>
+      <script type="module">
+        import { TASK_DIALOGS_HTML } from '/static/js/modules/tasks-dialogs.js';
+        import { initI18n, translatePage, t } from '/static/js/i18n/index.js';
+        import { createTodoMultiAddFeature } from '/static/js/features/todo-multi-add.js';
+        localStorage.setItem('nia-todo-language', 'de');
+        await initI18n();
+        document.body.innerHTML = TASK_DIALOGS_HTML;
+        translatePage(document);
+        const modal = document.getElementById('todo-modal');
+        modal.classList.add('active', 'todo-detail-view', 'todo-create-view');
+        const feature = createTodoMultiAddFeature({
+          t, getCurrentProjectId: () => null, loadSectionsForQuickAdd: async () => [],
+          hydrateSelect: () => {}, refreshSelect: () => {},
+          parseQuickAddTitle: async title => ({ title, changes: {}, matches: [] }),
+        });
+        feature.bind();
+        feature.reset({ editing: false });
+        window.geometryFeature = feature;
+        window.geometryReady = true;
+      </script></body></html>` });
+  });
+  await geometryPage.goto('http://multi-todo-geometry.test/');
+  await geometryPage.waitForFunction(() => window.geometryReady);
+  assert.deepEqual(geometryErrors, []);
+  const geometryFailures = [];
+  for (const width of [1280, 920, 768, 390]) {
+    await geometryPage.setViewportSize({ width, height: 900 });
+    for (const mode of ['single', 'multi', 'single']) {
+      await geometryPage.locator(`[data-multi-add-mode="${mode}"]`).click();
+      const geometry = await geometryPage.evaluate(mode => {
+        const rect = selector => document.querySelector(selector).getBoundingClientRect();
+        const tabs = rect('#todo-create-mode-switch');
+        const target = rect(mode === 'multi' ? '.ui-multi-add-intro-heading h4' : '#todo-title');
+        const shell = document.querySelector('.todo-editor-shell');
+        return {
+          gap: target.top - tabs.bottom,
+          shellRowGap: getComputedStyle(shell).rowGap,
+          targetHeight: target.height,
+        };
+      }, mode);
+      assert.ok(geometry.targetHeight > 0, `${mode} capture target must be visible at ${width}px`);
+      assert.equal(geometry.shellRowGap, '0px', 'Section dividers must retain their canonical zero shell gap');
+      // The canonical detail layout defines 24px between capture rows; keep
+      // that separation without reinstating gaps between every detail section.
+      if (Math.abs(geometry.gap - 24) > 0.5) {
+        geometryFailures.push(`${width}px ${mode}: expected 24px below capture tabs, got ${geometry.gap}px`);
+      }
+    }
+  }
+  assert.deepEqual(geometryFailures, [], 'Both capture modes must retain positive canonical spacing after the full stylesheet cascade');
+  console.log('✅ Tasks capture tab geometry: 24px in both modes at 1280/920/768/390px');
+  await geometryPage.close();
+
   const page = await browser.newPage();
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('console', message => { if(message.type()==='error') console.error(message.text()); });
   await page.route('http://multi-todo.test/**', async route => {
     const pathname = new URL(route.request().url()).pathname;
-    if (pathname === '/todo-multi-add.js') {
-      await route.fulfill({ status: 200, contentType: 'text/javascript', body: source });
-      return;
-    }
-    if (pathname === '/quick-add.js') {
-      await route.fulfill({ status: 200, contentType: 'text/javascript', body: await readFile(path.join(root, 'web/static/js/features/quick-add.js'), 'utf8') });
+    if (pathname.endsWith('.js')) {
+      try {
+        const relative = pathname.slice(1);
+        const file = path.resolve(root, 'web/static/js/features', relative);
+        if (!file.startsWith(path.join(root, 'web/static/js') + path.sep)) throw new Error('outside fixture');
+        await route.fulfill({status:200,contentType:'text/javascript',body:await readFile(file,'utf8')});
+      } catch { await route.fulfill({status:404,body:'Unknown JS fixture: '+pathname}); }
       return;
     }
     if (pathname === '/todo-multi-add.css') {
@@ -114,14 +368,15 @@ try {
       contentType: 'text/html',
       body: `<!doctype html><html><head><link rel="stylesheet" href="/todo-multi-add.css"></head><body>
         <div id="todo-modal" class="active">
-          <div id="todo-create-mode-switch">
-            <button type="button" data-todo-create-mode="single">Single</button>
-            <button type="button" data-todo-create-mode="multi">Multiple</button>
+          <div class="todo-editor-shell">
+          <div id="todo-create-mode-switch" class="ui-multi-add-mode-switch">
+            <button type="button" data-multi-add-mode="single">Single</button>
+            <button type="button" data-multi-add-mode="multi">Multiple</button>
           </div>
-          <div id="todo-multi-add-panel" hidden>
+          <div id="todo-multi-add-panel" class="ui-multi-add-panel" hidden>
             <div id="todo-multi-add-rows"></div>
-            <div class="todo-multi-add-toolbar">
-              <span class="todo-multi-add-toolbar-hint">Quick Add works per line</span>
+            <div class="ui-multi-add-toolbar">
+              <span class="ui-multi-add-toolbar-hint">Quick Add works per line</span>
               <button type="button" id="todo-multi-add-more">More</button>
             </div>
             <span id="todo-multi-add-count"></span>
@@ -135,6 +390,7 @@ try {
           <h2 id="todo-modal-title"></h2>
           <p id="todo-modal-subtitle"></p>
           <button type="submit" id="todo-save-btn">Save</button>
+        </div>
         </div>
         <script type="module">
           import { createTodoMultiAddFeature } from '/todo-multi-add.js';
@@ -202,10 +458,21 @@ try {
     { expected: raw, result: { title, changes, matches } },
   );
 
-  await page.click('[data-todo-create-mode="multi"]');
+  await page.click('[data-multi-add-mode="multi"]');
   assert.equal(pageErrors.length, 0, `Opening multi-todo mode must not throw: ${pageErrors.join('; ')}`);
 
-  const inputs = page.locator('.todo-multi-add-input');
+  for (const width of [1280,920,768,390]) {
+    await page.setViewportSize({width,height:900});
+    await page.mouse.move(0,0);
+    await page.evaluate(()=>document.activeElement?.blur());
+    await page.waitForTimeout(180);
+    const shellWidth=await page.locator('.todo-editor-shell').evaluate(e=>e.getBoundingClientRect().width);
+    assert.ok(shellWidth<=920 && shellWidth<=width, `Capture shell must fit ${width}px viewport and preserve its 920px cap`);
+    assert.equal(await page.locator('.ui-multi-add-toolbar').evaluate(e=>getComputedStyle(e).flexDirection),width<=768?'column':'row');
+    assert.equal(await page.locator('.ui-multi-add-remove').first().evaluate(e=>getComputedStyle(e).opacity),width<=768?'1':'0');
+  }
+  await page.setViewportSize({width:1280,height:900});
+  const inputs = page.locator('.ui-multi-add-input');
   await inputs.first().fill('First todo');
   await waitForParse('First todo');
   await resolveParse('First todo');
@@ -226,9 +493,9 @@ try {
   await resolveParse('First todo morgen', {
     matches: [{ type: 'due', label: 'Due', value: 'Tomorrow' }],
   });
-  await page.locator('.todo-multi-add-preview .quick-add-chip').waitFor();
-  assert.equal(await inputs.first().locator('xpath=..').locator('.todo-multi-add-preview .quick-add-chip').count(), 1, 'Recognized quick syntax must render a badge');
-  const toolbarTopBeforeEdit = await page.locator('.todo-multi-add-toolbar').evaluate(element => element.getBoundingClientRect().top);
+  await page.locator('.ui-multi-add-preview .quick-add-chip').waitFor();
+  assert.equal(await inputs.first().locator('xpath=..').locator('.ui-multi-add-preview .quick-add-chip').count(), 1, 'Recognized quick syntax must render a badge');
+  const toolbarTopBeforeEdit = await page.locator('.ui-multi-add-toolbar').evaluate(element => element.getBoundingClientRect().top);
   await inputs.first().fill('Old morgen');
   await waitForParse('Old morgen');
   await inputs.first().fill('New plain');
@@ -236,24 +503,24 @@ try {
     matches: [{ type: 'due', label: 'Due', value: 'Stale' }],
   });
   await page.evaluate(() => Promise.resolve());
-  assert.equal(await inputs.first().locator('xpath=..').locator('.todo-multi-add-preview .quick-add-chip').count(), 1, 'The previous badges must remain visible while the replacement parse is pending');
-  assert.equal(await inputs.first().locator('xpath=..').locator('.todo-multi-add-preview strong').textContent(), 'Tomorrow', 'A stale parse result must never replace the current badges');
-  const toolbarTopDuringParse = await page.locator('.todo-multi-add-toolbar').evaluate(element => element.getBoundingClientRect().top);
+  assert.equal(await inputs.first().locator('xpath=..').locator('.ui-multi-add-preview .quick-add-chip').count(), 1, 'The previous badges must remain visible while the replacement parse is pending');
+  assert.equal(await inputs.first().locator('xpath=..').locator('.ui-multi-add-preview strong').textContent(), 'Tomorrow', 'A stale parse result must never replace the current badges');
+  const toolbarTopDuringParse = await page.locator('.ui-multi-add-toolbar').evaluate(element => element.getBoundingClientRect().top);
   assert.equal(toolbarTopDuringParse, toolbarTopBeforeEdit, 'The Quick Add hint must not jump while badges are reparsed');
-  assert.equal(await page.locator('.todo-multi-add-toolbar-hint').count(), 1, 'The shared Quick Add hint must remain a single stable element');
+  assert.equal(await page.locator('.ui-multi-add-toolbar-hint').count(), 1, 'The shared Quick Add hint must remain a single stable element');
   await waitForParse('New plain');
   await resolveParse('New plain');
-  await page.waitForFunction(() => document.querySelectorAll('.todo-multi-add-preview .quick-add-chip').length === 0);
-  assert.equal(await inputs.first().locator('xpath=..').locator('.todo-multi-add-preview .quick-add-chip').count(), 0, 'The completed parse must replace obsolete badges');
+  await page.waitForFunction(() => document.querySelectorAll('.ui-multi-add-preview .quick-add-chip').length === 0);
+  assert.equal(await inputs.first().locator('xpath=..').locator('.ui-multi-add-preview .quick-add-chip').count(), 0, 'The completed parse must replace obsolete badges');
 
   await inputs.nth(1).fill('Recurring todo');
   await waitForParse('Recurring todo');
   await resolveParse('Recurring todo', { changes: { recurring_rule: 'FREQ=WEEKLY' } });
-  await page.waitForFunction(() => document.querySelectorAll('.todo-multi-add-row')[1]?.classList.contains('is-invalid'));
+  await page.waitForFunction(() => document.querySelectorAll('.ui-multi-add-row')[1]?.classList.contains('is-invalid'));
   assert.equal(await saveButton.isDisabled(), true, 'A known invalid row must disable the save action');
-  const secondRow = page.locator('.todo-multi-add-row').nth(1);
+  const secondRow = page.locator('.ui-multi-add-row').nth(1);
   assert.equal(await secondRow.evaluate(row => row.classList.contains('is-invalid')), true, 'The parsed validation error must mark its row invalid');
-  const invalidMessage = await secondRow.locator('.todo-multi-add-row-message').textContent();
+  const invalidMessage = await secondRow.locator('.ui-multi-add-row-message').textContent();
   await inputs.nth(1).fill('Stale valid result');
   await waitForParse('Stale valid result');
   await inputs.nth(1).fill('Current invalid result');
@@ -261,13 +528,13 @@ try {
   await page.evaluate(() => Promise.resolve());
   assert.equal(await secondRow.evaluate(row => row.classList.contains('is-invalid')), true, 'A stale parse must preserve the current validation state');
   assert.equal(await inputs.nth(1).getAttribute('aria-invalid'), 'true', 'A stale parse must preserve aria-invalid');
-  assert.equal(await secondRow.locator('.todo-multi-add-row-message').textContent(), invalidMessage, 'A stale parse must preserve the validation message');
+  assert.equal(await secondRow.locator('.ui-multi-add-row-message').textContent(), invalidMessage, 'A stale parse must preserve the validation message');
   await waitForParse('Current invalid result');
   await resolveParse('Current invalid result', { changes: { recurring_rule: 'FREQ=WEEKLY' } });
 
   await inputs.first().fill('x'.repeat(501));
-  await page.waitForFunction(() => document.querySelector('.todo-multi-add-row')?.classList.contains('is-invalid'));
-  assert.equal(await inputs.first().locator('xpath=..').locator('.todo-multi-add-preview .quick-add-chip').count(), 0, 'An overlong row must clear obsolete badges');
+  await page.waitForFunction(() => document.querySelector('.ui-multi-add-row')?.classList.contains('is-invalid'));
+  assert.equal(await inputs.first().locator('xpath=..').locator('.ui-multi-add-preview .quick-add-chip').count(), 0, 'An overlong row must clear obsolete badges');
 
   await inputs.first().fill('');
   await inputs.nth(1).fill('');
@@ -289,7 +556,7 @@ try {
   await waitForParse('Baseline');
   assert.equal(await page.evaluate(() => window.__multiTodoParses.filter(request => request.raw === 'Baseline').length), 1, 'Overlapping saves must share one direct parse');
   assert.equal(await page.locator('#todo-multi-add-panel').getAttribute('inert'), '', 'Saving must lock the multi-todo inputs');
-  assert.equal(await page.locator('[data-todo-create-mode="single"]').isDisabled(), true, 'Saving must lock mode switching');
+  assert.equal(await page.locator('[data-multi-add-mode="single"]').isDisabled(), true, 'Saving must lock mode switching');
   await resolveParse('Baseline');
   await page.waitForFunction(() => window.__multiTodoSectionRequests.length === 1);
   await page.evaluate(() => window.__multiTodoSectionRequests.shift()([]));

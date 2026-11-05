@@ -57,6 +57,24 @@ formValue = { name: '   ' };
 form.dispatch('change');
 assert.equal(button.disabled, true, 'invalid forms must disable Save');
 saveState.destroy();
+let singleModeActive = false;
+const sharedModeButton = { hidden: false, disabled: false };
+const sharedModeForm = new FakeEventTarget();
+const modeSaveState = createFormSaveState({
+  form: sharedModeForm,
+  button: sharedModeButton,
+  readState: () => ({ name: '' }),
+  isValid: () => false,
+  isActive: () => singleModeActive,
+});
+modeSaveState.reset();
+sharedModeForm.dispatch('input');
+assert.deepEqual(sharedModeButton, { hidden: false, disabled: false }, 'an inactive single-form controller must leave the shared bulk Save button untouched');
+assert.equal(modeSaveState.canSave(), false);
+singleModeActive = true;
+modeSaveState.refresh();
+assert.deepEqual(sharedModeButton, { hidden: true, disabled: true }, 'returning to single mode restores ordinary dirty-state ownership');
+modeSaveState.destroy();
 
 const projectAppearance = renderEntityAppearanceFields({ prefix: 'project' });
 const shoppingAppearance = renderEntityAppearanceFields({ prefix: 'shopping-list' });

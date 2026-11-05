@@ -182,7 +182,10 @@ run_step "Shopping Quick Add Parser" node scripts/test_shopping_quick_add.mjs
 run_step "Shopping Quick Add Editor State" node scripts/test_shopping_quick_add_editor.mjs
 run_step "Shopping Quick Add i18n" node scripts/test_shopping_quick_add_i18n.mjs
 run_step "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
+run_step "Shared Multi Capture" node scripts/test_multi_add.mjs
+run_step "Multi Capture i18n" node scripts/test_multi_add_i18n.mjs
 run_step "Frontend Multi Todo Add" node scripts/test_frontend_multi_todo_add.mjs
+run_step "Shopping Bulk Capture Browser" node scripts/test_frontend_shopping_bulk_add.mjs
 run_step "Frontend Project Counters" node scripts/test_frontend_project_counters.mjs
 run_step "Frontend Security" node scripts/test_frontend_security.mjs
 run_step "Frontend Rich Text Editor" node scripts/test_frontend_rich_text_editor.mjs

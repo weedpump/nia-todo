@@ -5,6 +5,7 @@ import { renderEntityDetailHeader } from '../features/entity-detail-header.js';
 import { renderEntityDirectSharingSection } from '../features/entity-direct-sharing.js';
 import { renderEntityOwnershipField } from '../features/entity-ownership-field.js';
 import { renderShoppingStoreCreator } from '../features/shopping-store-creator.js';
+import { renderMultiAddModeSwitch, renderMultiAddPanel } from '../features/multi-add.js';
 
 export const SHOPPING_DIALOGS_HTML = `
   ${renderEntityEditorModal({
@@ -71,6 +72,7 @@ export const SHOPPING_DIALOGS_HTML = `
           key: 'shopping.item.modal.title',
         },
         subtitle: {
+          id: 'shopping-item-modal-subtitle',
           key: 'shopping.item.modal.subtitle',
         },
         actionsHtml: `
@@ -86,7 +88,8 @@ export const SHOPPING_DIALOGS_HTML = `
       })}
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="shopping-item-form" class="entity-modal-form ui-detail-shell">
-          <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section">
+          ${renderMultiAddModeSwitch({ prefix: 'shopping-item', singleKey: 'shopping.multiAdd.modeSingle', multipleKey: 'shopping.multiAdd.modeMultiple' })}
+          <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section ui-multi-add-single">
             <div class="form-group ui-detail-title-group">
               <label for="shopping-item-name" data-i18n-key="shopping.item.name">${escapeHtmlAttr(t('shopping.item.name'))}</label>
               <input class="ui-field ui-detail-title-field" type="text" id="shopping-item-name" required maxlength="500" autocomplete="off" aria-describedby="shopping-item-quick-add-hint shopping-item-quick-add-preview" data-i18n-placeholder-key="shopping.item.namePlaceholder" placeholder="${escapeHtmlAttr(t('shopping.item.namePlaceholder'))}">
@@ -94,7 +97,7 @@ export const SHOPPING_DIALOGS_HTML = `
               <div class="quick-add-preview" id="shopping-item-quick-add-preview" aria-live="polite" hidden></div>
             </div>
           </section>
-          <section class="ui-section-card ui-detail-section ui-section-divider">
+          <section class="ui-section-card ui-detail-section ui-section-divider ui-multi-add-single">
             <div class="ui-section-heading ui-detail-section-heading">
               <div class="ui-section-icon ui-detail-section-icon" data-icon="sliders-horizontal"></div>
               <div>
@@ -122,6 +125,21 @@ export const SHOPPING_DIALOGS_HTML = `
               </div>
             </div>
           </section>
+          ${renderMultiAddPanel({
+            prefix: 'shopping-item',
+            quickAddHintKey: 'shopping.multiAdd.quickAddHint',
+            defaultsColumns: 2,
+            defaultsHtml: `
+              <div class="form-group">
+                <label for="shopping-item-multi-section" data-i18n-key="common.section">${escapeHtmlAttr(t('common.section'))}</label>
+                <select class="ui-field" id="shopping-item-multi-section" data-ui-select></select>
+              </div>
+              <div class="form-group shopping-item-store-group">
+                <label for="shopping-item-multi-store" data-i18n-key="shopping.item.store">${escapeHtmlAttr(t('shopping.item.store'))}</label>
+                <select class="ui-field" id="shopping-item-multi-store" data-ui-select></select>
+                ${renderShoppingStoreCreator({ prefix: 'shopping-item-multi' })}
+              </div>`,
+          })}
           <div class="settings-field-error" id="shopping-item-error" role="alert"></div>
         </form>
       </div>

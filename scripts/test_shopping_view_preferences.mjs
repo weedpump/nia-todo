@@ -173,6 +173,27 @@ await Promise.all([sharedCompletion, sharedPreference]);
 assert.equal(sharedLists[0].items[0].completed, true, 'a later preference mutation must preserve the committed item state');
 assert.equal(sharedLists[0].preferences.hide_empty_sections, true, 'the serialized preference mutation must still publish its own state');
 
+for (const firstDomain of ['items', 'preferences']) {
+  sharedLists = [{
+    id: 'list-shared-queue', can_edit: true,
+    preferences: { hide_empty_sections: false }, sections: [],
+    items: [{ id: 'batch-existing', name: 'Existing', completed: false }],
+  }];
+  sharedCommitCalls = 0;
+  const capture = () => sharedItems.createMany([{ name: 'Milk' }, { name: 'Bread' }]);
+  const preference = () => sharedPreferences.toggleHideEmptySections();
+  const first = firstDomain === 'items' ? capture() : preference();
+  await new Promise(setImmediate);
+  assert.equal(sharedCommitCalls, 1);
+  const second = firstDomain === 'items' ? preference() : capture();
+  await new Promise(setImmediate);
+  assert.equal(sharedCommitCalls, 1, `${firstDomain}: a different controller cannot build while the batch aggregate is reserved`);
+  releaseSharedCommit();
+  await Promise.all([first, second]);
+  assert.deepEqual(sharedLists[0].items.map(item => item.name), ['Existing', 'Milk', 'Bread']);
+  assert.equal(sharedLists[0].preferences.hide_empty_sections, true, `${firstDomain}: bulk capture and preferences preserve one another in either order`);
+}
+
 let failedLists = [{
   id: 'list-failure',
   preferences: { hide_empty_sections: false },

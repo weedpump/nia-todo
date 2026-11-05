@@ -307,7 +307,7 @@ let createLists = [{
   sections: [{ id: 'temp-shopping-section-produce', name: 'Produce' }],
   items: [{ id: 'existing', sort_order: 7 }],
 }];
-const createStores = [{ id: 'temp-shopping-store-market', name: 'Market', active: true }];
+const createStores = [{ id: 'temp-shopping-store-market', shopping_list_id: 'list-create', name: 'Market', active: true }];
 const createDurable = deferred();
 let createMutation = null;
 let createPublishes = 0;
@@ -500,7 +500,7 @@ const remappedCreate = createShoppingItemsController({
   }],
   setLists: () => {},
   getActiveListId: () => 'remapped-create-list',
-  getStores: () => [{ id: 81, client_mutation_id: 'temp-shopping-store-remapped', active: true }],
+  getStores: () => [{ id: 81, shopping_list_id: 'remapped-create-list', client_mutation_id: 'temp-shopping-store-remapped', active: true }],
   createTempId: () => 'temp-shopping-item-remapped-reference',
   commitMutation: async build => {
     remappedCreateMutation = build();
@@ -515,6 +515,196 @@ await remappedCreate.create({
 });
 assert.equal(remappedCreateMutation.data.item.section_id, 91, 'a stale section Temp-ID must resolve through its stable mutation identity');
 assert.deepEqual(remappedCreateMutation.data.item.store_ids, [81], 'a stale store Temp-ID must resolve through its stable mutation identity');
+
+let batchLists = [{ id: 'batch-list', can_edit: true, sections: [{ id: 'batch-section', name: 'Chilled' }], items: [{ id: 'batch-existing', sort_order: 7 }] }];
+const batchStores = [{ id: 'batch-store', shopping_list_id: 'batch-list', active: true, name: 'Market' }];
+const batchGate = deferred();
+const batchMutations = [];
+let batchPublishes = 0;
+let batchIdentity = 0;
+const batchCreator = createShoppingItemsController({
+  getLists: () => batchLists,
+  setLists: next => { batchLists = next; batchPublishes += 1; },
+  getActiveListId: () => 'batch-list',
+  getStores: () => batchStores,
+  createTempId: () => `temp-batch-item-${++batchIdentity}`,
+  commitMutation: async build => { const mutation = build(); batchMutations.push(mutation); await batchGate.promise; return mutation; },
+});
+assert.equal(typeof batchCreator.createMany, 'function', 'multi-item capture must expose one durable batch creation path');
+const batchInput = [
+  { name: 'Milk', quantity: 0, unit: 'l', sectionId: 'batch-section', storeId: 'batch-store' },
+  { name: 'Milk', quantity: 0, unit: 'l', sectionId: 'batch-section', storeId: 'batch-store' },
+];
+const firstBatch = batchCreator.createMany(batchInput);
+const duplicateBatch = batchCreator.createMany(batchInput);
+assert.strictEqual(firstBatch, duplicateBatch, 'duplicate bulk submits share one operation');
+await Promise.resolve();
+assert.equal(batchMutations.length, 1, 'one batch uses one durable commit');
+assert.equal(batchPublishes, 0, 'no bulk item is published before durable success');
+assert.equal(batchMutations[0].mutations.length, 2, 'duplicate rows still receive separate create records');
+assert.equal(new Set(batchMutations[0].mutations.map(mutation => mutation.data.client_mutation_id)).size, 2);
+assert.deepEqual(batchMutations[0].list.items.map(item => item.sort_order), [7, 8, 9]);
+batchGate.resolve();
+const batchResult = await firstBatch;
+assert.equal(batchResult.length, 2);
+assert.equal(batchPublishes, 1);
+assert.equal(batchLists[0].items.length, 3);
+assert.equal(batchResult[0].quantity_value, 0);
+
+// An abandoned session cannot lend its stale guard/Promise to a fresh equal batch.
+let sessionLists = [{ id: 'session-list', can_edit: true, sections: [], items: [] }];
+const sessionGate = deferred();
+let oldSessionCurrent = true;
+let sessionIdentity = 0;
+const sessionCreator = createShoppingItemsController({
+  getLists: () => sessionLists,
+  setLists: next => { sessionLists = next; },
+  getActiveListId: () => 'session-list',
+  createTempId: () => `session-item-${++sessionIdentity}`,
+  commitMutation: async build => { await sessionGate.promise; return build(); },
+});
+const sessionRows = [{ name: 'Milk' }, { name: 'Milk' }];
+const oldScope = {};
+const oldSession = sessionCreator.createMany(sessionRows, { submissionScope: oldScope, isCurrent: () => oldSessionCurrent });
+assert.strictEqual(oldSession, sessionCreator.createMany(sessionRows, { submissionScope: oldScope, isCurrent: () => oldSessionCurrent }), 'same-session duplicates remain single-flight');
+await Promise.resolve();
+oldSessionCurrent = false;
+const freshScope = {};
+const freshSession = sessionCreator.createMany(sessionRows, { submissionScope: freshScope, isCurrent: () => true });
+assert.notStrictEqual(freshSession, oldSession, 'a fresh session with identical rows must own a new operation');
+assert.strictEqual(freshSession, sessionCreator.createMany(sessionRows, { submissionScope: freshScope, isCurrent: () => true }));
+sessionGate.resolve();
+assert.equal(await oldSession, null);
+const freshItems = await freshSession;
+assert.equal(freshItems.length, 2);
+assert.equal(new Set(freshItems.map(item => item.id)).size, 2);
+assert.equal(sessionLists[0].items.length, 2, 'only the valid fresh batch persists');
+
+for (const method of ['create', 'createMany']) {
+  let crossListCommits = 0;
+  const crossList = createShoppingItemsController({
+    getLists: () => [{ id: 'local-list', can_edit: true, sections: [], items: [] }],
+    getActiveListId: () => 'local-list',
+    getStores: () => [{ id: 'foreign-store', shopping_list_id: 'other-list', active: true }],
+    commitMutation: async build => { crossListCommits += 1; return build(); },
+  });
+  const row = { name: 'Milk', storeId: 'foreign-store' };
+  assert.equal(await crossList[method](method === 'create' ? row : [{ name: 'Bread' }, row]), null, `${method} must reject a foreign-list market before persistence`);
+  assert.equal(crossListCommits, 0, `${method} must not enqueue cross-list associations`);
+}
+
+for (const invalidRows of [null, [], Array.from({ length: 51 }, () => ({ name: 'Milk' })), [{ name: 'Bread' }, { name: '' }], [{ name: 'Milk', quantity: -1 }], [{ name: 'Milk', sectionId: 'foreign-section' }]]) {
+  let invalidBatchCommits = 0;
+  let invalidBatchIds = 0;
+  const invalidBatch = createShoppingItemsController({
+    getLists: () => [{ id: 'invalid-batch', can_edit: true, sections: [], items: [] }],
+    getActiveListId: () => 'invalid-batch',
+    createTempId: () => { invalidBatchIds += 1; return 'invalid'; },
+    commitMutation: async build => { invalidBatchCommits += 1; return build(); },
+  });
+  assert.equal(await invalidBatch.createMany(invalidRows), null, 'invalid batch input must reject the entire batch');
+  assert.equal(invalidBatchCommits, 0);
+  assert.equal(invalidBatchIds, 0);
+}
+for (const canEdit of [false, undefined, null, 'true', 1]) {
+  let deniedBatchCommits = 0;
+  const deniedBatch = createShoppingItemsController({
+    getLists: () => [{ id: 'denied-batch', can_edit: canEdit, sections: [], items: [] }],
+    getActiveListId: () => 'denied-batch',
+    commitMutation: async build => { deniedBatchCommits += 1; return build(); },
+  });
+  assert.equal(await deniedBatch.createMany([{ name: 'Milk' }]), null);
+  assert.equal(deniedBatchCommits, 0);
+}
+let failedBatchPublishes = 0;
+let failedBatchRecords = 0;
+const failedBatch = createShoppingItemsController({
+  getLists: () => [{ id: 'failed-batch', can_edit: true, sections: [], items: [] }],
+  getActiveListId: () => 'failed-batch',
+  setLists: () => { failedBatchPublishes += 1; },
+  render: () => { failedBatchPublishes += 1; },
+  commitMutation: async build => { failedBatchRecords = build().mutations.length; throw new Error('batch disk full'); },
+});
+await assert.rejects(() => failedBatch.createMany([{ name: 'Milk' }, { name: 'Bread' }]), /batch disk full/);
+assert.equal(failedBatchRecords, 2);
+assert.equal(failedBatchPublishes, 0, 'a failed batch cannot publish any of its rows');
+
+for (const boundary of ['queue', 'commit']) {
+  for (const outcome of ['allowed', 'remap', 'denied', 'missing', 'section', 'store', 'lifecycle']) {
+    const originId = 'temp-batch-origin';
+    const sectionId = 'temp-batch-section';
+    const storeId = 'temp-batch-store';
+    let raceBatchLists = [
+      { id: originId, client_mutation_id: originId, can_edit: true, sections: [{ id: sectionId, client_mutation_id: sectionId }], items: [] },
+      { id: 'other-batch-list', can_edit: true, sections: [], items: [] },
+    ];
+    let raceBatchStores = [{ id: storeId, client_mutation_id: storeId, shopping_list_id: originId, active: true }];
+    let raceBatchActive = originId;
+    let lifecycleCurrent = true;
+    const gate = deferred();
+    const mutations = [];
+    const keys = [];
+    let identity = 0;
+    const creator = createShoppingItemsController({
+      getLists: () => raceBatchLists,
+      setLists: next => { raceBatchLists = next; },
+      getActiveListId: () => raceBatchActive,
+      getStores: () => raceBatchStores,
+      createTempId: () => `race-batch-item-${++identity}`,
+      enqueueListMutation: async (key, task) => { keys.push(key); if (boundary === 'queue') await gate.promise; return task(); },
+      commitMutation: async build => { if (boundary === 'commit') await gate.promise; const mutation = build(); if (mutation) mutations.push(mutation); return mutation; },
+    });
+    const pending = creator.createMany([
+      { name: 'Milk', sectionId, storeId }, { name: 'Bread', sectionId, storeId },
+    ], { listId: originId, isCurrent: () => lifecycleCurrent });
+    await Promise.resolve();
+    raceBatchActive = 'other-batch-list';
+    if (outcome === 'denied') raceBatchLists[0] = { ...raceBatchLists[0], can_edit: false };
+    if (outcome === 'missing') raceBatchLists = raceBatchLists.slice(1);
+    if (outcome === 'section') raceBatchLists[0] = { ...raceBatchLists[0], sections: [] };
+    if (outcome === 'store') raceBatchStores = [{ ...raceBatchStores[0], active: false }];
+    if (outcome === 'lifecycle') lifecycleCurrent = false;
+    if (outcome === 'remap') {
+      raceBatchLists[0] = { ...raceBatchLists[0], id: 42, sections: [{ id: 55, client_mutation_id: sectionId }] };
+      raceBatchStores = [{ ...raceBatchStores[0], id: 66, shopping_list_id: 42 }];
+    }
+    gate.resolve();
+    const result = await pending;
+    assert.deepEqual(keys, [originId], `${boundary}/${outcome}: stable origin owns the batch queue`);
+    if (outcome === 'allowed' || outcome === 'remap') {
+      assert.equal(result.length, 2, `${boundary}/${outcome}: navigation cannot retarget or split the admitted batch`);
+      const expectedList = outcome === 'remap' ? 42 : originId;
+      assert.equal(mutations.length, 1);
+      for (const mutation of mutations[0].mutations) {
+        assert.equal(mutation.data.shopping_list_id, expectedList);
+        assert.equal(mutation.data.item.section_id, outcome === 'remap' ? 55 : sectionId);
+        assert.deepEqual(mutation.data.item.store_ids, [outcome === 'remap' ? 66 : storeId]);
+      }
+      assert.equal(raceBatchLists.find(list => list.id === 'other-batch-list').items.length, 0);
+    } else {
+      assert.equal(result, null, `${boundary}/${outcome}: invalidated batch must not persist`);
+      assert.equal(mutations.length, 0);
+      assert(raceBatchLists.every(list => list.items.length === 0));
+    }
+  }
+}
+let onlineBatchLists = [{ id: 'online-batch', can_edit: true, sections: [], items: [] }];
+const onlineBatchSync = deferred();
+let onlineBatchSettled = false;
+const onlineBatch = createShoppingItemsController({
+  getLists: () => onlineBatchLists,
+  setLists: next => { onlineBatchLists = next; },
+  getActiveListId: () => 'online-batch',
+  commitMutation: async build => build(),
+  isOnlineForSync: () => true,
+  syncWithServer: () => onlineBatchSync.promise,
+});
+const onlineBatchPromise = onlineBatch.createMany([{ name: 'Milk' }, { name: 'Bread' }]).then(result => { onlineBatchSettled = true; return result; });
+await new Promise(setImmediate);
+assert.equal(onlineBatchSettled, true, 'local bulk success must not wait for per-row server replay');
+assert.equal(onlineBatchLists[0].items.length, 2);
+onlineBatchSync.resolve();
+await onlineBatchPromise;
 
 let updateLists = [{
   id: 'update-list',
@@ -715,7 +905,7 @@ for (const race of ['permission', 'list', 'section', 'store']) {
     sections: [{ id: 'temp-shopping-section-race' }],
     items: [],
   }];
-  let raceCreateStores = [{ id: 'temp-shopping-store-race' }];
+  let raceCreateStores = [{ id: 'temp-shopping-store-race', shopping_list_id: 'create-race-list' }];
   let raceCreateActive = 'create-race-list';
   let raceCreatePublishes = 0;
   let releaseCreateBuild;

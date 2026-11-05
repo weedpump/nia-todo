@@ -1,5 +1,6 @@
 import { t, translatePage, getActiveLocale } from '../i18n/index.js';
 import { parseShoppingQuickAdd } from './shopping-quick-add.js';
+import { createMultiAddFeature } from './multi-add.js';
 import { renderQuickAddPreview, createQuickAddPreviewController } from './quick-add.js';
 import { hydrateSelect, refreshSelect, isDropdownOpen } from '../ui/dropdowns.js';
 import { shouldAutoFocusEntityEditorTitle } from './entity-editor-focus.js';
@@ -25,6 +26,17 @@ export function resolveShoppingQuickAddState(state, parsed) {
   };
 }
 
+export function resolveShoppingBulkQuickAddState(parsed, defaults = {}) {
+  return resolveShoppingQuickAddState({ name: '', quantity: '', unit: '', sectionId: null, storeId: null }, {
+    ...parsed,
+    changes: {
+      section_id: defaults.sectionId ?? null,
+      store_ids: defaults.storeId != null ? [defaults.storeId] : [],
+      ...parsed.changes,
+    },
+  });
+}
+
 export function createShoppingItemEditorFeature({
   document: doc = globalThis.document,
   eventTarget = globalThis.window,
@@ -35,17 +47,21 @@ export function createShoppingItemEditorFeature({
   itemController,
   confirmDanger = async () => false,
   onStoreEdit = () => {},
+  showToast = () => {},
   onError = console.error,
 } = {}) {
   let bound = false;
   let saveState = null;
   let submitting = false;
   let storeCreator = null;
+  let bulkStoreCreator = null;
+  let bulk = null;
   let restoreFocus = null;
   let mode = 'create';
   let editingListIdentity = null;
   let editingItemIdentity = null;
   let editorGeneration = 0;
+  let bulkSubmissionScope = null;
   let quickAddController = null;
   let quickAddInput = null;
 
@@ -134,8 +150,8 @@ export function createShoppingItemEditorFeature({
     select.appendChild(option);
   }
 
-  function populateSections(selected = '') {
-    const select = doc?.getElementById?.('shopping-item-section');
+  function populateSections(selected = '', selectId = 'shopping-item-section') {
+    const select = doc?.getElementById?.(selectId);
     if (!select) return;
     const list = activeList();
     select.innerHTML = '';
@@ -150,8 +166,8 @@ export function createShoppingItemEditorFeature({
   }
 
 
-  function populateStores(selected = '') {
-    const select = doc?.getElementById?.('shopping-item-store');
+  function populateStores(selected = '', selectId = 'shopping-item-store') {
+    const select = doc?.getElementById?.(selectId);
     if (!select) return;
     const list = activeList();
     const stores = getStores().filter(store => (
@@ -180,7 +196,7 @@ export function createShoppingItemEditorFeature({
         label: t('shopping.item.store.add'),
         ariaLabel: t('shopping.item.store.add'),
         icon: 'plus',
-        onActivate: () => storeCreator?.show?.(),
+        onActivate: () => (selectId === 'shopping-item-multi-store' ? bulkStoreCreator : storeCreator)?.show?.(),
       } : null,
     });
     refreshSelect(select);
@@ -236,7 +252,7 @@ export function createShoppingItemEditorFeature({
       quickAddController = createQuickAddPreviewController({
         input,
         getContext: () => JSON.stringify([editorGeneration, getActiveListId(), getActiveLocale(), readFormState(), activeList()?.sections, getStores()]),
-        isActive: () => mode === 'create' && modal()?.classList.contains('active') && canMutate(),
+        isActive: () => mode === 'create' && !bulk?.isActive() && modal()?.classList.contains('active') && canMutate(),
         parse: quickAddResult,
         render: renderEffectiveQuickAdd,
         onError,
@@ -272,6 +288,7 @@ export function createShoppingItemEditorFeature({
         form: currentForm,
         button,
         readState,
+        isActive: () => !bulk?.isActive(),
         isValid: state => validState(state) && !(quickAddResult()?.errors.length),
         canSubmit: () => !submitting && canMutate(),
       });
@@ -280,14 +297,27 @@ export function createShoppingItemEditorFeature({
     return saveState;
   }
 
-  function hideModal() {
+  function invalidateEditor() {
     editorGeneration += 1;
     quickAddController?.invalidate();
+  }
+
+  function handleCloseRequest(event) {
+    // Observe shell-owned controls before their asynchronous History close.
+    // Only invalidate pending work here; do not run a second close lifecycle.
+    if (modal()?.classList.contains('active')
+      && event.target?.closest?.('[data-close-modal]')?.dataset.closeModal === 'shopping-item-modal') invalidateEditor();
+  }
+
+  function hideModal() {
+    invalidateEditor();
+    bulk?.reset({ editing: true });
     renderEffectiveQuickAdd(null);
     const target = modal();
     target?.classList?.remove?.('active');
     target?.setAttribute?.('aria-hidden', 'true');
     storeCreator?.hide?.();
+    bulkStoreCreator?.hide?.();
     const targetFocus = restoreFocus?.();
     restoreFocus = null;
     editingListIdentity = null;
@@ -297,6 +327,7 @@ export function createShoppingItemEditorFeature({
   }
 
   function closeModal(afterClose = null) {
+    invalidateEditor();
     const callback = typeof afterClose === 'function' ? afterClose : null;
     if (requestCloseUiLayer('shopping-item-modal', { reason: 'ui' }, { afterClose: callback })) return;
     hideModal();
@@ -305,11 +336,13 @@ export function createShoppingItemEditorFeature({
 
   function openModal(target, currentForm) {
     const generation = ++editorGeneration;
+    bulkSubmissionScope = {};
     translatePage(target);
     setMode(mode);
     target.classList.add('active');
     target.setAttribute('aria-hidden', 'false');
     openUiLayer('shopping-item-modal');
+    bulk?.reset({ editing: mode === 'edit' });
     ensureSaveState()?.reset();
     ensureQuickAdd();
     if (shouldAutoFocusEntityEditorTitle(mode)) {
@@ -321,7 +354,7 @@ export function createShoppingItemEditorFeature({
   }
 
   function showCreate() {
-    if (!canMutate() || submitting) return false;
+    if (!canMutate() || submitting || modal()?.getAttribute?.('aria-busy') === 'true') return false;
     const target = modal();
     const currentForm = form();
     if (!target || !currentForm) return false;
@@ -333,13 +366,15 @@ export function createShoppingItemEditorFeature({
     storeCreator?.hide?.();
     populateSections();
     populateStores();
+    populateSections('', 'shopping-item-multi-section');
+    populateStores('', 'shopping-item-multi-store');
     restoreFocus = () => trigger();
     return openModal(target, currentForm);
   }
 
   function showEdit(listId, itemId, triggerElement = null) {
     const list = activeList();
-    if (list?.can_edit !== true || submitting) return false;
+    if (list?.can_edit !== true || submitting || modal()?.getAttribute?.('aria-busy') === 'true') return false;
     if (!sameId(list.id, listId) && !sameId(list.client_mutation_id, listId)) return false;
     const item = (list.items || []).find(candidate => sameId(candidate.id, itemId) || sameId(candidate.client_mutation_id, itemId));
     const target = modal();
@@ -382,6 +417,10 @@ export function createShoppingItemEditorFeature({
   async function save(event) {
     event?.preventDefault?.();
     if (submitting || !modal()?.classList.contains('active')) return;
+    if (bulk?.isActive()) {
+      await bulk.save();
+      return;
+    }
     const list = activeList();
     if (!canMutate() || (!sameId(list?.id, editingListIdentity) && !sameId(list?.client_mutation_id, editingListIdentity)) || (mode === 'edit' && !resolveEditingItem())) {
       closeModal();
@@ -482,8 +521,13 @@ export function createShoppingItemEditorFeature({
     const storeValue = doc?.getElementById?.('shopping-item-store')?.value || '';
     populateSections(sectionValue);
     populateStores(storeValue);
-    void quickAddController?.refresh();
-    ensureSaveState()?.refresh?.();
+    populateSections(doc?.getElementById?.('shopping-item-multi-section')?.value || '', 'shopping-item-multi-section');
+    populateStores(doc?.getElementById?.('shopping-item-multi-store')?.value || '', 'shopping-item-multi-store');
+    if (bulk?.isActive()) bulk.refresh();
+    else {
+      void quickAddController?.refresh();
+      ensureSaveState()?.refresh?.();
+    }
   }
 
   function handleClick(event) {
@@ -510,6 +554,7 @@ export function createShoppingItemEditorFeature({
   function handleKeydown(event) {
     if (!modal()?.classList?.contains?.('active') || modal()?.getAttribute?.('aria-hidden') === 'true') return;
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
       event.preventDefault();
       form()?.requestSubmit?.();
       return;
@@ -539,29 +584,90 @@ export function createShoppingItemEditorFeature({
     const sectionValue = doc?.getElementById?.('shopping-item-section')?.value || '';
     const storeValue = doc?.getElementById?.('shopping-item-store')?.value || '';
     translatePage(modal());
-    setMode(mode);
+    if (!bulk?.isActive()) setMode(mode);
     populateSections(sectionValue);
     populateStores(storeValue);
-    void quickAddController?.refresh();
+    populateSections(doc?.getElementById?.('shopping-item-multi-section')?.value || '', 'shopping-item-multi-section');
+    populateStores(doc?.getElementById?.('shopping-item-multi-store')?.value || '', 'shopping-item-multi-store');
+    if (bulk?.isActive()) bulk.refresh();
+    else void quickAddController?.refresh();
+  }
+
+  function readBulkDefaults() {
+    const sectionValue = doc?.getElementById?.('shopping-item-multi-section')?.value || null;
+    const storeValue = doc?.getElementById?.('shopping-item-multi-store')?.value || null;
+    const section = (activeList()?.sections || []).find(candidate => sameId(candidate.id, sectionValue));
+    const store = getStores().find(candidate => sameId(candidate.id, storeValue));
+    return {
+      sectionId: section?.client_mutation_id ?? section?.id ?? null,
+      storeId: store?.client_mutation_id ?? store?.id ?? null,
+    };
+  }
+
+  function bindBulk() {
+    bulk = createMultiAddFeature({
+      prefix: 'shopping-item', document: doc, t, showToast,
+      copy: {
+        count: 'shopping.multiAdd.count', create: 'shopping.multiAdd.create',
+        title: 'shopping.multiAdd.title', subtitle: 'shopping.multiAdd.subtitle',
+        singleTitle: 'shopping.item.modal.title', singleSubtitle: 'shopping.item.modal.subtitle',
+      },
+      getSingleFields: () => Array.from(form()?.querySelectorAll('.ui-multi-add-single input, .ui-multi-add-single select') || []),
+      readDefaults: readBulkDefaults,
+      getContext: () => ({ identity: editingListIdentity, activeIdentity: activeList()?.client_mutation_id ?? activeList()?.id ?? null, generation: editorGeneration, locale: getActiveLocale(), canEdit: canMutate() }),
+      parse: (raw, defaults) => {
+        const parsed = quickAddResult(raw);
+        return { ...parsed, fields: resolveShoppingBulkQuickAddState(parsed, defaults) };
+      },
+      validate: parsed => parsed.errors?.[0] || (!validState(parsed.fields) ? 'shopping.item.error.invalidName' : null),
+      onModeChange: nextMode => {
+        storeCreator?.hide?.();
+        bulkStoreCreator?.hide?.();
+        quickAddController?.invalidate();
+        setError();
+        if (nextMode === 'single') {
+          ensureSaveState()?.refresh?.();
+          if (mode === 'create') void quickAddController?.refresh();
+        }
+      },
+      onSave: (results, { isCurrent, context }) => itemController?.createMany?.(results.map(result => result.fields), { listId: context.identity, isCurrent, submissionScope: bulkSubmissionScope }),
+      onSaved: created => {
+        closeModal();
+        showToast(t(`shopping.multiAdd.created.${created.length === 1 ? 'one' : 'many'}`, { count: created.length }));
+      },
+      onError: error => {
+        onError(error);
+        setError('shopping.item.error.saveFailed');
+      },
+    });
+    bulk.bind();
+  }
+
+  function bindStoreCreator(prefix, selectId) {
+    return bindShoppingStoreCreator({
+      document: doc, prefix, selectId, storeController,
+      authorize: canMutateList,
+      getContext: () => ({ id: activeList()?.id, client_mutation_id: activeList()?.client_mutation_id, editorGeneration }),
+      onCreated: (store, context) => {
+        if (context.editorGeneration !== editorGeneration || !modal()?.classList.contains('active')) return;
+        populateStores(store.client_mutation_id ?? store.id, selectId);
+        if (bulk?.isActive()) bulk.refresh();
+        else {
+          void quickAddController?.refresh();
+          ensureSaveState()?.refresh?.();
+        }
+      },
+      onError,
+    });
   }
 
   function bind() {
     if (bound) return;
     bound = true;
-    storeCreator = bindShoppingStoreCreator({
-      document: doc,
-      prefix: 'shopping-item',
-      selectId: 'shopping-item-store',
-      storeController,
-      authorize: canMutateList,
-      getContext: () => ({ id: activeList()?.id, client_mutation_id: activeList()?.client_mutation_id }),
-      onCreated: store => {
-        populateStores(store.client_mutation_id ?? store.id);
-        void quickAddController?.refresh();
-        ensureSaveState()?.refresh?.();
-      },
-      onError,
-    });
+    storeCreator = bindStoreCreator('shopping-item', 'shopping-item-store');
+    bulkStoreCreator = bindStoreCreator('shopping-item-multi', 'shopping-item-multi-store');
+    bindBulk();
+    doc?.addEventListener?.('click', handleCloseRequest, true);
     doc?.addEventListener?.('input', handleFormChange);
     doc?.addEventListener?.('change', handleFormChange);
     doc?.addEventListener?.('submit', handleSubmit);
@@ -583,9 +689,14 @@ export function createShoppingItemEditorFeature({
     destroy() {
       if (!bound) return;
       bound = false;
+      bulk?.destroy();
+      bulk = null;
+      bulkStoreCreator?.destroy?.();
+      bulkStoreCreator = null;
       quickAddController?.destroy();
       quickAddController = null;
       quickAddInput = null;
+      doc?.removeEventListener?.('click', handleCloseRequest, true);
       doc?.removeEventListener?.('input', handleFormChange);
       doc?.removeEventListener?.('change', handleFormChange);
       doc?.removeEventListener?.('submit', handleSubmit);

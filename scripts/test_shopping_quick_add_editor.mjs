@@ -18,6 +18,15 @@ assert.deepEqual(editor.resolveShoppingQuickAddState({ ...empty, quantity: '0', 
 }, 'explicit details win, including quantity zero');
 assert.deepEqual(editor.resolveShoppingQuickAddState(empty, null), empty, 'edit mode must keep the literal title');
 assert.deepEqual(editor.resolveShoppingQuickAddState(empty, { title: 'Milch', changes: {} }), { ...empty, name: 'Milch' }, 'omitted syntax preserves unspecified form values');
+const bulkDefaults = { storeId: 'default-market', sectionId: 'default-section' };
+assert.equal(typeof editor.resolveShoppingBulkQuickAddState, 'function', 'bulk defaults must use a separate precedence contract with the same field resolver');
+assert.deepEqual(editor.resolveShoppingBulkQuickAddState({ title: 'Milch', changes: {} }, bulkDefaults), {
+  name: 'Milch', quantity: '', unit: '', storeId: 'default-market', sectionId: 'default-section',
+});
+assert.deepEqual(editor.resolveShoppingBulkQuickAddState(parsed, bulkDefaults), {
+  name: 'Milch', quantity: 2, unit: 'l', storeId: 'temp-store', sectionId: 'temp-section',
+}, 'explicit per-row syntax wins over shared bulk defaults');
+assert.equal(editor.resolveShoppingBulkQuickAddState({ title: 'Milch', changes: { quantity_value: 0 } }, bulkDefaults).quantity, 0);
 let lists = [{ id: 'list-local', can_edit: true, sections: [{ id: 'favorites-local', name: "Tobi's Favoriten" }], items: [] }];
 const stores = [{ id: 'trader-local', shopping_list_id: 'list-local', name: "Trader Joe's", active: true }];
 const commits = [];

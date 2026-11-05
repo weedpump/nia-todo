@@ -1057,6 +1057,7 @@ shoppingItemEditorFeature = createShoppingItemEditorFeature({
   getStores: () => shoppingStores,
   storeController: shoppingStoresController,
   itemController: shoppingItemsController,
+  showToast: (...args) => showToast(...args),
   confirmDanger,
   onStoreEdit: (listId, storeId, triggerElement) => shoppingStoreEditorFeature?.showEdit?.(listId, storeId, triggerElement),
   onError: error => console.error('Shopping item editor failed', error),

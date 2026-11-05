@@ -1,3 +1,4 @@
+import { renderMultiAddModeSwitch, renderMultiAddPanel } from '../features/multi-add.js';
 import { escapeHtmlAttr } from '../core/utils.js';
 import { renderEntityDirectSharingSection } from '../features/entity-direct-sharing.js';
 import { renderEntityEditorModal } from '../features/entity-editor-modal.js';
@@ -200,40 +201,8 @@ export const TASK_DIALOGS_HTML = `
       <div class="modal-body todo-modal-body ui-detail-modal-body">
       <form id="todo-form" class="todo-modal-form todo-editor-shell ui-detail-shell">
         <input type="hidden" id="todo-id">
-        <div class="todo-create-mode-switch" id="todo-create-mode-switch" role="group" aria-label="Capture mode" data-i18n-aria-label-key="todo.multiAdd.modeLabel" hidden>
-          <button type="button" class="todo-create-mode-btn active" data-todo-create-mode="single" aria-pressed="true" data-i18n-key="todo.multiAdd.modeSingle">One todo</button>
-          <button type="button" class="todo-create-mode-btn" data-todo-create-mode="multi" aria-pressed="false" data-i18n-key="todo.multiAdd.modeMultiple">Multiple todos</button>
-        </div>
-        <section class="todo-multi-add-panel" id="todo-multi-add-panel" hidden>
-          <div class="todo-multi-add-intro">
-            <div class="todo-multi-add-intro-heading ui-section-heading ui-detail-section-heading">
-              <div class="todo-multi-add-intro-icon ui-section-icon ui-detail-section-icon" data-icon="lightbulb" aria-hidden="true"></div>
-              <div>
-                <h4 data-i18n-key="todo.multiAdd.introTitle">Capture thoughts quickly</h4>
-                <p data-i18n-key="todo.multiAdd.introDescription">Press Enter to start the next todo. Pasted bullet lists are split automatically.</p>
-              </div>
-            </div>
-            <div class="todo-multi-add-counter" aria-live="polite">
-              <strong id="todo-multi-add-count">0 todos</strong>
-              <span id="todo-multi-add-limit">50 lines available</span>
-            </div>
-          </div>
-          <div class="todo-multi-add-editor">
-            <div class="todo-multi-add-rows" id="todo-multi-add-rows"></div>
-            <div class="todo-multi-add-toolbar">
-              <span class="todo-multi-add-toolbar-hint" data-i18n-key="todo.multiAdd.quickAddHint">Quick Add works per line: tomorrow, #Project, /Section, !high …</span>
-              <button type="button" class="btn btn-secondary" id="todo-multi-add-more"><span data-icon="plus"></span> <span data-i18n-key="todo.multiAdd.addRow">Add another line</span></button>
-            </div>
-          </div>
-          <section class="todo-multi-add-defaults ui-section-divider">
-            <div class="todo-multi-add-defaults-head ui-section-heading ui-detail-section-heading">
-              <div class="todo-multi-add-defaults-icon ui-section-icon ui-detail-section-icon" data-icon="sliders-horizontal"></div>
-              <div>
-                <h4 data-i18n-key="todo.multiAdd.defaultsTitle">Apply to all todos</h4>
-                <p data-i18n-key="todo.multiAdd.defaultsDescription">Values entered directly in a line override these defaults.</p>
-              </div>
-            </div>
-            <div class="todo-multi-add-defaults-grid">
+        ${renderMultiAddModeSwitch({prefix:'todo',singleKey:'todo.multiAdd.modeSingle',multipleKey:'todo.multiAdd.modeMultiple'})}
+        ${renderMultiAddPanel({prefix:'todo',quickAddHintKey:'todo.multiAdd.quickAddHint',defaultsHtml:`
               <div class="form-group">
                 <label for="todo-multi-project" data-i18n-key="todo.project">Project</label>
                 <select class="ui-field" id="todo-multi-project"></select>
@@ -252,10 +221,7 @@ export const TASK_DIALOGS_HTML = `
                   <option value="3" data-option-color="#10b981" selected data-i18n-key="todo.priority.medium">Medium</option>
                   <option value="4" data-option-color="#94a3b8" data-i18n-key="todo.priority.low">Low</option>
                 </select>
-              </div>
-            </div>
-          </section>
-        </section>
+              </div>`})}
         <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section todo-section-card todo-editor-section todo-editor-main todo-main-section">
           <div class="ui-section-heading ui-detail-section-heading">
             <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>

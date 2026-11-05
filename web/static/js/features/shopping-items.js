@@ -93,6 +93,7 @@ export function createShoppingItemsController({
   createTempId = () => `temp-shopping-item-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
   const inFlight = new Map();
+  const scopedCreates = new WeakMap();
   const listQueues = new Map();
   let root = null;
 
@@ -165,9 +166,13 @@ export function createShoppingItemsController({
   }
   const runListMutation = enqueueListMutation || enqueueLocallyForList;
 
-  function create(input = {}) {
-    const live = currentList(getActiveListId());
-    if (live?.can_edit !== true) return Promise.resolve(null);
+  function canUseCreateStore(store, list) {
+    return store != null && store.active !== false
+      && (sameId(store.shopping_list_id, list.id) || sameId(store.shopping_list_id, list.client_mutation_id));
+  }
+
+  function prepareCreateInput(input = {}, live) {
+    if (!input || typeof input !== 'object') return null;
     const name = String(input.name ?? '').trim();
     const quantityInput = input.quantity ?? input.quantity_value;
     const quantityText = typeof quantityInput === 'string' ? quantityInput.trim() : quantityInput;
@@ -178,87 +183,106 @@ export function createShoppingItemsController({
     const sectionValue = input.sectionId ?? input.section_id ?? null;
     const sectionInput = sectionValue === '' ? null : sectionValue;
     const suppliedStoreIds = input.store_ids;
-    if (!name || name.length > 500) return Promise.resolve(null);
-    if (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) return Promise.resolve(null);
-    if (unit.length > 40) return Promise.resolve(null);
-    if (suppliedStoreIds !== undefined && (!Array.isArray(suppliedStoreIds) || suppliedStoreIds.length > 1)) return Promise.resolve(null);
+    if (!name || name.length > 500) return null;
+    if (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) return null;
+    if (unit.length > 40) return null;
+    if (suppliedStoreIds !== undefined && (!Array.isArray(suppliedStoreIds) || suppliedStoreIds.length > 1)) return null;
     const storeValue = input.storeId ?? suppliedStoreIds?.[0] ?? null;
     const storeInput = storeValue === '' ? null : storeValue;
-    const initialSection = sectionInput == null
-      ? null
-      : (live.sections || []).find(candidate => (
-        sameId(candidate.id, sectionInput)
-        || sameId(candidate.client_mutation_id, sectionInput)
-      ));
-    if (sectionInput != null && !initialSection) return Promise.resolve(null);
-    const initialStore = storeInput == null
-      ? null
-      : getStores().find(candidate => (
-        sameId(candidate.id, storeInput)
-        || sameId(candidate.client_mutation_id, storeInput)
-      ));
-    if (storeInput != null && (!initialStore || initialStore.active === false)) return Promise.resolve(null);
-    const stableSectionIdentity = initialSection?.client_mutation_id ?? initialSection?.id ?? null;
-    const stableStoreIdentity = initialStore?.client_mutation_id ?? initialStore?.id ?? null;
+    const section = sectionInput == null ? null : (live.sections || []).find(candidate => (
+      sameId(candidate.id, sectionInput) || sameId(candidate.client_mutation_id, sectionInput)
+    ));
+    if (sectionInput != null && !section) return null;
+    const store = storeInput == null ? null : getStores().find(candidate => (
+      sameId(candidate.id, storeInput) || sameId(candidate.client_mutation_id, storeInput)
+    ));
+    if (storeInput != null && !canUseCreateStore(store, live)) return null;
+    return {
+      name, quantity, unit,
+      sectionIdentity: section?.client_mutation_id ?? section?.id ?? null,
+      storeIdentity: store?.client_mutation_id ?? store?.id ?? null,
+    };
+  }
+
+  function buildCreateRecord(latest, input, tempId, sortOrder) {
+    const section = input.sectionIdentity == null ? null : (latest.sections || []).find(candidate => (
+      sameId(candidate.id, input.sectionIdentity) || sameId(candidate.client_mutation_id, input.sectionIdentity)
+    ));
+    if (input.sectionIdentity != null && !section) return null;
+    const store = input.storeIdentity == null ? null : getStores().find(candidate => (
+      sameId(candidate.id, input.storeIdentity) || sameId(candidate.client_mutation_id, input.storeIdentity)
+    ));
+    if (input.storeIdentity != null && !canUseCreateStore(store, latest)) return null;
+    const itemData = {
+      name: input.name,
+      section_id: section?.id ?? null,
+      quantity_value: input.quantity,
+      quantity_unit: input.unit || null,
+      store_ids: store ? [store.id] : [],
+      sort_order: sortOrder,
+      client_mutation_id: tempId,
+    };
+    return {
+      item: {
+        id: tempId,
+        shopping_list_id: latest.id,
+        ...clone(itemData),
+        stores: store ? [clone(store)] : [],
+        completed: false,
+        is_pending: true,
+      },
+      mutation: {
+        action: 'CREATE_SHOPPING_ITEM',
+        data: { shopping_list_id: latest.id, temp_id: tempId, item: itemData, client_mutation_id: tempId },
+      },
+    };
+  }
+
+  function submitCreates(live, inputs, { single = false, isCurrent = () => true, submissionScope = null } = {}) {
+    // Editor sessions deduplicate locally without inheriting an abandoned guard.
+    let pending = inFlight;
+    if (submissionScope) {
+      if (!scopedCreates.has(submissionScope)) scopedCreates.set(submissionScope, new Map());
+      pending = scopedCreates.get(submissionScope);
+    }
     const stableListIdentity = live.client_mutation_id ?? live.id;
-    const submissionKey = `create\u0000${String(stableListIdentity)}\u0000${JSON.stringify([name, quantity, unit, stableSectionIdentity, stableStoreIdentity])}`;
-    if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
-    const tempId = createTempId();
+    const submissionKey = `${single ? 'create' : 'create-many'}\u0000${String(stableListIdentity)}\u0000${JSON.stringify(inputs)}`;
+    if (pending.has(submissionKey)) return pending.get(submissionKey);
+    const tempIds = inputs.map(() => createTempId());
     const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
         const latest = listByIdentity(stableListIdentity);
-        if (latest?.can_edit !== true) return null;
-        const section = stableSectionIdentity == null
-          ? null
-          : (latest.sections || []).find(candidate => (
-            sameId(candidate.id, stableSectionIdentity)
-            || sameId(candidate.client_mutation_id, stableSectionIdentity)
-          ));
-        if (stableSectionIdentity != null && !section) return null;
-        const store = stableStoreIdentity == null
-          ? null
-          : getStores().find(candidate => (
-            sameId(candidate.id, stableStoreIdentity)
-            || sameId(candidate.client_mutation_id, stableStoreIdentity)
-          ));
-        if (stableStoreIdentity != null && (!store || store.active === false)) return null;
-        const sortOrder = (latest.items || []).reduce((maximum, item) => {
+        if (latest?.can_edit !== true || !isCurrent()) return null;
+        const firstOrder = (latest.items || []).reduce((maximum, item) => {
           const candidate = Number(item.sort_order);
           return Number.isFinite(candidate) ? Math.max(maximum, candidate) : maximum;
         }, -1) + 1;
-        const itemData = {
-          name,
-          section_id: section?.id ?? null,
-          quantity_value: quantity,
-          quantity_unit: unit || null,
-          store_ids: store ? [store.id] : [],
-          sort_order: sortOrder,
-          client_mutation_id: tempId,
-        };
-        const item = {
-          id: tempId,
-          shopping_list_id: latest.id,
-          ...clone(itemData),
-          stores: store ? [clone(store)] : [],
-          completed: false,
-          is_pending: true,
-        };
-        return {
-          list: { ...clone(latest), items: [...(latest.items || []).map(clone), item] },
-          action: 'CREATE_SHOPPING_ITEM',
-          data: {
-            shopping_list_id: latest.id,
-            temp_id: tempId,
-            item: itemData,
-            client_mutation_id: tempId,
-          },
-          result: item,
-        };
+        const records = inputs.map((input, index) => buildCreateRecord(latest, input, tempIds[index], firstOrder + index));
+        if (records.some(record => !record)) return null;
+        const list = { ...clone(latest), items: [...(latest.items || []).map(clone), ...records.map(record => record.item)] };
+        if (single) return { list, ...records[0].mutation, result: records[0].item };
+        return { list, mutations: records.map(record => record.mutation), result: records.map(record => record.item) };
       });
-      return publish(mutation, { waitForSync: true });
-    }).finally(() => inFlight.delete(submissionKey));
-    inFlight.set(submissionKey, operation);
+      return publish(mutation, { waitForSync: single });
+    }).finally(() => pending.delete(submissionKey));
+    pending.set(submissionKey, operation);
     return operation;
+  }
+
+  function create(input = {}) {
+    const live = currentList(getActiveListId());
+    if (live?.can_edit !== true) return Promise.resolve(null);
+    const prepared = prepareCreateInput(input, live);
+    if (!prepared) return Promise.resolve(null);
+    return submitCreates(live, [prepared], { single: true });
+  }
+
+  function createMany(inputs, { listId = getActiveListId(), isCurrent = () => true, submissionScope = null } = {}) {
+    const live = currentList(listId);
+    if (live?.can_edit !== true || !Array.isArray(inputs) || inputs.length === 0 || inputs.length > 50) return Promise.resolve(null);
+    const prepared = inputs.map(input => prepareCreateInput(input, live));
+    if (prepared.some(input => !input)) return Promise.resolve(null);
+    return submitCreates(live, prepared, { isCurrent, submissionScope });
   }
 
   function update(listId, itemId, input = {}) {
@@ -545,6 +569,7 @@ export function createShoppingItemsController({
 
   return {
     create,
+    createMany,
     update,
     remove,
     toggleCompleted,

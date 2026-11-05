@@ -90,7 +90,7 @@ assertMatchTypes(result, ['due']);
 
 console.log('✅ Quick-add parser test passed');
 
-for (const consumer of ['todo-quick-add.js', 'todo-multi-add.js', 'shopping-item-editor.js']) {
+for (const consumer of ['todo-quick-add.js', 'multi-add.js', 'shopping-item-editor.js']) {
   const source = await readFile(new URL(`../web/static/js/features/${consumer}`, import.meta.url), 'utf8');
   assert.match(source, /from '\.\/quick-add\.js'/, `${consumer} must consume the neutral primitive`);
   assert.doesNotMatch(source, /chip\.className\s*=\s*.*quick-add-chip/, `${consumer} must not retain a second chip renderer`);
