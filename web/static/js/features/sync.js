@@ -324,7 +324,7 @@ export function createSyncFeature({
       case 'DELETE_SHOPPING_SECTION':
         return { ...item, data: { shopping_list_id: data.shopping_list_id, section_id: data.section_id } };
       case 'CREATE_SHOPPING_ITEM':
-        return { ...item, data: { shopping_list_id: data.shopping_list_id, temp_id: data.temp_id, item: pickAllowed(data.item, shoppingItemFields), client_mutation_id: data.client_mutation_id } };
+        return { ...item, data: { shopping_list_id: data.shopping_list_id, temp_id: data.temp_id, item: pickAllowed(data.item, shoppingItemFields.concat('braindump_route')), client_mutation_id: data.client_mutation_id } };
       case 'UPDATE_SHOPPING_ITEM':
         return { ...item, data: { shopping_list_id: data.shopping_list_id, item_id: data.item_id, changes: pickAllowed(changes, shoppingItemFields.filter(field => field !== 'client_mutation_id').concat('completed')) } };
       case 'DELETE_SHOPPING_ITEM':

@@ -282,7 +282,7 @@ const { createSyncFeature } = await import('../web/static/js/features/sync.js');
 let queueState = [
   { id: 11, action: 'CREATE_SHOPPING_LIST', data: { temp_id: 'temp-list-2', name: 'Queued', color: '#6366f1', icon: 'shopping-cart', sort_order: 0, client_mutation_id: 'temp-list-2' } },
   { id: 12, action: 'CREATE_SHOPPING_STORE', data: { shopping_list_id: 'temp-list-2', temp_id: 'temp-store-list-remap', store: { id: 'temp-store-list-remap', shopping_list_id: 'temp-list-2', name: 'Market', active: true }, name: 'Market', sort_order: 0, client_mutation_id: 'temp-store-list-remap' } },
-  { id: 13, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 'temp-list-2', temp_id: 'temp-item-2', item: { name: 'Eggs', section_id: null, store_ids: ['temp-store-list-remap'] }, client_mutation_id: 'temp-item-2' } },
+  { id: 13, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 'temp-list-2', temp_id: 'temp-item-2', item: { name: 'Eggs', section_id: null, store_ids: ['temp-store-list-remap'], braindump_route: { original_module_id: 'shopping', original_shopping_list_id: 'temp-list-2', original_shopping_store_ids: ['temp-store-list-remap'] } }, client_mutation_id: 'temp-item-2' } },
 ];
 let shoppingState = [{ id: 'temp-list-2', name: 'Queued', sections: [], items: [{ id: 'temp-item-2', name: 'Eggs', section_id: null, store_ids: ['temp-store-list-remap'], stores: [], completed: false }], preferences: {} }];
 let shoppingStoreState = [{ id: 'temp-store-list-remap', shopping_list_id: 'temp-list-2', name: 'Market', active: true }];
@@ -293,6 +293,7 @@ const shoppingApi = {
   createItem: async (listId, data) => {
     assert.equal(listId, 70, 'dependent item create uses the remapped server list id');
     assert.deepEqual(data.store_ids, [90], 'dependent item create uses the remapped store id');
+    assert.deepEqual(data.braindump_route, { original_module_id: 'shopping', original_shopping_list_id: 70, original_shopping_store_ids: [90] }, 'offline replay preserves and remaps BrainDump feedback alongside the real item target');
     serverItems.push({ id: 200, shopping_list_id: 70, completed: false, ...data });
     return serverItems.at(-1);
   },

@@ -221,6 +221,19 @@ export function rewriteShoppingQueueReferences(queue = [], {
   return queue.map((entry) => {
     const next = clone(entry);
     const data = next.data || {};
+    const brainDumpRoute = data.item?.braindump_route;
+    if (brainDumpRoute && typeof brainDumpRoute === 'object') {
+      if (listIdFrom !== undefined && sameId(brainDumpRoute.original_shopping_list_id, listIdFrom)) {
+        brainDumpRoute.original_shopping_list_id = listIdTo;
+      }
+      if (sectionIdFrom !== undefined && sameId(brainDumpRoute.original_shopping_section_id, sectionIdFrom)) {
+        brainDumpRoute.original_shopping_section_id = sectionIdTo;
+      }
+      if (storeIdFrom !== undefined && Array.isArray(brainDumpRoute.original_shopping_store_ids)) {
+        brainDumpRoute.original_shopping_store_ids = brainDumpRoute.original_shopping_store_ids
+          .map(id => sameId(id, storeIdFrom) ? storeIdTo : id);
+      }
+    }
     if (listIdFrom !== undefined) {
       if (sameId(data.id, listIdFrom)) data.id = listIdTo;
       if (sameId(data.temp_id, listIdFrom) && next.action === 'CREATE_SHOPPING_LIST') data.temp_id = listIdTo;

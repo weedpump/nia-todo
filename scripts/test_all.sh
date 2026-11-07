@@ -115,6 +115,8 @@ run_step "Security Avatar Pixel Limit" python3 scripts/test_avatar_pixel_limit.p
 run_step "Avatar Profile Updates" python3 scripts/test_avatar_profile_update.py
 run_step "BrainDump Services" python3 scripts/test_braindump_v2_services.py
 run_step "BrainDump Extractor Normalization" python3 scripts/test_braindump_v2_extractor_normalization.py
+run_step "BrainDump Shopping Extraction" python3 scripts/test_braindump_shopping_extraction.py
+run_step "BrainDump Shopping Learning and Retry" python3 scripts/test_braindump_shopping_learning.py
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
 run_step "Recurring Todos" python3 scripts/test_recurring_todos.py
 run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.py
@@ -143,6 +145,9 @@ run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
 run_step "Product Branding" node scripts/test_product_branding.mjs
+run_step "Shared Detail Modal Frame" node scripts/test_detail_modal_frame.mjs
+run_step "BrainDump Module UI" node scripts/test_frontend_braindump_modules.mjs
+run_step "BrainDump Shopping Offline Queue" node scripts/test_braindump_shopping_queue.mjs
 run_step "Module Shell" node scripts/test_module_shell.mjs
 run_step "Shared Topbar Toggle" node scripts/test_topbar_toggle.mjs
 run_step "Shared Completed Visibility" node scripts/test_shared_completed_visibility.mjs

@@ -202,7 +202,36 @@ const brainDumpLiveFeature = createBrainDumpLiveFeature({
   getProjects: () => projects,
   getSections: () => sections,
   getCurrentWorkspaceId: () => currentWorkspaceId,
-  getLauncherRoot: () => document.querySelector('[data-module-panel="tasks"][data-module-slot="floating"]'),
+  getLauncherRoot: () => document.getElementById('module-floating-slot'),
+  getActiveModule: () => moduleShell?.getActiveModule?.() || 'tasks',
+  getSupportedModules: () => (moduleShell?.getEnabledModules?.() || [])
+    .map(module => module.id).filter(id => ['tasks', 'shopping'].includes(id)),
+  getShoppingLists: () => shoppingLists,
+  getShoppingStores: () => shoppingStores,
+  createShoppingCandidates: async (candidates, { isCurrent = () => true } = {}) => {
+    const listId = candidates[0]?.shopping_list_id;
+    if (listId == null || !candidates.length
+      || candidates.some(candidate => String(candidate.shopping_list_id) !== String(listId))) {
+      throw new Error(t('capture.target.required'));
+    }
+    const created = await shoppingItemsController.createManyForList({
+      listId,
+      isCurrent,
+      items: candidates.map(candidate => ({
+        name: candidate.title,
+        quantity_value: candidate.quantity_value,
+        quantity_unit: candidate.quantity_unit,
+        section_id: candidate.shopping_section_id,
+        store_ids: candidate.shopping_store_ids || [],
+        client_mutation_id: candidate.client_mutation_id,
+        braindump_route: candidate.braindump_route,
+      })),
+    });
+    if (!Array.isArray(created) || created.length !== candidates.length) {
+      throw new Error(t('capture.target.required'));
+    }
+    return created;
+  },
   placesApi,
 });
 const viewPreferences = createViewPreferencesFeature({
@@ -898,7 +927,10 @@ const uiShell = createUiShell({
   },
 });
 moduleShell = createModuleShell({
-  onActiveModuleChange: moduleId => moduleSwitcher?.syncActiveModule(moduleId),
+  onActiveModuleChange: moduleId => {
+    moduleSwitcher?.syncActiveModule(moduleId);
+    brainDumpLiveFeature.refreshLauncher?.();
+  },
   getUser: () => currentUser,
 });
 moduleSwitcher = createModuleSwitcher({
@@ -1247,7 +1279,7 @@ const appLifecycle = createAppLifecycle({
   onAppReady: () => {
     dashboardPreferencesSyncFeature.initialize();
     serverUpdateIndicator.loadStatus();
-    brainDumpLiveFeature.init();
+    brainDumpLiveFeature.init({ forceAccess: true });
     whatsNewFeature.maybeShowWhatsNew().catch((error) => {
       console.warn("What's new content unavailable:", error);
     });

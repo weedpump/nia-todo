@@ -224,8 +224,7 @@
 .braindump-candidate-card:first-child { border-top: 0; }
 .braindump-modal.is-processing .braindump-candidate-card { animation: none; }
 .braindump-candidate-card > input[type="checkbox"] { position:absolute; opacity:0; pointer-events:none; }
-.braindump-candidate-card .todo-body,
-.braindump-candidate-card .todo-body.has-meta {
+.braindump-candidate-card .braindump-candidate-body {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -233,7 +232,7 @@
   gap: 7px;
 }
 
-.braindump-candidate-card .todo-main {
+.braindump-candidate-card .braindump-candidate-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -241,7 +240,7 @@
   order: 1;
 }
 
-.braindump-candidate-card .todo-title {
+.braindump-candidate-card .braindump-candidate-title {
   align-self: start;
   min-width: 0;
   max-width: 100%;
@@ -446,3 +445,16 @@
   #braindump-create { order: 3; }
 }
 
+
+/* Shared capture review: domain adapters supply fields, never separate windows. */
+.braindump-fab[hidden] { display: none !important; }
+.braindump-candidate-body { flex: 1 1 auto; }
+.braindump-candidate-title { overflow-wrap: anywhere; }
+.braindump-meta-row { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.braindump-meta-row .ui-badge { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+.braindump-check.ui-checkbox-label { flex: 0 0 auto; margin-top: 3px; }
+.braindump-candidate-card.is-saved { opacity: .72; }
+.braindump-route-error { color: var(--danger); font-size: 12px; order: 3; overflow-wrap: anywhere; }
+.braindump-saved { align-self: flex-start; order: 3; }
+.braindump-quickfix-panel { min-width: 0; }
+.braindump-quickfix-panel .ui-select { min-width: 0; max-width: 100%; }

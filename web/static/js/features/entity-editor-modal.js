@@ -1,4 +1,5 @@
 import { escapeHtmlAttr } from '../core/utils.js';
+import { renderDetailModalFrame } from '../ui/detail-modal.js';
 import { t } from '../i18n/index.js';
 import { renderEntityAppearanceFields } from './entity-appearance.js';
 import { renderEntityDetailHeader } from './entity-detail-header.js';
@@ -26,10 +27,11 @@ export function renderEntityEditorModal({
   const modalId = `${prefix}-modal`;
   const formId = `${prefix}-form`;
   const menuId = `${prefix}-detail-header-menu`;
-  return `<div class="modal ui-detail-modal ui-detail-view" id="${escapeHtmlAttr(modalId)}" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="${escapeHtmlAttr(prefix)}-modal-title">
-    <div class="modal-overlay" data-close-modal="${escapeHtmlAttr(modalId)}"></div>
-    <div class="${['modal-content', 'entity-modal-content', ...contentClassNames, 'ui-detail-modal-content'].filter(Boolean).map(escapeHtmlAttr).join(' ')}">
-      ${renderEntityDetailHeader({
+  return renderDetailModalFrame({
+    id: modalId,
+    contentClasses: ['modal-content', 'entity-modal-content', ...contentClassNames, 'ui-detail-modal-content'],
+    rootAttributes: { role: 'dialog', 'aria-modal': 'true', 'aria-hidden': 'true', 'aria-labelledby': `${prefix}-modal-title` },
+    headerHtml: renderEntityDetailHeader({
         headerClassNames,
         icon,
         title: { id: `${prefix}-modal-title`, key: createTitleKey },
@@ -44,17 +46,16 @@ export function renderEntityEditorModal({
           </details>
           <button type="button" class="modal-close-x" data-close-modal="${escapeHtmlAttr(modalId)}" aria-label="${keyText('common.close')}" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
         `,
-      })}
-      <div class="modal-body entity-modal-body ui-detail-modal-body">
+      }),
+    bodyHtml: `
         <form id="${escapeHtmlAttr(formId)}" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="${escapeHtmlAttr(prefix)}-id">
           ${renderEntityAppearanceFields({ prefix })}
           ${formContentHtml}
         </form>
         ${sharingHtml}
-      </div>
-    </div>
-  </div>`;
+    `,
+  });
 }
 
 export function createEntityEditorModalController({

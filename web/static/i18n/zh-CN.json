@@ -1789,9 +1789,9 @@
   "admin.user.totalCount": "{total}个用户",
   "admin.user.admin": "管理员",
   "settings.braindump.title": "大脑转储",
-  "settings.braindump.hint": "BrainDump 可以记住您放置类似任务的位置。",
+  "settings.braindump.hint": "记住任务和购物的首选目标。",
   "settings.braindump.learning.label": "记住匹配列表",
-  "settings.braindump.learning.help": "当您将任务移至另一个列表或分区时，BrainDump 会记住您帐户的该选择，并且更有可能在下次提出建议。不会为此存储音频和语音文本。",
+  "settings.braindump.learning.help": "当你更正建议的模块、清单或分区时，BrainDump 会为你的账户记住此选择并用于后续建议。此学习功能不会存储音频或转录文本。",
   "settings.braindump.learning.count": "已为您的帐户保存 {count} 项作业。",
   "settings.braindump.learning.reset": "删除记住的作业",
   "settings.braindump.learning.enabled": "BrainDump 会记住您的作业。",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "“{list}”将对“{household}”的所有成员可见并可编辑。现有直接共享将被移除。",
   "shopping.list.transferHousehold.confirm": "转移到家庭",
   "shopping.list.transferHousehold.cancel": "保留为个人清单",
-  "shopping.list.error.transferRequiresOnline": "只有在线时才能将清单转移到家庭。"
+  "shopping.list.error.transferRequiresOnline": "只有在线时才能将清单转移到家庭。",
+  "capture.module": "模块",
+  "capture.target.chooseList": "选择购物清单",
+  "capture.target.required": "接受此条目前，请选择一个可用目标。",
+  "capture.target.list": "购物清单",
+  "capture.saved": "已接受",
+  "capture.created.one": "已接受 {count} 个条目",
+  "capture.created.many": "已接受 {count} 个条目",
+  "capture.validation.partial": "部分条目尚未接受。请检查后重试。",
+  "capture.validation.title": "请输入不超过 500 个字符的标题。",
+  "capture.pending": "确认结果不确定。请重试以完成此条目。"
 }

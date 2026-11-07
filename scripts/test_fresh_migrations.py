@@ -60,7 +60,7 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 59, latest
+        assert latest == 60, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
@@ -272,9 +272,25 @@ def main():
                 raise AssertionError("fault-injected migration 59 unexpectedly succeeded")
             assert database_snapshot(db) == before_migration_59_failure
             assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 58
+            migrate_module.apply_atomic_migration(
+                db, (MIGRATIONS_DIR / "059_add_shopping_lists.sql").read_text(), 59,
+            )
+            before_migration_60_failure = database_snapshot(db)
+            migration_60 = (MIGRATIONS_DIR / "060_add_braindump_module_routes.sql").read_text()
+            try:
+                migrate_module.apply_atomic_migration(db, migration_60 + "\nSELECT * FROM migration_60_forced_failure;\n", 60)
+            except sqlite3.OperationalError as error:
+                assert "migration_60_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 60 unexpectedly succeeded")
+            assert database_snapshot(db) == before_migration_60_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 59
+            migrate_module.apply_atomic_migration(db, migration_60, 60)
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 60
+            assert "client_mutation_id" in {row[1] for row in db.execute("PRAGMA table_info(todos)")}
         run_migrations(v55_env)
         with sqlite3.connect(v55_db_path) as db:
-            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 59
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 60
             project_member_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
             assert "is_direct_access_mirror" not in project_member_columns, project_member_columns
             migrated_grants = db.execute(

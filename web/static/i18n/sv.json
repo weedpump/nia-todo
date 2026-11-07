@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} användare",
   "admin.user.admin": "Admin",
   "settings.braindump.title": "BrainDump",
-  "settings.braindump.hint": "BrainDump kan komma ihåg var du placerar liknande uppgifter.",
+  "settings.braindump.hint": "Lär in önskade mål för uppgifter och inköp.",
   "settings.braindump.learning.label": "Kom ihåg matchande listor",
-  "settings.braindump.learning.help": "När du flyttar uppgifter till en annan lista eller sektion kommer BrainDump ihåg det valet för ditt konto och är mer sannolikt att föreslå det nästa gång. Ljud och talad text lagras inte för detta.",
+  "settings.braindump.learning.help": "När du ändrar område, lista eller avsnitt för ett förslag kommer BrainDump ihåg valet för framtida förslag på ditt konto. Ljud och transkriptioner sparas inte för denna inlärning.",
   "settings.braindump.learning.count": "{count} sparade uppgifter för ditt konto.",
   "settings.braindump.learning.reset": "Ta bort ihågkomna uppdrag",
   "settings.braindump.learning.enabled": "BrainDump kommer ihåg dina uppdrag.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "”{list}” blir synlig och redigerbar för alla medlemmar i ”{household}”. Befintliga direktdelningar tas bort.",
   "shopping.list.transferHousehold.confirm": "Överför till hushållet",
   "shopping.list.transferHousehold.cancel": "Behåll personlig",
-  "shopping.list.error.transferRequiresOnline": "Listan kan bara överföras till hushållet online."
+  "shopping.list.error.transferRequiresOnline": "Listan kan bara överföras till hushållet online.",
+  "capture.module": "Område",
+  "capture.target.chooseList": "Välj en inköpslista",
+  "capture.target.required": "Välj ett tillgängligt mål innan du godkänner den här posten.",
+  "capture.target.list": "Inköpslista",
+  "capture.saved": "Godkänd",
+  "capture.created.one": "{count} post godkänd",
+  "capture.created.many": "{count} poster godkända",
+  "capture.validation.partial": "Vissa poster har ännu inte godkänts. Kontrollera dem och försök igen.",
+  "capture.validation.title": "Ange en titel med högst 500 tecken.",
+  "capture.pending": "Bekräftelsen är osäker. Försök igen för att slutföra den här posten."
 }

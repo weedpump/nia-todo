@@ -8,6 +8,7 @@ nia-todo has many regression scripts. The default gate is intentionally release-
 - The release gate is serial and aborts on the first failure.
 - Playwright/realtime-sensitive checks retry once where useful.
 - DB-mutating tests must stay serial. Do not run review agents or another frontend/backend gate against the same dev DB at the same time.
+- Run service/database integration checks and the full gate in an isolated test environment with a dedicated service and data directory. Verify those targets and a backup/restore plan before starting; a temporary checkout alone does not isolate the installed service or DB.
 - Frontend/browser tests that touch the dev DB are grouped by DB needs:
   - no DB/static checks
   - one shared fresh frontend DB for representative core UI flows
@@ -34,6 +35,16 @@ npm run test:ui
 
 Both CI workflows build and install a real Debian package before invoking the gate through `scripts/release/install-and-test.sh`. The ordinary `tests.yml` workflow builds a test package first. A tagged `release.yml` run prepares the release version and builds the release artifacts before testing the resulting server package; publishing still depends on the package and browser gates succeeding.
 
+The current command inventory is in `scripts/test_all.sh`; the lists below summarize its coverage. Focused checks passing do not replace the complete gate before a module is approved for integration.
+
+### V4 modules and shared capture
+
+The gate covers generic entity ownership, invitations and access privacy alongside Shopping list/section/item/store lifecycle, shared editors and navigation, view preferences, offline queue/remapping and realtime snapshots. Shared Quick Add and multi-item capture checks cover both Tasks and Shopping, including localization and browser interaction. Representative entry points are `scripts/test_shopping_lists.py`, `scripts/test_entity_sharing_boundaries.py`, `scripts/test_shopping_items.mjs`, `scripts/test_frontend_shopping_bulk_add.mjs`, `scripts/test_multi_add.mjs`, `scripts/test_frontend_multi_todo_add.mjs`, `scripts/test_offline_shopping_sync.mjs`, and `scripts/test_frontend_shopping_realtime.mjs`.
+
+Changes to shared shells, editors, capture controllers, storage or sync require the relevant Tasks regressions as well as Shopping checks. Run DB-mutating checks serially under one coordinator; inspect each script's service/data configuration rather than assuming every focused check uses a temporary DB. Recipes currently has shell coverage only, not an implemented recipe domain suite.
+
+Mixed BrainDump regressions use mocked audio/extraction and isolated databases: `scripts/test_frontend_braindump_modules.mjs` covers the shared launcher, editable routing, session guards, partial retries and mobile layout; `scripts/test_braindump_shopping_queue.mjs` and `scripts/test_offline_shopping_sync.mjs` cover durable writes and reference remapping. The backend extraction/learning scripts cover permissions, opt-out/reset and idempotency; `scripts/test_fresh_migrations.py` checks upgrade rollback and retry. These checks do not exercise a real microphone, STT service or LLM.
+
 ### Security / workflow contracts
 
 - `python3 scripts/test_rate_limit.py`
@@ -56,6 +67,8 @@ Both CI workflows build and install a real Debian package before invoking the ga
 - `python3 scripts/test_braindump_v2_services.py`
 - `python3 scripts/test_braindump_v2_extractor_normalization.py`
 - `python3 scripts/test_braindump_v2_todo_creation.py`
+- `python3 scripts/test_braindump_shopping_extraction.py`
+- `python3 scripts/test_braindump_shopping_learning.py`
 - `python3 scripts/test_recurring_todos.py`
 - `python3 scripts/test_default_reminder_offset.py`
 - `python3 scripts/test_subtasks.py`

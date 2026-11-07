@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { SHOPPING_DIALOGS_HTML } from '../web/static/js/modules/shopping-dialogs.js';
 
 const shoppingModuleSource = readFileSync(new URL('../web/static/js/modules/shopping.js', import.meta.url), 'utf8');
 const shoppingDialogsSource = readFileSync(new URL('../web/static/js/modules/shopping-dialogs.js', import.meta.url), 'utf8');
@@ -9,7 +10,7 @@ const shoppingItemEditorSource = readFileSync(new URL('../web/static/js/features
 const shoppingNavigationSource = readFileSync(new URL('../web/static/js/features/shopping-navigation.js', import.meta.url), 'utf8');
 assert.match(shoppingModuleSource, /renderModulePrimaryAction/);
 assert.match(shoppingModuleSource, /data-shopping-item-action/);
-assert.match(shoppingDialogsSource, /id="shopping-item-modal"/);
+assert.match(SHOPPING_DIALOGS_HTML, /id="shopping-item-modal"/);
 assert.match(shoppingDialogsSource, /icon:\s*'shopping-cart'/, 'the item modal must use a bundled shopping icon');
 assert.doesNotMatch(shoppingDialogsSource, /icon:\s*'shopping-basket'/, 'unknown icon names fall back to the placeholder circle');
 assert.match(shoppingDialogsSource, /id="shopping-item-section"[^>]*data-ui-select/);

@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} utenti",
   "admin.user.admin": "Ammin",
   "settings.braindump.title": "BrainDump",
-  "settings.braindump.hint": "BrainDump può ricordare dove metti attività simili.",
+  "settings.braindump.hint": "Impara le destinazioni preferite per attività e acquisti.",
   "settings.braindump.learning.label": "Ricorda gli elenchi corrispondenti",
-  "settings.braindump.learning.help": "Quando sposti le attività in un altro elenco o sezione, BrainDump ricorda quella scelta per il tuo account ed è più probabile che la suggerisca la prossima volta. L'audio e il testo parlato non vengono memorizzati a questo scopo.",
+  "settings.braindump.learning.help": "Quando correggi l’area, la lista o la sezione di un suggerimento, BrainDump ricorda la scelta per i suggerimenti futuri del tuo account. Audio e trascrizioni non vengono salvati per questo apprendimento.",
   "settings.braindump.learning.count": "{count} compiti salvati per il tuo account.",
   "settings.braindump.learning.reset": "Elimina i compiti ricordati",
   "settings.braindump.learning.enabled": "BrainDump ricorderà i tuoi compiti.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "“{list}” sarà visibile e modificabile da tutti i membri di “{household}”. Le condivisioni dirette esistenti verranno rimosse.",
   "shopping.list.transferHousehold.confirm": "Trasferisci alla famiglia",
   "shopping.list.transferHousehold.cancel": "Mantieni personale",
-  "shopping.list.error.transferRequiresOnline": "La lista può essere trasferita alla famiglia solo online."
+  "shopping.list.error.transferRequiresOnline": "La lista può essere trasferita alla famiglia solo online.",
+  "capture.module": "Area",
+  "capture.target.chooseList": "Scegli una lista della spesa",
+  "capture.target.required": "Scegli una destinazione disponibile prima di confermare questa voce.",
+  "capture.target.list": "Lista della spesa",
+  "capture.saved": "Confermata",
+  "capture.created.one": "{count} voce confermata",
+  "capture.created.many": "{count} voci confermate",
+  "capture.validation.partial": "Alcune voci non sono ancora state confermate. Controllale e riprova.",
+  "capture.validation.title": "Inserisci un titolo di massimo 500 caratteri.",
+  "capture.pending": "La conferma è incerta. Riprova per completare questa voce."
 }

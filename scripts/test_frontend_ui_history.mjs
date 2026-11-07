@@ -344,11 +344,15 @@ try {
       return;
     }
     if (url.pathname === '/static/js/i18n/index.js') {
-      await route.fulfill({ contentType: 'text/javascript', body: 'export function t(key) { return key; }' });
+      await route.fulfill({ contentType: 'text/javascript', body: 'export function t(key) { return key; } export function getActiveLocale() { return "en-US"; }' });
       return;
     }
     if (url.pathname === '/static/js/icons/lucide-icons.js') {
-      await route.fulfill({ contentType: 'text/javascript', body: 'export function iconSvg() { return ""; }' });
+      await route.fulfill({ contentType: 'text/javascript', body: 'export function iconSvg() { return ""; } export function markerHtml() { return ""; }' });
+      return;
+    }
+    if (['/static/js/features/entity-sidebar.js', '/static/js/features/todo-pending.js', '/static/js/features/entity-access-privacy.js', '/static/js/core/utils.js'].includes(url.pathname)) {
+      await route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web' + url.pathname, import.meta.url), 'utf8') });
       return;
     }
     if (url.pathname === '/static/js/features/native-bridge.js') {

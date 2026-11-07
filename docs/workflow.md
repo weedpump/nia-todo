@@ -4,11 +4,16 @@
 
 - work in your local dev checkout; scripts read the path from `NIA_TODO_DEV_DIR` (defaults to the repo root)
 - do not expect or modify live data on this host; production runs on a separate LXC
-- create feature or fix branches from `main` and open pull requests directly against `main`
+- create V4 feature branches from `v4` and target their pull requests at `v4`; continue existing feature branches against their intended target
+- create fixes and dependency updates for the released product line from `main` and target `main`
 
 ## Branches
 
-- `main` -> active development, releases, and tags
+- `main` -> current released product line, its maintenance updates, releases, and tags
+- `v4` -> integration branch for the modular application shell and V4 modules
+- `feat/v4-shopping-lists` -> Shopping development, targeting `v4`
+
+Dependency updates may be merged into `main` independently and then integrated into V4 branches with validation. This does not authorize merging V4 features into `main` or triggering a release; feature integration and releases require an explicit request.
 
 ## Workflows
 

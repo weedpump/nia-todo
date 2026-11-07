@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} users",
   "admin.user.admin": "Admin",
   "settings.braindump.title": "BrainDump",
-  "settings.braindump.hint": "BrainDump can remember where you place similar tasks.",
+  "settings.braindump.hint": "Learn preferred destinations for tasks and shopping.",
   "settings.braindump.learning.label": "Remember matching lists",
-  "settings.braindump.learning.help": "When you move tasks to another list or section, BrainDump remembers that choice for your account and is more likely to suggest it next time. Audio and spoken text are not stored for this.",
+  "settings.braindump.learning.help": "When you correct a suggestion’s area, list or section, BrainDump remembers that choice for your account and uses it for future suggestions. Audio and transcripts are not stored for this learning.",
   "settings.braindump.learning.count": "{count} saved assignment(s) for your account.",
   "settings.braindump.learning.reset": "Delete remembered assignments",
   "settings.braindump.learning.enabled": "BrainDump will remember your assignments.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "“{list}” will become visible and editable to every member of “{household}”. Existing direct shares will be removed.",
   "shopping.list.transferHousehold.confirm": "Transfer to household",
   "shopping.list.transferHousehold.cancel": "Keep personal",
-  "shopping.list.error.transferRequiresOnline": "The list can only be transferred to the household while online."
+  "shopping.list.error.transferRequiresOnline": "The list can only be transferred to the household while online.",
+  "capture.module": "Area",
+  "capture.target.chooseList": "Choose a shopping list",
+  "capture.target.required": "Choose an available destination before accepting this entry.",
+  "capture.target.list": "Shopping list",
+  "capture.saved": "Accepted",
+  "capture.created.one": "{count} entry accepted",
+  "capture.created.many": "{count} entries accepted",
+  "capture.validation.partial": "Some entries remain unaccepted. Review them and try again.",
+  "capture.validation.title": "Enter a title with no more than 500 characters.",
+  "capture.pending": "Confirmation is uncertain. Retry to finish accepting this entry."
 }

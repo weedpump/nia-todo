@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} пользователей",
   "admin.user.admin": "Админ",
   "settings.braindump.title": "BrainDump",
-  "settings.braindump.hint": "BrainDump может запомнить, куда вы помещаете похожие задачи.",
+  "settings.braindump.hint": "Запоминать предпочтительные места для задач и покупок.",
   "settings.braindump.learning.label": "Запомните списки совпадений",
-  "settings.braindump.learning.help": "Когда вы перемещаете задачи в другой список или раздел, BrainDump запоминает этот выбор для вашей учетной записи и с большей вероятностью предложит его в следующий раз. Аудио и устный текст для этого не сохраняются.",
+  "settings.braindump.learning.help": "Когда вы исправляете раздел, список или категорию предложения, BrainDump запоминает ваш выбор для будущих предложений в вашем аккаунте. Аудио и расшифровки для этого обучения не сохраняются.",
   "settings.braindump.learning.count": "{count} сохранил задания для вашего аккаунта.",
   "settings.braindump.learning.reset": "Удалить запомненные задания",
   "settings.braindump.learning.enabled": "BrainDump запомнит ваши задания.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "«{list}» станет видимым и доступным для редактирования всем участникам «{household}». Существующие прямые доступы будут удалены.",
   "shopping.list.transferHousehold.confirm": "Передать домохозяйству",
   "shopping.list.transferHousehold.cancel": "Оставить личным",
-  "shopping.list.error.transferRequiresOnline": "Список можно передать домохозяйству только в сети."
+  "shopping.list.error.transferRequiresOnline": "Список можно передать домохозяйству только в сети.",
+  "capture.module": "Раздел",
+  "capture.target.chooseList": "Выберите список покупок",
+  "capture.target.required": "Выберите доступное место назначения перед добавлением этой записи.",
+  "capture.target.list": "Список покупок",
+  "capture.saved": "Добавлено",
+  "capture.created.one": "Добавлена {count} запись",
+  "capture.created.many": "Добавлено {count} записей",
+  "capture.validation.partial": "Некоторые записи ещё не добавлены. Проверьте их и повторите попытку.",
+  "capture.validation.title": "Введите заголовок длиной не более 500 символов.",
+  "capture.pending": "Подтверждение не получено. Повторите попытку, чтобы завершить добавление записи."
 }

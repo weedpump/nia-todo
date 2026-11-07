@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { TASK_DIALOGS_HTML } from '../web/static/js/modules/tasks-dialogs.js';
 import { existsSync, readFileSync } from 'node:fs';
 import {
   LEGACY_MODULE_STORAGE_KEY,
@@ -165,8 +166,7 @@ assert(tasksSource.includes('id="project-list"'), 'tasks module must own project
 assert(tasksSource.includes('id="todo-list"'), 'tasks module must own task content');
 for (const modalId of ['dashboard-preferences-modal', 'todo-modal', 'project-modal', 'attachment-preview-modal', 'android-location-permission-modal']) {
   assert(!indexSource.includes(`id="${modalId}"`), `${modalId} must no longer be static app-shell markup`);
-  if (modalId === 'project-modal') assert(taskDialogsSource.includes("prefix: 'project'"), 'tasks module must own project-modal through the shared renderer');
-  else assert(taskDialogsSource.includes(`id="${modalId}"`), `tasks module must own ${modalId}`);
+  assert(TASK_DIALOGS_HTML.includes(`id="${modalId}"`), `tasks module must provide ${modalId} through the shared renderer`);
 }
 assert(tasksSource.includes('id="module-user-menu-slot"') === false, 'tasks must fill the provided user-menu slot rather than define the shell slot');
 const shortcutsModalSource = indexSource.slice(indexSource.indexOf('id="shortcuts-modal"'), indexSource.indexOf('id="app-downloads-modal"'));
@@ -175,10 +175,13 @@ assert(!shortcutsModalSource.includes('shortcuts.newTodo'), 'task shortcuts must
 assert(taskShortcutsSource.includes('shortcuts.newTodo'), 'tasks module must own task-specific shortcuts');
 assert(workspacesSource.includes('workspaceIndexFromShortcut(event)'), 'workspace switching must remain a shared app shortcut');
 assert(!workspacesSource.includes('getActiveModule'), 'workspace shortcuts must not be restricted to the tasks module');
-for (const settingId of ['settings-section-default-reminder', 'settings-section-attachments', 'settings-section-places', 'settings-section-braindump', 'desktop-hotkey-new-todo', 'desktop-hotkey-search']) {
+for (const settingId of ['settings-section-default-reminder', 'settings-section-attachments', 'settings-section-places', 'desktop-hotkey-new-todo', 'desktop-hotkey-search']) {
   assert(!indexSource.includes(`id="${settingId}"`), `${settingId} must not remain static shell content`);
   assert(taskSettingsSource.includes(`id="${settingId}"`), `tasks module must own ${settingId}`);
 }
+assert(indexSource.includes('id="settings-section-braindump"'), 'shared BrainDump settings must remain available without Tasks');
+assert(indexSource.includes('id="settings-nav-braindump"'), 'shared BrainDump settings need a General navigation entry');
+assert(!taskSettingsSource.includes('id="settings-section-braindump"'), 'Tasks must not duplicate shared BrainDump settings');
 assert(moduleCss.includes('.module-slot-panel[hidden]'), 'inactive module panels must be hidden by the shared slot system');
 assert(!shoppingSource.includes('createEmptyModule'), 'shopping must mount its real module frame');
 assert(shoppingSource.includes('id="shopping-list-sidebar"'), 'shopping must own its sidebar navigation slot');

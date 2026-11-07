@@ -13,9 +13,10 @@ import time
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from db import get_db
 from routers.auth import require_auth
@@ -35,12 +36,19 @@ from routers.todos import (
 from urllib.parse import urlparse
 
 from services.braindump_config import build_effective_system_prompt, get_braindump_config, llm_chat_url, parse_extra_headers
+from services.braindump_candidates import candidate_context_payload, enabled_candidate_modules, is_shopping_candidate, load_shopping_context, normalize_candidates
 from services.braindump_v2 import (
     append_text_segment,
     create_session,
     ensure_braindump_enabled,
     finalize_session,
     get_session,
+)
+from services.braindump_routes import (
+    BRAINDUMP_LEARNING_APPLY_MIN_SCORE, BRAINDUMP_LEARNING_APPLY_MIN_MARGIN,
+    BRAINDUMP_LEARNING_OVERRIDE_MIN_SCORE, BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN,
+    BrainDumpRouteFeedback, _learning_tokens, learning_enabled_for_user as _learning_enabled_for_user,
+    module_learning_row_count, reset_module_learning, record_confirmed_route, apply_module_routes,
 )
 from services.ops_stats import increment_duration_metric, increment_endpoint_counter, increment_llm_usage_metrics
 from services.sharing import get_project_access_flags, get_project_ids_for_user
@@ -58,39 +66,6 @@ WHISPER_MODELS = {
     "base": Path("/opt/whisper.cpp/models/ggml-base.bin"),
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
 }
-def _clean_title(value: str) -> str:
-    value = str(value or "").strip(" .,:;!?-–—\t\n\r")
-    return value[:1].upper() + value[1:] if value else ""
-
-
-def _item_key(value: str) -> str:
-    return re.sub(r"[^a-z0-9äöüß]+", "", value.lower())
-
-
-def _candidate_key(candidate: dict) -> str:
-    return _item_key(str(candidate.get("title") or ""))
-
-
-def _keys_equivalent(left: str, right: str) -> bool:
-    if left == right:
-        return True
-    if min(len(left), len(right)) < 4:
-        return False
-    return abs(len(left) - len(right)) <= 3 and (left.startswith(right) or right.startswith(left))
-
-
-def _dedupe_normalized_candidates(candidates: list[dict]) -> list[dict]:
-    result = []
-    seen = []
-    for candidate in candidates:
-        key = _candidate_key(candidate)
-        if not key or any(_keys_equivalent(key, existing) for existing in seen):
-            continue
-        seen.append(key)
-        result.append(candidate)
-    return result
-
-
 def _parse_relative_temporal(value: str) -> tuple[str, bool] | None:
     raw = str(value or "").strip()
     clean = re.sub(r"\s+", " ", raw.lower())
@@ -390,16 +365,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
     if not isinstance(candidates, list):
         candidates = []
-    normalized = []
-    for candidate in candidates:
-        if isinstance(candidate, str):
-            candidate = {"title": candidate}
-        if not isinstance(candidate, dict):
-            continue
-        title = str(candidate.get("title") or candidate.get("task") or candidate.get("text") or candidate.get("item") or candidate.get("name") or "").strip()
-        if not title:
-            continue
-        title = _clean_title(title)
+    def normalize_task(candidate: dict, title: str) -> dict:
         project_name = candidate.get("project_name") or candidate.get("projectName")
         deadline_source = candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate") or candidate.get("due_datetime") or candidate.get("dueDatetime")
         reminder_source = candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt") or candidate.get("reminder_datetime") or candidate.get("reminderDatetime")
@@ -408,7 +374,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         if deadline and reminder_source and not reminder and _temporal_has_explicit_time(deadline_source):
             reminder = deadline
         recurring_source = candidate.get("recurring_rule") or candidate.get("recurringRule") or candidate.get("repeat") or candidate.get("recurrence") or candidate.get("repetition")
-        normalized.append(_route_workspace_candidate({
+        return _route_workspace_candidate({
             "title": title,
             "project_name": project_name or candidate.get("project"),
             "section_name": candidate.get("section_name") or candidate.get("sectionName") or candidate.get("section"),
@@ -416,8 +382,8 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             "reminder": reminder,
             "recurring_rule": _normalize_braindump_recurring_rule(recurring_source, has_deadline=bool(deadline)),
             "location_reminder": candidate.get("location_reminder") or candidate.get("locationReminder") or candidate.get("location") or candidate.get("place"),
-        }, workspace_context))
-    return {"candidates": _dedupe_normalized_candidates(normalized)}
+        }, workspace_context)
+    return {"candidates": normalize_candidates(candidates, workspace_context, normalize_task)}
 
 
 class TextSegmentRequest(BaseModel):
@@ -426,7 +392,18 @@ class TextSegmentRequest(BaseModel):
 
 
 class BrainDumpTodoCandidate(BaseModel):
+    module_id: Literal["tasks"] = "tasks"
+    client_mutation_id: str | None = Field(default=None, max_length=200)
+    braindump_route: BrainDumpRouteFeedback | None = None
     title: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_shopping_candidate(cls, value):
+        if isinstance(value, dict) and is_shopping_candidate(value):
+            raise ValueError("Shopping candidates cannot be saved as tasks")
+        return value
+
     notes: str = ""
     project_name: str | None = None
     section_name: str | None = None
@@ -449,6 +426,7 @@ class BrainDumpLearningSettingsRequest(BaseModel):
 
 
 class BrainDumpExtractRequest(BaseModel):
+    supported_modules: list[Literal["tasks", "shopping"]] = Field(default_factory=lambda: ["tasks"], max_length=2)
     transcript: str
     segment_id: int
     audio_start_ms: int = 0
@@ -683,6 +661,7 @@ def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None
         "workspace_name": workspace_names[0] if workspace_id is not None and workspace_names else None,
         "projects": [
             {
+                "id": row["id"],
                 "name": row["name"],
                 "workspace": row["workspace_name"],
                 "is_inbox": bool(row["is_inbox"]),
@@ -692,6 +671,16 @@ def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None
         ],
         "places": places,
     }
+
+
+def _load_braindump_extraction_context(db, user_id: int, workspace_id: int | None = None, supported_modules: list[str] | None = None) -> dict:
+    modules = enabled_candidate_modules(db, user_id, supported_modules)
+    context = (_load_braindump_workspace_context(db, user_id, workspace_id) if "tasks" in modules
+               else {"workspace_id": None, "workspace_name": None, "projects": [], "places": []})
+    context["supported_modules"] = modules
+    context["typed_candidates"] = supported_modules is not None
+    context["shopping_lists"] = load_shopping_context(db, user_id) if "shopping" in modules else []
+    return context
 
 
 def _format_workspace_context(context: dict | None) -> str:
@@ -728,12 +717,16 @@ def _format_workspace_context(context: dict | None) -> str:
         payload["rules"].append("No projects are available; use project_name=null and section_name=null.")
     if not payload["places"]:
         payload["rules"].append("No saved places are available; use location_reminder=null.")
+    payload.update(candidate_context_payload(context))
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     while len(text) > 5000 and len(payload["projects"]) > 1:
         payload["projects"] = payload["projects"][:-1]
         text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     while len(text) > 5000 and len(payload["places"]) > 1:
         payload["places"] = payload["places"][:-1]
+        text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    while len(text) > 12000 and payload.get("shopping_lists"):
+        payload["shopping_lists"].pop()
         text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     return text
 
@@ -742,41 +735,6 @@ def _name_key(value: str | None) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
 
 
-BRAINDUMP_LEARNING_MIN_TOKEN_LENGTH = 3
-BRAINDUMP_LEARNING_MAX_TOKENS = 12
-BRAINDUMP_LEARNING_APPLY_MIN_SCORE = 2
-BRAINDUMP_LEARNING_APPLY_MIN_MARGIN = 2
-BRAINDUMP_LEARNING_OVERRIDE_MIN_SCORE = 4
-BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN = 3
-
-BRAINDUMP_LEARNING_STOPWORDS = {
-    "aber", "alle", "alles", "also", "and", "auf", "aus", "bei", "bitte", "das", "den", "der", "die", "dies", "ein", "eine", "einen", "einer", "eines", "for", "für", "hab", "habe", "ich", "im", "in", "ist", "it", "mit", "nach", "noch", "oder", "of", "the", "to", "und", "vom", "von", "was", "wir", "zum", "zur",
-    "add", "aufgabe", "besorgen", "brauche", "bring", "bringen", "buy", "erinnere", "erinnern", "holen", "kaufen", "mach", "machen", "need", "todo", "tun",
-}
-
-
-def _learning_tokens(title: str) -> list[str]:
-    tokens = []
-    seen = set()
-    for token in re.findall(r"[\wäöüÄÖÜß]+", str(title or "").casefold(), flags=re.UNICODE):
-        token = token.strip("_")
-        if len(token) < BRAINDUMP_LEARNING_MIN_TOKEN_LENGTH or token.isdigit() or token in BRAINDUMP_LEARNING_STOPWORDS:
-            continue
-        if token in seen:
-            continue
-        seen.add(token)
-        tokens.append(token)
-        if len(tokens) >= BRAINDUMP_LEARNING_MAX_TOKENS:
-            break
-    return tokens
-
-
-def _learning_enabled_for_user(db, user_id: int) -> bool:
-    try:
-        row = db.execute("SELECT COALESCE(braindump_learning_enabled, 1) AS enabled FROM users WHERE id = ?", (user_id,)).fetchone()
-    except sqlite3.OperationalError:
-        return True
-    return bool(row and row["enabled"])
 
 
 def _learning_row_count(db, user_id: int) -> int:
@@ -784,7 +742,7 @@ def _learning_row_count(db, user_id: int) -> int:
         row = db.execute("SELECT COUNT(*) AS count FROM braindump_route_learning WHERE user_id = ?", (user_id,)).fetchone()
     except sqlite3.OperationalError:
         return 0
-    return int(row["count"] if row else 0)
+    return int(row["count"] if row else 0) + module_learning_row_count(db, user_id)
 
 
 def _learn_braindump_route(db, user_id: int, workspace_id: int | None, title: str, project_id: int | None, section_id: int | None, *, corrected: bool = False):
@@ -905,7 +863,7 @@ def _best_learned_route(db, user_id: int, workspace_id: int | None, title: str) 
     return best["project_id"], best["section_id"], int(best["score"] or 0), second_score
 
 
-def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: dict) -> dict:
+def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: dict, context: dict | None = None) -> dict:
     if not _learning_enabled_for_user(db, user_id):
         return parsed
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
@@ -916,7 +874,7 @@ def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: di
         project_ids: set[int] = set()
         section_ids: set[int] = set()
         for candidate in candidates:
-            if not isinstance(candidate, dict):
+            if not isinstance(candidate, dict) or candidate.get("module_id", "tasks") != "tasks":
                 route_results.append(None)
                 continue
             project_id, section_id, score, second_score = _best_learned_route(db, user_id, workspace_id, str(candidate.get("title") or ""))
@@ -958,8 +916,11 @@ def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: di
             else:
                 routed["section_name"] = None
             routed_candidates.append(routed)
-        return {**parsed, "candidates": routed_candidates}
+        result = {**parsed, "candidates": routed_candidates}
+        return apply_module_routes(db, user_id, workspace_id, result, context) if context is not None else result
     except sqlite3.OperationalError:
+        if context is not None and context.get("typed_candidates"):
+            raise
         return parsed
 
 
@@ -973,7 +934,7 @@ def _reset_braindump_learning(db, user_id: int) -> int:
         cursor = db.execute("DELETE FROM braindump_route_learning WHERE user_id = ?", (user_id,))
     except sqlite3.OperationalError:
         return 0
-    return int(cursor.rowcount or 0)
+    return int(cursor.rowcount or 0) + reset_module_learning(db, user_id)
 
 
 def _resolve_project_target(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> tuple[int | None, bool]:
@@ -1002,6 +963,8 @@ def _resolve_section_id(db, project_id: int | None, section_name: str | None) ->
 
 
 def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[BrainDumpTodoCandidate], workspace_id: int | None = None) -> list[dict]:
+    if not db.in_transaction:
+        db.execute("BEGIN IMMEDIATE")
     workspace_id = _ensure_workspace_access(db, user_id, workspace_id)
     if not candidates:
         raise HTTPException(422, "No BrainDump candidates selected")
@@ -1010,6 +973,17 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
     created = []
     now = datetime.now().astimezone().isoformat(timespec="seconds")
     for candidate in candidates:
+        mutation_id = (candidate.client_mutation_id or "").strip() or None
+        if mutation_id:
+            existing = db.execute("SELECT id, project_id, section_id, user_id FROM todos WHERE client_mutation_user_id = ? AND client_mutation_id = ?", (user_id, mutation_id)).fetchone()
+            if existing:
+                if existing["project_id"] is None and existing["user_id"] != user_id:
+                    raise HTTPException(403, "Not authorized")
+                _validate_todo_target(db, existing["project_id"], existing["section_id"], user_id)
+                todo = fetch_todo(db, existing["id"], user_id)
+                if todo is not None:
+                    created.append(todo)
+                    continue
         title = sanitize_text(candidate.title)
         notes = sanitize_text(candidate.notes or "")
         if not title:
@@ -1035,9 +1009,9 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
         recurring_rule = _normalize_recurring_rule(data.recurring_rule) if data.due_date else None
         cursor = db.execute(
             """INSERT INTO todos
-               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, None, recurring_rule, now, user_id),
+               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id, client_mutation_id, client_mutation_user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, None, recurring_rule, now, user_id, mutation_id, user_id if mutation_id else None),
         )
         todo_id = cursor.lastrowid
         if data.remind_at:
@@ -1050,16 +1024,23 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
                 _insert_location_reminder(db, todo_id, user_id, location)
         todo = fetch_todo(db, todo_id, user_id)
         if todo:
+            feedback = candidate.braindump_route
+            original_name = feedback.original_project_name if feedback else candidate.original_project_name
+            original_section = feedback.original_section_name if feedback else candidate.original_section_name
+            original_present = feedback.original_route_present if feedback else candidate.original_route_present
+            corrected_route = bool(original_present and feedback and feedback.original_module_id == "shopping")
             if project_matched:
                 original_project_id, original_section_id, original_matched = None, None, False
-                if candidate.original_project_name:
-                    original_project_id, original_matched = _resolve_project_target(db, user_id, candidate.original_project_name, workspace_id)
-                    original_section_id = _resolve_section_id(db, original_project_id, candidate.original_section_name) if original_matched else None
-                corrected_route = bool(
-                    candidate.original_route_present
-                    and (not original_matched or original_project_id != data.project_id or original_section_id != data.section_id)
+                if original_name:
+                    original_project_id, original_matched = _resolve_project_target(db, user_id, original_name, workspace_id)
+                    original_section_id = _resolve_section_id(db, original_project_id, original_section) if original_matched else None
+                corrected_route = corrected_route or bool(
+                    original_present and (not original_matched or original_project_id != data.project_id or original_section_id != data.section_id)
                 )
                 _learn_braindump_route(db, user_id, workspace_id, data.title, data.project_id, data.section_id, corrected=corrected_route)
+            record_confirmed_route(db, user_id, data.title, "tasks", workspace_id=workspace_id,
+                                   project_id=data.project_id, task_section_id=data.section_id,
+                                   feedback=feedback, corrected=corrected_route)
             created.append(todo)
     return created
 
@@ -1176,7 +1157,7 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     config = config or get_braindump_config(include_secrets=True)
     base_url = str(config.get("llm_base_url") or "").strip()
     token = str(config.get("llm_api_key") or "").strip()
-    system_prompt = build_effective_system_prompt(config)
+    system_prompt = build_effective_system_prompt(config, supported_modules=(workspace_context or {}).get("supported_modules") if (workspace_context or {}).get("typed_candidates") else None)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
     model_name = str(config.get("llm_model") or "").strip()
@@ -1340,13 +1321,14 @@ async def extract_live_text_segment(request: Request, data: BrainDumpExtractRequ
     config = get_braindump_config(include_secrets=True)
     received_at = time.perf_counter()
     with get_db() as db:
-        workspace_context = _load_braindump_workspace_context(db, user_id, data.workspace_id)
+        requested_modules = data.supported_modules if "supported_modules" in data.model_fields_set else None
+        workspace_context = _load_braindump_extraction_context(db, user_id, data.workspace_id, requested_modules)
     try:
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, data.segment_id, workspace_context, config
         )
         with get_db() as db:
-            parsed = _apply_learned_routes(db, user_id, data.workspace_id, parsed)
+            parsed = _apply_learned_routes(db, user_id, data.workspace_id, parsed, workspace_context)
         raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except Exception as exc:
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=500)
@@ -1378,6 +1360,7 @@ async def process_live_audio_segment(
     audio_end_ms: int = Query(0),
     model: str = Query("base"),
     workspace_id: int | None = Query(None),
+    supported_modules: list[Literal["tasks", "shopping"]] | None = Query(None, max_length=2),
     user_id: int = Depends(require_auth),
 ):
     """Backward-compatible combined live endpoint: transcribe, then extract."""
@@ -1387,7 +1370,7 @@ async def process_live_audio_segment(
     content_type = request.headers.get("content-type", "")
     audio_bytes = await request.body()
     with get_db() as db:
-        workspace_context = _load_braindump_workspace_context(db, user_id, workspace_id)
+        workspace_context = _load_braindump_extraction_context(db, user_id, workspace_id, supported_modules)
     stt_counted = False
     llm_counted = False
     try:
@@ -1405,7 +1388,7 @@ async def process_live_audio_segment(
         increment_llm_usage_metrics("live_text_extract", usage)
         llm_counted = True
         with get_db() as db:
-            parsed = _apply_learned_routes(db, user_id, workspace_id, parsed)
+            parsed = _apply_learned_routes(db, user_id, workspace_id, parsed, workspace_context)
         raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except ValueError as exc:
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment", status_code=400)

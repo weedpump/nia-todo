@@ -1,4 +1,5 @@
 import { escapeHtmlAttr } from '../core/utils.js';
+import { renderDetailModalFrame } from '../ui/detail-modal.js';
 import { t } from '../i18n/index.js';
 import { renderEntityEditorModal } from '../features/entity-editor-modal.js';
 import { renderEntityDetailHeader } from '../features/entity-detail-header.js';
@@ -23,10 +24,10 @@ export const SHOPPING_DIALOGS_HTML = `
     sharingHtml: renderEntityDirectSharingSection({ prefix: 'shopping-list', leaveKey: 'shopping.list.share.leave' }),
   })}
 
-  <div class="modal ui-detail-modal ui-detail-view" id="shopping-store-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="shopping-store-modal-title">
-    <div class="modal-overlay" data-close-modal="shopping-store-modal"></div>
-    <div class="modal-content entity-modal-content ui-detail-modal-content">
-      ${renderEntityDetailHeader({
+  ${renderDetailModalFrame({
+    id: 'shopping-store-modal',
+    rootAttributes: { role: 'dialog', 'aria-modal': 'true', 'aria-hidden': 'true', 'aria-labelledby': 'shopping-store-modal-title' },
+    headerHtml: renderEntityDetailHeader({
         icon: 'store',
         title: {
           id: 'shopping-store-modal-title',
@@ -45,8 +46,8 @@ export const SHOPPING_DIALOGS_HTML = `
           </details>
           <button type="button" class="modal-close-x" data-close-modal="shopping-store-modal" aria-label="${escapeHtmlAttr(t('common.close'))}" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
         `,
-      })}
-      <div class="modal-body entity-modal-body ui-detail-modal-body">
+      }),
+    bodyHtml: `
         <form id="shopping-store-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="shopping-store-list-id">
           <input type="hidden" id="shopping-store-id">
@@ -58,14 +59,13 @@ export const SHOPPING_DIALOGS_HTML = `
           </section>
           <div class="settings-field-error" id="shopping-store-edit-error" role="alert"></div>
         </form>
-      </div>
-    </div>
-  </div>
+    `,
+  })}
 
-  <div class="modal ui-detail-modal ui-detail-view" id="shopping-item-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="shopping-item-modal-title">
-    <div class="modal-overlay" data-close-modal="shopping-item-modal"></div>
-    <div class="modal-content entity-modal-content ui-detail-modal-content">
-      ${renderEntityDetailHeader({
+  ${renderDetailModalFrame({
+    id: 'shopping-item-modal',
+    rootAttributes: { role: 'dialog', 'aria-modal': 'true', 'aria-hidden': 'true', 'aria-labelledby': 'shopping-item-modal-title' },
+    headerHtml: renderEntityDetailHeader({
         icon: 'shopping-cart',
         title: {
           id: 'shopping-item-modal-title',
@@ -85,8 +85,8 @@ export const SHOPPING_DIALOGS_HTML = `
           </details>
           <button type="button" class="modal-close-x" data-close-modal="shopping-item-modal" aria-label="${escapeHtmlAttr(t('common.close'))}" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
         `,
-      })}
-      <div class="modal-body entity-modal-body ui-detail-modal-body">
+      }),
+    bodyHtml: `
         <form id="shopping-item-form" class="entity-modal-form ui-detail-shell">
           ${renderMultiAddModeSwitch({ prefix: 'shopping-item', singleKey: 'shopping.multiAdd.modeSingle', multipleKey: 'shopping.multiAdd.modeMultiple' })}
           <section class="ui-section-card ui-detail-section ui-section-divider ui-detail-title-section ui-multi-add-single">
@@ -142,7 +142,6 @@ export const SHOPPING_DIALOGS_HTML = `
           })}
           <div class="settings-field-error" id="shopping-item-error" role="alert"></div>
         </form>
-      </div>
-    </div>
-  </div>
+    `,
+  })}
 `;

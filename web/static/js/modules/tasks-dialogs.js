@@ -1,3 +1,4 @@
+import { renderDetailModalFrame } from '../ui/detail-modal.js';
 import { renderMultiAddModeSwitch, renderMultiAddPanel } from '../features/multi-add.js';
 import { escapeHtmlAttr } from '../core/utils.js';
 import { renderEntityDirectSharingSection } from '../features/entity-direct-sharing.js';
@@ -177,10 +178,12 @@ export const TASK_DIALOGS_HTML = `
   </div>
 
   <!-- Todo Modal -->
-  <div class="modal ui-detail-modal" id="todo-modal">
-    <div class="modal-overlay" data-close-modal="todo-modal"></div>
-    <div class="modal-content todo-modal-content ui-detail-modal-content">
-      <div class="todo-modal-header ui-detail-modal-header">
+  ${renderDetailModalFrame({
+    id: 'todo-modal',
+    rootClasses: ['modal', 'ui-detail-modal'],
+    contentClasses: ['modal-content', 'todo-modal-content', 'ui-detail-modal-content'],
+    bodyClasses: ['modal-body', 'todo-modal-body', 'ui-detail-modal-body'],
+    headerHtml: `<div class="todo-modal-header ui-detail-modal-header">
         <div class="todo-modal-title-icon ui-detail-title-icon" data-icon="check-circle"></div>
         <div>
           <h3 id="todo-modal-title" data-i18n-key="todo.new">New todo</h3>
@@ -197,8 +200,8 @@ export const TASK_DIALOGS_HTML = `
           </details>
           <button class="modal-close-x" data-close-modal="todo-modal"><span data-icon="x"></span></button>
         </div>
-      </div>
-      <div class="modal-body todo-modal-body ui-detail-modal-body">
+      </div>`,
+    bodyHtml: `
       <form id="todo-form" class="todo-modal-form todo-editor-shell ui-detail-shell">
         <input type="hidden" id="todo-id">
         ${renderMultiAddModeSwitch({prefix:'todo',singleKey:'todo.multiAdd.modeSingle',multipleKey:'todo.multiAdd.modeMultiple'})}
@@ -452,9 +455,8 @@ export const TASK_DIALOGS_HTML = `
             <div id="todo-location-error" class="form-error compact"></div>
         </section>
       </form>
-      </div>
-    </div>
-  </div>
+    `,
+  })}
 
   ${renderEntityEditorModal({
     prefix: 'project',

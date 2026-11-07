@@ -52,6 +52,16 @@
 - WebSocket/sync keeps local data and server state in sync
 - server refresh writes the authoritative state directly into IndexedDB so reloads after login stay stable
 
+## Shared BrainDump capture and routing
+
+- Extraction is shared infrastructure. Common candidate normalization and routing contracts live in `api/services/braindump_candidates.py`; module-specific fields remain separate.
+- New extraction clients opt in with `supported_modules` (`tasks` and/or `shopping`). Available candidate types are intersected with the account's enabled modules. Omitting the capability preserves the existing task-only response shape.
+- Opted-in candidates use `module_id`. Shopping targets use `shopping_list_id`, `shopping_section_id`, and `shopping_store_ids`; they never reuse project, task-section, or workspace identifiers. Shopping-only extraction does not require a Tasks workspace.
+- The LLM receives bounded, authorized routing metadata, not Shopping item contents. Unknown or ambiguous Shopping targets remain unresolved; extraction neither creates a default list nor converts an unavailable Shopping suggestion into a Todo.
+- A single launcher and review controller serves enabled Tasks and Shopping modules. The shared candidate editor keeps module-specific drafts and allows correcting the destination. Unresolved destinations block saving. The dialog frame is shared with the existing entity and item editors; learning settings live in the application's General settings.
+- Confirmation uses each module's existing mutation path and revalidates access. Shopping items enter the durable offline queue with stable mutation IDs, including target remapping for locally created lists, sections and stores. Tasks use actor-scoped idempotent receipts; an uncertain response retains the submitted payload until its retry resolves. Completed groups remain saved if a later group fails.
+- Typed routing feedback is recorded atomically with creation and only once per mutation. Learned routes retain domain IDs, are reauthorized before reuse, respect learning opt-out/reset, and do not replace explicit deadlines, recurrence, location, quantities or units with another candidate type. The Todo endpoint rejects Shopping candidates.
+
 ## Native Apps
 
 Native apps are shipped from the same Tauri codebase and share the web UI version with the server release. They are not pure remote WebViews: the app bundles a local UI shell, stores the configured server URL locally, verifies the target server through `/api/instance`, and uses that URL as API/WebSocket base.

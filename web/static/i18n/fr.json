@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} utilisateurs",
   "admin.user.admin": "Administrateur",
   "settings.braindump.title": "Décharge cérébrale",
-  "settings.braindump.hint": "BrainDump peut se souvenir de l'endroit où vous placez des tâches similaires.",
+  "settings.braindump.hint": "Apprendre les destinations préférées des tâches et des courses.",
   "settings.braindump.learning.label": "Mémoriser les listes correspondantes",
-  "settings.braindump.learning.help": "Lorsque vous déplacez des tâches vers une autre liste ou section, BrainDump se souvient de ce choix pour votre compte et est plus susceptible de le suggérer la prochaine fois. L'audio et le texte parlé ne sont pas stockés à cet effet.",
+  "settings.braindump.learning.help": "Quand vous corrigez l’espace, la liste ou la section d’une suggestion, BrainDump mémorise ce choix pour les prochaines suggestions de votre compte. Aucun audio ni aucune transcription ne sont conservés pour cet apprentissage.",
   "settings.braindump.learning.count": "{count} devoir(s) enregistré(s) pour votre compte.",
   "settings.braindump.learning.reset": "Supprimer les devoirs mémorisés",
   "settings.braindump.learning.enabled": "BrainDump se souviendra de vos devoirs.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "« {list} » sera visible et modifiable par tous les membres de « {household} ». Les partages directs existants seront supprimés.",
   "shopping.list.transferHousehold.confirm": "Transférer au foyer",
   "shopping.list.transferHousehold.cancel": "Garder personnelle",
-  "shopping.list.error.transferRequiresOnline": "La liste ne peut être transférée au foyer qu’en ligne."
+  "shopping.list.error.transferRequiresOnline": "La liste ne peut être transférée au foyer qu’en ligne.",
+  "capture.module": "Espace",
+  "capture.target.chooseList": "Choisir une liste de courses",
+  "capture.target.required": "Choisissez une destination disponible avant de valider cette entrée.",
+  "capture.target.list": "Liste de courses",
+  "capture.saved": "Validée",
+  "capture.created.one": "{count} entrée validée",
+  "capture.created.many": "{count} entrées validées",
+  "capture.validation.partial": "Certaines entrées ne sont pas encore validées. Vérifiez-les et réessayez.",
+  "capture.validation.title": "Saisissez un titre de 500 caractères maximum.",
+  "capture.pending": "La confirmation est incertaine. Réessayez pour terminer la validation de cette entrée."
 }

@@ -44,7 +44,8 @@ def make_db():
             project_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             status TEXT DEFAULT 'accepted',
-            workspace_id INTEGER
+            workspace_id INTEGER,
+            user_color TEXT
         );
         CREATE TABLE households (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,8 +66,13 @@ def make_db():
             owner_household_id INTEGER
         );
         CREATE TABLE entity_access_grants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             entity_access_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL
+            user_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            invited_by_user_id INTEGER,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE sections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -161,6 +167,7 @@ def make_db():
         );
         """
     )
+    db.executescript((ROOT / 'api/migrations/060_add_braindump_module_routes.sql').read_text())
     db.execute("INSERT INTO users (id, username, braindump_enabled, default_reminder_offset_minutes) VALUES (1, 'tobi', 1, NULL)")
     db.execute("INSERT INTO workspaces (id, name, user_id, is_default) VALUES (1, 'Privat', 1, 1)")
     db.execute("INSERT INTO workspaces (id, name, user_id, is_default) VALUES (2, 'Arbeit', 1, 0)")
@@ -314,6 +321,25 @@ def test_workspace_context_project_from_other_workspace_falls_back_to_inbox():
     assert_true(created[0]["section_id"] is None, created)
 
 
+def test_workspace_context_requires_accepted_direct_entity_grant():
+    db = make_db()
+    db.execute("INSERT INTO users (id, username) VALUES (2, 'owner')")
+    db.execute("INSERT INTO projects (id, name, user_id, workspace_id) VALUES (6, 'Shared work', 2, 2)")
+    db.execute("INSERT INTO entity_access (id, entity_type, entity_id, owner_user_id) VALUES (6, 'project', 6, 2)")
+    db.execute("INSERT INTO sections (id, project_id, name) VALUES (15, 6, 'Planning')")
+    db.execute("INSERT INTO entity_access_grants (entity_access_id, user_id, invited_by_user_id) VALUES (6, 1, 2)")
+
+    pending = _load_braindump_workspace_context(db, 1, workspace_id=1)
+    assert_true(not any(project['name'] == 'Shared work' for project in pending['projects']), pending)
+    db.execute("UPDATE entity_access_grants SET status = 'accepted' WHERE entity_access_id = 6 AND user_id = 1")
+    accepted = _load_braindump_workspace_context(db, 1, workspace_id=1)
+    shared = [project for project in accepted['projects'] if project['name'] == 'Shared work']
+    assert_true(len(shared) == 1 and shared[0]['sections'] == ['Planning'], accepted)
+    db.execute("UPDATE entity_access_grants SET status = 'removed' WHERE entity_access_id = 6 AND user_id = 1")
+    revoked = _load_braindump_workspace_context(db, 1, workspace_id=1)
+    assert_true(not any(project['name'] == 'Shared work' for project in revoked['projects']), revoked)
+
+
 def test_unknown_project_name_falls_back_to_inbox():
     db = make_db()
     created = _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Gibt es nicht")])
@@ -425,6 +451,7 @@ def main():
         test_project_null_uses_inbox_even_with_matching_inbox_section_name,
         test_workspace_context_filters_projects_and_routes_inbox,
         test_workspace_context_project_from_other_workspace_falls_back_to_inbox,
+        test_workspace_context_requires_accepted_direct_entity_grant,
         test_unknown_project_name_falls_back_to_inbox,
         test_unknown_project_name_ignores_matching_inbox_section,
         test_section_outside_project_is_cleared,

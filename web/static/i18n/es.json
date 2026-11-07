@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} usuarios",
   "admin.user.admin": "administrador",
   "settings.braindump.title": "cerebrovolcado",
-  "settings.braindump.hint": "BrainDump puede recordar dónde colocas tareas similares.",
+  "settings.braindump.hint": "Aprende destinos preferidos para tareas y compras.",
   "settings.braindump.learning.label": "Recordar listas coincidentes",
-  "settings.braindump.learning.help": "Cuando mueve tareas a otra lista o sección, BrainDump recuerda esa elección para su cuenta y es más probable que la sugiera la próxima vez. Para ello no se almacenan audio ni texto hablado.",
+  "settings.braindump.learning.help": "Cuando corriges el área, la lista o la sección de una sugerencia, BrainDump recuerda tu elección para futuras sugerencias de tu cuenta. No se guardan audios ni transcripciones para este aprendizaje.",
   "settings.braindump.learning.count": "{count} tareas guardadas para su cuenta.",
   "settings.braindump.learning.reset": "Eliminar tareas recordadas",
   "settings.braindump.learning.enabled": "BrainDump recordará tus tareas.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "“{list}” será visible y editable para todos los miembros de “{household}”. Se eliminarán los accesos compartidos directos existentes.",
   "shopping.list.transferHousehold.confirm": "Transferir al hogar",
   "shopping.list.transferHousehold.cancel": "Mantener personal",
-  "shopping.list.error.transferRequiresOnline": "La lista solo se puede transferir al hogar con conexión."
+  "shopping.list.error.transferRequiresOnline": "La lista solo se puede transferir al hogar con conexión.",
+  "capture.module": "Área",
+  "capture.target.chooseList": "Elige una lista de la compra",
+  "capture.target.required": "Elige un destino disponible antes de aceptar esta entrada.",
+  "capture.target.list": "Lista de la compra",
+  "capture.saved": "Aceptada",
+  "capture.created.one": "{count} entrada aceptada",
+  "capture.created.many": "{count} entradas aceptadas",
+  "capture.validation.partial": "Algunas entradas siguen sin aceptarse. Revísalas e inténtalo de nuevo.",
+  "capture.validation.title": "Introduce un título de no más de 500 caracteres.",
+  "capture.pending": "La confirmación es incierta. Reintenta para completar esta entrada."
 }

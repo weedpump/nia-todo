@@ -68,11 +68,14 @@ before relying on older todo-only descriptions.
   least one registered module enabled; preserve synchronization across devices.
 - Prefer shared entity sidebar, editors, primary actions, topbar controls,
   dialogs, and CSS primitives instead of introducing parallel UI systems.
+  Shared modal/window shells and controllers must have one definition;
+  modules supply their fields and content through that shared implementation.
   Refer to `docs/design-concept.md`; preserve DOM IDs used by JavaScript.
 - User-facing changes must work on desktop and mobile, with keyboard/touch
   behavior, accessible states/labels, and no horizontal body overflow.
 - Add and maintain translation keys in all supported
   `web/static/i18n/*.json` locales. Avoid hardcoded user-facing strings.
+  Reuse shared translation keys for identical concepts across modules.
   Use icons supported by the repository's icon registry.
 - The web shell is shared with PWA and Tauri native clients. Check native
   behavior when modifying navigation, authentication, hotkeys, notifications,

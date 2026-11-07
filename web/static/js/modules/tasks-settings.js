@@ -5,7 +5,6 @@ export const TASK_SETTINGS_NAV_HTML = `
 <button type="button" data-settings-section="settings-section-default-reminder"><span data-icon="bell"></span><span data-i18n-key="settings.defaultReminder.title">Default reminder</span></button>
 <button type="button" data-settings-section="settings-section-attachments"><span data-icon="paperclip"></span><span data-i18n-key="settings.attachments.title">Anhänge</span></button>
 <button type="button" data-settings-section="settings-section-places"><span data-icon="map-pin"></span><span data-i18n-key="settings.places.title">Places</span></button>
-<button type="button" data-settings-section="settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></button>
 </div>
 </div>
 `;
@@ -97,30 +96,7 @@ export const TASK_SETTINGS_HTML = `
             <div id="settings-places-list" class="settings-device-list"></div>
           </section>
 
-          <section class="settings-section-card ui-section-divider" id="settings-section-braindump">
-            <div class="settings-section-heading">
-              <div class="settings-section-icon" data-icon="sparkles"></div>
-              <div>
-                <h4 data-i18n-key="settings.braindump.title">BrainDump</h4>
-                <p data-i18n-key="settings.braindump.hint">Lokale Lernfunktion für Projekt- und Section-Zuordnungen.</p>
-              </div>
-            </div>
-            <div class="settings-subcard">
-              <label class="settings-toggle-row settings-toggle-feature settings-switch-row">
-                <span data-i18n-key="settings.braindump.learning.label">BrainDump merkt sich passende Listen</span>
-                <input type="checkbox" class="settings-switch" id="settings-braindump-learning" data-user-settings-input="braindump-learning">
-              </label>
-              <div class="settings-help-text" data-i18n-key="settings.braindump.learning.help">
-                Wenn du Aufgaben in eine andere Liste oder Section verschiebst, merkt sich BrainDump diese Entscheidung für dein Konto und schlägt sie beim nächsten Mal eher vor. Audio und gesprochener Text werden dafür nicht gespeichert.
-              </div>
-              <div class="settings-help-text" id="settings-braindump-learning-count"></div>
-              <div class="settings-card-actions">
-                <button type="button" class="btn btn-secondary" data-user-settings-action="reset-braindump-learning" data-i18n-key="settings.braindump.learning.reset">Gelernte Zuordnungen zurücksetzen</button>
-              </div>
-              <div id="settings-braindump-error" class="settings-field-error"></div>
-              <div id="settings-braindump-success" class="settings-field-success"></div>
-            </div>
-          </section>
+
 </div>
 `;
 

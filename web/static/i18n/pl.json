@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} użytkowników",
   "admin.user.admin": "Administrator",
   "settings.braindump.title": "Zrzut mózgu",
-  "settings.braindump.hint": "BrainDump może zapamiętać, gdzie umieszczasz podobne zadania.",
+  "settings.braindump.hint": "Poznawanie preferowanych miejsc dla zadań i zakupów.",
   "settings.braindump.learning.label": "Pamiętaj o pasujących listach",
-  "settings.braindump.learning.help": "Kiedy przenosisz zadania na inną listę lub sekcję, BrainDump zapamiętuje ten wybór dla Twojego konta i chętniej zasugeruje go następnym razem. W tym celu dźwięk i tekst mówiony nie są zapisywane.",
+  "settings.braindump.learning.help": "Gdy poprawisz obszar, listę lub sekcję sugestii, BrainDump zapamięta wybór na Twoim koncie na potrzeby przyszłych sugestii. Dźwięk ani transkrypcje nie są zapisywane na potrzeby tej nauki.",
   "settings.braindump.learning.count": "Zapisano(a) zadania na Twoim koncie: {count}.",
   "settings.braindump.learning.reset": "Usuń zapamiętane zadania",
   "settings.braindump.learning.enabled": "BrainDump zapamięta Twoje zadania.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "„{list}” będzie widoczna i edytowalna dla wszystkich członków „{household}”. Istniejące bezpośrednie udostępnienia zostaną usunięte.",
   "shopping.list.transferHousehold.confirm": "Przenieś do gospodarstwa",
   "shopping.list.transferHousehold.cancel": "Pozostaw osobistą",
-  "shopping.list.error.transferRequiresOnline": "Listę można przenieść do gospodarstwa tylko online."
+  "shopping.list.error.transferRequiresOnline": "Listę można przenieść do gospodarstwa tylko online.",
+  "capture.module": "Obszar",
+  "capture.target.chooseList": "Wybierz listę zakupów",
+  "capture.target.required": "Wybierz dostępne miejsce docelowe przed zatwierdzeniem tego wpisu.",
+  "capture.target.list": "Lista zakupów",
+  "capture.saved": "Zatwierdzono",
+  "capture.created.one": "Zatwierdzono {count} wpis",
+  "capture.created.many": "Zatwierdzono {count} wpisów",
+  "capture.validation.partial": "Niektóre wpisy nie zostały jeszcze zatwierdzone. Sprawdź je i spróbuj ponownie.",
+  "capture.validation.title": "Wpisz tytuł zawierający maksymalnie 500 znaków.",
+  "capture.pending": "Potwierdzenie jest niepewne. Spróbuj ponownie, aby dokończyć dodawanie wpisu."
 }

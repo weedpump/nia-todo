@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from db import get_db, now_iso
 from routers.auth import require_auth
+from services.braindump_routes import BrainDumpRouteFeedback, record_confirmed_route
 from services.appearance import normalize_color, normalize_icon
 from services.entity_access import (
     get_entity_access_boundary_user_ids,
@@ -90,6 +91,7 @@ class ShoppingStoreUpdate(BaseModel):
 
 
 class ShoppingItemCreate(BaseModel):
+    braindump_route: BrainDumpRouteFeedback | None = None
     name: str = Field(..., max_length=500)
     section_id: Optional[int] = None
     quantity_value: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
@@ -847,6 +849,9 @@ async def create_shopping_item(shopping_list_id: int, data: ShoppingItemCreate, 
                    VALUES (?, ?, ?, ?)""",
                 [(item_id, store_id, shopping_list_id, index) for index, store_id in enumerate(store_ids)],
             )
+            record_confirmed_route(db, user_id, name, "shopping", shopping_list_id=shopping_list_id,
+                                   shopping_section_id=data.section_id, shopping_store_ids=store_ids,
+                                   feedback=data.braindump_route)
             db.commit()
         except sqlite3.IntegrityError as exc:
             db.rollback()

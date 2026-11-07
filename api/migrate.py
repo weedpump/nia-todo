@@ -724,7 +724,7 @@ def run_migrations():
             try:
                 if version == 58:
                     apply_household_entity_access_migration(conn, sql)
-                elif version in (56, 57, 59):
+                elif version in (56, 57, 59, 60):
                     apply_atomic_migration(conn, sql, version)
                 else:
                     conn.executescript(sql)

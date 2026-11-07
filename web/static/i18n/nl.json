@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} gebruikers",
   "admin.user.admin": "Beheerder",
   "settings.braindump.title": "HersenDump",
-  "settings.braindump.hint": "BrainDump kan onthouden waar u soortgelijke taken plaatst.",
+  "settings.braindump.hint": "Voorkeursbestemmingen voor taken en boodschappen leren.",
   "settings.braindump.learning.label": "Onthoud overeenkomende lijsten",
-  "settings.braindump.learning.help": "Wanneer u taken naar een andere lijst of sectie verplaatst, onthoudt BrainDump die keuze voor uw account en is de kans groter dat u deze de volgende keer voorstelt. Audio en gesproken tekst worden hiervoor niet opgeslagen.",
+  "settings.braindump.learning.help": "Als je het onderdeel, de lijst of de sectie van een voorstel corrigeert, onthoudt BrainDump die keuze voor toekomstige voorstellen voor je account. Audio en transcripties worden hiervoor niet opgeslagen.",
   "settings.braindump.learning.count": "{count} opgeslagen opdracht(en) voor uw account.",
   "settings.braindump.learning.reset": "Verwijder onthouden opdrachten",
   "settings.braindump.learning.enabled": "BrainDump onthoudt uw opdrachten.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "“{list}” wordt zichtbaar en bewerkbaar voor alle leden van “{household}”. Bestaande directe delingen worden verwijderd.",
   "shopping.list.transferHousehold.confirm": "Naar huishouden overdragen",
   "shopping.list.transferHousehold.cancel": "Persoonlijk houden",
-  "shopping.list.error.transferRequiresOnline": "De lijst kan alleen online naar het huishouden worden overgedragen."
+  "shopping.list.error.transferRequiresOnline": "De lijst kan alleen online naar het huishouden worden overgedragen.",
+  "capture.module": "Onderdeel",
+  "capture.target.chooseList": "Kies een boodschappenlijst",
+  "capture.target.required": "Kies een beschikbare bestemming voordat je deze invoer overneemt.",
+  "capture.target.list": "Boodschappenlijst",
+  "capture.saved": "Overgenomen",
+  "capture.created.one": "{count} invoer overgenomen",
+  "capture.created.many": "{count} invoeren overgenomen",
+  "capture.validation.partial": "Sommige invoeren zijn nog niet overgenomen. Controleer ze en probeer het opnieuw.",
+  "capture.validation.title": "Voer een titel van maximaal 500 tekens in.",
+  "capture.pending": "De bevestiging is onzeker. Probeer opnieuw om deze invoer volledig over te nemen."
 }

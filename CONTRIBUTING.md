@@ -16,9 +16,11 @@ Test scripts read `NIA_TODO_DEV_DIR` for their working directory; it defaults to
 
 ## Branches
 
-- create feature or fix branches from `main`
-- open pull requests directly against `main`
+- create modular V4 feature branches from `v4` and target `v4`
+- create maintenance fixes and dependency updates for the released line from `main` and target `main`
 - releases are tagged from `main`
+
+Continue existing feature branches against their intended target; see the [branch workflow](docs/workflow.md).
 
 ## Tests
 

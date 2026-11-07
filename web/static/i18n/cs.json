@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} uživatelů",
   "admin.user.admin": "Admin",
   "settings.braindump.title": "BrainDump",
-  "settings.braindump.hint": "BrainDump si dokáže zapamatovat, kam umístíte podobné úkoly.",
+  "settings.braindump.hint": "Učení preferovaných cílů pro úkoly a nákupy.",
   "settings.braindump.learning.label": "Pamatujte si odpovídající seznamy",
-  "settings.braindump.learning.help": "Když přesunete úkoly do jiného seznamu nebo sekce, BrainDump si zapamatuje tuto volbu pro váš účet a je pravděpodobnější, že ji příště navrhne. Zvuk a mluvený text se k tomu neukládají.",
+  "settings.braindump.learning.help": "Když opravíte oblast, seznam nebo oddíl návrhu, BrainDump si vaši volbu zapamatuje pro budoucí návrhy. Zvuk ani přepisy se pro toto učení neukládají.",
   "settings.braindump.learning.count": "{count} uložených úkolů pro váš účet.",
   "settings.braindump.learning.reset": "Smazat zapamatované úkoly",
   "settings.braindump.learning.enabled": "BrainDump si zapamatuje vaše úkoly.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "„{list}“ bude viditelný a upravitelný pro všechny členy domácnosti „{household}“. Stávající přímá sdílení budou odstraněna.",
   "shopping.list.transferHousehold.confirm": "Převést do domácnosti",
   "shopping.list.transferHousehold.cancel": "Ponechat osobní",
-  "shopping.list.error.transferRequiresOnline": "Seznam lze převést do domácnosti pouze online."
+  "shopping.list.error.transferRequiresOnline": "Seznam lze převést do domácnosti pouze online.",
+  "capture.module": "Oblast",
+  "capture.target.chooseList": "Vyberte nákupní seznam",
+  "capture.target.required": "Před přijetím této položky vyberte dostupný cíl.",
+  "capture.target.list": "Nákupní seznam",
+  "capture.saved": "Přijato",
+  "capture.created.one": "Přijata {count} položka",
+  "capture.created.many": "Přijato {count} položek",
+  "capture.validation.partial": "Některé položky ještě nebyly přijaty. Zkontrolujte je a zkuste to znovu.",
+  "capture.validation.title": "Zadejte název o délce nejvýše 500 znaků.",
+  "capture.pending": "Potvrzení je nejisté. Zkuste tuto položku přijmout znovu."
 }

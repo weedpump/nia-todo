@@ -1791,9 +1791,9 @@
   "admin.user.totalCount": "{total} usuários",
   "admin.user.admin": "Administrador",
   "settings.braindump.title": "BrainDump",
-  "settings.braindump.hint": "BrainDump pode lembrar onde você coloca tarefas semelhantes.",
+  "settings.braindump.hint": "Aprenda destinos preferidos para tarefas e compras.",
   "settings.braindump.learning.label": "Lembre-se de listas correspondentes",
-  "settings.braindump.learning.help": "Quando você move tarefas para outra lista ou seção, o BrainDump se lembra dessa escolha para sua conta e é mais provável que a sugira na próxima vez. Áudio e texto falado não são armazenados para isso.",
+  "settings.braindump.learning.help": "Quando você corrige a área, a lista ou a seção de uma sugestão, o BrainDump lembra essa escolha para sugestões futuras da sua conta. Áudio e transcrições não são armazenados para esse aprendizado.",
   "settings.braindump.learning.count": "{count} tarefas salvas para sua conta.",
   "settings.braindump.learning.reset": "Excluir tarefas lembradas",
   "settings.braindump.learning.enabled": "BrainDump se lembrará de suas tarefas.",
@@ -2125,5 +2125,15 @@
   "shopping.list.transferHousehold.message": "“{list}” ficará visível e editável para todos os membros de “{household}”. Os compartilhamentos diretos existentes serão removidos.",
   "shopping.list.transferHousehold.confirm": "Transferir para a família",
   "shopping.list.transferHousehold.cancel": "Manter pessoal",
-  "shopping.list.error.transferRequiresOnline": "A lista só pode ser transferida para a família quando estiver online."
+  "shopping.list.error.transferRequiresOnline": "A lista só pode ser transferida para a família quando estiver online.",
+  "capture.module": "Área",
+  "capture.target.chooseList": "Escolha uma lista de compras",
+  "capture.target.required": "Escolha um destino disponível antes de aceitar esta entrada.",
+  "capture.target.list": "Lista de compras",
+  "capture.saved": "Aceita",
+  "capture.created.one": "{count} entrada aceita",
+  "capture.created.many": "{count} entradas aceitas",
+  "capture.validation.partial": "Algumas entradas ainda não foram aceitas. Revise-as e tente novamente.",
+  "capture.validation.title": "Digite um título com no máximo 500 caracteres.",
+  "capture.pending": "A confirmação é incerta. Tente novamente para concluir esta entrada."
 }
