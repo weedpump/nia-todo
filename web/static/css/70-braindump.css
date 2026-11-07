@@ -241,10 +241,7 @@
 }
 
 .braindump-candidate-card .braindump-candidate-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 10px;
+  display: block;
   order: 1;
 }
 
@@ -267,6 +264,7 @@
 }
 .braindump-edit-candidate {
   display: inline-flex;
+  align-self: center;
   align-items: center;
   justify-content: center;
   width: 30px;

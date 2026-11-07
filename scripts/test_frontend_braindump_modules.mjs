@@ -155,9 +155,12 @@ try {
       const style = getComputedStyle(card);
       const cardBounds = card.getBoundingClientRect();
       const checkboxBounds = card.querySelector('.braindump-check').getBoundingClientRect();
+      const editBounds = card.querySelector('.braindump-edit-candidate').getBoundingClientRect();
       return {
         radius: parseFloat(style.borderTopLeftRadius),
         checkboxOffset: checkboxBounds.top - cardBounds.top,
+        editCenterOffset: Math.abs((editBounds.top + editBounds.bottom - cardBounds.top - cardBounds.bottom) / 2),
+        editRightInset: cardBounds.right - editBounds.right,
         editorOverflow: getComputedStyle(document.querySelector('#braindump-candidates')).overflowY,
         sections: [...document.querySelectorAll('#braindump-modal .ui-detail-section')].map(section => {
           const sectionStyle = getComputedStyle(section);
@@ -167,6 +170,8 @@ try {
     });
     assert(surface.radius <= 24, 'an expanded editor must retain rounded corners instead of becoming an ellipse');
     assert(surface.checkboxOffset <= 16, 'selection stays aligned with the title when editor fields expand');
+    assert(surface.editCenterOffset < 2 && surface.editRightInset <= 16,
+      'the edit action stays vertically centered at the right edge of the expanded card');
     assert.equal(surface.editorOverflow, 'visible', 'expanded fields use the modal scroll area instead of a clipped nested list');
     assert(surface.sections.every(borders => borders.every(width => width === '0px')),
       'review sections use shared dividers without rectangular side/bottom frames');

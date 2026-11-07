@@ -1439,7 +1439,6 @@ export function createBrainDumpLiveFeature(options = {}) {
         <span class="braindump-candidate-body">
           <span class="braindump-candidate-main">
             <span class="braindump-candidate-title">${escapeHtml(candidate.title || '')}</span>
-            <button class="braindump-edit-candidate" type="button" ${saved || pending || state.creating || captureBusy ? 'disabled' : ''} data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
           </span>
           ${meta ? `<span class="braindump-meta-row">${meta}</span>` : ''}
           ${saved ? `<span class="ui-badge braindump-saved">${escapeHtml(t('capture.saved'))}</span>` : ''}
@@ -1488,6 +1487,7 @@ export function createBrainDumpLiveFeature(options = {}) {
             </span>
           ` : ''}
         </span>
+        <button class="braindump-edit-candidate" type="button" ${saved || pending || state.creating || captureBusy ? 'disabled' : ''} data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
       </div>
     `;
   }
