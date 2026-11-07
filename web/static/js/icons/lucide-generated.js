@@ -1,8 +1,8 @@
 // Generated from the lucide npm package. Do not edit by hand.
 // Run: npm run generate:icons
-// lucide version: 1.61.0
+// lucide version: 1.68.0
 
-export const LUCIDE_VERSION = "1.61.0";
+export const LUCIDE_VERSION = "1.68.0";
 
 export const ICONS = {
   "accessibility": "<circle cx=\"16\" cy=\"4\" r=\"1\"/><path d=\"m18 19 1-7-6 1\"/><path d=\"m5 8 3-3 5.5 3-2.36 3.5\"/><path d=\"M4.24 14.5a5 5 0 0 0 6.88 6\"/><path d=\"M13.76 17.5a5 5 0 0 0-6.88-6\"/>",
@@ -47,7 +47,7 @@ export const ICONS = {
   "chart-no-axes-column": "<path d=\"M5 21v-6\"/><path d=\"M12 21V3\"/><path d=\"M19 21V9\"/>",
   "check": "<path d=\"M20 6 9 17l-5-5\"/>",
   "check-circle": "<path d=\"M21.801 10A10 10 0 1 1 17 3.335\"/><path d=\"m9 11 3 3L22 4\"/>",
-  "chef-hat": "<path d=\"M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589 5 5 0 0 0-9.186 0 4 4 0 0 0-2.134 7.588c.411.198.727.585.727 1.041V20a1 1 0 0 0 1 1Z\"/><path d=\"M6 17h12\"/>",
+  "chef-hat": "<path d=\"M10 11v5\"/><path d=\"M14 11v5\"/><path d=\"M6 12.65c0-.457-.316-.844-.727-1.041A4 4 0 017.52 4.034a1.53 1.53 0 001.367-.547 4 4 0 016.225 0 1.53 1.53 0 001.367.547 4 4 0 012.248 7.575c-.411.197-.727.584-.727 1.04V19a2 2 0 01-2 2H8a2 2 0 01-2-2z\"/><path d=\"M6 16h12\"/>",
   "chevron-down": "<path d=\"m6 9 6 6 6-6\"/>",
   "chevron-left": "<path d=\"m15 18-6-6 6-6\"/>",
   "chevron-right": "<path d=\"m9 18 6-6-6-6\"/>",
