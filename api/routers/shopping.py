@@ -4,7 +4,7 @@ import sqlite3
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from db import get_db, now_iso
 from routers.auth import require_auth
@@ -48,11 +48,23 @@ class ShoppingListCreate(BaseModel):
     client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
 
-class ShoppingListUpdate(BaseModel):
+class ShoppingSortOrderUpdate(BaseModel):
+    """Allow omitted ordering without accepting NULL for a non-null column."""
+
+    sort_order: Optional[int] = None
+
+    @field_validator("sort_order")
+    @classmethod
+    def reject_null_sort_order(cls, value):
+        if value is None:
+            raise ValueError("sort_order cannot be null")
+        return value
+
+
+class ShoppingListUpdate(ShoppingSortOrderUpdate):
     name: Optional[str] = Field(default=None, max_length=200)
     color: Optional[str] = None
     icon: Optional[str] = None
-    sort_order: Optional[int] = None
 
 
 class ShoppingListShareCreate(BaseModel):
@@ -73,9 +85,8 @@ class ShoppingSectionCreate(BaseModel):
     client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
 
-class ShoppingSectionUpdate(BaseModel):
+class ShoppingSectionUpdate(ShoppingSortOrderUpdate):
     name: Optional[str] = Field(default=None, max_length=200)
-    sort_order: Optional[int] = None
 
 
 class ShoppingStoreCreate(BaseModel):
@@ -85,9 +96,8 @@ class ShoppingStoreCreate(BaseModel):
     client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
 
-class ShoppingStoreUpdate(BaseModel):
+class ShoppingStoreUpdate(ShoppingSortOrderUpdate):
     name: Optional[str] = Field(default=None, max_length=120)
-    sort_order: Optional[int] = None
     active: Optional[bool] = None
 
 
@@ -102,14 +112,13 @@ class ShoppingItemCreate(BaseModel):
     client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
 
-class ShoppingItemUpdate(BaseModel):
+class ShoppingItemUpdate(ShoppingSortOrderUpdate):
     name: Optional[str] = Field(default=None, max_length=500)
     section_id: Optional[int] = None
     quantity_value: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     quantity_unit: Optional[str] = Field(default=None, max_length=40)
     store_ids: Optional[list[int]] = None
     completed: Optional[bool] = None
-    sort_order: Optional[int] = None
 
 
 class ShoppingPreferencesUpdate(BaseModel):

@@ -349,6 +349,7 @@ export function createSectionController({
   }
 
   async function onKeydown(event) {
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
     const input = event.target?.closest?.('[data-section-input]');
     if (!input || !['Enter', 'Escape'].includes(event.key)) return;
     const adapter = registry.resolve(input);

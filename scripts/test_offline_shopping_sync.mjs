@@ -10,6 +10,7 @@ const {
   projectPendingShoppingChanges,
   queueItemReferencesShoppingList,
   rewriteShoppingQueueReferences,
+  reconcileShoppingStoreQueueSnapshot,
 } = await import('../web/static/js/features/shopping-pending.js');
 const {
   commitShoppingMutation,
@@ -147,6 +148,13 @@ await commitShoppingMutation({
 assert.equal(batchMutationDb.calls.filter(([name]) => name === 'shoppingLists.put').length, 2);
 assert.equal(batchMutationDb.calls.filter(([name]) => name === 'syncQueue.put').length, 2, 'one durable queue record is written for every atomic reorder mutation');
 
+const emptyBatchDb = createFakeDatabase();
+await commitShoppingMutation({ database: emptyBatchDb.database, list: projected, mutations: [] });
+assert.equal(emptyBatchDb.calls.filter(([name]) => name === 'shoppingLists.put').length, 1,
+  'an idempotent batch retry may still persist its list projection');
+assert.equal(emptyBatchDb.calls.filter(([name]) => name === 'syncQueue.put').length, 0,
+  'an explicit empty batch must not insert an undefined single action into the real storage path');
+
 const replayDb = createFakeDatabase();
 await commitShoppingReplay({
   database: replayDb.database,
@@ -171,6 +179,7 @@ function createEvictionDatabase({ fail = false } = {}) {
       { id: 41, action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 8, item_id: 2 } },
       { id: 42, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 30, changes: { name: 'Private renamed store' } } },
       { id: 43, action: 'DELETE_SHOPPING_STORE', data: { store_id: 30 } },
+      { id: 44, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 999, changes: { name: 'Unattributable legacy edit' } } },
     ],
   };
   const database = {
@@ -212,6 +221,8 @@ assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' &
 assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 41), false);
 assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 42), true);
 assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 43), true);
+assert.equal(evictionDb.calls.some(([name, id]) => name === 'syncQueue.delete' && id === 44), false,
+  'list-scoped eviction cannot attribute an orphan to that list; complete snapshots reconcile it separately');
 
 const numericEvictionDb = createEvictionDatabase();
 await evictPendingShoppingEntities([7], { database: numericEvictionDb.database });
@@ -230,11 +241,36 @@ assert.equal(
     { action: 'UPDATE_SHOPPING_STORE', data: { store_id: 999, changes: { name: 'Orphaned private store' } } },
     7,
     [],
-    { orphanedStoreMatches: true },
   ),
-  true,
-  'privacy eviction must fail closed for legacy store-only mutations after the store snapshot was removed',
+  false,
+  'partial list-scoped eviction must not discard an unknown legacy store from another accessible list',
 );
+
+const legacyStoreQueue = [
+  { id: 401, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 91, changes: { name: 'Private legacy name' } } },
+  { id: 402, action: 'DELETE_SHOPPING_STORE', data: { store_id: 92 } },
+  { id: 403, action: 'UPDATE_SHOPPING_STORE', data: { store_id: 93, shopping_list_id: 7, changes: { name: 'List-scoped edit' } } },
+  { id: 404, action: 'UPDATE_TODO', data: { id: 700, changes: { title: 'Unrelated Tasks edit' } } },
+];
+const orphanCleanup = reconcileShoppingStoreQueueSnapshot(legacyStoreQueue, { shoppingLists: [], shoppingStores: [] });
+assert.deepEqual(orphanCleanup.queueDeleteIds, [401, 402], 'a cold-cache empty full snapshot must close the legacy orphan exception');
+assert.deepEqual(orphanCleanup.queue.map(entry => entry.id), [403, 404], 'normal list-scoped and Tasks queues are outside orphan cleanup');
+const recoveredLegacy = reconcileShoppingStoreQueueSnapshot(legacyStoreQueue, {
+  shoppingLists: [{ id: 7 }], shoppingStores: [{ id: 91, shopping_list_id: 7 }],
+  localStores: [{ id: 92, shopping_list_id: 7 }],
+});
+assert.deepEqual(recoveredLegacy.queueDeleteIds, []);
+assert.deepEqual(recoveredLegacy.queueRecords.map(entry => [entry.id, entry.data.shopping_list_id]), [[401, 7], [402, 7]],
+  'authorized server stores and still-cached store metadata must backfill recoverable legacy queues');
+const wrongBoundaryStore = reconcileShoppingStoreQueueSnapshot(legacyStoreQueue, {
+  shoppingLists: [{ id: 7 }], shoppingStores: [{ id: 91, shopping_list_id: 99 }],
+});
+assert.deepEqual(wrongBoundaryStore.queueDeleteIds, [401, 402],
+  'store metadata outside the authoritative accessible list set must not authorize an orphan');
+for (const partial of [{ shoppingLists: [] }, { shoppingStores: [] }, {}]) {
+  assert.deepEqual(reconcileShoppingStoreQueueSnapshot(legacyStoreQueue, partial).queue, legacyStoreQueue,
+    'partial snapshots cannot infer that an unknown legacy store is inaccessible');
+}
 
 
 const appStorageSource = readFileSync(new URL('../web/static/js/storage/app-storage.js', import.meta.url), 'utf8');
@@ -474,6 +510,70 @@ assert.equal(updatedSectionId, 300, 'dependent section updates use the remapped 
 assert.equal(createdItemSectionId, 300, 'dependent item creates use the remapped section ID');
 assert.equal(queueState.length, 0);
 
+for (const parentType of ['section', 'store']) {
+  for (const failureMode of ['temporary-error', 'stale-success']) {
+    const tempParent = `temp-${parentType}-retry`;
+    const tempItem = `temp-item-${parentType}-retry`;
+    const parentAction = parentType === 'section' ? 'CREATE_SHOPPING_SECTION' : 'CREATE_SHOPPING_STORE';
+    const parentData = { shopping_list_id: 70, temp_id: tempParent, client_mutation_id: tempParent,
+      ...(parentType === 'section' ? { section: { name: 'Retry section' } } : { name: 'Retry store' }) };
+    const childData = { name: 'Keep this offline item', section_id: parentType === 'section' ? tempParent : null,
+      store_ids: parentType === 'store' ? [tempParent] : [] };
+    queueState = [
+      { id: 100, action: parentAction, data: parentData },
+      { id: 101, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 71, temp_id: 'temp-unrelated', item: { name: 'Unrelated item', store_ids: [] }, client_mutation_id: 'temp-unrelated' } },
+      { id: 102, action: 'CREATE_SHOPPING_ITEM', data: { shopping_list_id: 70, temp_id: tempItem, item: childData, client_mutation_id: tempItem } },
+    ];
+    shoppingState = [
+      { id: 70, sections: parentType === 'section' ? [{ id: tempParent, name: 'Retry section' }] : [], items: [{ id: tempItem, ...childData }], preferences: {} },
+      { id: 71, sections: [], items: [{ id: 'temp-unrelated', name: 'Unrelated item' }], preferences: {} },
+    ];
+    shoppingStoreState = parentType === 'store' ? [{ id: tempParent, shopping_list_id: 70, active: true }] : [];
+    let parentCalls = 0;
+    let createdParent = null;
+    const sentItems = [];
+    const replayRef = { value: false, requested: false, privacyGeneration: 0 };
+    serverItems = [];
+    const createParent = async (listOrData, sectionData) => {
+      parentCalls += 1;
+      if (parentCalls === 1 && failureMode === 'temporary-error') {
+        const error = new Error('temporary parent failure');
+        error.status = 503;
+        throw error;
+      }
+      if (parentCalls === 1 && failureMode === 'stale-success') replayRef.privacyGeneration += 1;
+      const data = sectionData || listOrData;
+      createdParent = { ...data, id: 900, shopping_list_id: 70, active: true };
+      return createdParent;
+    };
+    if (parentType === 'section') shoppingApi.createSection = createParent;
+    else shoppingApi.createStore = createParent;
+    shoppingApi.createItem = async (listId, data) => {
+      if (listId === 70) {
+        assert.ok(createdParent, 'a dependent item must not be sent before its parent create succeeds');
+        if (parentType === 'section') assert.equal(data.section_id, 900);
+        else assert.deepEqual(data.store_ids, [900]);
+      }
+      sentItems.push(listId);
+      const item = { ...data, id: listId === 70 ? 901 : 902, shopping_list_id: listId, completed: false };
+      serverItems.push(item);
+      return item;
+    };
+    shoppingApi.getList = async id => ({ id, sections: id === 70 && parentType === 'section' && createdParent ? [createdParent] : [],
+      items: serverItems.filter(item => item.shopping_list_id === id), preferences: {} });
+    const firstAttempt = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: replayRef });
+    assert.deepEqual(firstAttempt, { successCount: failureMode === 'temporary-error' ? 1 : 2, failCount: failureMode === 'temporary-error' ? 1 : 0, skipped: false });
+    assert.deepEqual(sentItems, [71], 'unrelated lists may sync while the failed list remains ordered');
+    assert.deepEqual(queueState.map(entry => entry.id), [100, 102], 'failed parent and dependent item must survive for retry');
+    assert.equal(shoppingState.find(list => list.id === 70).items[0].id, tempItem, 'the pending item must remain visible offline');
+    const retried = await syncFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: replayRef });
+    assert.deepEqual(retried, { successCount: 2, failCount: 0, skipped: false });
+    assert.deepEqual(sentItems, [71, 70]);
+    assert.equal(queueState.length, 0);
+    assert.equal(shoppingState.find(list => list.id === 70).items[0].id, 901, 'retry keeps the item and resolves its server identity');
+  }
+}
+
 let deletedSectionId = null;
 queueState = [{ id: 14, action: 'DELETE_SHOPPING_SECTION', data: { shopping_list_id: 70, section_id: 300 } }];
 shoppingState = [{ id: 70, name: 'Queued', sections: [{ id: 300, name: 'Bakery' }], items: [{ id: 200, name: 'Eggs', section_id: 300 }], preferences: {} }];
@@ -598,5 +698,60 @@ resolveStaleShoppingResponse();
 await staleShoppingReplay;
 assert.equal(staleShoppingCommits, 0, 'a shopping response must not persist after privacy eviction removed its queue entry');
 assert.deepEqual(staleShoppingLists, [], 'a stale shopping response must not republish an evicted list');
+
+for (const boundary of ['privacy-generation', 'removed-queue-entry']) {
+  let releaseRecovery;
+  let recoveryStarted;
+  const recoveryGate = new Promise(resolve => { releaseRecovery = resolve; });
+  const started = new Promise(resolve => { recoveryStarted = resolve; });
+  const original = { id: 190, action: 'UPDATE_SHOPPING_LIST', data: { id: 90, changes: { name: 'Old private edit' } } };
+  const replacement = { id: 191, action: 'UPDATE_SHOPPING_LIST', data: { id: 90, changes: { name: 'New accessible edit' } } };
+  let pending = [structuredClone(original)];
+  let lists = [{ id: 90, name: 'Old private list', sections: [], items: [] }];
+  const acceptedList = { id: 90, name: 'New accessible edit', sections: [], items: [] };
+  const removals = [];
+  let reads = 0;
+  const ref = { value: false, requested: false, privacyGeneration: 0 };
+  const feature = createSyncFeature({
+    getDb: () => ({}), dbGetAll: async store => store === 'syncQueue' ? structuredClone(pending) : [],
+    dbPut: async () => {}, dbClear: async () => {}, getFromDB: async () => null, deleteFromDB: async () => {},
+    getTodos: () => [], setTodos: () => {}, getProjects: () => [], setProjects: () => {},
+    getSections: () => [], setSections: () => {}, getWorkspaces: () => [], setWorkspaces: () => {},
+    getShoppingLists: () => lists, setShoppingLists: next => { lists = structuredClone(next); },
+    getShoppingStores: () => [], setShoppingStores: () => {},
+    todosApi: {}, projectsApi: {}, sectionsApi: {}, workspacesApi: {},
+    shoppingApi: {
+      updateList: async (id, changes) => {
+        if (changes.name === original.data.changes.name) throw Object.assign(new Error('old request forbidden'), { status: 403 });
+      },
+      getList: async () => {
+        if (++reads === 1) {
+          recoveryStarted();
+          await recoveryGate;
+          throw Object.assign(new Error('old recovery not found'), { status: 404 });
+        }
+        return structuredClone(acceptedList);
+      },
+    },
+    commitShoppingReplay: async ({ list, removeListIds = [], queueDeleteId }) => {
+      removals.push(...removeListIds);
+      lists = lists.filter(value => !removeListIds.includes(value.id));
+      if (list) lists = [structuredClone(list)];
+      pending = pending.filter(entry => entry.id !== queueDeleteId);
+    },
+    renderStats: () => {}, renderTodos: () => {}, renderShopping: () => {},
+  });
+  const replay = feature.syncWithServer({ wsState: 'connected', syncInProgressRef: ref });
+  await started;
+  lists = [structuredClone(acceptedList)];
+  if (boundary === 'privacy-generation') ref.privacyGeneration += 1;
+  else pending = [structuredClone(replacement)];
+  releaseRecovery();
+  await replay;
+  assert.deepEqual(removals, [], `${boundary}: an obsolete 403/404 must not evict newly accessible data`);
+  assert.deepEqual(lists, [acceptedList], `${boundary}: the accepted list projection must survive the old response`);
+  assert.deepEqual(pending, boundary === 'privacy-generation' ? [original] : [],
+    `${boundary}: preserve untouched records or successfully replay the independent replacement`);
+}
 
 console.log('✅ Offline shopping projection and atomic IndexedDB contracts passed');

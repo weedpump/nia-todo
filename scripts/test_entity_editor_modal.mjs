@@ -107,7 +107,7 @@ for (const [label, source] of [['Project', projectsSource], ['Shopping list', sh
 }
 assert.doesNotMatch(taskDialogsSource, /data-project-action="delete-from-modal"/, 'project markup must not route deletion around the shared controller');
 assert.doesNotMatch(shoppingDialogsSource, /data-shopping-list-action="delete-from-modal"/, 'shopping markup must not route deletion around the shared controller');
-assert.match(projectSharingSource, /function setEntity\(project\) \{\s*currentProject = project;\s*return directSharing\.setEntity\(project\);\s*\}/, 'project sharing must return its async entity load to the shared lifecycle');
+assert.match(projectSharingSource, /function setEntity\(project\) \{\s*if \(accessPrivacySuspended\) return;\s*currentProject = project;\s*return directSharing\.setEntity\(project\);\s*\}/, 'active project sharing must return its async entity load and suspended sharing must not start one');
 assert.match(projectsSource, /setEntity\(project\) \{\s*return sharingFeature\?\.setEntity\?\.\(project\);\s*\}/, 'the project modal adapter must return the sharing Promise to the shared lifecycle');
 assert.doesNotMatch(projectSharingSource, /function isOwner\(/, 'project sharing must not retain a second permission authority');
 assert.doesNotMatch(projectSharingSource, /isHouseholdOwnedEntity/, 'project sharing must not retain unused household permission logic');

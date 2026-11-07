@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { waitForPageCondition } from './browser_page_condition.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const modulePath = path.join(root, 'web/static/js/features/todo-multi-add.js');
@@ -158,7 +159,7 @@ try {
       feature.bindTodoActions();
       document.getElementById('todo-form').addEventListener('submit', () => events.submits++);
       document.getElementById('todo-form').addEventListener('invalid', e => events.invalid.push(e.target.id), true);
-      window.production = {events, all, todos: () => todos, revokeProjects: () => {projects = [];} };
+      window.production = {events, all, put, feature, todos: () => todos, setProjects: next => { projects = next; }, revokeProjects: () => {projects = [];} };
       </script></body></html>` });
   });
   await productionPage.goto('http://multi-todo-production.test/');
@@ -302,6 +303,61 @@ try {
   assert.equal(revokedResult.events.closes.length, 5);
   assert.equal(revokedResult.events.toasts.length, 5);
   assert.equal(revokedResult.active, true);
+  await productionPage.evaluate(async () => {
+    document.getElementById('todo-modal').classList.remove('active');
+    window.production.beforeCommit = null;
+    window.production.setProjects([{ id: 1, name: 'Inbox', is_inbox: true }, { id: 'temp-project-child-target', name: 'Pending project' }]);
+    await window.production.put('sections', { id: 'temp-section-child-target', project_id: 'temp-project-child-target', name: 'Pending section' });
+  });
+  await productionPage.click('#new-todo');
+  await productionPage.selectOption('#todo-project', 'temp-project-child-target', { force: true });
+  await productionPage.waitForFunction(() => document.querySelector('#todo-section option[value="temp-section-child-target"]'));
+  await productionPage.selectOption('#todo-section', 'temp-section-child-target', { force: true });
+  await productionPage.locator('#todo-title').fill('Single pending-parent task');
+  await productionPage.click('#todo-save-btn');
+  const pendingSingle = await waitForPageCondition(productionPage, async () => (await window.production.all('syncQueue'))
+    .find(entry => entry.data?.title === 'Single pending-parent task'));
+  assert.deepEqual([pendingSingle.data.project_id, pendingSingle.data.section_id], ['temp-project-child-target', 'temp-section-child-target'], 'single creation must queue exact known pending target IDs');
+  await productionPage.click('#new-todo');
+  await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
+  await productionPage.selectOption('#todo-multi-project', 'temp-project-child-target', { force: true });
+  await productionPage.waitForFunction(() => document.querySelector('#todo-multi-section option[value="temp-section-child-target"]'));
+  await productionPage.selectOption('#todo-multi-section', 'temp-section-child-target', { force: true });
+  await productionInputs.first().fill('Bulk pending-parent task');
+  await productionPage.click('#todo-save-btn');
+  const pendingBulk = await waitForPageCondition(productionPage, async () => (await window.production.all('syncQueue'))
+    .find(entry => entry.data?.title === 'Bulk pending-parent task'));
+  assert.deepEqual([pendingBulk.data.project_id, pendingBulk.data.section_id], ['temp-project-child-target', 'temp-section-child-target'], 'bulk creation must queue exact known pending target IDs');
+  await productionPage.click('#new-todo');
+  await productionPage.selectOption('#todo-project', 'temp-project-child-target', { force: true });
+  await productionPage.waitForFunction(() => document.querySelector('#todo-section option[value="temp-section-child-target"]'));
+  await productionPage.selectOption('#todo-section', 'temp-section-child-target', { force: true });
+  await productionPage.locator('#todo-title').fill('Keep this unsaved draft');
+  await productionPage.locator('#todo-attachment-file').setInputFiles({ name: 'pending-target.txt', mimeType: 'text/plain', buffer: Buffer.from('Preserved attachment draft') });
+  await productionPage.evaluate(async () => {
+    window.production.setProjects([{ id: 1, name: 'Inbox', is_inbox: true }, { id: 42, name: 'Pending project' }]);
+    await window.production.put('sections', { id: 420, project_id: 42, name: 'Pending section' });
+    window.production.feature.remapPendingTargetId('project', 'temp-project-child-target', 42);
+    window.production.feature.remapPendingTargetId('section', 'temp-section-child-target', 420);
+  });
+  assert.equal(await productionPage.locator('#todo-title').inputValue(), 'Keep this unsaved draft', 'target receipts must preserve typed content');
+  assert.equal(await productionPage.locator('#todo-project').inputValue(), '42');
+  assert.equal(await productionPage.locator('#todo-section').inputValue(), '420');
+  assert.equal(await productionPage.locator('#todo-attachment-file').evaluate(input => input.files[0]?.name), 'pending-target.txt', 'canonical target receipts must preserve the selected attachment draft');
+  await productionPage.evaluate(() => document.getElementById('todo-modal').classList.remove('active'));
+  for (const mode of ['single', 'multi']) {
+    await productionPage.click('#new-todo');
+    if (mode === 'multi') await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
+    const prefix = mode === 'multi' ? 'todo-multi' : 'todo';
+    await productionPage.selectOption(`#${prefix}-project`, '42', { force: true });
+    await productionPage.waitForFunction(prefix => document.querySelector(`#${prefix}-section option[value="420"]`), prefix);
+    await productionPage.selectOption(`#${prefix}-section`, '420', { force: true });
+    await (mode === 'multi' ? productionInputs.first() : productionPage.locator('#todo-title')).fill(`${mode} project override #Inbox`);
+    await productionPage.click('#todo-save-btn');
+    const overridden = await waitForPageCondition(productionPage, async mode => (await window.production.all('syncQueue'))
+      .find(entry => entry.data?.title === `${mode} project override`), mode);
+    assert.deepEqual([overridden.data.project_id, overridden.data.section_id], [1, null], `${mode} project-only shortcut must clear the inherited section`);
+  }
   assert.deepEqual(productionErrors, []);
   assert.deepEqual(productionConsole, []);
   await productionPage.close();

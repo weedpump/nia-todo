@@ -55,7 +55,8 @@ def make_db():
             workspace_id INTEGER,
             invited_by INTEGER,
             created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
+            updated_at TEXT DEFAULT (datetime('now')),
+            user_color TEXT
         );
         CREATE TABLE households (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,10 +84,15 @@ def make_db():
             updated_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE entity_access_grants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             entity_access_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
+            invited_by_user_id INTEGER,
             granted_by_user_id INTEGER,
-            created_at TEXT DEFAULT (datetime('now'))
+            invite_identifier_type TEXT,
+            status TEXT NOT NULL DEFAULT 'accepted',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE sections (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, name TEXT NOT NULL, sort_order REAL DEFAULT 0);
         CREATE TABLE workspaces (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL, is_default INTEGER DEFAULT 0, sort_order REAL DEFAULT 0);
@@ -152,6 +158,7 @@ def make_db():
         );
         """
     )
+    db.executescript((ROOT / "api/migrations/059_add_shopping_lists.sql").read_text())
     db.execute("INSERT INTO users (id, username, display_name) VALUES (1, 'tobi', 'Tobi')")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")

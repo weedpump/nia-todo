@@ -31,9 +31,22 @@ def make_db():
         """
         CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, display_name TEXT);
         CREATE TABLE projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, user_id INTEGER, parent_id INTEGER, is_inbox INTEGER DEFAULT 0);
-        CREATE TABLE project_members (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT DEFAULT 'accepted');
+        CREATE TABLE project_members (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT DEFAULT 'accepted',
+            workspace_id INTEGER,
+            user_color TEXT
+        );
         CREATE TABLE entity_access (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL, entity_id INTEGER NOT NULL, owner_user_id INTEGER, owner_household_id INTEGER);
-        CREATE TABLE entity_access_grants (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_access_id INTEGER NOT NULL, user_id INTEGER NOT NULL);
+        CREATE TABLE entity_access_grants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_access_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            invited_by_user_id INTEGER,
+            granted_by_user_id INTEGER,
+            invite_identifier_type TEXT,
+            status TEXT NOT NULL DEFAULT 'accepted',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE sections (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, name TEXT NOT NULL);
         CREATE TABLE todos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,6 +123,10 @@ def make_db():
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (1, 2, 'accepted')")
+    db.execute("""INSERT INTO entity_access_grants (entity_access_id, user_id, invited_by_user_id, granted_by_user_id, status)
+        SELECT access.id, member.user_id, access.owner_user_id, access.owner_user_id, member.status
+        FROM project_members member JOIN entity_access access
+          ON access.entity_type = 'project' AND access.entity_id = member.project_id""")
     db.commit()
     return db
 

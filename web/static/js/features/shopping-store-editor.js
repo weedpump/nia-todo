@@ -21,6 +21,7 @@ export function createShoppingStoreEditorFeature({
   let saveState = null;
   let restoreFocus = null;
   let coveredModal = null;
+  let editorGeneration = 0;
 
   function listById(id) {
     return getLists().find(list => sameId(list.id, id) || sameId(list.client_mutation_id, id)) || null;
@@ -67,6 +68,7 @@ export function createShoppingStoreEditorFeature({
   }
 
   function hideModal() {
+    editorGeneration += 1;
     const modal = doc?.getElementById?.('shopping-store-modal');
     modal?.classList?.remove?.('active');
     modal?.setAttribute?.('aria-hidden', 'true');
@@ -86,6 +88,7 @@ export function createShoppingStoreEditorFeature({
   }
 
   function closeModal() {
+    editorGeneration += 1;
     if (requestCloseUiLayer('shopping-store-modal', { reason: 'ui' }, { afterClose: hideModal })) return;
     hideModal();
   }
@@ -98,6 +101,8 @@ export function createShoppingStoreEditorFeature({
     const storeInput = doc.getElementById('shopping-store-id');
     const nameInput = doc.getElementById('shopping-store-name');
     if (!listInput || !storeInput || !nameInput) return false;
+    const generation = ++editorGeneration;
+    const focusAtOpen = doc.activeElement;
     listInput.value = listId;
     storeInput.value = store.id;
     nameInput.value = store.name || '';
@@ -115,7 +120,12 @@ export function createShoppingStoreEditorFeature({
     modal.setAttribute('aria-hidden', 'false');
     openUiLayer('shopping-store-modal');
     ensureSaveState()?.reset();
-    globalThis.setTimeout?.(() => nameInput.focus?.(), 0);
+    globalThis.setTimeout?.(() => {
+      if (generation !== editorGeneration || !modal.classList.contains('active') || modal.getAttribute?.('aria-hidden') === 'true') return;
+      const focused = doc.activeElement;
+      if (focused && focused !== focusAtOpen && focused !== doc.body) return;
+      nameInput.focus?.();
+    }, 0);
     return true;
   }
 
@@ -230,6 +240,7 @@ export function createShoppingStoreEditorFeature({
   function handleKeydown(event) {
     const modal = doc?.getElementById?.('shopping-store-modal');
     if (!modal?.classList?.contains?.('active')) return;
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       doc?.getElementById?.('shopping-store-form')?.requestSubmit?.();
@@ -271,6 +282,7 @@ export function createShoppingStoreEditorFeature({
     deleteCurrentStore,
     closeModal,
     destroy() {
+      editorGeneration += 1;
       if (!bound) return;
       bound = false;
       doc?.removeEventListener?.('submit', handleSubmit);

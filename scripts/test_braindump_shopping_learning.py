@@ -249,6 +249,89 @@ def test_cross_module_learning_never_discards_explicit_type_specific_content():
                 assert apply_module_routes(db, f.users[0], f.workspaces[0], source, ctx) == source
 
 
+def test_strong_learning_preserves_spoken_list_section_store_and_explicit_empty_routes():
+    with fixture() as f:
+        create_item(f, feedback=BrainDumpRouteFeedback(original_module_id="tasks", original_route_present=True))
+        with get_db() as db:
+            other_list = db.execute("INSERT INTO shopping_lists (name, created_by_user_id) VALUES ('Private list', ?)", (f.users[0],)).lastrowid
+            register_personal_entity(db, "shopping_list", other_list, f.users[0])
+            other_section = db.execute("INSERT INTO shopping_sections (shopping_list_id, name) VALUES (?, 'Bakery')", (f.list_id,)).lastrowid
+            other_store = db.execute("INSERT INTO shopping_stores (shopping_list_id, name) VALUES (?, 'Other market')", (f.list_id,)).lastrowid
+            ctx = brain._load_braindump_extraction_context(db, f.users[0], f.workspaces[0], ["tasks", "shopping"])
+            cases = [
+                ({"shopping_list_id": other_list}, "Milk on Private list.", []),
+                ({"shopping_list_id": f.list_id, "shopping_section_id": other_section}, "Milk in Bakery.", []),
+                ({"shopping_list_id": f.list_id, "shopping_store_ids": [other_store]}, "Milk at Other market.", []),
+                ({"shopping_list_id": f.list_id, "shopping_section_id": None, "shopping_store_ids": []}, "Milk without a section or store.", ["section", "stores"]),
+            ]
+            for fields, transcript, provenance in cases:
+                source = brain._normalize_braindump_json({"candidates": [{"module_id": "shopping", "title": "Milk", "explicit_route_fields": provenance, **fields}]}, transcript, ctx)
+                assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx) == source, (transcript, source)
+            for metadata in ({}, {"explicit_route_fields": None}, {"explicit_route_fields": ["unknown"]}):
+                raw = {"module_id": "shopping", "title": "Milk", "shopping_list_id": f.list_id, "shopping_section_id": None, "shopping_store_ids": [], **metadata}
+                source = brain._normalize_braindump_json({"candidates": [raw]}, "Milk without a section or store.", ctx)
+                assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx) == source, source
+            # A semantic destination can still be corrected by learned history.
+            source = brain._normalize_braindump_json({"candidates": [{"module_id": "shopping", "title": "Milk", "shopping_list_id": other_list, "explicit_route_fields": []}]}, "We need milk.", ctx)
+            learned = brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx)
+            assert learned["candidates"][0]["shopping_list_id"] == f.list_id and learned["candidates"][0]["shopping_store_ids"] == [f.store_id], learned
+            # Explicit container selection does not prevent filling inferred children in that container.
+            source = brain._normalize_braindump_json({"candidates": [{"module_id": "shopping", "title": "Milk", "shopping_list_id": f.list_id, "explicit_route_fields": ["container"]}]}, "We need milk.", ctx)
+            learned = brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx)
+            assert learned["candidates"][0]["shopping_section_id"] == f.section_id and learned["candidates"][0]["shopping_store_ids"] == [f.store_id]
+
+
+def test_both_task_learners_preserve_explicit_projects_and_sections_but_correct_inference():
+    with fixture() as f:
+        create_task(f, title="Milk", feedback=BrainDumpRouteFeedback(original_module_id="shopping", original_route_present=True))
+        with get_db() as db:
+            other_project = db.execute("INSERT INTO projects (name, user_id, workspace_id) VALUES ('Work', ?, ?)", (f.users[0], f.workspaces[0])).lastrowid
+            register_personal_entity(db, "project", other_project, f.users[0])
+            db.execute("INSERT INTO sections (project_id, name) VALUES (?, 'Calls')", (f.projects[0],))
+            db.execute("UPDATE braindump_route_learning SET hits = 10 WHERE user_id = ?", (f.users[0],))
+            ctx = brain._load_braindump_extraction_context(db, f.users[0], f.workspaces[0], ["tasks", "shopping"])
+            for route, transcript in [({"project_name": "Work"}, "Milk for Work."), ({"project_name": "Inbox", "section_name": "Calls"}, "Milk in Calls.")]:
+                source = brain._normalize_braindump_json({"candidates": [{"module_id": "tasks", "title": "Milk", "explicit_route_fields": [], **route}]}, transcript, ctx)
+                assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx) == source, (transcript, source)
+            inferred = brain._normalize_braindump_json({"candidates": [{"module_id": "tasks", "title": "Milk", "project_name": "Work", "explicit_route_fields": []}]}, "We need milk.", ctx)
+            assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], inferred, ctx)["candidates"][0]["project_name"] == "Inbox"
+            old_provider = brain._normalize_braindump_json({"candidates": [{"module_id": "tasks", "title": "Milk", "project_name": "Work"}]}, "We need milk.", ctx)
+            assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], old_provider, ctx) == old_provider
+            learned_section = db.execute("SELECT id FROM sections WHERE project_id = ? AND name = 'Calls'", (f.projects[0],)).fetchone()["id"]
+            db.execute("UPDATE braindump_route_learning SET section_id = ? WHERE user_id = ?", (learned_section, f.users[0]))
+            db.execute("UPDATE braindump_module_route_learning SET task_section_id = ? WHERE user_id = ?", (learned_section, f.users[0]))
+            for metadata in ({}, {"explicit_route_fields": None}, {"explicit_route_fields": ["unknown"]}):
+                raw = {"module_id": "tasks", "title": "Milk", "project_name": "Inbox", "section_name": None, **metadata}
+                source = brain._normalize_braindump_json({"candidates": [raw]}, "Milk without a section.", ctx)
+                assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx) == source, source
+            source = brain._normalize_braindump_json({"candidates": [{**raw, "explicit_route_fields": []}]}, "We need milk.", ctx)
+            assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx)["candidates"][0]["section_name"] == "Calls"
+
+
+def test_typed_legacy_task_learning_requires_unique_confirmation_names():
+    with fixture() as f:
+        with get_db() as db:
+            duplicate_project = db.execute("INSERT INTO projects (name, user_id, workspace_id) VALUES ('Inbox', ?, ?)", (f.users[0], f.workspaces[0])).lastrowid
+            register_personal_entity(db, "project", duplicate_project, f.users[0])
+            db.execute("INSERT INTO braindump_route_learning (user_id, workspace_id, token, project_id, section_id, hits, last_used_at) VALUES (?, ?, 'milk', ?, NULL, 10, 'now')", (f.users[0], f.workspaces[0], f.projects[0]))
+            ctx = brain._load_braindump_extraction_context(db, f.users[0], f.workspaces[0], ["tasks"])
+            source = brain._normalize_braindump_json({"candidates": [{"module_id": "tasks", "title": "Milk", "explicit_route_fields": []}]}, "We need milk.", ctx)
+            assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx) == source
+            legacy_ctx = {**ctx, "typed_candidates": False}
+            legacy = brain._normalize_braindump_json({"candidates": [{"title": "Milk"}]}, "We need milk.", legacy_ctx)
+            assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], legacy, legacy_ctx)["candidates"][0]["project_name"] == "Inbox", "Legacy routing compatibility must remain unchanged"
+            db.execute("UPDATE projects SET name = 'Other' WHERE id = ?", (duplicate_project,))
+            learned_section = db.execute("INSERT INTO sections (project_id, name) VALUES (?, 'Calls')", (f.projects[0],)).lastrowid
+            duplicate_section = db.execute("INSERT INTO sections (project_id, name) VALUES (?, 'Calls')", (f.projects[0],)).lastrowid
+            db.execute("UPDATE braindump_route_learning SET section_id = ? WHERE user_id = ?", (learned_section, f.users[0]))
+            ctx = brain._load_braindump_extraction_context(db, f.users[0], f.workspaces[0], ["tasks"])
+            source = brain._normalize_braindump_json({"candidates": [{"module_id": "tasks", "title": "Milk", "project_name": "Inbox", "explicit_route_fields": []}]}, "We need milk.", ctx)
+            assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx) == source
+            db.execute("DELETE FROM sections WHERE id = ?", (duplicate_section,))
+            ctx = brain._load_braindump_extraction_context(db, f.users[0], f.workspaces[0], ["tasks"])
+            assert brain._apply_learned_routes(db, f.users[0], f.workspaces[0], source, ctx)["candidates"][0]["section_name"] == "Calls"
+
+
 def test_learned_task_targets_respect_inherited_project_access_and_revocation():
     with fixture() as f:
         with get_db() as db:

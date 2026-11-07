@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+import { waitForPageCondition, withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
 async function waitForTodo(page, title, expected = {}) {
-  await page.waitForFunction(async ({ title, expected }) => {
+  await waitForPageCondition(page, async ({ title, expected }) => {
     const jwt = localStorage.getItem('jwt_token');
     const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
     const todo = data.todos.find(item => item.title === title);

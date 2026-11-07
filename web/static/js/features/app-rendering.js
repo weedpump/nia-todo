@@ -97,7 +97,9 @@ export function createAppRenderingFeature({
   function getWorkspaceTodos() {
     const workspaceProjects = getWorkspaceProjects();
     const projectIds = new Set(workspaceProjects.map(project => Number(project.id)));
-    return selectDashboardWorkspaceTodos(getTodos(), projectIds, getCurrentWorkspaceId?.());
+    const identities = new Set(workspaceProjects.map(project => String(project.id)));
+    const scopedTodos = getTodos().filter(todo => todo.project_id == null || todo.project_id === '' || identities.has(String(todo.project_id)));
+    return selectDashboardWorkspaceTodos(scopedTodos, projectIds, getCurrentWorkspaceId?.());
   }
 
   function countByProject(pid) {
@@ -136,7 +138,7 @@ export function createAppRenderingFeature({
 
     function renderProjectTree(project, depth = 0) {
       const hasChildren = project.children && project.children.length > 0;
-      const isActiveProject = Number(currentProjectId) === Number(project.id);
+      const isActiveProject = currentProjectId != null && String(currentProjectId) === String(project.id);
       let html = renderEntitySidebarRow({
         entity: project,
         entityType: 'project',
@@ -695,7 +697,7 @@ export function createAppRenderingFeature({
     const search = document.getElementById('search-input')?.value?.trim().toLowerCase() || '';
 
     let filtered = getWorkspaceTodos();
-    if (currentProjectId) filtered = filtered.filter(t => t.project_id === currentProjectId);
+    if (currentProjectId) filtered = filtered.filter(t => String(t.project_id) === String(currentProjectId));
     if (search) {
       filtered = filtered.filter(t =>
         (t.title || '').toLowerCase().includes(search) ||
@@ -730,10 +732,10 @@ export function createAppRenderingFeature({
 
     if (currentProjectId) {
       let html = '';
-      const currentProject = projects.find(p => Number(p.id) === Number(currentProjectId));
-      const projectTodos = getWorkspaceTodos().filter(t => Number(t.project_id) === Number(currentProjectId));
+      const currentProject = projects.find(p => String(p.id) === String(currentProjectId));
+      const projectTodos = getWorkspaceTodos().filter(t => String(t.project_id) === String(currentProjectId));
       if (!search) html += renderProjectDashboard(currentProject, projectTodos);
-      const sections = allSections.filter(s => Number(s.project_id) === Number(currentProjectId));
+      const sections = allSections.filter(s => String(s.project_id) === String(currentProjectId));
 
 
       if (currentFilter !== 'all' && ['pending','in_progress','done'].includes(currentFilter)) {

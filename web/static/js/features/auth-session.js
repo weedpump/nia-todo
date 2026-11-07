@@ -88,6 +88,7 @@ export function createAuthSessionFeature({
       rememberConsumedNativeOidcCode(code);
       const payload = data.payload || {};
       if (data.kind === 'user') {
+        if (payload.user?.id != null) await clearCacheIfUserChanged(String(payload.user.id));
         storeOidcUserSession(payload);
         hideLoginOverlay();
         if (getAppInitialized()) await refreshFromServer();
@@ -134,11 +135,26 @@ export function createAuthSessionFeature({
   }
 
   function readCachedUser(token) {
+    const lastUserId = localStorage.getItem('last_user_id');
+    if (!lastUserId) return null;
+    let tokenUserId = null;
+    if (token?.includes('.')) {
+      try {
+        tokenUserId = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).user_id ?? null;
+      } catch (_error) {
+        // Malformed tokens still require the normal server validation path.
+      }
+    }
+    if (lastUserId && tokenUserId != null && String(tokenUserId) !== lastUserId) return null;
     const cached = localStorage.getItem('cached_user');
     if (cached) {
       try {
         const user = JSON.parse(cached);
-        if (user?.id && user?.username) return { ...user, token };
+        if (user?.id && user?.username) {
+          if ((lastUserId && String(user.id) !== lastUserId)
+            || (tokenUserId != null && String(user.id) !== String(tokenUserId))) return null;
+          return { ...user, token };
+        }
       } catch (e) {
         localStorage.removeItem('cached_user');
       }
@@ -175,8 +191,10 @@ export function createAuthSessionFeature({
 
   async function clearCacheIfUserChanged(newUserId) {
     const lastUserId = localStorage.getItem('last_user_id');
-    if (lastUserId && lastUserId !== newUserId) {
+    if (lastUserId !== newUserId) {
       console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
+      setCurrentUser(null);
+      await disconnectRealtime?.();
       await clearBrowserAuthCaches();
       await clearCache();
       return true;
@@ -185,10 +203,10 @@ export function createAuthSessionFeature({
   }
 
   async function completeLogin(data) {
-    storeUserSession(data);
-    await maybeVerifyEmailFromUrl();
     const newUserId = String(data.user.id);
     await clearCacheIfUserChanged(newUserId);
+    storeUserSession(data);
+    await maybeVerifyEmailFromUrl();
     localStorage.setItem('last_user_id', newUserId);
     if (data.mfa_enrollment_required) {
       setTimeout(async () => {
@@ -336,6 +354,7 @@ export function createAuthSessionFeature({
         hydrateCurrentUser(cachedUser);
         return true;
       }
+      return false;
     }
 
     try {
@@ -347,14 +366,14 @@ export function createAuthSessionFeature({
           new Promise((_, reject) => setTimeout(() => reject(new Error('auth check timeout')), 2500)),
         ]);
       const refreshedToken = user.access_token || token;
+      const newUserId = String(user.id);
+      const userChanged = await clearCacheIfUserChanged(newUserId);
       if (user.access_token) localStorage.setItem('jwt_token', user.access_token);
       if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);
       hydrateCurrentUser({ ...user, token: refreshedToken });
       persistCachedUser({ ...user, token: refreshedToken });
       await maybeVerifyEmailFromUrl();
 
-      const newUserId = String(user.id);
-      const userChanged = await clearCacheIfUserChanged(newUserId);
       localStorage.setItem('last_user_id', newUserId);
       if (userChanged) {
         console.log('User changed, cache cleared — reloading once');
@@ -398,7 +417,6 @@ export function createAuthSessionFeature({
 
     localStorage.removeItem('jwt_token');
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('last_user_id');
     localStorage.removeItem('csrf_token');
     localStorage.removeItem('cached_user');
     localStorage.removeItem('nia-mfa-enrollment-required');
@@ -407,6 +425,7 @@ export function createAuthSessionFeature({
     await realtimeShutdown;
     await clearBrowserAuthCaches();
     await clearCache();
+    localStorage.removeItem('last_user_id');
     location.reload();
   }
 

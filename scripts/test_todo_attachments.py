@@ -49,7 +49,9 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
-            status TEXT DEFAULT 'accepted'
+            status TEXT DEFAULT 'accepted',
+            workspace_id INTEGER,
+            user_color TEXT
         );
         CREATE TABLE sections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,6 +128,10 @@ def make_db():
     db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")
     db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 2, 1)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
+    db.execute("""INSERT INTO entity_access_grants (entity_access_id, user_id, invited_by_user_id, granted_by_user_id, status)
+        SELECT access.id, member.user_id, access.owner_user_id, access.owner_user_id, member.status
+        FROM project_members member JOIN entity_access access
+          ON access.entity_type = 'project' AND access.entity_id = member.project_id""")
     db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_enabled', '1')")
     db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_allowed_types', '[\".png\",\".jpg\",\".jpeg\",\".gif\",\".webp\",\".pdf\",\".txt\"]')")
     db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_default_quota_bytes', '5368709120')")

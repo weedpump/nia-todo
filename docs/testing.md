@@ -45,6 +45,10 @@ Changes to shared shells, editors, capture controllers, storage or sync require 
 
 Mixed BrainDump regressions use mocked audio/extraction and isolated databases: `scripts/test_frontend_braindump_modules.mjs` covers the shared launcher, editable routing, session guards, partial retries and mobile layout; `scripts/test_braindump_shopping_queue.mjs` and `scripts/test_offline_shopping_sync.mjs` cover durable writes and reference remapping. The backend extraction/learning scripts cover permissions, opt-out/reset and idempotency; `scripts/test_fresh_migrations.py` checks upgrade rollback and retry. These checks do not exercise a real microphone, STT service or LLM.
 
+`scripts/test_frontend_shopping_e2e.mjs` additionally runs the actual application against the isolated API service across two browser sessions. It covers list/section/store/item creation, real WebSocket delivery, mobile offline queue/reconnect, temporary-ID remapping, reload and layout overflow without mocking Shopping HTTP or WebSocket traffic. Optional screenshots are written to `NIA_TODO_TEST_OUTPUT_DIR`.
+
+Use `waitForPageCondition` from `scripts/browser_page_condition.mjs` for asynchronous browser predicates; it awaits the result and enforces one total deadline. An async `waitForFunction` callback can otherwise resolve on its first truthy Promise before the condition holds. Loopback-only test namespaces can opt into `NIA_TODO_TEST_ISOLATED_NETWORK=1`: the shared browser helper then aligns the page's online signal with Playwright's actual transport offline setting, including across reloads. This does not expose host networking or mock application API/WebSocket traffic.
+
 ### Security / workflow contracts
 
 - `python3 scripts/test_rate_limit.py`

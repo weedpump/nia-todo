@@ -1,4 +1,5 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
+import { resolveKnownTodoTargets } from './todo-targets.js';
 import { getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
@@ -1010,6 +1011,30 @@ export function createTodosFeature({
       }));
     }
     return state;
+  }
+
+  function remapPendingTargetId(kind, from, to) {
+    if (!['project', 'section'].includes(kind) || from == null || to == null || String(from) === String(to)) return false;
+    let changed = false;
+    for (const id of [`todo-${kind}`, `todo-multi-${kind}`]) {
+      const select = document.getElementById(id);
+      const option = Array.from(select?.options || []).find(option => String(option.value) === String(from));
+      if (!option) continue;
+      const selected = String(select.value) === String(from);
+      option.value = String(to);
+      if (selected) select.value = String(to);
+      refreshSelect(select);
+      changed = true;
+    }
+    if (todoSaveSnapshot !== null) {
+      const snapshot = JSON.parse(todoSaveSnapshot);
+      const field = `${kind}_id`;
+      if (String(snapshot[field]) === String(from)) {
+        snapshot[field] = String(to);
+        todoSaveSnapshot = JSON.stringify(snapshot);
+      }
+    }
+    return changed;
   }
 
   function hasPersistedTodoId() {
@@ -2612,8 +2637,8 @@ export function createTodosFeature({
       description: document.getElementById('todo-desc').value,
       priority: parseInt(document.getElementById('todo-priority').value),
       is_pinned: document.getElementById('todo-pinned')?.checked || false,
-      project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
-      section_id: document.getElementById('todo-section').value ? parseInt(document.getElementById('todo-section').value) : null,
+      project_id: document.getElementById('todo-project').value || null,
+      section_id: document.getElementById('todo-section').value || null,
       status: document.getElementById('todo-status').value,
       subtasks: collectTodoSubtasksFromEditor(),
       due_date: toIsoOrNull('todo-due'),
@@ -2652,11 +2677,13 @@ export function createTodosFeature({
       dueInput?.focus();
       return;
     }
-    if (todoData.section_id && todoData.project_id) {
-      const allSections = await loadSectionsForQuickAdd();
-      const selectedSection = allSections.find(section => String(section.id) === String(todoData.section_id));
-      if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
-    }
+    const targetSections = todoData.section_id == null ? [] : await loadSectionsForQuickAdd();
+    const targets = resolveKnownTodoTargets({ projectId: todoData.project_id, sectionId: todoData.section_id,
+      projects: getProjects(), sections: targetSections,
+      inheritedSectionProjectId: parsedQuickAdd?.changes.project_id && !parsedQuickAdd.changes.section_id
+        ? document.getElementById('todo-project').value || null : undefined });
+    if (!targets) return;
+    Object.assign(todoData, targets);
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
     const locationReminderIntent = Boolean(todoData.location_reminder) && (
       !id || document.getElementById('todo-form')?.dataset.locationReminderDirty === '1'
@@ -2667,6 +2694,19 @@ export function createTodosFeature({
     if (draftAttachmentFiles.length > 0 && !isOnlineForSync()) {
       showToast(t('todo.drafts.onlineOnly'));
       return;
+    }
+    const hasPendingTarget = () => [todoData.project_id, todoData.section_id]
+      .some(value => typeof value === 'string' && value.startsWith('temp-'));
+    if (draftAttachmentFiles.length > 0 && hasPendingTarget()) {
+      await syncWithServer();
+      const latestTargets = resolveKnownTodoTargets({
+        projectId: document.getElementById('todo-project').value || null,
+        sectionId: document.getElementById('todo-section').value || null,
+        projects: getProjects(), sections: await loadSectionsForQuickAdd(),
+      });
+      if (!latestTargets) return;
+      Object.assign(todoData, latestTargets);
+      if (hasPendingTarget()) return;
     }
     if (id) delete todoData.subtasks;
     if (id) {
@@ -2679,7 +2719,7 @@ export function createTodosFeature({
             : getProjects().find(project => String(project.id) === String(todoData.project_id));
           if (todoData.project_id != null && !targetProject) return null;
           if (todoData.section_id != null) {
-            const targetSection = getSections().find(section => String(section.id) === String(todoData.section_id));
+            const targetSection = (await loadSectionsForQuickAdd()).find(section => String(section.id) === String(todoData.section_id));
             if (!targetSection || String(targetSection.project_id) !== String(todoData.project_id)) return null;
           }
           const nowIso = new Date().toISOString();
@@ -2693,7 +2733,7 @@ export function createTodosFeature({
       if (!updated) return;
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       if (isOnlineForSync()) await syncWithServer();
-    } else if (hasPostCreateDrafts && isOnlineForSync()) {
+    } else if (hasPostCreateDrafts && isOnlineForSync() && !hasPendingTarget()) {
       const createPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
       let createdTodo = await todosApi.create(todoData);
       let createApplied = false;
@@ -2753,7 +2793,7 @@ export function createTodosFeature({
           : getProjects().find(project => String(project.id) === String(todoData.project_id));
         if (todoData.project_id != null && !targetProject) return null;
         if (todoData.section_id != null) {
-          const targetSection = getSections().find(section => String(section.id) === String(todoData.section_id));
+          const targetSection = (await loadSectionsForQuickAdd()).find(section => String(section.id) === String(todoData.section_id));
           if (!targetSection || String(targetSection.project_id) !== String(todoData.project_id)) return null;
         }
         await dbPut('todos', newTodo);
@@ -3050,5 +3090,5 @@ export function createTodosFeature({
     document.getElementById('todo-project')?.addEventListener('change', onProjectChange);
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, resetTodoShortcutTarget, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, resetTodoShortcutTarget, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, remapPendingTargetId, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

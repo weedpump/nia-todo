@@ -36,7 +36,7 @@ from routers.todos import (
 from urllib.parse import urlparse
 
 from services.braindump_config import build_effective_system_prompt, get_braindump_config, llm_chat_url, parse_extra_headers
-from services.braindump_candidates import candidate_context_payload, enabled_candidate_modules, is_shopping_candidate, load_shopping_context, normalize_candidates
+from services.braindump_candidates import can_apply_learned_route, candidate_context_payload, enabled_candidate_modules, is_shopping_candidate, load_shopping_context, normalize_candidates
 from services.braindump_v2 import (
     append_text_segment,
     create_session,
@@ -383,7 +383,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             "recurring_rule": _normalize_braindump_recurring_rule(recurring_source, has_deadline=bool(deadline)),
             "location_reminder": candidate.get("location_reminder") or candidate.get("locationReminder") or candidate.get("location") or candidate.get("place"),
         }, workspace_context)
-    return {"candidates": normalize_candidates(candidates, workspace_context, normalize_task)}
+    return {"candidates": normalize_candidates(candidates, workspace_context, normalize_task, transcript=transcript)}
 
 
 class TextSegmentRequest(BaseModel):
@@ -897,6 +897,24 @@ def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: di
             if not project_name:
                 routed_candidates.append(candidate)
                 continue
+            learned_section_name = (section_names[section_id][1]
+                                    if section_id is not None and section_id in section_names and section_names[section_id][0] == project_id
+                                    else None)
+            if context is not None and context.get("typed_candidates"):
+                # Confirmation still accepts Tasks routes by name. An exact
+                # learned ID must round-trip uniquely through that same API,
+                # rather than silently becoming Inbox or an unsectioned task.
+                resolved_project, resolved_section, matched = _candidate_route_ids(db, user_id, workspace_id, {
+                    "project_name": project_name, "section_name": learned_section_name,
+                })
+                if not matched or resolved_project != project_id or resolved_section != section_id:
+                    routed_candidates.append(candidate)
+                    continue
+            if context is not None and context.get("typed_candidates") and not can_apply_learned_route(candidate, {
+                "module_id": "tasks", "project_name": project_name, "section_name": learned_section_name,
+            }):
+                routed_candidates.append(candidate)
+                continue
             current_project_id, current_section_id, current_matched = _candidate_route_ids(db, user_id, workspace_id, candidate)
             has_existing_project = bool(candidate.get("project_name") and current_matched)
             has_existing_section = bool(has_existing_project and candidate.get("section_name") and current_section_id is not None)
@@ -911,10 +929,7 @@ def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: di
                 continue
             routed = dict(candidate)
             routed["project_name"] = project_name
-            if section_id is not None and section_id in section_names and section_names[section_id][0] == project_id:
-                routed["section_name"] = section_names[section_id][1]
-            else:
-                routed["section_name"] = None
+            routed["section_name"] = learned_section_name
             routed_candidates.append(routed)
         result = {**parsed, "candidates": routed_candidates}
         return apply_module_routes(db, user_id, workspace_id, result, context) if context is not None else result

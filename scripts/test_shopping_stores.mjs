@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { createShoppingStoresController } from '../web/static/js/features/shopping-stores.js';
 import { createShoppingItemsController } from '../web/static/js/features/shopping-items.js';
+import { bindShoppingStoreCreator } from '../web/static/js/features/shopping-store-creator.js';
+import { createShoppingStoreEditorFeature } from '../web/static/js/features/shopping-store-editor.js';
 
 function deferred() {
   let resolve;
@@ -277,5 +279,85 @@ assert.equal(options.resolveListIdentity(701), 'temp-composition');
 assert.equal(options.resolveListId('temp-composition'), 701);
 compositionLists.length = 0;
 assert.equal(options.resolveListId('temp-composition'), null);
+
+// Exercise the actual keyboard listeners, including already handled row shortcuts
+// and the Enter events used to confirm an IME conversion.
+function keyboardDocument(elements) {
+  const listeners = new Map();
+  return {
+    getElementById: id => elements.get(id) || null,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener(type, handler) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(handler);
+    },
+    removeEventListener(type, handler) { listeners.get(type)?.delete(handler); },
+    async emit(type, event) {
+      await Promise.all([...listeners.get(type) || []].map(handler => handler(event)));
+    },
+  };
+}
+const keyboardInput = id => ({ id, value: 'Market', setAttribute() {}, removeAttribute() {}, focus() {} });
+const creatorInput = keyboardInput('keyboard-new-store-name');
+let keyboardCreates = 0;
+const creatorDoc = keyboardDocument(new Map([
+  [creatorInput.id, creatorInput],
+  ['keyboard-new-store', { hidden: false }],
+]));
+const keyboardCreator = bindShoppingStoreCreator({
+  document: creatorDoc, prefix: 'keyboard',
+  getContext: () => ({ id: 7 }),
+  storeController: { create: async () => { keyboardCreates++; return { id: 77 }; } },
+});
+keyboardCreator.show();
+creatorInput.value = 'Market';
+for (const blocked of [{ isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }]) {
+  let prevented = 0;
+  await creatorDoc.emit('keydown', { key: 'Enter', target: creatorInput, ...blocked, preventDefault() { prevented++; } });
+  assert.equal(keyboardCreates, 0, 'composing/handled Enter must not create an inline store');
+  assert.equal(prevented, 0, 'the composition owner must retain its Enter event');
+}
+await creatorDoc.emit('keydown', { key: 'Enter', target: creatorInput, preventDefault() {} });
+assert.equal(keyboardCreates, 1, 'ordinary Enter must still create exactly one store');
+keyboardCreator.destroy();
+
+const editorInput = keyboardInput('shopping-store-name');
+let keyboardUpdates = 0;
+let editorSubmits = 0;
+const editorModal = {
+  classList: { contains: () => true, remove() {} },
+  setAttribute() {}, querySelectorAll: () => [],
+};
+const editorForm = {
+  id: 'shopping-store-form', addEventListener() {}, removeEventListener() {},
+  requestSubmit() {
+    editorSubmits++;
+    void editorDoc.emit('submit', { target: this, preventDefault() {} });
+  },
+};
+const editorDoc = keyboardDocument(new Map([
+  ['shopping-store-modal', editorModal], ['shopping-store-form', editorForm],
+  ['shopping-store-name', editorInput], ['shopping-store-list-id', { value: '7' }],
+  ['shopping-store-id', { value: '77' }], ['shopping-store-save-btn', { disabled: false }],
+]));
+const keyboardEditor = createShoppingStoreEditorFeature({
+  document: editorDoc,
+  getLists: () => [{ id: 7, can_edit: true }],
+  getStores: () => [{ id: 77, shopping_list_id: 7, name: 'Before', active: true }],
+  storeController: { update: async () => { keyboardUpdates++; return { id: 77 }; } },
+});
+keyboardEditor.bind();
+for (const modifier of [{ ctrlKey: true }, { metaKey: true }]) {
+  for (const blocked of [{ isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }]) {
+    await editorDoc.emit('keydown', { key: 'Enter', target: editorInput, ...modifier, ...blocked, preventDefault() {} });
+    assert.equal(editorSubmits, 0, 'handled or composing shortcuts must not submit the store editor');
+    assert.equal(keyboardUpdates, 0, 'composing shortcuts must not update a store');
+  }
+}
+await editorDoc.emit('keydown', { key: 'Enter', ctrlKey: true, target: editorInput, preventDefault() {} });
+assert.equal(editorSubmits, 1, 'ordinary Ctrl+Enter retains the form submission path');
+assert.equal(keyboardUpdates, 1, 'ordinary Ctrl+Enter updates the store once');
+keyboardEditor.destroy();
 
 console.log('✅ Shared shopping store create controller contracts passed');

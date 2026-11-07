@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from collections.abc import Callable
 
 from services.entity_access import resolve_entity_access
@@ -18,6 +19,7 @@ from services.quantity_units import normalize_quantity_unit
 EXTRACTION_MODULES = ("tasks", "shopping")
 MAX_CONTEXT_LISTS = 40
 MAX_CONTEXT_CHILDREN = 16
+EXPLICIT_ROUTE_FIELDS = ("container", "section", "stores")
 SHOPPING_TARGET_FIELDS = ("shopping_list_id", "shopping_section_id", "shopping_store_ids",
                          "shopping_list_name", "shopping_section_name", "shopping_store_name", "shopping_store_names")
 
@@ -99,8 +101,10 @@ def candidate_context_payload(context: dict | None) -> dict:
         "candidate_contract": {
             "module_id": list(modules),
             "shopping": ["title", "shopping_list_id", "shopping_section_id", "shopping_store_ids", "quantity_value", "quantity_unit"],
+            "explicit_route_fields": list(EXPLICIT_ROUTE_FIELDS),
             "rules": [
                 "Every candidate must use an available module_id from supported_modules.",
+                "Return explicit_route_fields for each candidate: container, section and/or stores only when the user explicitly selected that destination (including explicitly no section or no store); [] when routing was semantically inferred. Never mark a merely inferred route explicit.",
                 "Shopping IDs are only from shopping_lists and its nested sections/stores, never project or workspace IDs.",
                 "Apply the same semantic taxonomy rules to Shopping: compare each item's meaning with the sections of every shopping list, even when no list or section name was spoken.",
                 "A uniquely fitting section is evidence for its containing shopping list; return both that list ID and section ID instead of leaving them null merely because the list name was not spoken.",
@@ -226,10 +230,98 @@ def _keys_equivalent(left: str, right: str) -> bool:
                              and (left.startswith(right) or right.startswith(left)))
 
 
-def normalize_candidates(candidates: list, context: dict | None, normalize_task: Callable[[dict, str], dict]) -> list[dict]:
+def _route_values(candidate: dict) -> tuple:
+    if candidate.get("module_id") == "shopping":
+        return (candidate.get("shopping_list_id"), candidate.get("shopping_section_id"),
+                tuple(sorted(candidate.get("shopping_store_ids") or [])))
+    return (_name_key(candidate.get("project_name")) or None, _name_key(candidate.get("section_name")) or None, ())
+
+
+def _present_route_fields(candidate: dict) -> set[str]:
+    return {field for field, value in zip(EXPLICIT_ROUTE_FIELDS, _route_values(candidate)) if value not in (None, "", ())}
+
+
+def _provided_explicit_fields(value) -> set[str] | None:
+    if isinstance(value, list) and len(value) <= len(EXPLICIT_ROUTE_FIELDS) and all(isinstance(field, str) and field in EXPLICIT_ROUTE_FIELDS for field in value):
+        return set(value)
+    return None
+
+
+def can_apply_learned_route(candidate: dict, target: dict) -> bool:
+    """Learning may fill or correct inference, but cannot replace spoken targets.
+
+    Old/internal candidates without provenance are treated conservatively when
+    they already carry a destination. Only normalized explicit [] opts a resolved
+    inferred destination into historical corrections.
+    """
+    explicit = _provided_explicit_fields(candidate.get("explicit_route_fields"))
+    if explicit is None:
+        explicit = _present_route_fields(candidate)
+    if not explicit:
+        return True
+    if candidate.get("module_id", "tasks") != target.get("module_id", "tasks"):
+        return False
+    current_container, current_section, current_stores = _route_values(candidate)
+    container, section, stores = _route_values(target)
+    if current_container != container:
+        return False  # An explicit child also fixes its inherited container.
+    if "section" in explicit and current_section != section:
+        return False
+    if "stores" in explicit and current_stores != stores:
+        return False
+    return True
+
+
+def _mention_key(value: str) -> str:
+    return " ".join(re.findall(r"\w+", unicodedata.normalize("NFKC", value).casefold(), flags=re.UNICODE))
+
+
+def _explicit_route_fields(raw: dict, candidate: dict, context: dict, transcript_key: str) -> list[str]:
+    supplied = _provided_explicit_fields(raw.get("explicit_route_fields"))
+    explicit = supplied if supplied is not None else _present_route_fields(candidate)
+    # Missing provenance cannot distinguish an inferred empty route from an
+    # explicitly cleared one. Protect supplied fields, including null/[], while
+    # a valid explicit [] still opts inferred routes into historical corrections.
+    if supplied is None:
+        if any(field in raw for field in ("shopping_list_id", "shopping_list_name", "project_name", "projectName", "project")):
+            explicit.add("container")
+        if any(field in raw for field in ("shopping_section_id", "shopping_section_name", "section_name", "sectionName", "section")):
+            explicit.add("section")
+        if any(field in raw for field in ("shopping_store_ids", "shopping_store_names", "shopping_store_name")):
+            explicit.add("stores")
+
+    def mentioned(name) -> bool:
+        if not isinstance(name, str) or not name.strip():
+            return False
+        key = _mention_key(name[:200])
+        return bool(key and f" {key} " in transcript_key)
+
+    if candidate.get("module_id") == "shopping":
+        target = next((row for row in context.get("shopping_lists", []) if row["id"] == candidate.get("shopping_list_id")), None)
+        section = next((row for row in (target or {}).get("sections", []) if row["id"] == candidate.get("shopping_section_id")), None)
+        stores = [row for row in (target or {}).get("stores", []) if row["id"] in candidate.get("shopping_store_ids", [])]
+        if mentioned((target or {}).get("name")) or mentioned(raw.get("shopping_list_name")):
+            explicit.add("container")
+        if mentioned((section or {}).get("name")) or mentioned(raw.get("shopping_section_name")):
+            explicit.add("section")
+        store_names = raw.get("shopping_store_names")
+        if not isinstance(store_names, list):
+            store_names = [raw.get("shopping_store_name")]
+        if any(mentioned(row.get("name")) for row in stores) or any(mentioned(name) for name in store_names[:50]):
+            explicit.add("stores")
+    else:
+        if any(mentioned(name) for name in (candidate.get("project_name"), raw.get("project_name"), raw.get("projectName"), raw.get("project"))):
+            explicit.add("container")
+        if any(mentioned(name) for name in (candidate.get("section_name"), raw.get("section_name"), raw.get("sectionName"), raw.get("section"))):
+            explicit.add("section")
+    return [field for field in EXPLICIT_ROUTE_FIELDS if field in explicit]
+
+
+def normalize_candidates(candidates: list, context: dict | None, normalize_task: Callable[[dict, str], dict], *, transcript: str = "") -> list[dict]:
     context = context or {}
     typed = bool(context.get("typed_candidates"))
     available = context.get("supported_modules", ["tasks"])
+    transcript_key = f" {_mention_key(transcript[:50000])} "
     result, seen = [], []
     for raw in candidates:
         candidate = {"title": raw} if isinstance(raw, str) else raw
@@ -254,8 +346,17 @@ def normalize_candidates(candidates: list, context: dict | None, normalize_task:
             item = normalize_task(candidate, title)
             if typed:
                 item["module_id"] = "tasks"
+        if typed:
+            item["explicit_route_fields"] = _explicit_route_fields(candidate, item, context, transcript_key)
         scope, key = _dedupe_scope(item), _item_key(item["title"])
-        if key and not any(scope == old_scope and _keys_equivalent(key, old_key) for old_scope, old_key in seen):
+        duplicate = next((index for index, (old_scope, old_key) in enumerate(seen)
+                          if scope == old_scope and _keys_equivalent(key, old_key)), None)
+        if key and duplicate is None:
             seen.append((scope, key))
             result.append(item)
+        elif key and typed:
+            # Repeated wording may add an explicit destination to an earlier
+            # inference. Deduplication must retain that stronger protection.
+            explicit = set(result[duplicate]["explicit_route_fields"]) | set(item["explicit_route_fields"])
+            result[duplicate]["explicit_route_fields"] = [field for field in EXPLICIT_ROUTE_FIELDS if field in explicit]
     return result

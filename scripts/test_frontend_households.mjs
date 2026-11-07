@@ -241,6 +241,7 @@ try {
     if (pathname === '/static/js/features/entity-appearance.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-appearance.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/entity-detail-header.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-detail-header.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/entity-editor-modal.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-editor-modal.js', import.meta.url), 'utf8') });
+    if (pathname === '/static/js/ui/detail-modal.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/ui/detail-modal.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/entity-ownership-field.js') return route.fulfill({ contentType: 'text/javascript', body: ownershipFieldSource });
     if (pathname === '/static/js/features/entity-direct-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: directSharingSource });
     if (pathname === '/static/js/features/entity-invitations.js') return route.fulfill({ contentType: 'text/javascript', body: entityInvitationsSource });

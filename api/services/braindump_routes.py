@@ -9,7 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from services.entity_access import resolve_entity_access
-from services.braindump_candidates import enabled_candidate_modules
+from services.braindump_candidates import can_apply_learned_route, enabled_candidate_modules
 from services.sharing import can_manage_todos
 
 BRAINDUMP_LEARNING_MIN_TOKEN_LENGTH = 3
@@ -205,6 +205,9 @@ def apply_module_routes(db, user_id: int, workspace_id: int | None, parsed: dict
             continue
         target, score = choices[0]
         margin = score - (choices[1][1] if len(choices) > 1 else 0)
+        if not can_apply_learned_route(candidate, target):
+            routed.append(candidate)
+            continue
         different_module = candidate.get("module_id") != target["module_id"]
         if different_module:
             has_task_details = candidate.get("module_id") == "tasks" and any(
@@ -242,5 +245,7 @@ def apply_module_routes(db, user_id: int, workspace_id: int | None, parsed: dict
                     "recurring_rule": None, "location_reminder": None, **target}
             if not different_module:
                 item = {**candidate, **target}
+        if "explicit_route_fields" in candidate:
+            item["explicit_route_fields"] = candidate["explicit_route_fields"]
         routed.append(item)
     return {**parsed, "candidates": routed}

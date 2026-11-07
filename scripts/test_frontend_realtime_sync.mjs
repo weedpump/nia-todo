@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+import { waitForPageCondition, withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
 async function delayStartupWorkspaceRefresh(page) {
   let releaseRefresh;
@@ -76,7 +76,7 @@ async function waitForRealtimeReady(page, label) {
 }
 
 async function waitForTodoInDb(page, title, timeout = 15000) {
-  await page.waitForFunction(async value => {
+  await waitForPageCondition(page, async value => {
     if (typeof window.dbGetAll !== 'function') return false;
     const todos = await window.dbGetAll('todos');
     return todos.some(todo => todo.title === value);
@@ -141,7 +141,7 @@ async function run() {
     await pageA.click('button[form="todo-form"]');
     await pageA.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
-    await pageB.waitForFunction(async () => {
+    await waitForPageCondition(pageB, async () => {
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === 'Realtime Sync Todo');
       return todo?.status === 'done';
@@ -167,7 +167,7 @@ async function run() {
       return { parentId: parent.id, childId: child.id, todoId: todo.id, workspaceId: parent.workspace_id };
     });
 
-    await pageB.waitForFunction(async ({ parentId, childId, todoId, workspaceId }) => {
+    await waitForPageCondition(pageB, async ({ parentId, childId, todoId, workspaceId }) => {
       const projects = await window.dbGetAll('projects');
       const todos = await window.dbGetAll('todos');
       const inbox = projects.find(project => project.is_inbox && String(project.workspace_id || '') === String(workspaceId || ''));

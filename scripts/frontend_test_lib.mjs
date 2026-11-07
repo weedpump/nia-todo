@@ -4,6 +4,7 @@ import { existsSync as nodeExistsSync, readFileSync, renameSync, unlinkSync, mkd
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+export { waitForPageCondition } from './browser_page_condition.mjs';
 
 export const BASE_URL = process.env.NIA_TODO_URL || 'http://localhost:8753';
 export const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo';
@@ -265,6 +266,26 @@ export async function launchPage({ serviceWorkers = 'block' } = {}) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers });
   const page = await context.newPage();
+  if (process.env.NIA_TODO_TEST_ISOLATED_NETWORK === '1') {
+    // A loopback-only namespace has no physical online NIC. Keep the browser's
+    // online signal aligned with Playwright's real transport emulation instead.
+    await context.addInitScript(() => {
+      let offline = false;
+      try { offline = sessionStorage.getItem('nia-isolated-test-offline') === '1'; } catch {}
+      Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => !offline });
+      window.__niaSetTestOffline = value => {
+        const changed = offline !== value;
+        offline = value;
+        try { sessionStorage.setItem('nia-isolated-test-offline', value ? '1' : '0'); } catch {}
+        if (changed) window.dispatchEvent(new Event(value ? 'offline' : 'online'));
+      };
+    });
+    const setOffline = context.setOffline.bind(context);
+    context.setOffline = async value => {
+      await setOffline(value);
+      await Promise.all(context.pages().map(tab => tab.evaluate(value => window.__niaSetTestOffline?.(value), value)));
+    };
+  }
   if (serviceWorkers === 'block') {
     await page.addInitScript(() => {
       const mockRegistration = {

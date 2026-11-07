@@ -1,4 +1,5 @@
 import { createMultiAddFeature, splitMultiAddPaste, getMultiAddRowA11y, syncMultiAddNativeFields } from './multi-add.js';
+import { resolveKnownTodoTargets } from './todo-targets.js';
 // Compatibility exports; all row/mode/parse/save orchestration lives in multi-add.js.
 const legacyNativeStates = new Map();
 export function syncMultiAddNativeValidation(multi) {
@@ -116,8 +117,8 @@ export function createTodoMultiAddFeature({
         description: '',
         priority,
         is_pinned: false,
-        project_id: projectId ? Number(projectId) : null,
-        section_id: sectionId ? Number(sectionId) : null,
+        project_id: projectId || null,
+        section_id: sectionId || null,
         status: 'pending',
         subtasks: [],
         due_date: null,
@@ -133,10 +134,11 @@ export function createTodoMultiAddFeature({
       if (parsed.changes.remind_at) todoData.remind_at = parsed.changes.remind_at;
       if (parsed.changes.recurring_rule) todoData.recurring_rule = parsed.changes.recurring_rule;
       if (parsed.changes.location_reminder) todoData.location_reminder = parsed.changes.location_reminder;
-      if (todoData.section_id && todoData.project_id) {
-        const selectedSection = sections.find(section => String(section.id) === String(todoData.section_id));
-        if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
-      }
+      const targets = resolveKnownTodoTargets({ projectId: todoData.project_id, sectionId: todoData.section_id,
+        projects: getProjects(), sections,
+        inheritedSectionProjectId: parsed.changes.project_id && !parsed.changes.section_id ? projectId : undefined });
+      if (!targets) return false;
+      Object.assign(todoData, targets);
       todoData.location_reminders = todoData.location_reminder ? [todoData.location_reminder] : [];
       if(getMultiTodoValidationKey(todoData))return false;
       prepared.push(todoData);

@@ -175,6 +175,36 @@ const controller = createSectionController({
   labels: { deleteTitle: 'Delete', deleteMessage: 'Confirm', deleteConfirm: 'Delete' },
 });
 controller.bind();
+const originalCreate = controllerAdapter.createSection;
+const originalRename = controllerAdapter.renameSection;
+let keyboardSectionCreates = 0;
+let keyboardSectionRenames = 0;
+controllerAdapter.createSection = async () => { keyboardSectionCreates++; return { id: 'keyboard-created' }; };
+controllerAdapter.renameSection = async () => { keyboardSectionRenames++; return { id: 'opaque-controller' }; };
+for (const mode of ['new', 'edit']) {
+  const input = {
+    value: 'Confirmed composition', dataset: { sectionInput: mode, sectionId: 'opaque-controller' },
+    closest(selector) {
+      if (selector === '[data-section-input]') return this;
+      if (selector === '[data-section-root]') return controllerRoot;
+      return null;
+    },
+  };
+  const createsBefore = keyboardSectionCreates;
+  const renamesBefore = keyboardSectionRenames;
+  for (const blocked of [{ isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }]) {
+    let prevented = 0;
+    await controllerListeners.keydown({ key: 'Enter', target: input, ...blocked, preventDefault() { prevented++; } });
+    assert.equal(keyboardSectionCreates, createsBefore, 'IME/handled Enter must not create a section');
+    assert.equal(keyboardSectionRenames, renamesBefore, 'IME/handled Enter must not rename a section');
+    assert.equal(prevented, 0, 'the section controller must not steal a composition event');
+  }
+  await controllerListeners.keydown({ key: 'Enter', target: input, preventDefault() {} });
+  assert.equal(keyboardSectionCreates, createsBefore + Number(mode === 'new'), 'ordinary Enter preserves section creation');
+  assert.equal(keyboardSectionRenames, renamesBefore + Number(mode === 'edit'), 'ordinary Enter preserves section renaming');
+}
+controllerAdapter.createSection = originalCreate;
+controllerAdapter.renameSection = originalRename;
 function actionTarget(action, sectionId) {
   return {
     dataset: { sectionAction: action, sectionId },
@@ -311,6 +341,7 @@ cleanupAdapter.canManage = () => true;
 const { createSectionActionsFeature } = await import('../web/static/js/features/section-actions.js');
 let taskSections = [];
 let taskTodos = [{ id: 10, project_id: 1, section_id: null, title: 'Move me' }];
+const taskProjects = [{ id: 1 }, { id: 'temp-project-target' }];
 const taskQueue = [];
 let taskRenderCount = 0;
 let taskMutationReservations = 0;
@@ -319,7 +350,7 @@ const taskSyncPending = new Promise(resolve => { releaseTaskSync = resolve; });
 const taskActions = createSectionActionsFeature({
   getTodos: () => taskTodos,
   setTodos: next => { taskTodos = next; },
-  getProjects: () => [{ id: 1 }],
+  getProjects: () => taskProjects,
   getSections: () => taskSections,
   setSections: next => { taskSections = next; },
   getCurrentProjectId: () => 1,
@@ -370,6 +401,18 @@ assert.deepEqual(taskQueue.at(-1), {
   action: 'UPDATE_TODO',
   data: { id: 10, changes: { section_id: recreatedSection.id } },
 });
+await taskActions.adapter.itemDrag.moveToProject(10, 'temp-project-target');
+assert.equal(taskTodos[0].project_id, 'temp-project-target', 'moving to a known pending project must preserve its opaque ID');
+assert.equal(taskTodos[0].section_id, null);
+assert.deepEqual(taskQueue.at(-1), { action: 'UPDATE_TODO', data: { id: 10, changes: { project_id: 'temp-project-target', section_id: null } } });
+taskSections.push({ id: 'temp-section-target', project_id: 'temp-project-target', name: 'Pending target' });
+await taskActions.adapter.itemDrag.moveToSection(10, 'temp-section-target');
+assert.equal(taskTodos[0].section_id, 'temp-section-target');
+const knownTargetQueueLength = taskQueue.length;
+assert.equal(await taskActions.adapter.itemDrag.moveToProject(10, 'temp-project-unavailable'), null);
+assert.equal(await taskActions.adapter.itemDrag.moveToSection(10, recreatedSection.id), null, 'a section in another project must remain unavailable');
+assert.equal(await taskActions.adapter.itemDrag.moveToSection(10, 'temp-section-unavailable'), null);
+assert.equal(taskQueue.length, knownTargetQueueLength, 'invalid targets must not enqueue mutations');
 
 const sectionActionsSource = readFileSync(new URL('../web/static/js/features/section-actions.js', import.meta.url), 'utf8');
 const sectionsSource = readFileSync(new URL('../web/static/js/features/sections.js', import.meta.url), 'utf8');

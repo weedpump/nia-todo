@@ -41,6 +41,7 @@ const html = `<!doctype html><html><head><style>${moduleSwitcherCss}</style></he
     import { translatePage } from '/static/js/i18n/index.js';
 
     localStorage.setItem('jwt_token', 'cached-token');
+    localStorage.setItem('last_user_id', '1');
     localStorage.setItem('nia-active-module', 'shopping');
     localStorage.setItem('cached_user', JSON.stringify({
       id: 1,
@@ -105,6 +106,7 @@ try {
     const stubs = {
       '/static/js/features/auth-session.js': authSessionSource,
       '/static/js/features/module-shell.js': moduleShellSource,
+      '/static/js/features/ui-history.js': readFileSync(new URL('../web/static/js/features/ui-history.js', import.meta.url), 'utf8'),
       '/static/js/features/module-switcher.js': moduleSwitcherSource,
       '/static/js/modules/visibility.js': visibilitySource,
       '/static/js/modules/registry.js': `

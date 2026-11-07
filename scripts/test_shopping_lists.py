@@ -8,8 +8,11 @@ import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -66,6 +69,27 @@ with tempfile.TemporaryDirectory() as tmp:
         respond_to_household_invite,
     )
     from routers.websocket import get_sync_payload
+
+    # All ordering updates share one explicit-null contract. Omission is a
+    # partial update, while quantity/section null still deliberately clears.
+    for update_model in (ShoppingListUpdate, ShoppingSectionUpdate, ShoppingStoreUpdate, ShoppingItemUpdate):
+        assert "sort_order" not in update_model().model_fields_set
+        assert update_model(sort_order=0).sort_order == 0
+        try:
+            update_model(sort_order=None)
+        except ValidationError as exc:
+            assert any(error["loc"] == ("sort_order",) for error in exc.errors()), exc
+        else:
+            raise AssertionError(f"{update_model.__name__} must reject explicit null ordering")
+    cleared_item = ShoppingItemUpdate(section_id=None, quantity_value=None, quantity_unit=None)
+    assert cleared_item.model_fields_set == {"section_id", "quantity_value", "quantity_unit"}
+    validation_app = FastAPI()
+    validation_app.include_router(shopping_router.router)
+    validation_app.dependency_overrides[shopping_router.require_auth] = lambda: 1
+    with patch.object(shopping_router, "get_db", side_effect=AssertionError("Invalid ordering must not reach the database")), TestClient(validation_app) as client:
+        for endpoint in ("/lists/1", "/sections/1", "/stores/1", "/items/1"):
+            response = client.patch(f"/api/shopping{endpoint}", json={"sort_order": None})
+            assert response.status_code == 422, (endpoint, response.text)
 
     run_migrations()
 

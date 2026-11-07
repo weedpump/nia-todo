@@ -509,9 +509,12 @@ const fixtureSource = `
   import { createEntityInvitationsFeature, renderEntityInvitationsHost } from '/static/js/features/entity-invitations.js';
   document.body.innerHTML = '<div id="app"><aside class="sidebar"><nav id="shopping-invites-section" class="nav-section entity-invitations-section" hidden><div class="nav-title">Invites</div><div id="shopping-invites-list"></div></nav></aside></div>';
   let release;
+  let online = true;
   const feature = createEntityInvitationsFeature({
     entityType: 'shopping-list',
     root: document,
+    // The mocked API's availability is independent of the host's network NICs.
+    isOnline: () => online,
     respondInvitation: () => new Promise(resolve => { release = resolve; }),
     loadAuthoritativeProjection: async invite => [{ id: invite.entityId, name: invite.name }],
     applyAuthoritativeProjection: () => {},
@@ -519,7 +522,7 @@ const fixtureSource = `
   });
   feature.bind();
   feature.setInvitations([{ id: 21, entityId: 55, name: 'Weekend' }]);
-  window.testInvitations = { resolve: () => release?.() };
+  window.testInvitations = { resolve: () => release?.(), setOnline: value => { online = value; }, snapshot: () => feature.snapshot() };
 `;
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1100, height: 700 } });
@@ -542,6 +545,11 @@ try {
   const section = page.locator('#shopping-invites-section');
   await section.waitFor({ state: 'visible' });
   assert.equal(await page.locator('.entity-invitation-item').count(), 1);
+  await page.evaluate(() => window.testInvitations.setOnline(false));
+  await page.locator('[data-entity-invitation-action="accept"]').click();
+  assert.equal(await page.locator('.invite-action:disabled').count(), 0, 'offline rejection must leave both actions available for retry');
+  assert.equal(await page.evaluate(() => window.testInvitations.snapshot().errors['21']), 'entity.invitation.error.onlineOnly');
+  await page.evaluate(() => window.testInvitations.setOnline(true));
   await page.locator('[data-entity-invitation-action="accept"]').click();
   assert.equal(await page.locator('.invite-action:disabled').count(), 2, 'busy state must disable both actions');
   await page.evaluate(() => { document.getElementById('app').dataset.desktopSidebarMode = 'rail'; });

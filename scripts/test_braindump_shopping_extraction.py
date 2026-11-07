@@ -22,7 +22,7 @@ from pydantic import ValidationError
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from routers import braindump_v2 as router
-from services.braindump_candidates import enabled_candidate_modules, load_shopping_context
+from services.braindump_candidates import can_apply_learned_route, enabled_candidate_modules, load_shopping_context
 from services.braindump_config import DEFAULT_BRAINDUMP_SYSTEM_PROMPT, build_effective_system_prompt
 from services import braindump_config as config_service
 
@@ -175,6 +175,69 @@ def test_parent_inference_never_repairs_explicit_wrong_ids_or_conflicting_hints(
     assert normalize([{"module_id": "shopping", "title": "Milch"}], sole_list)[0]["shopping_list_id"] is None
     ambiguous_section = {**ctx, "shopping_lists": [{**row, "sections": [{"id": 20 + row["id"], "name": "Kühlregal"}]} for row in ctx["shopping_lists"]]}
     assert normalize([{"module_id": "shopping", "title": "Milch", "shopping_section_name": "Kühlregal"}], ambiguous_section)[0]["shopping_list_id"] is None
+
+
+def test_explicit_route_provenance_is_sanitized_and_literal_names_are_protected():
+    ctx = shopping_routing_context()
+    raw = {"module_id": "shopping", "title": "Milch", "shopping_list_id": 2, "shopping_section_id": 5, "shopping_store_ids": [3], "explicit_route_fields": []}
+    spoken = router._normalize_braindump_json({"candidates": [raw]}, "Milch auf EINKAUF im Kühlregal bei Rewe.", ctx)["candidates"][0]
+    assert spoken["explicit_route_fields"] == ["container", "section", "stores"], spoken
+    inferred = router._normalize_braindump_json({"candidates": [raw]}, "Wir brauchen Milch.", ctx)["candidates"][0]
+    assert inferred["explicit_route_fields"] == [], inferred
+    old_provider = normalize([{key: value for key, value in raw.items() if key != "explicit_route_fields"}], ctx)[0]
+    assert old_provider["explicit_route_fields"] == ["container", "section", "stores"]
+    malformed = normalize([{**raw, "explicit_route_fields": ["container", {"shopping_list_id": 999}]}], ctx)[0]
+    assert malformed["explicit_route_fields"] == ["container", "section", "stores"]
+    unresolved = router._normalize_braindump_json({"candidates": [{"module_id": "shopping", "title": "Milch", "shopping_list_name": "Nicht verfügbar", "explicit_route_fields": []}]}, "Milch auf Nicht verfügbar.", ctx)["candidates"][0]
+    assert unresolved["shopping_list_id"] is None and unresolved["explicit_route_fields"] == ["container"]
+
+
+def test_explicit_empty_routes_block_filling_but_inferred_destinations_can_learn():
+    base = {"module_id": "shopping", "shopping_list_id": 2, "shopping_section_id": None, "shopping_store_ids": []}
+    learned = {"module_id": "shopping", "shopping_list_id": 2, "shopping_section_id": 5, "shopping_store_ids": [3]}
+    assert can_apply_learned_route({**base, "explicit_route_fields": ["container"]}, learned)
+    assert not can_apply_learned_route({**base, "explicit_route_fields": ["section"]}, learned)
+    assert not can_apply_learned_route({**base, "explicit_route_fields": ["stores"]}, learned)
+    conflicting = {**learned, "shopping_list_id": 1, "shopping_section_id": 1, "shopping_store_ids": [1]}
+    assert can_apply_learned_route({**base, "explicit_route_fields": []}, conflicting)
+    assert not can_apply_learned_route(base, conflicting), "Absent provenance must not opt a resolved target into overrides"
+    assert not can_apply_learned_route({**base, "explicit_route_fields": ["unknown"]}, conflicting)
+
+
+def test_typed_deduplication_retains_explicit_route_protection():
+    ctx = shopping_routing_context()
+    ctx["supported_modules"] = ["tasks", "shopping"]
+    shopping = {"module_id": "shopping", "title": "Milch", "shopping_list_id": 2, "explicit_route_fields": []}
+    task = {"module_id": "tasks", "title": "Anrufen", "project_name": "Task project", "explicit_route_fields": []}
+    ctx["projects"] = [{"id": 1, "name": "Task project", "sections": []}]
+    result = normalize([
+        shopping, {**shopping, "explicit_route_fields": ["container"]},
+        task, {**task, "explicit_route_fields": ["container", "section"]},
+    ], ctx)
+    assert len(result) == 2, result
+    assert result[0]["explicit_route_fields"] == ["container"]
+    assert result[1]["explicit_route_fields"] == ["container", "section"]
+
+
+def test_absent_or_invalid_provenance_preserves_supplied_empty_destinations():
+    ctx = shopping_routing_context()
+    ctx["supported_modules"] = ["tasks", "shopping"]
+    ctx["projects"] = [{"id": 1, "name": "Task project", "sections": ["Calls"]}]
+    shopping = {"module_id": "shopping", "title": "Milch", "shopping_list_id": 2, "shopping_section_id": None, "shopping_store_ids": []}
+    task = {"module_id": "tasks", "title": "Anrufen", "project_name": "Task project", "section_name": None}
+    targets = [
+        {"module_id": "shopping", "shopping_list_id": 2, "shopping_section_id": 5, "shopping_store_ids": [3]},
+        {"module_id": "tasks", "project_name": "Task project", "section_name": "Calls"},
+    ]
+    for metadata in ({}, {"explicit_route_fields": None}, {"explicit_route_fields": ["unknown"]}):
+        result = normalize([{**shopping, **metadata}, {**task, **metadata}], ctx)
+        assert result[0]["explicit_route_fields"] == ["container", "section", "stores"], result
+        assert result[1]["explicit_route_fields"] == ["container", "section"], result
+        assert all(not can_apply_learned_route(item, target) for item, target in zip(result, targets))
+    inferred = normalize([{**shopping, "explicit_route_fields": []}, {**task, "explicit_route_fields": []}], ctx)
+    assert all(can_apply_learned_route(item, target) for item, target in zip(inferred, targets))
+    absent = normalize([{"module_id": "shopping", "title": "Milch"}], ctx)[0]
+    assert absent["explicit_route_fields"] == [] and can_apply_learned_route(absent, targets[0])
 
 
 def test_nonfinite_quantities_and_multilingual_names():

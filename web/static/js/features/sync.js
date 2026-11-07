@@ -1,4 +1,4 @@
-import { acquireSyncCommitLock, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
+import { acquireSyncCommitLock, projectPendingProjectChanges, projectPendingSectionChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
 import { projectPendingShoppingChanges, projectPendingShoppingStores, projectShoppingSnapshot, projectShoppingStoresSnapshot, queueItemReferencesShoppingList, rewriteShoppingQueueReferences } from './shopping-pending.js';
 
 export function createSyncFeature({
@@ -29,6 +29,10 @@ export function createSyncFeature({
   renderStats,
   renderTodos,
   renderShopping = () => {},
+  onProjectIdRemap = () => {},
+  onSectionIdRemap = () => {},
+  evictPendingProjectEntities = null,
+  commitTaskParentReplay = null,
 }) {
   function isOnlineForSync(wsState) {
     // Browser/native offline state must win over a stale WebSocket state.
@@ -47,6 +51,18 @@ export function createSyncFeature({
 
   function sameId(left, right) {
     return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
+  }
+
+  function shoppingQueueListIdentity(item) {
+    if (!String(item?.action || '').includes('SHOPPING')) return null;
+    const data = item.data || {};
+    const listId = ['CREATE_SHOPPING_LIST', 'UPDATE_SHOPPING_LIST', 'DELETE_SHOPPING_LIST'].includes(item.action)
+      ? data.id ?? data.temp_id
+      : data.shopping_list_id ?? data.store?.shopping_list_id
+        ?? getShoppingStores().find(store => sameId(store.id, data.store_id ?? data.temp_id))?.shopping_list_id;
+    if (listId == null) return null;
+    const list = getShoppingLists().find(candidate => sameId(candidate.id, listId) || sameId(candidate.client_mutation_id, listId));
+    return String(list?.client_mutation_id ?? list?.id ?? listId);
   }
 
   function upsertTodo(todo) {
@@ -161,11 +177,34 @@ export function createSyncFeature({
     upsertTodo(projected);
   }
 
-  async function rewriteQueuedReferences({ todoIdFrom, todoIdTo, commentIdFrom, commentIdTo, subtaskIdFrom, subtaskIdTo }) {
+  async function rewriteQueuedReferences({ projectIdFrom, projectIdTo, sectionIdFrom, sectionIdTo, todoIdFrom, todoIdTo, commentIdFrom, commentIdTo, subtaskIdFrom, subtaskIdTo }, { persist = true } = {}) {
     const queue = await dbGetAll('syncQueue');
+    const rewrittenRecords = [];
     for (const queued of queue) {
       if (!queued?.data || typeof queued.data !== 'object') continue;
       let changed = false;
+      if (projectIdFrom !== undefined && !String(queued.action).includes('SHOPPING')) {
+        for (const field of ['project_id', 'parent_id']) {
+          if (sameId(queued.data[field], projectIdFrom)) { queued.data[field] = projectIdTo; changed = true; }
+          if (sameId(queued.data.changes?.[field], projectIdFrom)) { queued.data.changes[field] = projectIdTo; changed = true; }
+        }
+        if (['UPDATE_PROJECT', 'DELETE_PROJECT'].includes(queued.action) && sameId(queued.data.id, projectIdFrom)) {
+          queued.data.id = projectIdTo;
+          changed = true;
+        }
+        if (Array.isArray(queued.data.project_boundary_ids) && queued.data.project_boundary_ids.some(id => sameId(id, projectIdFrom))) {
+          queued.data.project_boundary_ids = queued.data.project_boundary_ids.map(id => sameId(id, projectIdFrom) ? projectIdTo : id);
+          changed = true;
+        }
+      }
+      if (sectionIdFrom !== undefined && !String(queued.action).includes('SHOPPING')) {
+        if (sameId(queued.data.section_id, sectionIdFrom)) { queued.data.section_id = sectionIdTo; changed = true; }
+        if (sameId(queued.data.changes?.section_id, sectionIdFrom)) { queued.data.changes.section_id = sectionIdTo; changed = true; }
+        if (['UPDATE_SECTION', 'DELETE_SECTION'].includes(queued.action) && sameId(queued.data.id, sectionIdFrom)) {
+          queued.data.id = sectionIdTo;
+          changed = true;
+        }
+      }
       if (todoIdFrom !== undefined) {
         if (['CREATE_COMMENT', 'UPDATE_COMMENT', 'DELETE_COMMENT', 'CREATE_SUBTASK', 'UPDATE_SUBTASK', 'DELETE_SUBTASK'].includes(queued.action)
           && String(queued.data.todo_id) === String(todoIdFrom)) {
@@ -189,8 +228,61 @@ export function createSyncFeature({
         queued.data.subtask_id = subtaskIdTo;
         changed = true;
       }
-      if (changed) await dbPut('syncQueue', queued);
+      if (changed) {
+        rewrittenRecords.push(queued);
+        if (persist) await dbPut('syncQueue', queued);
+      }
     }
+    return rewrittenRecords;
+  }
+
+  async function commitTaskParentReceipt(item, entity, kind, syncInProgressRef, privacyGeneration) {
+    return commitQueueItem(item, async () => {
+      const temporaryId = item.data._tempId;
+      const field = kind === 'project' ? 'project_id' : 'section_id';
+      const rewrite = kind === 'project'
+        ? { projectIdFrom: temporaryId, projectIdTo: entity.id }
+        : { sectionIdFrom: temporaryId, sectionIdTo: entity.id };
+      const queueRecords = temporaryId == null ? [] : await rewriteQueuedReferences(rewrite, { persist: false });
+      const rewritten = new Map(queueRecords.map(entry => [String(entry.id), entry]));
+      const pending = (await dbGetAll('syncQueue')).filter(entry => !sameId(entry.id, item.id))
+        .map(entry => rewritten.get(String(entry.id)) || entry);
+      const projectedEntity = kind === 'project'
+        ? projectPendingProjectChanges(entity, pending) : projectPendingSectionChanges(entity, pending);
+      const remap = (row, key) => temporaryId != null && sameId(row[key], temporaryId) ? { ...row, [key]: entity.id } : row;
+      const projects = kind === 'project' && temporaryId != null
+        ? (await dbGetAll('projects')).filter(project => sameId(project.parent_id, temporaryId)).map(project => remap(project, 'parent_id')) : [];
+      const sections = kind === 'project' && temporaryId != null
+        ? (await dbGetAll('sections')).filter(section => sameId(section.project_id, temporaryId)).map(section => remap(section, 'project_id')) : [];
+      const todos = temporaryId == null ? [] : (await dbGetAll('todos'))
+        .filter(todo => sameId(todo[field], temporaryId)).map(todo => remap(todo, field));
+      if (projectedEntity) (kind === 'project' ? projects : sections).push(projectedEntity);
+      const receipt = {
+        projects, sections, todos, queueRecords, queueDeleteId: item.id,
+        removeProjectIds: kind === 'project' ? [temporaryId, ...(!projectedEntity ? [entity.id] : [])].filter(id => id != null) : [],
+        removeSectionIds: kind === 'section' ? [temporaryId, ...(!projectedEntity ? [entity.id] : [])].filter(id => id != null) : [],
+      };
+      if (commitTaskParentReplay) {
+        if (await commitTaskParentReplay(receipt) === false) return false;
+      } else {
+        // Compatibility for embedders without the atomic storage adapter.
+        for (const id of receipt.removeProjectIds) await deleteFromDB('projects', id);
+        for (const id of receipt.removeSectionIds) await deleteFromDB('sections', id);
+        for (const [store, rows] of [['projects', projects], ['sections', sections], ['todos', todos], ['syncQueue', queueRecords]]) {
+          for (const row of rows) await dbPut(store, row);
+        }
+      }
+      const replace = (rows, changes, removed) => {
+        const byId = new Map(changes.map(row => [String(row.id), row]));
+        const next = rows.filter(row => !removed.some(id => sameId(id, row.id))).map(row => byId.get(String(row.id)) || row);
+        const existing = new Set(next.map(row => String(row.id)));
+        return [...next, ...changes.filter(row => !existing.has(String(row.id)))];
+      };
+      setProjects(replace(getProjects(), projects, receipt.removeProjectIds));
+      const currentSections = getSections().map(section => kind === 'project' ? remap(section, 'project_id') : section);
+      setSections(kind === 'section' ? replace(currentSections, projectedEntity ? [projectedEntity] : [], receipt.removeSectionIds) : currentSections);
+      setTodos(getTodos().map(todo => remap(todo, field)));
+    }, syncInProgressRef, privacyGeneration);
   }
 
   async function commitQueueItem(item, applyResult, syncInProgressRef, privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0)) {
@@ -357,6 +449,7 @@ export function createSyncFeature({
     let needsAuthoritativeRefresh = false;
     const todoIdsNeedingRecovery = new Set();
     const attemptedQueueIds = new Set();
+    const failedShoppingLists = new Set();
     try {
       while (true) {
       syncInProgressRef.requested = false;
@@ -366,10 +459,33 @@ export function createSyncFeature({
       for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
       const queuedItem = queue[queueIndex];
       attemptedQueueIds.add(String(queuedItem.id));
-      const currentQueuedItem = (await dbGetAll('syncQueue')).find(item => String(item.id) === String(queuedItem.id));
+      const currentQueue = await dbGetAll('syncQueue');
+      const currentQueuedItem = currentQueue.find(item => String(item.id) === String(queuedItem.id));
       if (!currentQueuedItem) continue;
+      const shoppingListIdentity = shoppingQueueListIdentity(currentQueuedItem);
+      // A successful HTTP response can still be fenced out by an access change.
+      // Its durable predecessor must settle before dependent writes may replay.
+      if (shoppingListIdentity !== null && (failedShoppingLists.has(shoppingListIdentity)
+        || currentQueue.some(previous => String(previous.id) !== String(currentQueuedItem.id)
+          && attemptedQueueIds.has(String(previous.id))
+          && shoppingQueueListIdentity(previous) === shoppingListIdentity))) continue;
       let item = sanitizeQueueItem(currentQueuedItem);
+      if (item && !item.action.includes('SHOPPING')) {
+        const targets = [
+          ['PROJECT', item.data.project_id], ['PROJECT', item.data.parent_id], ['PROJECT', item.data.changes?.project_id], ['PROJECT', item.data.changes?.parent_id],
+          ['SECTION', item.data.section_id], ['SECTION', item.data.changes?.section_id],
+          ['TODO', item.data.todo_id], ['COMMENT', item.data.comment_id], ['SUBTASK', item.data.subtask_id],
+        ];
+        for (const entity of ['PROJECT', 'SECTION', 'TODO']) {
+          if ([`UPDATE_${entity}`, `DELETE_${entity}`].includes(item.action)) targets.push([entity, item.data.id]);
+        }
+        // Pending parent creates must settle and rewrite these references first.
+        // A failed or privacy-fenced parent must never send opaque IDs to the API.
+        if (targets.some(([entity, id]) => String(id || '').startsWith('temp-')
+          && currentQueue.some(parent => parent.action === `CREATE_${entity}` && sameId(parent.data?._tempId ?? parent.data?.temp_id, id)))) continue;
+      }
       let requestPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
+      const failuresBeforeRequest = failCount;
       try {
         if (!item) {
           await deleteFromDB('syncQueue', queuedItem.id);
@@ -632,14 +748,8 @@ export function createSyncFeature({
           continue;
         } else if (item.action === 'CREATE_PROJECT') {
           const res = await projectsApi.create(item.data);
-          await commitQueueItem(item, async () => {
-            if (item.data._tempId) {
-              await deleteFromDB('projects', item.data._tempId);
-              setProjects(getProjects().filter(p => p.id !== item.data._tempId));
-            }
-            await dbPut('projects', res);
-            if (!getProjects().find(p => p.id === res.id)) setProjects([...getProjects(), res]);
-          }, syncInProgressRef, requestPrivacyGeneration);
+          const committed = await commitTaskParentReceipt(item, res, 'project', syncInProgressRef, requestPrivacyGeneration);
+          if (committed && item.data._tempId) onProjectIdRemap(item.data._tempId, res.id);
           successCount++;
           continue;
         } else if (item.action === 'DELETE_PROJECT') {
@@ -676,14 +786,8 @@ export function createSyncFeature({
           continue;
         } else if (item.action === 'CREATE_SECTION') {
           const res = await sectionsApi.create(item.data.project_id, item.data);
-          await commitQueueItem(item, async () => {
-            if (item.data._tempId) {
-              await deleteFromDB('sections', item.data._tempId);
-              setSections(getSections().filter(s => s.id !== item.data._tempId));
-            }
-            await dbPut('sections', res);
-            if (!getSections().find(s => s.id === res.id)) setSections([...getSections(), res]);
-          }, syncInProgressRef, requestPrivacyGeneration);
+          const committed = await commitTaskParentReceipt(item, res, 'section', syncInProgressRef, requestPrivacyGeneration);
+          if (committed && item.data._tempId) onSectionIdRemap(item.data._tempId, res.id);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_SECTION') {
@@ -781,7 +885,9 @@ export function createSyncFeature({
           if (!handledPermanentAbsence) {
             const releaseCommitLock = await acquireSyncCommitLock(syncInProgressRef);
             try {
+              if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration) continue;
               const currentQueue = await dbGetAll('syncQueue');
+              if (!currentQueue.some(entry => String(entry.id) === String(item.id))) continue;
               const related = currentQueue.filter(entry => queueItemReferencesShoppingList(entry, shoppingListId));
               await commitShoppingReplay({
                 removeListIds: [shoppingListId],
@@ -794,12 +900,27 @@ export function createSyncFeature({
             successCount++;
             handledPermanentAbsence = true;
           }
-        } else if (item?.action === 'CREATE_PROJECT' && item.data?._tempId && err?.status && err.status < 500) {
-          await deleteFromDB('projects', item.data._tempId);
-          setProjects(getProjects().filter(p => p.id !== item.data._tempId));
-          await deleteFromDB('syncQueue', item.id);
+        } else if (item?.action === 'CREATE_PROJECT' && item.data?._tempId
+          && Number(err?.status) >= 400 && Number(err?.status) < 500 && ![401, 408, 429].includes(Number(err.status))
+          && evictPendingProjectEntities) {
+          await commitQueueItem(item, async () => {
+            const evicted = await evictPendingProjectEntities([item.data._tempId], {
+              projects: getProjects(), sections: getSections(), todos: getTodos(),
+            });
+            const projects = new Set(evicted.projectIds.map(String));
+            const sections = new Set(evicted.sectionIds.map(String));
+            const todos = new Set(evicted.todoIds.map(String));
+            setProjects(getProjects().filter(project => !projects.has(String(project.id))));
+            setSections(getSections().filter(section => !sections.has(String(section.id))));
+            setTodos(getTodos().filter(todo => !todos.has(String(todo.id))));
+          }, syncInProgressRef, requestPrivacyGeneration);
         }
         if (!handledPermanentAbsence) failCount++;
+        if (failCount > failuresBeforeRequest && shoppingListIdentity !== null) {
+          // Later writes to this list depend on this mutation's ordering and
+          // temporary-ID remapping. Other lists can continue independently.
+          failedShoppingLists.add(shoppingListIdentity);
+        }
       }
       }
       }

@@ -86,11 +86,22 @@ async function rowMetrics(locator) {
   });
 }
 
+async function closeEntityModal(page, id) {
+  const modal = page.locator(`#${id}`);
+  await modal.locator(`button[data-close-modal="${id}"]`).click();
+  await modal.waitFor({ state: 'hidden' });
+  await page.waitForFunction(id => (
+    document.getElementById(id)?.getAttribute('aria-hidden') === 'true'
+    && !(history.state?.niaTodoUi?.layers || []).includes(id)
+  ), id);
+}
+
 async function run() {
   console.log('🧭 Running shared entity sidebar browser contract...');
   const { browser, page, loginApp, assertNoFrontendErrors, dumpErrors } = await launchPage();
 
   try {
+    await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
     await page.routeWebSocket('**/ws', () => {});
     await page.route('**/api/shopping/snapshot', route => route.fulfill({
       status: 200,
@@ -149,10 +160,16 @@ async function run() {
     await page.click('#sidebar-toggle-btn');
     await page.locator('#shopping-list-sidebar .entity-sidebar-item').filter({ hasText: 'Haushalt Mitglied' }).locator('.entity-sidebar-detail').click();
     await page.waitForFunction(() => !document.getElementById('sidebar')?.classList.contains('open'));
+    await page.locator('#shopping-list-modal').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#shopping-list-id').inputValue(), '103', 'the detail action must open the selected list editor');
+    await closeEntityModal(page, 'shopping-list-modal');
 
     await page.click('#sidebar-toggle-btn');
     await page.click('[data-entity-sidebar-action="add"][data-entity-type="shopping-list"]');
     await page.waitForFunction(() => !document.getElementById('sidebar')?.classList.contains('open'));
+    await page.locator('#shopping-list-modal').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#shopping-list-id').inputValue(), '', 'the add action must open a fresh list editor');
+    await closeEntityModal(page, 'shopping-list-modal');
 
     assert.deepEqual(await page.evaluate(() => window.__shoppingSidebarEvents), [
       { type: 'detail', id: '103' },

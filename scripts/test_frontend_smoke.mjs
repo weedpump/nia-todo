@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+import { waitForPageCondition, withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
 async function waitForTodoStatus(page, title, status) {
-  await page.waitForFunction(async ({ title, status }) => {
+  await waitForPageCondition(page, async ({ title, status }) => {
     const jwt = localStorage.getItem('jwt_token');
     const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
     return data.todos.some(todo => todo.title === title && todo.status === status);
@@ -18,7 +18,7 @@ async function run() {
 
     await visible('#sidebar');
     await waitForText('Inbox');
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const db = await new Promise((resolve, reject) => {
         const req = indexedDB.open('nia-todo-db');
         req.onsuccess = () => resolve(req.result);
@@ -124,7 +124,7 @@ async function run() {
     });
     if (!pendingDeleteBeforeUndo) throw new Error('Expected todo delete to stay queued during undo grace window');
     await page.click('#toast-undo');
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const db = await new Promise((resolve, reject) => {
         const req = indexedDB.open('nia-todo-db');
         req.onsuccess = () => resolve(req.result);

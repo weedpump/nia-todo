@@ -9,6 +9,8 @@ function currentModule(moduleId) {
 export function createModuleSwitcher({ onModuleChange, getModules = () => MODULES } = {}) {
   let activeModuleId = readStoredModule();
   let bound = false;
+  let renderedMenuSignature = null;
+  let renderedModuleIds = null;
 
   function close() {
     document.getElementById('module-switcher-menu')?.classList.remove('open');
@@ -28,6 +30,10 @@ export function createModuleSwitcher({ onModuleChange, getModules = () => MODULE
     const app = document.getElementById('app');
     if (!root || !button || !buttonIcon || !name || !chevron || !menu || !app) return;
 
+    const moduleIds = JSON.stringify(modules.map(module => module.id));
+    if (renderedModuleIds !== null && renderedModuleIds !== moduleIds) close();
+    renderedModuleIds = moduleIds;
+
     app.dataset.activeModule = active.id;
     root.hidden = false;
     root.dataset.switchingAvailable = String(switchingAvailable);
@@ -43,11 +49,23 @@ export function createModuleSwitcher({ onModuleChange, getModules = () => MODULE
       button.removeAttribute('data-i18n-aria-label-key');
       close();
       menu.innerHTML = '';
+      renderedMenuSignature = null;
       return;
     }
     button.setAttribute('aria-haspopup', 'menu');
     button.setAttribute('aria-label', t('moduleSwitcher.toggle'));
     button.setAttribute('data-i18n-aria-label-key', 'moduleSwitcher.toggle');
+    const signature = JSON.stringify([
+      active.id,
+      t('moduleSwitcher.change'),
+      modules.map(module => [module.id, module.icon, t(module.labelKey), t(module.descriptionKey)]),
+    ]);
+    // Workspace/access snapshots also refresh this shared control. Preserve
+    // live option nodes (and keyboard focus) when their content is unchanged.
+    if (signature === renderedMenuSignature) return;
+    const focusedOption = menu.contains(document.activeElement)
+      ? document.activeElement?.closest?.('[data-module-action="select"]')?.dataset.moduleId
+      : null;
     menu.innerHTML = `
       <div class="module-switcher-menu-brand">
         <span class="nia-brand-icon" aria-hidden="true">${niaIconSvg('nia')}</span>
@@ -63,22 +81,28 @@ export function createModuleSwitcher({ onModuleChange, getModules = () => MODULE
         `).join('')}
       </div>
     `;
+    renderedMenuSignature = signature;
+    if (focusedOption && menu.classList.contains('open')) {
+      menu.querySelector(`[data-module-id="${focusedOption}"]`)?.focus();
+    }
   }
 
   function setActiveModule(moduleId) {
     if (!isModuleId(moduleId) || !getModules().some(module => module.id === moduleId)) return;
     activeModuleId = moduleId;
     persistModule(activeModuleId);
+    close();
     onModuleChange?.(activeModuleId);
     document.getElementById('module-switcher-button')?.focus();
   }
 
   function syncActiveModule(moduleId) {
     if (!isModuleId(moduleId)) return;
+    const changed = activeModuleId !== moduleId;
     activeModuleId = moduleId;
     persistModule(activeModuleId);
+    if (changed) close();
     render();
-    close();
   }
 
   function toggle(event) {

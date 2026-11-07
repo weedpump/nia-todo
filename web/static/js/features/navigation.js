@@ -24,6 +24,7 @@ export function createNavigationFeature({
   syncInProgressRef = {},
 }) {
   const baseFilters = ['all','focus','calendar','pending','in_progress','done'];
+  const projectReceipts = new Map();
   let applyingHistory = false;
 
   function cleanRoute() {
@@ -51,9 +52,23 @@ export function createNavigationFeature({
   }
 
   function setFilter(filter, options = {}) {
+    const seen = new Set();
+    let identity = String(filter);
+    while (!baseFilters.includes(identity) && projectReceipts.has(identity) && !seen.has(identity)) {
+      seen.add(identity);
+      identity = String(projectReceipts.get(identity));
+    }
+    if (seen.size) {
+      // A click may still carry the temporary ID from a sidebar node that was
+      // rendered before its create receipt committed. Never revive lost access.
+      const confirmed = !seen.has(identity) && getProjects().find(project => String(project.id) === identity);
+      filter = confirmed ? String(confirmed.id) : 'all';
+    }
     if (!options.preserveDashboardDrilldown) clearDashboardDrilldown();
     setCurrentFilter(filter);
-    const nextProjectId = baseFilters.includes(filter) ? null : parseInt(filter, 10);
+    const project = getProjects().find(candidate => String(candidate.id) === String(filter));
+    const nextProjectId = baseFilters.includes(filter) ? null
+      : project?.id ?? (/^\d+$/.test(String(filter)) ? Number(filter) : null);
     setCurrentProjectId(nextProjectId);
 
     localStorage.setItem('nia-last-filter', filter);
@@ -80,9 +95,9 @@ export function createNavigationFeature({
     const currentProjectId = getCurrentProjectId();
     if (!currentProjectId) return;
 
-    if (isOnlineForSync()) {
+    const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
+    if (isOnlineForSync() && !String(currentProjectId).startsWith('temp-')) {
       try {
-        const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
         const data = await sectionsApi.listByProject(currentProjectId);
         const serverSections = data.sections || [];
         let applied = false;
@@ -118,10 +133,31 @@ export function createNavigationFeature({
 
     try {
       const allSections = await dbGetAll('sections');
-      setSections(allSections.filter(s => s.project_id === currentProjectId));
+      if (String(getCurrentProjectId()) !== String(currentProjectId)
+        || Number(syncInProgressRef?.privacyGeneration || 0) !== privacyGeneration
+        || !getProjects().some(project => String(project.id) === String(currentProjectId))) return;
+      setSections(allSections.filter(s => String(s.project_id) === String(currentProjectId)));
     } catch (e) {
       console.error('Failed to load sections from local DB', e);
     }
+  }
+
+  function remapProjectId(from, to) {
+    if (from == null || to == null || String(from) === String(to)) return false;
+    projectReceipts.set(String(from), to);
+    if (String(getCurrentProjectId()) !== String(from) && String(getCurrentFilter()) !== String(from)) return false;
+    const confirmed = getProjects().find(project => String(project.id) === String(to));
+    if (!confirmed) return false;
+    setCurrentProjectId(confirmed.id);
+    if (String(getCurrentFilter()) === String(from)) {
+      setCurrentFilter(String(to));
+      localStorage.setItem('nia-last-filter', String(to));
+      updateHistory(String(to), true);
+    }
+    renderProjects();
+    renderStats();
+    renderTodos();
+    return true;
   }
 
   function bindNavigationActions() {
@@ -158,5 +194,5 @@ export function createNavigationFeature({
     });
   }
 
-  return { setFilter, loadSectionsForCurrentProject, bindNavigationActions, bindNavigationHistory };
+  return { setFilter, remapProjectId, loadSectionsForCurrentProject, bindNavigationActions, bindNavigationHistory };
 }

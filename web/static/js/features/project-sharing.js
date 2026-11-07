@@ -16,9 +16,15 @@ export function createProjectSharingFeature({
   removePendingEntities = async () => {},
 }) {
   let currentProject = null;
+  let accessibleProjectIds = [];
+  let accessibleTaskEntities = {};
+  let accessPrivacySuspended = false;
   const localPendingMembersByProject = new Map();
   const privacy = createEntityAccessPrivacyController({
-    evictEntities: removePendingEntities,
+    evictEntities: (ids, options) => removePendingEntities(ids, {
+      ...options,
+      getAccessibleEntities: () => ({ accessibleProjectIds, ...accessibleTaskEntities }),
+    }),
     onError: error => console.error('Failed to evict pending project data', error),
   });
 
@@ -106,6 +112,7 @@ export function createProjectSharingFeature({
   });
 
   async function loadMembers(projectId) {
+    if (accessPrivacySuspended) return [];
     if (!currentProject || String(currentProject.id) !== String(projectId)) {
       currentProject = getProjects().find(project => String(project.id) === String(projectId)) || null;
     }
@@ -114,6 +121,7 @@ export function createProjectSharingFeature({
   }
 
   async function setProject(project) {
+    if (accessPrivacySuspended) return;
     currentProject = project || null;
     await directSharing.setEntity(currentProject);
   }
@@ -167,22 +175,51 @@ export function createProjectSharingFeature({
   }
 
   async function loadInvites() {
+    if (accessPrivacySuspended) return { ok: false, stale: true };
     return invitations.load();
   }
 
   function setInvites(next) {
+    if (accessPrivacySuspended) return;
     privacy.beginGeneration();
     return invitations.setInvitations(next);
   }
 
-  function commitAuthoritativeSnapshot(authoritativeProjects) {
+  function commitAuthoritativeSnapshot(authoritativeProjects, revokedProjectIds = [], taskAccessSnapshot = null) {
+    if (accessPrivacySuspended) return;
     const accessibleProjects = Array.isArray(authoritativeProjects) ? authoritativeProjects : getProjects();
-    privacy.commitAccessible(accessibleProjects.map(project => project?.id));
+    accessibleProjectIds = accessibleProjects.map(project => project?.id);
+    accessibleTaskEntities = {
+      accessibleTodoIds: taskAccessSnapshot?.todoIds || [],
+      accessibleSectionIds: taskAccessSnapshot?.sectionIds || [],
+    };
+    privacy.commitAccessible(accessibleProjectIds);
+    privacy.schedulePending(revokedProjectIds);
     invitations.render();
   }
 
   function renderInvites() {
     invitations.render();
+  }
+
+  async function suspendAccessPrivacy() {
+    accessPrivacySuspended = true;
+    const drain = privacy.suspend();
+    invitations.destroy();
+    invitations.setInvitations([]);
+    currentProject = null;
+    accessibleProjectIds = [];
+    accessibleTaskEntities = {};
+    localPendingMembersByProject.clear();
+    await Promise.all([drain, directSharing.setEntity(null)]);
+  }
+
+  function resumeAccessPrivacy() {
+    if (!accessPrivacySuspended) return;
+    accessPrivacySuspended = false;
+    invitations.setInvitations([]);
+    privacy.resume();
+    invitations.bind();
   }
 
   function bindProjectSharingActions() {
@@ -195,6 +232,7 @@ export function createProjectSharingFeature({
   }
 
   function setEntity(project) {
+    if (accessPrivacySuspended) return;
     currentProject = project;
     return directSharing.setEntity(project);
   }
@@ -213,6 +251,8 @@ export function createProjectSharingFeature({
     setInvites,
     commitAuthoritativeSnapshot,
     renderInvites,
+    suspendAccessPrivacy,
+    resumeAccessPrivacy,
     bindProjectSharingActions,
     setEntity,
     loadMembers,

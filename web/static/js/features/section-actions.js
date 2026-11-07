@@ -1,5 +1,6 @@
 import { createCompletedCleanupController, createSectionController } from './section-ui.js';
 import { t } from '../i18n/index.js';
+import { resolveKnownTodoTargets } from './todo-targets.js';
 
 export function createSectionActionsFeature({
   getTodos,
@@ -39,6 +40,10 @@ export function createSectionActionsFeature({
       const todos = getTodos();
       const todo = todos.find(candidate => String(candidate.id) === String(todoId));
       if (!todo || (todo.section_id == null && sectionId == null) || String(todo.section_id) === String(sectionId)) return null;
+      const target = resolveKnownTodoTargets({ projectId: todo.project_id, sectionId,
+        projects: getProjects?.() || [], sections: getSections() });
+      if (!target) return null;
+      sectionId = target.section_id;
       const updatedTodo = { ...todo, section_id: sectionId, updated_at: new Date().toISOString() };
       const nextTodos = todos.map(candidate => String(candidate.id) === String(todoId) ? updatedTodo : candidate);
       const tempTodo = String(todo.id).startsWith('temp-');
@@ -65,8 +70,10 @@ export function createSectionActionsFeature({
       const todo = todos.find(candidate => String(candidate.id) === String(todoId));
       const project = (getProjects?.() || []).find(candidate => String(candidate.id) === String(projectId));
       if (!todo || !project) return null;
-      const newProjectId = Number(project.id);
-      if (Number(todo.project_id) === newProjectId && todo.section_id === null) return null;
+      const target = resolveKnownTodoTargets({ projectId: project.id, projects: getProjects?.() || [] });
+      if (!target) return null;
+      const newProjectId = target.project_id;
+      if (String(todo.project_id) === String(newProjectId) && todo.section_id === null) return null;
       const updatedTodo = { ...todo, project_id: newProjectId, section_id: null, updated_at: new Date().toISOString() };
       const nextTodos = todos.map(candidate => String(candidate.id) === String(todoId) ? updatedTodo : candidate);
       const temporary = String(todo.id).startsWith('temp-');

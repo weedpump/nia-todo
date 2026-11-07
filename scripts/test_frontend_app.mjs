@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+import { waitForPageCondition, withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
 async function run() {
   console.log('🌐 Running Playwright frontend app test...');
@@ -170,7 +170,7 @@ async function run() {
     await page.locator('#todo-desc-rich-editor').fill('Section bleibt beim Speichern erhalten');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       const todo = data.todos.find(t => t.title === 'Cross Project Section Todo');
@@ -204,7 +204,7 @@ async function run() {
     await page.selectOption('#todo-section', { label: 'Section A' }, { force: true });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return data.todos.some(todo => todo.title === 'Section Todo' && todo.status === 'in_progress');
@@ -247,7 +247,7 @@ async function run() {
     await page.waitForFunction(() => document.activeElement?.id === 'confirm-confirm-btn', { timeout: 5000 });
     await page.keyboard.press('Enter');
     await page.locator('#confirm-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return !data.todos.some(todo => todo.title === 'Delete Shortcut Todo');
@@ -307,7 +307,7 @@ async function run() {
       }, { title, dx, startRatio });
     };
     await swipeTodoByTitle('Project Switch Todo', 140);
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'in_progress');
@@ -315,7 +315,7 @@ async function run() {
     await page.evaluate(() => window.setFilter?.('in_progress'));
     await page.waitForFunction(() => document.body.innerText.includes('Project Switch Todo'), { timeout: 10000 });
     await swipeTodoByTitle('Project Switch Todo', 140);
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'pending');
@@ -323,13 +323,13 @@ async function run() {
     await page.evaluate(() => window.setFilter?.('all'));
     await page.waitForFunction(() => document.body.innerText.includes('Project Switch Todo'), { timeout: 10000 });
     await swipeTodoByTitle('Project Switch Todo', 140, 0.04);
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'pending');
     }, null, { timeout: 10000 });
     await swipeTodoByTitle('Project Switch Todo', -140);
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'done');
@@ -337,7 +337,7 @@ async function run() {
     await page.evaluate(() => window.setFilter?.('done'));
     await page.waitForFunction(() => document.body.innerText.includes('Project Switch Todo'), { timeout: 10000 });
     await swipeTodoByTitle('Project Switch Todo', -140);
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'pending');
@@ -432,7 +432,7 @@ async function run() {
     await page.waitForFunction(() => !window.__tempPathPageError, { timeout: 1000 });
     await page.getByText(/Todo wiedereröffnet|Todo reopened/).waitFor({ state: 'visible', timeout: 5000 });
     await page.click('#toast-undo');
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return data.todos.some(todo => todo.title === 'Section Todo Edited' && todo.status === 'done');

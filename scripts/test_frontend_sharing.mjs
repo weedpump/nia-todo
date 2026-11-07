@@ -156,22 +156,18 @@ async function run() {
     await page.locator('#confirm-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.click('#confirm-confirm-btn');
     await emailPendingRow.waitFor({ state: 'hidden', timeout: 10000 });
+    await teilenBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#project-sharing-content').waitFor({ state: 'hidden', timeout: 10000 });
+    await teilenBtn.click();
+    await inviteRow.waitFor({ state: 'visible', timeout: 10000 });
 
     await page.fill('#project-share-identifier', 'moni');
     await page.locator('#project-share-row button').click();
     await page.getByText(/Einladung gesendet|Invitation sent/).waitFor({ state: 'visible', timeout: 10000 });
-    // Pending invites are no longer visible in member list (privacy-safe)
-    // await page.getByText('ausstehend').waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal('project-modal'));
     await page.reload({ waitUntil: 'networkidle' });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     await openProjectEdit('Sharing Test Project');
-    await page.waitForTimeout(500);
-    // Expand sharing section if not auto-expanded
-    const sharingTab = await page.locator('[data-tab="sharing"]').first();
-    if (await sharingTab.isVisible().catch(() => false)) {
-      await sharingTab.click();
-    }
     await page.locator('#project-sharing-content').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#project-share-row').waitFor({ state: 'visible', timeout: 10000 });
     const teilenVisibleAfterInvite = await page.locator('#project-share-start-row button').isVisible().catch(() => false);
@@ -263,7 +259,7 @@ async function run() {
     // 9. Accepted shared project should show owner info and muted readonly fields for the member
     await openProjectEdit('Sharing Test Project');
     await page.locator('#project-owner-info').waitFor({ state: 'visible', timeout: 10000 });
-    await page.getByText(/Geteilt von|Shared by/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#project-owner-info').getByText(/Geteilt von|Shared by/).waitFor({ state: 'visible', timeout: 10000 });
     const readonlyClass = await page.locator('#project-form').evaluate(el => el.classList.contains('entity-editor-appearance-readonly'));
     if (!readonlyClass) throw new Error('Shared project form should have neutral entity-editor read-only styling');
     const nameDisabled = await page.locator('#project-name').isDisabled();

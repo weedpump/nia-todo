@@ -370,7 +370,11 @@ const activeBackgroundSyncOperations = new Set();
 
 function trackBackgroundSyncOperation(operation) {
   if (!currentUser) return Promise.resolve();
-  const task = Promise.resolve().then(operation);
+  const accountId = String(currentUser.id);
+  const task = Promise.resolve().then(() => {
+    if (!currentUser || String(currentUser.id) !== accountId) return;
+    return operation();
+  });
   activeBackgroundSyncOperations.add(task);
   task.then(
     () => activeBackgroundSyncOperations.delete(task),
@@ -396,6 +400,13 @@ const syncFeature = createSyncFeature({
   setTodos: setTodosState,
   getProjects: () => projects,
   setProjects: (next) => { projects = next; },
+  onProjectIdRemap: (from, to) => {
+    todosFeature.remapPendingTargetId('project', from, to);
+    navigationFeature.remapProjectId(from, to);
+  },
+  onSectionIdRemap: (from, to) => todosFeature.remapPendingTargetId('section', from, to),
+  evictPendingProjectEntities: appStorage.evictPendingProjectEntities,
+  commitTaskParentReplay: appStorage.commitTaskParentReplay,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
@@ -463,7 +474,7 @@ const sharingFeature = createProjectSharingFeature({
     if (!result?.refreshed) throw new Error('Authoritative project projection was not refreshed');
     return { projects };
   },
-  removePendingEntities: async (pendingIds, { signal } = {}) => {
+  removePendingEntities: async (pendingIds, { signal, getAccessibleEntities } = {}) => {
     let projectedState;
     return runEntityPrivacyEviction({
       syncInProgressRef,
@@ -478,6 +489,7 @@ const sharingFeature = createProjectSharingFeature({
         return appStorage.evictPendingProjectEntities(pendingIds, {
           signal,
           ...projectedState,
+          ...(getAccessibleEntities?.() || {}),
         });
       },
       publish: evicted => {
@@ -551,8 +563,16 @@ const userSettingsFeature = createUserSettingsFeature({
   logout: () => logout(),
 });
 async function disconnectAuthenticatedRuntime() {
+  syncInProgressRef.privacyGeneration = Number(syncInProgressRef.privacyGeneration || 0) + 1;
+  const privacyDrains = [
+    sharingFeature.suspendAccessPrivacy(),
+    shoppingNavigationFeature.suspendAccessPrivacy(),
+  ];
   const websocketDrain = disconnectWebSocket();
-  await Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]);
+  await Promise.all([
+    Promise.all(privacyDrains),
+    Promise.allSettled([websocketDrain, waitForBackgroundSyncOperations()]),
+  ]);
 }
 
 const authSessionFeature = createAuthSessionFeature({
@@ -563,7 +583,27 @@ const authSessionFeature = createAuthSessionFeature({
     moduleShell?.applyModulePreferences();
     moduleSwitcher?.render();
   },
-  clearCache: () => clearIndexedDB(),
+  clearCache: async () => {
+    appInitialized = false;
+    todos = [];
+    projects = [];
+    sections = [];
+    workspaces = [];
+    shoppingLists = [];
+    shoppingStores = [];
+    currentProjectId = null;
+    currentFilter = 'all';
+    currentWorkspaceId = null;
+    dashboardDrilldown = null;
+    localStorage.setItem('nia-last-filter', 'all');
+    localStorage.removeItem('nia-shopping-active-list');
+    localStorage.removeItem('nia-current-workspace');
+    renderProjects();
+    renderStats();
+    renderTodos();
+    renderShopping();
+    await clearIndexedDB();
+  },
   initApp: () => initApp(),
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
@@ -629,6 +669,7 @@ const wsClient = createWebSocketClient({
   dbPut,
   getFromDB,
   deleteFromDB,
+  commitShoppingReplay: appStorage.commitShoppingReplay,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
@@ -673,7 +714,7 @@ const wsClient = createWebSocketClient({
     window.dispatchEvent(new CustomEvent('nia:access-snapshot', { detail: snapshot }));
   },
   onEntitySnapshotsCommitted: snapshots => {
-    if (Array.isArray(snapshots?.projects)) sharingFeature?.commitAuthoritativeSnapshot?.(snapshots.projects);
+    if (Array.isArray(snapshots?.projects)) sharingFeature?.commitAuthoritativeSnapshot?.(snapshots.projects, snapshots.revokedProjectIds || [], snapshots.taskAccessSnapshot);
     if (Array.isArray(snapshots?.shoppingLists)) {
       shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(
         snapshots.shoppingLists,
@@ -1121,6 +1162,7 @@ moduleShell.registerController('shopping', {
     shoppingItemEditorFeature.reconcile();
     shoppingViewPreferencesFeature.updateButton();
   },
+  onDeactivate: () => shoppingNavigationFeature.deactivate(),
   onLanguageChange: renderShopping,
   onSearch: value => shoppingNavigationFeature.setSearchQuery(value),
 });
@@ -1244,7 +1286,15 @@ const appLifecycle = createAppLifecycle({
   openSettingsModal: () => openSettingsModal(),
   isMfaEnrollmentRequired: () => Boolean(currentUser?.mfa_enrollment_required || localStorage.getItem('nia-mfa-enrollment-required') === '1'),
   initServiceWorker,
-  openDB,
+  openDB: async () => {
+    const database = await openDB();
+    if (database) {
+      sharingFeature.resumeAccessPrivacy();
+      shoppingNavigationFeature.resumeAccessPrivacy();
+      wsClient.resumeWebSocket();
+    }
+    return database;
+  },
   dbGetAll,
   setTodos: setTodosState,
   setProjects: (next) => { projects = next; },

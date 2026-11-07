@@ -67,6 +67,31 @@ export function backfillShoppingStoreQueueListIds(queue = [], stores = []) {
   });
 }
 
+export function reconcileShoppingStoreQueueSnapshot(queue = [], {
+  localStores = [], shoppingLists, shoppingStores,
+} = {}) {
+  const complete = Array.isArray(shoppingLists) && Array.isArray(shoppingStores);
+  const authorizedListIds = new Set((Array.isArray(shoppingLists) ? shoppingLists : []).map(list => String(list.id)));
+  const authorizedStores = complete
+    ? shoppingStores.filter(store => authorizedListIds.has(String(store.shopping_list_id))) : [];
+  const backfilled = backfillShoppingStoreQueueListIds(queue, [...authorizedStores, ...localStores]);
+  const queueDeleteIds = [];
+  const queueRecords = [];
+  const reconciledQueue = backfilled.filter((entry, index) => {
+    const unresolvedLegacyStore = ['UPDATE_SHOPPING_STORE', 'DELETE_SHOPPING_STORE'].includes(entry?.action)
+      && entry.data?.shopping_list_id == null;
+    // A complete recipient-specific snapshot closes the old list-less store
+    // exception even if no cached list remains to trigger normal revocation.
+    if (complete && unresolvedLegacyStore) {
+      queueDeleteIds.push(entry.id);
+      return false;
+    }
+    if (entry !== queue[index]) queueRecords.push(entry);
+    return true;
+  });
+  return { queue: reconciledQueue, queueRecords, queueDeleteIds };
+}
+
 export function projectShoppingSnapshot(serverLists = [], localLists = [], queue = []) {
   const result = [];
   const serverIds = new Set();

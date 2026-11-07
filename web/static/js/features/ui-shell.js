@@ -1,6 +1,7 @@
 import { hideAutoScrollbars } from './auto-scrollbars.js';
 import { closeUiLayerNow, openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { t } from '../i18n/index.js';
+import { isDropdownOpen } from '../ui/dropdowns.js';
 
 const DESKTOP_SIDEBAR_MODES = ['expanded', 'rail', 'hidden'];
 const DESKTOP_SIDEBAR_MODE_STORAGE_KEY = 'nia-desktop-sidebar-mode';
@@ -266,6 +267,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
 
   function bindKeyboardShortcuts() {
     document.addEventListener('keydown', async (e) => {
+      if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
       const canUseGlobalShortcut = !isTypingTarget(document.activeElement)
         && !document.querySelector('.modal.active, .ui-menu.active')
         && document.getElementById('login-overlay')?.classList.contains('hidden');
@@ -274,6 +276,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
         await showTodoModal();
       }
       if (e.key === 'Escape') {
+        if (isDropdownOpen()) return;
         if (document.getElementById('confirm-modal')?.classList.contains('active')) return;
         if (document.getElementById('attachment-preview-modal')?.classList.contains('active')) {
           e.preventDefault();

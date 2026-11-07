@@ -80,6 +80,7 @@ const fixtureSource = `
   let storeSequence = 0;
   let deferredStoreCommit = null;
   let storeCommitError = null;
+  const deferredStoreFocus = [];
   let confirmResult = true;
   const mutations = [];
   const confirmations = [];
@@ -183,6 +184,28 @@ const fixtureSource = `
   navigation.render();
   window.test = {
     select: id => navigation.selectList(id),
+    holdStoreInitialFocus: () => {
+      const schedule = window.setTimeout;
+      window.setTimeout = (callback, delay, ...args) => {
+        if (delay === 0) { deferredStoreFocus.push(() => callback(...args)); return -1; }
+        return schedule.call(window, callback, delay, ...args);
+      };
+      try {
+        return storeEditor.showEdit(4, 'store-rewe', document.querySelector('[data-select-id="shopping-store-filter"] .ui-select-trigger'));
+      } finally { window.setTimeout = schedule; }
+    },
+    flushStoreInitialFocus: () => deferredStoreFocus.splice(0).forEach(callback => callback()),
+    refreshLists: () => { lists = structuredClone(lists); navigation.replaceLists(lists); },
+    remapSection: (from, to) => {
+      lists = lists.map(list => ({ ...list,
+        sections: list.sections.map(section => section.id === from ? { ...section, id: to } : section),
+        items: list.items.map(item => item.section_id === from ? { ...item, section_id: to } : item),
+      }));
+      navigation.replaceLists(lists);
+    },
+    rebind: () => { navigation.destroy(); navigation.bind(); navigation.activate(); },
+    deactivate: () => navigation.deactivate(),
+    activate: () => navigation.activate(),
     setName: name => {
       lists = lists.map(list => String(list.id) === String(navigation.getActiveListId()) ? { ...list, name } : list);
       navigation.replaceLists(lists);
@@ -192,6 +215,7 @@ const fixtureSource = `
     setHideDone: value => { hideDone = Boolean(value); navigation.render(); },
     setCanEdit: (id, canEdit) => {
       lists = lists.map(list => String(list.id) === String(id) ? { ...list, can_edit: canEdit } : list);
+      navigation.replaceLists(lists);
     },
     mutationCommits: () => mutationCommits,
     mutations: () => structuredClone(mutations),
@@ -311,6 +335,18 @@ try {
   assert(Math.abs(desktopHeader.titleTop - desktopHeader.filterTop) < 12, 'a short list title and its current-list filter must share the desktop header row');
   const marketTrigger = page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger');
   await marketTrigger.click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-action').focus();
+  await page.evaluate(() => {
+    window.filterActionBeforeRefresh = document.activeElement;
+    window.test.refreshLists();
+    window.test.remapSection('market-section', 'canonical-market-section');
+  });
+  assert.equal(await marketTrigger.getAttribute('aria-expanded'), 'true', 'equivalent snapshots and real section remapping must preserve the open current-list filter');
+  assert.equal(await page.evaluate(() => window.filterActionBeforeRefresh.isConnected && document.activeElement === window.filterActionBeforeRefresh), true,
+    'body updates must retain the actual focused filter action node');
+  assert.equal(await main.locator('.section-header[data-section-id="canonical-market-section"]').count(), 1, 'the real section-ID change must update the content while the filter stays open');
+  await page.evaluate(() => window.test.remapSection('canonical-market-section', 'market-section'));
+  await marketTrigger.focus();
   assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').count(), 3, 'each manageable store option must expose its own edit action');
   assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().getAttribute('aria-label'), 'REWE bearbeiten');
   assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().evaluate(element => element.closest('[role="listbox"]')), null, 'store edit actions must remain outside the listbox semantics');
@@ -329,6 +365,10 @@ try {
   assert.equal(await marketTrigger.evaluate(element => document.activeElement === element), true, 'ArrowLeft must return focus to the select trigger');
   await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().click();
   const storeModal = page.locator('#shopping-store-modal');
+  const waitForStoreClosed = () => page.waitForFunction(() => (
+    document.getElementById('shopping-store-modal')?.getAttribute('aria-hidden') === 'true'
+    && !(history.state?.niaTodoUi?.layers || []).includes('shopping-store-modal')
+  ));
   assert.equal(await storeModal.getAttribute('aria-hidden'), 'false');
   const storeNameInput = page.locator('#shopping-store-name');
   assert.equal(await storeNameInput.inputValue(), 'REWE');
@@ -342,8 +382,33 @@ try {
   await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => document.activeElement?.id || ''), focusCycle.first, 'Tab from the final modal control must wrap to the first control');
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => document.getElementById('shopping-store-modal')?.getAttribute('aria-hidden') === 'true');
+  await waitForStoreClosed();
   assert.equal(await marketTrigger.evaluate(element => document.activeElement === element), true, 'Escape must close the store editor and restore dropdown-trigger focus');
+  await page.evaluate(() => window.test.holdStoreInitialFocus());
+  await page.evaluate(() => window.test.flushStoreInitialFocus());
+  assert.equal(await storeNameInput.evaluate(input => document.activeElement === input), true, 'initial focus still reaches the store name if the user has not moved focus');
+  await page.keyboard.press('Escape');
+  await waitForStoreClosed();
+  await page.evaluate(() => window.test.holdStoreInitialFocus());
+  const deferredFocusCycle = await storeModal.evaluate(modal => {
+    const elements = Array.from(modal.querySelectorAll('button:not([disabled]):not([hidden]), input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), summary, [tabindex]:not([tabindex="-1"])'))
+      .filter(element => !element.closest('[hidden]') && element.offsetParent !== null);
+    elements.at(-1)?.focus();
+    return elements[0]?.id;
+  });
+  await page.keyboard.press('Tab');
+  await page.evaluate(() => window.test.flushStoreInitialFocus());
+  assert.equal(await page.evaluate(() => document.activeElement?.id), deferredFocusCycle, 'a delayed initial-focus callback must not override a completed keyboard focus cycle');
+  await page.keyboard.press('Escape');
+  await waitForStoreClosed();
+  await page.evaluate(() => window.test.holdStoreInitialFocus());
+  await storeModal.locator('button[data-close-modal="shopping-store-modal"]').click();
+  await waitForStoreClosed();
+  await page.evaluate(() => {
+    document.getElementById('test-confirm-button').focus();
+    window.test.flushStoreInitialFocus();
+  });
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'test-confirm-button', 'an old initial-focus callback must not focus a closed store editor');
   await marketTrigger.click();
   await page.locator('#shopping-store-filter-ui-menu .ui-select-option-action').first().click();
   await storeNameInput.waitFor({ state: 'visible' });
@@ -393,6 +458,15 @@ try {
   assert.equal(await filterStoreName.isVisible(), true);
   assert.equal(await filterStoreName.evaluate(element => document.activeElement === element), true, 'the filter dropdown action must focus the shared inline store creator');
   await filterStoreName.fill('PENNY');
+  await filterStoreName.evaluate(input => { input.setSelectionRange(2, 4); window.filterDraftBeforeRefresh = input; });
+  await page.evaluate(() => {
+    window.test.refreshLists();
+    window.test.remapSection('market-section', 'canonical-market-section');
+  });
+  assert.equal(await filterStoreName.inputValue(), 'PENNY', 'background refresh must preserve an inline store draft');
+  assert.equal(await filterStoreName.evaluate(input => input === window.filterDraftBeforeRefresh && document.activeElement === input && input.selectionStart === 2 && input.selectionEnd === 4), true,
+    'body updates must preserve draft input identity, focus and selection');
+  await page.evaluate(() => window.test.remapSection('canonical-market-section', 'market-section'));
   await page.locator('[data-shopping-store-creator="shopping-filter-store"][data-shopping-store-creator-action="save"]').click();
   assert.equal(await page.evaluate(() => window.test.storeFilter()), 'temp-store-filter-created-1', 'a newly created store must become the active device-local filter');
   assert.equal(await page.locator('[data-select-id="shopping-store-filter"] .ui-select-trigger').evaluate(element => document.activeElement === element), true, 'successful store creation restores focus to the current-list store select');
@@ -702,6 +776,43 @@ try {
   await page.locator('[data-section-collection-action="clear-completed"]').click();
   await page.waitForFunction(() => window.test.mutations().some(mutation => mutation.action === 'DELETE_COMPLETED_SHOPPING_ITEMS' && mutation.data.shopping_list_id === 3));
   assert.deepEqual(await main.locator('.shopping-item-title').allTextContents(), []);
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.evaluate(() => { window.test.select(4); window.test.setHideDone(false); });
+  await marketTrigger.click();
+  await page.evaluate(() => window.test.rebind());
+  assert.equal(await marketTrigger.getAttribute('aria-expanded'), 'false', 'destroy must close the old filter dropdown');
+  await marketTrigger.click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-action').click();
+  assert.equal(await filterStoreName.isVisible(), true, 'destroy/rebind must restore a working store creator on the same surface');
+  await filterStoreName.fill('Old pending creator');
+  await page.evaluate(() => window.test.deferStoreCommit());
+  await page.locator('[data-shopping-store-creator="shopping-filter-store"][data-shopping-store-creator-action="save"]').click();
+  await page.evaluate(() => window.test.select(7));
+  await marketTrigger.click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-action').click();
+  await filterStoreName.fill('New list draft');
+  await page.evaluate(() => window.test.releaseStoreCommit());
+  await page.waitForFunction(() => window.test.stores().some(store => store.name === 'Old pending creator'));
+  assert.equal(await filterStoreName.inputValue(), 'New list draft', 'an old creator completion must not clear the newly active list draft');
+  assert.equal(await filterStoreName.evaluate(input => document.activeElement === input), true, 'an old completion must not steal focus from a newer draft');
+  assert.equal(await page.locator('[data-shopping-store-creator="shopping-filter-store"][data-shopping-store-creator-action="save"]').isEnabled(), true);
+  await marketTrigger.click();
+  await page.evaluate(() => window.test.deactivate());
+  assert.equal(await marketTrigger.getAttribute('aria-expanded'), 'false', 'module deactivation must close its body-appended dropdown');
+  assert.equal(await filterStoreName.isVisible(), false, 'module deactivation must hide its inline store draft');
+  assert.equal(await filterStoreName.inputValue(), '', 'a deactivated inline draft must reset before returning to the module');
+  await page.evaluate(() => window.test.activate());
+  await marketTrigger.click();
+  await page.locator('#shopping-store-filter-ui-menu .ui-select-action').click();
+  await filterStoreName.fill('Permission-sensitive draft');
+  await page.evaluate(() => { window.test.setCanEdit(7, false); window.test.refreshLists(); });
+  assert.equal(await filterStoreName.isVisible(), false, 'real permission loss must discard the no-longer-authorized creator');
+  await marketTrigger.click();
+  assert.equal(await page.locator('#shopping-store-filter-ui-menu .ui-select-action').count(), 0, 'a refreshed reader cannot retain the add-store action');
+  await page.evaluate(() => window.test.setStores([...window.test.stores(), { id: 'new-server-store', shopping_list_id: 7, name: 'New server store', active: true }]));
+  assert.equal(await marketTrigger.getAttribute('aria-expanded'), 'false', 'actual store-option changes may replace the filter and close its previous dropdown');
+  assert.ok((await marketSelect.locator('option').allTextContents()).includes('New server store'), 'actual store changes must appear immediately');
 
   const cleanedLegacyState = await page.evaluate(async () => {
     const indexedDb = await import('/static/js/storage/indexed-db.js');

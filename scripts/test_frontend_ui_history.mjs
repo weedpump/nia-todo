@@ -317,6 +317,10 @@ try {
       await route.fulfill({ contentType: 'text/javascript', body: uiShellSource });
       return;
     }
+    if (url.pathname === '/static/js/ui/dropdowns.js') {
+      await route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web' + url.pathname, import.meta.url), 'utf8') });
+      return;
+    }
     if (url.pathname === '/static/js/features/user-menu.js') {
       await route.fulfill({ contentType: 'text/javascript', body: userMenuSource });
       return;
@@ -394,7 +398,9 @@ try {
         </div>
         <button class="nav-btn" data-filter="all"></button>
         <button class="nav-btn" data-filter="focus"></button>
-        <div id="todo-modal" class="modal"><button id="todo-modal-close" data-close-modal="todo-modal">Close</button></div>
+        <div id="todo-modal" class="modal"><button id="todo-modal-close" data-close-modal="todo-modal">Close</button><input id="todo-draft"><label for="todo-choice">Choice</label><select id="todo-choice"><option>First</option><option>Second</option></select></div>
+        <div id="project-modal" class="modal"><input id="project-draft"><label for="project-choice">Choice</label><select id="project-choice"><option>First</option><option>Second</option></select></div>
+        <div id="shopping-list-modal" class="modal"><input id="shopping-list-draft"><label for="shopping-list-choice">Choice</label><select id="shopping-list-choice"><option>First</option><option>Second</option></select></div>
         <div id="attachment-preview-modal" class="modal"></div>
         <div id="settings-modal" class="modal"></div>
         <div id="native-app-update-modal" class="modal"></div>
@@ -404,6 +410,7 @@ try {
           import { createUserMenuFeature } from '/static/js/features/user-menu.js';
           import { createNavigationFeature } from '/static/js/features/navigation.js';
           import { createAppDownloadsFeature } from '/static/js/features/app-downloads.js';
+          import { hydrateSelect } from '/static/js/ui/dropdowns.js';
           const historyCalls = [];
           let swallowNextHistoryTraversal = false;
           const originalHistoryBack = history.back.bind(history);
@@ -425,9 +432,12 @@ try {
             return originalHistoryGo(delta);
           };
           window.getHistoryCalls = () => [...historyCalls];
+          window.clearHistoryCalls = () => { historyCalls.length = 0; };
           window.swallowNextHistoryClose = () => { swallowNextHistoryTraversal = true; };
           const close = id => document.getElementById(id).classList.remove('active');
           registerUiLayer('todo-modal', () => close('todo-modal'));
+          registerUiLayer('project-modal', () => close('project-modal'));
+          registerUiLayer('shopping-list-modal', () => close('shopping-list-modal'));
           registerUiLayer('attachment-preview-modal', () => close('attachment-preview-modal'));
           bindUiHistory();
           const shell = createUiShell({ renderMarkdown: value => value, showTodoModal() {} });
@@ -435,6 +445,12 @@ try {
           userMenu.bindUserMenu();
           shell.bindSidebarControls();
           shell.bindModalCloseControls();
+          // Match production: the shell keyboard listener exists before the
+          // first editor lazily hydrates its shared dropdowns.
+          shell.bindKeyboardShortcuts();
+          for (const prefix of ['todo', 'project', 'shopping-list']) {
+            hydrateSelect(document.getElementById(prefix + '-choice'), { searchable: true });
+          }
           createAppDownloadsFeature();
           window.openLayer = id => {
             document.getElementById(id).classList.add('active');
@@ -518,6 +534,43 @@ try {
   await page.goto('http://nia.test/history-test#stale');
   await page.waitForFunction(() => window.historyReady === true);
   assert.equal(page.url(), 'http://nia.test/history-test', 'binding must clean an existing fragment in a real browser');
+
+  for (const prefix of ['todo', 'project', 'shopping-list']) {
+    const modalId = `${prefix}-modal`;
+    const inputId = `${prefix}-draft`;
+    await page.evaluate(id => window.openLayer(id), modalId);
+    await page.locator(`#${inputId}`).fill('Unsaved draft');
+    for (const blocked of [{ isComposing: true }, { keyCode: 229 }, { handled: true }]) {
+      await page.evaluate(({ inputId, blocked }) => {
+        const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...blocked });
+        if (blocked.handled) event.preventDefault();
+        document.getElementById(inputId).dispatchEvent(event);
+      }, { inputId, blocked });
+      assert.equal(await page.locator(`#${modalId}`).evaluate(element => element.classList.contains('active')), true, `${prefix}: handled/composing Escape must preserve the editor`);
+      assert.equal(await page.locator(`#${inputId}`).inputValue(), 'Unsaved draft', `${prefix}: handled/composing Escape must preserve the draft`);
+    }
+
+    const dropdownTrigger = page.locator(`[data-select-id="${prefix}-choice"] .ui-select-trigger`);
+    for (const origin of ['trigger', 'option', 'search']) {
+      await dropdownTrigger.press('Enter');
+      assert.equal(await dropdownTrigger.getAttribute('aria-expanded'), 'true');
+      if (origin === 'search') {
+        await page.locator(`#${prefix}-choice-ui-menu .ui-select-search-input`).press('Escape');
+      } else if (origin === 'option') {
+        await page.locator(`#${prefix}-choice-ui-menu .ui-select-option`).first().focus();
+        await page.keyboard.press('Escape');
+      } else {
+        await dropdownTrigger.press('Escape');
+      }
+      assert.equal(await dropdownTrigger.getAttribute('aria-expanded'), 'false', `${prefix}: first Escape closes the dropdown from its ${origin}`);
+      assert.equal(await page.locator(`#${modalId}`).evaluate(element => element.classList.contains('active')), true, `${prefix}: first Escape must preserve its parent editor`);
+      assert.equal(await page.locator(`#${inputId}`).inputValue(), 'Unsaved draft');
+    }
+    await page.locator(`#${inputId}`).press('Escape');
+    await page.waitForFunction(id => !document.getElementById(id).classList.contains('active'), modalId);
+    assert.deepEqual(await page.evaluate(() => history.state?.niaTodoUi?.layers || []), [], `${prefix}: ordinary Escape still closes the editor and consumes its history layer`);
+  }
+  await page.evaluate(() => window.clearHistoryCalls());
 
   assert.deepEqual(await page.evaluate(() => window.prepareSidebarOverlayCloseWithOpenMenu()), {
     sidebarOpen: true,

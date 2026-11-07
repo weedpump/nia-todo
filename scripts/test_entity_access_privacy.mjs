@@ -637,4 +637,200 @@ assert.match(projectsSource, /projectPendingProjectChanges\(project, queue\)/);
 assert.match(navigationSource, /projectPendingSectionsSnapshot\(serverSections, localProjectSections, queue, currentProjectId\)/);
 assert.match(todosSource, /projectPendingSectionsSnapshot\(serverSections, localProjectSections, queue, projectId\)/);
 
-console.log('✅ Generic entity access privacy and project/todo eviction contracts passed');
+// Session teardown must cancel queued privacy work before its database closes,
+// and stale invitation responses must not start cleanup in the next account.
+let releaseSessionLock;
+const sessionLock = new Promise(resolve => { releaseSessionLock = resolve; });
+let sessionEvictions = 0;
+let sessionPublications = 0;
+const sessionErrors = [];
+const sessionPrivacy = createEntityAccessPrivacyController({
+  evictEntities: (_ids, { signal }) => runEntityPrivacyEviction({
+    signal, acquireCommitLock: async () => sessionLock,
+    evict: async () => { sessionEvictions++; }, publish: () => { sessionPublications++; },
+  }),
+  onError: error => sessionErrors.push(error),
+});
+sessionPrivacy.schedulePending([7]);
+let sessionDrained = false;
+const sessionShutdown = sessionPrivacy.suspend().then(() => { sessionDrained = true; });
+sessionPrivacy.schedulePending([8]);
+await Promise.resolve();
+assert.equal(sessionDrained, false, 'database teardown must wait for the canceled operation to leave the commit-lock queue');
+releaseSessionLock(() => {});
+await sessionShutdown;
+assert.equal(sessionEvictions, 0, 'a canceled old-account eviction must never enter a closed or replacement database');
+assert.equal(sessionPublications, 0);
+assert.deepEqual(sessionErrors, []);
+sessionPrivacy.resume();
+sessionPrivacy.schedulePending([8]);
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(sessionEvictions, 1, 'a new authenticated runtime can schedule cleanup after reopening its database');
+assert.equal(sessionPublications, 1);
+
+let activeAbortObserved = false;
+const activePrivacy = createEntityAccessPrivacyController({
+  evictEntities: (_ids, { signal }) => runEntityPrivacyEviction({
+    signal, acquireCommitLock: async () => () => {},
+    evict: () => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => {
+        activeAbortObserved = true;
+        reject(new DOMException('transaction canceled', 'AbortError'));
+      }, { once: true });
+    }),
+  }),
+  onError: error => sessionErrors.push(error),
+});
+activePrivacy.schedulePending([9]);
+await Promise.resolve();
+await activePrivacy.suspend();
+assert.equal(activeAbortObserved, true, 'an active durable transaction must receive the teardown abort');
+assert.deepEqual(sessionErrors, []);
+const genuineFailure = new Error('genuine storage failure');
+const failingPrivacy = createEntityAccessPrivacyController({
+  evictEntities: async () => { throw genuineFailure; }, onError: error => sessionErrors.push(error),
+});
+failingPrivacy.schedulePending([10]);
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.deepEqual(sessionErrors, [genuineFailure], 'session cancellation must not hide real storage failures');
+
+let resolveOldInvites;
+const oldInvites = new Promise(resolve => { resolveOldInvites = resolve; });
+const staleInvitationEvictions = [];
+const sessionSharing = createProjectSharingFeature({
+  getProjects: () => [], setProjects() {}, renderProjects() {}, renderStats() {}, renderTodos() {}, showToast() {},
+  projectsApi: { listInvites: () => oldInvites },
+  removePendingEntities: async ids => { staleInvitationEvictions.push(...ids); },
+});
+const oldInvitationLoad = sessionSharing.loadInvites();
+await sessionSharing.suspendAccessPrivacy();
+sessionSharing.setInvites([{ id: 77, project_id: 7 }]);
+assert.deepEqual(staleInvitationEvictions, [], 'late render/snapshot callbacks cannot restart suspended privacy cleanup');
+sessionSharing.resumeAccessPrivacy();
+sessionSharing.commitAuthoritativeSnapshot([]);
+assert.deepEqual(staleInvitationEvictions, [], 'callbacks received during suspension cannot leave old invitation state for the next account');
+resolveOldInvites({ invitations: [{ id: 88, project_id: 8 }] });
+assert.equal((await oldInvitationLoad).stale, true, 'old invitation requests must be invalidated across account teardown and resume');
+assert.deepEqual(staleInvitationEvictions, []);
+sessionSharing.setInvites([{ id: 99, project_id: 9 }]);
+assert.deepEqual(staleInvitationEvictions, [9], 'only new-session invitations may schedule new cleanup');
+await sessionSharing.suspendAccessPrivacy();
+
+globalThis.window = {};
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {} });
+const sessionValues = new Map();
+globalThis.localStorage = {
+  getItem: key => sessionValues.get(key) || null,
+  setItem: (key, value) => sessionValues.set(key, String(value)),
+  removeItem: key => sessionValues.delete(key),
+};
+globalThis.sessionStorage = { getItem: () => null };
+const { createAuthSessionFeature } = await import('../web/static/js/features/auth-session.js');
+for (const cachedUser of [{ id: 1, username: 'old-user' }, null]) {
+ for (const ownerKnown of [true, false]) {
+  if (ownerKnown) sessionValues.set('last_user_id', '1');
+  else sessionValues.delete('last_user_id');
+  sessionValues.set('jwt_token', `header.${btoa(JSON.stringify({ user_id: 2, username: 'new-user' }))}.signature`);
+  if (cachedUser) sessionValues.set('cached_user', JSON.stringify(cachedUser));
+  else sessionValues.delete('cached_user');
+  let cachedHydrations = 0;
+  const mismatchedAuth = createAuthSessionFeature({
+    authApi: {}, getAppInitialized: () => false, setCurrentUser: () => { cachedHydrations++; },
+    clearCache: async () => {}, initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo() {},
+  });
+  assert.equal(await mismatchedAuth.checkAuth({ preferCached: true }), false,
+    'a changed JWT identity must use authoritative validation instead of hydrating cached or JWT-derived data over another account cache');
+  assert.equal(cachedHydrations, 0);
+ }
+}
+for (const entry of ['login', 'authoritative-check']) {
+ for (const ownerKnown of [true, false]) {
+  const order = [];
+  if (ownerKnown) sessionValues.set('last_user_id', '1');
+  else sessionValues.delete('last_user_id');
+  sessionValues.set('jwt_token', 'old-session');
+  let user = { id: 1 };
+  const auth = createAuthSessionFeature({
+    authApi: {
+      login: async () => ({ access_token: 'new-session', user: { id: 2, username: 'new-user' } }),
+      me: async () => ({ id: 2, username: 'new-user' }),
+    },
+    getAppInitialized: () => true,
+    setCurrentUser: next => { user = next; order.push(next ? 'hydrate' : 'deactivate-old-user'); },
+    onCurrentUserChange: () => { assert.equal(order.includes('close-cache'), true); order.push('render-new-user'); },
+    disconnectRealtime: async () => { assert.equal(user, null); order.push('drain-old-runtime'); },
+    clearCache: async () => { assert.equal(user, null); order.push('close-cache'); },
+    initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo() {},
+  });
+  location.reload = () => order.push('reload');
+  if (entry === 'login') await auth.login('new-user', 'test');
+  else await auth.checkAuth({ authoritative: true });
+  assert.deepEqual(order.slice(0, 5), ['deactivate-old-user', 'drain-old-runtime', 'close-cache', 'hydrate', 'render-new-user'],
+    `${entry}: teardown and cache clearing must precede new-account hydration and module rendering`);
+  assert.equal(user.id, 2);
+ }
+}
+
+sessionValues.set('last_user_id', '2');
+sessionValues.set('jwt_token', 'current-session');
+let releaseLogoutCache;
+let logoutCacheStarted;
+const logoutGate = new Promise(resolve => { releaseLogoutCache = resolve; });
+const logoutStarted = new Promise(resolve => { logoutCacheStarted = resolve; });
+const logoutAuth = createAuthSessionFeature({
+  authApi: { logout: async () => {} }, getAppInitialized: () => true, setCurrentUser() {},
+  disconnectRealtime: async () => {},
+  clearCache: async () => { logoutCacheStarted(); await logoutGate; },
+  initApp: async () => {}, refreshFromServer: async () => {}, renderUserInfo() {},
+});
+const pendingLogout = logoutAuth.logout();
+await logoutStarted;
+assert.equal(sessionValues.get('last_user_id'), '2', 'interrupted logout must retain the cache owner marker until the old database is actually cleared');
+releaseLogoutCache();
+await pendingLogout;
+assert.equal(sessionValues.has('last_user_id'), false);
+
+// Execute the production tracker itself: a microtask queued before teardown
+// must recheck its captured account before starting any network/cache work.
+const trackerStart = appSource.indexOf('function trackBackgroundSyncOperation(');
+const trackerEnd = appSource.indexOf('const syncFeature =', trackerStart);
+assert.ok(trackerStart >= 0 && trackerEnd > trackerStart);
+const createProductionTracker = new Function(`
+  let currentUser = null;
+  const activeBackgroundSyncOperations = new Set();
+  ${appSource.slice(trackerStart, trackerEnd)}
+  return {
+    setUser(user) { currentUser = user; },
+    track: trackBackgroundSyncOperation,
+    drain: waitForBackgroundSyncOperations,
+  };
+`);
+const tracker = createProductionTracker();
+let trackedCalls = 0;
+tracker.setUser({ id: 1 });
+const queuedBeforeLogout = tracker.track(() => { trackedCalls++; });
+tracker.setUser(null);
+await queuedBeforeLogout;
+assert.equal(trackedCalls, 0, 'logout must cancel an old job before its queued microtask begins');
+tracker.setUser({ id: 1 });
+const queuedBeforeAccountChange = tracker.track(() => { trackedCalls++; });
+tracker.setUser({ id: 2 });
+await queuedBeforeAccountChange;
+assert.equal(trackedCalls, 0, 'a job queued for another account must not run in the replacement session');
+let releaseTrackedJob;
+let trackedJobStarted;
+const trackedGate = new Promise(resolve => { releaseTrackedJob = resolve; });
+const trackedStarted = new Promise(resolve => { trackedJobStarted = resolve; });
+const currentJob = tracker.track(async () => { trackedCalls++; trackedJobStarted(); await trackedGate; });
+await trackedStarted;
+let trackedDrainFinished = false;
+const trackedDrain = tracker.drain().then(() => { trackedDrainFinished = true; });
+await Promise.resolve();
+assert.equal(trackedDrainFinished, false, 'runtime shutdown must still await work that already started for the current account');
+releaseTrackedJob();
+await Promise.all([currentJob, trackedDrain]);
+assert.equal(trackedCalls, 1);
+await assert.rejects(tracker.track(async () => { throw new Error('real tracked failure'); }), /real tracked failure/,
+  'the tracker must propagate genuine operation failures to its caller');
+
+console.log('✅ Generic entity access privacy, session teardown and project/todo eviction contracts passed');

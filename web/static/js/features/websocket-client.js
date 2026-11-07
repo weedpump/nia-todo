@@ -1,6 +1,6 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
-import { runAccessFencedCommit } from './entity-access-privacy.js';
-import { backfillShoppingStoreQueueListIds, collectRevokedShoppingListIds, projectShoppingSnapshot, projectShoppingStoresSnapshot } from './shopping-pending.js';
+import { collectRevokedProjectIds, runAccessFencedCommit } from './entity-access-privacy.js';
+import { backfillShoppingStoreQueueListIds, collectRevokedShoppingListIds, projectShoppingSnapshot, projectShoppingStoresSnapshot, reconcileShoppingStoreQueueSnapshot } from './shopping-pending.js';
 
 export function createWebSocketClient({
   wsUrl,
@@ -17,6 +17,7 @@ export function createWebSocketClient({
   dbPut,
   getFromDB,
   deleteFromDB,
+  commitShoppingReplay = null,
   getTodos,
   setTodos,
   getProjects,
@@ -196,6 +197,7 @@ function stopPingInterval() {
 }
 
 function scheduleReconnect() {
+  if (wsIntentionalClose) return;
   if (!getAuthToken()) {
     console.log('WS: no auth token, reconnect skipped');
     return;
@@ -232,6 +234,16 @@ function disconnectWebSocket() {
   wsState = 'disconnected';
   updateConnectionStatus();
   return Promise.allSettled([...activeMessageHandlers]);
+}
+
+function resumeWebSocket() {
+  if (!getAuthToken()) return false;
+  // Only the authenticated runtime may reopen an intentionally closed session,
+  // after its replacement database and privacy controllers are ready.
+  wsIntentionalClose = false;
+  reconnectAttempts = 0;
+  initialSyncPromise = Promise.resolve();
+  return true;
 }
 
 function updateConnectionStatus() {
@@ -419,6 +431,14 @@ async function handleWsMessage(msg) {
         break;
       }
       const committed = await commitRealtimeEntity(async () => {
+      // sync_response is the server's account-wide access snapshot; workspace
+      // selection and individual project events must never infer revocation.
+      const hasTaskAccessSnapshot = [msg.projects, msg.todos, msg.sections, msg.workspaces].every(Array.isArray);
+      const revokedProjectIds = hasTaskAccessSnapshot
+        ? collectRevokedProjectIds(msg.projects, {
+          projects: await dbGetAll('projects'), sections: await dbGetAll('sections'),
+          todos: await dbGetAll('todos'), queue: await dbGetAll('syncQueue'),
+        }) : [];
       // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
         const serverTodoIds = new Set(msg.todos.map(todo => String(todo.id)));
@@ -517,6 +537,19 @@ async function handleWsMessage(msg) {
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
       }
+      if (Array.isArray(msg.shopping_lists) && Array.isArray(msg.shopping_stores)) {
+        const reconciliation = reconcileShoppingStoreQueueSnapshot(await dbGetAll('syncQueue'), {
+          localStores: await dbGetAll('shoppingStores'),
+          shoppingLists: msg.shopping_lists, shoppingStores: msg.shopping_stores,
+        });
+        if (reconciliation.queueRecords.length || reconciliation.queueDeleteIds.length) {
+          if (commitShoppingReplay) await commitShoppingReplay(reconciliation);
+          else {
+            await Promise.all(reconciliation.queueRecords.map(entry => dbPut('syncQueue', entry)));
+            await Promise.all(reconciliation.queueDeleteIds.map(id => deleteFromDB('syncQueue', id)));
+          }
+        }
+      }
       if (msg.shopping_stores) {
         const storedQueue = await dbGetAll('syncQueue');
         const localStores = await dbGetAll('shoppingStores');
@@ -552,6 +585,10 @@ async function handleWsMessage(msg) {
         || Object.prototype.hasOwnProperty.call(msg, 'shopping_lists')) {
         onEntitySnapshotsCommitted({
           projects: Array.isArray(msg.projects) ? msg.projects : null,
+          revokedProjectIds,
+          taskAccessSnapshot: hasTaskAccessSnapshot ? {
+            todoIds: msg.todos.map(todo => todo.id), sectionIds: msg.sections.map(section => section.id),
+          } : null,
           shoppingLists: Array.isArray(msg.shopping_lists) ? msg.shopping_lists : null,
           revokedShoppingListIds: Array.isArray(msg.shopping_lists) ? revokedShoppingListIds : [],
         });
@@ -916,6 +953,7 @@ async function handleWsMessage(msg) {
     stopPingInterval,
     scheduleReconnect,
     disconnectWebSocket,
+    resumeWebSocket,
     updateConnectionStatus,
     handleWsMessage,
   };

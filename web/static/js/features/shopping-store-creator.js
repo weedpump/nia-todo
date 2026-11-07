@@ -31,6 +31,7 @@ export function bindShoppingStoreCreator({
   const actionButtons = () => Array.from(doc?.querySelectorAll?.(`[data-shopping-store-creator="${prefix}"]`) || []);
   let submitting = false;
   let creationContext = null;
+  let destroyed = false;
 
   function setError(key = '') {
     const target = byId('store-error');
@@ -45,6 +46,7 @@ export function bindShoppingStoreCreator({
   }
 
   function show() {
+    if (destroyed) return false;
     const container = byId('new-store');
     const input = byId('new-store-name');
     if (!container || !input) return false;
@@ -68,7 +70,7 @@ export function bindShoppingStoreCreator({
   }
 
   async function save() {
-    if (submitting) return null;
+    if (destroyed || submitting) return null;
     const input = byId('new-store-name');
     const name = validShoppingStoreName(input?.value);
     if (!name) {
@@ -89,18 +91,23 @@ export function bindShoppingStoreCreator({
         shoppingListId,
       });
       if (!store) return null;
-      hide();
+      if (!destroyed) hide();
       onCreated(store, context);
-      if (selectId) doc?.querySelector?.(`[data-select-id="${selectId}"] .ui-select-trigger`)?.focus?.();
+      const active = doc?.activeElement;
+      if (selectId && (!destroyed || !active || active === doc?.body || active.isConnected === false)) {
+        doc?.querySelector?.(`[data-select-id="${selectId}"] .ui-select-trigger`)?.focus?.();
+      }
       return store;
     } catch (error) {
       onError(error);
-      setError('shopping.store.error.saveFailed');
-      input?.focus?.();
+      if (!destroyed) {
+        setError('shopping.store.error.saveFailed');
+        input?.focus?.();
+      }
       return null;
     } finally {
       submitting = false;
-      actionButtons().forEach(button => { button.disabled = false; });
+      if (!destroyed) actionButtons().forEach(button => { button.disabled = false; });
     }
   }
 
@@ -113,6 +120,7 @@ export function bindShoppingStoreCreator({
   }
 
   function handleKeydown(event) {
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
     if (event.key !== 'Enter' || event.target?.id !== `${prefix}-new-store-name`) return;
     event.preventDefault();
     void save();
@@ -126,6 +134,7 @@ export function bindShoppingStoreCreator({
     hide,
     save,
     destroy() {
+      destroyed = true;
       doc?.removeEventListener?.('click', handleClick);
       doc?.removeEventListener?.('keydown', handleKeydown);
     },

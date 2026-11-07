@@ -147,9 +147,11 @@ run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
 run_step "Product Branding" node scripts/test_product_branding.mjs
 run_step "Shared Detail Modal Frame" node scripts/test_detail_modal_frame.mjs
+run_step "Awaited Browser Conditions" node scripts/test_browser_page_condition.mjs
 run_step "BrainDump Module UI" node scripts/test_frontend_braindump_modules.mjs
 run_step "BrainDump Shopping Offline Queue" node scripts/test_braindump_shopping_queue.mjs
 run_step "Module Shell" node scripts/test_module_shell.mjs
+run_step "Module Switcher Background Refresh" node scripts/test_module_switcher_refresh.mjs
 run_step "Shared Topbar Toggle" node scripts/test_topbar_toggle.mjs
 run_step "Shared Completed Visibility" node scripts/test_shared_completed_visibility.mjs
 run_step "Module Topbar Browser" node scripts/test_module_topbar_browser.mjs
@@ -206,6 +208,8 @@ run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summary_live_updates.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
+run_step "Pending Project Navigation and Replay" node scripts/test_pending_project_navigation.mjs
+run_step "Atomic Task Parent Receipts" node scripts/test_task_parent_replay.mjs
 run_step "WebSocket Access Snapshot" node scripts/test_frontend_access_snapshot.mjs
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
 run_step "Offline Shopping Sync Contracts" node scripts/test_offline_shopping_sync.mjs
@@ -279,6 +283,7 @@ run_frontend_step_retry "Frontend Admin CSP" node scripts/test_frontend_admin_cs
 run_frontend_step_retry "Frontend Password Reset" node scripts/test_frontend_password_reset.mjs
 run_frontend_step_retry "Frontend MFA Login" node scripts/test_frontend_mfa_login.mjs
 run_frontend_step_retry "Frontend Sharing" node scripts/test_frontend_sharing.mjs
+run_frontend_step_retry "Frontend Shopping End-to-End" node scripts/test_frontend_shopping_e2e.mjs
 run_frontend_step_retry "Frontend Session" node scripts/test_frontend_session.mjs
 run_frontend_step_retry "Frontend Offline Sync" node scripts/test_frontend_offline_sync.mjs
 run_frontend_step_retry "Frontend Realtime Sync" node scripts/test_frontend_realtime_sync.mjs

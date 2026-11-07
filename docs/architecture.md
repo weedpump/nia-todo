@@ -51,6 +51,12 @@
 - local changes go into a sync queue
 - WebSocket/sync keeps local data and server state in sync
 - server refresh writes the authoritative state directly into IndexedDB so reloads after login stay stable
+- Shopping replay preserves each list's mutation order after a failure or uncommitted replay; other lists continue independently. Empty idempotent batches update local state without creating an empty queue entry.
+- Tasks keeps known local project/section IDs opaque until their parent creates commit. One receipt transaction remaps dependent cache and queue references and removes the acknowledged parent write before sending children; unresolved parent IDs defer dependent writes. Committed ID receipts keep navigation and open editors on their original target.
+- Complete account-wide WebSocket snapshots drive durable project-access eviction, including pending local edits. Workspace projections do not imply revocation. The locked eviction reads the latest authorized projects and server-confirmed entity IDs so newer grants, independent child access and authoritative moves remain protected.
+- Account transitions suspend and drain shared access-privacy work and realtime/sync before closing IndexedDB. Old invitations, access projections and in-memory records are reset; privacy processing resumes only after the database is open. A different account's cached or authoritative identity must not hydrate module UI before this boundary completes.
+- Complete Shopping list/store snapshots reconcile old store-only queue records before replacing caches: authorized store metadata backfills the list identity, while unassignable orphan records are removed atomically. Partial snapshots do not infer revocation from missing store metadata.
+- Background refreshes preserve unchanged module menus and Shopping filter/editor controls, including focus and drafts. Shopping reconciles filter/header inputs separately from item/section content; changing targets, permissions or module activation closes obsolete controls. Late inline-store completions stay scoped to their original list and cannot clear a newer draft.
 
 ## Shared BrainDump capture and routing
 
@@ -64,6 +70,7 @@
 - A single launcher and review controller serves enabled Tasks and Shopping modules. The shared candidate editor keeps module-specific drafts and allows correcting the destination. Unresolved destinations block saving. The dialog frame is shared with the existing entity and item editors; learning settings live in the application's General settings.
 - Confirmation uses each module's existing mutation path and revalidates access. Shopping items enter the durable offline queue with stable mutation IDs, including target remapping for locally created lists, sections and stores. Tasks use actor-scoped idempotent receipts; an uncertain response retains the submitted payload until its retry resolves. Completed groups remain saved if a later group fails.
 - Typed routing feedback is recorded atomically with creation and only once per mutation. Learned routes retain domain IDs, are reauthorized before reuse, respect learning opt-out/reset, and do not replace explicit deadlines, recurrence, location, quantities or units with another candidate type. The Todo endpoint rejects Shopping candidates.
+- Typed candidates carry validated `explicit_route_fields` provenance for container, section and stores. Spoken destinations (including explicit empty choices) take precedence over learned routes; inferred destinations remain correctable. Transcript destination names independently add protection, missing/invalid provenance uses conservative protection, and deduplication retains the strongest protection.
 
 ## Native Apps
 

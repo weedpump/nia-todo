@@ -128,7 +128,12 @@ export function createShoppingNavigationFeature({
   let applyingHistory = false;
   let registeredSectionRoot = null;
   let storeCreator = null;
+  let renderedMain = null;
+  let renderedHeaderKey = null;
+  let renderedIdentityHtml = null;
+  let renderedBodyKey = null;
   let searchQuery = '';
+  let accessPrivacySuspended = false;
   const privacy = createEntityAccessPrivacyController({
     evictEntities: removePendingEntities,
     onError: error => console.error('Failed to evict pending shopping entities', error),
@@ -291,12 +296,19 @@ export function createShoppingNavigationFeature({
   function renderMain() {
     const main = getElementById('shopping-navigation-main');
     if (!main) return;
-    storeCreator?.destroy?.();
-    storeCreator = null;
-    const previousStoreSelect = getElementById('shopping-store-filter');
-    if (previousStoreSelect?.nextElementSibling?.classList?.contains('is-open')) closeOpenDropdown('rerender');
+    const resetStoreFilter = () => {
+      storeCreator?.destroy?.();
+      storeCreator = null;
+      const previousStoreSelect = getElementById('shopping-store-filter');
+      if (previousStoreSelect?.nextElementSibling?.classList?.contains('is-open')) closeOpenDropdown('rerender');
+    };
     const selected = lists().find(list => String(list.id) === String(activeListId));
     if (!selected) {
+      resetStoreFilter();
+      renderedMain = null;
+      renderedHeaderKey = null;
+      renderedIdentityHtml = null;
+      renderedBodyKey = null;
       onPrimaryActionAvailabilityChange(false);
       itemController?.bindRoot?.(null);
       main.dataset.shoppingNavigationState = 'empty';
@@ -370,12 +382,11 @@ export function createShoppingNavigationFeature({
     const storeOptions = stores.map(store => `
       <option value="${escapeHtmlAttr(store.id)}" ${sameId(store.id, selectedStoreId) ? 'selected' : ''}>${escapeHtml(store.name || '')}</option>
     `).join('');
-    main.innerHTML = `
-      <header class="shopping-list-content-header">
-        <div class="shopping-list-content-identity">
+    const identityHtml = `
           <span class="shopping-list-content-marker" aria-hidden="true">${markerHtml(selected)}</span>
           <h1>${escapeHtml(selected.name || '')}</h1>
-        </div>
+    `;
+    const filterHtml = `
         <div class="shopping-list-store-filter">
           <label class="visually-hidden" for="shopping-store-filter">${escapeHtml(t('shopping.filter.store.label'))}</label>
           <select id="shopping-store-filter" data-ui-select>
@@ -384,8 +395,14 @@ export function createShoppingNavigationFeature({
           </select>
         </div>
         ${renderShoppingStoreCreator({ prefix: 'shopping-filter-store', className: 'shopping-list-store-creator' })}
+    `;
+    const headerHtml = `
+      <header class="shopping-list-content-header">
+        <div class="shopping-list-content-identity">${identityHtml}</div>
+        ${filterHtml}
       </header>
-      <div class="shopping-list-content-body" data-section-root="shopping">
+    `;
+    const bodyHtml = `
         ${sectionHtml}
         ${hasSectionContent ? '' : `
           <div class="empty-state ${search ? 'shopping-search-empty-state' : (selectedStoreId != null ? 'shopping-store-filter-empty-state' : 'shopping-list-empty-state')}">
@@ -394,10 +411,28 @@ export function createShoppingNavigationFeature({
             ${search || selectedStoreId != null ? '' : `<p>${escapeHtml(t('shopping.list.emptyHint'))}</p>`}
           </div>
         `}
-      </div>
     `;
+    const headerKey = JSON.stringify([selected.id, selected.client_mutation_id, selected.can_edit === true, filterHtml]);
+    const bodyKey = JSON.stringify([selected.id, selected.client_mutation_id, bodyHtml]);
+    const previousHeader = main.querySelector?.('.shopping-list-content-header');
+    const previousBody = main.querySelector?.('.shopping-list-content-body');
+    const sameSurface = renderedMain === main && previousHeader && previousBody;
+    const preserveFilter = sameSurface && headerKey === renderedHeaderKey;
+    if (!preserveFilter) {
+      resetStoreFilter();
+      if (sameSurface) previousHeader.outerHTML = headerHtml;
+      else main.innerHTML = `${headerHtml}<div class="shopping-list-content-body" data-section-root="shopping">${bodyHtml}</div>`;
+    } else if (renderedIdentityHtml !== identityHtml) {
+      const identity = previousHeader.querySelector('.shopping-list-content-identity');
+      if (identity) identity.innerHTML = identityHtml;
+    }
+    if (sameSurface && renderedBodyKey !== bodyKey) previousBody.innerHTML = bodyHtml;
+    renderedMain = main;
+    renderedHeaderKey = headerKey;
+    renderedIdentityHtml = identityHtml;
+    renderedBodyKey = bodyKey;
     const storeSelect = getElementById('shopping-store-filter');
-    if (storeSelect) {
+    if (storeSelect && !preserveFilter) {
       storeCreator = bindShoppingStoreCreator({
         document: root,
         prefix: 'shopping-filter-store',
@@ -466,6 +501,32 @@ export function createShoppingNavigationFeature({
     if (historyTarget?.state?.niaShoppingList !== true || String(navigationId) !== String(activeListId)) {
       updateHistory(activeListId, true);
     }
+  }
+
+  function deactivate() {
+    const select = getElementById('shopping-store-filter');
+    if (select?.nextElementSibling?.classList?.contains('is-open')) closeOpenDropdown('module-deactivate');
+    storeCreator?.hide?.();
+  }
+
+  async function suspendAccessPrivacy() {
+    accessPrivacySuspended = true;
+    const drain = privacy.suspend();
+    invitations.destroy();
+    invitations.setInvitations([]);
+    deactivate();
+    activeListId = null;
+    localLists = null;
+    searchQuery = '';
+    await drain;
+  }
+
+  function resumeAccessPrivacy() {
+    if (!accessPrivacySuspended) return;
+    accessPrivacySuspended = false;
+    invitations.setInvitations([]);
+    privacy.resume();
+    invitations.bind();
   }
 
   function selectList(id, { replaceHistory = false, updateNavigation = true } = {}) {
@@ -561,14 +622,19 @@ export function createShoppingNavigationFeature({
   return {
     bind,
     activate,
+    deactivate,
+    suspendAccessPrivacy,
+    resumeAccessPrivacy,
     render,
-    loadInvites: () => invitations.load(),
+    loadInvites: () => accessPrivacySuspended ? Promise.resolve({ ok: false, stale: true }) : invitations.load(),
     respondInvite: (invitationId, accept) => invitations.respond(invitationId, accept),
     setInvites: next => {
+      if (accessPrivacySuspended) return;
       privacy.beginGeneration();
       return invitations.setInvitations(next);
     },
     commitAuthoritativeSnapshot: (authoritativeLists, revokedListIds = []) => {
+      if (accessPrivacySuspended) return;
       const accessibleLists = Array.isArray(authoritativeLists) ? authoritativeLists : lists();
       privacy.commitAccessible(accessibleLists.map(list => list?.id));
       privacy.schedulePending(revokedListIds);
@@ -593,12 +659,19 @@ export function createShoppingNavigationFeature({
         && list.preferences?.hide_empty_sections !== true;
     },
     destroy() {
+      deactivate();
       binding?.destroy?.();
       invitations.destroy();
       eventTarget?.removeEventListener?.('popstate', handlePopState);
       eventTarget?.removeEventListener?.('nia-language-change', handleLanguageChange);
       storeCreator?.destroy?.();
       storeCreator = null;
+      const select = getElementById('shopping-store-filter');
+      if (select?.nextElementSibling?.classList?.contains('is-open')) closeOpenDropdown('destroy');
+      renderedMain = null;
+      renderedHeaderKey = null;
+      renderedIdentityHtml = null;
+      renderedBodyKey = null;
       itemController?.bindRoot?.(null);
       binding = null;
       bound = false;

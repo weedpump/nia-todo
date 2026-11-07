@@ -45,7 +45,9 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
-            status TEXT DEFAULT 'accepted'
+            status TEXT DEFAULT 'accepted',
+            workspace_id INTEGER,
+            user_color TEXT
         );
         CREATE TABLE entity_access (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,7 +59,13 @@ def make_db():
         CREATE TABLE entity_access_grants (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             entity_access_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL
+            user_id INTEGER NOT NULL,
+            invited_by_user_id INTEGER,
+            granted_by_user_id INTEGER,
+            invite_identifier_type TEXT,
+            status TEXT NOT NULL DEFAULT 'accepted',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE sections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

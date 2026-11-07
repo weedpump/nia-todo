@@ -75,7 +75,7 @@ $module_contract
 Examples:
 $examples""")
 _LEGACY_CANDIDATE_SHAPE = '{"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null}]}'
-_MODULE_CANDIDATE_SHAPE = '{"candidates":[{"module_id":"tasks","title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null},{"module_id":"shopping","title":"...","shopping_list_id":null,"shopping_section_id":null,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null}]}'
+_MODULE_CANDIDATE_SHAPE = '{"candidates":[{"module_id":"tasks","title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null,"explicit_route_fields":[]},{"module_id":"shopping","title":"...","shopping_list_id":null,"shopping_section_id":null,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null,"explicit_route_fields":[]}]}'
 _LEGACY_SHOPPING_RULE = '- Output each shopping item as a normal todo candidate. Do not output whole sentences.'
 _MODULE_SHOPPING_RULE = '- Output each buying/list item with module_id="shopping". Do not disguise it as a task. A general action such as planning a shopping trip may still be a task.'
 _LEGACY_EXAMPLES = """Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
@@ -91,6 +91,8 @@ _MODULE_CONTRACT = """
 
 Module routing contract:
 - Emit only module_id values listed in Workspace JSON supported_modules. Omit unavailable item types rather than changing their module.
+- Every candidate must include explicit_route_fields: an array containing only container, section and/or stores when the user explicitly selected those destinations. Use [] for semantic/inferred routing. Task projects and Shopping lists are containers. Explicitly requesting no section or no store is also an explicit selection: include section or stores and return null or [] for that destination.
+- An explicitly spoken target always takes priority over historical routing preferences. Do not label automatically inferred taxonomy matches explicit merely because you selected an existing target.
 - Tasks use existing project/section names and may use time, recurrence and saved-place reminders. Shopping never uses those task fields or a workspace.
 - Apply the same semantic taxonomy rules to Shopping: compare each item's meaning against the sections of every shopping_lists entry, using category knowledge, synonyms and product families, before leaving a Shopping destination null.
 - Shopping list names may be generic or opaque. A clearly fitting section is evidence for its containing list even when the transcript did not name the list or section. Return both shopping_list_id and shopping_section_id for a unique semantic fit; do not require literal word overlap between the item and section name.
@@ -105,12 +107,16 @@ _MODULE_EXAMPLES = """Examples (use only IDs from the actual request context, ne
 Example when both modules are available:
 Shopping context: {"shopping_lists":[{"id":10,"name":"Home","sections":[{"id":20,"name":"Dairy & chilled food"}],"stores":[]},{"id":11,"name":"Other","sections":[{"id":21,"name":"Tools & repairs"}],"stores":[]}]}
 Transcript: "We need 2 l milk and tomorrow call Alex."
-JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":10,"shopping_section_id":20,"shopping_store_ids":[],"quantity_value":2,"quantity_unit":"l"},{"module_id":"tasks","title":"Call Alex","project_name":null,"section_name":null,"deadline":"2026-06-02T09:00:00+02:00","reminder":null,"recurring_rule":null,"location_reminder":null}]}
+JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":10,"shopping_section_id":20,"shopping_store_ids":[],"quantity_value":2,"quantity_unit":"l","explicit_route_fields":[]},{"module_id":"tasks","title":"Call Alex","project_name":null,"section_name":null,"deadline":"2026-06-02T09:00:00+02:00","reminder":null,"recurring_rule":null,"location_reminder":null,"explicit_route_fields":[]}]}
 The list name was not spoken. Milk fits the meaning of the existing chilled-food section, which identifies its parent list.
 Ambiguous Shopping context: {"shopping_lists":[{"id":10,"name":"Home","sections":[{"id":20,"name":"Dairy"}],"stores":[]},{"id":11,"name":"Office","sections":[{"id":21,"name":"Dairy"}],"stores":[]}]}
 Transcript: "We need milk."
-JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":null,"shopping_section_id":null,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null}]}
+JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":null,"shopping_section_id":null,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null,"explicit_route_fields":[]}]}
 Both lists have equally fitting sections and the transcript supplies no destination, so do not choose arbitrarily.
+Same Shopping context, explicit destination:
+Transcript: "Milk on the Office list, without a store."
+JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":11,"shopping_section_id":21,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null,"explicit_route_fields":["container","stores"]}]}
+Office and no store were explicit; the Dairy section was inferred.
 """
 
 

@@ -51,7 +51,8 @@ def make_db():
             project_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             workspace_id INTEGER,
-            status TEXT NOT NULL DEFAULT 'accepted'
+            status TEXT NOT NULL DEFAULT 'accepted',
+            user_color TEXT
         );
         CREATE TABLE households (
             id INTEGER PRIMARY KEY,
@@ -70,8 +71,15 @@ def make_db():
             owner_household_id INTEGER
         );
         CREATE TABLE entity_access_grants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             entity_access_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL
+            user_id INTEGER NOT NULL,
+            invited_by_user_id INTEGER,
+            granted_by_user_id INTEGER,
+            invite_identifier_type TEXT,
+            status TEXT NOT NULL DEFAULT 'accepted',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE dashboard_preferences (
             user_id INTEGER NOT NULL,
@@ -89,6 +97,10 @@ def make_db():
         VALUES (1, 'project', 100, 1), (2, 'project', 200, 1), (3, 'project', 300, 2), (4, 'project', 400, 2);
         INSERT INTO project_members (id, project_id, user_id, workspace_id, status)
         VALUES (1, 400, 1, 10, 'accepted');
+        INSERT INTO entity_access_grants (entity_access_id, user_id, invited_by_user_id, granted_by_user_id, status)
+        SELECT access.id, member.user_id, access.owner_user_id, access.owner_user_id, member.status
+        FROM project_members member JOIN entity_access access
+          ON access.entity_type = 'project' AND access.entity_id = member.project_id;
         """
     )
     db.commit()
