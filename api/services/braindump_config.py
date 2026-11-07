@@ -114,7 +114,7 @@ Both lists have equally fitting sections and the transcript supplies no destinat
 """
 
 
-def _default_system_prompt(*, module_aware: bool = False) -> str:
+def _default_system_prompt(*, module_aware: bool = True) -> str:
     return _BRAINDUMP_SYSTEM_PROMPT_TEMPLATE.substitute(
         candidate_description="task and shopping candidates" if module_aware else "todo candidates",
         project_candidate_scope="For every task candidate" if module_aware else "For every candidate",
@@ -125,6 +125,8 @@ def _default_system_prompt(*, module_aware: bool = False) -> str:
     )
 
 
+# The admin reference shows the current protocol. Legacy extraction requests
+# explicitly select the compatibility variant in build_effective_system_prompt.
 DEFAULT_BRAINDUMP_SYSTEM_PROMPT = _default_system_prompt()
 
 BRAINDUMP_CONFIG_KEYS = (

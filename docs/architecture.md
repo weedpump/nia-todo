@@ -56,6 +56,7 @@
 
 - Extraction is shared infrastructure. Common candidate normalization and routing contracts live in `api/services/braindump_candidates.py`; module-specific fields remain separate.
 - New extraction clients opt in with `supported_modules` (`tasks` and/or `shopping`). Available candidate types are intersected with the account's enabled modules. Omitting the capability preserves the existing task-only response shape.
+- The admin default-prompt reference shows the current module-aware standard from the same template used for extraction. Legacy requests explicitly select the compatibility variant; custom append/replace settings are applied separately to the selected standard.
 - Opted-in candidates use `module_id`. Shopping targets use `shopping_list_id`, `shopping_section_id`, and `shopping_store_ids`; they never reuse project, task-section, or workspace identifiers. Shopping-only extraction does not require a Tasks workspace.
 - The LLM receives bounded, authorized routing metadata, not Shopping item contents. Unknown or ambiguous Shopping targets remain unresolved; extraction neither creates a default list nor converts an unavailable Shopping suggestion into a Todo.
 - Shopping routing compares item meaning with sections across the authorized lists, including generic list names. A uniquely matching child reference can identify a missing parent list; conflicting hints, invalid explicit IDs and ambiguous matches remain unresolved.

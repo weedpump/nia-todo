@@ -24,6 +24,7 @@ from fastapi.testclient import TestClient
 from routers import braindump_v2 as router
 from services.braindump_candidates import enabled_candidate_modules, load_shopping_context
 from services.braindump_config import DEFAULT_BRAINDUMP_SYSTEM_PROMPT, build_effective_system_prompt
+from services import braindump_config as config_service
 
 
 def make_db():
@@ -236,14 +237,15 @@ def test_request_and_todo_save_contracts():
 
 
 def test_prompt_modes_and_full_context_budget():
-    assert build_effective_system_prompt({}) == DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+    legacy_prompt = build_effective_system_prompt({})
+    assert build_effective_system_prompt({}, supported_modules=["tasks", "shopping"]) == DEFAULT_BRAINDUMP_SYSTEM_PROMPT
     assert build_effective_system_prompt({"system_prompt_mode": "replace", "system_prompt_custom": "Custom only"}, supported_modules=["shopping"]) == "Custom only"
     appended = build_effective_system_prompt({"system_prompt_mode": "append", "system_prompt_custom": "My instruction"}, supported_modules=["tasks", "shopping"])
     assert "shopping_list_id" in appended and appended.endswith("My instruction")
     assert "Output each shopping item as a normal todo candidate" not in appended
     assert '"module_id":"tasks"' in appended and '"module_id":"shopping"' in appended
-    assert "Output each shopping item as a normal todo candidate" in DEFAULT_BRAINDUMP_SYSTEM_PROMPT
-    assert "module_id" not in DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+    assert "Output each shopping item as a normal todo candidate" in legacy_prompt
+    assert "module_id" not in legacy_prompt
     assert "For every task candidate" in appended
     assert "compare each item's meaning against the sections of every shopping_lists entry" in appended
     assert "do not require literal word overlap" in appended
@@ -259,6 +261,49 @@ def test_prompt_modes_and_full_context_budget():
         assert len(formatted) <= 12000, len(formatted)
         payload = json.loads(formatted)
         assert payload["supported_modules"] == ["tasks", "shopping"] and payload["shopping_lists"]
+
+
+def test_admin_prompt_preview_matches_the_transmitted_current_default():
+    from routers import admin as admin_router
+
+    app = FastAPI()
+    app.include_router(admin_router.router)
+    app.dependency_overrides[admin_router.require_admin] = lambda: True
+    with make_db() as db:
+        db.execute("CREATE TABLE app_config (key TEXT PRIMARY KEY, value TEXT)")
+        db.executemany("INSERT INTO app_config VALUES (?, ?)", [
+            ("braindump_llm_model", "fixture-model"),
+            ("braindump_llm_base_url", "https://llm.invalid"),
+            ("braindump_llm_api_key", "fixture-secret"),
+            ("braindump_system_prompt_custom", "Fixture admin instruction"),
+        ])
+
+        @contextmanager
+        def db_context():
+            yield db
+
+        def llm_response(payload, headers, config):
+            content = '{"candidates":[]}'
+            return {"message": {"content": content}} if config["llm_provider"] == "ollama" else {"choices": [{"message": {"content": content}}]}
+
+        with patch.object(config_service, "get_db", db_context), TestClient(app) as client:
+            for mode in ("default", "append", "replace"):
+                db.execute("INSERT OR REPLACE INTO app_config VALUES ('braindump_system_prompt_mode', ?)", (mode,))
+                response = client.get("/api/admin/braindump-config")
+                assert response.status_code == 200
+                public = response.json()
+                preview = public["default_system_prompt"]
+                assert preview == DEFAULT_BRAINDUMP_SYSTEM_PROMPT and "shopping_section_id" in preview
+                assert "llm_api_key" not in public and "fixture-secret" not in str(public)
+                for provider in ("openai_compatible", "ollama"):
+                    config = {**config_service.get_braindump_config(include_secrets=True), "llm_provider": provider}
+                    with patch.object(router, "_post_llm_chat", side_effect=llm_response) as send:
+                        router._extract_with_llm("Fixture transcript", 1, context(db), config)
+                    actual = send.call_args.args[0]["messages"][0]["content"]
+                    expected = (preview if mode == "default" else
+                                f"{preview.rstrip()}\n\nAdditional admin instructions:\nFixture admin instruction" if mode == "append" else
+                                "Fixture admin instruction")
+                    assert actual == expected, (mode, provider)
 
 
 def test_existing_task_learning_does_not_rewrite_shopping_candidates():
