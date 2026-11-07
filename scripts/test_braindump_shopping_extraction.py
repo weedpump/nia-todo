@@ -238,6 +238,7 @@ def test_request_and_todo_save_contracts():
 
 def test_prompt_modes_and_full_context_budget():
     legacy_prompt = build_effective_system_prompt({})
+    assert legacy_prompt.splitlines()[0] == DEFAULT_BRAINDUMP_SYSTEM_PROMPT.splitlines()[0] == "You are BrainDump, a strict extractor for Nia."
     assert build_effective_system_prompt({}, supported_modules=["tasks", "shopping"]) == DEFAULT_BRAINDUMP_SYSTEM_PROMPT
     assert build_effective_system_prompt({"system_prompt_mode": "replace", "system_prompt_custom": "Custom only"}, supported_modules=["shopping"]) == "Custom only"
     appended = build_effective_system_prompt({"system_prompt_mode": "append", "system_prompt_custom": "My instruction"}, supported_modules=["tasks", "shopping"])

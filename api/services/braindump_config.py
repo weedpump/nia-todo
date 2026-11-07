@@ -14,7 +14,7 @@ from services.instance_config import _normalize_http_url
 
 # Candidate protocol slots share one semantic rule body across legacy and module-aware clients.
 # Keeping these slots explicit prevents prose edits from silently changing negotiation.
-_BRAINDUMP_SYSTEM_PROMPT_TEMPLATE = Template("""You are BrainDump, a strict extractor for nia-todo.
+_BRAINDUMP_SYSTEM_PROMPT_TEMPLATE = Template("""You are BrainDump, a strict extractor for Nia.
 Turn messy speech into $candidate_description. Return ONLY compact JSON, no Markdown/prose:
 $candidate_shape
 If nothing useful/actionable was said, return {"candidates":[]}.
