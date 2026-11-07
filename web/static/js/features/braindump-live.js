@@ -239,7 +239,7 @@ export function createBrainDumpLiveFeature(options = {}) {
           <button class="modal-close-x braindump-close" id="braindump-close" type="button" aria-label="${escapeHtml(t('common.close'))}" title="${escapeHtml(t('common.close'))}">${iconSvg('x')}</button>
         </div>`,
       bodyHtml: `          <div class="braindump-shell ui-detail-shell">
-            <section class="ui-section-card ui-detail-section braindump-stage-section" id="braindump-stage">
+            <section class="ui-section-card ui-detail-section ui-section-divider braindump-stage-section" id="braindump-stage">
               <div class="ui-section-heading ui-detail-section-heading braindump-section-heading">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="mic"></div>
                 <div>
@@ -250,7 +250,7 @@ export function createBrainDumpLiveFeature(options = {}) {
               <div class="braindump-wave" id="braindump-wave" aria-hidden="true">${Array.from({ length: 24 }, (_, index) => `<span style="--i:${index}"></span>`).join('')}</div>
               <div class="braindump-processing" id="braindump-processing" hidden><span class="braindump-spinner" aria-hidden="true"></span><span id="braindump-processing-text">${t('braindump.processing.transcribing')}</span></div>
             </section>
-            <section class="ui-section-card ui-detail-section braindump-transcript-section" id="braindump-transcript-section" hidden>
+            <section class="ui-section-card ui-detail-section ui-section-divider braindump-transcript-section" id="braindump-transcript-section" hidden>
               <div class="ui-section-heading ui-detail-section-heading braindump-section-heading">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
                 <div>
@@ -260,7 +260,7 @@ export function createBrainDumpLiveFeature(options = {}) {
               </div>
               <div class="braindump-transcript" id="braindump-transcript"></div>
             </section>
-            <section class="ui-section-card ui-detail-section braindump-results" id="braindump-results" hidden>
+            <section class="ui-section-card ui-detail-section ui-section-divider braindump-results" id="braindump-results" hidden>
               <div class="ui-section-heading ui-detail-section-heading braindump-results-head">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
                 <div>

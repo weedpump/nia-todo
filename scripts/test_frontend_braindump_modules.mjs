@@ -24,7 +24,7 @@ const fixture = `
   import { createBrainDumpLiveFeature } from '/static/js/features/braindump-live.js';
   import { initI18n } from '/static/js/i18n/index.js';
   localStorage.setItem('jwt_token', 'fixture-session');
-  localStorage.setItem('nia-todo-language', 'en');
+  localStorage.setItem('nia-todo-language', '${process.env.NIA_BRAINDUMP_SCREENSHOTS ? 'de' : 'en'}');
   await initI18n();
   let active = 'tasks', modules = ['tasks', 'shopping'];
   let lists = [
@@ -149,6 +149,30 @@ try {
     await page.waitForFunction(() => !document.querySelector('#braindump-modal').classList.contains('is-processing'));
   };
   const close = () => page.locator('#braindump-close').click();
+  const assertEditorSurface = async () => {
+    const surface = await page.evaluate(() => {
+      const card = document.querySelector('.braindump-candidate-card.is-editing');
+      const style = getComputedStyle(card);
+      const cardBounds = card.getBoundingClientRect();
+      const checkboxBounds = card.querySelector('.braindump-check').getBoundingClientRect();
+      return {
+        radius: parseFloat(style.borderTopLeftRadius),
+        checkboxOffset: checkboxBounds.top - cardBounds.top,
+        editorOverflow: getComputedStyle(document.querySelector('#braindump-candidates')).overflowY,
+        sections: [...document.querySelectorAll('#braindump-modal .ui-detail-section')].map(section => {
+          const sectionStyle = getComputedStyle(section);
+          return [sectionStyle.borderLeftWidth, sectionStyle.borderRightWidth, sectionStyle.borderBottomWidth];
+        }),
+      };
+    });
+    assert(surface.radius <= 24, 'an expanded editor must retain rounded corners instead of becoming an ellipse');
+    assert(surface.checkboxOffset <= 16, 'selection stays aligned with the title when editor fields expand');
+    assert.equal(surface.editorOverflow, 'visible', 'expanded fields use the modal scroll area instead of a clipped nested list');
+    assert(surface.sections.every(borders => borders.every(width => width === '0px')),
+      'review sections use shared dividers without rectangular side/bottom frames');
+    assert.doesNotMatch(await page.locator('.braindump-results-head h4').innerText(), /todo/i,
+      'mixed review headings must describe suggestions without assuming a Todo destination');
+  };
 
   await page.evaluate(() => window.test.failList(2));
   await capture([
@@ -174,9 +198,14 @@ try {
   assert.equal(await page.locator('#braindump-modal').isVisible(), true, 'success remains inspectable without an unscoped delayed close');
   await close();
 
-  await capture([{module_id:'shopping',title:'Unresolved',shopping_list_id:null,shopping_store_ids:[]}]);
+  await capture([{module_id:'shopping',title:'Tomaten',shopping_list_id:null,shopping_store_ids:[]}]);
   assert.equal(await page.locator('#braindump-create').isDisabled(), true);
   await page.locator('.braindump-edit-candidate').click();
+  await assertEditorSurface();
+  if (process.env.NIA_BRAINDUMP_SCREENSHOTS) {
+    await page.locator('.braindump-candidate-card.is-editing').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: '/tmp/nia-braindump-review-desktop.png', animations: 'disabled' });
+  }
   const listField = page.locator('[data-bd-field="shopping_list_id"]');
   assert.equal(await listField.locator('option[value="3"]').count(), 0, 'read-only destinations are not offered');
   await listField.selectOption('1', { force: true });
@@ -252,6 +281,11 @@ try {
   await page.evaluate(() => window.test.modules(['shopping']));
   await capture([{module_id:'shopping',title:'A long shopping candidate title which must wrap on mobile',shopping_list_id:2,shopping_store_ids:[],quantity_value:1.5,quantity_unit:'VeryLongUnitWithoutSpaces'}]);
   await page.locator('.braindump-edit-candidate').click();
+  await assertEditorSurface();
+  if (process.env.NIA_BRAINDUMP_SCREENSHOTS) {
+    await page.locator('.braindump-candidate-card.is-editing').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: '/tmp/nia-braindump-review-mobile.png', animations: 'disabled' });
+  }
   const layout = await page.evaluate(() => ({ viewport:innerWidth, body:document.documentElement.scrollWidth, modal:document.querySelector('.braindump-modal-content').getBoundingClientRect().width }));
   assert(layout.body <= layout.viewport && layout.modal <= layout.viewport, 'mobile shared candidate editor has no horizontal overflow');
   assert.deepEqual(extractionRequests.at(-1).supported_modules, ['shopping']);

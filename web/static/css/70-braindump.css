@@ -189,6 +189,10 @@
   padding-right: 4px;
   scrollbar-gutter: stable;
 }
+.braindump-candidates:has(.braindump-candidate-card.is-editing) {
+  max-height: none;
+  overflow: visible;
+}
 .braindump-candidate-group { display:flex; flex-direction:column; gap:8px; }
 .braindump-candidate-group-head {
   display:flex;
@@ -222,6 +226,10 @@
   animation-delay: var(--bd-delay, 0ms);
 }
 .braindump-candidate-card:first-child { border-top: 0; }
+.braindump-candidate-card.is-editing {
+  --ui-item-card-radius: 24px;
+  align-items: flex-start;
+}
 .braindump-modal.is-processing .braindump-candidate-card { animation: none; }
 .braindump-candidate-card > input[type="checkbox"] { position:absolute; opacity:0; pointer-events:none; }
 .braindump-candidate-card .braindump-candidate-body {
