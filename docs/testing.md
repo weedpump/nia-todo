@@ -69,6 +69,7 @@ Mixed BrainDump regressions use mocked audio/extraction and isolated databases: 
 - `python3 scripts/test_braindump_v2_todo_creation.py`
 - `python3 scripts/test_braindump_shopping_extraction.py`
 - `python3 scripts/test_braindump_shopping_learning.py`
+- `python3 scripts/test_quantity_units.py`
 - `python3 scripts/test_recurring_todos.py`
 - `python3 scripts/test_default_reminder_offset.py`
 - `python3 scripts/test_subtasks.py`

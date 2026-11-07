@@ -551,7 +551,7 @@ with tempfile.TemporaryDirectory() as tmp:
                 name="Milk",
                 section_id=section_id,
                 quantity_value=2,
-                quantity_unit="l",
+                quantity_unit="Liter",
                 store_ids=[rewe["id"], lidl["id"]],
                 client_mutation_id="item-1",
             ),
@@ -571,6 +571,11 @@ with tempfile.TemporaryDirectory() as tmp:
         )
     )
     assert milk_retry["id"] == milk["id"], milk_retry
+    assert milk["quantity_value"] == 2 and milk["quantity_unit"] == "l", milk
+    milk_unit_edit = asyncio.run(update_shopping_item(
+        milk["id"], ShoppingItemUpdate(quantity_unit="литра"), member_id,
+    ))
+    assert milk_unit_edit["quantity_value"] == 2 and milk_unit_edit["quantity_unit"] == "l", milk_unit_edit
 
     unrestricted = asyncio.run(
         create_shopping_item(

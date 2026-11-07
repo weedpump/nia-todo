@@ -130,6 +130,52 @@ def test_unknown_ambiguous_and_cross_list_targets_stay_unresolved():
         assert empty[0]["shopping_list_id"] is None
 
 
+def shopping_routing_context():
+    return {
+        "typed_candidates": True, "supported_modules": ["shopping"], "projects": [], "places": [],
+        "shopping_lists": [
+            {"id": 1, "name": "Bla", "sections": [{"id": 1, "name": "Other"}], "stores": [{"id": 1, "name": "REWE"}]},
+            {"id": 2, "name": "Einkauf", "sections": [{"id": 4, "name": "Obst & Gemüse"}, {"id": 5, "name": "Kühlregal"}], "stores": [{"id": 3, "name": "REWE"}]},
+        ],
+    }
+
+
+def test_missing_list_is_inferred_only_from_consistent_authorized_child_hints():
+    ctx = shopping_routing_context()
+    result = normalize([
+        {"module_id": "shopping", "title": "Milch", "shopping_list_id": None, "shopping_section_id": 5},
+        {"module_id": "shopping", "title": "Joghurt", "shopping_section_name": " kühlregal "},
+        {"module_id": "shopping", "title": "Brot", "shopping_store_ids": [3]},
+        {"module_id": "shopping", "title": "Äpfel", "shopping_section_id": 4, "shopping_store_name": "REWE"},
+    ], ctx)
+    assert [item["shopping_list_id"] for item in result] == [2, 2, 2, 2], result
+    assert result[0]["shopping_section_id"] == result[1]["shopping_section_id"] == 5
+    assert result[2]["shopping_store_ids"] == [3]
+    assert result[3]["shopping_section_id"] == 4 and result[3]["shopping_store_ids"] == [3]
+
+
+def test_parent_inference_never_repairs_explicit_wrong_ids_or_conflicting_hints():
+    ctx = shopping_routing_context()
+    rows = [
+        {"shopping_list_id": 999, "shopping_section_id": 5},
+        {"shopping_list_name": "Unknown list", "shopping_section_id": 5},
+        {"shopping_section_id": 999, "shopping_store_ids": [3]},
+        {"shopping_section_id": 5, "shopping_store_ids": [1]},
+        {"shopping_store_ids": [1, 3]},
+        {"shopping_store_name": "REWE"},
+        {},
+    ]
+    for route in rows:
+        item = normalize([{"module_id": "shopping", "title": "Milch", **route}], ctx)[0]
+        assert item["shopping_list_id"] is None and item["shopping_section_id"] is None and item["shopping_store_ids"] == [], (route, item)
+    explicit = normalize([{"module_id": "shopping", "title": "Milch", "shopping_list_id": 1, "shopping_section_id": 5}], ctx)[0]
+    assert explicit["shopping_list_id"] == 1 and explicit["shopping_section_id"] is None
+    sole_list = {**ctx, "shopping_lists": [ctx["shopping_lists"][1]]}
+    assert normalize([{"module_id": "shopping", "title": "Milch"}], sole_list)[0]["shopping_list_id"] is None
+    ambiguous_section = {**ctx, "shopping_lists": [{**row, "sections": [{"id": 20 + row["id"], "name": "Kühlregal"}]} for row in ctx["shopping_lists"]]}
+    assert normalize([{"module_id": "shopping", "title": "Milch", "shopping_section_name": "Kühlregal"}], ambiguous_section)[0]["shopping_list_id"] is None
+
+
 def test_nonfinite_quantities_and_multilingual_names():
     with make_db() as db:
         result = normalize([
@@ -139,6 +185,18 @@ def test_nonfinite_quantities_and_multilingual_names():
         assert len(result) == 4, result
         assert [item["quantity_value"] for item in result] == [None, None, None, 0]
         json.dumps(result, allow_nan=False)
+
+
+def test_units_are_canonical_before_review_and_deduplication():
+    with make_db() as db:
+        items = normalize([
+            {"module_id": "shopping", "title": "Milk", "quantity_value": 2, "quantity_unit": unit}
+            for unit in ("Liter", "литра", "l")
+        ], context(db))
+        assert len(items) == 1 and items[0]["quantity_unit"] == "l" and items[0]["quantity_value"] == 2, items
+        unknown = normalize([{"module_id": "shopping", "title": "Tomatoes", "quantity_value": 0,
+                              "quantity_unit": "My custom unit"}], context(db))[0]
+        assert unknown["quantity_value"] == 0 and unknown["quantity_unit"] == "My custom unit", unknown
 
 
 def test_capabilities_and_legacy_shape_cannot_leak_shopping():
@@ -186,6 +244,13 @@ def test_prompt_modes_and_full_context_budget():
     assert '"module_id":"tasks"' in appended and '"module_id":"shopping"' in appended
     assert "Output each shopping item as a normal todo candidate" in DEFAULT_BRAINDUMP_SYSTEM_PROMPT
     assert "module_id" not in DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+    assert "For every task candidate" in appended
+    assert "compare each item's meaning against the sections of every shopping_lists entry" in appended
+    assert "do not require literal word overlap" in appended
+    assert '"shopping_list_id":10,"shopping_section_id":20' in appended
+    assert "Both lists have equally fitting sections" in appended
+    routing_rules = json.loads(router._format_workspace_context(shopping_routing_context()))["candidate_contract"]["rules"]
+    assert any("A uniquely fitting section is evidence for its containing shopping list" in rule for rule in routing_rules)
     with make_db() as db:
         ctx = context(db)
         row = {"id": 1, "name": "X" * 200, "sections": [{"id": n, "name": "S" * 200} for n in range(16)], "stores": [{"id": n, "name": "M" * 120} for n in range(16)]}

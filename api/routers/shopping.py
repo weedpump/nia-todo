@@ -10,6 +10,7 @@ from db import get_db, now_iso
 from routers.auth import require_auth
 from services.braindump_routes import BrainDumpRouteFeedback, record_confirmed_route
 from services.appearance import normalize_color, normalize_icon
+from services.quantity_units import normalize_quantity_unit
 from services.entity_access import (
     get_entity_access_boundary_user_ids,
     get_entity_ownership,
@@ -835,7 +836,7 @@ async def create_shopping_item(shopping_list_id: int, data: ShoppingItemCreate, 
                     data.section_id,
                     name,
                     data.quantity_value,
-                    _clean_optional(data.quantity_unit, 40),
+                    normalize_quantity_unit(_clean_optional(data.quantity_unit, 40)),
                     data.sort_order,
                     data.client_mutation_id,
                     user_id,
@@ -887,7 +888,7 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
         if "quantity_value" in fields_set:
             updates["quantity_value"] = data.quantity_value
         if "quantity_unit" in fields_set:
-            updates["quantity_unit"] = _clean_optional(data.quantity_unit, 40)
+            updates["quantity_unit"] = normalize_quantity_unit(_clean_optional(data.quantity_unit, 40))
         store_ids = None
         if "store_ids" in fields_set:
             store_ids = _normalize_store_ids(

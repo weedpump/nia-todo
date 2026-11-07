@@ -42,7 +42,7 @@ Rules:
 - Abstract pattern to follow in every language: if the transcript means "add A, B, C; later remove B; later add D", the final ledger is A, C, D. Never output B, the remove-B command, or leftover words from the remove-B clause.
 - Ignore filler, tests, thanks, meta talk, completed actions, and questions.
 - Never invent projects/sections. Use only exact names from Workspace context; otherwise null.
-- Treat existing project sections as the user's taxonomy. For every candidate, first choose the best fitting existing project, then compare the candidate title/intent against every section in that project before leaving section_name null.
+- Treat existing project sections as the user's taxonomy. $project_candidate_scope, first choose the best fitting existing project, then compare the candidate title/intent against every section in that project before leaving section_name null.
 - Actively choose a section when an existing section is semantically appropriate, even if its exact words were not spoken. Use broad category knowledge, product/task families, synonyms, hypernyms/hyponyms, and common real-world grouping. A candidate may belong to a section whose name describes a broader category, related family, or typical shelf/work area.
 - Prefer the most specific clearly fitting section over a broad project-only placement. Leave section_name null only when no existing section is a clear semantic fit or multiple sections are equally plausible.
 - If a transcript names a section under a project, use that exact project + section from Workspace.
@@ -92,21 +92,32 @@ _MODULE_CONTRACT = """
 Module routing contract:
 - Emit only module_id values listed in Workspace JSON supported_modules. Omit unavailable item types rather than changing their module.
 - Tasks use existing project/section names and may use time, recurrence and saved-place reminders. Shopping never uses those task fields or a workspace.
+- Apply the same semantic taxonomy rules to Shopping: compare each item's meaning against the sections of every shopping_lists entry, using category knowledge, synonyms and product families, before leaving a Shopping destination null.
+- Shopping list names may be generic or opaque. A clearly fitting section is evidence for its containing list even when the transcript did not name the list or section. Return both shopping_list_id and shopping_section_id for a unique semantic fit; do not require literal word overlap between the item and section name.
+- Prefer the most specific clearly fitting existing Shopping section. Leave the section unresolved only when none fits or several are equally plausible; leave the list unresolved only when no list can be identified confidently. Do not choose a list merely because it exists or is the only available list.
 - Shopping targets use IDs exclusively from shopping_lists and their own nested sections/stores. Prefer explicit intended targets, then a clear semantic match; never choose arbitrarily between equally plausible or identically named lists.
 - If no shopping list clearly matches, retain the shopping candidate with shopping_list_id=null for correction. Do not automatically create a list or convert the item to a task.
 - Return shopping_section_id and shopping_store_ids only when they belong to the selected list. Use null and [] respectively when unresolved.
 - Extract an explicitly stated finite nonnegative quantity_value and quantity_unit separately from title; 0 is valid. Never invent a quantity or perform unit conversions.
 - Dedupe within the same module and target only. A task and shopping item with the same title remain separate candidates.
 """
-_MODULE_EXAMPLES = """Example (only when both modules are available):
+_MODULE_EXAMPLES = """Examples (use only IDs from the actual request context, never these illustrative IDs):
+Example when both modules are available:
+Shopping context: {"shopping_lists":[{"id":10,"name":"Home","sections":[{"id":20,"name":"Dairy & chilled food"}],"stores":[]},{"id":11,"name":"Other","sections":[{"id":21,"name":"Tools & repairs"}],"stores":[]}]}
 Transcript: "We need 2 l milk and tomorrow call Alex."
-JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":null,"shopping_section_id":null,"shopping_store_ids":[],"quantity_value":2,"quantity_unit":"l"},{"module_id":"tasks","title":"Call Alex","project_name":null,"section_name":null,"deadline":"2026-06-02T09:00:00+02:00","reminder":null,"recurring_rule":null,"location_reminder":null}]}
+JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":10,"shopping_section_id":20,"shopping_store_ids":[],"quantity_value":2,"quantity_unit":"l"},{"module_id":"tasks","title":"Call Alex","project_name":null,"section_name":null,"deadline":"2026-06-02T09:00:00+02:00","reminder":null,"recurring_rule":null,"location_reminder":null}]}
+The list name was not spoken. Milk fits the meaning of the existing chilled-food section, which identifies its parent list.
+Ambiguous Shopping context: {"shopping_lists":[{"id":10,"name":"Home","sections":[{"id":20,"name":"Dairy"}],"stores":[]},{"id":11,"name":"Office","sections":[{"id":21,"name":"Dairy"}],"stores":[]}]}
+Transcript: "We need milk."
+JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":null,"shopping_section_id":null,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null}]}
+Both lists have equally fitting sections and the transcript supplies no destination, so do not choose arbitrarily.
 """
 
 
 def _default_system_prompt(*, module_aware: bool = False) -> str:
     return _BRAINDUMP_SYSTEM_PROMPT_TEMPLATE.substitute(
         candidate_description="task and shopping candidates" if module_aware else "todo candidates",
+        project_candidate_scope="For every task candidate" if module_aware else "For every candidate",
         candidate_shape=_MODULE_CANDIDATE_SHAPE if module_aware else _LEGACY_CANDIDATE_SHAPE,
         shopping_rule=_MODULE_SHOPPING_RULE if module_aware else _LEGACY_SHOPPING_RULE,
         module_contract=_MODULE_CONTRACT if module_aware else "",

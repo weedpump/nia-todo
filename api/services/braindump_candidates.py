@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 from services.entity_access import resolve_entity_access
 from services.module_visibility import module_preferences_payload
+from services.quantity_units import normalize_quantity_unit
 
 
 EXTRACTION_MODULES = ("tasks", "shopping")
@@ -101,6 +102,8 @@ def candidate_context_payload(context: dict | None) -> dict:
             "rules": [
                 "Every candidate must use an available module_id from supported_modules.",
                 "Shopping IDs are only from shopping_lists and its nested sections/stores, never project or workspace IDs.",
+                "Apply the same semantic taxonomy rules to Shopping: compare each item's meaning with the sections of every shopping list, even when no list or section name was spoken.",
+                "A uniquely fitting section is evidence for its containing shopping list; return both that list ID and section ID instead of leaving them null merely because the list name was not spoken.",
                 "An unknown or ambiguous shopping target stays null; do not create or arbitrarily choose a list.",
                 "Do not turn unavailable shopping candidates into task candidates.",
                 "Task scheduling fields and location reminders apply only to module_id=tasks.",
@@ -136,20 +139,53 @@ def _resolve_reference(raw_id, raw_name, choices: list[dict]) -> dict | None:
     return matches[0] if len(matches) == 1 else None
 
 
+def _shopping_store_references(candidate: dict) -> list[tuple]:
+    store_ids = candidate.get("shopping_store_ids")
+    if isinstance(store_ids, list):
+        return [(store_id, None) for store_id in store_ids[:50]]
+    names = candidate.get("shopping_store_names")
+    if not isinstance(names, list):
+        names = [candidate.get("shopping_store_name")]
+    return [(None, name) for name in names[:50] if name not in (None, "")]
+
+
+def _infer_shopping_parent(candidate: dict, lists: list[dict]) -> dict | None:
+    """Recover a missing parent only from mutually consistent known children.
+
+    The model supplies semantic matching; this boundary resolves the structural
+    implication of an authorized section/store reference. The number or names
+    of available lists alone never supplies a default destination.
+    """
+    if candidate.get("shopping_list_id") is not None or candidate.get("shopping_list_name") not in (None, ""):
+        return None
+    hints = []
+    section_id, section_name = candidate.get("shopping_section_id"), candidate.get("shopping_section_name")
+    if section_id is not None or section_name not in (None, ""):
+        hints.append(("sections", section_id, section_name))
+    hints.extend(("stores", raw_id, name) for raw_id, name in _shopping_store_references(candidate))
+    possible = None
+    for collection, raw_id, name in hints:
+        owners = {row["id"] for row in lists if _resolve_reference(raw_id, name, row.get(collection, [])) is not None}
+        if not owners:
+            return None
+        possible = owners if possible is None else possible & owners
+        if not possible:
+            return None
+    if possible is None or len(possible) != 1:
+        return None
+    return next((row for row in lists if row["id"] in possible), None)
+
+
 def _normalize_shopping_candidate(candidate: dict, title: str, context: dict) -> dict:
-    target = _resolve_reference(candidate.get("shopping_list_id"), candidate.get("shopping_list_name"), context.get("shopping_lists", []))
+    lists = context.get("shopping_lists", [])
+    target = _resolve_reference(candidate.get("shopping_list_id"), candidate.get("shopping_list_name"), lists)
+    if target is None:
+        target = _infer_shopping_parent(candidate, lists)
     sections = target.get("sections", []) if target else []
     section = _resolve_reference(candidate.get("shopping_section_id"), candidate.get("shopping_section_name"), sections)
     stores = target.get("stores", []) if target else []
     store_ids = []
-    if isinstance(candidate.get("shopping_store_ids"), list):
-        requested_stores = [(value, None) for value in candidate["shopping_store_ids"][:50]]
-    else:
-        names = candidate.get("shopping_store_names")
-        if not isinstance(names, list):
-            names = [candidate.get("shopping_store_name")]
-        requested_stores = [(None, value) for value in names[:50]]
-    for raw_id, name in requested_stores:
+    for raw_id, name in _shopping_store_references(candidate):
         store = _resolve_reference(raw_id, name, stores)
         if store and store["id"] not in store_ids:
             store_ids.append(store["id"])
@@ -161,7 +197,7 @@ def _normalize_shopping_candidate(candidate: dict, title: str, context: dict) ->
     if quantity is not None and (not math.isfinite(quantity) or quantity < 0):
         quantity = None
     unit = candidate.get("quantity_unit")
-    unit = (unit.strip()[:40] or None) if isinstance(unit, str) else None
+    unit = normalize_quantity_unit(unit.strip()[:40]) if isinstance(unit, str) else None
     return {
         "module_id": "shopping", "title": title[:500],
         "shopping_list_id": target["id"] if target else None,

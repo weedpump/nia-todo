@@ -115,6 +115,7 @@ run_step "Security Avatar Pixel Limit" python3 scripts/test_avatar_pixel_limit.p
 run_step "Avatar Profile Updates" python3 scripts/test_avatar_profile_update.py
 run_step "BrainDump Services" python3 scripts/test_braindump_v2_services.py
 run_step "BrainDump Extractor Normalization" python3 scripts/test_braindump_v2_extractor_normalization.py
+run_step "Quantity Unit Spellings" python3 scripts/test_quantity_units.py
 run_step "BrainDump Shopping Extraction" python3 scripts/test_braindump_shopping_extraction.py
 run_step "BrainDump Shopping Learning and Retry" python3 scripts/test_braindump_shopping_learning.py
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
