@@ -390,6 +390,10 @@ async function waitForBackgroundSyncOperations() {
 }
 
 const syncFeature = createSyncFeature({
+  onTodoIdRemap: (from, to) => {
+    todosFeature.remapTodoId(from, to);
+    toastUndoFeature.remapTodoId(from, to);
+  },
   getDb: () => db,
   dbGetAll,
   dbPut,
@@ -426,6 +430,7 @@ const syncFeature = createSyncFeature({
   renderShopping: () => renderShopping(),
 });
 const todosFeature = createTodosFeature({
+  getSessionIdentity: () => currentUser ? `${currentUser.id}:${Number(syncInProgressRef.privacyGeneration || 0)}` : null,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
@@ -1197,6 +1202,7 @@ const { consumeOidcErrorNotice } = createOidcNoticeFeature({
 });
 
 const toastUndoFeature = createToastUndoFeature({
+  getSessionIdentity: () => currentUser ? `${currentUser.id}:${Number(syncInProgressRef.privacyGeneration || 0)}` : null,
   getDb: () => db,
   getTodos: () => todos,
   getProjects: () => projects,

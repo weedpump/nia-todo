@@ -31,6 +31,7 @@ export function createSyncFeature({
   renderShopping = () => {},
   onProjectIdRemap = () => {},
   onSectionIdRemap = () => {},
+  onTodoIdRemap = () => {},
   evictPendingProjectEntities = null,
   commitTaskParentReplay = null,
 }) {
@@ -169,12 +170,38 @@ export function createSyncFeature({
     const queue = (await dbGetAll('syncQueue')).filter(item => String(item.id) !== String(processedQueueId));
     const projected = projectPendingTodoChanges(todo, queue);
     if (!projected) {
+      const undoSnapshot = projectPendingTodoChanges(todo, queue.filter(item => item.action !== 'DELETE_TODO'));
+      for (const deletion of queue.filter(item => item.action === 'DELETE_TODO' && sameId(item.data?.id, todo.id))) {
+        // Keep canonical child IDs and later child receipts available to Undo,
+        // while the pending delete continues to hide the task from the UI.
+        if (sameId(deletion.data.local_todo?.id, todo.id)) {
+          await dbPut('syncQueue', { ...deletion, data: { ...deletion.data, local_todo: undoSnapshot } });
+        }
+      }
       await deleteFromDB('todos', todo.id);
       setTodos(getTodos().filter(item => String(item.id) !== String(todo.id)));
       return;
     }
     await dbPut('todos', projected);
     upsertTodo(projected);
+  }
+
+  function hasCurrentTodoTarget(todo) {
+    if (!todo) return false;
+    if (todo.project_id != null && !getProjects().some(project => sameId(project.id, todo.project_id))) return false;
+    if (todo.section_id != null && !getSections().some(section => sameId(section.id, todo.section_id)
+      && sameId(section.project_id, todo.project_id))) return false;
+    return true;
+  }
+
+  async function pendingTodoDelete(temporaryId, receiptId) {
+    return (await dbGetAll('syncQueue')).find(entry => entry.action === 'DELETE_TODO'
+      && (sameId(entry.data?.id, temporaryId) || sameId(entry.data?.id, receiptId)));
+  }
+
+  function deletedTodoSnapshot(deletion) {
+    return sameId(deletion?.data?.local_todo?.id, deletion?.data?.id)
+      ? deletion.data.local_todo : null;
   }
 
   async function rewriteQueuedReferences({ projectIdFrom, projectIdTo, sectionIdFrom, sectionIdTo, todoIdFrom, todoIdTo, commentIdFrom, commentIdTo, subtaskIdFrom, subtaskIdTo }, { persist = true } = {}) {
@@ -188,6 +215,7 @@ export function createSyncFeature({
           if (sameId(queued.data[field], projectIdFrom)) { queued.data[field] = projectIdTo; changed = true; }
           if (sameId(queued.data.changes?.[field], projectIdFrom)) { queued.data.changes[field] = projectIdTo; changed = true; }
         }
+        if (sameId(queued.data.local_todo?.project_id, projectIdFrom)) { queued.data.local_todo.project_id = projectIdTo; changed = true; }
         if (['UPDATE_PROJECT', 'DELETE_PROJECT'].includes(queued.action) && sameId(queued.data.id, projectIdFrom)) {
           queued.data.id = projectIdTo;
           changed = true;
@@ -200,6 +228,7 @@ export function createSyncFeature({
       if (sectionIdFrom !== undefined && !String(queued.action).includes('SHOPPING')) {
         if (sameId(queued.data.section_id, sectionIdFrom)) { queued.data.section_id = sectionIdTo; changed = true; }
         if (sameId(queued.data.changes?.section_id, sectionIdFrom)) { queued.data.changes.section_id = sectionIdTo; changed = true; }
+        if (sameId(queued.data.local_todo?.section_id, sectionIdFrom)) { queued.data.local_todo.section_id = sectionIdTo; changed = true; }
         if (['UPDATE_SECTION', 'DELETE_SECTION'].includes(queued.action) && sameId(queued.data.id, sectionIdFrom)) {
           queued.data.id = sectionIdTo;
           changed = true;
@@ -212,9 +241,11 @@ export function createSyncFeature({
           changed = true;
         }
         if (['UPDATE_TODO', 'DELETE_TODO'].includes(queued.action) && String(queued.data.id) === String(todoIdFrom)) {
+          if (queued.action === 'DELETE_TODO') queued.data.original_todo_id ??= todoIdFrom;
           queued.data.id = todoIdTo;
           changed = true;
         }
+        if (sameId(queued.data.local_todo?.id, todoIdFrom)) { queued.data.local_todo.id = todoIdTo; changed = true; }
         if (queued.action === 'CREATE_COMMENT' && queued.data.local_comment && String(queued.data.local_comment.todo_id) === String(todoIdFrom)) {
           queued.data.local_comment.todo_id = todoIdTo;
           changed = true;
@@ -357,6 +388,7 @@ export function createSyncFeature({
     const shoppingItemFields = ['name', 'section_id', 'quantity_value', 'quantity_unit', 'store_ids', 'sort_order', 'client_mutation_id'];
     const localCommentFields = ['id', 'todo_id', 'user_id', 'body', 'created_at', 'updated_at', 'author_username', 'author_display_name', 'is_pending'];
     const localSubtaskFields = ['id', 'title', 'is_done', 'sort_order', 'created_at', 'updated_at', 'is_pending'];
+    const localTodoFields = [...todoFields, 'id', 'user_id', 'completed_at', 'created_at', 'updated_at', 'reminders', 'location_reminders', 'comments', 'comments_count', 'attachments', 'attachments_count'];
     const withProjectBoundary = sanitizedData => {
       const boundary = {};
       if (data.project_id !== undefined && data.project_id !== null) boundary.project_id = data.project_id;
@@ -368,11 +400,17 @@ export function createSyncFeature({
 
     switch (item.action) {
       case 'CREATE_TODO':
-        return { ...item, data: { ...pickAllowed(data, todoFields), undo_grace_until: data.undo_grace_until } };
+        return { ...item, data: { ...pickAllowed(data, todoFields), undo_grace_until: data.undo_grace_until,
+          create_attempted: data.create_attempted === true,
+          ...(data.restore_after_delete_id != null ? { restore_after_delete_id: data.restore_after_delete_id } : {}),
+          ...(data.create_receipt?.id != null ? { create_receipt: pickAllowed(data.create_receipt, localTodoFields) } : {}) } };
       case 'UPDATE_TODO':
         return { ...item, data: withProjectBoundary({ id: data.id, changes: pickAllowed(changes, todoFields.filter(f => f !== '_tempId')) }) };
       case 'DELETE_TODO':
-        return { ...item, data: withProjectBoundary({ id: data.id, undo_grace_until: data.undo_grace_until }) };
+        return { ...item, data: withProjectBoundary({ id: data.id, undo_grace_until: data.undo_grace_until,
+          delete_attempted: data.delete_attempted === true,
+          ...(data.original_todo_id != null ? { original_todo_id: data.original_todo_id } : {}),
+          ...(data.local_todo ? { local_todo: pickAllowed(data.local_todo, localTodoFields) } : {}) }) };
       case 'CREATE_COMMENT':
         return { ...item, data: withProjectBoundary({ todo_id: data.todo_id, temp_id: data.temp_id, body: data.body, local_comment: pickAllowed(data.local_comment, localCommentFields) }) };
       case 'UPDATE_COMMENT':
@@ -494,51 +532,69 @@ export function createSyncFeature({
         if (item.action === 'CREATE_TODO') {
           const releaseRequestLock = await acquireSyncCommitLock(syncInProgressRef);
           try {
+            if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration) continue;
             const currentQueueItem = await getFromDB('syncQueue', item.id);
             const currentItem = sanitizeQueueItem(currentQueueItem);
             if (!currentItem || currentItem.action !== 'CREATE_TODO') continue;
+            if (currentItem.data.restore_after_delete_id != null
+              && (await dbGetAll('syncQueue')).some(entry => entry.action === 'DELETE_TODO'
+                && sameId(entry.data?.id, currentItem.data.restore_after_delete_id))) continue;
             const currentTempTodo = currentItem.data._tempId
               ? await getFromDB('todos', currentItem.data._tempId)
               : null;
-            if (currentItem.data._tempId && !currentTempTodo) continue;
-            const projectId = currentTempTodo?.project_id ?? currentItem.data.project_id;
-            const sectionId = currentTempTodo?.section_id ?? currentItem.data.section_id;
-            if (projectId != null
-              && !getProjects().some(project => String(project.id) === String(projectId))) continue;
-            if (sectionId != null) {
-              const targetSection = getSections().find(section => String(section.id) === String(sectionId));
-              if (!targetSection || String(targetSection.project_id) !== String(projectId)) continue;
+            const deletion = await pendingTodoDelete(currentItem.data._tempId, currentItem.data.create_receipt?.id);
+            if (deletion && !currentItem.data.create_attempted && !currentItem.data.create_receipt) {
+              // A never-sent create can be canceled locally, after the original
+              // delete Undo window. Keep both records during that window.
+              if (Date.now() < Number(deletion.data.undo_grace_until || 0)) continue;
+              await deleteQueuedTodoOperations(currentItem.data._tempId);
+              await deleteFromDB('todos', currentItem.data._tempId);
+              setTodos(getTodos().filter(todo => !sameId(todo.id, currentItem.data._tempId)));
+              successCount++;
+              continue;
             }
+            const localTodo = currentTempTodo || deletedTodoSnapshot(deletion);
+            if (currentItem.data._tempId && !localTodo) continue;
+            if (!hasCurrentTodoTarget(localTodo || currentItem.data)) continue;
+            const undoGraceUntil = Number(currentItem.data.undo_grace_until || 0);
+            if (undoGraceUntil && Date.now() < undoGraceUntil) continue;
+            // This marker survives reload and must be durable before dispatch.
+            // Undo may only cancel creates that definitely never reached HTTP.
+            currentQueueItem.data.create_attempted = true;
+            await dbPut('syncQueue', currentQueueItem);
+            if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration) continue;
             item = currentItem;
             requestPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
           } finally {
             releaseRequestLock();
           }
-          const undoGraceUntil = Number(item.data.undo_grace_until || 0);
-          if (undoGraceUntil && Date.now() < undoGraceUntil) {
-            continue;
-          }
           const createData = { ...item.data };
           delete createData.undo_grace_until;
-          let res = await todosApi.create(createData);
+          delete createData.create_attempted;
+          delete createData.create_receipt;
+          delete createData.restore_after_delete_id;
+          let res = item.data.create_receipt || await todosApi.create(createData);
           let capturedTempTodo = null;
           if (createData._tempId) {
             const releaseCaptureLock = await acquireSyncCommitLock(syncInProgressRef);
             try {
               if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration) continue;
               const currentQueueItem = await getFromDB('syncQueue', item.id);
-              capturedTempTodo = await getFromDB('todos', createData._tempId);
-              if (!currentQueueItem || !capturedTempTodo) continue;
-              if (capturedTempTodo.project_id != null
-                && !getProjects().some(project => String(project.id) === String(capturedTempTodo.project_id))) continue;
-              if (capturedTempTodo.section_id != null) {
-                const targetSection = getSections().find(section => String(section.id) === String(capturedTempTodo.section_id));
-                if (!targetSection || String(targetSection.project_id) !== String(capturedTempTodo.project_id)) continue;
-              }
+              if (!currentQueueItem) continue;
+              const deletion = await pendingTodoDelete(createData._tempId, res.id);
+              const localTodo = await getFromDB('todos', createData._tempId);
+              capturedTempTodo = localTodo || deletedTodoSnapshot(deletion);
+              if (!hasCurrentTodoTarget(capturedTempTodo)) continue;
+              // Retain the authorized acknowledgement before rewriting
+              // dependent records, so a reload need not send another POST.
+              await dbPut('syncQueue', { ...currentQueueItem, data: { ...currentQueueItem.data, create_receipt: res } });
+              // A deleted item needs no intermediate section update. Its
+              // canonical DELETE still waits for Undo and remains invisible.
+              if (deletion) capturedTempTodo = null;
             } finally {
               releaseCaptureLock();
             }
-            if (String(capturedTempTodo.section_id ?? '') !== String(createData.section_id ?? '')) {
+            if (capturedTempTodo && String(capturedTempTodo.section_id ?? '') !== String(createData.section_id ?? '')) {
               res = await todosApi.update(res.id, { section_id: capturedTempTodo.section_id });
             }
           }
@@ -546,21 +602,11 @@ export function createSyncFeature({
             let localTempTodo = null;
             if (createData._tempId) {
               localTempTodo = await getFromDB('todos', createData._tempId);
-              if (!localTempTodo) return false;
-              if (localTempTodo.project_id != null
-                && !getProjects().some(project => String(project.id) === String(localTempTodo.project_id))) return false;
-              if (localTempTodo.section_id != null) {
-                const targetSection = getSections().find(section => String(section.id) === String(localTempTodo.section_id));
-                if (!targetSection || String(targetSection.project_id) !== String(localTempTodo.project_id)) return false;
-              }
+              if (!localTempTodo) localTempTodo = deletedTodoSnapshot(await pendingTodoDelete(createData._tempId, res.id));
+              if (!hasCurrentTodoTarget(localTempTodo)) return false;
             }
             const createdTodo = localTempTodo ? { ...localTempTodo, ...res, id: res.id } : res;
-            if (createdTodo.project_id != null
-              && !getProjects().some(project => String(project.id) === String(createdTodo.project_id))) return false;
-            if (createdTodo.section_id != null) {
-              const targetSection = getSections().find(section => String(section.id) === String(createdTodo.section_id));
-              if (!targetSection || String(targetSection.project_id) !== String(createdTodo.project_id)) return false;
-            }
+            if (!hasCurrentTodoTarget(createdTodo)) return false;
             if (createData._tempId) {
               await deleteFromDB('todos', createData._tempId);
               setTodos(getTodos().filter(t => t.id !== createData._tempId));
@@ -570,6 +616,7 @@ export function createSyncFeature({
             return true;
           }, syncInProgressRef, requestPrivacyGeneration);
           if (!committed) continue;
+          if (createData._tempId != null) onTodoIdRemap(createData._tempId, res.id);
           successCount++;
           continue;
         } else if (item.action === 'UPDATE_TODO') {
@@ -638,8 +685,28 @@ export function createSyncFeature({
           successCount++;
           continue;
         } else if (item.action === 'DELETE_TODO') {
-          const undoGraceUntil = Number(item.data.undo_grace_until || 0);
-          if (undoGraceUntil && Date.now() < undoGraceUntil) {
+          const releaseRequestLock = await acquireSyncCommitLock(syncInProgressRef);
+          try {
+            if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration) continue;
+            const currentQueueItem = await getFromDB('syncQueue', item.id);
+            const currentItem = sanitizeQueueItem(currentQueueItem);
+            if (!currentItem || currentItem.action !== 'DELETE_TODO' || !sameId(currentItem.data.id, item.data.id)) continue;
+            const undoGraceUntil = Number(currentItem.data.undo_grace_until || 0);
+            if (undoGraceUntil && Date.now() < undoGraceUntil) continue;
+            if (!String(currentItem.data.id).startsWith('temp-')) {
+              // Undo can cancel a delete only before this durable dispatch
+              // marker. The shared lock waits for an already-running Undo.
+              currentQueueItem.data.delete_attempted = true;
+              await dbPut('syncQueue', currentQueueItem);
+            }
+            if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration) continue;
+            item = currentItem;
+          } finally { releaseRequestLock(); }
+          if (String(item.data.id).startsWith('temp-')) {
+            // Finish a canceled local pair even if reload interrupted deleting
+            // its queue entries. Temporary IDs must never reach the DELETE API.
+            await commitQueueItem(item, () => deleteQueuedTodoOperations(item.data.id), syncInProgressRef, requestPrivacyGeneration);
+            successCount++;
             continue;
           }
           await todosApi.delete(item.data.id);

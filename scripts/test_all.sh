@@ -178,6 +178,7 @@ run_step "Shared Entity Ownership" node scripts/test_entity_ownership_field.mjs
 run_step "Shared Entity Direct Sharing" node scripts/test_entity_direct_sharing.mjs
 run_step "Shared Entity Invitations" node scripts/test_entity_invitations.mjs
 run_step "Entity Access Privacy" node scripts/test_entity_access_privacy.mjs
+run_step "Todo Delete Identity" node scripts/test_todo_delete_identity.mjs
 run_step "Entity Invitation i18n" node scripts/test_entity_invitation_i18n.mjs
 run_step "Shopping List Access Browser" node scripts/test_frontend_shopping_access.mjs
 run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
@@ -227,6 +228,7 @@ run_step "Pending Project Navigation and Replay" node scripts/test_pending_proje
 run_step "Atomic Task Parent Receipts" node scripts/test_task_parent_replay.mjs
 run_step "WebSocket Access Snapshot" node scripts/test_frontend_access_snapshot.mjs
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
+run_step "Offline Todo Delete Sync Contracts" node scripts/test_offline_todo_delete_sync.mjs
 run_step "Offline Shopping Sync Contracts" node scripts/test_offline_shopping_sync.mjs
 run_step "Frontend Shopping Realtime" node scripts/test_frontend_shopping_realtime.mjs
 run_step "Shopping Store Snapshot" node scripts/test_shopping_store_snapshot.mjs
