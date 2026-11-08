@@ -79,6 +79,20 @@ run_step_retry() {
   fi
 }
 
+run_shared_item_drag_drop() {
+  local browser label
+  local -a requested_browsers
+  IFS=',' read -r -a requested_browsers <<< "${ITEM_DND_BROWSERS:-chromium,webkit}"
+  for browser in "${requested_browsers[@]}"; do
+    case "$browser" in
+      chromium) label="Chromium" ;;
+      webkit) label="WebKit" ;;
+      *) echo "Unsupported item drag-drop browser: $browser" >&2; return 2 ;;
+    esac
+    run_step "Shared Item Drag-Drop $label" env ITEM_DND_BROWSER="$browser" node scripts/test_shared_item_drag_drop.mjs
+  done
+}
+
 step "🧪 nia-todo Release Gate"
 echo "Repo: $(pwd)"
 echo "Time: $(date '+%Y-%m-%d %H:%M:%S %Z')"
@@ -204,8 +218,7 @@ run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.m
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run_step "Shared Item Swipe" node scripts/test_shared_item_swipe.mjs
-run_step "Shared Item Drag-Drop Chromium" node scripts/test_shared_item_drag_drop.mjs
-run_step "Shared Item Drag-Drop WebKit" env ITEM_DND_BROWSER=webkit node scripts/test_shared_item_drag_drop.mjs
+run_shared_item_drag_drop
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summary_live_updates.mjs

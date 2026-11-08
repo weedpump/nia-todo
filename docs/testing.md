@@ -241,7 +241,7 @@ For audio/STT work, use controlled fixture recordings instead of making Tobi tri
 
 ## Notes
 
-- Frontend tests run primarily against headless Chromium; mobile swipe rendering additionally runs against Playwright WebKit.
+- Frontend tests run primarily against headless Chromium; mobile swipe rendering and shared item drag-and-drop also run against Playwright WebKit. The package CI job selects `MOBILE_SWIPE_BROWSERS=chromium` and `ITEM_DND_BROWSERS=chromium`; both WebKit fixtures run in the existing pinned Playwright container job in test and release workflows. Local release gates keep both engines by default. `ITEM_DND_BROWSERS` accepts comma-separated `chromium`/`webkit` selections.
 - `withFreshDb` still protects single-test execution by backing up/restoring the dev DB for isolated runs.
 - Inside `test_all.sh`, `NIA_TODO_FRONTEND_DB_SUITE=1` switches frontend tests to the suite-managed DB lifecycle.
 - `NIA_TODO_FRONTEND_DB_SHARED=1` tells `withFreshDb` to reuse the already prepared shared test DB instead of creating an isolated DB.
