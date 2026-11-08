@@ -1,3 +1,4 @@
+import { normalizeQuantityUnit, formatQuantityUnit } from '../core/quantity-units.js';
 import { API } from '../core/config.js';
 import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
@@ -930,6 +931,9 @@ export function createBrainDumpLiveFeature(options = {}) {
       candidate.shopping_section_id = field.value || null;
     } else if (name === 'shopping_store_ids') {
       candidate.shopping_store_ids = field.value ? [field.value] : [];
+    } else if (name === 'quantity_unit') {
+      candidate.quantity_unit = rerender ? normalizeQuantityUnit(field.value) : field.value || null;
+      if (rerender) field.value = formatQuantityUnit(candidate.quantity_unit, getActiveLocale());
     } else if (name === 'quantity_value') {
       candidate.quantity_value = field.value === '' ? null : field.value;
     } else if (name === 'deadline' || name === 'reminder') {
@@ -1404,7 +1408,7 @@ export function createBrainDumpLiveFeature(options = {}) {
         <input class="ui-field braindump-field" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtmlAttr(candidate.quantity_value ?? '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_value">
       </label>
       <label class="braindump-quickfix-field"><span>${escapeHtml(t('common.unit'))}</span>
-        <input class="ui-field braindump-field" type="text" maxlength="40" value="${escapeHtmlAttr(candidate.quantity_unit || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_unit">
+        <input class="ui-field braindump-field" type="text" maxlength="40" value="${escapeHtmlAttr(formatQuantityUnit(candidate.quantity_unit, getActiveLocale()))}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_unit">
       </label>`;
   }
 

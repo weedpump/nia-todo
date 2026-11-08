@@ -11,6 +11,7 @@ import sqlite3
 import sys
 import tempfile
 import threading
+from dataclasses import replace
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,6 +32,7 @@ from db import get_db
 from routers import recipes
 from routers.auth import require_auth
 from services.entity_access import invite_entity_access, register_personal_entity, respond_to_entity_invite
+from services import recipe_content
 from services.recipe_content import RecipeCreate, RecipePatch
 from services.recipes import get_sync_cookbooks
 
@@ -68,7 +70,10 @@ def payload(cmi="create-1"):
             "ingredient_groups": [
                 {"client_key": "main", "name": "Pasta", "ingredients": [{"client_key": "flour", "name": "Flour", "quantity_value": 250, "quantity_unit": "grams", "note": "Sifted"}]},
                 {"client_key": "sauce", "name": "Sauce", "ingredients": [{"client_key": "salt", "name": "Salt", "quantity_text": "to taste"}]}],
-            "steps": [{"client_key": "mix", "text": "Mix well.\nKeep this in one step."}, {"client_key": "cook", "text": "Cook."}]}
+            "steps": [
+                {"client_key": "mix", "text": "Mix well.\nKeep this in one step.", "ingredients": [
+                    {"ingredient_client_key": "flour"}, {"ingredient_client_key": "salt", "show_quantity": False}]},
+                {"client_key": "cook", "text": "Cook.", "ingredients": [{"ingredient_client_key": "salt"}]}]}
 
 
 def create(f, data=None):
@@ -132,6 +137,164 @@ def test_validation_bounds_duplicates_quantities_and_drafts():
         assert draft["ingredient_groups"] == draft["steps"] == [] and draft["base_servings"] == 1
         for null_field in ("title", "description", "base_servings", "ingredient_groups", "steps", "tags"):
             f.call("patch", f"/api/recipes/recipes/{draft['id']}", expected=422, json={"expected_revision": 1, "client_mutation_id": "null", null_field: None})
+
+
+def test_step_ingredient_order_legacy_preserve_clear_and_prune():
+    with fixture() as f:
+        first = create(f)
+        path = f"/api/recipes/recipes/{first['id']}"
+        assert first["steps"][0]["ingredients"] == [
+            {"ingredient_client_key": "flour", "show_quantity": True},
+            {"ingredient_client_key": "salt", "show_quantity": False}]
+        old_ids = {step["client_key"]: step["id"] for step in first["steps"]}
+        legacy_steps = [{"client_key": step["client_key"], "text": step["text"] + " Updated"} for step in reversed(first["steps"])]
+        legacy = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "legacy-steps", "steps": legacy_steps})
+        assert legacy["steps"][0]["ingredients"] == first["steps"][1]["ingredients"]
+        assert legacy["steps"][1]["ingredients"] == first["steps"][0]["ingredients"]
+        assert all(step["id"] == old_ids[step["client_key"]] for step in legacy["steps"])
+        groups = copy.deepcopy(legacy["ingredient_groups"])
+        groups[0]["ingredients"][0]["name"] = "Renamed flour"
+        renamed = f.call("patch", path, json={"expected_revision": 2, "client_mutation_id": "rename-ingredient", "ingredient_groups": groups})
+        assert renamed["steps"] == legacy["steps"]
+        groups[0]["ingredients"] = []
+        pruned = f.call("patch", path, json={"expected_revision": 3, "client_mutation_id": "remove-ingredient", "ingredient_groups": groups})
+        mix = next(step for step in pruned["steps"] if step["client_key"] == "mix")
+        assert mix["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False}]
+        # Missing field preserves the existing cook link; explicit [] clears
+        # mix; a new legacy step starts with no ingredient references.
+        cleared = f.call("patch", path, json={"expected_revision": 4, "client_mutation_id": "clear-step-links", "steps": [
+            {"client_key": "mix", "text": "Now without links", "ingredients": []},
+            {"client_key": "cook", "text": "Cook."}, {"client_key": "serve", "text": "Serve."}]})
+        assert [step["ingredients"] for step in cleared["steps"]] == [[], first["steps"][1]["ingredients"], []]
+        assert cleared["steps"][0]["id"] == old_ids["mix"]
+        bad = {"expected_revision": 5, "client_mutation_id": "deleted-explicit-ref", "steps": [
+            {"client_key": "mix", "text": "Invalid", "ingredients": [{"ingredient_client_key": "flour"}]}]}
+        f.call("patch", path, expected=422, json=bad)
+        assert f.call("get", path) == {key: value for key, value in cleared.items() if key != "applied_revision"}
+        with get_db() as db:
+            assert db.execute("SELECT 1 FROM recipe_mutation_receipts WHERE client_mutation_id = ?", (bad["client_mutation_id"],)).fetchone() is None
+
+
+def test_step_ingredient_validation_same_effective_recipe_and_size():
+    with fixture() as f:
+        source = create(f)
+        foreign_data = payload("foreign-recipe")
+        foreign_data["ingredient_groups"][0]["ingredients"][0]["client_key"] = "foreign-only"
+        foreign_data["steps"][0]["ingredients"][0]["ingredient_client_key"] = "foreign-only"
+        create(f, foreign_data)
+        endpoint = f"/api/recipes/recipes/{source['id']}"
+        for key in ("missing", "foreign-only"):
+            f.call("patch", endpoint, expected=422, json={"expected_revision": 1, "client_mutation_id": "bad-" + key,
+                "title": "Must not change", "steps": [{"client_key": "mix", "text": "Mix", "ingredients": [{"ingredient_client_key": key}]}]})
+        for links in (
+            [{"ingredient_client_key": "salt"}] * 2,
+            [{"ingredient_client_key": "salt"}] * 501,
+            [{"ingredient_client_key": " "}], [{"ingredient_client_key": "x" * 201}],
+            [{"ingredient_client_key": 1}], [{"ingredient_client_key": "salt", "show_quantity": None}],
+            [{"ingredient_client_key": "salt", "quantity_value": 2}],
+            *[[{"ingredient_client_key": "salt", "show_quantity": value}] for value in (0, 1, "true", float("nan"), float("inf"))],
+        ):
+            invalid = payload("invalid-links")
+            invalid["steps"][0]["ingredients"] = links
+            try:
+                RecipeCreate.model_validate(invalid)
+            except ValidationError:
+                pass
+            else:
+                raise AssertionError(f"Invalid step ingredients accepted: {links[:2]}")
+        invalid = payload("invalid-create-ref")
+        invalid["steps"][0]["ingredients"] = [{"ingredient_client_key": "foreign-only"}]
+        f.call("post", f"/api/recipes/cookbooks/{f.books[0]}/recipes", expected=422, json=invalid)
+        # Explicit bad references must fail even when the same PATCH removes
+        # their ingredient. Only omitted/inherited references may be pruned.
+        f.call("patch", endpoint, expected=422, json={"expected_revision": 1, "client_mutation_id": "explicit-removed",
+            "ingredient_groups": [], "steps": source["steps"]})
+        large = payload("links-size")
+        ingredient_keys = [f"ingredient-{n}-" + "x" * 180 for n in range(500)]
+        large["ingredient_groups"] = [{"client_key": "main", "ingredients": [{"client_key": key, "name": "Ingredient"} for key in ingredient_keys]}]
+        large["steps"] = [{"client_key": f"s{n}", "text": "Step", "ingredients": [{"ingredient_client_key": key} for key in ingredient_keys]} for n in range(8)]
+        f.call("post", f"/api/recipes/cookbooks/{f.books[0]}/recipes", expected=422, json=large)
+        assert f.call("get", endpoint)["revision"] == 1
+        with get_db() as db:
+            assert db.execute("SELECT COUNT(*) FROM recipes").fetchone()[0] == 2
+            assert db.execute("SELECT COUNT(*) FROM recipe_mutation_receipts").fetchone()[0] == 2
+
+
+def test_step_ingredient_permissions_bounded_projection_and_database_boundaries():
+    with fixture() as f:
+        first = create(f)
+        second = create(f, payload("second-linked-recipe"))
+        path = f"/api/recipes/recipes/{first['id']}"
+        f.actor["id"] = f.users[1]
+        shared = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "shared-step-link", "steps": [
+            {"client_key": "mix", "text": "Shared step", "ingredients": [{"ingredient_client_key": "salt", "show_quantity": False}]}]})
+        assert shared["steps"][0]["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False}]
+        assert f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "shared-step-link", "steps": []})["applied_revision"] == 2
+        f.call("patch", path, expected=409, json={"expected_revision": 1, "client_mutation_id": "stale-step-link", "steps": []})
+        for user in (f.users[2], f.users[3]):
+            f.actor["id"] = user
+            f.call("get", path, expected=404)
+            f.call("patch", path, expected=404, json={"expected_revision": 2, "client_mutation_id": "denied-step-link", "steps": []})
+        f.actor["id"] = f.users[0]
+        # Current generic grants permit editing. A read-only permission result
+        # must still never gain an independent write path through step links.
+        from services.entity_access import resolve_entity_access
+        with get_db() as db:
+            readonly = replace(resolve_entity_access(db, "cookbook", f.books[0], f.users[0]), can_edit_content=False)
+        with patch.object(recipe_content, "resolve_entity_access", return_value=readonly), patch.object(recipes, "resolve_entity_access", return_value=readonly):
+            assert not f.call("get", path)["can_edit"]
+            f.call("patch", path, expected=404, json={"expected_revision": 2, "client_mutation_id": "readonly-step-link", "steps": []})
+        with get_db() as db:
+            queries = []
+            db.set_trace_callback(queries.append)
+            books = get_sync_cookbooks(db, f.users[0])
+            db.set_trace_callback(None)
+            assert len(books[0]["recipes"]) == 2
+            assert sum("FROM recipe_step_ingredients link" in query for query in queries) == 1
+            foreign_step = second["steps"][0]["id"]
+            foreign_ingredient = second["ingredient_groups"][0]["ingredients"][0]["id"]
+            own_step = shared["steps"][0]["id"]
+            own_ingredient = first["ingredient_groups"][0]["ingredients"][0]["id"]
+            for step_id, ingredient_id, show_quantity in ((foreign_step, own_ingredient, 1), (own_step, foreign_ingredient, 1), (own_step, own_ingredient, 2)):
+                db.execute("SAVEPOINT invalid_step_link")
+                try:
+                    db.execute("INSERT INTO recipe_step_ingredients(recipe_id,step_id,ingredient_id,show_quantity,sort_order) VALUES (?,?,?,?,0)", (first["id"], step_id, ingredient_id, show_quantity))
+                except sqlite3.IntegrityError:
+                    pass
+                else:
+                    raise AssertionError("Step link database boundary accepted an invalid reference/flag")
+                finally:
+                    db.execute("ROLLBACK TO invalid_step_link")
+                    db.execute("RELEASE invalid_step_link")
+            db.execute("DELETE FROM recipe_steps WHERE id = ?", (own_step,))
+            assert db.execute("SELECT 1 FROM recipe_step_ingredients WHERE recipe_id = ?", (first["id"],)).fetchone() is None
+            db.execute("DELETE FROM recipe_ingredients WHERE id = ?", (foreign_ingredient,))
+            assert db.execute("SELECT 1 FROM recipe_step_ingredients WHERE ingredient_id = ?", (foreign_ingredient,)).fetchone() is None
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_step_ingredient_receipt_failure_rolls_back_and_recipe_delete_cascades():
+    with fixture() as f:
+        first = create(f)
+        path = f"/api/recipes/recipes/{first['id']}"
+        before = f.call("get", path)
+        update = RecipePatch.model_validate({"expected_revision": 1, "client_mutation_id": "rollback-links", "steps": [
+            {"client_key": "mix", "text": "Must roll back", "ingredients": []}]})
+        with patch.object(recipes, "_record_recipe_receipt", side_effect=RuntimeError("forced step-link receipt failure")):
+            try:
+                asyncio.run(recipes.update_recipe(first["id"], update, f.users[0]))
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("Step links and aggregate must roll back with failed receipt")
+        assert f.call("get", path) == before
+        with get_db() as db:
+            assert db.execute("SELECT COUNT(*) FROM recipe_step_ingredients WHERE recipe_id = ?", (first["id"],)).fetchone()[0] == 3
+            assert db.execute("SELECT 1 FROM recipe_mutation_receipts WHERE client_mutation_id = 'rollback-links'").fetchone() is None
+        f.call("delete", path, params={"expected_revision": 1, "client_mutation_id": "delete-linked-recipe"})
+        with get_db() as db:
+            assert db.execute("SELECT 1 FROM recipe_step_ingredients WHERE recipe_id = ?", (first["id"],)).fetchone() is None
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
 def test_cookbook_content_permissions_and_revocation():
@@ -215,6 +378,7 @@ def test_atomic_receipt_failure_and_concurrent_create_revision_writers():
                 raise AssertionError("A receipt failure must abort the aggregate")
         with get_db() as db:
             assert db.execute("SELECT COUNT(*) FROM recipes").fetchone()[0] == db.execute("SELECT COUNT(*) FROM recipe_ingredients").fetchone()[0] == 0
+            assert db.execute("SELECT COUNT(*) FROM recipe_step_ingredients").fetchone()[0] == 0
         barrier = threading.Barrier(2)
         def racing_create(_):
             barrier.wait(timeout=5)
@@ -259,7 +423,7 @@ def test_scoped_child_keys_and_cookbook_cascade():
             assert db.execute("SELECT 1 FROM recipe_mutation_receipts WHERE user_id = ?", (f.users[1],)).fetchone() is None
         f.call("delete", f"/api/recipes/cookbooks/{f.books[0]}")
         with get_db() as db:
-            for table in ("recipes", "recipe_ingredient_groups", "recipe_ingredients", "recipe_steps", "recipe_tags", "recipe_images"):
+            for table in ("recipes", "recipe_ingredient_groups", "recipe_ingredients", "recipe_steps", "recipe_step_ingredients", "recipe_tags", "recipe_images"):
                 assert db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
             assert all(row["recipe_id"] is None and row["cookbook_id"] is None for row in db.execute("SELECT * FROM recipe_mutation_receipts"))
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []

@@ -15,6 +15,142 @@ async function assertControlIcon(control, name) {
   })), { paths, circles: 0 }, `${name} must render its actual central paths instead of a circle fallback`);
 }
 
+async function assertRecipeCardOverview(page) {
+  const original = await page.evaluate(() => ({ books: window.recipeTest.books(), history: history.state }));
+  const samples = [
+    { id: 201, title: 'Alpha Salat', tags: ['Vegan', 'Schnell', '新鲜'], prep_minutes: 5, cook_minutes: 0, created_at: '2026-01-01T10:00:00Z', image: true },
+    { id: 202, title: 'Beta Suppe', tags: ['Vegan'], prep_minutes: 10, cook_minutes: 20, created_at: '2026-06-01T10:00:00Z' },
+    { id: 203, title: 'Gamma Brot – хлеб', tags: ['Schnell'], prep_minutes: null, cook_minutes: 5, created_at: '2026-03-01T10:00:00Z' },
+    { id: 204, title: 'Delta Bowl', tags: ['Vegan', 'Schnell'], prep_minutes: 7, cook_minutes: 3, created_at: '2026-06-01T10:00:00Z' },
+    { id: 205, title: 'Echo ohne Zeit', tags: ['Schnell'], prep_minutes: null, cook_minutes: null, created_at: '2026-04-01T10:00:00Z' },
+    { id: 206, title: 'Zeta <img src=x onerror="window.recipeOverviewXss=true">', tags: ['<svg onload="window.recipeOverviewXss=true">'], prep_minutes: 0, cook_minutes: 0, created_at: '2026-07-01T10:00:00Z' },
+  ];
+  const defaultOrder = [201, 202, 204, 205, 203, 206];
+  const cards = () => page.locator('.recipe-card.recipe-list-row[data-recipe-action="open"]');
+  const card = id => page.locator(`.recipe-card[data-recipe-id="${id}"]`);
+  const ids = () => cards().evaluateAll(nodes => nodes.map(node => Number(node.dataset.recipeId)));
+  const tag = name => page.locator('[data-recipe-action="filter-tag"]').filter({ hasText: name });
+  const selectedTags = () => page.locator('[data-recipe-action="filter-tag"][aria-pressed="true"]').evaluateAll(nodes => nodes.map(node => node.dataset.recipeTag).sort());
+  const setLanguage = language => page.evaluate(async language => {
+    const { setLanguagePreference } = await import('/static/js/i18n/index.js'); await setLanguagePreference(language);
+  }, language);
+  const publishSamples = recipes => page.evaluate(recipes => {
+    const test = window.recipeTest, books = test.books(), sample = books.find(book => book.id === 2).recipes[0];
+    test.set(books.map(book => book.id === 2 ? { ...book, recipes: recipes.map(recipe => ({
+      ...sample, ...recipe, cookbook_id: 2, client_mutation_id: `overview-${recipe.id}`,
+      image_url: recipe.image ? sample.image_url : null, image_version: recipe.image ? sample.image_version : null,
+    })), recipe_count: recipes.length } : book));
+  }, recipes);
+  try {
+    await publishSamples(samples);
+    await page.evaluate(() => window.recipeTest.view.showOverview({ replaceHistory: true }));
+    await cards().first().waitFor({ state: 'visible' });
+    assert.deepEqual(await ids(), defaultOrder, 'overview defaults to locale-aware name order');
+    assert.equal(await cards().evaluateAll(nodes => nodes.every(node => node.tagName === 'BUTTON' && node.type === 'button')), true, 'each complete card is one native keyboard-operable button');
+    assert.equal(await card(201).locator('.recipe-tag').count(), 2, 'cards show at most two manually entered tags');
+    assert.ok((await card(206).textContent()).includes(samples[5].title), 'recipe titles remain literal text');
+    assert.equal(await card(206).locator('img[src="x"],svg[onload],[onerror]').count(), 0);
+    assert.equal(await page.evaluate(() => Boolean(window.recipeOverviewXss)), false, 'recipe titles and tags cannot execute markup');
+    await waitForPageCondition(page, () => {
+      const img = document.querySelector('.recipe-card[data-recipe-id="201"] img');
+      return img && !img.hidden && img.getAttribute('src')?.startsWith('data:');
+    });
+    assert.equal(await card(202).locator('.recipe-image-placeholder').isVisible(), true, 'missing private images retain a visible placeholder');
+    assert.equal(await cards().locator('img[src^="/api/recipes"]').count(), 0, 'cards use the authenticated image callback instead of direct private URLs');
+
+    await tag('Vegan').click(); assert.deepEqual(await ids(), [201, 202, 204]);
+    await tag('Schnell').click(); assert.deepEqual(await ids(), [201, 204], 'selected tag filters combine with AND');
+    assert.deepEqual(await selectedTags(), ['Schnell', 'Vegan']);
+    await page.fill('#search-input', 'Alpha'); assert.deepEqual(await ids(), [201], 'shared topbar search combines with selected tags');
+    await page.fill('#search-input', 'No matching recipe'); assert.deepEqual(await ids(), []);
+    assert.equal(await page.locator('.recipe-empty').isVisible(), true);
+    await page.locator('[data-recipe-action="clear-filters"]').click();
+    assert.deepEqual(await selectedTags(), []); assert.deepEqual(await ids(), [], 'clear filters does not discard the shared search query');
+    await page.fill('#search-input', ''); assert.deepEqual(await ids(), defaultOrder);
+    await page.fill('#search-input', 'ХЛЕБ'); assert.deepEqual(await ids(), [203], 'shared search handles non-Latin recipe text case-insensitively');
+    await page.fill('#search-input', '');
+    await tag('新鲜').click(); assert.deepEqual(await ids(), [201], 'all user tags remain filterable, including tags beyond the two shown on a card');
+    await page.locator('[data-recipe-action="clear-filters"]').click();
+    await page.locator('#recipe-overview-sort').selectOption('newest', { force: true });
+    assert.deepEqual(await ids(), [206, 202, 204, 205, 203, 201], 'newest sorts descending with an alphabetical timestamp tie');
+    await publishSamples(samples.map(recipe => recipe.id === 202
+      ? { ...recipe, created_at: '2026-06-01 10:30:00' } : recipe));
+    assert.deepEqual(await ids(), [206, 202, 204, 205, 203, 201], 'SQLite UTC timestamps without a suffix sort by the same instant as pending ISO timestamps in a non-UTC browser');
+    await publishSamples(samples);
+    assert.deepEqual(await ids(), [206, 202, 204, 205, 203, 201], 'restoring equal timestamps retains the alphabetical newest tie-break');
+    await page.locator('#recipe-overview-sort').selectOption('time', { force: true });
+    assert.deepEqual(await ids(), [206, 201, 204, 202, 205, 203], 'only complete prep+cook totals sort before partial or unknown times; zero is known');
+    assert.match(await card(201).textContent(), /5 Min\. gesamt/);
+    assert.match(await card(203).textContent(), /5 Min\. Kochzeit/);
+    assert.doesNotMatch(await card(203).textContent(), /gesamt/, 'a known single time component is not presented as the total');
+
+    await tag('Vegan').click(); await tag('Schnell').click();
+    await card(201).focus(); await card(201).press('Enter');
+    assert.equal(await page.locator('.recipe-reading h1').textContent(), 'Alpha Salat', 'Enter on a card opens the reading view');
+    await page.locator('[data-recipe-action="overview"]').click();
+    assert.deepEqual(await selectedTags(), ['Schnell', 'Vegan']);
+    assert.equal(await page.locator('#recipe-overview-sort').inputValue(), 'time', 'reading roundtrip retains overview state within the cookbook');
+    assert.deepEqual(await ids(), [201, 204]);
+    await publishSamples(samples.map(recipe => recipe.id === 202 ? { ...recipe, description: 'Updated remotely' } : recipe));
+    assert.deepEqual(await selectedTags(), ['Schnell', 'Vegan'], 'live cookbook updates retain valid selected tags');
+    assert.equal(await page.locator('#recipe-overview-sort').inputValue(), 'time');
+    await page.locator('[data-recipe-action="clear-filters"]').click();
+    assert.equal(await page.locator('#recipe-overview-sort').inputValue(), 'time', 'clearing tags leaves the selected sort unchanged');
+
+    await setLanguage('en');
+    assert.equal(await page.locator('#recipe-overview-sort option[value="time"]').textContent(), 'Total time');
+    assert.match(await card(201).textContent(), /5 min total/);
+    assert.match(await card(203).textContent(), /5 min\. cooking/);
+    assert.deepEqual(await ids(), [206, 201, 204, 202, 205, 203], 'translation keeps the current sort');
+    await setLanguage('de');
+    await page.locator('#recipe-overview-sort').selectOption('name', { force: true });
+    for (const [width, columns] of [[1280, 3], [390, 2], [320, 1]]) {
+      await page.setViewportSize({ width, height: 900 });
+      const layout = await page.locator('.recipe-list').evaluate(node => ({
+        columns: getComputedStyle(node).gridTemplateColumns.split(' ').filter(Boolean).length,
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        cardsFit: Array.from(node.querySelectorAll('.recipe-card')).every(card => {
+          const box = card.getBoundingClientRect(); return box.left >= -1 && box.right <= innerWidth + 1;
+        }),
+        images: Array.from(node.querySelectorAll('.recipe-thumbnail')).map(image => {
+          const box = image.getBoundingClientRect(); return box.width / box.height;
+        }),
+      }));
+      assert.equal(layout.columns, columns, `${width}px overview has the expected column count`);
+      assert.equal(layout.overflow, false, `${width}px overview has no horizontal body overflow`);
+      assert.equal(layout.cardsFit, true, `${width}px cards stay inside the viewport`);
+      assert.equal(layout.images.length, 6);
+      assert.ok(layout.images.every(ratio => Math.abs(ratio - 1.5) < .02), 'card images and placeholders retain a 3:2 frame');
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    for (const reset of ['book', 'session', 'deactivate']) {
+      await tag('Vegan').click(); await page.locator('#recipe-overview-sort').selectOption('newest', { force: true });
+      await page.evaluate(reset => {
+        const test = window.recipeTest;
+        if (reset === 'book') { test.nav.selectCookbook(1); test.nav.selectCookbook(2); }
+        else if (reset === 'session') { test.setActor('11:overview-session'); test.nav.render(); test.setActor('11:session'); test.nav.render(); }
+        else { test.shell.navigateToModule('tasks'); test.shell.navigateToModule('recipes'); }
+      }, reset);
+      assert.deepEqual(await selectedTags(), [], `${reset} resets selected tags`);
+      assert.equal(await page.locator('#recipe-overview-sort').inputValue(), 'name', `${reset} resets sort to name`);
+      assert.deepEqual(await ids(), defaultOrder);
+    }
+    await tag('Vegan').click();
+    await publishSamples(samples.map(recipe => ({ ...recipe, tags: recipe.tags.filter(tag => tag !== 'Vegan') })));
+    assert.deepEqual(await selectedTags(), [], 'a live update removes a filter that no longer exists in the cookbook');
+    assert.equal(await cards().count(), 6);
+  } finally {
+    await page.fill('#search-input', '');
+    await setLanguage('de');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.evaluate(original => {
+      const test = window.recipeTest; test.setActor('11:session'); test.set(original.books);
+      test.nav.selectCookbook(2); test.view.selectRecipe(22, { replaceHistory: true });
+      history.replaceState(original.history, '', '/');
+    }, original);
+  }
+}
+
 // Actual shared controllers, module shell and IndexedDB at a private mocked origin.
 // No Nia service, SQLite database or real network API is used.
 const fixture = `
@@ -65,7 +201,7 @@ editor=createRecipeEditorFeature({getCookbooks:()=>books,recipeController:contro
  onSaved:recipe=>view.selectRecipe(recipe.id),onDeleted:()=>view.showOverview({replaceHistory:true}),onError:error=>errors.push(error.message)});
 nav.setRecipeView(view);
 const beforeHydrate=localStorage.getItem('nia-recipes-active-cookbook');
-const shell=createModuleShell({getUser:()=>({id:11,disabled_modules:[]})});shell.registerController('recipes',{onActivate:()=>nav.activate(),onDeactivate:()=>nav.deactivate(),onSearch:value=>nav.setSearchQuery(value)});shell.bind();
+const shell=createModuleShell({getUser:()=>({id:11,disabled_modules:[]})});shell.registerController('recipes',{onActivate:()=>nav.activate(),onDeactivate:()=>nav.deactivate(),onSearch:value=>nav.setSearchQuery(value),onLanguageChange:()=>nav.render()});shell.bind();
 createModuleSwitcher({getModules:()=>shell.getEnabledModules(),onModuleChange:id=>shell.navigateToModule(id)}).bind();
 editor.bind();view.bind();
 const stored=await storage.getAll('cookbooks');const hydrated=stored.length?stored:initial;
@@ -82,7 +218,7 @@ window.recipeTest={view,editor,nav,shell,controller,storage,errors,mutations,ima
 };
 `;
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, timezoneId: 'Europe/Berlin' });
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
@@ -104,6 +240,7 @@ try {
   assert.equal(await page.evaluate(() => window.recipeTest.beforeHydrate), '2', 'unhydrated construction must preserve the stored cookbook');
   assert.equal(await page.evaluate(() => window.recipeTest.nav.getActiveCookbookId()), 2);
   assert.equal(await page.evaluate(() => window.recipeTest.view.getActiveRecipeId()), 22, 'recipe history survives empty construction then hydration');
+  await assertRecipeCardOverview(page);
   assert.equal(await page.locator('.recipe-reading h1').textContent(), 'Pasta mit Tomaten');
   assert.equal(await page.locator('.recipe-metadata .recipe-tag').textContent(), 'Schnell', 'only user-provided tags are shown');
   const amount = page.locator('[data-recipe-amount="i-pasta"]');
@@ -111,6 +248,9 @@ try {
   await assertControlIcon(page.locator('[data-recipe-action="more"]'), 'plus');
   await page.locator('[data-recipe-action="more"]').click();
   assert.equal(await amount.textContent(), '150 g');
+  await page.locator('#recipe-view-servings').fill('1.6666666666666667');
+  assert.equal(await amount.textContent(), '83 g', 'cooking uses the same typed kitchen rounding as Shopping transfer');
+  await page.locator('#recipe-view-servings').fill('3');
   assert.equal(await page.locator('[data-recipe-amount="i-salt"]').textContent(), 'nach Geschmack', 'free quantities do not scale');
   await page.locator('[data-recipe-ingredient="i-pasta"]').check();
   await page.evaluate(() => { const test=window.recipeTest;test.shell.navigateToModule('tasks');test.shell.navigateToModule('recipes'); });
@@ -180,8 +320,123 @@ try {
   const modal = page.locator('#recipe-modal');
   const close = async () => { await modal.locator('button[data-close-modal="recipe-modal"]').click(); await page.waitForFunction(() => document.getElementById('recipe-modal').getAttribute('aria-hidden') === 'true' && !(history.state?.niaTodoUi?.layers || []).includes('recipe-modal')); };
   const closed = () => page.waitForFunction(() => document.getElementById('recipe-modal').getAttribute('aria-hidden') === 'true' && !(history.state?.niaTodoUi?.layers || []).includes('recipe-modal'));
+  const ingredientRow = key => modal.locator(`.recipe-editor-ingredient[data-key="${key}"]`);
+  const setQuantityMode = (row, mode) => row.locator('select[data-field="quantity_mode"]').selectOption(mode, { force: true });
+  const openIngredientEditors = () => modal.locator('.recipe-editor-ingredient-editor:not([hidden])');
+  const ingredientSummary = row => row.locator('.recipe-editor-ingredient-summary').evaluate(node => (node.textContent || '').replace(/\s+/g, ' '));
+
+  await page.locator('[data-recipe-action="edit"]').click();
+  const pastaRow = ingredientRow('i-pasta'), saltRow = ingredientRow('i-salt');
+  const beforeIngredientChanges = await page.evaluate(async () => ({
+    queue: await window.recipeTest.queue(), mutations: window.recipeTest.mutations.length,
+    recipe: structuredClone(window.recipeTest.controller.getRecipe(22)),
+  }));
+  assert.equal(await openIngredientEditors().count(), 0, 'existing ingredients start as closed list rows');
+  assert.match(await ingredientSummary(pastaRow), /100.*g.*Pasta/);
+  assert.match(await ingredientSummary(pastaRow), /Bissfest kochen/);
+  assert.match(await ingredientSummary(saltRow), /nach Geschmack.*Salz/);
+  const pastaSummary = pastaRow.locator('.recipe-editor-ingredient-summary');
+  assert.equal(await pastaSummary.evaluate(node => node.tagName), 'BUTTON');
+  assert.equal(await pastaSummary.getAttribute('data-recipe-editor-action'), 'ingredient-edit');
+  assert.equal(await pastaSummary.locator('svg').count(), 0, 'the complete ingredient summary replaces the separate pencil button');
+  assert.equal(await pastaRow.locator('[data-recipe-editor-action="ingredient-up"]').isHidden(), true, 'reorder actions belong to the open ingredient editor');
+  assert.equal(await pastaRow.locator('[data-recipe-editor-action="ingredient-remove"]').isHidden(), true);
+  assert.equal(await pastaRow.locator('[data-field="name"]').evaluate(input => {
+    input.focus(); return document.activeElement === input;
+  }), false, 'closed ingredient fields do not receive focus');
+  assert.equal(await page.locator('#recipe-form').evaluate(form => form.checkValidity()), true, 'closed ingredient fields must not leave unfocusable invalid controls');
+
+  const groupHeading = modal.locator('[data-field="group-name"]').first();
+  assert.equal(await groupHeading.evaluate(input => input.classList.contains('ui-detail-title-field') && input.classList.contains('ui-detail-section-title-field')), true, 'group names use the shared editable heading');
+  assert.equal(await groupHeading.evaluate(input => input.labels.length), 0, 'group headings have no separate visible label');
+  assert.equal(await groupHeading.getAttribute('data-i18n-aria-label-key'), 'recipe.group.name');
+  assert.equal(await groupHeading.getAttribute('placeholder'), await groupHeading.getAttribute('aria-label'));
+  await page.locator('#recipe-name').focus();
+  const restingHeading = await groupHeading.evaluate(input => ({ weight: +getComputedStyle(input).fontWeight, background: getComputedStyle(input).backgroundColor }));
+  assert.ok(restingHeading.weight >= 700, 'the unfocused group name reads as a bold heading');
+  await groupHeading.focus();
+  await waitForPageCondition(page, original => getComputedStyle(document.querySelector('#recipe-modal [data-field="group-name"]')).backgroundColor !== original, restingHeading.background);
+  assert.notEqual(await groupHeading.evaluate(input => getComputedStyle(input).backgroundColor), restingHeading.background, 'focus reveals the shared title editing field');
+  await groupHeading.fill('Pasta heading draft'); await groupHeading.press('Enter');
+  assert.equal(await modal.getAttribute('aria-hidden'), 'false', 'Enter on a group heading never submits the recipe');
+  assert.deepEqual(await page.evaluate(() => window.recipeTest.queue()), beforeIngredientChanges.queue);
+  assert.equal(await page.evaluate(() => window.recipeTest.editor.getDraft().ingredient_groups[0].name), 'Pasta heading draft');
+  await groupHeading.fill('Pasta');
+
+  await pastaSummary.click();
+  await pastaRow.locator('[data-field="note"]').fill('Toggle draft note');
+  await pastaSummary.click();
+  assert.equal(await openIngredientEditors().count(), 0, 'clicking the same summary toggles its editor closed');
+  assert.equal(await pastaRow.locator('[data-field="note"]').inputValue(), 'Toggle draft note');
+  await pastaSummary.press('Enter');
+  assert.equal(await openIngredientEditors().count(), 1, 'Enter opens the summary button');
+  assert.equal(await pastaRow.locator('[data-field="note"]').inputValue(), 'Toggle draft note');
+  await pastaSummary.press('Space');
+  assert.equal(await openIngredientEditors().count(), 0, 'Space toggles the same summary closed');
+  await pastaSummary.press('Space');
+  assert.equal(await openIngredientEditors().count(), 1, 'Space also opens a closed summary');
+  await pastaRow.locator('[data-field="note"]').fill('Bissfest kochen');
+  await pastaRow.locator('[data-recipe-editor-action="ingredient-done"]').click();
+
+  await pastaRow.locator('[data-recipe-editor-action="ingredient-edit"]').click();
+  await pastaRow.locator('[data-field="name"]').fill('Canceled pasta');
+  await pastaRow.locator('[data-field="note"]').fill('Canceled note');
+  await pastaRow.locator('[data-recipe-editor-action="ingredient-cancel"]').click();
+  assert.equal(await openIngredientEditors().count(), 0);
+  assert.equal(await pastaRow.locator('[data-field="name"]').inputValue(), 'Pasta');
+  assert.equal(await pastaRow.locator('[data-field="note"]').inputValue(), 'Bissfest kochen', 'cancel restores the entire opening snapshot');
+
+  await pastaRow.locator('[data-recipe-editor-action="ingredient-edit"]').click();
+  await pastaRow.locator('[data-field="name"]').fill('');
+  await pastaSummary.click();
+  assert.equal(await openIngredientEditors().count(), 0, 'even an invalid ingredient can be toggled closed');
+  assert.equal(await pastaRow.locator('[data-field="name"]').isDisabled(), true);
+  assert.equal(await pastaRow.locator('[data-field="name"]').inputValue(), '', 'closing never discards invalid draft data');
+  assert.equal(await page.locator('#recipe-form').evaluate(form => form.checkValidity()), true, 'closed invalid controls do not block native focus validation');
+  assert.equal(await page.locator('#recipe-save-btn').isHidden(), true, 'the invalid structured payload still blocks recipe save');
+  assert.deepEqual(await page.evaluate(() => window.recipeTest.queue()), beforeIngredientChanges.queue);
+  await pastaSummary.press('Enter');
+  assert.equal(await pastaRow.locator('[data-field="name"]').isEnabled(), true, 'reopening exposes the invalid field for correction');
+  await saltRow.locator('[data-recipe-editor-action="ingredient-edit"]').click();
+  assert.equal(await openIngredientEditors().count(), 1);
+  assert.equal(await pastaRow.locator('.recipe-editor-ingredient-editor').isVisible(), true, 'an invalid ingredient blocks switching to another row');
+  assert.equal(await saltRow.locator('.recipe-editor-ingredient-editor').isHidden(), true);
+  assert.equal(await pastaRow.locator('[data-field="name"]').evaluate(input => document.activeElement === input && !input.validity.valid), true, 'the invalid field receives native validation focus');
+  await pastaRow.locator('[data-field="name"]').fill('Draft pasta');
+  await saltRow.locator('[data-recipe-editor-action="ingredient-edit"]').click();
+  assert.equal(await openIngredientEditors().count(), 1);
+  assert.equal(await pastaRow.locator('.recipe-editor-ingredient-editor').isHidden(), true);
+  assert.equal(await saltRow.locator('.recipe-editor-ingredient-editor').isVisible(), true);
+  assert.equal(await pastaRow.locator('[data-field="name"]').inputValue(), 'Draft pasta', 'switching rows retains valid changes in the recipe draft');
+  assert.match(await ingredientSummary(pastaRow), /Draft pasta/);
+  await setQuantityMode(saltRow, 'number');
+  await saltRow.locator('[data-field="quantity_value"]').fill('2');
+  await saltRow.locator('[data-field="quantity_unit"]').fill('g');
+  await saltRow.locator('[data-recipe-editor-action="ingredient-cancel"]').click();
+  assert.equal(await saltRow.locator('select[data-field="quantity_mode"]').inputValue(), 'text');
+  assert.equal(await saltRow.locator('[data-field="quantity_text"]').inputValue(), 'nach Geschmack', 'cancel also restores the original quantity mode and free amount');
+  assert.equal(await saltRow.locator('[data-field="quantity_value"]').inputValue(), '');
+  await pastaRow.locator('[data-recipe-editor-action="ingredient-edit"]').click();
+  await pastaRow.locator('[data-field="note"]').fill('Draft note');
+  await pastaRow.locator('[data-recipe-editor-action="ingredient-done"]').click();
+  assert.equal(await openIngredientEditors().count(), 0);
+  assert.match(await ingredientSummary(pastaRow), /Draft note/);
+  assert.equal(await page.evaluate(() => window.recipeTest.editor.getDraft().ingredient_groups[0].ingredients[0].name), 'Draft pasta');
+
+  const beforeEmptyCancel = await modal.locator('.recipe-editor-ingredient').count();
+  await modal.locator('[data-recipe-editor-action="ingredient-add"]').first().click();
+  assert.equal(await openIngredientEditors().count(), 1, 'adding a new ingredient opens it immediately');
+  await openIngredientEditors().locator('[data-recipe-editor-action="ingredient-cancel"]').click();
+  assert.equal(await modal.locator('.recipe-editor-ingredient').count(), beforeEmptyCancel, 'cancel removes a newly added empty ingredient');
+  assert.equal(await page.locator('#recipe-form').evaluate(form => form.checkValidity()), true);
+  assert.deepEqual(await page.evaluate(() => window.recipeTest.queue()), beforeIngredientChanges.queue);
+  assert.equal(await page.evaluate(() => window.recipeTest.mutations.length), beforeIngredientChanges.mutations, 'Apply and Cancel only affect the recipe draft');
+  assert.deepEqual(await page.evaluate(() => window.recipeTest.controller.getRecipe(22)), beforeIngredientChanges.recipe, 'inline editing never saves the aggregate by itself');
+  await close();
+
   await page.locator('[data-module-slot="floating"][data-module-panel="recipes"] [data-recipe-action="create"]').click();
   assert.equal(await page.locator('#recipe-name').isDisabled(), false, 'household participants can edit recipe content without metadata management');
+  assert.equal(await page.locator('#recipe-image-remove').isHidden(), true, 'a recipe without an image has no removal action');
   await page.fill('#recipe-name', 'Structured recipe'); await page.fill('#recipe-base-servings', '4');
   await page.locator('[data-recipe-editor-action="group-add"]').click();
   const group = page.locator('.recipe-editor-group').first();
@@ -189,14 +444,48 @@ try {
   await group.locator('[data-field="group-name"]').fill('Teig');
   await group.locator('[data-recipe-editor-action="ingredient-add"]').click();
   let ingredient = group.locator('.recipe-editor-ingredient').first();
+  assert.equal(await ingredient.locator('.recipe-editor-ingredient-editor').isVisible(), true);
   await ingredient.locator('[data-field="name"]').fill('Mehl'); await ingredient.locator('[data-field="quantity_value"]').fill('250'); await ingredient.locator('[data-field="quantity_unit"]').fill('g');
+  assert.equal(await ingredient.locator('[data-field="quantity_text"]').isDisabled(), true);
+  await setQuantityMode(ingredient, 'text');
+  assert.equal(await ingredient.locator('[data-field="quantity_value"]').inputValue(), '', 'switching to free quantity clears the numeric amount');
+  assert.equal(await ingredient.locator('[data-field="quantity_unit"]').inputValue(), '');
+  assert.equal(await ingredient.locator('[data-field="quantity_value"]').isDisabled(), true);
   await ingredient.locator('[data-field="quantity_text"]').fill('nach Bedarf');
-  assert.equal(await page.locator('#recipe-save-btn').isHidden(), true, 'numeric and free quantities cannot both be submitted');
-  assert.equal(await ingredient.locator('.recipe-quantity-error').isVisible(), true);
-  await ingredient.locator('[data-field="quantity_text"]').fill(''); await ingredient.locator('[data-field="note"]').fill('fein gemahlen');
+  await setQuantityMode(ingredient, 'number');
+  assert.equal(await ingredient.locator('[data-field="quantity_text"]').inputValue(), '', 'switching back clears the free quantity instead of preserving conflicting hidden data');
+  assert.equal(await ingredient.locator('[data-field="quantity_text"]').isDisabled(), true);
+  await ingredient.locator('[data-field="quantity_value"]').fill('0');
+  assert.equal(await ingredient.locator('[data-field="quantity_value"]').evaluate(input => input.validity.valid), false);
+  assert.equal(await page.locator('#recipe-save-btn').isHidden(), true, 'an invalid numeric amount cannot be saved');
+  await ingredient.locator('[data-field="quantity_value"]').fill('250'); await ingredient.locator('[data-field="quantity_unit"]').fill('g');
+  await ingredient.locator('[data-field="note"]').fill('fein gemahlen');
+  await ingredient.locator('[data-recipe-editor-action="ingredient-done"]').click();
+  assert.match(await ingredientSummary(ingredient), /250.*g.*Mehl/);
+  assert.match(await ingredientSummary(ingredient), /fein gemahlen/);
+  assert.equal(await ingredient.locator('[data-field="note"]').isVisible(), false);
   await group.locator('[data-recipe-editor-action="ingredient-add"]').click();
   ingredient = group.locator('.recipe-editor-ingredient').nth(1);
+  await setQuantityMode(ingredient, 'text');
+  const tagsBeforeModeRerender = await page.locator('#recipe-editor-tags input').count();
+  await page.locator('[data-recipe-editor-action="tag-add"]').click();
+  assert.equal(await ingredient.locator('select[data-field="quantity_mode"]').inputValue(), 'text', 'an empty free-quantity mode survives an unrelated row render');
+  assert.equal(await ingredient.locator('[data-field="quantity_text"]').inputValue(), '');
+  assert.equal(await ingredient.locator('[data-field="quantity_text"]').isVisible(), true);
+  assert.equal(await ingredient.locator('[data-field="quantity_value"]').isDisabled(), true);
+  assert.equal(await openIngredientEditors().count(), 1);
+  await page.locator('[data-recipe-editor-action="tag-remove"]').last().click();
+  assert.equal(await page.locator('#recipe-editor-tags input').count(), tagsBeforeModeRerender);
+  assert.equal(await ingredient.locator('select[data-field="quantity_mode"]').inputValue(), 'text', 'cleaning up the temporary tag also preserves the selected quantity mode');
   await ingredient.locator('[data-field="name"]').fill('Wasser'); await ingredient.locator('[data-field="quantity_text"]').fill('nach Bedarf');
+  await ingredient.locator('[data-recipe-editor-action="ingredient-up"]').click();
+  assert.deepEqual(await group.locator('[data-field="name"]').evaluateAll(nodes => nodes.map(node => node.value)), ['Wasser', 'Mehl']);
+  ingredient = group.locator('.recipe-editor-ingredient').first();
+  await ingredient.locator('[data-recipe-editor-action="ingredient-down"]').click();
+  ingredient = group.locator('.recipe-editor-ingredient').nth(1);
+  await ingredient.locator('[data-recipe-editor-action="ingredient-done"]').click();
+  assert.equal(await openIngredientEditors().count(), 0);
+  assert.match(await ingredientSummary(ingredient), /nach Bedarf.*Wasser/);
   await page.locator('[data-recipe-editor-action="group-add"]').click();
   await page.locator('.recipe-editor-group').nth(1).locator('[data-field="group-name"]').fill('Belag');
   await page.locator('.recipe-editor-group').nth(1).locator('[data-recipe-editor-action="group-up"]').click();
@@ -206,22 +495,102 @@ try {
   await page.locator('.recipe-editor-step textarea').first().fill('Erste Zeile.\nZweite Zeile.\n\nDritter Absatz.');
   await page.locator('[data-recipe-editor-action="step-add"]').click(); await page.locator('.recipe-editor-step textarea').nth(1).fill('Finish');
   await page.locator('.recipe-editor-step').nth(1).locator('[data-recipe-editor-action="step-up"]').click();
+  const flourRow = modal.locator(`.recipe-editor-group[data-key="${groupKey}"] .recipe-editor-ingredient`).first();
+  await flourRow.locator('[data-recipe-editor-action="ingredient-edit"]').click();
   for (const kind of ['group', 'ingredient', 'step']) {
-    await assertControlIcon(page.locator(`[data-recipe-editor-action="${kind}-up"]`).first(), 'chevron-up');
-    await assertControlIcon(page.locator(`[data-recipe-editor-action="${kind}-down"]`).first(), 'chevron-down');
+    const scope = kind === 'ingredient' ? openIngredientEditors() : page;
+    await assertControlIcon(scope.locator(`[data-recipe-editor-action="${kind}-up"]`).first(), 'chevron-up');
+    await assertControlIcon(scope.locator(`[data-recipe-editor-action="${kind}-down"]`).first(), 'chevron-down');
+    await assertControlIcon(scope.locator(`[data-recipe-editor-action="${kind}-remove"]`).first(), 'trash-2');
   }
+  await flourRow.locator('[data-recipe-editor-action="ingredient-done"]').click();
   await page.locator('[data-recipe-editor-action="tag-add"]').click(); await page.locator('#recipe-editor-tags input').first().fill('Familie');
   await page.locator('[data-recipe-editor-action="tag-add"]').click(); await page.locator('#recipe-editor-tags input').nth(1).fill('Saisonal');
+  await assertControlIcon(modal.locator('[data-recipe-editor-action="tag-remove"]').first(), 'trash-2');
+  await assertControlIcon(modal.locator('.modal-close-x'), 'x');
   await page.locator('.recipe-editor-step textarea').nth(1).evaluate(node => { window.recipeTextareaBeforeLanguage = node; node.focus(); node.setSelectionRange(2, 6); });
   await page.locator(`.recipe-editor-group[data-key="${groupKey}"] [data-field="name"]`).first().evaluate(node => { window.recipeIngredientBeforeLanguage = node; });
   await page.evaluate(async () => { const { setLanguagePreference } = await import('/static/js/i18n/index.js'); await setLanguagePreference('en'); });
   assert.equal(await page.locator('label[for="recipe-base-servings"]').textContent(), 'Base servings');
+  assert.equal((await modal.locator('[data-recipe-editor-action="ingredient-done"]').first().textContent()).trim(), 'Apply');
   assert.equal(await page.locator('.recipe-editor-step [data-recipe-step-label]').nth(1).textContent(), 'Step 2');
   assert.equal(await page.locator('.recipe-editor-step textarea').nth(1).evaluate(node => node === window.recipeTextareaBeforeLanguage && document.activeElement === node && node.selectionStart === 2 && node.selectionEnd === 6), true, 'language changes preserve textarea node, draft, focus and selection');
   assert.equal(await page.locator(`.recipe-editor-group[data-key="${groupKey}"] [data-field="name"]`).first().evaluate(node => node === window.recipeIngredientBeforeLanguage && node.value === 'Mehl'), true);
   await page.evaluate(async () => { const { setLanguagePreference } = await import('/static/js/i18n/index.js'); await setLanguagePreference('de'); });
-  await page.locator('#recipe-image-file').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: Buffer.from('mock image preparation input') });
+  const imageChooser = page.waitForEvent('filechooser');
+  await page.locator('#recipe-image-trigger').focus();
+  await page.locator('#recipe-image-trigger').press('Enter');
+  await (await imageChooser).setFiles({ name: 'cover.png', mimeType: 'image/png', buffer: Buffer.from('mock image preparation input') });
   await page.waitForFunction(() => Boolean(window.recipeTest.editor.getDraft().image_data));
+  await page.locator('#recipe-image-preview').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#recipe-image-remove').isHidden(), true, 'image actions stay hidden until the preview is activated');
+  await page.locator('#recipe-image-trigger').hover();
+  await waitForPageCondition(page, () => getComputedStyle(document.querySelector('.ui-image-picker-overlay')).opacity === '1');
+  await page.locator('#recipe-image-trigger').press('Enter');
+  assert.equal(await page.locator('#recipe-image-remove').isVisible(), true, 'activating the preview exposes its actions');
+  await page.locator('#recipe-image-choose').press('Escape');
+  assert.equal(await page.locator('#recipe-image-remove').isHidden(), true, 'Escape dismisses only the image menu');
+  assert.equal(await modal.getAttribute('aria-hidden'), 'false');
+  assert.equal(await page.locator('#recipe-image-trigger').evaluate(node => node === document.activeElement), true, 'Escape restores image-trigger focus');
+  await page.locator('#recipe-image-trigger').click();
+  await page.locator('#recipe-name').click();
+  assert.equal(await page.locator('#recipe-image-remove').isHidden(), true, 'outside clicks dismiss the image menu');
+  const imageBeforeCancel = await page.evaluate(() => window.recipeTest.editor.getDraft().image_data);
+  await page.locator('#recipe-image-trigger').click();
+  const replacementChooser = page.waitForEvent('filechooser');
+  await page.locator('#recipe-image-choose').click();
+  await (await replacementChooser).setFiles([]);
+  assert.equal(await page.evaluate(() => window.recipeTest.editor.getDraft().image_data), imageBeforeCancel, 'canceling replacement preserves the existing image');
+  assert.equal(await page.locator('#recipe-image-remove').isHidden(), true);
+  assert.equal(await page.locator('#recipe-image-file').getAttribute('tabindex'), '-1', 'the preview owns keyboard entry to the native picker');
+  assert.equal(await page.locator('.recipe-editor-step textarea').first().evaluate(node => node.labels?.length), 1, 'step labels remain associated after moving row actions');
+  await flourRow.locator('[data-recipe-editor-action="ingredient-edit"]').click();
+  for (const theme of ['dark', 'light']) {
+    await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);
+    for (const width of [1280, 1024, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      const layout = await modal.evaluate(node => {
+        const content = node.querySelector('.modal-content'), preview = node.querySelector('#recipe-image-preview').getBoundingClientRect();
+        return { overflow: content.scrollWidth > content.clientWidth,
+          borders: Array.from(node.querySelectorAll('#recipe-form>.ui-detail-section'), section => [getComputedStyle(section).borderLeftWidth, getComputedStyle(section).borderRightWidth]),
+          imageWidth: preview.width, imageHeight: preview.height, modalWidth: content.getBoundingClientRect().width,
+          imageLeft: preview.left, imageTop: preview.top,
+          titleRight: node.querySelector('#recipe-name').getBoundingClientRect().right,
+          titleTop: node.querySelector('#recipe-name').getBoundingClientRect().top,
+          descriptionTop: node.querySelector('#recipe-description').getBoundingClientRect().top };
+      });
+      assert.equal(layout.overflow, false, `editor fits ${theme} at ${width}px: ${JSON.stringify(layout)}`);
+      // Shared buttons animate their size when the viewport crosses a breakpoint.
+      if (width <= 768) await waitForPageCondition(page, () => Array.from(document.querySelectorAll('.recipe-editor-ingredient-editor:not([hidden]) button:not(:disabled)')).filter(button => button.getBoundingClientRect().width > 0).every(button => button.getBoundingClientRect().height >= 44));
+      const ingredientLayout = await openIngredientEditors().evaluate(node => ({
+        overflow: node.scrollWidth > node.clientWidth,
+        actions: Array.from(node.querySelectorAll('button:not(:disabled)')).filter(button => button.getBoundingClientRect().width > 0).map(button => ({ label: button.textContent || button.getAttribute('aria-label'), classes: button.className, width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height })),
+      }));
+      assert.equal(ingredientLayout.overflow, false, `open ingredient fits ${theme} at ${width}px`);
+      if (width <= 768) assert.ok(ingredientLayout.actions.every(button => button.height >= 44), `open ingredient actions keep mobile touch targets: ${JSON.stringify(ingredientLayout)}`);
+      await waitForPageCondition(page, minimum => Array.from(document.querySelectorAll('#recipe-form .btn-icon'))
+        .filter(button => button.getClientRects().length > 0)
+        .every(button => { const box = button.getBoundingClientRect(); return box.width >= minimum && box.height >= minimum && Math.abs(box.width - box.height) < .5; }), width <= 768 ? 44 : 36);
+      const iconButtons = await modal.locator('#recipe-form .btn-icon').evaluateAll(buttons => buttons
+        .filter(button => button.getClientRects().length > 0)
+        .map(button => ({ action: button.dataset.recipeEditorAction, width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height })));
+      assert.ok(iconButtons.some(button => button.action === 'tag-remove'), 'icon geometry includes tag deletion as well as reorder actions');
+      assert.ok(iconButtons.some(button => button.action === 'ingredient-remove'));
+      assert.ok(iconButtons.every(button => Math.abs(button.width - button.height) < .5 && button.width >= (width <= 768 ? 44 : 36)), `all content icon buttons stay circular at ${width}px: ${JSON.stringify(iconButtons)}`);
+      assert.ok(layout.borders.every(sides => sides.every(side => side === '0px')), 'editor sections use shared dividers without enclosing card borders');
+      assert.ok(layout.imageWidth <= 112 && layout.imageHeight <= 84, 'editor image stays a compact title control');
+      assert.ok(layout.imageLeft > layout.titleRight && layout.imageTop < layout.descriptionTop, 'preview sits beside the title above the description');
+      if (width > 1180) assert.ok(layout.modalWidth <= 960, 'desktop editor respects its content width');
+      if (process.env.NIA_TODO_TEST_OUTPUT_DIR) {
+        await page.locator('#recipe-name').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `${process.env.NIA_TODO_TEST_OUTPUT_DIR}/recipes-editor-${theme}-${width}.png`, fullPage: true, animations: 'disabled' });
+        await openIngredientEditors().scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `${process.env.NIA_TODO_TEST_OUTPUT_DIR}/recipes-ingredient-${theme}-${width}.png`, fullPage: true, animations: 'disabled' });
+      }
+    }
+  }
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.click('#recipe-save-btn'); await closed();
   const created = await waitForPageCondition(page, () => window.recipeTest.books().flatMap(book => book.recipes || []).find(recipe => recipe.title === 'Structured recipe'));
   const queue = await page.evaluate(() => window.recipeTest.queue());
@@ -229,6 +598,7 @@ try {
   assert.deepEqual(queue[0].data.tags, ['Familie','Saisonal']); assert.equal(queue[0].data.steps.length, 2);
   assert.equal(queue[0].data.steps[1].text, 'Erste Zeile.\nZweite Zeile.\n\nDritter Absatz.', 'multiline text remains one ordered step');
   assert.equal(queue[0].data.ingredient_groups[1].ingredients[1].quantity_text, 'nach Bedarf');
+  assert.equal(queue[0].data.ingredient_groups[1].ingredients[0].note, 'fein gemahlen', 'ingredient notes survive Apply, closing and row reordering');
   assert.equal(new Set(queue[0].data.ingredient_groups.flatMap(group => [group.client_key,...group.ingredients.map(item => item.client_key)])).size, 4);
   assert.ok(queue[0].data.image_data.startsWith('data:image/png;base64,'));
   await page.locator('[data-recipe-action="edit"]').click(); await page.fill('#recipe-name', 'Draft after acknowledgement');
@@ -269,10 +639,13 @@ try {
   await unsavedStep.fill('A later unsaved step.\nIts own second line.');
   await page.evaluate(() => window.recipeTest.conflict(101));
   assert.equal(await page.locator('#recipe-name').isDisabled(), true, 'a newly received conflict freezes the open draft');
+  assert.equal(await page.locator('#recipe-image-trigger').getAttribute('aria-disabled'), 'true', 'conflicts disable the image control along with the content fields');
   await page.locator('#recipe-editor-conflict [data-recipe-action="keep-local"]').click();
   await page.click('#confirm-confirm-btn');
   await waitForPageCondition(page, () => !window.recipeTest.controller.getRecipe(101).conflict);
   assert.equal(await page.locator('#recipe-name').inputValue(), 'Additional unsaved draft');
+  assert.equal(await page.locator('#recipe-image-trigger').getAttribute('aria-disabled'), 'false', 'resolving a conflict re-enables the same image control');
+  assert.equal(await page.locator('#recipe-image-file').isDisabled(), false);
   assert.equal(await unsavedStep.inputValue(), 'A later unsaved step.\nIts own second line.', 'keep-local retains newer unsaved structured fields');
   assert.equal(await page.evaluate(() => window.recipeTest.controller.getRecipe(101).title), 'Local retained', 'resolution only commits the saved queue intent');
   await page.locator('#recipe-save-btn').waitFor({ state: 'visible' });
@@ -280,9 +653,21 @@ try {
   assert.equal(await page.locator('.recipe-reading h1').textContent(), 'Additional unsaved draft');
 
   await page.locator('[data-recipe-action="edit"]').click();
+  await page.locator('#recipe-image-trigger').click();
   await page.locator('#recipe-image-remove').click();
   assert.equal(await page.evaluate(() => window.recipeTest.editor.getDraft().image_data), null, 'explicit image removal differs from preserving the current image');
+  assert.equal(await page.locator('#recipe-image-remove').isHidden(), true, 'removing an image hides its removal action');
   await close();
+  const beforePendingRemoval = await page.evaluate(() => window.recipeTest.books());
+  await page.evaluate(books => window.recipeTest.set(books.map(book => ({ ...book, recipes: book.recipes.map(recipe => recipe.id === 101 ? { ...recipe, image_data: null } : recipe) }))), beforePendingRemoval);
+  assert.ok(await page.evaluate(() => window.recipeTest.controller.getRecipe(101).image_url), 'pending removal still retains the previous server image URL');
+  await page.locator('[data-recipe-action="edit"]').click();
+  assert.equal(await page.locator('#recipe-image-picker').getAttribute('data-has-image'), 'false', 'pending null image data takes precedence over the old server URL');
+  const pendingRemovalChooser = page.waitForEvent('filechooser');
+  await page.locator('#recipe-image-trigger').press('Enter');
+  await (await pendingRemovalChooser).setFiles([]);
+  await close();
+  await page.evaluate(books => window.recipeTest.set(books), beforePendingRemoval);
   await page.evaluate(() => window.recipeTest.editor.showCreate(2));
   await page.evaluate(() => window.recipeTest.deferImage());
   await page.locator('#recipe-image-file').setInputFiles({ name: 'late.png', mimeType: 'image/png', buffer: Buffer.from('late image') });
@@ -311,6 +696,9 @@ try {
   }
   await page.locator('[data-recipe-action="edit"]').click();
   assert.equal(await modal.evaluate(node => node.querySelector('.modal-content').scrollWidth <= node.querySelector('.modal-content').clientWidth), true, 'structured mobile editor has no horizontal overflow');
+  await modal.locator('[data-recipe-editor-action="ingredient-edit"]').first().click();
+  assert.equal(await openIngredientEditors().count(), 1, 'the Escape regression includes an expanded ingredient editor');
+  assert.equal(await modal.locator('details[data-ui-editor-menu][open]').count(), 0, 'ingredient content is never registered as a popover menu');
   await page.locator('#recipe-name').press('Escape'); await closed();
   await page.locator('[data-recipe-action="edit"]').click();
   await page.locator('#recipe-detail-header-menu summary').click(); await page.click('#recipe-delete-btn');

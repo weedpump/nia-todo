@@ -86,6 +86,8 @@ export function createAppStorage({ setDb }) {
     commitShoppingReplay,
     evictPendingShoppingEntities,
     evictPendingProjectEntities,
+    commitRecipeShoppingTransfer: indexedDb.commitRecipeShoppingTransfer,
+    markRecipeShoppingTransferAttempt: indexedDb.markRecipeShoppingTransferAttempt,
     commitRecipeMutation: indexedDb.commitRecipeMutation,
     commitRecipeReplay: indexedDb.commitRecipeReplay,
     markRecipeMutationAttempt: indexedDb.markRecipeMutationAttempt,

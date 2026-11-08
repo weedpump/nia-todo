@@ -184,7 +184,7 @@ export function createCookbookDetailsFeature({
       generation++;
       modal.close({ afterClose: () => { normalizeActiveCookbookNavigation(); focusActiveCookbookAction(); } });
       if (isOnlineForSync()) Promise.resolve(syncWithServer()).catch(report);
-    } catch (err) { if (isCurrent()) { error('cookbook.error.deleteFailed'); report(err); } }
+    } catch (err) { if (isCurrent()) { error(err?.code === 'recipe.transfer.pendingSource' ? err.code : 'cookbook.error.deleteFailed'); report(err); } }
     finally { if (busy === token) { busy = null; if (requestedGeneration === generation) modal.refreshSaveState(); } }
   }
   return { bind: () => { if (bound) return; bound = true; modal.bind(); sharing.bind(); },

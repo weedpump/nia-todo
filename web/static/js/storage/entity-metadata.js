@@ -99,7 +99,7 @@ export function commitMetadataMutation({ contract, entity, deleteId, action, dat
   });
 }
 
-export function markMetadataMutationAttempt({ contract, queueId, database } = {}) {
+export function markMetadataMutationAttempt({ contract, queueId, database, validateRecord = () => true } = {}) {
   if (!database) return Promise.reject(new Error('IndexedDB is not open'));
   return new Promise((resolve, reject) => {
     let tx;
@@ -111,7 +111,7 @@ export function markMetadataMutationAttempt({ contract, queueId, database } = {}
       const request = store.get(queueId);
       request.onsuccess = () => {
         try {
-          if (!contract.actions.has(request.result?.action)) return;
+          if (!contract.actions.has(request.result?.action) || !validateRecord(request.result)) return;
           marked = { ...request.result, attempted: true };
           store.put(marked);
         } catch (error) { failure = error; tx.abort(); }

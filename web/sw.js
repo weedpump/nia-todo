@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'nia-v4-module-platform-preview-300';
+const CACHE_REVISION = 'nia-v4-module-platform-preview-323';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -55,7 +55,9 @@ const PRECACHE_ASSETS = [
   '/static/css/95-todo-detail-mobile-viewport.css',
   '/static/css/96-todo-multi-add.css',
   '/static/css/97-date-time-picker.css',
+  '/static/css/97-image-picker.css',
   '/static/css/98-recipes.css',
+  '/static/css/99-recipe-cooking.css',
   '/static/css/99-ui-primitives.css',
   '/static/js/main.js',
   '/static/js/features/auto-scrollbars.js',
@@ -106,6 +108,7 @@ const PRECACHE_ASSETS = [
   '/static/js/ui/dropdowns.js',
   '/static/js/ui/module-primary-action.js',
   '/static/js/ui/detail-modal.js',
+  '/static/js/ui/image-picker.js',
   '/static/js/ui/item-swipe.js',
   '/static/js/ui/topbar-toggle.js',
   '/static/js/ui/color-picker.js',
@@ -187,6 +190,13 @@ const PRECACHE_ASSETS = [
   '/static/js/features/recipe-pending.js',
   '/static/js/features/recipe-mutations.js',
   '/static/js/features/recipe-sync.js',
+  '/static/js/features/recipe-shopping-pending.js',
+  '/static/js/features/recipe-shopping-transfer.js',
+  '/static/js/features/recipe-step-ingredients.js',
+  '/static/js/core/recipe-quantities.js',
+  '/static/js/core/quantity-units.js',
+  '/static/js/core/quantity-unit-data.js',
+  '/static/js/ui/servings-control.js',
   '/static/js/features/entity-metadata.js',
   '/static/js/features/entity-metadata-sync.js',
   '/static/js/storage/entity-metadata.js',

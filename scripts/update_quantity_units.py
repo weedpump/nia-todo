@@ -8,6 +8,7 @@ registry and do not need network access. No quantities or unit conversions occur
 import json
 import re
 import urllib.request
+from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -48,7 +49,48 @@ def locale_aliases(locale):
     return result
 
 
+def merge_registry(existing, cldr_aliases):
+    """Refresh CLDR spellings without replacing application-owned semantics.
+
+    Definitions, fixed display labels, rounding and manual aliases live in the
+    canonical registry. A new unit must be explicitly defined there first.
+    """
+    if not isinstance(existing, dict) or not isinstance(existing.get("units"), dict):
+        raise ValueError("An existing canonical quantity registry is required")
+    definitions = existing.get("definitions")
+    if not isinstance(definitions, dict) or not definitions or set(definitions) != set(existing["units"]):
+        raise ValueError("Canonical quantity definitions must exist for every registered unit")
+    if not isinstance(existing.get("recipe_rounding"), dict) or not existing["recipe_rounding"]:
+        raise ValueError("Canonical recipe_rounding policy is required")
+    unknown = set(cldr_aliases) - set(definitions)
+    if unknown:
+        raise ValueError(f"Define new CLDR units in the canonical registry first: {', '.join(sorted(unknown))}")
+    units = {}
+    for symbol, aliases in existing["units"].items():
+        if not isinstance(aliases, list) or not all(isinstance(alias, str) for alias in aliases):
+            raise ValueError(f"Canonical aliases must be a string list for {symbol}")
+        incoming = cldr_aliases.get(symbol, ())
+        if not all(isinstance(alias, str) for alias in incoming):
+            raise ValueError(f"CLDR aliases must be strings for {symbol}")
+        # Preserve every reviewed alias, including manual additions to metric
+        # units. Exclude ambiguous spellings only from the downloaded additions.
+        additions = {alias for alias in incoming if alias.casefold() not in AMBIGUOUS_ALIASES}
+        units[symbol] = sorted(set(aliases) | additions)
+    result = deepcopy(existing)
+    result.update(source=f"https://github.com/unicode-org/cldr-json/tree/{VERSION}",
+                  license="Unicode-3.0", locales=list(LOCALES),
+                  units={symbol: units[symbol] for symbol in sorted(units)})
+    return result
+
+
 def main():
+    target = ROOT / "api/resources"
+    registry_path = target / "quantity_units.json"
+    if not registry_path.exists():
+        raise SystemExit("An existing canonical quantity_units.json with definitions and recipe_rounding is required")
+    existing = json.loads(registry_path.read_text(encoding="utf-8"))
+    # Reject missing application semantics before making any network requests.
+    merge_registry(existing, {})
     aliases = {symbol: set() for symbol in UNITS.values()}
     with ThreadPoolExecutor(max_workers=4) as executor:
         for result in executor.map(locale_aliases, LOCALES.values()):
@@ -56,17 +98,12 @@ def main():
                 aliases[symbol].update(values)
     for symbol, values in EXTRA_ALIASES.items():
         aliases[symbol].update(values)
-    for values in aliases.values():
-        values.difference_update(alias for alias in list(values) if alias.casefold() in AMBIGUOUS_ALIASES)
-    target = ROOT / "api/resources"
-    target.mkdir(parents=True, exist_ok=True)
-    payload = {"source": f"https://github.com/unicode-org/cldr-json/tree/{VERSION}",
-               "license": "Unicode-3.0", "locales": list(LOCALES),
-               "units": {symbol: sorted(values) for symbol, values in sorted(aliases.items())}}
-    (target / "quantity_units.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    payload = merge_registry(existing, aliases)
     with urllib.request.urlopen(f"{SOURCE}/LICENSE", timeout=30) as response:
-        (target / "quantity_units.LICENSE").write_bytes(response.read())
-    print(f"Generated {len(aliases)} units for {len(LOCALES)} locales")
+        license_content = response.read()
+    registry_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (target / "quantity_units.LICENSE").write_bytes(license_content)
+    print(f"Refreshed {len(payload['units'])} units for {len(LOCALES)} locales")
 
 
 if __name__ == "__main__":

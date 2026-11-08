@@ -7,7 +7,7 @@ V4 is transitioning the existing nia-todo codebase into a shared application she
 with independent modules and reusable identity, sharing, and UI infrastructure.
 
 - Registered modules: `tasks`, `shopping`, and `recipes`. Tasks and Shopping are established; Recipes implements cookbook and recipe core
-  behavior, with public discovery and Shopping transfer still pending.
+  behavior and ingredient transfer to Shopping. Public discovery and archiving are deferred.
   Do not assume all modules have equivalent features or lifecycle requirements.
 - Preserve existing `nia-todo` package names, URLs, API contracts, database paths,
   native app IDs, and compatibility identifiers unless a change explicitly requires
@@ -124,8 +124,11 @@ before relying on older todo-only descriptions.
   IDs, reconnects, and permission revocation as applicable.
 - Recipes now has cookbook and structured recipe storage/APIs, ordered child
   records, manual tags, private title images and offline/realtime synchronization.
-  Public discovery/copies, recipe-to-Shopping transfer and archiving are not
-  implemented contracts yet; do not infer them from the core editor.
+  Steps may reference recipe-local ingredients by stable client key; reading and
+  actor-scoped cooking views share the same ingredient and portions rendering.
+  Ingredient transfer uses an atomic, idempotent server operation and a durable
+  offline intent. Public discovery/copies and archiving are deferred; do not
+  infer those contracts from the core editor.
 
 ## Database, security, and migration rules
 

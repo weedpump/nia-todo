@@ -182,6 +182,14 @@
   word-break: break-word;
 }
 
+/* Section headings share the title's inline-edit states at a smaller scale. */
+.ui-detail-modal.ui-detail-view .ui-detail-title-field.ui-detail-section-title-field,
+.ui-detail-modal.todo-detail-view .ui-detail-title-field.ui-detail-section-title-field {
+  min-height: 44px;
+  font-size: 18px;
+  letter-spacing: normal;
+}
+
 .ui-detail-modal.ui-detail-view textarea.ui-detail-title-field,
 .ui-detail-modal.todo-detail-view textarea.ui-detail-title-field {
   resize: none;

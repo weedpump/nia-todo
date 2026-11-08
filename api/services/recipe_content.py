@@ -3,7 +3,7 @@
 import json
 from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from services.entity_access import resolve_entity_access
 from services.quantity_units import normalize_quantity_unit
@@ -68,14 +68,33 @@ class IngredientGroup(BaseModel):
         return value.strip()
 
 
+class RecipeStepIngredient(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ingredient_client_key: ClientKey
+    show_quantity: bool = Field(default=True, strict=True)
+
+    @field_validator("ingredient_client_key")
+    @classmethod
+    def required_key(cls, value):
+        return _required(value)
+
+
 class RecipeStep(BaseModel):
     client_key: ClientKey
     text: str = Field(min_length=1, max_length=8000)
+    ingredients: list[RecipeStepIngredient] = Field(default_factory=list, max_length=500)
 
     @field_validator("client_key", "text")
     @classmethod
     def required(cls, value):
         return _required(value)
+
+    @model_validator(mode="after")
+    def unique_ingredients(self):
+        keys = [item.ingredient_client_key for item in self.ingredients]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Duplicate step ingredient client_key")
+        return self
 
 
 class RecipePayload(BaseModel):
@@ -140,9 +159,34 @@ class RecipeCreate(RecipePayload):
     ingredient_groups: list[IngredientGroup] = Field(default_factory=list, max_length=50)
     steps: list[RecipeStep] = Field(default_factory=list, max_length=100)
 
+    @model_validator(mode="after")
+    def ingredient_references(self):
+        keys = {ingredient.client_key for group in self.ingredient_groups for ingredient in group.ingredients}
+        if any(link.ingredient_client_key not in keys for step in self.steps for link in step.ingredients):
+            raise ValueError("Step ingredient does not belong to this recipe")
+        return self
+
 
 class RecipePatch(RecipePayload):
     expected_revision: Revision
+
+
+def merge_recipe_patch(current: dict, patch: RecipePatch) -> dict:
+    """Preserve omitted legacy links and prune only inherited deleted targets.
+
+    Explicit links are validated against the final aggregate by RecipeCreate;
+    they must never be silently removed, even if their target was just deleted.
+    """
+    changes = patch.model_dump(exclude_unset=True)
+    result = {**current, **changes}
+    ingredient_keys = {ingredient["client_key"] for group in result["ingredient_groups"] for ingredient in group["ingredients"]}
+    old_steps = {step["client_key"]: step for step in current["steps"]}
+    result["steps"] = [dict(step) for step in result["steps"]]
+    for step in result["steps"]:
+        if "steps" not in changes or "ingredients" not in step:
+            inherited = old_steps.get(step["client_key"], {}).get("ingredients", [])
+            step["ingredients"] = [dict(link) for link in inherited if link["ingredient_client_key"] in ingredient_keys]
+    return result
 
 
 def get_authorized_recipe_row(db, recipe_id: int, user_id: int, *, edit: bool = False):
@@ -160,13 +204,22 @@ def _project_recipes(db, rows, *, can_edit: bool) -> list[dict]:
         return [recipe for offset in range(0, len(rows), 400) for recipe in _project_recipes(db, rows[offset:offset + 400], can_edit=can_edit)]
     ids = [row["id"] for row in rows]
     placeholders = ",".join("?" for _ in ids)
-    groups, ingredients, steps, tags = {}, {}, {}, {}
+    groups, ingredients, steps, tags, step_ingredients = {}, {}, {}, {}, {}
     for row in db.execute(f"SELECT * FROM recipe_ingredients WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
-        ingredients.setdefault(row["group_id"], []).append({key: row[key] for key in ("id", "client_key", "name", "quantity_value", "quantity_unit", "quantity_text", "note")})
+        ingredient = {key: row[key] for key in ("id", "client_key", "name", "quantity_value", "quantity_unit", "quantity_text", "note")}
+        ingredient["quantity_unit"] = normalize_quantity_unit(ingredient["quantity_unit"])
+        ingredients.setdefault(row["group_id"], []).append(ingredient)
     for row in db.execute(f"SELECT * FROM recipe_ingredient_groups WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
         groups.setdefault(row["recipe_id"], []).append({"id": row["id"], "client_key": row["client_key"], "name": row["name"], "ingredients": ingredients.get(row["id"], [])})
+    for row in db.execute(
+        f"""SELECT link.step_id, ingredient.client_key, link.show_quantity
+            FROM recipe_step_ingredients link
+            JOIN recipe_ingredients ingredient ON ingredient.id = link.ingredient_id AND ingredient.recipe_id = link.recipe_id
+            WHERE link.recipe_id IN ({placeholders}) ORDER BY link.step_id, link.sort_order, link.ingredient_id""", ids,
+    ):
+        step_ingredients.setdefault(row["step_id"], []).append({"ingredient_client_key": row["client_key"], "show_quantity": bool(row["show_quantity"])})
     for row in db.execute(f"SELECT * FROM recipe_steps WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
-        steps.setdefault(row["recipe_id"], []).append({key: row[key] for key in ("id", "client_key", "text")})
+        steps.setdefault(row["recipe_id"], []).append({**{key: row[key] for key in ("id", "client_key", "text")}, "ingredients": step_ingredients.get(row["id"], [])})
     for row in db.execute(f"SELECT * FROM recipe_tags WHERE recipe_id IN ({placeholders}) ORDER BY sort_order", ids):
         tags.setdefault(row["recipe_id"], []).append(row["name"])
     images = {row["recipe_id"]: row["content_hash"] for row in db.execute(f"SELECT recipe_id, content_hash FROM recipe_images WHERE recipe_id IN ({placeholders})", ids)}
@@ -214,5 +267,12 @@ def write_recipe_children(db, recipe_id: int, content: RecipeCreate):
     for table, old, new in (("recipe_ingredients", old_ingredients, ingredient_ids), ("recipe_ingredient_groups", old_groups, group_ids), ("recipe_steps", old_steps, step_ids)):
         for key in old.keys() - new.keys():
             db.execute(f"DELETE FROM {table} WHERE id = ? AND recipe_id = ?", (old[key], recipe_id))
+    db.execute("DELETE FROM recipe_step_ingredients WHERE recipe_id = ?", (recipe_id,))
+    db.executemany(
+        """INSERT INTO recipe_step_ingredients (recipe_id, step_id, ingredient_id, show_quantity, sort_order)
+           VALUES (?, ?, ?, ?, ?)""",
+        [(recipe_id, step_ids[step.client_key], ingredient_ids[link.ingredient_client_key], int(link.show_quantity), position)
+         for step in content.steps for position, link in enumerate(step.ingredients)],
+    )
     db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (recipe_id,))
     db.executemany("INSERT INTO recipe_tags (recipe_id, name, name_key, sort_order) VALUES (?, ?, ?, ?)", [(recipe_id, name, " ".join(name.casefold().split()), position) for position, name in enumerate(content.tags)])

@@ -1,5 +1,5 @@
 import { createEntityMutationQueue, sameEntityId } from './entity-metadata.js';
-import { editableRecipe, pickRecipeFields, validateRecipeChanges } from './recipe-pending.js';
+import { editableRecipe, pickRecipeFields, validateRecipeChanges, mergeRecipeStepIngredients } from './recipe-pending.js';
 
 export function createRecipeController({ getCookbooks = () => [], setCookbooks = () => {}, commitMutation,
   enqueueCookbookMutation, getSessionIdentity = () => null, getCurrentUser = () => null, recipesApi,
@@ -77,13 +77,13 @@ export function createRecipeController({ getCookbooks = () => [], setCookbooks =
       const mutation = await commitMutation(() => {
         const current = find(identity);
         if (getSessionIdentity() !== session || !isCurrent() || !editableRecipe(current?.book) || current.recipe.conflict) return null;
-        if (!deleting && !validateRecipeChanges({ ...current.recipe, ...changes }, true)) return null;
+        if (!deleting && !validateRecipeChanges(mergeRecipeStepIngredients(current.recipe, changes), true)) return null;
         // A draft opened before its own create receipt has no server revision yet.
         // Rebase only that initial baseline to 1, never to a later foreign revision.
         const revision = expectedRevision === 0 && current.recipe.revision > 0
           && sameEntityId(current.recipe.created_by_user_id, getCurrentUser()?.id) ? 1 : expectedRevision ?? current.recipe.revision;
         if (!Number.isInteger(revision) || revision < 0) return null;
-        const recipe = deleting ? null : { ...current.recipe, ...changes, pending: true };
+        const recipe = deleting ? null : { ...mergeRecipeStepIngredients(current.recipe, changes), pending: true };
         return { cookbook: changedBook(current.book, recipe, current.recipe.id), recipe, deleteRecipeId: deleting ? current.recipe.id : null,
           action: deleting ? 'DELETE_RECIPE' : 'UPDATE_RECIPE', actor_id: getCurrentUser()?.id,
           data: { id: current.recipe.id, cookbook_id: current.book.id, expected_revision: revision, client_mutation_id: createTempId(), ...(!deleting ? { changes } : {}) },
@@ -104,8 +104,8 @@ export function createRecipeController({ getCookbooks = () => [], setCookbooks =
         if (getSessionIdentity() !== session || !isCurrent() || !editableRecipe(current?.book) || !current.recipe.conflict) return null;
         const conflict = current.recipe.conflict;
         const deleting = keepLocal && conflict.operation === 'delete';
-        const changes = keepLocal ? pickRecipeFields(current.recipe) : null;
-        const recipe = deleting ? null : { ...latest, ...(changes || {}), ...(keepLocal ? { pending: true } : {}) };
+        const changes = keepLocal ? pickRecipeFields(mergeRecipeStepIngredients(latest, current.recipe)) : null;
+        const recipe = deleting ? null : { ...mergeRecipeStepIngredients(latest, changes || {}), ...(keepLocal ? { pending: true } : {}) };
         if (recipe) delete recipe.conflict;
         return { cookbook: changedBook(current.book, recipe, current.recipe.id), recipe, deleteRecipeId: deleting ? current.recipe.id : null,
           clearRecipeQueueId: current.recipe.id, actor_id: getCurrentUser()?.id,

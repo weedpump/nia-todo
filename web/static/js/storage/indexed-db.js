@@ -1,3 +1,4 @@
+import { TRANSFER_RECIPE_TO_SHOPPING, isRecipeShoppingTransfer, sanitizeRecipeShoppingTransfer, transferReferencesCookbook } from '../features/recipe-shopping-pending.js';
 import { DB_NAME, DB_VERSION } from '../core/config.js';
 import { queueItemReferencesShoppingList } from '../features/shopping-pending.js';
 import { queueItemReferencesTodo } from '../features/todo-pending.js';
@@ -272,12 +273,12 @@ export function commitShoppingMutation({
 
 export function commitShoppingReplay({
   list, removeListIds = [], store, stores = [], removeStoreIds = [],
-  queueDeleteId, queueDeleteIds = [], queueRecords = [], database = db,
+  queueDeleteId, queueDeleteIds = [], queueRecords = [], requireQueueId, database = db,
 } = {}) {
   return commitEntityReplay({
     writes: { shoppingLists: list ? [list] : [], shoppingStores: [...(store ? [store] : []), ...stores] },
     remove: { shoppingLists: removeListIds, shoppingStores: removeStoreIds },
-    queueDeleteId, queueDeleteIds, queueRecords, database,
+    queueDeleteId, queueDeleteIds, queueRecords, requireQueueId, database,
   });
 }
 
@@ -296,6 +297,11 @@ export function commitCookbookMutation({ cookbook, deleteCookbookId, action, dat
   return commitMetadataMutation({ contract: cookbookMetadata, entity: cookbook, deleteId: deleteCookbookId,
     action, data, database, timestamp, localUpdatedAt, extraStores: ['entityImages'],
     onMutation: deleteCookbookId == null ? null : (tx, queue) => {
+      if (queue.some(entry => transferReferencesCookbook(entry, deleteCookbookId) && !entry.blocked)) {
+        const error = new Error('Recipe Shopping transfer must settle before its cookbook can be deleted');
+        error.code = 'recipe.transfer.pendingSource';
+        throw error;
+      }
       queue.filter(entry => String(recipeBookId(entry)) === String(deleteCookbookId)).forEach(entry => tx.objectStore('syncQueue').delete(entry.id));
       const request = tx.objectStore('entityImages').openCursor();
       request.onsuccess = () => { const cursor = request.result; if (!cursor) return;
@@ -324,7 +330,7 @@ export function evictPendingCookbookEntities(entityIds, { database = db, signal,
   if (!ids.length) return Promise.resolve();
   return evictEntityMetadata({ database, signal, remove: { cookbooks: ids },
     scan: { entityImages: row => ids.some(id => String(row.cookbook_id) === String(id)) },
-    references: entry => ids.some(id => cookbookMetadata.references(entry, id) || String(recipeBookId(entry)) === String(id)) });
+    references: entry => ids.some(id => cookbookMetadata.references(entry, id) || String(recipeBookId(entry)) === String(id) || transferReferencesCookbook(entry, id)) });
 }
 
 export function evictPendingProjectEntities(projectIds, {
@@ -637,14 +643,20 @@ export function commitRecipeMutation({ cookbook, recipe, deleteRecipeId, clearRe
           if (action === 'UPDATE_RECIPE' && related.some(entry => entry.action === 'DELETE_RECIPE')) throw new Error('Recipe is pending deletion');
           const create = related.find(entry => entry.action === 'CREATE_RECIPE');
           const last = related.at(-1);
+          // A queued copy refers to this exact source receipt, even before HTTP.
+          // Later source edits must get a new receipt rather than changing it.
+          const sealed = entry => queue.some(transfer => isRecipeShoppingTransfer(transfer)
+            && String(transfer.actor_id) === String(entry.actor_id)
+            && transfer.data.source_mutation_id != null
+            && transfer.data.source_mutation_id === entry.data.client_mutation_id);
           const record = { ...sanitizeRecipeEntry({ action, data }), actor_id, timestamp, localRecipe: recipe || result };
-          if (action === 'DELETE_RECIPE' && create && related.every(entry => !entry.attempted)) related.forEach(entry => store.delete(entry.id));
-          else if (action === 'UPDATE_RECIPE' && create && !create.attempted) store.put({ ...create, data: { ...create.data, ...record.data.changes } });
-          else if (action === 'UPDATE_RECIPE' && last?.action === 'UPDATE_RECIPE' && !last.attempted) store.put({ ...last,
+          if (action === 'DELETE_RECIPE' && create && related.every(entry => !entry.attempted && !sealed(entry))) related.forEach(entry => store.delete(entry.id));
+          else if (action === 'UPDATE_RECIPE' && create && !create.attempted && !sealed(create)) store.put({ ...create, data: { ...create.data, ...record.data.changes } });
+          else if (action === 'UPDATE_RECIPE' && last?.action === 'UPDATE_RECIPE' && !last.attempted && !sealed(last)) store.put({ ...last,
             data: { ...last.data, changes: { ...last.data.changes, ...record.data.changes } } });
           else if (action === 'CREATE_RECIPE' && create || action === 'DELETE_RECIPE' && last?.action === 'DELETE_RECIPE') { /* Already queued. */ }
           else {
-            if (action === 'DELETE_RECIPE') related.filter(entry => entry.action === 'UPDATE_RECIPE' && !entry.attempted).forEach(entry => store.delete(entry.id));
+            if (action === 'DELETE_RECIPE') related.filter(entry => entry.action === 'UPDATE_RECIPE' && !entry.attempted && !sealed(entry)).forEach(entry => store.delete(entry.id));
             store.put(record);
           }
         } catch (error) { failure = error; tx.abort(); }
@@ -657,4 +669,41 @@ export function commitRecipeMutation({ cookbook, recipe, deleteRecipeId, clearRe
 export const commitRecipeReplay = replay => commitCookbookReplay(replay);
 export function markRecipeMutationAttempt(queueId, { database = db } = {}) {
   return markMetadataMutationAttempt({ contract: { actions: recipeActions }, queueId, database });
+}
+
+/** One actor-scoped durable intent; no guessed Shopping merge or cached preview. */
+export function commitRecipeShoppingTransfer(mutation, { database = db } = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  if (!mutation || mutation.actor_id == null) return Promise.reject(new Error('Recipe transfer actor is required'));
+  return new Promise((resolve, reject) => {
+    let tx, result = null, failure;
+    try {
+      tx = database.transaction(['syncQueue'], 'readwrite');
+      const store = tx.objectStore('syncQueue'), request = store.getAll();
+      request.onsuccess = () => {
+        try {
+          const records = (request.result || []).filter(row => isRecipeShoppingTransfer(row) && String(row.actor_id) === String(mutation.actor_id));
+          if (mutation.cancelMutationId != null) {
+            const canceled = records.find(row => row.data.client_mutation_id === mutation.cancelMutationId);
+            if (canceled && (!canceled.attempted || canceled.blocked)) { store.delete(canceled.id); result = true; }
+            else result = false;
+            return;
+          }
+          const entry = sanitizeRecipeShoppingTransfer(mutation);
+          if (!entry) throw new Error('Invalid recipe Shopping transfer');
+          const duplicate = records.find(row => row.data.client_mutation_id === entry.data.client_mutation_id || String(row.data.recipe_id) === String(entry.data.recipe_id));
+          if (duplicate) { result = duplicate; return; }
+          result = { ...entry, timestamp: Date.now(), localUpdatedAt: new Date().toISOString() };
+          const added = store.add(result);
+          added.onsuccess = () => { result.id = added.result; };
+        } catch (error) { failure = error; tx.abort(); }
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = tx.onabort = () => reject(failure || tx.error || new Error('Recipe Shopping transfer commit failed'));
+    } catch (error) { tx?.abort?.(); reject(error); }
+  });
+}
+export function markRecipeShoppingTransferAttempt(queueId, { actorId, database = db } = {}) {
+  return markMetadataMutationAttempt({ contract: { actions: new Set([TRANSFER_RECIPE_TO_SHOPPING]) }, queueId, database,
+    validateRecord: row => actorId != null && String(row.actor_id) === String(actorId) && !row.blocked });
 }

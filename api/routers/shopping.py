@@ -1,16 +1,22 @@
 """Shopping-list endpoints and household-aware content access."""
 
 import sqlite3
+import math
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.braindump_routes import BrainDumpRouteFeedback, record_confirmed_route
 from services.appearance import normalize_color, normalize_icon
 from services.quantity_units import normalize_quantity_unit
+from services.shopping_items import (
+    insert_shopping_item, item_recipe_sources, item_recipe_sources_for_items,
+    require_list_access, validate_item_amount, plain_item_text,
+    list_item_targets, validate_item_target,
+)
 from services.entity_access import (
     get_entity_access_boundary_user_ids,
     get_entity_ownership,
@@ -101,7 +107,19 @@ class ShoppingStoreUpdate(ShoppingSortOrderUpdate):
     active: Optional[bool] = None
 
 
-class ShoppingItemCreate(BaseModel):
+class ShoppingItemTextFields(BaseModel):
+    quantity_text: Optional[str] = Field(default=None, max_length=500)
+    note: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("quantity_value", mode="before", check_fields=False)
+    @classmethod
+    def finite_amount(cls, value):
+        if isinstance(value, float) and not math.isfinite(value):
+            raise HTTPException(422, "Quantity must be finite")
+        return value
+
+
+class ShoppingItemCreate(ShoppingItemTextFields):
     braindump_route: BrainDumpRouteFeedback | None = None
     name: str = Field(..., max_length=500)
     section_id: Optional[int] = None
@@ -111,8 +129,14 @@ class ShoppingItemCreate(BaseModel):
     sort_order: int = 0
     client_mutation_id: Optional[str] = Field(default=None, max_length=200)
 
+    @model_validator(mode="after")
+    def amount_contract(self):
+        if self.quantity_value is not None and (self.quantity_text or "").strip():
+            raise ValueError("Numeric and free quantities are mutually exclusive")
+        return self
 
-class ShoppingItemUpdate(ShoppingSortOrderUpdate):
+
+class ShoppingItemUpdate(ShoppingSortOrderUpdate, ShoppingItemTextFields):
     name: Optional[str] = Field(default=None, max_length=500)
     section_id: Optional[int] = None
     quantity_value: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
@@ -176,27 +200,8 @@ def _normalize_store_ids(
     shopping_list_id: int,
     values: list[int] | None,
 ) -> list[int]:
-    store_ids = []
-    seen = set()
     _permissions_for_list(db, shopping_list_id, user_id, write=True)
-    accessible = {
-        int(row["id"])
-        for row in db.execute(
-            "SELECT id FROM shopping_stores WHERE shopping_list_id = ?",
-            (shopping_list_id,),
-        ).fetchall()
-    }
-    for value in values or []:
-        store_id = int(value)
-        if store_id in seen:
-            continue
-        if store_id not in accessible:
-            raise HTTPException(400, "Shopping store does not belong to the shopping list")
-        seen.add(store_id)
-        store_ids.append(store_id)
-        if len(store_ids) > 50:
-            raise HTTPException(422, "Too many shopping stores")
-    return store_ids
+    return validate_item_target(list_item_targets(db, shopping_list_id), None, [int(value) for value in values or []])
 
 
 def _store_row_for_user(db, store_id: int, user_id: int, *, manage: bool = False):
@@ -208,14 +213,7 @@ def _store_row_for_user(db, store_id: int, user_id: int, *, manage: bool = False
 
 
 def _permissions_for_list(db, shopping_list_id: int, user_id: int, *, write: bool = False, manage: bool = False):
-    row = db.execute("SELECT * FROM shopping_lists WHERE id = ?", (shopping_list_id,)).fetchone()
-    if not row:
-        raise HTTPException(404, "Shopping list not found")
-    permissions = resolve_entity_access(db, "shopping_list", shopping_list_id, user_id)
-    allowed = permissions.can_manage_metadata if manage else permissions.can_edit_content if write else permissions.can_view
-    if not allowed:
-        raise HTTPException(404, "Shopping list not found")
-    return row, permissions
+    return require_list_access(db, shopping_list_id, user_id, write=write, manage=manage)
 
 
 def _shopping_list_view(db, row, user_id: int) -> Optional[dict]:
@@ -249,8 +247,9 @@ def _section_view(row) -> dict:
     return dict(row)
 
 
-def _item_view(db, row, user_id: int) -> dict:
+def _item_view(db, row, user_id: int, sources=None) -> dict:
     result = dict(row)
+    result["quantity_unit"] = normalize_quantity_unit(result["quantity_unit"])
     assignments = db.execute(
         """SELECT store.*
            FROM shopping_item_stores assignment
@@ -262,6 +261,7 @@ def _item_view(db, row, user_id: int) -> dict:
     result["store_ids"] = [int(assignment["id"]) for assignment in assignments]
     result["stores"] = [_store_view(assignment) for assignment in assignments]
     result["completed"] = bool(result["completed"])
+    result["recipe_sources"], result["recipe_sources_count"] = sources if sources is not None else item_recipe_sources(db, row["id"], user_id)
     return result
 
 
@@ -315,7 +315,8 @@ def get_sync_shopping_lists(db, user_id: int) -> list[dict]:
             (shopping_list_id, user_id),
         ).fetchone()
         result["sections"] = [_section_view(section) for section in sections]
-        result["items"] = [_item_view(db, item, user_id) for item in items]
+        sources = item_recipe_sources_for_items(db, [item["id"] for item in items], user_id)
+        result["items"] = [_item_view(db, item, user_id, sources[item["id"]]) for item in items]
         result["preferences"] = _preference_view(shopping_list_id, user_id, preference)
         results.append(result)
     return results
@@ -708,24 +709,29 @@ async def revoke_shopping_list_member(shopping_list_id: int, member_user_id: int
 @router.get("/lists/{shopping_list_id}")
 def get_shopping_list(shopping_list_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        row, _ = _permissions_for_list(db, shopping_list_id, user_id)
-        sections = db.execute(
-            "SELECT * FROM shopping_sections WHERE shopping_list_id = ? ORDER BY sort_order, id",
-            (shopping_list_id,),
-        ).fetchall()
-        items = db.execute(
-            "SELECT * FROM shopping_items WHERE shopping_list_id = ? ORDER BY completed, sort_order, id",
-            (shopping_list_id,),
-        ).fetchall()
-        preference = db.execute(
-            "SELECT * FROM shopping_list_preferences WHERE shopping_list_id = ? AND user_id = ?",
-            (shopping_list_id, user_id),
-        ).fetchone()
-        result = _shopping_list_view(db, row, user_id)
-        result["sections"] = [_section_view(section) for section in sections]
-        result["items"] = [_item_view(db, item, user_id) for item in items]
-        result["preferences"] = _preference_view(shopping_list_id, user_id, preference)
-        return result
+        return shopping_list_projection(db, shopping_list_id, user_id)
+
+
+def shopping_list_projection(db, shopping_list_id: int, user_id: int):
+    row, _ = _permissions_for_list(db, shopping_list_id, user_id)
+    sections = db.execute(
+        "SELECT * FROM shopping_sections WHERE shopping_list_id = ? ORDER BY sort_order, id",
+        (shopping_list_id,),
+    ).fetchall()
+    items = db.execute(
+        "SELECT * FROM shopping_items WHERE shopping_list_id = ? ORDER BY completed, sort_order, id",
+        (shopping_list_id,),
+    ).fetchall()
+    preference = db.execute(
+        "SELECT * FROM shopping_list_preferences WHERE shopping_list_id = ? AND user_id = ?",
+        (shopping_list_id, user_id),
+    ).fetchone()
+    result = _shopping_list_view(db, row, user_id)
+    result["sections"] = [_section_view(section) for section in sections]
+    sources = item_recipe_sources_for_items(db, [item["id"] for item in items], user_id)
+    result["items"] = [_item_view(db, item, user_id, sources[item["id"]]) for item in items]
+    result["preferences"] = _preference_view(shopping_list_id, user_id, preference)
+    return result
 
 
 @router.post("/lists/{shopping_list_id}/sections")
@@ -835,30 +841,10 @@ async def create_shopping_item(shopping_list_id: int, data: ShoppingItemCreate, 
             if not section:
                 raise HTTPException(400, "Section does not belong to the shopping list")
         try:
-            cursor = db.execute(
-                """INSERT INTO shopping_items
-                   (shopping_list_id, section_id, name, quantity_value, quantity_unit,
-                    sort_order, client_mutation_id, created_by_user_id, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    shopping_list_id,
-                    data.section_id,
-                    name,
-                    data.quantity_value,
-                    normalize_quantity_unit(_clean_optional(data.quantity_unit, 40)),
-                    data.sort_order,
-                    data.client_mutation_id,
-                    user_id,
-                    now_iso(),
-                ),
-            )
-            item_id = int(cursor.lastrowid)
-            db.executemany(
-                """INSERT INTO shopping_item_stores
-                   (shopping_item_id, shopping_store_id, shopping_list_id, sort_order)
-                   VALUES (?, ?, ?, ?)""",
-                [(item_id, store_id, shopping_list_id, index) for index, store_id in enumerate(store_ids)],
-            )
+            item_id = insert_shopping_item(db, shopping_list_id, user_id, name=name,
+                section_id=data.section_id, quantity_value=data.quantity_value, quantity_unit=data.quantity_unit,
+                quantity_text=data.quantity_text, note=data.note, store_ids=store_ids,
+                sort_order=data.sort_order, client_mutation_id=data.client_mutation_id)
             record_confirmed_route(db, user_id, name, "shopping", shopping_list_id=shopping_list_id,
                                    shopping_section_id=data.section_id, shopping_store_ids=store_ids,
                                    feedback=data.braindump_route)
@@ -898,6 +884,14 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
             updates["quantity_value"] = data.quantity_value
         if "quantity_unit" in fields_set:
             updates["quantity_unit"] = normalize_quantity_unit(_clean_optional(data.quantity_unit, 40))
+        if "quantity_text" in fields_set:
+            updates["quantity_text"] = plain_item_text(data.quantity_text, 500) or None
+        if fields_set & {"quantity_value", "quantity_unit", "quantity_text"}:
+            updates["quantity_display_mode"] = "exact"
+        if "note" in fields_set:
+            updates["note"] = plain_item_text(data.note, 2000)
+        validate_item_amount(updates.get("quantity_value", existing["quantity_value"]),
+                             updates.get("quantity_text", existing["quantity_text"]))
         store_ids = None
         if "store_ids" in fields_set:
             store_ids = _normalize_store_ids(
@@ -916,7 +910,7 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
         if updates:
             updates["updated_at"] = now_iso()
             allowed = {
-                "name", "section_id", "quantity_value", "quantity_unit",
+                "name", "section_id", "quantity_value", "quantity_unit", "quantity_text", "quantity_display_mode", "note",
                 "sort_order", "completed", "completed_at", "completed_by_user_id", "updated_at",
             }
             safe = {key: value for key, value in updates.items() if key in allowed}

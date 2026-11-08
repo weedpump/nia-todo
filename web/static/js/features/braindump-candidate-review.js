@@ -1,3 +1,4 @@
+import { normalizeQuantityUnit } from '../core/quantity-units.js';
 // Candidate routing is independent of the recorder, modal and active navigation.
 const sameId = (left, right) => left != null && right != null && String(left) === String(right);
 
@@ -75,7 +76,7 @@ export function brainDumpCandidatePayload(candidate) {
       shopping_section_id: clean.shopping_section_id ?? null,
       shopping_store_ids: [...(clean.shopping_store_ids || [])],
       quantity_value: clean.quantity_value == null || clean.quantity_value === '' ? null : Number(clean.quantity_value),
-      quantity_unit: String(clean.quantity_unit || '').trim() || null,
+      quantity_unit: normalizeQuantityUnit(clean.quantity_unit),
       client_mutation_id: clean.client_mutation_id,
       braindump_route: clean.braindump_route,
     };

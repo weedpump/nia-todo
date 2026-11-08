@@ -6,6 +6,7 @@ import json
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
+from decimal import Decimal, ROUND_HALF_UP, localcontext
 
 UNIT_DATA_PATH = Path(__file__).resolve().parents[1] / "resources" / "quantity_units.json"
 
@@ -16,8 +17,13 @@ def unit_key(value: str, *, fold_case: bool = True) -> str:
 
 
 @lru_cache(maxsize=1)
+def _unit_data() -> dict:
+    return json.loads(UNIT_DATA_PATH.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
 def _unit_aliases() -> tuple[dict[str, str], dict[str, str]]:
-    data = json.loads(UNIT_DATA_PATH.read_text(encoding="utf-8"))
+    data = _unit_data()
     choices: dict[str, set[str]] = {}
     exact_choices: dict[str, set[str]] = {}
     for symbol, aliases in data["units"].items():
@@ -45,6 +51,50 @@ def normalize_quantity_unit(value: str | None) -> str | None:
         return exact[key]
     # SI prefixes are case-sensitive: unknown ML/Mg must not become ml/mg.
     # Known variants such as L/mL are recognized by the exact registry above.
-    if len(key) <= 3 and key.isalnum():
+    folded = words.get(unit_key(cleaned))
+    folded_kind = _unit_data().get("definitions", {}).get(folded, {}).get("kind")
+    if len(key) <= 3 and key.isalnum() and folded_kind not in ("count", "spoon", "other"):
         return cleaned
-    return words.get(unit_key(cleaned), cleaned)
+    return folded or cleaned
+
+
+def get_unit_definition(unit: str | None) -> dict | None:
+    """Return registered semantics, without inventing semantics for unknowns."""
+    return _unit_data().get("definitions", {}).get(normalize_quantity_unit(unit))
+
+
+def round_recipe_quantity(amount: Decimal, unit: str | None) -> tuple[Decimal, str | None]:
+    """Return kitchen display quantities; never use these values for storage.
+
+    Counts, spoons and unknown units remain exact. Metric quantities use their
+    registered base unit for fractional large units, preserving tiny amounts.
+    """
+    if not amount.is_finite() or amount < 0:
+        raise ValueError("Recipe quantities must be finite and nonnegative")
+    unit = normalize_quantity_unit(unit)
+    definition = get_unit_definition(unit)
+    if amount == 0 or definition is None or definition["kind"] not in ("mass", "volume"):
+        return amount, unit
+    with localcontext() as context:
+        # quantize needs every integer digit, including finite float maxima.
+        context.prec = max(34, len(amount.as_tuple().digits), amount.adjusted() + 1) + 10
+        factor = Decimal(definition["factor"])
+        if factor > 1 and amount != amount.to_integral_value():
+            amount, unit = amount * factor, definition["base_unit"]
+        rounding = _unit_data()["recipe_rounding"]
+        if amount < Decimal(str(rounding["metric_half_from"])):
+            return amount, unit
+        rounded = (amount.quantize(Decimal(1), rounding=ROUND_HALF_UP) if amount >= Decimal(str(rounding["metric_whole_from"])) else
+                   (amount * 2).quantize(Decimal(1), rounding=ROUND_HALF_UP) / 2)
+        return rounded, unit
+
+
+def convert_quantity(value: Decimal, source_unit: str | None, target_unit: str | None) -> Decimal | None:
+    source, target = normalize_quantity_unit(source_unit), normalize_quantity_unit(target_unit)
+    if source == target:
+        return value
+    left, right = get_unit_definition(source), get_unit_definition(target)
+    if (left is None or right is None or left["kind"] not in ("mass", "volume")
+            or left["kind"] != right["kind"] or left["base_unit"] != right["base_unit"]):
+        return None
+    return value * Decimal(left["factor"]) / Decimal(right["factor"])

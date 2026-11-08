@@ -1,13 +1,14 @@
 /* Shared multi-item capture geometry; Tasks-only shell rules stay scoped. */
 
 .ui-multi-add-mode .ui-multi-add-single,
+.ui-segmented-control[hidden],
 .ui-multi-add-mode-switch[hidden],
 .ui-multi-add-panel[hidden] {
   display: none !important;
 }
 
+.ui-segmented-control,
 .ui-multi-add-mode-switch {
-  margin-bottom: 24px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -18,6 +19,9 @@
   background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
 }
 
+.ui-multi-add-mode-switch { margin-bottom: 24px; }
+
+.ui-segmented-option,
 .ui-multi-add-mode-btn {
   min-height: 36px;
   padding: 7px 15px;
@@ -32,6 +36,7 @@
   transition: color .16s ease, background .16s ease, box-shadow .16s ease;
 }
 
+.ui-segmented-option[aria-pressed="true"],
 .ui-multi-add-mode-btn.active {
   color: var(--text-primary);
   background: var(--bg-secondary);

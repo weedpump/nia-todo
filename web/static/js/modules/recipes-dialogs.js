@@ -4,6 +4,7 @@ import { renderEntityEditorModal } from '../features/entity-editor-modal.js';
 import { renderEntityOwnershipField } from '../features/entity-ownership-field.js';
 import { renderEntityDirectSharingSection } from '../features/entity-direct-sharing.js';
 import { renderRecipeEditorModal } from '../features/recipe-editor.js';
+import { renderRecipeShoppingTransferModal } from '../features/recipe-shopping-transfer.js';
 
 export const RECIPES_DIALOGS_HTML = renderEntityEditorModal({
   prefix: 'cookbook', icon: 'book-open',
@@ -18,4 +19,4 @@ export const RECIPES_DIALOGS_HTML = renderEntityEditorModal({
     </section>
     <div id="cookbook-error" class="settings-field-error" role="alert"></div>`,
   sharingHtml: renderEntityDirectSharingSection({ prefix: 'cookbook', leaveKey: 'entity.share.leave' }),
-}) + renderRecipeEditorModal();
+}) + renderRecipeEditorModal() + renderRecipeShoppingTransferModal();

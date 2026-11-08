@@ -36,12 +36,12 @@ export const shoppingModule = Object.freeze({
       ${renderTopbarToggle({
         id: 'shopping-completed-visibility-btn',
         icon: 'check-circle',
-        label: t('menu.showDone'),
-        title: t('menu.showDone'),
+        label: t('shopping.preferences.showPurchased'),
+        title: t('shopping.preferences.showPurchased'),
         attributes: {
           'data-completed-visibility-toggle': 'shopping',
-          'data-completed-show-key': 'menu.showDone',
-          'data-completed-hide-key': 'menu.hideDone',
+          'data-completed-show-key': 'shopping.preferences.showPurchased',
+          'data-completed-hide-key': 'shopping.preferences.hidePurchased',
         },
       })}
     `;

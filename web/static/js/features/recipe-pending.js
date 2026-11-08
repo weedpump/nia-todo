@@ -1,3 +1,5 @@
+import { normalizeQuantityUnit } from '../core/quantity-units.js';
+import { isRecipeShoppingTransfer, rewriteRecipeShoppingTransfer, transferReferencesCookbook } from './recipe-shopping-pending.js';
 import { sameEntityId } from './entity-metadata.js';
 
 export const recipeActions = new Set(['CREATE_RECIPE', 'UPDATE_RECIPE', 'DELETE_RECIPE']);
@@ -17,6 +19,7 @@ export function sanitizeRecipeEntry(entry) {
 }
 export function rewriteRecipeQueue(queue, { from, to, cookbook = false }) {
   return queue.map(entry => {
+    if (isRecipeShoppingTransfer(entry)) return rewriteRecipeShoppingTransfer(entry, cookbook ? { cookbookIdFrom: from, cookbookIdTo: to } : { recipeIdFrom: from, recipeIdTo: to });
     if (!recipeActions.has(entry.action)) return entry;
     const key = cookbook ? 'cookbook_id' : entry.action === 'CREATE_RECIPE' ? 'temp_id' : 'id';
     return sameEntityId(entry.data?.[key], from) ? { ...entry, data: { ...entry.data, [key]: to } } : entry;
@@ -25,6 +28,19 @@ export function rewriteRecipeQueue(queue, { from, to, cookbook = false }) {
 export function rebaseRecipeQueue(queue, id, revision) {
   return queue.map(entry => recipeReferences(entry, id) && entry.action !== 'CREATE_RECIPE' && !entry.attempted
     ? { ...entry, data: { ...entry.data, expected_revision: revision } } : entry);
+}
+/** Match PATCH semantics without changing durable request bodies: omitted
+ * links inherit from the same step key, while an explicit [] clears them. */
+export function mergeRecipeStepIngredients(current, changes) {
+  const merged = { ...current, ...changes };
+  if (!Array.isArray(merged.steps)) return merged;
+  const available = new Set((merged.ingredient_groups || []).flatMap(group => (group.ingredients || []).map(item => item.client_key)));
+  merged.steps = merged.steps.map(step => {
+    if (Object.hasOwn(changes || {}, 'steps') && Object.hasOwn(step, 'ingredients')) return { ...step, ingredients: structuredClone(step.ingredients) };
+    const previous = current?.steps?.find(row => row.client_key === step.client_key);
+    return { ...step, ingredients: (previous?.ingredients || []).filter(link => available.has(link.ingredient_client_key)).map(link => ({ ...link })) };
+  });
+  return merged;
 }
 export function projectRecipeCookbook(book, queue) {
   if (!book) return null;
@@ -38,11 +54,11 @@ export function projectRecipeCookbook(book, queue) {
       if (!current) recipes.set(String(id), { id, cookbook_id: book.id, ...pickRecipeFields(entry.data), revision: 0,
         created_by_user_id: entry.actor_id, client_mutation_id: entry.data.client_mutation_id, can_edit: true, pending: true });
     } else if (entry.conflict) {
-      const local = entry.conflict.local || current || entry.conflict.server;
+      const local = mergeRecipeStepIngredients(entry.conflict.server || current, entry.conflict.local || current || entry.conflict.server);
       recipes.set(String(id), { ...local, id, cookbook_id: book.id, can_edit: true, pending: true,
         conflict: { ...entry.conflict, local: { ...local } } });
     } else if (entry.action === 'DELETE_RECIPE') recipes.delete(String(id));
-    else if (current) recipes.set(String(id), { ...current, ...pickRecipeFields(entry.data.changes), pending: true });
+    else if (current) recipes.set(String(id), { ...mergeRecipeStepIngredients(current, pickRecipeFields(entry.data.changes)), pending: true });
   }
   return { ...book, recipes: [...recipes.values()], recipe_count: recipes.size };
 }
@@ -94,8 +110,16 @@ export function reconcileRecipeSnapshot(server, local, queue, { actorId = null, 
     }
     return true;
   });
+  next = next.filter(entry => {
+    if (!isRecipeShoppingTransfer(entry)) return true;
+    if (actorId == null || !sameEntityId(entry.actor_id, actorId)) return true;
+    const book = authoritative.find(book => transferReferencesCookbook(entry, book.id)) || server.find(book => transferReferencesCookbook(entry, book.id));
+    const pendingSource = next.some(row => row.action === 'CREATE_RECIPE' && sameEntityId(row.data?.temp_id, entry.data.recipe_id));
+    if (book && (pendingSource || entry.attempted || book.recipes?.some(recipe => sameEntityId(recipe.id, entry.data.recipe_id)))) return true;
+    queueDeleteIds.push(entry.id); return false;
+  });
   const entities = server.map(book => projectRecipeCookbook(book, next));
-  return { entities, queueRecords: next.filter(entry => recipeActions.has(entry.action)), queueDeleteIds, remaps, queue: next };
+  return { entities, queueRecords: next.filter(entry => recipeActions.has(entry.action) || isRecipeShoppingTransfer(entry)), queueDeleteIds, remaps, queue: next };
 }
 export function validateRecipeChanges(input, creating = false) {
   const data = pickRecipeFields(input);
@@ -119,12 +143,33 @@ export function validateRecipeChanges(input, creating = false) {
         if (ingredientKeys.has(item.client_key)) return null;
         ingredientKeys.add(item.client_key);
         if (item.quantity_unit != null && (typeof item.quantity_unit !== 'string' || item.quantity_unit.length > 40)) return null;
+        if (Object.hasOwn(item, 'quantity_unit')) item.quantity_unit = normalizeQuantityUnit(item.quantity_unit);
         if (typeof item.name !== 'string' || !item.name.trim() || item.name.length > 500) return null;
         if (item.quantity_value != null && !(Number.isFinite(item.quantity_value) && item.quantity_value > 0) || item.quantity_value != null && String(item.quantity_text || '').trim()) return null;
         if (String(item.quantity_text || '').length > 500 || String(item.note || '').length > 2000) return null;
       }
     }
     if (count > 500) return null;
+  }
+  if (Object.hasOwn(data, 'steps')) {
+    const available = Object.hasOwn(data, 'ingredient_groups')
+      ? new Set(data.ingredient_groups.flatMap(group => group.ingredients.map(item => item.client_key))) : null;
+    for (const step of data.steps) {
+      if (!Object.hasOwn(step, 'ingredients')) {
+        if (!creating) continue;
+        step.ingredients = [];
+      }
+      if (!Array.isArray(step.ingredients) || step.ingredients.length > 500) return null;
+      const seen = new Set();
+      for (const link of step.ingredients) {
+        if (!link || Object.keys(link).some(key => !['ingredient_client_key', 'show_quantity'].includes(key)) || typeof link.ingredient_client_key !== 'string' || !link.ingredient_client_key.trim()
+          || link.ingredient_client_key.length > 200 || seen.has(link.ingredient_client_key)
+          || available && !available.has(link.ingredient_client_key)
+          || Object.hasOwn(link, 'show_quantity') && typeof link.show_quantity !== 'boolean') return null;
+        seen.add(link.ingredient_client_key);
+        if (!Object.hasOwn(link, 'show_quantity')) link.show_quantity = true;
+      }
+    }
   }
   if (Object.hasOwn(data, 'image_data') && data.image_data != null && (typeof data.image_data !== 'string' || data.image_data.length > 430000 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(data.image_data))) return null;
   if (new TextEncoder().encode(JSON.stringify(data)).length > 512 * 1024) return null;

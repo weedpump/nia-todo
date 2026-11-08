@@ -10,8 +10,8 @@ function createButton(moduleId) {
   return {
     dataset: {
       completedVisibilityToggle: moduleId,
-      completedShowKey: 'menu.showDone',
-      completedHideKey: 'menu.hideDone',
+      completedShowKey: moduleId === 'shopping' ? 'shopping.preferences.showPurchased' : 'menu.showDone',
+      completedHideKey: moduleId === 'shopping' ? 'shopping.preferences.hidePurchased' : 'menu.hideDone',
     },
     title: '',
     classes,
@@ -48,7 +48,7 @@ const feature = createCompletedVisibilityFeature({
   setHidden: value => { hidden = value; },
   storage,
   root,
-  translate: key => ({ 'menu.showDone': 'Show done', 'menu.hideDone': 'Hide done' })[key] || key,
+  translate: key => ({ 'menu.showDone': 'Show done', 'menu.hideDone': 'Hide done', 'shopping.preferences.showPurchased': 'Show purchased', 'shopping.preferences.hidePurchased': 'Hide purchased' })[key] || key,
   renderTasks: () => { taskRenders += 1; },
   renderShopping: () => { shoppingRenders += 1; },
 });
@@ -57,8 +57,10 @@ feature.bind();
 feature.updateButtons();
 for (const button of buttons) {
   assert.equal(button.attributes.get('aria-pressed'), 'false', 'hidden completed entries leave every module toggle unpressed');
-  assert.equal(button.label.textContent, 'Show done');
-  assert.equal(button.title, 'Show done');
+  const label = button === shoppingButton ? 'Show purchased' : 'Show done';
+  assert.equal(button.label.textContent, label);
+  assert.equal(button.title, label);
+  assert.equal(button.attributes.get('aria-label'), label);
 }
 
 const tasksTarget = {
@@ -71,8 +73,10 @@ assert.equal(taskRenders, 1);
 assert.equal(shoppingRenders, 1, 'changing the state from Tasks also rerenders Shopping');
 for (const button of buttons) {
   assert.equal(button.attributes.get('aria-pressed'), 'true');
-  assert.equal(button.label.textContent, 'Hide done');
-  assert.equal(button.title, 'Hide done');
+  const label = button === shoppingButton ? 'Hide purchased' : 'Hide done';
+  assert.equal(button.label.textContent, label);
+  assert.equal(button.title, label);
+  assert.equal(button.attributes.get('aria-label'), label);
 }
 
 const shoppingTarget = {
@@ -85,6 +89,21 @@ assert.equal(taskRenders, 2);
 assert.equal(shoppingRenders, 2);
 assert.equal(tasksButton.attributes.get('aria-pressed'), 'false');
 assert.equal(shoppingButton.attributes.get('aria-pressed'), 'false');
+
+const shoppingSource = readFileSync(new URL('../web/static/js/modules/shopping.js', import.meta.url), 'utf8');
+const tasksSource = readFileSync(new URL('../web/static/js/modules/tasks.js', import.meta.url), 'utf8');
+assert.match(shoppingSource, /'data-completed-show-key': 'shopping\.preferences\.showPurchased'/);
+assert.match(shoppingSource, /'data-completed-hide-key': 'shopping\.preferences\.hidePurchased'/);
+assert.doesNotMatch(shoppingSource, /menu\.(showDone|hideDone)/);
+assert.match(tasksSource, /'data-completed-show-key': 'menu\.showDone'/);
+assert.match(tasksSource, /'data-completed-hide-key': 'menu\.hideDone'/);
+for (const locale of ['cs','de','en','es','fr','it','nl','pl','pt-BR','ru','sv','zh-CN']) {
+  const messages = JSON.parse(readFileSync(new URL(`../web/static/i18n/${locale}.json`, import.meta.url), 'utf8'));
+  for (const key of ['shopping.preferences.showPurchased','shopping.preferences.hidePurchased']) {
+    assert.equal(typeof messages[key], 'string', `${locale}: ${key}`);
+    assert.ok(messages[key].trim(), `${locale}: ${key} must be translated`);
+  }
+}
 
 const serviceWorkerSource = readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
 assert.match(serviceWorkerSource, /'\/static\/js\/features\/completed-visibility\.js'/, 'the shared controller must be available during offline startup');

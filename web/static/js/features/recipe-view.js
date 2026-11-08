@@ -1,16 +1,17 @@
 import { t, getActiveLocale } from '../i18n/index.js';
-import { escapeHtml, escapeHtmlAttr } from '../core/utils.js';
+import { escapeHtml, escapeHtmlAttr, parseServerUtcTimestamp } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { closeOpenDropdown, hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { sameEntityId } from './entity-metadata.js';
+import { formatRecipeIngredient } from '../core/recipe-quantities.js';
+import { renderServingsControl, refreshServingsControl, stepServings } from '../ui/servings-control.js';
+import { renderRecipeStepIngredients, refreshRecipeStepIngredientAmounts } from './recipe-step-ingredients.js';
 
 export const canEditRecipe = (recipe, cookbook) => Boolean(cookbook && (cookbook.can_edit === true || cookbook.can_edit === 1)
   && (!recipe || recipe.can_edit === true || recipe.can_edit === 1));
 const button = (action, label, icon, attributes = '') => `<button type="button" class="btn btn-secondary${icon ? ' btn-icon' : ''}" data-recipe-action="${action}" aria-label="${escapeHtmlAttr(label)}" title="${escapeHtmlAttr(label)}" ${attributes}>${icon ? iconSvg(icon) : escapeHtml(label)}</button>`;
 export function ingredientAmount(ingredient, servings, baseServings, locale = getActiveLocale()) {
-  if (ingredient.quantity_text) return ingredient.quantity_text;
-  if (ingredient.quantity_value == null) return '';
-  const amount = Number(ingredient.quantity_value) * Number(servings) / Number(baseServings);
-  return `${Number.isFinite(amount) ? new Intl.NumberFormat(locale, { maximumSignificantDigits: 8 }).format(amount) : '—'}${ingredient.quantity_unit ? ` ${ingredient.quantity_unit}` : ''}`;
+  return formatRecipeIngredient(ingredient, servings, baseServings, locale);
 }
 export function renderRecipeConflict(recipe, { editable = true } = {}) {
   if (!recipe?.conflict) return '';
@@ -28,53 +29,96 @@ export async function resolveRecipeConflict({ recipe, keepLocal, controller, con
   return controller.resolveConflict(recipe.id, { keepLocal, isCurrent });
 }
 function image(recipe, className) {
-  return `<div class="${className}"><img data-recipe-image="${escapeHtmlAttr(recipe.id)}" alt="${escapeHtmlAttr(recipe.title)}" hidden><span class="recipe-image-placeholder" aria-hidden="true">${iconSvg('image')}</span></div>`;
+  const card = className === 'recipe-thumbnail', tag = card ? 'span' : 'div';
+  return `<${tag} class="${className}"><img data-recipe-image="${escapeHtmlAttr(recipe.id)}" alt="${card ? '' : escapeHtmlAttr(recipe.title)}" hidden><span class="recipe-image-placeholder" aria-hidden="true">${iconSvg('image')}</span></${tag}>`;
 }
-function metadata(recipe) {
+function metadata(recipe, { card = false } = {}) {
   const values = [];
-  if (recipe.prep_minutes != null) values.push(`<span>${iconSvg('clock')}${escapeHtml(t('recipe.prepTime', { minutes: recipe.prep_minutes }))}</span>`);
-  if (recipe.cook_minutes != null) values.push(`<span>${iconSvg('flame')}${escapeHtml(t('recipe.cookTime', { minutes: recipe.cook_minutes }))}</span>`);
-  return `<div class="recipe-metadata">${values.join('')}${(recipe.tags || []).map(tag => `<span class="recipe-tag">${escapeHtml(tag)}</span>`).join('')}</div>`;
+  if (card && recipe.prep_minutes != null && recipe.cook_minutes != null) {
+    values.push(`<span>${iconSvg('clock')}${escapeHtml(t('recipe.totalTime', { minutes: recipe.prep_minutes + recipe.cook_minutes }))}</span>`);
+  } else {
+    if (recipe.prep_minutes != null) values.push(`<span>${iconSvg('clock')}${escapeHtml(t('recipe.prepTime', { minutes: recipe.prep_minutes }))}</span>`);
+    if (recipe.cook_minutes != null) values.push(`<span>${iconSvg('flame')}${escapeHtml(t('recipe.cookTime', { minutes: recipe.cook_minutes }))}</span>`);
+  }
+  const tags = recipe.tags || [], shown = card ? tags.slice(0, 2) : tags;
+  const remaining = card && tags.length > 2 ? `<span class="recipe-tag-more" title="${escapeHtmlAttr(tags.slice(2).join(', '))}"><span aria-hidden="true">+${tags.length - 2}</span><span class="visually-hidden">${escapeHtml(tags.slice(2).join(', '))}</span></span>` : '';
+  const wrapper = card ? 'span' : 'div';
+  return `<${wrapper} class="recipe-metadata">${values.join('')}${shown.map(tag => `<span class="recipe-tag">${escapeHtml(tag)}</span>`).join('')}${remaining}</${wrapper}>`;
 }
-function renderStep(text) {
+function renderStep(text, { ingredientsHtml = '', headingTag = 'h3', headingId = '' } = {}) {
   const [heading, ...lines] = text.split(/\r?\n/);
   const body = lines.join('\n');
-  return `<div class="recipe-step-copy"><h3>${escapeHtml(heading)}</h3>${body ? `<p>${escapeHtml(body)}</p>` : ''}</div>`;
+  return `<div class="recipe-step-copy"><${headingTag}${headingId ? ` id="${headingId}"` : ''}>${escapeHtml(heading)}</${headingTag}>${ingredientsHtml}${body ? `<p>${escapeHtml(body)}</p>` : ''}</div>`;
 }
-export function renderRecipeOverview(cookbook, query = '') {
-  const term = query.trim().toLocaleLowerCase();
-  const recipes = (cookbook.recipes || []).filter(recipe => !term || `${recipe.title} ${(recipe.tags || []).join(' ')} ${(recipe.ingredient_groups || []).flatMap(group => group.ingredients || []).map(item => item.name).join(' ')}`.toLocaleLowerCase().includes(term));
+const sortModes = ['name', 'newest', 'time'];
+const tagsForBook = book => [...new Set((book?.recipes || []).flatMap(recipe => recipe.tags || []))];
+const completeTime = recipe => recipe.prep_minutes != null && recipe.cook_minutes != null ? recipe.prep_minutes + recipe.cook_minutes : Infinity;
+export function renderRecipeOverview(cookbook, query = '', { tags = [], sort = 'name' } = {}) {
+  const term = query.trim().toLocaleLowerCase(getActiveLocale());
+  const collator = new Intl.Collator(getActiveLocale(), { numeric: true, sensitivity: 'base' });
+  const availableTags = tagsForBook(cookbook).sort(collator.compare);
+  const selected = tags.filter(tag => availableTags.includes(tag));
+  const mode = sortModes.includes(sort) ? sort : 'name';
+  const byName = (a, b) => collator.compare(a.title, b.title) || String(a.id).localeCompare(String(b.id));
+  const recipes = (cookbook.recipes || []).filter(recipe => selected.every(tag => (recipe.tags || []).includes(tag))
+    && (!term || `${recipe.title} ${(recipe.tags || []).join(' ')} ${(recipe.ingredient_groups || []).flatMap(group => group.ingredients || []).map(item => item.name).join(' ')}`.toLocaleLowerCase(getActiveLocale()).includes(term)))
+    .sort((a, b) => {
+      if (mode === 'newest') { const difference = (parseServerUtcTimestamp(b.created_at)?.getTime() || 0) - (parseServerUtcTimestamp(a.created_at)?.getTime() || 0); if (difference) return difference; }
+      if (mode === 'time') { const left = completeTime(a), right = completeTime(b); if (left !== right) return left < right ? -1 : 1; }
+      return byName(a, b);
+    });
   return `<section class="recipe-overview"><div class="recipe-page-heading"><div><p class="module-page-eyebrow">${escapeHtml(t('recipe.cookbook'))}</p><h1>${escapeHtml(cookbook.name)}</h1>
     ${cookbook.description ? `<p class="recipe-description">${escapeHtml(cookbook.description)}</p>` : ''}</div>
 </div>
-    <div class="recipe-list">${recipes.map(recipe => `<button type="button" class="recipe-list-row" data-recipe-action="open" data-recipe-id="${escapeHtmlAttr(recipe.id)}">
-      ${image(recipe, 'recipe-thumbnail')}<span class="recipe-list-copy"><strong>${escapeHtml(recipe.title)}</strong>${metadata(recipe)}${recipe.conflict ? `<span class="recipe-conflict-label">${escapeHtml(t('recipe.conflict.title'))}</span>` : ''}</span>${iconSvg('chevron-right')}</button>`).join('')}</div>
-    ${!recipes.length ? `<p class="recipe-empty">${escapeHtml(t(term ? 'recipe.search.empty' : 'cookbook.recipes.empty'))}</p>` : ''}</section>`;
+    <div class="recipe-overview-tools"><p class="recipe-result-count" role="status">${escapeHtml(t('recipe.count', { count: recipes.length }))}</p>
+      <div class="recipe-sort-field"><label for="recipe-overview-sort" id="recipe-sort-label">${escapeHtml(t('recipe.sort'))}</label><select id="recipe-overview-sort" class="ui-field" data-recipe-sort>${sortModes.map(value => `<option value="${value}"${value === mode ? ' selected' : ''}>${escapeHtml(t(`recipe.sort.${value}`))}</option>`).join('')}</select></div></div>
+    ${availableTags.length ? `<div class="recipe-tag-filters" role="group" aria-label="${escapeHtmlAttr(t('recipe.filter.tags'))}">${availableTags.map(tag => `<button type="button" class="btn btn-secondary recipe-filter-tag" data-recipe-action="filter-tag" data-recipe-tag="${escapeHtmlAttr(tag)}" aria-pressed="${selected.includes(tag)}">${escapeHtml(tag)}</button>`).join('')}${selected.length ? button('clear-filters', t('recipe.filter.clear')) : ''}</div>` : ''}
+    <div class="recipe-list">${recipes.map(recipe => `<button type="button" class="recipe-card recipe-list-row" data-recipe-action="open" data-recipe-id="${escapeHtmlAttr(recipe.id)}">
+      ${image(recipe, 'recipe-thumbnail')}<span class="recipe-list-copy"><strong>${escapeHtml(recipe.title)}</strong>${recipe.description?.trim() ? `<span class="recipe-card-description">${escapeHtml(recipe.description)}</span>` : ''}${metadata(recipe, { card: true })}${recipe.conflict ? `<span class="recipe-conflict-label">${escapeHtml(t('recipe.conflict.title'))}</span>` : ''}</span></button>`).join('')}</div>
+    ${!recipes.length ? `<p class="recipe-empty">${escapeHtml(t(selected.length ? 'recipe.filter.empty' : term ? 'recipe.search.empty' : 'cookbook.recipes.empty'))}</p>` : ''}</section>`;
 }
-export function renderRecipeReading(cookbook, recipe, { servings = recipe.base_servings, checked = new Set() } = {}) {
-  return `<article class="recipe-reading"><div class="recipe-breadcrumb"><button type="button" class="recipe-back" data-recipe-action="overview">${iconSvg('arrow-left')}${escapeHtml(cookbook.name)}</button>
-      ${canEditRecipe(recipe, cookbook) ? button('edit', t('recipe.edit'), 'pencil') : ''}</div>
+function renderRecipeViewHeader(cookbook, recipe, { cooking = false, canTransfer = false } = {}) {
+  const modeSwitch = recipe.steps?.length ? `<div class="ui-segmented-control recipe-view-mode" role="group" aria-label="${escapeHtmlAttr(t('recipe.view.mode'))}">
+    <button type="button" class="ui-segmented-option" data-recipe-action="exit-cooking" aria-pressed="${!cooking}">${escapeHtml(t('recipe.cooking.exit'))}</button>
+    <button type="button" class="ui-segmented-option" data-recipe-action="cook" aria-pressed="${cooking}">${escapeHtml(t('recipe.cooking.start'))}</button></div>` : '';
+  return `<div class="recipe-breadcrumb"><button type="button" class="recipe-back" data-recipe-action="overview">${iconSvg('arrow-left')}${escapeHtml(cookbook.name)}</button>
+    <div class="recipe-reading-actions">${modeSwitch}${canTransfer ? `<button type="button" class="btn btn-secondary" data-recipe-action="transfer">${iconSvg('shopping-cart')}${escapeHtml(t('recipe.transfer.action'))}</button>` : ''}${canEditRecipe(recipe, cookbook) ? button('edit', t('recipe.edit'), 'pencil') : ''}</div></div>`;
+}
+export function renderRecipeReading(cookbook, recipe, { servings = recipe.base_servings, checked = new Set(), canTransfer = false } = {}) {
+  return `<article class="recipe-reading">${renderRecipeViewHeader(cookbook, recipe, { canTransfer })}
     ${renderRecipeConflict(recipe, { editable: canEditRecipe(recipe, cookbook) })}<div class="recipe-heading"><div><h1>${escapeHtml(recipe.title)}</h1>${recipe.description ? `<p class="recipe-description">${escapeHtml(recipe.description)}</p>` : ''}${metadata(recipe)}</div>${image(recipe, 'recipe-title-image')}</div>
     <div class="recipe-columns"><section aria-labelledby="recipe-ingredients-title"><div class="recipe-section-heading"><h2 id="recipe-ingredients-title">${escapeHtml(t('recipe.ingredients'))}</h2>
-      <div class="recipe-servings-field"><label id="recipe-servings-label" for="recipe-view-servings">${escapeHtml(t('recipe.servings'))}</label>
-        <div class="recipe-servings" role="group" aria-labelledby="recipe-servings-label">${button('less', t('recipe.servings.less'), 'minus', Number(servings) <= 1 ? 'disabled' : '')}
-          <input class="ui-field" id="recipe-view-servings" type="number" min="0" max="100000" step="any" value="${escapeHtmlAttr(servings)}" aria-labelledby="recipe-servings-label">
-          ${button('more', t('recipe.servings.more'), 'plus', Number(servings) >= 100000 ? 'disabled' : '')}</div></div></div>
+      ${renderServingsControl({ id: 'recipe-view-servings', labelId: 'recipe-servings-label', value: servings, recipeActions: true })}</div>
       <div class="recipe-ingredient-groups">${(recipe.ingredient_groups || []).map(group => `<section class="recipe-ingredient-group">${group.name ? `<h3>${escapeHtml(group.name)}</h3>` : ''}
         ${(group.ingredients || []).map(item => `<label class="recipe-ingredient"><span class="ui-checkbox-label ui-checkbox-round"><input type="checkbox" data-recipe-ingredient="${escapeHtmlAttr(item.client_key)}" ${checked.has(item.client_key) ? 'checked' : ''}><span class="ui-checkbox-box" aria-hidden="true">${iconSvg('check')}</span></span>
           <span class="recipe-ingredient-copy"><span class="recipe-ingredient-main"><b data-recipe-amount="${escapeHtmlAttr(item.client_key)}">${escapeHtml(ingredientAmount(item, servings, recipe.base_servings))}</b> ${escapeHtml(item.name)}</span>${item.note ? `<small>${escapeHtml(item.note)}</small>` : ''}</span></label>`).join('')}</section>`).join('')}</div></section>
-      <section aria-labelledby="recipe-steps-title"><h2 id="recipe-steps-title">${escapeHtml(t('recipe.steps'))}</h2><ol class="recipe-steps">${(recipe.steps || []).map((step, index) => `<li><span class="recipe-step-number" aria-hidden="true">${index + 1}</span>${renderStep(step.text)}</li>`).join('')}</ol></section></div>
+      <section aria-labelledby="recipe-steps-title"><h2 id="recipe-steps-title">${escapeHtml(t('recipe.steps'))}</h2><ol class="recipe-steps">${(recipe.steps || []).map((step, index) => `<li data-recipe-step-key="${escapeHtmlAttr(step.client_key)}"><span class="recipe-step-number" aria-hidden="true">${index + 1}</span>${renderStep(step.text, { ingredientsHtml: renderRecipeStepIngredients(recipe, step, { servings }) })}</li>`).join('')}</ol></section></div>
+    <p id="recipe-view-error" class="form-error" role="alert"></p></article>`;
+}
+
+export function renderRecipeCooking(cookbook, recipe, { servings = recipe.base_servings, stepIndex = 0, canTransfer = false } = {}) {
+  const steps = recipe.steps || [], index = Math.max(0, Math.min(stepIndex, steps.length - 1)), step = steps[index];
+  if (!step) return renderRecipeReading(cookbook, recipe, { servings, canTransfer });
+  return `<article class="recipe-cooking">${renderRecipeViewHeader(cookbook, recipe, { cooking: true, canTransfer })}
+    <div class="recipe-cooking-heading"><div><p class="module-page-eyebrow">${escapeHtml(cookbook.name)}</p><h1>${escapeHtml(recipe.title)}</h1></div>${renderServingsControl({ id: 'recipe-view-servings', labelId: 'recipe-servings-label', value: servings, recipeActions: true })}</div>
+    <p class="recipe-cooking-progress" role="status" aria-live="polite">${escapeHtml(t('recipe.cooking.progress', { current: index + 1, total: steps.length }))}</p>
+    <section class="recipe-cooking-step" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}" aria-labelledby="recipe-cooking-step-title" tabindex="-1"><span class="recipe-step-number" aria-hidden="true">${index + 1}</span>${renderStep(step.text, { headingTag: 'h2', headingId: 'recipe-cooking-step-title', ingredientsHtml: renderRecipeStepIngredients(recipe, step, { servings }) })}</section>
+    <nav class="recipe-cooking-navigation" aria-label="${escapeHtmlAttr(t('recipe.steps'))}">${button('previous-step', t('recipe.cooking.previous'), null, index === 0 ? 'disabled' : '')}${button('next-step', t('recipe.cooking.next'), null, index === steps.length - 1 ? 'disabled' : '')}</nav>
     <p id="recipe-view-error" class="form-error" role="alert"></p></article>`;
 }
 
 export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCookbookId = () => null,
   getActorId = () => null, getSessionIdentity = () => 'embedded', root = globalThis.document,
   historyTarget = globalThis.history, eventTarget = globalThis.window,
-  onCreate = () => {}, onEdit = () => {}, recipeController, confirmDanger = async () => false,
+  onCreate = () => {}, onEdit = () => {}, onTransfer = null, canTransfer = () => true, recipeController, confirmDanger = async () => false,
   loadRecipeImage = async () => false, releaseRecipeImage = () => {}, onError = console.error,
 } = {}) {
   let activeId = null, bookIdentity = null, previous = [], session = getSessionIdentity(), epoch = 0, bound = false, visible = true;
   let portions = null, checked = new Set(), latestQuery = '', resolving = false, renderedHtml = null;
+  let selectedTags = new Set(), sortMode = 'name', sortSelect = null;
+  let cooking = false, cookingStepKey = null, cookingStepIndex = 0, cookingHistoryRecipeId = null;
+  let historyHydrated = false;
+  let hadAuthenticatedSession = session != null && getActorId() != null;
   const imageKeys = new WeakMap();
   const aliases = new Map();
   const main = () => root.getElementById('cookbook-navigation-main');
@@ -89,37 +133,81 @@ export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCook
   }
   function route(replace = false) {
     historyTarget?.[replace ? 'replaceState' : 'pushState']?.({ ...(historyTarget.state || {}), niaModuleRoute: true, moduleId: 'recipes', niaCookbookRoute: true,
-      cookbookId: cookbook()?.id ?? null, niaRecipeRoute: true, recipeId: activeId }, '', `${eventTarget?.location?.pathname || '/'}${eventTarget?.location?.search || ''}`);
+      cookbookId: cookbook()?.id ?? null, niaRecipeRoute: true, recipeId: activeId,
+      recipeCooking: cooking, recipeCookingStepKey: cooking ? cookingStepKey : null,
+      recipeCookingActorId: cooking ? getActorId() : null, recipeCookingServings: cooking ? portions : null }, '', `${eventTarget?.location?.pathname || '/'}${eventTarget?.location?.search || ''}`);
   }
+  function resetCooking() { cooking = false; cookingStepKey = null; cookingStepIndex = 0; cookingHistoryRecipeId = null; }
   function release() { main()?.querySelectorAll('img[data-recipe-image]').forEach(releaseRecipeImage); }
+  function closeSort() { if (sortSelect?.wrapper.classList.contains('is-open')) closeOpenDropdown('recipe-view-change'); }
+  function resetOverview() { selectedTags.clear(); sortMode = 'name'; closeSort(); }
+  function replaceContent(container, html) {
+    const staging = root.createElement('div'); staging.innerHTML = html;
+    const oldSort = container.querySelector('.recipe-sort-field'), nextSort = staging.querySelector('.recipe-sort-field');
+    const signature = field => {
+      const select = field?.querySelector('select');
+      return select ? JSON.stringify([field.querySelector('label')?.textContent, select.value,
+        Array.from(select.options, option => [option.value, option.textContent])]) : null;
+    };
+    const preserveSort = oldSort && nextSort && signature(oldSort) === signature(nextSort);
+    if (preserveSort) nextSort.replaceWith(oldSort); else { closeSort(); sortSelect = null; }
+    container.replaceChildren(...staging.childNodes);
+  }
   function render({ cookbook: book = cookbook(), searchQuery = latestQuery } = {}) {
     latestQuery = String(searchQuery || '');
-    if (session !== getSessionIdentity()) { session = getSessionIdentity(); activeId = null; bookIdentity = null; previous = []; aliases.clear(); checked.clear(); portions = null; }
-    if (!book) { release(); activeId = null; previous = []; return false; }
+    if (session !== getSessionIdentity()) { historyHydrated ||= hadAuthenticatedSession; resetCooking(); resetOverview(); session = getSessionIdentity(); activeId = null; bookIdentity = null; previous = []; aliases.clear(); checked.clear(); portions = null; }
+    hadAuthenticatedSession ||= session != null && getActorId() != null;
+    if (!book) { resetCooking(); resetOverview(); release(); activeId = null; previous = []; return false; }
     const identity = `${book.created_by_user_id ?? ''}:${book.client_mutation_id ?? book.id}`;
-    if (bookIdentity != null && identity !== bookIdentity) { activeId = null; checked.clear(); portions = null; previous = []; }
+    if (bookIdentity != null && identity !== bookIdentity) { resetCooking(); resetOverview(); activeId = null; checked.clear(); portions = null; previous = []; }
     bookIdentity = identity;
+    const availableTags = tagsForBook(book);
+    selectedTags = new Set([...selectedTags].filter(tag => availableTags.includes(tag)));
     for (const recipe of book.recipes || []) {
       if (!own(recipe) || recipe.client_mutation_id == null) continue;
       const old = previous.find(candidate => own(candidate) && String(candidate.id).startsWith('temp-') && sameEntityId(candidate.client_mutation_id, recipe.client_mutation_id));
-      if (old && !sameEntityId(old.id, recipe.id)) { aliases.set(String(old.id), recipe.id); if (sameEntityId(activeId, old.id)) { activeId = recipe.id; route(true); } }
+      if (old && !sameEntityId(old.id, recipe.id)) { aliases.set(String(old.id), recipe.id); if (sameEntityId(cookingHistoryRecipeId, old.id)) cookingHistoryRecipeId = recipe.id; if (sameEntityId(activeId, old.id)) { activeId = recipe.id; route(true); } }
     }
     if (activeId == null && previous.length === 0 && historyTarget?.state?.niaRecipeRoute && sameEntityId(historyTarget.state.cookbookId, book.id)) {
       activeId = find(historyTarget.state.recipeId)?.id ?? null;
     }
     previous = (book.recipes || []).map(recipe => ({ id: recipe.id, client_mutation_id: recipe.client_mutation_id, created_by_user_id: recipe.created_by_user_id }));
     let recipe = activeId == null ? null : find(activeId);
-    if (activeId != null && !recipe) { activeId = null; route(true); checked.clear(); portions = null; }
+    if (activeId != null && !recipe) { resetCooking(); activeId = null; route(true); checked.clear(); portions = null; }
     if (recipe && portions == null) portions = recipe.base_servings;
+    if (recipe && !historyHydrated) {
+      historyHydrated = true;
+      const state = historyTarget?.state;
+      if (visible && state?.recipeCooking && getActorId() != null && sameEntityId(state.recipeCookingActorId, getActorId())
+        && sameEntityId(state.recipeId, recipe.id) && recipe.steps?.length) {
+        cooking = true; cookingHistoryRecipeId = recipe.id; cookingStepKey = state.recipeCookingStepKey;
+        if (Number.isFinite(Number(state.recipeCookingServings)) && Number(state.recipeCookingServings) > 0 && Number(state.recipeCookingServings) <= 100000) portions = Number(state.recipeCookingServings);
+      }
+    }
+    if (cooking && recipe) {
+      const steps = recipe.steps || [], index = steps.findIndex(step => step.client_key === cookingStepKey);
+      if (!steps.length) { resetCooking(); route(true); }
+      else {
+        const previousKey = cookingStepKey;
+        cookingStepIndex = index < 0 ? Math.min(cookingStepIndex, steps.length - 1) : index; cookingStepKey = steps[cookingStepIndex].client_key;
+        if (previousKey !== cookingStepKey && visible && historyTarget?.state?.recipeCooking) route(true);
+      }
+    }
     const container = main();
     if (!container) return false;
     container.classList.remove('module-empty-page', 'module-collection-page'); container.classList.add('recipe-page');
-    const html = recipe ? renderRecipeReading(book, recipe, { servings: portions, checked }) : renderRecipeOverview(book, latestQuery);
+    const options = { servings: portions, checked, stepIndex: cookingStepIndex, canTransfer: Boolean(onTransfer) && canTransfer() };
+    const html = recipe ? (cooking ? renderRecipeCooking(book, recipe, options) : renderRecipeReading(book, recipe, options)) : renderRecipeOverview(book, latestQuery, { tags: [...selectedTags], sort: sortMode });
     if (renderedHtml !== html) {
       renderedHtml = html;
-      const focused = root.activeElement?.closest?.('[data-recipe-action]')?.dataset.recipeAction;
-      release(); epoch++; container.innerHTML = html;
-      if (focused) Array.from(container.querySelectorAll('[data-recipe-action]')).find(button => button.dataset.recipeAction === focused)?.focus();
+      const focused = container.contains(root.activeElement) ? root.activeElement?.closest?.('[data-recipe-action]')?.dataset : null;
+      const sortFocused = sortSelect?.trigger === root.activeElement;
+      release(); epoch++; replaceContent(container, html);
+      if (focused) Array.from(container.querySelectorAll('[data-recipe-action]')).find(button =>
+        button.dataset.recipeAction === focused.recipeAction && button.dataset.recipeTag === focused.recipeTag
+        && button.dataset.recipeId === focused.recipeId)?.focus();
+      const select = container.querySelector('[data-recipe-sort]');
+      if (select) { sortSelect = hydrateSelect(select, { className: 'recipe-sort-select' }); refreshSelect(select); if (sortFocused) sortSelect.trigger.focus(); }
     }
     const requestedEpoch = epoch, capturedSession = session;
     for (const img of visible ? container.querySelectorAll('img[data-recipe-image]') : []) {
@@ -138,13 +226,13 @@ export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCook
   function selectRecipe(id, { replaceHistory = false, updateNavigation = true } = {}) {
     const recipe = find(id);
     if (!recipe) return false;
-    activeId = recipe.id; portions = recipe.base_servings; checked = new Set();
+    historyHydrated = true; resetCooking(); activeId = recipe.id; portions = recipe.base_servings; checked = new Set();
     if (updateNavigation) route(replaceHistory);
     render(); main()?.closest('.main')?.scrollTo?.({ top: 0 });
     return true;
   }
   function showOverview({ replaceHistory = false, updateNavigation = true } = {}) {
-    activeId = null; portions = null; checked.clear();
+    historyHydrated = true; resetCooking(); activeId = null; portions = null; checked.clear();
     if (updateNavigation) route(replaceHistory);
     // Explicit overview wins over an older recipe entry during this render.
     previous = [{ id: null }]; render();
@@ -158,8 +246,32 @@ export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCook
       const ingredient = recipe.ingredient_groups.flatMap(group => group.ingredients || []).find(item => item.client_key === node.dataset.recipeAmount);
       if (ingredient) node.textContent = ingredientAmount(ingredient, amount, recipe.base_servings);
     });
-    const less = main()?.querySelector('[data-recipe-action="less"]'), more = main()?.querySelector('[data-recipe-action="more"]');
-    if (less) less.disabled = amount <= 1; if (more) more.disabled = amount >= 100000;
+    if (input) refreshServingsControl(input);
+    refreshRecipeStepIngredientAmounts(main(), recipe, amount);
+    if (cooking) route(true);
+  }
+  function enterCooking() {
+    const recipe = find(activeId);
+    if (!visible || !recipe?.steps?.length || cooking) return false;
+    // A previous module activation may have left a cooking flag in this entry.
+    // Always establish the reading entry that Back will return to first.
+    route(true);
+    cooking = true; cookingStepIndex = 0; cookingStepKey = recipe.steps[0].client_key; cookingHistoryRecipeId = recipe.id;
+    route(); render(); main()?.querySelector('.recipe-cooking-step')?.focus(); return true;
+  }
+  function exitCooking() {
+    if (!cooking) return;
+    cooking = false; cookingStepKey = null; cookingStepIndex = 0; render();
+    if (historyTarget?.state?.recipeCooking && sameEntityId(historyTarget.state.recipeId, activeId) && typeof historyTarget.back === 'function') historyTarget.back();
+    else route(true);
+    main()?.querySelector('[data-recipe-action="exit-cooking"]')?.focus();
+  }
+  function moveCookingStep(direction) {
+    const recipe = find(activeId);
+    if (!visible || !cooking || !recipe?.steps?.length) return;
+    cookingStepIndex = Math.max(0, Math.min(recipe.steps.length - 1, cookingStepIndex + direction));
+    cookingStepKey = recipe.steps[cookingStepIndex].client_key; route(true); render();
+    if (!main()?.contains(root.activeElement)) main()?.querySelector('.recipe-cooking-step')?.focus();
   }
   async function click(event) {
     const target = event.target.closest?.('[data-recipe-action]');
@@ -168,10 +280,20 @@ export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCook
     event.preventDefault();
     if (action === 'open') selectRecipe(target.dataset.recipeId);
     else if (action === 'overview') showOverview({ replaceHistory: true });
+    else if (action === 'cook') enterCooking();
+    else if (action === 'exit-cooking') exitCooking();
+    else if (action === 'previous-step') moveCookingStep(-1);
+    else if (action === 'next-step') moveCookingStep(1);
     else if (action === 'create' && canEditRecipe(null, book)) onCreate(book);
     else if (action === 'edit' && canEditRecipe(recipe, book)) onEdit(recipe);
-    else if (action === 'more') updatePortions(Number(portions) + 1);
-    else if (action === 'less') updatePortions(Number(portions) - 1);
+    else if (action === 'transfer' && visible && recipe && onTransfer && canTransfer()) onTransfer(recipe, { servings: portions });
+    else if (action === 'more' || action === 'less') updatePortions(stepServings(portions, action === 'more' ? 1 : -1));
+    else if (action === 'filter-tag' && visible && !recipe && tagsForBook(book).includes(target.dataset.recipeTag)) {
+      const tag = target.dataset.recipeTag;
+      if (selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag);
+      render();
+    }
+    else if (action === 'clear-filters' && visible && !recipe) { selectedTags.clear(); render(); main()?.querySelector('.recipe-filter-tag')?.focus(); }
     else if (['keep-local', 'use-server'].includes(action) && recipe?.conflict && canEditRecipe(recipe, book) && !resolving) {
       const token = {}; resolving = token;
       const captured = getSessionIdentity(), requestedId = recipe.id, capturedEpoch = epoch;
@@ -183,25 +305,38 @@ export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCook
   }
   function bind() {
     if (bound) return; bound = true; root.addEventListener('click', click);
+    root.addEventListener('input', event => {
+      if (event.target.id === 'recipe-view-servings') updatePortions(event.target.value);
+    });
     root.addEventListener('change', event => {
+      if (event.target.matches?.('[data-recipe-sort]') && visible && main()?.contains(event.target) && sortModes.includes(event.target.value)) { sortMode = event.target.value; render(); }
       if (event.target.id === 'recipe-view-servings') updatePortions(event.target.value);
       if (event.target.matches?.('[data-recipe-ingredient]') && main()?.contains(event.target)) {
         const key = event.target.dataset.recipeIngredient; if (event.target.checked) checked.add(key); else checked.delete(key);
       }
     });
   }
-  function deactivate() { visible = false; epoch++; renderedHtml = null; release(); resolving = false; }
+  function deactivate() { historyHydrated ||= bookIdentity != null || activeId != null || cooking; resetCooking(); resetOverview(); visible = false; epoch++; renderedHtml = null; release(); resolving = false; }
   function clear() { const wasVisible = visible; deactivate(); visible = wasVisible; activeId = null; portions = null; checked.clear(); previous = []; aliases.clear(); bookIdentity = null; const fab = root.querySelector('[data-module-panel="recipes"][data-module-slot="floating"] [data-recipe-action="create"]'); if (fab) fab.hidden = true; }
   function remapRecipeId(from, to) {
     const target = recipes().find(recipe => sameEntityId(recipe.id, to));
     if (!target || !own(target) || recipes().some(recipe => sameEntityId(recipe.id, from))) return false;
     if (!sameEntityId(target.client_mutation_id, from) && !sameEntityId(aliases.get(String(from)), to)) return false;
     aliases.set(String(from), to);
+    if (sameEntityId(cookingHistoryRecipeId, from)) cookingHistoryRecipeId = to;
     if (sameEntityId(activeId, from)) { activeId = to; route(true); render(); }
     return true;
   }
   return { bind, render, activate: () => { visible = true; }, selectRecipe, showOverview, deactivate, clear, remapRecipeId,
     getActiveRecipeId: () => activeId,
-    applyHistory: state => { const recipe = state?.niaRecipeRoute ? find(state.recipeId) : null; if (recipe && sameEntityId(recipe.id, activeId)) render(); else if (recipe) selectRecipe(recipe.id, { updateNavigation: false }); else showOverview({ updateNavigation: false }); },
+    applyHistory: state => {
+      const recipe = state?.niaRecipeRoute ? find(state.recipeId) : null;
+      if (!recipe) { showOverview({ updateNavigation: false }); return; }
+      if (!sameEntityId(recipe.id, activeId)) selectRecipe(recipe.id, { updateNavigation: false });
+      cooking = Boolean(visible && state.recipeCooking && sameEntityId(state.recipeCookingActorId, getActorId())
+        && sameEntityId(cookingHistoryRecipeId, recipe.id) && recipe.steps?.length);
+      cookingStepKey = cooking ? state.recipeCookingStepKey : null; if (!cooking) cookingStepIndex = 0;
+      render();
+    },
   };
 }

@@ -1,3 +1,4 @@
+import { isRecipeShoppingTransfer, rewriteRecipeShoppingTransfer } from './recipe-shopping-pending.js';
 import { createMetadataCollection } from './entity-metadata.js';
 
 const metadata = createMetadataCollection({ storeName: 'shoppingLists', createAction: 'CREATE_SHOPPING_LIST', updateAction: 'UPDATE_SHOPPING_LIST', deleteAction: 'DELETE_SHOPPING_LIST', fields: ['name', 'color', 'icon', 'sort_order'] });
@@ -181,7 +182,11 @@ export function projectPendingShoppingChanges(serverList, queue = []) {
         break;
       }
       case 'UPDATE_SHOPPING_ITEM':
-        projected.items = (projected.items || []).map(item => sameId(item.id, data.item_id) ? { ...item, ...clone(changes), is_pending: true } : item);
+        projected.items = (projected.items || []).map(item => sameId(item.id, data.item_id) ? {
+          ...item, ...clone(changes),
+          ...(['quantity_value', 'quantity_unit', 'quantity_text'].some(key => Object.hasOwn(changes, key)) ? { quantity_display_mode: 'exact' } : {}),
+          is_pending: true,
+        } : item);
         break;
       case 'DELETE_SHOPPING_ITEM':
         projected.items = (projected.items || []).filter(item => !sameId(item.id, data.item_id));
@@ -215,6 +220,7 @@ export function rewriteShoppingQueueReferences(queue = [], {
   storeIdTo,
 } = {}) {
   return queue.map((entry) => {
+    if (isRecipeShoppingTransfer(entry)) return rewriteRecipeShoppingTransfer(entry, { listIdFrom, listIdTo, sectionIdFrom, sectionIdTo, storeIdFrom, storeIdTo });
     const next = clone(entry);
     const data = next.data || {};
     const brainDumpRoute = data.item?.braindump_route;

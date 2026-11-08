@@ -1,3 +1,5 @@
+import { normalizeQuantityUnit } from '../core/quantity-units.js';
+import { formatQuantity } from '../core/recipe-quantities.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { registerItemSwipeAdapter, renderItemSwipeShell } from '../ui/item-swipe.js';
 
@@ -23,13 +25,8 @@ function clone(value) {
 }
 
 export function formatShoppingQuantity(item = {}, locale = undefined) {
-  const hasValue = item.quantity_value !== null && item.quantity_value !== undefined && item.quantity_value !== '';
-  const numericValue = hasValue ? Number(item.quantity_value) : null;
-  const quantity = hasValue && Number.isFinite(numericValue)
-    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 20 }).format(numericValue)
-    : '';
-  const unit = String(item.quantity_unit ?? '').trim();
-  return [quantity, unit].filter(Boolean).join(' ');
+  if (item.quantity_text) return String(item.quantity_text).trim();
+  return formatQuantity(item.quantity_value, item.quantity_unit, locale, { kitchen: item.quantity_display_mode === 'kitchen' });
 }
 
 export function renderShoppingItem({ item = {}, canEdit = false, locale = undefined, labels = {} } = {}) {
@@ -37,6 +34,9 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
   const editable = canEdit === true;
   const id = escapeHtmlAttr(String(item.id ?? ''));
   const quantity = formatShoppingQuantity(item, locale);
+  const sourceTitles = [...new Set((item.recipe_sources || []).map(source => source.recipe_title).filter(Boolean))];
+  const caption = [item.note, sourceTitles.slice(0, 2).join(', ') + (sourceTitles.length > 2 ? ` +${sourceTitles.length - 2}` : '')].filter(Boolean).join(' · ');
+  const copy = `<span class="shopping-item-copy"><span class="shopping-item-title">${escapeHtml(item.name || '')}</span>${caption ? `<span class="shopping-item-caption">${escapeHtml(caption)}</span>` : ''}</span>`;
   const ariaLabel = completed ? labels.markOpen : labels.markCompleted;
   const editLabel = labels.edit || item.name || '';
   const classes = [
@@ -53,12 +53,12 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
       </button>
       ${editable ? `
         <button type="button" class="shopping-item-edit-trigger" data-shopping-item-action="open-edit" data-shopping-item-id="${id}" aria-label="${escapeHtmlAttr(editLabel)}">
-          <span class="shopping-item-title">${escapeHtml(item.name || '')}</span>
+          ${copy}
           ${quantity ? `<span class="ui-badge shopping-item-quantity">${escapeHtml(quantity)}</span>` : ''}
         </button>
       ` : `
         <div class="shopping-item-content">
-          <span class="shopping-item-title">${escapeHtml(item.name || '')}</span>
+          ${copy}
           ${quantity ? `<span class="ui-badge shopping-item-quantity">${escapeHtml(quantity)}</span>` : ''}
         </div>
       `}
@@ -179,7 +179,10 @@ export function createShoppingItemsController({
     const quantity = quantityText === '' || quantityText === null || quantityText === undefined
       ? null
       : Number(quantityText);
-    const unit = String(input.unit ?? input.quantity_unit ?? '').trim();
+    const unit = normalizeQuantityUnit(input.unit ?? input.quantity_unit) || '';
+    const freeQuantity = String(input.quantity_text ?? '').trim();
+    const note = String(input.note ?? '').trim();
+    if (freeQuantity.length > 500 || note.length > 2000 || (freeQuantity && quantity !== null)) return null;
     const sectionValue = input.sectionId ?? input.section_id ?? null;
     const sectionInput = sectionValue === '' ? null : sectionValue;
     const suppliedStoreIds = input.store_ids;
@@ -201,7 +204,7 @@ export function createShoppingItemsController({
     if (clientMutationId != null && (typeof clientMutationId !== 'string'
       || !clientMutationId.trim() || clientMutationId.length > 120)) return null;
     return {
-      name, quantity, unit,
+      name, quantity, unit, freeQuantity, note,
       sectionIdentity: section?.client_mutation_id ?? section?.id ?? null,
       storeIdentity: store?.client_mutation_id ?? store?.id ?? null,
       ...(clientMutationId != null ? { clientMutationId } : {}),
@@ -223,6 +226,8 @@ export function createShoppingItemsController({
       section_id: section?.id ?? null,
       quantity_value: input.quantity,
       quantity_unit: input.unit || null,
+      ...(input.freeQuantity ? { quantity_text: input.freeQuantity } : {}),
+      ...(input.note ? { note: input.note } : {}),
       store_ids: store ? [store.id] : [],
       sort_order: sortOrder,
       client_mutation_id: tempId,
@@ -234,6 +239,7 @@ export function createShoppingItemsController({
         ...clone(itemData),
         stores: store ? [clone(store)] : [],
         completed: false,
+        quantity_display_mode: 'exact',
         is_pending: true,
       },
       mutation: {
@@ -316,12 +322,20 @@ export function createShoppingItemsController({
     ));
     if (live?.can_edit !== true || !initialItem) return Promise.resolve(null);
     const name = String(input.name ?? '').trim();
-    const quantityInput = input.quantity ?? input.quantity_value;
+    const quantityInput = Object.hasOwn(input, 'quantity') ? input.quantity
+      : Object.hasOwn(input, 'quantity_value') ? input.quantity_value : initialItem.quantity_value;
     const quantityText = typeof quantityInput === 'string' ? quantityInput.trim() : quantityInput;
     const quantity = quantityText === '' || quantityText === null || quantityText === undefined
       ? null
       : Number(quantityText);
-    const unit = String(input.unit ?? input.quantity_unit ?? '').trim();
+    const unit = normalizeQuantityUnit(Object.hasOwn(input, 'unit') ? input.unit
+      : Object.hasOwn(input, 'quantity_unit') ? input.quantity_unit : initialItem.quantity_unit) || '';
+    const freeQuantity = Object.hasOwn(input, 'quantity_text') ? String(input.quantity_text ?? '').trim() : quantity === null ? initialItem.quantity_text || '' : '';
+    const note = Object.hasOwn(input, 'note') ? String(input.note ?? '').trim() : initialItem.note || '';
+    const quantityChanged = quantity !== (initialItem.quantity_value == null ? null : Number(initialItem.quantity_value))
+      || unit !== (normalizeQuantityUnit(initialItem.quantity_unit) || '')
+      || freeQuantity !== (initialItem.quantity_text || '');
+    if (freeQuantity.length > 500 || note.length > 2000 || (freeQuantity && quantity !== null)) return Promise.resolve(null);
     const sectionValue = input.sectionId ?? input.section_id ?? null;
     const sectionInput = sectionValue === '' ? null : sectionValue;
     const suppliedStoreIds = input.store_ids;
@@ -384,13 +398,15 @@ export function createShoppingItemsController({
         const changes = {
           name,
           section_id: section?.id ?? null,
-          quantity_value: quantity,
-          quantity_unit: unit || null,
+          ...(quantityChanged ? { quantity_value: quantity, quantity_unit: unit || null,
+            ...(Object.hasOwn(input, 'quantity_text') || initialItem.quantity_text ? { quantity_text: freeQuantity || null } : {}) } : {}),
+          ...(Object.hasOwn(input, 'note') ? { note } : {}),
           store_ids: storeIds,
         };
         const updated = {
           ...clone(item),
           ...clone(changes),
+          ...(quantityChanged ? { quantity_display_mode: 'exact' } : {}),
           stores: store ? [clone(store)] : [],
           is_pending: true,
         };

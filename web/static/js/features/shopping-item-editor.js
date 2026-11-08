@@ -1,3 +1,4 @@
+import { normalizeQuantityUnit, formatQuantityUnit } from '../core/quantity-units.js';
 import { t, translatePage, getActiveLocale } from '../i18n/index.js';
 import { parseShoppingQuickAdd } from './shopping-quick-add.js';
 import { createMultiAddFeature } from './multi-add.js';
@@ -14,13 +15,13 @@ function sameId(left, right) {
 }
 
 export function resolveShoppingQuickAddState(state, parsed) {
-  if (!parsed) return { ...state };
+  if (!parsed) return { ...state, unit: normalizeQuantityUnit(state.unit) || '' };
   const changes = parsed.changes || {};
   return {
     ...state,
     name: parsed.title,
     quantity: state.quantity !== '' && state.quantity != null ? state.quantity : (changes.quantity_value ?? ''),
-    unit: state.unit || changes.quantity_unit || '',
+    unit: normalizeQuantityUnit(state.unit || changes.quantity_unit) || '',
     sectionId: state.sectionId ?? changes.section_id ?? null,
     storeId: state.storeId ?? changes.store_ids?.[0] ?? null,
   };
@@ -207,6 +208,8 @@ export function createShoppingItemEditorFeature({
       name: doc?.getElementById?.('shopping-item-name')?.value?.trim?.() || '',
       quantity: doc?.getElementById?.('shopping-item-quantity')?.value ?? '',
       unit: doc?.getElementById?.('shopping-item-unit')?.value?.trim?.() || '',
+      quantity_text: doc?.getElementById?.('shopping-item-quantity-text')?.value?.trim?.() || '',
+      note: doc?.getElementById?.('shopping-item-note')?.value?.trim?.() || '',
       sectionId: doc?.getElementById?.('shopping-item-section')?.value || null,
       storeId: doc?.getElementById?.('shopping-item-store')?.value || null,
     };
@@ -232,7 +235,7 @@ export function createShoppingItemEditorFeature({
     const list = activeList();
     const values = {
       quantity: state.quantity === '' ? '' : new Intl.NumberFormat(getActiveLocale(), { maximumFractionDigits: 20 }).format(Number(state.quantity)),
-      unit: state.unit,
+      unit: formatQuantityUnit(state.unit, getActiveLocale()),
       section: (list?.sections || []).find(section => sameId(section.id, state.sectionId))?.name,
       store: getStores().find(store => sameId(store.id, state.storeId))?.name,
     };
@@ -267,12 +270,16 @@ export function createShoppingItemEditorFeature({
 
   function handleFormChange(event) {
     if (event.target?.closest?.('#shopping-item-form') == null || !modal()?.classList.contains('active')) return;
+    if (event.type === 'change' && event.target.id === 'shopping-item-unit') {
+      event.target.value = formatQuantityUnit(event.target.value, getActiveLocale());
+    }
     if (event.target !== quickAddInput) void quickAddController?.refresh();
     setError();
   }
 
   function validState(state) {
-    if (!state.name || state.name.length > 500 || state.unit.length > 40) return false;
+    if (!state.name || state.name.length > 500 || state.unit.length > 40 || (state.quantity_text || '').length > 500 || (state.note || '').length > 2000) return false;
+    if (state.quantity_text && state.quantity !== '') return false;
     if (state.quantity === '') return true;
     const quantity = Number(state.quantity);
     return Number.isFinite(quantity) && quantity >= 0;
@@ -362,6 +369,7 @@ export function createShoppingItemEditorFeature({
     editingListIdentity = activeList()?.client_mutation_id ?? activeList()?.id;
     editingItemIdentity = null;
     currentForm.reset?.();
+    const extras = currentForm.querySelector('.shopping-item-additional-details'); if (extras) extras.open = false;
     setError();
     storeCreator?.hide?.();
     populateSections();
@@ -391,7 +399,11 @@ export function createShoppingItemEditorFeature({
     populateStores(storeId ?? '');
     doc.getElementById('shopping-item-name').value = item.name || '';
     doc.getElementById('shopping-item-quantity').value = item.quantity_value ?? '';
-    doc.getElementById('shopping-item-unit').value = item.quantity_unit || '';
+    doc.getElementById('shopping-item-unit').value = formatQuantityUnit(item.quantity_unit, getActiveLocale());
+    if (doc.getElementById('shopping-item-quantity-text')) doc.getElementById('shopping-item-quantity-text').value = item.quantity_text || '';
+    if (doc.getElementById('shopping-item-note')) doc.getElementById('shopping-item-note').value = item.note || '';
+    const extras = currentForm.querySelector('.shopping-item-additional-details');
+    if (extras) extras.open = Boolean(item.quantity_text || item.note);
     restoreFocus = () => editTrigger(editingItemIdentity) || (triggerElement?.isConnected ? triggerElement : null) || trigger();
     return openModal(target, currentForm);
   }
@@ -402,7 +414,7 @@ export function createShoppingItemEditorFeature({
     const unitInput = doc?.getElementById?.('shopping-item-unit');
     const invalidName = !state.name || state.name.length > 500;
     const quantity = state.quantity === '' ? null : Number(state.quantity);
-    const invalidQuantity = quantity !== null && (!Number.isFinite(quantity) || quantity < 0);
+    const invalidQuantity = (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) || Boolean(state.quantity_text && quantity !== null) || (state.quantity_text || '').length > 500;
     const invalidUnit = state.unit.length > 40;
     setInvalid(nameInput, invalidName);
     setInvalid(quantityInput, invalidQuantity);
@@ -661,9 +673,19 @@ export function createShoppingItemEditorFeature({
     });
   }
 
+  function handleQuantityModeInput(event) {
+      if (!modal()?.classList.contains('active') || !canMutate()) return;
+      if (event.target.id === 'shopping-item-quantity-text' && event.target.value.trim()) {
+        doc.getElementById('shopping-item-quantity').value = ''; doc.getElementById('shopping-item-unit').value = '';
+      } else if (['shopping-item-quantity', 'shopping-item-unit'].includes(event.target.id) && event.target.value.trim()) {
+        const free = doc.getElementById('shopping-item-quantity-text'); if (free) free.value = '';
+      }
+  }
+
   function bind() {
     if (bound) return;
     bound = true;
+    doc?.addEventListener?.('input', handleQuantityModeInput, true);
     storeCreator = bindStoreCreator('shopping-item', 'shopping-item-store');
     bulkStoreCreator = bindStoreCreator('shopping-item-multi', 'shopping-item-multi-store');
     bindBulk();
@@ -689,6 +711,7 @@ export function createShoppingItemEditorFeature({
     destroy() {
       if (!bound) return;
       bound = false;
+      doc?.removeEventListener?.('input', handleQuantityModeInput, true);
       bulk?.destroy();
       bulk = null;
       bulkStoreCreator?.destroy?.();

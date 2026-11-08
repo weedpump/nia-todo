@@ -1,3 +1,4 @@
+import { parseServerUtcTimestamp } from '../core/utils.js';
 import { t, getActiveLanguage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityText } from './security-dialogs.js';
@@ -5,15 +6,6 @@ import { confirmSecurityAction, performMfaReauth, promptSecurityText } from './s
 export function createApiKeysFeature({ authApi }) {
   let lastApiKeys = [];
   let hasLoadedApiKeys = false;
-
-  function parseServerUtcTimestamp(value) {
-    if (!value) return null;
-    const raw = String(value).trim();
-    const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
-    const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
-    const date = new Date(hasTimezone ? normalized : `${normalized}Z`);
-    return Number.isFinite(date.getTime()) ? date : null;
-  }
 
   function formatServerTimestamp(value) {
     const date = parseServerUtcTimestamp(value);

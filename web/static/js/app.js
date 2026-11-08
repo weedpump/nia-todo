@@ -1,3 +1,5 @@
+import { createRecipeShoppingTransferController } from './features/recipe-shopping-pending.js';
+import { createRecipeShoppingTransferFeature } from './features/recipe-shopping-transfer.js';
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
 import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL, apiResourceUrl } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
@@ -111,8 +113,9 @@ let cookbookNavigationFeature = null;
 let cookbookDetailsFeature = null;
 let recipeViewFeature = null;
 let recipeEditorFeature = null;
+let recipeShoppingTransferFeature = null;
 
-function renderCookbooks() { cookbookNavigationFeature?.render(); }
+function renderCookbooks() { cookbookNavigationFeature?.render(); recipeShoppingTransferFeature?.reconcile(); }
 function remapCookbookId(from, to) {
   cookbookDetailsFeature?.remapCookbookId(from, to);
   cookbookNavigationFeature?.remapCookbookId(from, to);
@@ -137,6 +140,7 @@ function setCookbooksState(next) {
   for (const [from, to] of remaps) remapRecipeId(from, to);
   cookbookDetailsFeature?.reconcileCookbooksChanged();
   recipeEditorFeature?.reconcile();
+  recipeShoppingTransferFeature?.reconcile();
 }
 function getCookbookSessionIdentity() {
   return currentUser ? `${currentUser.id}:${authenticatedRuntimeEpoch}` : null;
@@ -154,6 +158,7 @@ function setShoppingListsState(next, { reconcileDetails = true } = {}) {
   shoppingLists = Array.isArray(next) ? next : [];
   shoppingNavigationFeature?.replaceLists(shoppingLists);
   shoppingItemEditorFeature?.reconcile?.();
+  recipeShoppingTransferFeature?.reconcile();
   if (!reconcileDetails) return;
   const detailsOwnTransition = shoppingListDetailsFeature?.reconcileListsChanged?.() || false;
   const activeListId = shoppingNavigationFeature?.getActiveListId?.() ?? null;
@@ -166,6 +171,7 @@ function setShoppingListsState(next, { reconcileDetails = true } = {}) {
 
 function setShoppingStoresState(next) {
   shoppingStores = Array.isArray(next) ? next : [];
+  recipeShoppingTransferFeature?.reconcile();
   renderShopping();
 }
 
@@ -432,6 +438,18 @@ async function commitRecipeMutation(buildMutation) {
     return mutation;
   } finally { finishQueueWrite(); }
 }
+async function commitRecipeShoppingTransfer(buildMutation) {
+  const session = getCookbookSessionIdentity();
+  const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
+  try {
+    if (session == null || session !== getCookbookSessionIdentity()) return null;
+    const mutation = typeof buildMutation === 'function' ? await buildMutation() : buildMutation;
+    if (!mutation || session !== getCookbookSessionIdentity()) return null;
+    const result = await appStorage.commitRecipeShoppingTransfer(mutation);
+    updateConnectionStatusView().catch(() => {});
+    return result;
+  } finally { finishQueueWrite(); }
+}
 const activeBackgroundSyncOperations = new Set();
 
 function trackBackgroundSyncOperation(operation) {
@@ -494,6 +512,8 @@ const syncFeature = createSyncFeature({
   markCookbookMutationAttempt: appStorage.markCookbookMutationAttempt,
   commitRecipeReplay: appStorage.commitRecipeReplay,
   markRecipeMutationAttempt: appStorage.markRecipeMutationAttempt,
+  markRecipeShoppingTransferAttempt: appStorage.markRecipeShoppingTransferAttempt,
+  onRecipeShoppingTransferState: () => { recipeShoppingTransferFeature?.reconcile(); updateConnectionStatusView().catch(() => {}); },
   onRecipeIdRemap: remapRecipeId,
   renderCookbooks,
   onCookbookSnapshotCommitted: (serverBooks, revokedIds) => cookbookNavigationFeature?.commitAuthoritativeSnapshot(serverBooks, revokedIds),
@@ -634,6 +654,8 @@ const userSettingsFeature = createUserSettingsFeature({
   onModulePreferencesChange: () => {
     moduleShell?.applyModulePreferences();
     moduleSwitcher?.render();
+    recipeShoppingTransferFeature?.reconcile();
+    renderCookbooks();
   },
   resetApiKeyUi: () => resetApiKeyUi(),
   loadApiKeys: () => loadApiKeys(),
@@ -642,6 +664,7 @@ const userSettingsFeature = createUserSettingsFeature({
 });
 async function disconnectAuthenticatedRuntime() {
   authenticatedRuntimeEpoch += 1;
+  recipeShoppingTransferFeature?.deactivate();
   syncInProgressRef.privacyGeneration = Number(syncInProgressRef.privacyGeneration || 0) + 1;
   const privacyDrains = [
     sharingFeature.suspendAccessPrivacy(),
@@ -662,6 +685,8 @@ const authSessionFeature = createAuthSessionFeature({
   onCurrentUserChange: () => {
     moduleShell?.applyModulePreferences();
     moduleSwitcher?.render();
+    recipeShoppingTransferFeature?.reconcile();
+    renderCookbooks();
   },
   clearCache: async () => {
     appInitialized = false;
@@ -792,6 +817,8 @@ const wsClient = createWebSocketClient({
     currentUser = { ...currentUser, disabled_modules: payload.disabled_modules || [] };
     moduleShell?.applyModulePreferences();
     moduleSwitcher?.render();
+    recipeShoppingTransferFeature?.reconcile();
+    renderCookbooks();
     renderUserInfo();
   },
   onAccessSnapshot: snapshot => {
@@ -1269,6 +1296,7 @@ cookbookNavigationFeature = createCookbookNavigationFeature({
   onDeactivate: () => {
     cookbookDetailsFeature?.deactivate();
     recipeEditorFeature?.deactivate();
+    recipeShoppingTransferFeature?.deactivate();
     recipeViewFeature?.deactivate();
   },
   onCookbookIdRemap: remapCookbookId,
@@ -1295,6 +1323,22 @@ const recipeController = createRecipeController({
   commitMutation: commitRecipeMutation, enqueueCookbookMutation, recipesApi,
   isOnlineForSync, syncWithServer,
 });
+const canUseShoppingForTransfer = () => Boolean(currentUser && moduleShell?.getEnabledModules?.().some(module => module.id === 'shopping'));
+const recipeShoppingTransferController = createRecipeShoppingTransferController({
+  getCookbooks: () => cookbooks, getLists: () => shoppingLists, getStores: () => shoppingStores,
+  getCurrentUser: () => currentUser, getSessionIdentity: getCookbookSessionIdentity,
+  readQueue: () => dbGetAll('syncQueue'), commit: commitRecipeShoppingTransfer,
+  isOnlineForSync, syncWithServer,
+});
+recipeShoppingTransferFeature = createRecipeShoppingTransferFeature({
+  getCookbooks: () => cookbooks, getLists: () => shoppingLists, getStores: () => shoppingStores,
+  getCurrentUser: () => currentUser, getSessionIdentity: getCookbookSessionIdentity,
+  canUseShopping: canUseShoppingForTransfer,
+  transfer: recipeShoppingTransferController.transfer,
+  readPendingTransfers: recipeShoppingTransferController.listPending,
+  cancelTransfer: recipeShoppingTransferController.cancel,
+  onQueued: () => showToast(t('recipe.transfer.queued')),
+});
 recipeViewFeature = createRecipeViewFeature({
   getCookbooks: () => cookbooks,
   getActiveCookbookId: () => cookbookNavigationFeature.getActiveCookbookId(),
@@ -1302,6 +1346,8 @@ recipeViewFeature = createRecipeViewFeature({
   recipeController, confirmDanger,
   onCreate: book => recipeEditorFeature?.showCreate(book.id),
   onEdit: recipe => recipeEditorFeature?.showEdit(recipe.id),
+  canTransfer: canUseShoppingForTransfer,
+  onTransfer: (recipe, options) => recipeShoppingTransferFeature?.show(recipe, options),
   loadRecipeImage: recipeImagesFeature.load, releaseRecipeImage: recipeImagesFeature.release,
 });
 recipeEditorFeature = createRecipeEditorFeature({
@@ -1541,6 +1587,7 @@ export function startAppModule() {
   cookbookDetailsFeature.bind();
   recipeViewFeature.bind();
   recipeEditorFeature.bind();
+  recipeShoppingTransferFeature.bind();
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();

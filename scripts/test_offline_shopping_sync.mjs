@@ -37,6 +37,14 @@ const queue = [
 ];
 
 const projected = projectPendingShoppingChanges(serverList, queue);
+const kitchenList = { ...serverList, items: [{ ...serverList.items[0], quantity_value: 250 / 3, quantity_unit: 'ml', quantity_display_mode: 'kitchen' }] };
+const renameOnly = projectPendingShoppingChanges(kitchenList, [{ action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 7, item_id: 20, changes: { name: 'Renamed' } } }]);
+assert.equal(renameOnly.items[0].quantity_display_mode, 'kitchen');
+assert.equal(renameOnly.items[0].quantity_value, 250 / 3);
+for (const changes of [{ quantity_value: .25 }, { quantity_unit: 'pack' }, { quantity_text: 'nach Geschmack', quantity_value: null }]) {
+  const manual = projectPendingShoppingChanges(kitchenList, [{ action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 7, item_id: 20, changes } }]);
+  assert.equal(manual.items[0].quantity_display_mode, 'exact', 'pending snapshots preserve manual exact quantities');
+}
 assert.equal(projected.items.find(item => item.id === 20).completed, true);
 assert.equal(projected.sections.find(section => section.id === 'temp-section-1').name, 'Bread');
 assert.equal(projected.items.find(item => item.id === 'temp-item-1').section_id, 'temp-section-1');

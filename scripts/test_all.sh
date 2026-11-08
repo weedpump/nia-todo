@@ -107,9 +107,17 @@ run_step "Cookbooks Shared UI" node scripts/test_frontend_cookbooks.mjs
 run_step "Cookbooks Offline Metadata Sync" node scripts/test_offline_cookbooks_sync.mjs
 run_step "Cookbooks Real-Service E2E" node scripts/test_frontend_cookbooks_e2e.mjs
 run_step "Recipe Aggregate API" python3 scripts/test_recipes.py
+run_step "Recipe Quantity Rounding" node scripts/test_recipe_quantities.mjs
+run_step "Recipe Step Ingredients" node scripts/test_recipe_step_ingredients.mjs
+run_step "Recipe Step Ingredient Editor" node scripts/test_frontend_recipe_step_editor.mjs
+run_step "Recipe Cooking View" node scripts/test_frontend_recipe_cooking.mjs
+run_step "Recipe Shopping Transfer API" python3 scripts/test_recipe_shopping_transfer.py
 run_step "Recipe Private Images" python3 scripts/test_recipe_images.py
 run_step "Recipe Shared UI" node scripts/test_frontend_recipes.mjs
 run_step "Recipe Offline Sync" node scripts/test_offline_recipes_sync.mjs
+run_step "Recipe Shopping Transfer UI" node scripts/test_frontend_recipe_shopping_transfer.mjs
+run_step "Recipe Shopping Transfer Offline Sync" node scripts/test_offline_recipe_shopping_transfer.mjs
+run_step "Recipe Shopping Transfer Real-App E2E" node scripts/test_recipe_shopping_transfer_e2e.mjs
 run_step "Recipe Image Cache" node scripts/test_recipe_image_cache.mjs
 run_step "Recipe Real-Service E2E" node scripts/test_frontend_recipes_e2e.mjs
 run_step "Household API" python3 scripts/test_household_api.py
@@ -126,6 +134,7 @@ run_step "Avatar Profile Updates" python3 scripts/test_avatar_profile_update.py
 run_step "BrainDump Services" python3 scripts/test_braindump_v2_services.py
 run_step "BrainDump Extractor Normalization" python3 scripts/test_braindump_v2_extractor_normalization.py
 run_step "Quantity Unit Spellings" python3 scripts/test_quantity_units.py
+run_step "Quantity Registry Refresh" python3 scripts/test_quantity_registry_update.py
 run_step "BrainDump Shopping Extraction" python3 scripts/test_braindump_shopping_extraction.py
 run_step "BrainDump Shopping Learning and Retry" python3 scripts/test_braindump_shopping_learning.py
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py

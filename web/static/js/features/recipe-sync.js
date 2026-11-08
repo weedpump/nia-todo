@@ -1,3 +1,4 @@
+import { isRecipeShoppingTransfer, transferReferencesRecipe } from './recipe-shopping-pending.js';
 import { acquireSyncCommitLock } from './todo-pending.js';
 import { sameEntityId } from './entity-metadata.js';
 import { pickRecipeFields, projectRecipeCookbook, rebaseRecipeQueue, recipeActions, recipeBookId, recipeId, recipeReferences, rewriteRecipeQueue, sanitizeRecipeEntry } from './recipe-pending.js';
@@ -54,9 +55,10 @@ export function createRecipeSyncAdapter({ api, getCookbooks, setCookbooks, readQ
         remaining.push({ ...item, conflict: descriptor });
         base.recipes.push(server);
       } else if (missing || item.action === 'DELETE_RECIPE') {
-        const related = remaining.filter(row => recipeReferences(row, from));
+        const revokedTransfer = row => missing && transferReferencesRecipe(row, from) && sameEntityId(row.actor_id, item.actor_id);
+        const related = remaining.filter(row => recipeReferences(row, from) || revokedTransfer(row));
         deletes.push(...related.map(row => row.id));
-        remaining = remaining.filter(row => !recipeReferences(row, from));
+        remaining = remaining.filter(row => !recipeReferences(row, from) && !revokedTransfer(row));
       } else {
         remaining = rewriteRecipeQueue(remaining, { from, to });
         remaining = rebaseRecipeQueue(remaining, to, server.applied_revision);
@@ -65,7 +67,7 @@ export function createRecipeSyncAdapter({ api, getCookbooks, setCookbooks, readQ
         base.recipes.push(clean);
       }
       const projected = projectRecipeCookbook(base, remaining);
-      const applied = await commitReplay({ entity: projected, queueRecords: remaining.filter(row => recipeActions.has(row.action)),
+      const applied = await commitReplay({ entity: projected, queueRecords: remaining.filter(row => recipeActions.has(row.action) || isRecipeShoppingTransfer(row)),
         queueDeleteIds: deletes, requireQueueId: item.id, removeRecipeIds: missing || item.action === 'DELETE_RECIPE' && !conflict ? [from] : [] });
       if (applied === false) return false;
       setCookbooks(getCookbooks().map(row => sameEntityId(row.id, book.id) ? projected : row));

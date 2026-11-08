@@ -124,6 +124,11 @@ export const SHOPPING_DIALOGS_HTML = `
                 ${renderShoppingStoreCreator({ prefix: 'shopping-item' })}
               </div>
             </div>
+            <details class="shopping-item-additional-details">
+              <summary data-i18n-key="common.additionalDetails">${escapeHtmlAttr(t('common.additionalDetails'))}</summary>
+              <div class="form-group"><label for="shopping-item-quantity-text" data-i18n-key="common.quantityText">${escapeHtmlAttr(t('common.quantityText'))}</label><input class="ui-field" id="shopping-item-quantity-text" type="text" maxlength="500"></div>
+              <div class="form-group"><label for="shopping-item-note" data-i18n-key="common.note">${escapeHtmlAttr(t('common.note'))}</label><textarea class="ui-field" id="shopping-item-note" maxlength="2000" rows="2"></textarea></div>
+            </details>
           </section>
           ${renderMultiAddPanel({
             prefix: 'shopping-item',

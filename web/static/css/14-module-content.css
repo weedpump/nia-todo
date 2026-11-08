@@ -234,6 +234,9 @@
   overflow-wrap: anywhere;
 }
 
+.shopping-item-copy { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.shopping-item-caption { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; color: var(--text-muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+
 .shopping-item-quantity {
   flex: 0 1 auto;
   margin-left: auto;
@@ -301,3 +304,6 @@
   }
 
 }
+
+.shopping-item-additional-details { margin-top: 16px; }
+.shopping-item-additional-details>summary { color: var(--text-muted); font-size: 13px; min-height: 44px; padding: 10px 0; cursor: pointer; }

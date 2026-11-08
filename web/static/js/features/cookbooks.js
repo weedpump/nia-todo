@@ -1,3 +1,4 @@
+import { TRANSFER_RECIPE_TO_SHOPPING, transferReferencesCookbook } from './recipe-shopping-pending.js';
 import { recipeActions, recipeBookId, mergeRecipeSnapshot, projectRecipeCookbook, reconcileRecipeSnapshot, rewriteRecipeQueue } from './recipe-pending.js';
 import { createEntityMutationQueue, createMetadataCollection, createOptimisticMetadataEntity, sameEntityId, updateMetadataProjection } from './entity-metadata.js';
 
@@ -8,8 +9,8 @@ const metadata = createMetadataCollection({ storeName: 'cookbooks',
 
 // Cookbook metadata and its recipe aggregate use one projection/receipt boundary.
 export const cookbookMetadata = Object.freeze({ ...metadata,
-  queueActions: new Set([...metadata.actions, ...recipeActions]),
-  dependentReferences: (entry, id) => sameEntityId(recipeBookId(entry), id),
+  queueActions: new Set([...metadata.actions, ...recipeActions, TRANSFER_RECIPE_TO_SHOPPING]),
+  dependentReferences: (entry, id) => sameEntityId(recipeBookId(entry), id) || transferReferencesCookbook(entry, id),
   projectPending: (book, queue) => projectRecipeCookbook(metadata.projectPending(book, queue), queue),
   rewriteQueue: (queue, remap) => rewriteRecipeQueue(metadata.rewriteQueue(queue, remap), { ...remap, cookbook: true }),
   reconcileSnapshot(server, local, queue, options = {}) {

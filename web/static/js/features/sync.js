@@ -1,3 +1,4 @@
+import { isRecipeShoppingTransfer, sanitizeRecipeShoppingTransfer, recipeShoppingTransferPayload, transferHasPendingDependencies, transferSourceIsAccessible } from './recipe-shopping-pending.js';
 import { acquireSyncCommitLock, projectPendingProjectChanges, projectPendingSectionChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
 import { projectPendingShoppingChanges, projectPendingShoppingStores, projectShoppingSnapshot, projectShoppingStoresSnapshot, queueItemReferencesShoppingList, rewriteShoppingQueueReferences } from './shopping-pending.js';
 import { createRecipeSyncAdapter } from './recipe-sync.js';
@@ -46,6 +47,8 @@ export function createSyncFeature({
   onRecipeIdRemap = () => {},
   commitRecipeReplay = null,
   markRecipeMutationAttempt = null,
+  markRecipeShoppingTransferAttempt = null,
+  onRecipeShoppingTransferState = () => {},
   renderCookbooks = () => {},
   getActorId = () => null,
   onCookbookSnapshotCommitted = () => {},
@@ -59,6 +62,63 @@ export function createSyncFeature({
   const recipeSync = createRecipeSyncAdapter({ api: recipesApi, getCookbooks, setCookbooks,
     readQueue: () => dbGetAll('syncQueue'), markAttempt: markRecipeMutationAttempt, commitReplay: commitRecipeReplay,
     onIdRemap: onRecipeIdRemap, render: renderCookbooks });
+  async function replayRecipeShoppingTransfer(queued, ref, generation) {
+    const actor = getActorId();
+    const locked = async work => {
+      const release = await acquireSyncCommitLock(ref);
+      try {
+        if (Number(ref?.privacyGeneration || 0) !== generation || !sameId(actor, getActorId())) return false;
+        const queue = await dbGetAll('syncQueue');
+        if (Number(ref?.privacyGeneration || 0) !== generation || !sameId(actor, getActorId())) return false;
+        const current = queue.find(row => sameId(row.id, queued.id) && isRecipeShoppingTransfer(row) && sameId(row.actor_id, actor));
+        return current ? await work(current, queue) : false;
+      } finally { release(); }
+    };
+    let item;
+    let discarded = false;
+    await locked(async (current, queue) => {
+      if (current.blocked || transferHasPendingDependencies(current, queue)) return false;
+      const list = getShoppingLists().find(list => sameId(list.id, current.data.shopping_list_id));
+      if (!transferSourceIsAccessible(current, getCookbooks(), queue) || !list || !(list.can_edit === true || list.can_edit === 1)) {
+        await commitShoppingReplay({ queueDeleteId: current.id, requireQueueId: current.id });
+        discarded = true; return true;
+      }
+      if (!markRecipeShoppingTransferAttempt || !recipesApi?.transferToShopping) throw new Error('Recipe Shopping transfer sync is not configured');
+      item = sanitizeRecipeShoppingTransfer(await markRecipeShoppingTransferAttempt(current.id, { actorId: actor }));
+      return Boolean(item);
+    });
+    if (discarded) return true;
+    if (!item || Number(ref?.privacyGeneration || 0) !== generation || !sameId(actor, getActorId())) return false;
+    let response;
+    try {
+      response = await recipesApi.transferToShopping(item.data.recipe_id, recipeShoppingTransferPayload(item));
+      if (!sameId(response?.client_mutation_id, item.data.client_mutation_id) || !sameId(response?.shopping_list?.id, item.data.shopping_list_id)) {
+        throw new Error('Recipe Shopping transfer receipt does not match its target');
+      }
+    } catch (error) {
+      const status = Number(error?.status);
+      if (![400, 403, 404, 409, 422].includes(status)) throw error;
+      const applied = await locked(async current => commitShoppingReplay({ requireQueueId: current.id,
+        ...([403, 404].includes(status) ? { queueDeleteId: current.id } : { queueRecords: [{ ...current,
+          blocked: { status, code: error.code || error.data?.detail?.code
+            || (status === 409 ? 'recipe.revisionConflict' : 'recipe.transfer.targetInvalid') } }] }) }));
+      if (applied) onRecipeShoppingTransferState({ status: [403, 404].includes(status) ? 'discarded' : 'blocked',
+        client_mutation_id: item.data.client_mutation_id, recipe_id: item.data.recipe_id });
+      return Boolean(applied);
+    }
+    const committed = await locked(async (current, queue) => {
+      const list = getShoppingLists().find(list => sameId(list.id, item.data.shopping_list_id));
+      if (!list || !(list.can_edit === true || list.can_edit === 1)) return false;
+      const projected = projectPendingShoppingChanges(response.shopping_list, queue.filter(row => !sameId(row.id, current.id)));
+      const applied = await commitShoppingReplay({ list: projected, queueDeleteId: current.id, requireQueueId: current.id });
+      if (applied === false) return false;
+      replaceShoppingList(projected, projected ? [] : [item.data.shopping_list_id]);
+      return true;
+    });
+    if (committed) onRecipeShoppingTransferState({ status: 'complete', client_mutation_id: item.data.client_mutation_id,
+      recipe_id: item.data.recipe_id, created_count: response.created_count, merged_count: response.merged_count });
+    return committed;
+  }
   function isOnlineForSync(wsState) {
     // Browser/native offline state must win over a stale WebSocket state.
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
@@ -370,6 +430,7 @@ export function createSyncFeature({
   }
 
   function sanitizeQueueItem(item) {
+    if (isRecipeShoppingTransfer(item)) return sanitizeRecipeShoppingTransfer(item);
     if (recipeActions.has(item?.action)) return sanitizeRecipeEntry(item);
     if (cookbookMetadata.actions.has(item?.action)) return cookbookMetadata.sanitize(item);
     if (!item || typeof item !== 'object' || typeof item.action !== 'string') return null;
@@ -381,7 +442,7 @@ export function createSyncFeature({
     const shoppingListFields = ['name', 'color', 'icon', 'sort_order', 'household_id', 'client_mutation_id'];
     const shoppingStoreFields = ['shopping_list_id', 'name', 'sort_order', 'client_mutation_id'];
     const shoppingSectionFields = ['name', 'sort_order', 'client_mutation_id'];
-    const shoppingItemFields = ['name', 'section_id', 'quantity_value', 'quantity_unit', 'store_ids', 'sort_order', 'client_mutation_id'];
+    const shoppingItemFields = ['name', 'section_id', 'quantity_value', 'quantity_unit', 'quantity_text', 'note', 'store_ids', 'sort_order', 'client_mutation_id'];
     const localCommentFields = ['id', 'todo_id', 'user_id', 'body', 'created_at', 'updated_at', 'author_username', 'author_display_name', 'is_pending'];
     const localSubtaskFields = ['id', 'title', 'is_done', 'sort_order', 'created_at', 'updated_at', 'is_pending'];
     const withProjectBoundary = sanitizedData => {
@@ -489,13 +550,20 @@ export function createSyncFeature({
       const currentQueue = await dbGetAll('syncQueue');
       const currentQueuedItem = currentQueue.find(item => String(item.id) === String(queuedItem.id));
       if (!currentQueuedItem) continue;
+      if (isRecipeShoppingTransfer(currentQueuedItem) && (currentQueuedItem.blocked || !sameId(currentQueuedItem.actor_id, getActorId()))) continue;
       if (cookbookMetadata.actions.has(currentQueuedItem.action)) {
         const id = cookbookMetadata.idFor(currentQueuedItem);
+        if (currentQueuedItem.action === 'DELETE_COOKBOOK' && currentQueue.some(previous => isRecipeShoppingTransfer(previous)
+          && !previous.blocked && sameId(previous.actor_id, getActorId()) && Number(previous.id) < Number(currentQueuedItem.id)
+          && sameId(previous.data.cookbook_id, id))) continue;
         if (currentQueue.some(previous => !sameId(previous.id, currentQueuedItem.id)
           && attemptedQueueIds.has(String(previous.id)) && cookbookMetadata.references(previous, id))) continue;
       }
       if (recipeActions.has(currentQueuedItem.action)) {
         const bookId = recipeBookId(currentQueuedItem);
+        if (currentQueue.some(previous => isRecipeShoppingTransfer(previous) && !previous.blocked
+          && sameId(previous.actor_id, getActorId()) && Number(previous.id) < Number(currentQueuedItem.id)
+          && sameId(previous.data.recipe_id, recipeId(currentQueuedItem)))) continue;
         if (currentQueuedItem.conflict || currentQueue.some(parent => parent.action === 'CREATE_COOKBOOK' && sameId(parent.data?.temp_id, bookId))) continue;
         // Keep per-recipe ordering after transient failures, allow unrelated recipes.
         if (currentQueue.some(previous => !sameId(previous.id, currentQueuedItem.id)
@@ -509,7 +577,8 @@ export function createSyncFeature({
       // Its durable predecessor must settle before dependent writes may replay.
       if (shoppingListIdentity !== null && (failedShoppingLists.has(shoppingListIdentity)
         || currentQueue.some(previous => String(previous.id) !== String(currentQueuedItem.id)
-          && attemptedQueueIds.has(String(previous.id))
+          && attemptedQueueIds.has(String(previous.id)) && !previous.blocked
+          && (!isRecipeShoppingTransfer(previous) || sameId(previous.actor_id, getActorId()))
           && shoppingQueueListIdentity(previous) === shoppingListIdentity))) continue;
       let item = sanitizeQueueItem(currentQueuedItem);
       if (item && !item.action.includes('SHOPPING')) {
@@ -531,6 +600,10 @@ export function createSyncFeature({
       try {
         if (!item) {
           await deleteFromDB('syncQueue', queuedItem.id);
+          continue;
+        }
+        if (isRecipeShoppingTransfer(item)) {
+          if (await replayRecipeShoppingTransfer(item, syncInProgressRef, requestPrivacyGeneration)) successCount++;
           continue;
         }
         if (cookbookMetadata.actions.has(item.action)) {
@@ -913,6 +986,7 @@ export function createSyncFeature({
           }
         } else if (
           String(item?.action || '').includes('SHOPPING')
+          && !isRecipeShoppingTransfer(item)
           && Number(err?.status) >= 400
           && Number(err?.status) < 500
           && ![401, 408, 429].includes(Number(err?.status))

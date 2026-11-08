@@ -96,6 +96,12 @@ Section headings with an icon, title, and short hint use one shared visual rhyth
 - Apply this pattern consistently in settings and detail modals such as Todo, Project, Workspace, About, and Dashboard Preferences.
 - Apply the inner heading divider to every section title, whether or not a hint is present.
 
+## Image selection
+
+Use `web/static/js/ui/image-picker.js` for compact image selection in editors. It provides a selectable placeholder, a preview with a hover/focus edit overlay, and the shared action menu. Callers retain ownership of authenticated image loading, draft state and permission/session checks. Keep the image next to the title; upload and removal actions appear only after activating an existing preview.
+
+Actual editor popovers use `data-ui-editor-menu`. The shared editor closes these menus before closing the dialog on Escape; expanded content editors remain distinct from menus.
+
 ## Buttons
 
 ### Semantics
@@ -132,7 +138,7 @@ Desktop:
 
 - Normal buttons: `34px` minimum height.
 - Small row actions: `34px` minimum height via `.btn-small`.
-- Icon-only row actions: `34px × 34px` via `.btn-icon`.
+- Icon-only row actions: `34px × 34px` via `.btn-icon`. A surface can set `--btn-icon-size` to change both dimensions together and preserve circular controls.
 - Component-specific tiny icon actions may keep smaller visual sizes only when they explicitly override dimensions while still using `.btn-icon` semantics, e.g. invite actions or inline section actions.
 
 Mobile:
@@ -161,6 +167,7 @@ On mobile, keep the most likely action easiest to hit. Destructive actions must 
 - Custom `.ui-select-trigger` controls are the dropdown equivalent of `.ui-field`.
 - Use `.ui-field-grid` for grouped form fields; `.two-columns` only when fields are logically parallel on desktop.
 - Mobile form grids collapse to one column.
+- Editable section headings use `.ui-detail-title-field.ui-detail-section-title-field`: the shared title focus treatment at a smaller heading size, with an accessible label even when no visible label is shown.
 - Help text uses muted color and about `12px` size.
 - Empty inline error/success containers must not reserve layout space.
 - Avoid inline `style="..."` for layout except unavoidable dynamic show/hide states.
@@ -441,6 +448,8 @@ BrainDump is voice-first and immediate:
 
 - **Todo detail modal:** shared detail shell, header rhythm, large title field, flat sections, header actions, mobile fullscreen.
 - **Project/Workspace modals:** permanent detail-modal family; entity-specific CSS only for organization/sharing/member/picker behavior.
+- **Recipe overview:** image-first cards in a responsive grid, up to two visible tags, and the existing authenticated image placeholder/loading behavior. Combine available cookbook tags with AND and the shell search; sort through the shared select. Keep filters while opening and returning from a recipe, and reset them when the cookbook, account session, or active module changes.
+- **Recipe steps:** optional links are selected from existing ingredients inside the shared recipe editor. The collapsed chooser uses grouped round checkboxes and an optional partial-quantity toggle. Reading places compact wrapping ingredient badges between step heading and text. Cooking reuses those badges, text and the portions control for one step at a time, with a visible counter, previous/next actions and an explicit return to reading. Empty assignments add no empty panel; repeated ingredient uses never imply the full recipe quantity is needed again.
 - **Settings modal:** wide settings shell, section nav, section cards, consistent button groups, no special profile-only visual system.
 - **BrainDump modal:** voice-first detail-like shell with shared controls and candidate cards.
 - **Workspace dropdown:** `.ui-menu` surface with pill-shaped active, hover, edit, and add actions.

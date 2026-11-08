@@ -203,10 +203,20 @@ try {
   assert.equal(await page.locator('#braindump-modal').isVisible(), true, 'success remains inspectable without an unscoped delayed close');
   await close();
 
-  await capture([{module_id:'shopping',title:'Tomaten',shopping_list_id:null,shopping_store_ids:[]}]);
+  await capture([{module_id:'shopping',title:'Tomaten',shopping_list_id:null,shopping_store_ids:[],quantity_value:.25,quantity_unit:'Packung'}]);
   assert.equal(await page.locator('#braindump-create').isDisabled(), true);
   await page.locator('.braindump-edit-candidate').click();
   await assertEditorSurface();
+  const unitField = page.locator('[data-bd-field="quantity_unit"]');
+  assert.equal(await unitField.inputValue(), process.env.NIA_BRAINDUMP_SCREENSHOTS ? 'Pack.' : 'pack', 'BrainDump edits use the fixed current-locale unit label');
+  await unitField.fill('Liter'); await unitField.blur();
+  assert.equal(await page.locator('[data-bd-field="quantity_unit"]').inputValue(), 'l');
+  await page.locator('[data-bd-field="quantity_unit"]').fill('Hansdampf');
+  await page.locator('[data-bd-field="quantity_unit"]').blur();
+  assert.equal(await page.locator('[data-bd-field="quantity_unit"]').inputValue(), 'Hansdampf');
+  await page.locator('[data-bd-field="quantity_unit"]').fill('Lita');
+  await page.locator('[data-bd-field="quantity_unit"]').blur();
+  assert.equal(await page.locator('[data-bd-field="quantity_unit"]').inputValue(), 'Lita', 'no STT/fuzzy correction');
   if (process.env.NIA_BRAINDUMP_SCREENSHOTS) {
     await page.locator('.braindump-candidate-card.is-editing').scrollIntoViewIfNeeded();
     await page.screenshot({ path: '/tmp/nia-braindump-review-desktop.png', animations: 'disabled' });

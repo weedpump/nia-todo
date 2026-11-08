@@ -265,7 +265,7 @@ try {
   const created = await page.evaluate(() => window.test.lists()[0].items[0]);
   assert.deepEqual(
     { name: created.name, quantity: created.quantity_value, unit: created.quantity_unit, section: created.section_id, stores: created.store_ids },
-    { name: 'Tomaten', quantity: 0, unit: 'Stück', section: 'produce', stores: ['temp-shopping-store-browser'] },
+    { name: 'Tomaten', quantity: 0, unit: 'piece', section: 'produce', stores: ['temp-shopping-store-browser'] },
   );
   assert.equal(await page.evaluate(() => window.test.commits().find(commit => commit.action === 'CREATE_SHOPPING_ITEM')?.action), 'CREATE_SHOPPING_ITEM');
   assert.deepEqual(await page.locator('.shopping-item-title').allTextContents(), ['Tomaten'], 'the production shopping renderer must show the durable item immediately');
@@ -279,7 +279,7 @@ try {
   assert.equal(await page.locator('#shopping-item-name').evaluate(element => document.activeElement === element), false, 'editing an item must not automatically focus its title');
   assert.equal(await page.locator('#shopping-item-name').inputValue(), 'Tomaten');
   assert.equal(await page.locator('#shopping-item-quantity').inputValue(), '0');
-  assert.equal(await page.locator('#shopping-item-unit').inputValue(), 'Stück');
+  assert.equal(await page.locator('#shopping-item-unit').inputValue(), 'Stk.');
   assert.equal(await page.locator('#shopping-item-section').inputValue(), 'produce');
   assert.equal(await page.locator('#shopping-item-store').inputValue(), 'temp-shopping-store-browser');
   await page.evaluate(() => window.test.remapCreatedItem());
@@ -290,7 +290,7 @@ try {
   assert.equal(await page.evaluate(() => window.test.commits().at(-1).action), 'UPDATE_SHOPPING_ITEM');
   assert.equal(await page.evaluate(() => window.test.commits().at(-1).data.item_id), 42, 'an open editor must follow the item Temp-ID to its server ID');
   assert.deepEqual(await page.locator('.shopping-item-title').allTextContents(), ['Kirschtomaten']);
-  assert.deepEqual(await page.locator('.shopping-item-quantity').allTextContents(), ['2 Stück']);
+  assert.deepEqual(await page.locator('.shopping-item-quantity').allTextContents(), ['2 Stk.']);
   assert.equal(await page.locator('.shopping-item-edit-trigger').evaluate(element => document.activeElement === element), true, 'saving a remapped edit restores focus to the live item');
 
   await page.setViewportSize({ width: 320, height: 700 });
@@ -366,12 +366,12 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#shopping-item-quick-add-preview .quick-add-chip').length === 4);
   await page.locator('#shopping-item-quantity').fill('0');
   await page.locator('#shopping-item-unit').fill('Packungen');
-  await page.waitForFunction(() => document.querySelector('#shopping-item-quick-add-preview .unit strong')?.textContent === 'Packungen');
+  await page.waitForFunction(() => document.querySelector('#shopping-item-quick-add-preview .unit strong')?.textContent === 'Pack.');
   await page.locator('#shopping-item-save-btn').click();
   await page.waitForFunction(() => document.querySelector('#shopping-item-modal')?.getAttribute('aria-hidden') === 'true');
   const quickCreated = await page.evaluate(() => window.test.commits().at(-1).data.item);
   assert.deepEqual({ name: quickCreated.name, quantity: quickCreated.quantity_value, unit: quickCreated.quantity_unit, section: quickCreated.section_id, stores: quickCreated.store_ids }, {
-    name: 'Milch', quantity: 0, unit: 'Packungen', section: 'produce', stores: ['temp-shopping-store-browser'],
+    name: 'Milch', quantity: 0, unit: 'pack', section: 'produce', stores: ['temp-shopping-store-browser'],
   }, 'Quick Add must preserve explicit overrides and opaque offline associations in the durable payload');
   await page.locator('.shopping-item-edit-trigger').click();
   assert.equal(await page.locator('#shopping-item-quick-add-preview').isHidden(), true);

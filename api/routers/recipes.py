@@ -14,7 +14,8 @@ from services.entity_access import (
     transfer_entity_to_household,
 )
 from services.recipes import get_cookbook_view, get_sync_cookbooks
-from services.recipe_content import RecipeCreate, RecipePatch, get_recipe_view, write_recipe_children
+from services.recipe_content import RecipeCreate, RecipePatch, get_recipe_view, merge_recipe_patch, write_recipe_children
+from services.recipe_shopping_transfer import RecipeShoppingTransfer, apply_recipe_shopping_transfer
 from services.utils import sanitize_text
 
 router = APIRouter(prefix="/api/recipes")
@@ -248,6 +249,23 @@ async def create_recipe(cookbook_id: CookbookId, data: RecipeCreate, user_id: in
     return result
 
 
+@router.post("/recipes/{recipe_id}/shopping-transfer")
+async def transfer_recipe_to_shopping(recipe_id: CookbookId, data: RecipeShoppingTransfer,
+                                      user_id: int = Depends(require_auth)):
+    # Compose the same list projection as normal Shopping GET/snapshots, within
+    # the transfer writer transaction rather than opening a second connection.
+    from routers.shopping import shopping_list_projection
+    with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        receipt, applied = apply_recipe_shopping_transfer(db, recipe_id, user_id, data)
+        result = {**receipt, "shopping_list": shopping_list_projection(db, data.shopping_list_id, user_id)}
+        recipients = get_entity_access_boundary_user_ids(db, "shopping_list", data.shopping_list_id) if applied else set()
+        db.commit()
+    if applied:
+        await broadcast_sync_to_users(recipients)
+    return result
+
+
 @router.get("/recipes/{recipe_id}")
 def get_recipe(recipe_id: CookbookId, user_id: int = Depends(require_auth)):
     with get_db() as db:
@@ -272,7 +290,7 @@ async def update_recipe(recipe_id: CookbookId, data: RecipePatch, user_id: int =
         _check_recipe_revision(current, data.expected_revision)
         from pydantic import ValidationError
         try:
-            content = RecipeCreate.model_validate({**current, **data.model_dump(exclude_unset=True)})
+            content = RecipeCreate.model_validate(merge_recipe_patch(current, data))
         except ValidationError as error:
             raise HTTPException(422, "Invalid recipe aggregate") from error
         revision = current["revision"] + 1

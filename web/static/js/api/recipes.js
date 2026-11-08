@@ -3,6 +3,7 @@ import { http } from './http.js';
 const path = id => `/api/recipes/cookbooks/${encodeURIComponent(id)}`;
 const sharing = id => `/api/entity-sharing/cookbook/${encodeURIComponent(id)}`;
 export const recipesApi = Object.freeze({
+  transferToShopping: (id, data) => http.post(`/api/recipes/recipes/${encodeURIComponent(id)}/shopping-transfer`, data),
   getRecipe: id => http.get(`/api/recipes/recipes/${encodeURIComponent(id)}`),
   createRecipe: (bookId, data) => http.post(`${path(bookId)}/recipes`, data),
   updateRecipe: (id, data) => http.patch(`/api/recipes/recipes/${encodeURIComponent(id)}`, data),

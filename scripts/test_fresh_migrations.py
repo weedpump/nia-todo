@@ -60,7 +60,7 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 62, latest
+        assert latest == 65, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
@@ -150,7 +150,7 @@ def main():
             assert {"shopping_list_id", "user_id", "hide_empty_sections"}.issubset(shopping_preference_columns), shopping_preference_columns
             assert "selected_store_id" not in shopping_preference_columns, shopping_preference_columns
             assert "markets_json" not in shopping_item_columns, shopping_item_columns
-            assert "quantity_text" not in shopping_item_columns, shopping_item_columns
+            assert {"quantity_text", "note", "quantity_display_mode"}.issubset(shopping_item_columns), shopping_item_columns
             assert "hide_completed" not in shopping_preference_columns, shopping_preference_columns
             assert "archived_at" not in shopping_list_columns, shopping_list_columns
 
@@ -350,9 +350,71 @@ def main():
             assert database_snapshot(db) == before_migration_62_failure
             assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 61
             migrate_module.apply_atomic_migration(db, migration_62, 62)
+            before_migration_63_failure = database_snapshot(db)
+            migration_63 = (MIGRATIONS_DIR / "063_add_recipe_shopping_transfers.sql").read_text()
+            try:
+                migrate_module.apply_atomic_migration(db, migration_63 + "\nSELECT * FROM migration_63_forced_failure;\n", 63)
+            except sqlite3.OperationalError as error:
+                assert "migration_63_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 63 unexpectedly succeeded")
+            assert database_snapshot(db) == before_migration_63_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 62
+            migrate_module.apply_atomic_migration(db, migration_63, 63)
+            for table, rows in before_migration_63_failure[1].items():
+                current = db.execute(f'SELECT * FROM "{table}" ORDER BY rowid').fetchall()
+                if table == "schema_version":
+                    continue
+                if table == "shopping_items":
+                    current = [row[:-2] for row in current]
+                assert current == rows, table
+            assert {"quantity_text", "note"}.issubset({row[1] for row in db.execute("PRAGMA table_info(shopping_items)")})
+            assert db.execute("SELECT COUNT(*) FROM recipe_shopping_transfers").fetchone()[0] == 0
+            assert db.execute("SELECT COUNT(*) FROM shopping_item_recipe_sources").fetchone()[0] == 0
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+            before_migration_64_failure = database_snapshot(db)
+            migration_64 = (MIGRATIONS_DIR / "064_add_shopping_quantity_display_mode.sql").read_text()
+            try:
+                migrate_module.apply_atomic_migration(db, migration_64 + "\nSELECT * FROM migration_64_forced_failure;\n", 64)
+            except sqlite3.OperationalError as error:
+                assert "migration_64_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 64 unexpectedly succeeded")
+            assert database_snapshot(db) == before_migration_64_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 63
+            migrate_module.apply_atomic_migration(db, migration_64, 64)
+            for table, rows in before_migration_64_failure[1].items():
+                if table == "schema_version":
+                    continue
+                current = db.execute(f'SELECT * FROM "{table}" ORDER BY rowid').fetchall()
+                if table == "shopping_items":
+                    assert all(row[-1] == "exact" for row in current)
+                    current = [row[:-1] for row in current]
+                assert current == rows, table
+            # Upgrade existing recipe children without changing their IDs/content.
+            recipe_id = db.execute("INSERT INTO recipes (cookbook_id, title, client_mutation_id) VALUES (?, 'Existing recipe', 'migration-existing-recipe')", (cookbook_id,)).lastrowid
+            group_id = db.execute("INSERT INTO recipe_ingredient_groups (recipe_id,client_key,name,sort_order) VALUES (?, 'group', 'Existing group', 0)", (recipe_id,)).lastrowid
+            db.execute("INSERT INTO recipe_ingredients (recipe_id,group_id,client_key,name,quantity_value,quantity_unit,sort_order) VALUES (?, ?, 'ingredient', 'Flour', 250, 'g', 0)", (recipe_id,group_id))
+            db.execute("INSERT INTO recipe_steps (recipe_id,client_key,text,sort_order) VALUES (?, 'step', 'Existing preparation', 0)", (recipe_id,))
+            before_migration_65_failure = database_snapshot(db)
+            migration_65 = (MIGRATIONS_DIR / "065_add_recipe_step_ingredients.sql").read_text()
+            try:
+                migrate_module.apply_atomic_migration(db, migration_65 + "\nSELECT * FROM migration_65_forced_failure;\n", 65)
+            except sqlite3.OperationalError as error:
+                assert "migration_65_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 65 unexpectedly succeeded")
+            assert database_snapshot(db) == before_migration_65_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 64
+            migrate_module.apply_atomic_migration(db, migration_65, 65)
+            for table, rows in before_migration_65_failure[1].items():
+                if table != "schema_version":
+                    assert db.execute(f'SELECT * FROM "{table}" ORDER BY rowid').fetchall() == rows, table
+            assert db.execute("SELECT COUNT(*) FROM recipe_step_ingredients").fetchone()[0] == 0
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
         run_migrations(v55_env)
         with sqlite3.connect(v55_db_path) as db:
-            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 62
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 65
             project_member_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
             assert "is_direct_access_mirror" not in project_member_columns, project_member_columns
             migrated_grants = db.execute(
