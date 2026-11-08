@@ -124,6 +124,8 @@ run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.
 run_step "Subtasks API" python3 scripts/test_subtasks.py
 run_step "Todo Comments API" python3 scripts/test_todo_comments.py
 run_step "Todo Attachments API" python3 scripts/test_todo_attachments.py
+run_step "Todo Attachment Access Quota" python3 scripts/test_attachment_quota_access.py
+run_step "Todo Attachment Quota Preflight" node scripts/test_todo_attachment_quota.mjs
 run_step "Location Reminder Backend" python3 scripts/test_location_reminders.py
 run_step "Location Reminder WebSocket" python3 scripts/test_websocket_location_reminders.py
 run_step "Location Reminder Opt-Out Transaction" node scripts/test_location_reminder_opt_out_transaction.mjs
