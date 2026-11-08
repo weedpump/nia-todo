@@ -2180,6 +2180,7 @@
   "recipe.group.add": "Dodaj grupę składników",
   "recipe.quantityText": "Ilość opisowa (zamiast liczby)",
   "recipe.steps": "Przygotowanie",
+  "recipe.steps.hint": "Pierwszy wiersz to tytuł. Kolejne wiersze opisują krok.",
   "recipe.step.add": "Dodaj krok",
   "recipe.step.number": "Krok {number}",
   "recipe.moveUp": "Przesuń w górę",

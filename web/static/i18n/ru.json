@@ -2180,6 +2180,7 @@
   "recipe.group.add": "Добавить группу ингредиентов",
   "recipe.quantityText": "Количество словами (вместо числа)",
   "recipe.steps": "Способ приготовления",
+  "recipe.steps.hint": "Первая строка — заголовок. Следующие строки описывают шаг.",
   "recipe.step.add": "Добавить шаг",
   "recipe.step.number": "Шаг {number}",
   "recipe.moveUp": "Переместить вверх",

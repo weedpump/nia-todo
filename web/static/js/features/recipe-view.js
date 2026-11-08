@@ -36,6 +36,11 @@ function metadata(recipe) {
   if (recipe.cook_minutes != null) values.push(`<span>${iconSvg('flame')}${escapeHtml(t('recipe.cookTime', { minutes: recipe.cook_minutes }))}</span>`);
   return `<div class="recipe-metadata">${values.join('')}${(recipe.tags || []).map(tag => `<span class="recipe-tag">${escapeHtml(tag)}</span>`).join('')}</div>`;
 }
+function renderStep(text) {
+  const [heading, ...lines] = text.split(/\r?\n/);
+  const body = lines.join('\n');
+  return `<div class="recipe-step-copy"><h3>${escapeHtml(heading)}</h3>${body ? `<p>${escapeHtml(body)}</p>` : ''}</div>`;
+}
 export function renderRecipeOverview(cookbook, query = '') {
   const term = query.trim().toLocaleLowerCase();
   const recipes = (cookbook.recipes || []).filter(recipe => !term || `${recipe.title} ${(recipe.tags || []).join(' ')} ${(recipe.ingredient_groups || []).flatMap(group => group.ingredients || []).map(item => item.name).join(' ')}`.toLocaleLowerCase().includes(term));
@@ -51,13 +56,14 @@ export function renderRecipeReading(cookbook, recipe, { servings = recipe.base_s
       ${canEditRecipe(recipe, cookbook) ? button('edit', t('recipe.edit'), 'pencil') : ''}</div>
     ${renderRecipeConflict(recipe, { editable: canEditRecipe(recipe, cookbook) })}<div class="recipe-heading"><div><h1>${escapeHtml(recipe.title)}</h1>${recipe.description ? `<p class="recipe-description">${escapeHtml(recipe.description)}</p>` : ''}${metadata(recipe)}</div>${image(recipe, 'recipe-title-image')}</div>
     <div class="recipe-columns"><section aria-labelledby="recipe-ingredients-title"><div class="recipe-section-heading"><h2 id="recipe-ingredients-title">${escapeHtml(t('recipe.ingredients'))}</h2>
-      <div class="recipe-servings" aria-label="${escapeHtmlAttr(t('recipe.servings'))}">${button('less', t('recipe.servings.less'), 'minus', Number(servings) <= 1 ? 'disabled' : '')}
-        <label><input id="recipe-view-servings" type="number" min="0" max="100000" step="any" value="${escapeHtmlAttr(servings)}" aria-label="${escapeHtmlAttr(t('recipe.servings'))}"><span>${escapeHtml(t('recipe.servings'))}</span></label>
-        ${button('more', t('recipe.servings.more'), 'plus', Number(servings) >= 100000 ? 'disabled' : '')}</div></div>
+      <div class="recipe-servings-field"><label id="recipe-servings-label" for="recipe-view-servings">${escapeHtml(t('recipe.servings'))}</label>
+        <div class="recipe-servings" role="group" aria-labelledby="recipe-servings-label">${button('less', t('recipe.servings.less'), 'minus', Number(servings) <= 1 ? 'disabled' : '')}
+          <input class="ui-field" id="recipe-view-servings" type="number" min="0" max="100000" step="any" value="${escapeHtmlAttr(servings)}" aria-labelledby="recipe-servings-label">
+          ${button('more', t('recipe.servings.more'), 'plus', Number(servings) >= 100000 ? 'disabled' : '')}</div></div></div>
       <div class="recipe-ingredient-groups">${(recipe.ingredient_groups || []).map(group => `<section class="recipe-ingredient-group">${group.name ? `<h3>${escapeHtml(group.name)}</h3>` : ''}
-        ${(group.ingredients || []).map(item => `<label class="recipe-ingredient"><input type="checkbox" data-recipe-ingredient="${escapeHtmlAttr(item.client_key)}" ${checked.has(item.client_key) ? 'checked' : ''}>
-          <span><span class="recipe-ingredient-main"><b data-recipe-amount="${escapeHtmlAttr(item.client_key)}">${escapeHtml(ingredientAmount(item, servings, recipe.base_servings))}</b> ${escapeHtml(item.name)}</span>${item.note ? `<small>${escapeHtml(item.note)}</small>` : ''}</span></label>`).join('')}</section>`).join('')}</div></section>
-      <section aria-labelledby="recipe-steps-title"><h2 id="recipe-steps-title">${escapeHtml(t('recipe.steps'))}</h2><ol class="recipe-steps">${(recipe.steps || []).map((step, index) => `<li><span class="recipe-step-number" aria-hidden="true">${index + 1}</span><p>${escapeHtml(step.text)}</p></li>`).join('')}</ol></section></div>
+        ${(group.ingredients || []).map(item => `<label class="recipe-ingredient"><span class="ui-checkbox-label ui-checkbox-round"><input type="checkbox" data-recipe-ingredient="${escapeHtmlAttr(item.client_key)}" ${checked.has(item.client_key) ? 'checked' : ''}><span class="ui-checkbox-box" aria-hidden="true">${iconSvg('check')}</span></span>
+          <span class="recipe-ingredient-copy"><span class="recipe-ingredient-main"><b data-recipe-amount="${escapeHtmlAttr(item.client_key)}">${escapeHtml(ingredientAmount(item, servings, recipe.base_servings))}</b> ${escapeHtml(item.name)}</span>${item.note ? `<small>${escapeHtml(item.note)}</small>` : ''}</span></label>`).join('')}</section>`).join('')}</div></section>
+      <section aria-labelledby="recipe-steps-title"><h2 id="recipe-steps-title">${escapeHtml(t('recipe.steps'))}</h2><ol class="recipe-steps">${(recipe.steps || []).map((step, index) => `<li><span class="recipe-step-number" aria-hidden="true">${index + 1}</span>${renderStep(step.text)}</li>`).join('')}</ol></section></div>
     <p id="recipe-view-error" class="form-error" role="alert"></p></article>`;
 }
 

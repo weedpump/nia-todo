@@ -2180,6 +2180,7 @@
   "recipe.group.add": "Add ingredient group",
   "recipe.quantityText": "Free quantity (instead of a number)",
   "recipe.steps": "Preparation",
+  "recipe.steps.hint": "The first line is the heading. Use the following lines for instructions.",
   "recipe.step.add": "Add step",
   "recipe.step.number": "Step {number}",
   "recipe.moveUp": "Move up",

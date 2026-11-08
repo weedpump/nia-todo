@@ -2180,6 +2180,7 @@
   "recipe.group.add": "Přidat skupinu ingrediencí",
   "recipe.quantityText": "Slovní množství (místo čísla)",
   "recipe.steps": "Postup přípravy",
+  "recipe.steps.hint": "První řádek je nadpis. Další řádky popisují postup.",
   "recipe.step.add": "Přidat krok",
   "recipe.step.number": "Krok {number}",
   "recipe.moveUp": "Přesunout nahoru",

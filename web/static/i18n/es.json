@@ -2180,6 +2180,7 @@
   "recipe.group.add": "Añadir grupo de ingredientes",
   "recipe.quantityText": "Cantidad en texto (en lugar de un número)",
   "recipe.steps": "Preparación",
+  "recipe.steps.hint": "La primera línea es el título. Las siguientes líneas describen el paso.",
   "recipe.step.add": "Añadir paso",
   "recipe.step.number": "Paso {number}",
   "recipe.moveUp": "Mover arriba",

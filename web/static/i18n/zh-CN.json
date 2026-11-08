@@ -2180,6 +2180,7 @@
   "recipe.group.add": "添加食材分组",
   "recipe.quantityText": "文字用量（代替数字）",
   "recipe.steps": "制作方法",
+  "recipe.steps.hint": "第一行是标题，后续行用于描述操作步骤。",
   "recipe.step.add": "添加步骤",
   "recipe.step.number": "第 {number} 步",
   "recipe.moveUp": "上移",

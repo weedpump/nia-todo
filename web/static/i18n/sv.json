@@ -2180,6 +2180,7 @@
   "recipe.group.add": "Lägg till ingrediensgrupp",
   "recipe.quantityText": "Mängd i text (i stället för ett tal)",
   "recipe.steps": "Tillagning",
+  "recipe.steps.hint": "Den första raden är rubriken. Följande rader beskriver steget.",
   "recipe.step.add": "Lägg till steg",
   "recipe.step.number": "Steg {number}",
   "recipe.moveUp": "Flytta upp",

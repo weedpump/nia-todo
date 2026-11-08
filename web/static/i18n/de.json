@@ -2180,6 +2180,7 @@
   "recipe.group.add": "Zutatengruppe hinzufügen",
   "recipe.quantityText": "Freie Mengenangabe (statt einer Zahl)",
   "recipe.steps": "Zubereitung",
+  "recipe.steps.hint": "Die erste Zeile ist die Überschrift. Weitere Zeilen beschreiben den Schritt.",
   "recipe.step.add": "Schritt hinzufügen",
   "recipe.step.number": "Schritt {number}",
   "recipe.moveUp": "Nach oben",

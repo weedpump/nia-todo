@@ -2180,6 +2180,7 @@
   "recipe.group.add": "Ingrediëntengroep toevoegen",
   "recipe.quantityText": "Hoeveelheid in tekst (in plaats van een getal)",
   "recipe.steps": "Bereiding",
+  "recipe.steps.hint": "De eerste regel is de titel. De volgende regels beschrijven de stap.",
   "recipe.step.add": "Stap toevoegen",
   "recipe.step.number": "Stap {number}",
   "recipe.moveUp": "Omhoog verplaatsen",

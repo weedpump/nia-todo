@@ -118,7 +118,63 @@ try {
   assert.equal(await page.locator('#recipe-view-servings').inputValue(), '3', 'module roundtrip preserves cooking portions');
   assert.equal(await page.locator('[data-recipe-ingredient="i-pasta"]').isChecked(), true);
   assert.equal(await page.locator('.recipe-steps li').count(), 2);
-  assert.equal(await page.locator('.recipe-steps li p').first().textContent(), 'Wasser erhitzen.\nPasta kochen.');
+  assert.equal(await page.locator('.recipe-steps li h3').first().textContent(), 'Wasser erhitzen.');
+  assert.equal(await page.locator('.recipe-steps li p').first().textContent(), 'Pasta kochen.');
+  assert.equal(await page.locator('.recipe-steps li').nth(1).locator('h3').textContent(), 'Tomaten hinzufügen.');
+  const stepText = await page.locator('.recipe-step-copy').first().evaluate(node => Array.from(node.children, child => child.textContent).join('\n'));
+  assert.equal(stepText, 'Wasser erhitzen.\nPasta kochen.', 'heading and body preserve the complete ordered step');
+  for (const { theme, width } of ['dark', 'light'].flatMap(theme => [1280, 390, 320].map(width => ({ theme, width })))) {
+    await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);
+    await page.setViewportSize({ width, height: 900 });
+    await waitForPageCondition(page, minimum => {
+      const button = document.querySelector('[data-recipe-action="less"]').getBoundingClientRect();
+      return button.width === minimum && button.height === minimum;
+    }, width > 768 ? 34 : 44);
+    const design = await page.locator('.recipe-reading').evaluate(node => {
+      const style = selector => getComputedStyle(node.querySelector(selector));
+      const box = selector => node.querySelector(selector).getBoundingClientRect();
+      const checkbox = box('.ui-checkbox-label'), copy = style('.recipe-ingredient-copy');
+      const control = box('.recipe-servings'), less = box('[data-recipe-action="less"]');
+      return { control: control.width, button: less.width, buttonHeight: less.height,
+        checkWidth: checkbox.width, checkHeight: checkbox.height, round: style('.ui-checkbox-box').borderRadius,
+        checked: node.querySelector('[data-recipe-ingredient="i-pasta"]').checked,
+        checkVisible: style('.ui-checkbox-box .ui-icon').opacity, strike: copy.textDecorationLine,
+        titleSize: parseFloat(style('h1').fontSize), descriptionSize: parseFloat(style('.recipe-description').fontSize),
+        bodySize: parseFloat(style('.recipe-step-copy p').fontSize), titleWeight: +style('h1').fontWeight,
+        stepWeight: +style('.recipe-step-copy h3').fontWeight, bodyWeight: +style('.recipe-step-copy p').fontWeight,
+        overflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+    assert.ok(design.control <= (width > 768 ? 140 : 160), `compact portions at ${width}px: ${JSON.stringify(design)}`);
+    assert.ok(design.button >= (width > 768 ? 34 : 44) && design.buttonHeight >= (width > 768 ? 34 : 44), `portion touch target at ${width}px: ${JSON.stringify(design)}`);
+    assert.ok(design.checkWidth >= 44 && design.checkHeight >= 44, 'ingredient checkbox keeps a 44px hit area');
+    assert.equal(design.round, '50%'); assert.equal(design.checked, true);
+    assert.equal(design.checkVisible, '1'); assert.equal(design.strike, 'line-through');
+    assert.ok(design.titleSize > design.descriptionSize && design.descriptionSize > design.bodySize);
+    assert.ok(design.titleWeight >= 700 && design.stepWeight >= 700 && design.stepWeight > design.bodyWeight);
+    assert.equal(design.overflow, false, `reading view must fit at ${width}px`);
+    if (process.env.NIA_TODO_TEST_OUTPUT_DIR) { mkdirSync(process.env.NIA_TODO_TEST_OUTPUT_DIR, { recursive: true }); await page.screenshot({ path: `${process.env.NIA_TODO_TEST_OUTPUT_DIR}/recipes-reading-${theme}-${width}.png`, fullPage: true, animations: 'disabled' }); }
+  }
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+  const checkbox = page.locator('[data-recipe-ingredient="i-pasta"]');
+  await checkbox.focus(); await checkbox.press('Space');
+  assert.equal(await checkbox.isChecked(), false, 'native keyboard interaction remains available');
+  assert.notEqual(await checkbox.locator('..').locator('.ui-checkbox-box').evaluate(node => getComputedStyle(node).boxShadow), 'none', 'keyboard focus is visible on the shared check control');
+  await page.locator('.recipe-ingredient-copy').first().click();
+  assert.equal(await checkbox.isChecked(), true, 'clicking the ingredient text toggles its labelled checkbox');
+  await page.fill('#recipe-view-servings', '100000'); await page.locator('#recipe-view-servings').press('Tab');
+  assert.equal(await page.locator('#recipe-view-servings').inputValue(), '100000');
+  assert.equal(await page.locator('[data-recipe-action="more"]').isDisabled(), true);
+  const numberFits = await page.locator('#recipe-view-servings').evaluate(input => {
+    const style = getComputedStyle(input), canvas = document.createElement('canvas'), context = canvas.getContext('2d');
+    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    return context.measureText(input.value).width <= input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  });
+  assert.equal(numberFits, true, 'maximum portion value remains fully visible');
+  await page.fill('#recipe-view-servings', '0.5'); await page.locator('#recipe-view-servings').press('Tab');
+  assert.equal(await amount.textContent(), '25 g', 'fractional portions continue to scale');
+  await page.fill('#recipe-view-servings', '3'); await page.locator('#recipe-view-servings').press('Tab');
+  await page.setViewportSize({ width: 1280, height: 900 });
   assert.equal(await page.locator('img[src^="/api/recipes"]').count(), 0, 'private image endpoints are never used as direct image src');
 
   const modal = page.locator('#recipe-modal');
