@@ -24,6 +24,7 @@ export function createWebSocketClient({
   setCookbooks = () => {},
   getActorId = () => null,
   onCookbookIdRemap = () => {},
+  onRecipeIdRemap = () => {},
   getTodos,
   setTodos,
   getProjects,
@@ -428,6 +429,7 @@ async function handleWsMessage(msg) {
       onReminderDue(msg.payload || msg);
       break;
     case 'sync_response': {
+      let recipeRemaps = [];
       const arrivedDuringLocalSync = Boolean(syncInProgressRef?.value) || hasUnsettledSync();
       if (arrivedDuringLocalSync) {
         // The payload may predate mutations that just committed. Discard it and
@@ -596,6 +598,7 @@ async function handleWsMessage(msg) {
         setCookbooks(reconciliation.entities);
         for (const [from, to] of reconciliation.remaps) onCookbookIdRemap(from, to);
         revokedCookbookIds = reconciliation.revokedIds;
+        recipeRemaps = reconciliation.recipeRemaps || [];
       }
       if (Object.prototype.hasOwnProperty.call(msg, 'projects')
         || Object.prototype.hasOwnProperty.call(msg, 'shopping_lists')
@@ -643,6 +646,7 @@ async function handleWsMessage(msg) {
       renderTodos();
       });
       if (!committed) return;
+      for (const [from, to] of recipeRemaps) onRecipeIdRemap(from, to);
       break;
     }
     case 'todo_create':

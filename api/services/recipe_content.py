@@ -1,0 +1,218 @@
+"""Validated recipe aggregates; children inherit their cookbook's boundary."""
+
+import json
+from typing import Annotated
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from services.entity_access import resolve_entity_access
+from services.quantity_units import normalize_quantity_unit
+
+ClientKey = Annotated[str, Field(min_length=1, max_length=200)]
+Servings = Annotated[float, Field(gt=0, le=100000, allow_inf_nan=False, strict=True)]
+Minutes = Annotated[int, Field(ge=0, le=100000, strict=True)]
+Revision = Annotated[int, Field(gt=0, le=9223372036854775807, strict=True)]
+
+
+def _required(value: str) -> str:
+    value = value.strip()
+    if not value:
+        raise ValueError("Value cannot be blank")
+    return value
+
+
+class Ingredient(BaseModel):
+    client_key: ClientKey
+    name: str = Field(min_length=1, max_length=500)
+    quantity_value: float | None = Field(default=None, gt=0, allow_inf_nan=False, strict=True)
+    quantity_unit: str | None = Field(default=None, max_length=40)
+    quantity_text: str | None = Field(default=None, max_length=500)
+    note: str = Field(default="", max_length=2000)
+
+    @field_validator("client_key", "name")
+    @classmethod
+    def required(cls, value):
+        return _required(value)
+
+    @field_validator("quantity_unit", "quantity_text")
+    @classmethod
+    def optional_text(cls, value):
+        return value.strip() or None if value is not None else None
+
+    @field_validator("note")
+    @classmethod
+    def trim_note(cls, value):
+        return value.strip()
+
+    @model_validator(mode="after")
+    def amount_contract(self):
+        if self.quantity_value is not None and self.quantity_text:
+            raise ValueError("Numeric and free quantities are mutually exclusive")
+        self.quantity_unit = normalize_quantity_unit(self.quantity_unit)
+        return self
+
+
+class IngredientGroup(BaseModel):
+    client_key: ClientKey
+    name: str = Field(default="", max_length=200)
+    ingredients: list[Ingredient] = Field(default_factory=list, max_length=500)
+
+    @field_validator("client_key")
+    @classmethod
+    def required_key(cls, value):
+        return _required(value)
+
+    @field_validator("name")
+    @classmethod
+    def trim_name(cls, value):
+        return value.strip()
+
+
+class RecipeStep(BaseModel):
+    client_key: ClientKey
+    text: str = Field(min_length=1, max_length=8000)
+
+    @field_validator("client_key", "text")
+    @classmethod
+    def required(cls, value):
+        return _required(value)
+
+
+class RecipePayload(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    base_servings: Servings | None = None
+    prep_minutes: Minutes | None = None
+    cook_minutes: Minutes | None = None
+    tags: list[Annotated[str, Field(min_length=1, max_length=80)]] | None = Field(default=None, max_length=40)
+    ingredient_groups: list[IngredientGroup] | None = Field(default=None, max_length=50)
+    steps: list[RecipeStep] | None = Field(default=None, max_length=100)
+    image_data: str | None = Field(default=None, max_length=430000)
+    client_mutation_id: ClientKey
+
+    @field_validator("title", "client_mutation_id")
+    @classmethod
+    def required(cls, value):
+        return _required(value) if value is not None else None
+
+    @field_validator("description")
+    @classmethod
+    def trim_description(cls, value):
+        return value.strip() if value is not None else None
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, values):
+        if values is None:
+            return None
+        result, seen = [], set()
+        for value in values:
+            name = _required(value)
+            key = " ".join(name.casefold().split())
+            if key not in seen:
+                result.append(name)
+                seen.add(key)
+        return result
+
+    @model_validator(mode="after")
+    def aggregate_contract(self):
+        for field in ("title", "description", "base_servings", "tags", "ingredient_groups", "steps"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(field + " cannot be null")
+        groups = self.ingredient_groups or []
+        ingredients = [ingredient for group in groups for ingredient in group.ingredients]
+        if len(ingredients) > 500:
+            raise ValueError("Too many ingredients")
+        for collection in (groups, ingredients, self.steps or []):
+            keys = [item.client_key for item in collection]
+            if len(keys) != len(set(keys)):
+                raise ValueError("Duplicate child client_key")
+        if len(json.dumps(self.model_dump(exclude_unset=True), ensure_ascii=False, allow_nan=False).encode("utf-8")) > 512 * 1024:
+            raise ValueError("Recipe aggregate exceeds 512 KiB")
+        return self
+
+
+class RecipeCreate(RecipePayload):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=4000)
+    base_servings: Servings = 1
+    tags: list[Annotated[str, Field(min_length=1, max_length=80)]] = Field(default_factory=list, max_length=40)
+    ingredient_groups: list[IngredientGroup] = Field(default_factory=list, max_length=50)
+    steps: list[RecipeStep] = Field(default_factory=list, max_length=100)
+
+
+class RecipePatch(RecipePayload):
+    expected_revision: Revision
+
+
+def get_authorized_recipe_row(db, recipe_id: int, user_id: int, *, edit: bool = False):
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    if row is None:
+        return None
+    access = resolve_entity_access(db, "cookbook", row["cookbook_id"], user_id)
+    return row if (access.can_edit_content if edit else access.can_view) else None
+
+
+def _project_recipes(db, rows, *, can_edit: bool) -> list[dict]:
+    if not rows:
+        return []
+    if len(rows) > 400:
+        return [recipe for offset in range(0, len(rows), 400) for recipe in _project_recipes(db, rows[offset:offset + 400], can_edit=can_edit)]
+    ids = [row["id"] for row in rows]
+    placeholders = ",".join("?" for _ in ids)
+    groups, ingredients, steps, tags = {}, {}, {}, {}
+    for row in db.execute(f"SELECT * FROM recipe_ingredients WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
+        ingredients.setdefault(row["group_id"], []).append({key: row[key] for key in ("id", "client_key", "name", "quantity_value", "quantity_unit", "quantity_text", "note")})
+    for row in db.execute(f"SELECT * FROM recipe_ingredient_groups WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
+        groups.setdefault(row["recipe_id"], []).append({"id": row["id"], "client_key": row["client_key"], "name": row["name"], "ingredients": ingredients.get(row["id"], [])})
+    for row in db.execute(f"SELECT * FROM recipe_steps WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
+        steps.setdefault(row["recipe_id"], []).append({key: row[key] for key in ("id", "client_key", "text")})
+    for row in db.execute(f"SELECT * FROM recipe_tags WHERE recipe_id IN ({placeholders}) ORDER BY sort_order", ids):
+        tags.setdefault(row["recipe_id"], []).append(row["name"])
+    images = {row["recipe_id"]: row["content_hash"] for row in db.execute(f"SELECT recipe_id, content_hash FROM recipe_images WHERE recipe_id IN ({placeholders})", ids)}
+    return [{**dict(row), "can_edit": can_edit, "ingredient_groups": groups.get(row["id"], []),
+             "steps": steps.get(row["id"], []), "tags": tags.get(row["id"], []),
+             "image_version": images.get(row["id"]),
+             "image_url": f"/api/recipes/recipes/{row['id']}/image?v={images[row['id']]}" if row["id"] in images else None} for row in rows]
+
+
+def get_recipe_view(db, recipe_id: int, user_id: int) -> dict | None:
+    row = get_authorized_recipe_row(db, recipe_id, user_id)
+    if row is None:
+        return None
+    access = resolve_entity_access(db, "cookbook", row["cookbook_id"], user_id)
+    return _project_recipes(db, [row], can_edit=access.can_edit_content)[0]
+
+
+def get_cookbook_recipes(db, cookbook_id: int, user_id: int) -> list[dict]:
+    access = resolve_entity_access(db, "cookbook", cookbook_id, user_id)
+    if not access.can_view:
+        return []
+    return _project_recipes(db, db.execute("SELECT * FROM recipes WHERE cookbook_id = ? ORDER BY id", (cookbook_id,)).fetchall(), can_edit=access.can_edit_content)
+
+
+def _sync_children(db, table: str, recipe_id: int, rows: list[dict], fields: tuple[str, ...]):
+    existing = {row["client_key"]: row["id"] for row in db.execute(f"SELECT id, client_key FROM {table} WHERE recipe_id = ?", (recipe_id,))}
+    resolved = {}
+    for position, row in enumerate(rows):
+        values = [row.get(field) for field in fields]
+        if row["client_key"] in existing:
+            child_id = existing[row["client_key"]]
+            db.execute(f"UPDATE {table} SET " + ", ".join(field + " = ?" for field in (*fields, "sort_order")) + " WHERE id = ? AND recipe_id = ?", (*values, position, child_id, recipe_id))
+        else:
+            child_id = db.execute(f"INSERT INTO {table} (recipe_id, client_key, " + ", ".join((*fields, "sort_order")) + ") VALUES (" + ",".join("?" for _ in range(len(fields) + 3)) + ")", (recipe_id, row["client_key"], *values, position)).lastrowid
+        resolved[row["client_key"]] = child_id
+    return existing, resolved
+
+
+def write_recipe_children(db, recipe_id: int, content: RecipeCreate):
+    group_rows = [group.model_dump() for group in content.ingredient_groups]
+    old_groups, group_ids = _sync_children(db, "recipe_ingredient_groups", recipe_id, group_rows, ("name",))
+    ingredient_rows = [{**ingredient.model_dump(), "group_id": group_ids[group.client_key]} for group in content.ingredient_groups for ingredient in group.ingredients]
+    old_ingredients, ingredient_ids = _sync_children(db, "recipe_ingredients", recipe_id, ingredient_rows, ("group_id", "name", "quantity_value", "quantity_unit", "quantity_text", "note"))
+    old_steps, step_ids = _sync_children(db, "recipe_steps", recipe_id, [step.model_dump() for step in content.steps], ("text",))
+    for table, old, new in (("recipe_ingredients", old_ingredients, ingredient_ids), ("recipe_ingredient_groups", old_groups, group_ids), ("recipe_steps", old_steps, step_ids)):
+        for key in old.keys() - new.keys():
+            db.execute(f"DELETE FROM {table} WHERE id = ? AND recipe_id = ?", (old[key], recipe_id))
+    db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (recipe_id,))
+    db.executemany("INSERT INTO recipe_tags (recipe_id, name, name_key, sort_order) VALUES (?, ?, ?, ?)", [(recipe_id, name, " ".join(name.casefold().split()), position) for position, name in enumerate(content.tags)])

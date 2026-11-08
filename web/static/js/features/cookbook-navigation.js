@@ -18,10 +18,12 @@ export function createCookbookNavigationFeature({
   closeSidebar = () => false, onAdd = () => {}, onDetail = () => {},
   onCookbookIdRemap = () => {}, onDeactivate = () => {}, onRender = () => {},
   cookbookApi, loadAuthoritativeProjection = async () => null,
+  recipeView = null,
   removePendingEntities = async () => {}, onError = console.error,
 } = {}) {
   let activeId = null, bound = false, suspended = false, query = '';
   let sidebarBinding;
+  let catalogReady = false;
   let accessibleCookbookIds = [];
   const receipts = new Map();
   const emptyIcon = niaIconSvg('recipes');
@@ -57,7 +59,7 @@ export function createCookbookNavigationFeature({
     try { if (activeId == null) storage?.removeItem?.(COOKBOOK_ACTIVE_KEY); else storage?.setItem?.(COOKBOOK_ACTIVE_KEY, String(activeId)); } catch { /* Optional preference. */ }
   }
   function route(replace = false) {
-    const state = { ...(historyTarget?.state || {}), niaCookbookRoute: true, cookbookId: activeId };
+    const state = { ...(historyTarget?.state || {}), niaCookbookRoute: true, cookbookId: activeId, ...(recipeView ? { niaRecipeRoute: true, recipeId: recipeView.getActiveRecipeId() } : {}) };
     historyTarget?.[replace ? 'replaceState' : 'pushState']?.(state, '', `${eventTarget?.location?.pathname || '/'}${eventTarget?.location?.search || ''}`);
   }
   function resolve(id) {
@@ -72,11 +74,13 @@ export function createCookbookNavigationFeature({
     return getCookbooks().find(book => ownReceipt(book) && sameId(book.client_mutation_id, id));
   }
   function choose() {
+    if (!catalogReady && getCookbooks().length === 0) return;
     if (byId(activeId)) return;
     let stored;
     try { stored = storage?.getItem?.(COOKBOOK_ACTIVE_KEY); } catch { /* Optional preference. */ }
     const values = ordered(getCookbooks());
-    activeId = resolve(stored)?.id ?? ['personal', 'household', 'shared'].map(group => values.find(book => classifyEntityOwnership(book) === group)?.id).find(id => id != null) ?? null;
+    const fromHistory = activeId == null && historyTarget?.state?.niaCookbookRoute && historyTarget.state.moduleId === 'recipes' ? resolve(historyTarget.state.cookbookId)?.id : null;
+    activeId = fromHistory ?? resolve(stored)?.id ?? ['personal', 'household', 'shared'].map(group => values.find(book => classifyEntityOwnership(book) === group)?.id).find(id => id != null) ?? null;
     persist();
   }
   function render() {
@@ -85,7 +89,7 @@ export function createCookbookNavigationFeature({
     if (sidebar) {
       const html = ['personal', 'household', 'shared'].map(group => {
         const rows = ordered(getCookbooks()).filter(book => classifyEntityOwnership(book) === group
-          && (!query.trim() || `${book.name || ''} ${book.description || ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))).map(book => renderEntitySidebarRow({
+          && (recipeView || !query.trim() || `${book.name || ''} ${book.description || ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))).map(book => renderEntitySidebarRow({
           entity: book, entityType: 'cookbook', active: sameId(book.id, activeId), count: book.recipe_count || 0,
         })).join('');
         return rows || group === 'personal' ? renderEntitySidebarSection({ section: group, rows,
@@ -97,6 +101,11 @@ export function createCookbookNavigationFeature({
     const main = root?.getElementById?.('cookbook-navigation-main');
     if (main) {
       const book = byId(activeId);
+      if (book && recipeView) {
+        recipeView.render({ cookbook: book, searchQuery: query });
+      } else {
+      recipeView?.clear?.();
+      main.classList.remove('recipe-page'); main.classList.add('module-empty-page');
       main.classList.toggle('module-collection-page', Boolean(book));
       const noMatches = query.trim() && !getCookbooks().some(book => `${book.name || ''} ${book.description || ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
       const html = `<div class="module-empty-icon" aria-hidden="true">${emptyIcon}</div>
@@ -105,6 +114,7 @@ export function createCookbookNavigationFeature({
         <p>${escapeHtml(noMatches ? t('cookbook.search.empty') : book ? t('cookbook.recipes.empty') : t('cookbook.empty.body'))}</p>
         ${!book ? renderEntitySidebarAddRow({ entityType: 'cookbook', label: t('cookbook.sidebar.add'), labelKey: 'cookbook.sidebar.add' }) : ''}`;
       if (main.innerHTML !== html) main.innerHTML = html;
+      }
     }
     onRender();
   }
@@ -112,6 +122,7 @@ export function createCookbookNavigationFeature({
     const book = resolve(id);
     if (!book) return false;
     activeId = book.id;
+    recipeView?.showOverview?.({ updateNavigation: false });
     persist();
     if (updateNavigation) route(replaceHistory);
     render();
@@ -120,6 +131,7 @@ export function createCookbookNavigationFeature({
   function replaceCookbooks(books) {
     const previous = activeId;
     const previousBooks = [...getCookbooks()];
+    catalogReady = true;
     setCookbooks(Array.isArray(books) ? books : []);
     for (const book of getCookbooks()) {
       if (ownReceipt(book) && book.client_mutation_id != null) {
@@ -140,13 +152,14 @@ export function createCookbookNavigationFeature({
       }
     }
     choose();
-    if (String(previous) !== String(activeId)) route(true);
     render();
+    if (String(previous) !== String(activeId)) route(true);
   }
   function handleHistory(event) {
     if (event.state?.niaModuleRoute && event.state.moduleId !== 'recipes') return;
     const id = event.state?.niaCookbookRoute ? event.state.cookbookId : null;
     if (id != null && resolve(id) && !sameId(resolve(id).id, activeId)) selectCookbook(id, { updateNavigation: false });
+    recipeView?.applyHistory?.(event.state);
   }
   function remapCookbookId(from, to) {
     if (from == null || to == null || sameId(from, to)) return false;
@@ -172,12 +185,12 @@ export function createCookbookNavigationFeature({
     eventTarget?.addEventListener?.('popstate', handleHistory);
     eventTarget?.addEventListener?.('nia-language-change', render);
   }
-  function deactivate() { query = ''; onDeactivate(); }
+  function deactivate() { recipeView?.deactivate?.(); onDeactivate(); }
   async function suspendAccessPrivacy() {
     suspended = true;
     const drain = privacy.suspend();
     invitations.destroy(); invitations.setInvitations([]);
-    activeId = null; accessibleCookbookIds = []; receipts.clear(); deactivate();
+    activeId = null; catalogReady = false; query = ''; accessibleCookbookIds = []; receipts.clear(); recipeView?.clear?.(); deactivate();
     await drain;
   }
   function resumeAccessPrivacy() { suspended = false; privacy.resume(); invitations.bind(); }
@@ -187,8 +200,9 @@ export function createCookbookNavigationFeature({
     privacy.schedulePending(revokedIds);
     render();
   }
-  return { bind, render, activate: () => { bind(); render(); }, deactivate, replaceCookbooks,
+  return { bind, render, activate: () => { bind(); recipeView?.activate?.(); render(); }, deactivate, replaceCookbooks,
     reconcile: render, getActiveCookbookId: () => activeId, selectCookbook, remapCookbookId,
+    setRecipeView: view => { recipeView = view; view?.bind?.(); render(); },
     normalizeActiveCookbookNavigation: () => route(true),
     focusActiveCookbookAction: () => {
       const actions = Array.from(root?.querySelectorAll?.('[data-entity-sidebar-action][data-entity-type="cookbook"]') || []);

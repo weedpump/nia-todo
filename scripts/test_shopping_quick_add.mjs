@@ -114,7 +114,7 @@ for(const filename of localeFiles) {
  const result=parse(`Product ${quantityPrefix}:1.5 ${unitPrefix}:${unit} ${storePrefix}:REWE ${sectionPrefix}:Kühlung`,localOptions);
  assert.equal(result.title,'Product',locale); assert.deepEqual(result.errors,[],locale);
  assert.deepEqual(result.changes,{quantity_value:1.5,quantity_unit:unit,store_ids:['store-local'],section_id:'section-local'},locale);
- assert.deepEqual(result.matches.map(match=>match.label),[real['shopping.item.quantity'],real['shopping.item.unit'],real['shopping.item.store'],real['common.section']],locale);
+ assert.deepEqual(result.matches.map(match=>match.label),[real['common.quantity'],real['common.unit'],real['shopping.item.store'],real['common.section']],locale);
  const comma=new Intl.NumberFormat(locale).formatToParts(1.1).some(part=>part.type==='decimal'&&part.value===',');
  assert.equal(parse(`1,5 ${unit} Product`,localOptions).changes.quantity_value,comma?1.5:undefined,locale);
  assert.equal(parse(`1.5 ${unit} Product`,localOptions).changes.quantity_value,1.5,locale);

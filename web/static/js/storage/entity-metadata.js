@@ -8,9 +8,9 @@ function deleteKey(store, id) {
 
 /** Atomic entity/cache/queue receipt, shared by metadata collections. */
 export function commitEntityReplay({ writes = {}, remove = {}, queueRecords = [], queueDeleteIds = [], queueDeleteId,
-  requireQueueId, database } = {}) {
+  requireQueueId, scanRemove = {}, database } = {}) {
   if (!database) return Promise.reject(new Error('IndexedDB is not open'));
-  const stores = [...new Set([...Object.keys(writes), ...Object.keys(remove), 'syncQueue'])];
+  const stores = [...new Set([...Object.keys(writes), ...Object.keys(remove), ...Object.keys(scanRemove), 'syncQueue'])];
   return new Promise((resolve, reject) => {
     let tx;
     let failure;
@@ -26,6 +26,11 @@ export function commitEntityReplay({ writes = {}, remove = {}, queueRecords = []
           queueRecords.forEach(row => queue.put(row));
           queueDeleteIds.forEach(id => queue.delete(id));
           if (queueDeleteId != null) queue.delete(queueDeleteId);
+          for (const [name, matches] of Object.entries(scanRemove)) {
+            const store = tx.objectStore(name);
+            const request = store.openCursor();
+            request.onsuccess = () => { const cursor = request.result; if (!cursor) return; if (matches(cursor.value)) cursor.delete(); cursor.continue(); };
+          }
           applied = true;
         } catch (error) { abort(error); }
       };
@@ -46,7 +51,7 @@ export function commitEntityReplay({ writes = {}, remove = {}, queueRecords = []
 
 /** Persist metadata and safely collapse only requests never sent to the API. */
 export function commitMetadataMutation({ contract, entity, deleteId, action, data, database,
-  timestamp = Date.now(), localUpdatedAt = new Date().toISOString() } = {}) {
+  timestamp = Date.now(), localUpdatedAt = new Date().toISOString(), extraStores = [], onMutation = null } = {}) {
   if (!database) return Promise.reject(new Error('IndexedDB is not open'));
   const sanitized = contract.sanitize({ action, data });
   if (!sanitized) return Promise.reject(new Error('Unknown metadata mutation'));
@@ -54,13 +59,14 @@ export function commitMetadataMutation({ contract, entity, deleteId, action, dat
     let tx;
     let failure;
     try {
-      tx = database.transaction([contract.storeName, 'syncQueue'], 'readwrite');
+      tx = database.transaction([...new Set([contract.storeName, 'syncQueue', ...extraStores])], 'readwrite');
       const entities = tx.objectStore(contract.storeName);
       const queueStore = tx.objectStore('syncQueue');
       const request = queueStore.getAll();
       request.onsuccess = () => {
         try {
           const queue = request.result || [];
+          onMutation?.(tx, queue);
           const id = contract.idFor(sanitized);
           const related = queue.filter(entry => contract.references(entry, id));
           const create = related.find(entry => entry.action === contract.createAction);

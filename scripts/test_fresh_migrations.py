@@ -60,7 +60,7 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 61, latest
+        assert latest == 62, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
@@ -114,6 +114,8 @@ def main():
             cookbook_columns = {row[1] for row in db.execute("PRAGMA table_info(cookbooks)")}
             assert {"id", "name", "description", "color", "icon", "sort_order", "created_by_user_id", "client_mutation_id"}.issubset(cookbook_columns), cookbook_columns
             assert "archived_at" not in cookbook_columns
+            for recipe_table in ("recipes", "recipe_ingredient_groups", "recipe_ingredients", "recipe_steps", "recipe_tags", "recipe_images", "recipe_mutation_receipts"):
+                assert db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (recipe_table,)).fetchone(), recipe_table
             receipt_foreign_keys = {(row[2], row[3], row[6]) for row in db.execute("PRAGMA foreign_key_list(cookbook_creation_receipts)")}
             assert ("users", "user_id", "CASCADE") in receipt_foreign_keys
             assert ("cookbooks", "cookbook_id", "SET NULL") in receipt_foreign_keys
@@ -337,9 +339,20 @@ def main():
             else:
                 raise AssertionError("migration 61 must preserve manager-only grant triggers")
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+            before_migration_62_failure = database_snapshot(db)
+            migration_62 = (MIGRATIONS_DIR / "062_add_recipes.sql").read_text()
+            try:
+                migrate_module.apply_atomic_migration(db, migration_62 + "\nSELECT * FROM migration_62_forced_failure;\n", 62)
+            except sqlite3.OperationalError as error:
+                assert "migration_62_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 62 unexpectedly succeeded")
+            assert database_snapshot(db) == before_migration_62_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 61
+            migrate_module.apply_atomic_migration(db, migration_62, 62)
         run_migrations(v55_env)
         with sqlite3.connect(v55_db_path) as db:
-            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 61
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 62
             project_member_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
             assert "is_direct_access_mirror" not in project_member_columns, project_member_columns
             migrated_grants = db.execute(

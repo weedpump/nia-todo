@@ -1,6 +1,7 @@
 import { t } from '../i18n/index.js';
 import { renderEntitySidebarAddRow } from '../features/entity-sidebar.js';
 import { RECIPES_DIALOGS_HTML } from './recipes-dialogs.js';
+import { renderModulePrimaryAction } from '../ui/module-primary-action.js';
 
 export const recipesModule = Object.freeze({
   id: 'recipes',
@@ -9,7 +10,7 @@ export const recipesModule = Object.freeze({
   icon: 'recipes',
   capabilities: Object.freeze({ workspaces: false }),
   searchEnabled: true,
-  searchPlaceholderKey: 'cookbook.search.placeholder',
+  searchPlaceholderKey: 'recipe.search.placeholder',
   mount({ slots }) {
     slots.sidebar.innerHTML = `
       <nav class="nav-section" aria-label="${t('cookbook.sidebar.title')}" data-i18n-aria-label-key="cookbook.sidebar.title">
@@ -23,5 +24,7 @@ export const recipesModule = Object.freeze({
       </nav>`;
     slots.main.innerHTML = `<div id="cookbook-navigation-main" class="module-page module-empty-page"></div>${RECIPES_DIALOGS_HTML}`;
     for (const name of ['topbar', 'floating', 'userMenu', 'shortcuts', 'settingsNav', 'settings', 'desktopHotkeys']) slots[name].innerHTML = '';
+    slots.floating.innerHTML = renderModulePrimaryAction({ actionAttribute: 'data-recipe-action', action: 'create', ariaLabel: t('recipe.add'), ariaLabelKey: 'recipe.add', title: t('recipe.add'), titleKey: 'recipe.add' });
+    slots.floating.querySelector('button').hidden = true;
   },
 });

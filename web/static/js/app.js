@@ -41,6 +41,10 @@ import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { recipesApi } from './api/recipes.js';
+import { createRecipeController } from './features/recipe-mutations.js';
+import { createRecipeViewFeature } from './features/recipe-view.js';
+import { createRecipeEditorFeature } from './features/recipe-editor.js';
+import { createRecipeImagesFeature, prepareRecipeImage } from './features/recipe-images.js';
 import { createCookbooksController } from './features/cookbooks.js';
 import { createEntityMutationQueue } from './features/entity-metadata.js';
 import { createCookbookNavigationFeature } from './features/cookbook-navigation.js';
@@ -105,17 +109,34 @@ let shoppingViewPreferencesFeature = null;
 let completedVisibilityFeature = null;
 let cookbookNavigationFeature = null;
 let cookbookDetailsFeature = null;
+let recipeViewFeature = null;
+let recipeEditorFeature = null;
 
 function renderCookbooks() { cookbookNavigationFeature?.render(); }
 function remapCookbookId(from, to) {
   cookbookDetailsFeature?.remapCookbookId(from, to);
   cookbookNavigationFeature?.remapCookbookId(from, to);
 }
+function remapRecipeId(from, to) {
+  recipeEditorFeature?.remapRecipeId(from, to);
+  recipeViewFeature?.remapRecipeId(from, to);
+}
 function setCookbooksState(next) {
+  const previousRecipes = cookbooks.flatMap(book => book.recipes || []);
   const books = Array.isArray(next) ? next : [];
+  const remaps = [];
+  for (const recipe of books.flatMap(book => book.recipes || [])) {
+    if (currentUser?.id == null || String(recipe.created_by_user_id) !== String(currentUser.id) || recipe.client_mutation_id == null) continue;
+    const old = previousRecipes.find(old => String(old.id).startsWith('temp-')
+      && String(old.created_by_user_id) === String(currentUser?.id)
+      && old.client_mutation_id === recipe.client_mutation_id && String(old.id) !== String(recipe.id));
+    if (old) remaps.push([old.id, recipe.id]);
+  }
   if (cookbookNavigationFeature) cookbookNavigationFeature.replaceCookbooks(books);
   else cookbooks = books;
+  for (const [from, to] of remaps) remapRecipeId(from, to);
   cookbookDetailsFeature?.reconcileCookbooksChanged();
+  recipeEditorFeature?.reconcile();
 }
 function getCookbookSessionIdentity() {
   return currentUser ? `${currentUser.id}:${authenticatedRuntimeEpoch}` : null;
@@ -401,6 +422,16 @@ async function commitCookbookMutation(buildMutation) {
     return mutation;
   } finally { finishQueueWrite(); }
 }
+async function commitRecipeMutation(buildMutation) {
+  const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
+  try {
+    const mutation = buildMutation();
+    if (!mutation) return null;
+    await appStorage.commitRecipeMutation(mutation);
+    updateConnectionStatusView().catch(() => {});
+    return mutation;
+  } finally { finishQueueWrite(); }
+}
 const activeBackgroundSyncOperations = new Set();
 
 function trackBackgroundSyncOperation(operation) {
@@ -461,6 +492,9 @@ const syncFeature = createSyncFeature({
   recipesApi,
   commitCookbookReplay: appStorage.commitCookbookReplay,
   markCookbookMutationAttempt: appStorage.markCookbookMutationAttempt,
+  commitRecipeReplay: appStorage.commitRecipeReplay,
+  markRecipeMutationAttempt: appStorage.markRecipeMutationAttempt,
+  onRecipeIdRemap: remapRecipeId,
   renderCookbooks,
   onCookbookSnapshotCommitted: (serverBooks, revokedIds) => cookbookNavigationFeature?.commitAuthoritativeSnapshot(serverBooks, revokedIds),
   shoppingApi,
@@ -720,6 +754,7 @@ const wsClient = createWebSocketClient({
   deleteFromDB,
   commitShoppingReplay: appStorage.commitShoppingReplay,
   commitCookbookReplay: appStorage.commitCookbookReplay,
+  onRecipeIdRemap: remapRecipeId,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
@@ -1231,7 +1266,11 @@ cookbookNavigationFeature = createCookbookNavigationFeature({
   cookbookApi: recipesApi, closeSidebar: options => uiShell.closeSidebar(options),
   onAdd: () => cookbookDetailsFeature?.showCookbookModal(),
   onDetail: id => cookbookDetailsFeature?.showCookbookModal(cookbooks.find(book => String(book.id) === String(id))),
-  onDeactivate: () => cookbookDetailsFeature?.deactivate(),
+  onDeactivate: () => {
+    cookbookDetailsFeature?.deactivate();
+    recipeEditorFeature?.deactivate();
+    recipeViewFeature?.deactivate();
+  },
   onCookbookIdRemap: remapCookbookId,
   loadAuthoritativeProjection: refreshCookbooks, removePendingEntities: removeCookbookAccess,
 });
@@ -1246,6 +1285,33 @@ cookbookDetailsFeature = createCookbookDetailsFeature({
   normalizeActiveCookbookNavigation: () => cookbookNavigationFeature.normalizeActiveCookbookNavigation(),
   focusActiveCookbookAction: () => cookbookNavigationFeature.focusActiveCookbookAction(),
 });
+const recipeImagesFeature = createRecipeImagesFeature({
+  getCookbooks: () => cookbooks, getCurrentUser: () => currentUser,
+  getSessionIdentity: getCookbookSessionIdentity, syncInProgressRef,
+});
+const recipeController = createRecipeController({
+  getCookbooks: () => cookbooks, setCookbooks: setCookbooksState,
+  getSessionIdentity: getCookbookSessionIdentity, getCurrentUser: () => currentUser,
+  commitMutation: commitRecipeMutation, enqueueCookbookMutation, recipesApi,
+  isOnlineForSync, syncWithServer,
+});
+recipeViewFeature = createRecipeViewFeature({
+  getCookbooks: () => cookbooks,
+  getActiveCookbookId: () => cookbookNavigationFeature.getActiveCookbookId(),
+  getActorId: () => currentUser?.id ?? null, getSessionIdentity: getCookbookSessionIdentity,
+  recipeController, confirmDanger,
+  onCreate: book => recipeEditorFeature?.showCreate(book.id),
+  onEdit: recipe => recipeEditorFeature?.showEdit(recipe.id),
+  loadRecipeImage: recipeImagesFeature.load, releaseRecipeImage: recipeImagesFeature.release,
+});
+recipeEditorFeature = createRecipeEditorFeature({
+  getCookbooks: () => cookbooks, recipeController, getSessionIdentity: getCookbookSessionIdentity,
+  confirmDanger, prepareRecipeImage, loadRecipeImage: recipeImagesFeature.load,
+  releaseRecipeImage: recipeImagesFeature.release,
+  onSaved: recipe => recipeViewFeature.selectRecipe(recipe.id),
+  onDeleted: () => recipeViewFeature.showOverview({ replaceHistory: true }),
+});
+cookbookNavigationFeature.setRecipeView(recipeViewFeature);
 const refreshTasksModule = () => {
   renderProjects();
   renderStats();
@@ -1473,6 +1539,8 @@ export function startAppModule() {
   moduleSwitcher.bind();
   shoppingListDetailsFeature.bind();
   cookbookDetailsFeature.bind();
+  recipeViewFeature.bind();
+  recipeEditorFeature.bind();
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();

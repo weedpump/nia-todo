@@ -312,7 +312,7 @@ evictionController.abort();
 await assert.rejects(abortedEviction, error => error?.name === 'AbortError');
 assert.equal(abortedEvictionTransaction, true, 'accept projection must abort the durable eviction transaction');
 
-assert.equal(DB_VERSION, 9, 'cookbook metadata adds a store while preserving the version-8 list-scoped Shopping schema');
+assert.equal(DB_VERSION, 10, 'private entity images add a store while preserving the list-scoped Shopping schema');
 
 const { createSyncFeature } = await import('../web/static/js/features/sync.js');
 let queueState = [

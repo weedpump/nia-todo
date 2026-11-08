@@ -106,6 +106,12 @@ run_step "Cookbooks API and Ownership" python3 scripts/test_cookbooks.py
 run_step "Cookbooks Shared UI" node scripts/test_frontend_cookbooks.mjs
 run_step "Cookbooks Offline Metadata Sync" node scripts/test_offline_cookbooks_sync.mjs
 run_step "Cookbooks Real-Service E2E" node scripts/test_frontend_cookbooks_e2e.mjs
+run_step "Recipe Aggregate API" python3 scripts/test_recipes.py
+run_step "Recipe Private Images" python3 scripts/test_recipe_images.py
+run_step "Recipe Shared UI" node scripts/test_frontend_recipes.mjs
+run_step "Recipe Offline Sync" node scripts/test_offline_recipes_sync.mjs
+run_step "Recipe Image Cache" node scripts/test_recipe_image_cache.mjs
+run_step "Recipe Real-Service E2E" node scripts/test_frontend_recipes_e2e.mjs
 run_step "Household API" python3 scripts/test_household_api.py
 run_step "Project Household Access" python3 scripts/test_project_household_access.py
 run_step "Household Access Regressions" python3 scripts/test_household_access_regressions.py

@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'nia-v4-module-platform-preview-298';
+const CACHE_REVISION = 'nia-v4-module-platform-preview-299';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -55,6 +55,7 @@ const PRECACHE_ASSETS = [
   '/static/css/95-todo-detail-mobile-viewport.css',
   '/static/css/96-todo-multi-add.css',
   '/static/css/97-date-time-picker.css',
+  '/static/css/98-recipes.css',
   '/static/css/99-ui-primitives.css',
   '/static/js/main.js',
   '/static/js/features/auto-scrollbars.js',
@@ -86,6 +87,7 @@ const PRECACHE_ASSETS = [
   '/static/vendor/tauri-api/image.js',
   '/static/vendor/tauri-api/external/tslib/tslib.es6.js',
   '/static/js/core/authenticated-image.js',
+  '/static/js/core/raster-image.js',
   '/static/js/core/utils.js',
   '/static/js/core/state.js',
   '/static/js/core/device-labels.js',
@@ -179,6 +181,12 @@ const PRECACHE_ASSETS = [
   '/static/js/features/cookbook-navigation.js',
   '/static/js/features/cookbook-details.js',
   '/static/js/features/cookbooks.js',
+  '/static/js/features/recipe-view.js',
+  '/static/js/features/recipe-editor.js',
+  '/static/js/features/recipe-images.js',
+  '/static/js/features/recipe-pending.js',
+  '/static/js/features/recipe-mutations.js',
+  '/static/js/features/recipe-sync.js',
   '/static/js/features/entity-metadata.js',
   '/static/js/features/entity-metadata-sync.js',
   '/static/js/storage/entity-metadata.js',

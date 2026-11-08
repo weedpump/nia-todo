@@ -1400,10 +1400,10 @@ export function createBrainDumpLiveFeature(options = {}) {
     return `${renderCandidateSelect(candidate, 'shopping_list_id', 'capture.target.list', listOptions.join(''))}
       ${renderCandidateSelect(candidate, 'shopping_section_id', 'common.section', sectionOptions.join(''), { disabled: !list })}
       ${renderCandidateSelect(candidate, 'shopping_store_ids', 'shopping.item.store', storeOptions.join(''), { disabled: !list })}
-      <label class="braindump-quickfix-field"><span>${escapeHtml(t('shopping.item.quantity'))}</span>
+      <label class="braindump-quickfix-field"><span>${escapeHtml(t('common.quantity'))}</span>
         <input class="ui-field braindump-field" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtmlAttr(candidate.quantity_value ?? '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_value">
       </label>
-      <label class="braindump-quickfix-field"><span>${escapeHtml(t('shopping.item.unit'))}</span>
+      <label class="braindump-quickfix-field"><span>${escapeHtml(t('common.unit'))}</span>
         <input class="ui-field braindump-field" type="text" maxlength="40" value="${escapeHtmlAttr(candidate.quantity_unit || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_unit">
       </label>`;
   }

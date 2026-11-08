@@ -140,6 +140,7 @@ const ICON_NAMES = [
   'menu',
   'message-circle',
   'mic',
+  'minus',
   'monitor',
   'moon',
   'mountain',

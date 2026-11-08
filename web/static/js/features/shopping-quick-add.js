@@ -29,10 +29,10 @@ export function parseShoppingQuickAdd(raw, { list, stores = [], locale = 'en', t
     const quantity = Number(leading[1].replace(',', '.'));
     if (Number.isFinite(quantity)) {
       result.changes.quantity_value = quantity;
-      result.matches.push({type:'quantity',label:t('shopping.item.quantity'),value:quantity,token:leading[0].trim()});
+      result.matches.push({type:'quantity',label:t('common.quantity'),value:quantity,token:leading[0].trim()});
       if (leading[2].toLowerCase() !== 'x') {
         result.changes.quantity_unit = leading[2];
-        result.matches.push({type:'unit',label:t('shopping.item.unit'),value:leading[2],token:leading[0].trim()});
+        result.matches.push({type:'unit',label:t('common.unit'),value:leading[2],token:leading[0].trim()});
       }
       result.title = original.slice(leading[0].length);
     }
@@ -82,7 +82,7 @@ export function parseShoppingQuickAdd(raw, { list, stores = [], locale = 'en', t
       } else if (rawValue) {
         const end = valueStart + valueToken[0].length;
         if (!setField(type === 'quantity' ? 'quantity_value' : 'quantity_unit', value)) continue;
-        result.matches.push({type,label:t(type === 'quantity' ? 'shopping.item.quantity' : 'shopping.item.unit'),value,token:text.slice(start,end)});
+        result.matches.push({type,label:t(type === 'quantity' ? 'common.quantity' : 'common.unit'),value,token:text.slice(start,end)});
         spans.push([start,end]);
         markers.lastIndex = end;
       }

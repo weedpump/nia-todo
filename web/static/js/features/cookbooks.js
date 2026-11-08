@@ -1,8 +1,28 @@
+import { recipeActions, recipeBookId, mergeRecipeSnapshot, projectRecipeCookbook, reconcileRecipeSnapshot, rewriteRecipeQueue } from './recipe-pending.js';
 import { createEntityMutationQueue, createMetadataCollection, createOptimisticMetadataEntity, sameEntityId, updateMetadataProjection } from './entity-metadata.js';
 
-export const cookbookMetadata = createMetadataCollection({ storeName: 'cookbooks',
+const metadata = createMetadataCollection({ storeName: 'cookbooks',
   createAction: 'CREATE_COOKBOOK', updateAction: 'UPDATE_COOKBOOK', deleteAction: 'DELETE_COOKBOOK',
   canManage: entity => entity.can_manage === true || entity.can_manage === 1,
+});
+
+// Cookbook metadata and its recipe aggregate use one projection/receipt boundary.
+export const cookbookMetadata = Object.freeze({ ...metadata,
+  queueActions: new Set([...metadata.actions, ...recipeActions]),
+  dependentReferences: (entry, id) => sameEntityId(recipeBookId(entry), id),
+  projectPending: (book, queue) => projectRecipeCookbook(metadata.projectPending(book, queue), queue),
+  rewriteQueue: (queue, remap) => rewriteRecipeQueue(metadata.rewriteQueue(queue, remap), { ...remap, cookbook: true }),
+  reconcileSnapshot(server, local, queue, options = {}) {
+    const result = metadata.reconcileSnapshot(mergeRecipeSnapshot(server, local), local, queue, options);
+    let next = queue.filter(entry => !result.queueDeleteIds.includes(entry.id));
+    for (const [from, to] of result.remaps) next = cookbookMetadata.rewriteQueue(next, { from, to });
+    const child = reconcileRecipeSnapshot(result.entities, local, next, { ...options, authoritative: server });
+    return { ...result, authoritativeCookbookIds: child.entities.map(book => book.id), entities: child.entities, queueRecords: [...result.queueRecords, ...child.queueRecords],
+      queueDeleteIds: [...new Set([...result.queueDeleteIds, ...child.queueDeleteIds])], recipeRemaps: child.remaps };
+  },
+  projectSnapshot(server, local, queue, options = {}) {
+    return cookbookMetadata.reconcileSnapshot(server, local, queue, options).entities;
+  },
 });
 
 export function createCookbooksController({ getCookbooks = () => [], setCookbooks = () => {}, commitMutation,
@@ -70,6 +90,8 @@ export function createCookbooksController({ getCookbooks = () => [], setCookbook
         const order = changes.sort_order ?? getCookbooks().reduce((max, entity) => Math.max(max, Number(entity.sort_order) || 0), -1) + 1;
         const cookbook = createOptimisticMetadataEntity({ id, ...changes, sort_order: order, icon: changes.icon ?? 'book-open',
           household, householdManager: household?.role === 'owner', ownerUserId: getCurrentUser()?.id ?? null });
+        cookbook.recipes = [];
+        cookbook.recipe_count = 0;
         cookbook.created_by_user_id = getCurrentUser()?.id ?? null;
         cookbook.client_mutation_id = cmi;
         return { cookbook, action: cookbookMetadata.createAction,

@@ -49,7 +49,7 @@ try {
     return { version: DB_VERSION, store: storage.getDb().objectStoreNames.contains('cookbooks'),
       todos: await storage.getAll('todos'), lists: await storage.getAll('shoppingLists'), stores: await storage.getAll('shoppingStores'), queue: await storage.getAll('syncQueue') };
   });
-  assert.equal(upgraded.version, 9);
+  assert.equal(upgraded.version, 10);
   assert.equal(upgraded.store, true);
   assert.equal(upgraded.todos[0].title, 'Keep Tasks');
   assert.equal(upgraded.lists[0].name, 'Keep Shopping');

@@ -1,22 +1,23 @@
 import { DB_NAME, DB_VERSION } from '../core/config.js';
 import { queueItemReferencesShoppingList } from '../features/shopping-pending.js';
 import { queueItemReferencesTodo } from '../features/todo-pending.js';
+import { recipeActions, recipeBookId, recipeReferences, sanitizeRecipeEntry } from '../features/recipe-pending.js';
 import { cookbookMetadata } from '../features/cookbooks.js';
 import { commitEntityReplay, commitMetadataMutation, evictEntityMetadata, markMetadataMutationAttempt } from './entity-metadata.js';
 
 let db = null;
 let dbReady = false;
 let dbGeneration = 0;
-const pendingAvatarOperations = [];
+const pendingCacheOperations = [];
 
-function cancelPendingAvatarOperations() {
-  const operations = pendingAvatarOperations.splice(0);
+function cancelPendingCacheOperations() {
+  const operations = pendingCacheOperations.splice(0);
   for (const operation of operations) operation.cancel();
 }
 
-async function flushPendingAvatarOperations(generation) {
-  while (dbReady && generation === dbGeneration && pendingAvatarOperations.length) {
-    const operation = pendingAvatarOperations.shift();
+async function flushPendingCacheOperations(generation) {
+  while (dbReady && generation === dbGeneration && pendingCacheOperations.length) {
+    const operation = pendingCacheOperations.shift();
     if (operation.generation !== dbGeneration) {
       operation.cancel();
       continue;
@@ -37,7 +38,7 @@ export async function closeAndDeleteDatabase() {
   return new Promise((resolve) => {
     dbGeneration += 1;
     dbReady = false;
-    cancelPendingAvatarOperations();
+    cancelPendingCacheOperations();
     if (db) {
       db.close();
       db = null;
@@ -80,6 +81,7 @@ export function openDatabase() {
       if (!db.objectStoreNames.contains('shoppingStores')) {
         db.createObjectStore('shoppingStores', { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains('entityImages')) db.createObjectStore('entityImages', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('cookbooks')) {
         db.createObjectStore('cookbooks', { keyPath: 'id' });
       }
@@ -108,7 +110,7 @@ export function openDatabase() {
       db = event.target.result;
       dbReady = true;
       console.log('IndexedDB opened');
-      await flushPendingAvatarOperations(generation);
+      await flushPendingCacheOperations(generation);
       resolve(db);
     };
     request.onerror = () => reject(request.error);
@@ -292,13 +294,24 @@ export function evictPendingShoppingEntities(listIds, { database = db, signal } 
 export function commitCookbookMutation({ cookbook, deleteCookbookId, action, data,
   database = db, timestamp, localUpdatedAt } = {}) {
   return commitMetadataMutation({ contract: cookbookMetadata, entity: cookbook, deleteId: deleteCookbookId,
-    action, data, database, timestamp, localUpdatedAt });
+    action, data, database, timestamp, localUpdatedAt, extraStores: ['entityImages'],
+    onMutation: deleteCookbookId == null ? null : (tx, queue) => {
+      queue.filter(entry => String(recipeBookId(entry)) === String(deleteCookbookId)).forEach(entry => tx.objectStore('syncQueue').delete(entry.id));
+      const request = tx.objectStore('entityImages').openCursor();
+      request.onsuccess = () => { const cursor = request.result; if (!cursor) return;
+        if (String(cursor.value.cookbook_id) === String(deleteCookbookId)) cursor.delete(); cursor.continue(); };
+    } });
 }
 
 export function commitCookbookReplay({ entity, entities = [], removeIds = [], queueRecords = [],
-  queueDeleteId, queueDeleteIds = [], requireQueueId, database = db } = {}) {
+  queueDeleteId, queueDeleteIds = [], requireQueueId, removeRecipeIds = [], authoritativeCookbookIds = null, database = db } = {}) {
   return commitEntityReplay({ writes: { cookbooks: [...entities, ...(entity ? [entity] : [])] },
-    remove: { cookbooks: removeIds }, queueRecords, queueDeleteId, queueDeleteIds, requireQueueId, database });
+    remove: { cookbooks: removeIds }, scanRemove: { entityImages: row => (Array.isArray(authoritativeCookbookIds) && !authoritativeCookbookIds.some(id => String(id) === String(row.cookbook_id)))
+      || removeIds.some(id => String(row.cookbook_id) === String(id))
+      || removeRecipeIds.some(id => String(row.recipe_id) === String(id))
+      || [...entities, ...(entity ? [entity] : [])].some(book => String(book.id) === String(row.cookbook_id)
+        && !(book.recipes || []).some(recipe => String(recipe.id) === String(row.recipe_id))) },
+    queueRecords, queueDeleteId, queueDeleteIds, requireQueueId, database });
 }
 
 export function markCookbookMutationAttempt(queueId, { database = db } = {}) {
@@ -310,7 +323,8 @@ export function evictPendingCookbookEntities(entityIds, { database = db, signal,
   const ids = [...new Set((entityIds || []).filter(id => id != null && !accessible.has(String(id))))];
   if (!ids.length) return Promise.resolve();
   return evictEntityMetadata({ database, signal, remove: { cookbooks: ids },
-    references: entry => ids.some(id => cookbookMetadata.references(entry, id)) });
+    scan: { entityImages: row => ids.some(id => String(row.cookbook_id) === String(id)) },
+    references: entry => ids.some(id => cookbookMetadata.references(entry, id) || String(recipeBookId(entry)) === String(id)) });
 }
 
 export function evictPendingProjectEntities(projectIds, {
@@ -554,40 +568,93 @@ export function remove(storeName, id) {
   });
 }
 
-export function putAvatarWhenReady(item, isCurrent = () => true, expectedGeneration = dbGeneration) {
-  const operation = () => (
-    expectedGeneration === dbGeneration && isCurrent()
-      ? put('avatars', item)
-      : Promise.resolve()
-  );
-  if (expectedGeneration !== dbGeneration) return Promise.resolve();
-  if (dbReady) return operation();
-  pendingAvatarOperations.push({ generation: expectedGeneration, run: operation, cancel() {} });
-  return Promise.resolve();
-}
-
-export function removeAvatarWhenReady(id) {
-  const operation = () => remove('avatars', id);
-  if (dbReady) return operation();
-  pendingAvatarOperations.push({ generation: dbGeneration, run: operation, cancel() {} });
-  return Promise.resolve();
-}
-
-export function getAvatarIfReady(id) {
-  return dbReady ? get('avatars', id) : Promise.resolve(null);
-}
-
-export function getAvatarWhenReady(id) {
-  if (dbReady) return get('avatars', id);
-  return new Promise((resolve) => {
-    pendingAvatarOperations.push({
-      generation: dbGeneration,
-      run: async () => resolve(await get('avatars', id)),
-      cancel: () => resolve(null),
-    });
+/** One generation-fenced readiness queue for private binary caches. */
+function createReadyCache(storeName) {
+  const putWhenReady = (item, isCurrent = () => true, generation = dbGeneration) => {
+    const operation = () => generation === dbGeneration && isCurrent() ? put(storeName, item) : Promise.resolve();
+    if (generation !== dbGeneration) return Promise.resolve();
+    if (dbReady) return operation();
+    pendingCacheOperations.push({ generation, run: operation, cancel() {} });
+    return Promise.resolve();
+  };
+  const removeWhenReady = id => {
+    const generation = dbGeneration;
+    const operation = () => generation === dbGeneration ? remove(storeName, id) : Promise.resolve();
+    if (dbReady) return operation();
+    pendingCacheOperations.push({ generation, run: operation, cancel() {} });
+    return Promise.resolve();
+  };
+  const getIfReady = id => dbReady ? get(storeName, id) : Promise.resolve(null);
+  const getWhenReady = id => dbReady ? get(storeName, id) : new Promise((resolve, reject) => {
+    pendingCacheOperations.push({ generation: dbGeneration,
+      run: async () => { try { resolve(await get(storeName, id)); } catch (error) { reject(error); throw error; } },
+      cancel: () => resolve(null) });
   });
+  return { putWhenReady, removeWhenReady, getIfReady, getWhenReady };
 }
+const avatarCache = createReadyCache('avatars');
+export const putAvatarWhenReady = avatarCache.putWhenReady;
+export const removeAvatarWhenReady = avatarCache.removeWhenReady;
+export const getAvatarIfReady = avatarCache.getIfReady;
+export const getAvatarWhenReady = avatarCache.getWhenReady;
+const entityImageCache = createReadyCache('entityImages');
+export const putEntityImageWhenReady = entityImageCache.putWhenReady;
+export const removeEntityImageWhenReady = entityImageCache.removeWhenReady;
+export const getEntityImageIfReady = entityImageCache.getIfReady;
+export const getEntityImageWhenReady = entityImageCache.getWhenReady;
 
 export function hasDb() {
   return Boolean(db);
+}
+
+/** Nested recipe cache and intent share one durable transaction. */
+export function commitRecipeMutation({ cookbook, recipe, deleteRecipeId, clearRecipeQueueId, action, data, actor_id, result,
+  database = db, timestamp = Date.now() } = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  if (action && !recipeActions.has(action)) return Promise.reject(new Error('Unknown recipe mutation'));
+  return new Promise((resolve, reject) => {
+    let tx; let failure;
+    try {
+      tx = database.transaction(['cookbooks', 'syncQueue', 'entityImages'], 'readwrite');
+      const store = tx.objectStore('syncQueue');
+      const request = store.getAll();
+      request.onsuccess = () => {
+        try {
+          const queue = request.result || [];
+          const target = data?.id ?? data?.temp_id ?? clearRecipeQueueId;
+          let related = queue.filter(entry => recipeActions.has(entry.action) && recipeReferences(entry, target));
+          if (clearRecipeQueueId != null) {
+            related.forEach(entry => store.delete(entry.id));
+            related = [];
+          }
+          tx.objectStore('cookbooks').put(cookbook);
+          if (deleteRecipeId != null) {
+            const images = tx.objectStore('entityImages').openCursor();
+            images.onsuccess = () => { const cursor = images.result; if (!cursor) return;
+              if (String(cursor.value.recipe_id) === String(deleteRecipeId) && String(cursor.value.cookbook_id) === String(cookbook.id)) cursor.delete(); cursor.continue(); };
+          }
+          if (!action) return;
+          if (action === 'UPDATE_RECIPE' && related.some(entry => entry.action === 'DELETE_RECIPE')) throw new Error('Recipe is pending deletion');
+          const create = related.find(entry => entry.action === 'CREATE_RECIPE');
+          const last = related.at(-1);
+          const record = { ...sanitizeRecipeEntry({ action, data }), actor_id, timestamp, localRecipe: recipe || result };
+          if (action === 'DELETE_RECIPE' && create && related.every(entry => !entry.attempted)) related.forEach(entry => store.delete(entry.id));
+          else if (action === 'UPDATE_RECIPE' && create && !create.attempted) store.put({ ...create, data: { ...create.data, ...record.data.changes } });
+          else if (action === 'UPDATE_RECIPE' && last?.action === 'UPDATE_RECIPE' && !last.attempted) store.put({ ...last,
+            data: { ...last.data, changes: { ...last.data.changes, ...record.data.changes } } });
+          else if (action === 'CREATE_RECIPE' && create || action === 'DELETE_RECIPE' && last?.action === 'DELETE_RECIPE') { /* Already queued. */ }
+          else {
+            if (action === 'DELETE_RECIPE') related.filter(entry => entry.action === 'UPDATE_RECIPE' && !entry.attempted).forEach(entry => store.delete(entry.id));
+            store.put(record);
+          }
+        } catch (error) { failure = error; tx.abort(); }
+      };
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = tx.onabort = () => reject(failure || tx.error || new Error('Recipe mutation failed'));
+    } catch (error) { tx?.abort?.(); reject(error); }
+  });
+}
+export const commitRecipeReplay = replay => commitCookbookReplay(replay);
+export function markRecipeMutationAttempt(queueId, { database = db } = {}) {
+  return markMetadataMutationAttempt({ contract: { actions: recipeActions }, queueId, database });
 }

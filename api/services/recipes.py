@@ -1,6 +1,7 @@
 """Cookbook projections scoped through the generic entity access contract."""
 
 from services.entity_access import get_entity_ownership, resolve_entity_access
+from services.recipe_content import get_cookbook_recipes
 
 
 def get_cookbook_view(db, cookbook_id: int, user_id: int) -> dict | None:
@@ -22,6 +23,8 @@ def get_cookbook_view(db, cookbook_id: int, user_id: int) -> dict | None:
         "is_shared": not permissions.can_manage_metadata,
         "household_name": None, "owner_username": None, "owner_display_name": None,
     })
+    result["recipes"] = get_cookbook_recipes(db, cookbook_id, user_id)
+    result["recipe_count"] = len(result["recipes"])
     if result["owner_household_id"] is not None:
         owner = db.execute("SELECT name FROM households WHERE id = ?", (result["owner_household_id"],)).fetchone()
         result["household_name"] = owner["name"] if owner else None

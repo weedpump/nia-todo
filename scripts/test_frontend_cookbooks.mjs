@@ -110,7 +110,8 @@ try {
   assert.equal(await page.locator('#cookbook-sidebar [data-entity-section="household"] .entity-sidebar-select').count(), 2);
   assert.equal(await page.locator('#cookbook-sidebar [data-entity-section="shared"] .entity-sidebar-select').count(), 1);
   assert.equal(await page.locator('#workspace-switcher').isHidden(), true);
-  assert.equal(await page.locator('[data-module-panel="recipes"][data-module-slot="floating"] button').count(), 0);
+  assert.equal(await page.locator('[data-module-panel="recipes"][data-module-slot="floating"] button').count(), 1);
+  assert.equal(await page.locator('[data-module-panel="recipes"][data-module-slot="floating"] button').isHidden(), true, 'the isolated cookbook-only fixture must keep recipe capture hidden until a recipe controller is attached');
   assert.equal(await page.locator('#cookbook-navigation-main h1').textContent(), 'Personal');
   assert.equal(await page.locator('#cookbook-navigation-main').getByText('<Plain text>', { exact: true }).count(), 1, 'descriptions must render as escaped plain text');
 

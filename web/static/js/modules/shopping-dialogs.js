@@ -107,11 +107,11 @@ export const SHOPPING_DIALOGS_HTML = `
             </div>
             <div class="ui-field-grid two-columns shopping-item-create-grid">
               <div class="form-group">
-                <label for="shopping-item-quantity" data-i18n-key="shopping.item.quantity">${escapeHtmlAttr(t('shopping.item.quantity'))}</label>
+                <label for="shopping-item-quantity" data-i18n-key="common.quantity">${escapeHtmlAttr(t('common.quantity'))}</label>
                 <input class="ui-field" type="number" id="shopping-item-quantity" min="0" step="any" inputmode="decimal" data-i18n-placeholder-key="shopping.item.quantityPlaceholder" placeholder="${escapeHtmlAttr(t('shopping.item.quantityPlaceholder'))}">
               </div>
               <div class="form-group">
-                <label for="shopping-item-unit" data-i18n-key="shopping.item.unit">${escapeHtmlAttr(t('shopping.item.unit'))}</label>
+                <label for="shopping-item-unit" data-i18n-key="common.unit">${escapeHtmlAttr(t('common.unit'))}</label>
                 <input class="ui-field" type="text" id="shopping-item-unit" maxlength="40" autocomplete="off" data-i18n-placeholder-key="shopping.item.unitPlaceholder" placeholder="${escapeHtmlAttr(t('shopping.item.unitPlaceholder'))}">
               </div>
               <div class="form-group">

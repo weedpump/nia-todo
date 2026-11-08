@@ -77,13 +77,17 @@ export async function loadAuthenticatedImage(img, url, {
   userId = null,
   version = '',
   cache = indexedDbAvatarCache,
+  cacheKey = null,
+  isCurrent: isConsumerCurrent = () => true,
+  isAccessible = () => true,
+  onDenied = null,
 } = {}) {
-  if (!img || !url) return false;
+  if (!img || !url || !isConsumerCurrent() || !isAccessible()) return false;
   const databaseGeneration = getDatabaseGeneration();
-  const id = avatarCacheKey(url, userId);
+  const id = cacheKey ?? avatarCacheKey(url, userId);
   const cacheVersion = String(version || '');
   const cacheGeneration = selectCacheGeneration(id, cacheVersion);
-  const isCurrent = () => isCurrentCacheGeneration(id, cacheVersion, cacheGeneration);
+  const isCurrent = () => isAccessible() && isCurrentCacheGeneration(id, cacheVersion, cacheGeneration);
   const imageKey = id && cacheVersion ? `${id}|${cacheVersion}` : String(url);
   if (imageKeys.get(img) === imageKey && objectUrls.has(img)) return true;
 
@@ -91,7 +95,7 @@ export async function loadAuthenticatedImage(img, url, {
   activeLoads.set(img, loadToken);
   if (id && cacheVersion) {
     const cached = await cache.get(id);
-    if (activeLoads.get(img) !== loadToken || !isCurrent()) return false;
+    if (activeLoads.get(img) !== loadToken || !isConsumerCurrent() || !isCurrent()) return false;
     if (cached?.version === cacheVersion && cached.blob) {
       showBlob(img, cached.blob, imageKey);
       return true;
@@ -103,7 +107,7 @@ export async function loadAuthenticatedImage(img, url, {
   const loadDeferredCachedAvatar = async () => {
     if (!id || !cacheVersion || !cache.getWhenReady) return false;
     const cached = await cache.getWhenReady(id);
-    if (activeLoads.get(img) !== loadToken || !isCurrent()) return false;
+    if (activeLoads.get(img) !== loadToken || !isConsumerCurrent() || !isCurrent()) return false;
     if (cached?.version !== cacheVersion || !cached.blob) return false;
     showBlob(img, cached.blob, imageKey);
     return true;
@@ -114,7 +118,16 @@ export async function loadAuthenticatedImage(img, url, {
     if (!blobPromise) {
       blobPromise = (async () => {
         const response = await fetch(url, { headers, credentials: 'include', cache: 'no-store' });
-        if (!response.ok) return null;
+        if (!response.ok) {
+          if (onDenied && [401, 403, 404].includes(response.status) && isCurrent()) {
+            await onDenied(response.status, {
+              isCurrent,
+              isConsumerCurrent: () => activeLoads.get(img) === loadToken && isConsumerCurrent(),
+            });
+            if (id && isCurrent()) invalidateCacheGeneration(id);
+          }
+          return null;
+        }
         const blob = await response.blob();
         if (id && cacheVersion) {
           if (!isCurrent()) return null;
@@ -133,7 +146,7 @@ export async function loadAuthenticatedImage(img, url, {
     }
     const blob = await blobPromise;
     if (!blob) return loadDeferredCachedAvatar();
-    if (activeLoads.get(img) !== loadToken || (id && cacheVersion && !isCurrent())) return false;
+    if (activeLoads.get(img) !== loadToken || !isConsumerCurrent() || (id && cacheVersion && !isCurrent())) return false;
     showBlob(img, blob, imageKey);
     return true;
   } catch (_error) {

@@ -132,6 +132,8 @@ def get_sync_todo_payloads(db, user_id: int) -> list[dict]:
 
 def get_sync_payload(db, user_id: int) -> dict:
     """Build the same recipient-specific snapshot used by an explicit sync request."""
+    if not db.in_transaction:
+        db.execute("BEGIN")
     project_ids = get_project_ids_for_user(db, user_id)
     projects = [get_project_view_for_user(db, project_id, user_id) for project_id in project_ids]
     projects = [project for project in projects if project is not None]

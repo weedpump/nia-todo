@@ -60,6 +60,20 @@ try {
   );
   assert.equal(offlineImage.src, undefined);
 
+  let denied = 0;
+  globalThis.fetch = async () => ({ ok: false, status: 404 });
+  const deniedImage = {};
+  const delayedPrivateCache = {
+    get: async () => null,
+    getWhenReady: async () => ({ version: 'known-version', blob: new Blob(['private bytes']) }),
+    put: async () => {},
+  };
+  assert.equal(await loadAuthenticatedImage(deniedImage, 'https://todo.example/api/recipes/recipes/1/image', {
+    userId: 1, version: 'known-version', cacheKey: 'recipe-denial-fixture', cache: delayedPrivateCache,
+    onDenied: async () => { denied++; },
+  }), false, 'authoritative denial cannot fall back to a late private cache entry');
+  assert.equal(denied, 1);
+  assert.equal(deniedImage.src, undefined);
   console.log('✅ Authenticated image loading uses shared session headers');
 } finally {
   URL.createObjectURL = originalCreateObjectURL;

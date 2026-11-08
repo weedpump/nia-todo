@@ -115,7 +115,7 @@ upgradeInProgress = false;
 openRequest.onsuccess?.({ target: { result: database } });
 await opening;
 assert.equal(await offlineLoad, true, 'offline avatar renders after IndexedDB becomes ready without a lifecycle rerender');
-assert.equal(DB_VERSION, 9, 'cookbook metadata requires IndexedDB schema version 9');
+assert.equal(DB_VERSION, 10, 'recipe image cache requires IndexedDB schema version 10');
 assert.equal(openedVersion, DB_VERSION);
 assert.ok(createdStores.includes('avatars'), 'migration preserves the avatars object store');
 assert.ok(createdStores.includes('shoppingStores'), 'migration creates the stable shopping-store object store');

@@ -24,6 +24,7 @@ HEIC_SUPPORTED = PILLOW_HEIC_SUPPORTED or bool(HEIF_CONVERT_BIN)
 from db import get_db, now_iso
 from routers.auth import require_auth
 from routers.two_factor import require_recent_mfa
+from services.images import load_raster_image, validate_image_dimensions
 from services.audit import log_audit
 from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
@@ -204,18 +205,12 @@ def _avatar_url(user_id: int) -> str:
 
 
 def _validate_avatar_dimensions(image: Image.Image) -> Image.Image:
-    width, height = image.size
-    if width * height > MAX_AVATAR_PIXELS:
-        raise Image.DecompressionBombError("Image dimensions exceed the avatar limit")
-    return image
+    return validate_image_dimensions(image, MAX_AVATAR_PIXELS)
 
 
 def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
     try:
-        image = Image.open(io.BytesIO(body))
-        image.verify()
-        image = Image.open(io.BytesIO(body))
-        return _validate_avatar_dimensions(image).convert("RGB")
+        return load_raster_image(body, max_pixels=MAX_AVATAR_PIXELS)
     except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError):
         if content_type not in {"image/heic", "image/heif"} or not HEIF_CONVERT_BIN:
             raise

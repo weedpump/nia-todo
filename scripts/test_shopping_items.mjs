@@ -1026,6 +1026,13 @@ assert.match(shoppingDialogsSource, /data-i18n-key="common\.section"/, 'shopping
 for (const source of [todoDialogsSource, todoFeatureSource, todoQuickAddSource, braindumpSource, shoppingDialogsSource]) {
   assert.doesNotMatch(source, /(?:todo|shopping\.item)\.section(?=['"])|quickAdd\.detected\.section|braindump\.quickfix\.section/, 'equivalent section labels must not retain module-specific i18n keys');
 }
+for (const path of ['modules/shopping-dialogs.js', 'features/shopping-quick-add.js', 'features/braindump-live.js', 'features/recipe-editor.js']) {
+  const source = readFileSync(new URL(`../web/static/js/${path}`, import.meta.url), 'utf8');
+  for (const key of ['common.quantity', 'common.unit']) {
+    assert(source.includes(`'${key}'`), `${path} must use the shared ${key} label`);
+  }
+  assert.doesNotMatch(source, /(?:shopping\.item|recipe)\.(?:quantity|unit)(?=['"])/, `${path} must not retain duplicate module-specific quantity or unit labels`);
+}
 
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
   const dictionary = JSON.parse(readFileSync(new URL(`../web/static/i18n/${locale}.json`, import.meta.url), 'utf8'));
@@ -1043,9 +1050,9 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
     'shopping.item.namePlaceholder',
     'shopping.item.details',
     'shopping.item.detailsHint',
-    'shopping.item.quantity',
+    'common.quantity',
     'shopping.item.quantityPlaceholder',
-    'shopping.item.unit',
+    'common.unit',
     'shopping.item.unitPlaceholder',
     'common.section',
     'shopping.item.store',
@@ -1075,6 +1082,9 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
   assert.equal(dictionary['shopping.item.section'], undefined, `${locale} must not retain the duplicate shopping.item.section key`);
   assert.equal(dictionary['quickAdd.detected.section'], undefined, `${locale} must not retain the duplicate quickAdd.detected.section key`);
   assert.equal(dictionary['braindump.quickfix.section'], undefined, `${locale} must not retain the duplicate braindump.quickfix.section key`);
+  for (const key of ['shopping.item.quantity', 'shopping.item.unit', 'recipe.quantity', 'recipe.unit']) {
+    assert.equal(dictionary[key], undefined, `${locale} must not retain the duplicate ${key} label`);
+  }
   if (locale === 'de') {
     const legacySectionValues = Object.entries(dictionary).filter(([, value]) => typeof value === 'string' && /\bSection/.test(value));
     assert.deepEqual(legacySectionValues, [], 'German task surfaces must consistently say Abschnitt instead of Section');
