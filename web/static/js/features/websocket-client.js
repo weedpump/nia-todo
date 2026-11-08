@@ -638,17 +638,7 @@ async function handleWsMessage(msg) {
           if (msg.payload.section_id != null
             && !sections.some(section => String(section.id) === String(msg.payload.section_id))) return;
           const local = await getFromDB('todos', msg.payload.id);
-          const queue = await dbGetAll('syncQueue');
-          const incomingTodo = projectPendingTodoChanges(
-            mergeTodoPayloadWithLocalSubtasks(msg.payload, local),
-            queue,
-          );
-          await dbPut('todos', incomingTodo);
-          const existing = todos.find(t => t.id === incomingTodo.id);
-          todos = existing
-            ? todos.map(t => t.id === incomingTodo.id ? incomingTodo : t)
-            : [...todos, incomingTodo];
-          applied = true;
+          applied = await persistTodoPayloadWithPending(mergeTodoPayloadWithLocalSubtasks(msg.payload, local));
         }, privacyGeneration);
         if (!committed || !applied) return;
         renderProjects();

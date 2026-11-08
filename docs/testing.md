@@ -45,6 +45,10 @@ Changes to shared shells, editors, capture controllers, storage or sync require 
 
 Mixed BrainDump regressions use mocked audio/extraction and isolated databases: `scripts/test_frontend_braindump_modules.mjs` covers the shared launcher, editable routing, session guards, partial retries and mobile layout; `scripts/test_braindump_shopping_queue.mjs` and `scripts/test_offline_shopping_sync.mjs` cover durable writes and reference remapping. The backend extraction/learning scripts cover permissions, opt-out/reset and idempotency; `scripts/test_fresh_migrations.py` checks upgrade rollback and retry. These checks do not exercise a real microphone, STT service or LLM.
 
+Attachment quota access regressions use a disposable, fully migrated database and files in `scripts/test_attachment_quota_access.py`: direct and household access loss, inherited and alternative access, restored access, retained uploader attribution, account deletion, admin totals and transaction boundaries. `scripts/test_todo_attachment_quota.mjs` exercises fresh upload-policy checks and stale account/privacy responses without a browser, service or database. The established attachment API, entity privacy and household lifecycle checks remain relevant when changing this policy.
+
+Optimistic Todo deletion is covered by `scripts/test_todo_delete_identity.mjs` (private browser fixture for keyboard/modal deletion and IDs remapped during confirmation) and `scripts/test_offline_todo_delete_sync.mjs` (held HTTP creation/deletion responses, unsent cancellation, receipts, reload, Undo and privacy boundaries). The real-service `test_frontend_app.mjs` deliberately holds the creation request until its temporary Todo has been deleted locally, then verifies deletion of the server record. This fixes the race deterministically instead of relying on extra timeouts or retries.
+
 `scripts/test_frontend_shopping_e2e.mjs` additionally runs the actual application against the isolated API service across two browser sessions. It covers list/section/store/item creation, real WebSocket delivery, mobile offline queue/reconnect, temporary-ID remapping, reload and layout overflow without mocking Shopping HTTP or WebSocket traffic. Optional screenshots are written to `NIA_TODO_TEST_OUTPUT_DIR`.
 
 Use `waitForPageCondition` from `scripts/browser_page_condition.mjs` for asynchronous browser predicates; it awaits the result and enforces one total deadline. An async `waitForFunction` callback can otherwise resolve on its first truthy Promise before the condition holds. Loopback-only test namespaces can opt into `NIA_TODO_TEST_ISOLATED_NETWORK=1`: the shared browser helper then aligns the page's online signal with Playwright's actual transport offline setting, including across reloads. This does not expose host networking or mock application API/WebSocket traffic.
@@ -239,7 +243,7 @@ For audio/STT work, use controlled fixture recordings instead of making Tobi tri
 
 ## Notes
 
-- Frontend tests run primarily against headless Chromium; mobile swipe rendering additionally runs against Playwright WebKit.
+- Frontend tests run primarily against headless Chromium; mobile swipe rendering and shared item drag-and-drop also run against Playwright WebKit. The package CI job selects `MOBILE_SWIPE_BROWSERS=chromium` and `ITEM_DND_BROWSERS=chromium`; both WebKit fixtures run in the existing pinned Playwright container job in test and release workflows. Local release gates keep both engines by default. `ITEM_DND_BROWSERS` accepts comma-separated `chromium`/`webkit` selections.
 - `withFreshDb` still protects single-test execution by backing up/restoring the dev DB for isolated runs.
 - Inside `test_all.sh`, `NIA_TODO_FRONTEND_DB_SUITE=1` switches frontend tests to the suite-managed DB lifecycle.
 - `NIA_TODO_FRONTEND_DB_SHARED=1` tells `withFreshDb` to reuse the already prepared shared test DB instead of creating an isolated DB.
