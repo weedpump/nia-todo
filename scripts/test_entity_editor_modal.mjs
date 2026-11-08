@@ -6,6 +6,7 @@ import { chromium } from 'playwright';
 const fixtureSource = `
   import { initI18n } from '/static/js/i18n/index.js';
   import { renderEntityEditorModal, createEntityEditorModalController } from '/static/js/features/entity-editor-modal.js';
+  import { hydrateSelect } from '/static/js/ui/dropdowns.js';
 
   localStorage.setItem('nia-todo-language', 'de');
   await initI18n();
@@ -17,7 +18,7 @@ const fixtureSource = `
     editTitleKey: 'project.edit',
     subtitleKey: 'project.modalHint',
     deleteKey: 'project.delete',
-    formContentHtml: '<section class="ui-section-card ui-detail-section ui-section-divider" id="subject-domain"><input id="subject-extra"></section>',
+    formContentHtml: '<section class="ui-section-card ui-detail-section ui-section-divider" id="subject-domain"><select id="subject-target"><option>First</option><option>Second</option></select><input id="subject-extra"></section>',
     sharingHtml: '<section id="subject-sharing-section"></section>',
   });
 
@@ -78,6 +79,7 @@ const fixtureSource = `
     onDelete: () => calls.push(['delete']),
   });
   controller.bind();
+  hydrateSelect(document.getElementById('subject-target'));
 
   window.test = {
     controller,
@@ -210,6 +212,37 @@ try {
   await page.evaluate(() => window.test.controller.close({ fromHistory: true }));
   assert.equal(await page.locator('#subject-modal').getAttribute('aria-hidden'), 'true');
   assert.equal(await page.locator('#edit-trigger').evaluate(element => document.activeElement === element), true, 'close resolves the current return-focus target');
+
+  await page.evaluate(() => {
+    window.test.setEditable(true); window.test.setDeletable(true);
+    window.test.controller.open({ id: 9, name: 'Keyboard', color: '#123456', icon: '' });
+  });
+  const menuTrigger = page.locator('#subject-detail-header-menu summary');
+  await page.locator('#subject-extra').focus();
+  await page.keyboard.press('Tab');
+  assert.equal(await menuTrigger.evaluate(element => element === document.activeElement), true, 'Tab wraps from the final domain field to the first editor action');
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await page.locator('#subject-extra').evaluate(element => element === document.activeElement), true, 'Shift+Tab wraps to the final domain field');
+  for (const blocked of [{ isComposing: true }, { keyCode: 229 }, { handled: true }]) {
+    await page.locator('#subject-extra').evaluate((element, blocked) => {
+      const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...blocked });
+      if (blocked.handled) event.preventDefault();
+      element.dispatchEvent(event);
+    }, blocked);
+    assert.equal(await page.locator('#subject-modal').getAttribute('aria-hidden'), 'false', 'handled/composing Escape must preserve the editor');
+  }
+  const selectTrigger = page.locator('[data-select-id="subject-target"] .ui-select-trigger');
+  await selectTrigger.press('Enter');
+  await selectTrigger.press('Escape');
+  assert.equal(await selectTrigger.getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.locator('#subject-modal').getAttribute('aria-hidden'), 'false', 'the first Escape only closes the dropdown');
+  await menuTrigger.click();
+  await menuTrigger.press('Escape');
+  assert.equal(await page.locator('#subject-detail-header-menu').getAttribute('open'), null, 'Escape closes the overflow menu first');
+  assert.equal(await page.locator('#subject-modal').getAttribute('aria-hidden'), 'false');
+  await page.locator('#subject-extra').press('Escape');
+  await page.waitForFunction(() => document.getElementById('subject-modal').getAttribute('aria-hidden') === 'true'
+    && !(history.state?.niaTodoUi?.layers || []).includes('subject-modal'));
 
   console.log('✅ Shared entity editor modal renderer and lifecycle contracts passed');
 } finally {

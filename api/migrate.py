@@ -632,6 +632,38 @@ def apply_household_entity_access_migration(conn, sql: str):
         conn.execute("PRAGMA foreign_keys = ON")
 
 
+def apply_cookbooks_migration(conn, sql: str):
+    """Expand the access CHECK without changing grant IDs or access semantics."""
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        indexes = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'entity_access' AND sql IS NOT NULL").fetchall()
+        triggers = conn.execute("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name IN ('entity_access', 'entity_access_grants')").fetchall()
+        sequence = conn.execute("SELECT seq FROM sqlite_sequence WHERE name = 'entity_access'").fetchone()
+        for name, _ in triggers:
+            conn.execute('DROP TRIGGER "' + name.replace('"', '""') + '"')
+        execute_transactional_schema_script(conn, sql)
+        for (index_sql,) in indexes:
+            conn.execute(index_sql)
+        for _, trigger_sql in triggers:
+            conn.execute(trigger_sql)
+        if sequence is not None:
+            updated = conn.execute("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = 'entity_access'", (sequence[0],))
+            if not updated.rowcount:
+                conn.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('entity_access', ?)", (sequence[0],))
+        if conn.execute("PRAGMA foreign_key_check").fetchall():
+            raise RuntimeError("Migration 61 failed foreign-key validation")
+        conn.execute("DELETE FROM schema_version")
+        conn.execute("INSERT INTO schema_version (version, applied_at) VALUES (61, datetime('now'))")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
 def apply_atomic_migration(conn, sql: str, version: int):
     """Apply an unreleased migration and its version marker in one transaction."""
     conn.commit()
@@ -724,6 +756,8 @@ def run_migrations():
             try:
                 if version == 58:
                     apply_household_entity_access_migration(conn, sql)
+                elif version == 61:
+                    apply_cookbooks_migration(conn, sql)
                 elif version in (56, 57, 59, 60):
                     apply_atomic_migration(conn, sql, version)
                 else:

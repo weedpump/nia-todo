@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from html import escape
 from pathlib import Path
+from services.entity_registry import ENTITY_TYPES
 
 BRAND_NAME = "Nia"
 TEXT_COLOR = "#0f172a"
@@ -27,6 +28,7 @@ EMAIL_COPY = {
         "unexpected": "Wenn du diese E-Mail nicht erwartet hast, kannst du sie ignorieren.",
         "entity_type_project": "Projekt",
         "entity_type_shopping_list": "Einkaufsliste",
+        "entity_type_cookbook": "Kochbuch",
         "entity_share_subject": "{entity_type}freigabe: {entity_name}",
         "entity_share_title": "{entity_type}freigabe erhalten",
         "entity_share_paragraph": "{inviter_name} hat {entity_type} „{entity_name}“ mit dir geteilt.",
@@ -82,6 +84,7 @@ EMAIL_COPY = {
         "unexpected": "If you did not expect this email, you can ignore it.",
         "entity_type_project": "Project",
         "entity_type_shopping_list": "Shopping list",
+        "entity_type_cookbook": "Cookbook",
         "entity_share_subject": "{entity_type} share: {entity_name}",
         "entity_share_title": "{entity_type} shared with you",
         "entity_share_paragraph": "{inviter_name} shared the {entity_type} “{entity_name}” with you.",
@@ -137,6 +140,7 @@ EMAIL_COPY = {
         "unexpected": "Pokud jsi tento e-mail nečekal/a, můžeš ho ignorovat.",
         "entity_type_project": "projekt",
         "entity_type_shopping_list": "nákupní seznam",
+        "entity_type_cookbook": "kuchařka",
         "entity_share_subject": "Sdílení – {entity_type}: {entity_name}",
         "entity_share_title": "Sdílená položka: {entity_type}",
         "entity_share_paragraph": "{inviter_name} s tebou sdílí {entity_type} „{entity_name}“.",
@@ -192,6 +196,7 @@ EMAIL_COPY = {
         "unexpected": "Si tu n’attendais pas cet e-mail, tu peux l’ignorer.",
         "entity_type_project": "projet",
         "entity_type_shopping_list": "liste de courses",
+        "entity_type_cookbook": "livre de recettes",
         "entity_share_subject": "Partage – {entity_type} : {entity_name}",
         "entity_share_title": "Partage reçu : {entity_type}",
         "entity_share_paragraph": "{inviter_name} a partagé {entity_type} « {entity_name} » avec toi.",
@@ -247,6 +252,7 @@ EMAIL_COPY = {
         "unexpected": "Se non ti aspettavi questa e-mail, puoi ignorarla.",
         "entity_type_project": "progetto",
         "entity_type_shopping_list": "lista della spesa",
+        "entity_type_cookbook": "ricettario",
         "entity_share_subject": "Condivisione – {entity_type}: {entity_name}",
         "entity_share_title": "Condivisione ricevuta: {entity_type}",
         "entity_share_paragraph": "{inviter_name} ha condiviso con te {entity_type} “{entity_name}”.",
@@ -302,6 +308,7 @@ EMAIL_COPY = {
         "unexpected": "Als je deze e-mail niet verwachtte, kun je hem negeren.",
         "entity_type_project": "project",
         "entity_type_shopping_list": "boodschappenlijst",
+        "entity_type_cookbook": "kookboek",
         "entity_share_subject": "Delen – {entity_type}: {entity_name}",
         "entity_share_title": "Met je gedeeld: {entity_type}",
         "entity_share_paragraph": "{inviter_name} heeft {entity_type} “{entity_name}” met je gedeeld.",
@@ -357,6 +364,7 @@ EMAIL_COPY = {
         "unexpected": "Jeśli nie spodziewałeś/spodziewałaś się tego e-maila, możesz go zignorować.",
         "entity_type_project": "projekt",
         "entity_type_shopping_list": "lista zakupów",
+        "entity_type_cookbook": "książka kucharska",
         "entity_share_subject": "Udostępnienie – {entity_type}: {entity_name}",
         "entity_share_title": "Udostępniono Ci: {entity_type}",
         "entity_share_paragraph": "{inviter_name} udostępnił(a) Ci {entity_type} „{entity_name}”.",
@@ -412,6 +420,7 @@ EMAIL_COPY = {
         "unexpected": "Se você não esperava este e-mail, pode ignorá-lo.",
         "entity_type_project": "projeto",
         "entity_type_shopping_list": "lista de compras",
+        "entity_type_cookbook": "livro de receitas",
         "entity_share_subject": "Compartilhamento – {entity_type}: {entity_name}",
         "entity_share_title": "Compartilhado com você: {entity_type}",
         "entity_share_paragraph": "{inviter_name} compartilhou {entity_type} “{entity_name}” com você.",
@@ -467,6 +476,7 @@ EMAIL_COPY = {
         "unexpected": "Если вы не ожидали это письмо, его можно проигнорировать.",
         "entity_type_project": "проект",
         "entity_type_shopping_list": "список покупок",
+        "entity_type_cookbook": "кулинарная книга",
         "entity_share_subject": "Общий доступ – {entity_type}: {entity_name}",
         "entity_share_title": "С вами поделились: {entity_type}",
         "entity_share_paragraph": "{inviter_name} поделился(-ась) с вами: {entity_type} «{entity_name}».",
@@ -522,6 +532,7 @@ EMAIL_COPY = {
         "unexpected": "Om du inte väntade dig det här e-postmeddelandet kan du ignorera det.",
         "entity_type_project": "projekt",
         "entity_type_shopping_list": "inköpslista",
+        "entity_type_cookbook": "kokbok",
         "entity_share_subject": "Delning – {entity_type}: {entity_name}",
         "entity_share_title": "Delat med dig: {entity_type}",
         "entity_share_paragraph": "{inviter_name} har delat {entity_type} “{entity_name}” med dig.",
@@ -577,6 +588,7 @@ EMAIL_COPY = {
         "unexpected": "Si no esperabas este e-mail, puedes ignorarlo.",
         "entity_type_project": "proyecto",
         "entity_type_shopping_list": "lista de compras",
+        "entity_type_cookbook": "recetario",
         "entity_share_subject": "Compartido – {entity_type}: {entity_name}",
         "entity_share_title": "Compartido contigo: {entity_type}",
         "entity_share_paragraph": "{inviter_name} compartió {entity_type} “{entity_name}” contigo.",
@@ -632,6 +644,7 @@ EMAIL_COPY = {
         "unexpected": "如果你没有预期收到这封邮件，可以忽略它。",
         "entity_type_project": "项目",
         "entity_type_shopping_list": "购物清单",
+        "entity_type_cookbook": "食谱集",
         "entity_share_subject": "共享{entity_type}：{entity_name}",
         "entity_share_title": "有人与你共享了{entity_type}",
         "entity_share_paragraph": "{inviter_name} 与你共享了{entity_type}“{entity_name}”。",
@@ -679,10 +692,7 @@ EMAIL_COPY = {
 
 }
 
-ENTITY_SHARE_TYPE_COPY_KEYS = {
-    "project": "entity_type_project",
-    "shopping_list": "entity_type_shopping_list",
-}
+ENTITY_SHARE_TYPE_COPY_KEYS = {key: spec.email_copy_key for key, spec in ENTITY_TYPES.items()}
 
 
 def _language(value: str | None) -> str:

@@ -50,6 +50,23 @@
   text-align: center;
 }
 
+.module-collection-page {
+  flex-shrink: 0;
+  justify-content: flex-start;
+}
+
+.module-page > h1,
+.module-page > p {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.module-page > .module-page-description {
+  max-width: min(640px, 100%);
+  white-space: pre-wrap;
+  color: var(--text-muted);
+}
+
 .module-empty-icon {
   width: 82px;
   height: 82px;

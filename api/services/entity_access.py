@@ -4,9 +4,10 @@ from dataclasses import dataclass
 import sqlite3
 
 from db import now_iso
+from services.entity_registry import ENTITY_TYPES
 
 
-ENTITY_TYPE_REGISTRY = frozenset({"project", "shopping_list"})
+ENTITY_TYPE_REGISTRY = frozenset(ENTITY_TYPES)
 _ACTIVE_HOUSEHOLD_STATUSES = ("pending", "accepted")
 _ENTITY_GRANT_STATUSES = frozenset({"pending", "accepted", "declined", "left", "removed"})
 

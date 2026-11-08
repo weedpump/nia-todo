@@ -278,6 +278,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
       if (e.key === 'Escape') {
         if (isDropdownOpen()) return;
         if (document.getElementById('confirm-modal')?.classList.contains('active')) return;
+        if (document.querySelector('.modal.active[data-entity-editor-bound="true"]')) return;
         if (document.getElementById('attachment-preview-modal')?.classList.contains('active')) {
           e.preventDefault();
           window.closeAttachmentPreview?.();

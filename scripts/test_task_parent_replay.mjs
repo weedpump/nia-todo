@@ -10,11 +10,17 @@ try {
   await page.route('http://task-replay.test/**', async route => {
     const pathname = new URL(route.request().url()).pathname;
     if (pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Task receipt transactions</title>' });
-    if (pathname === '/core/config.js') return route.fulfill({ contentType: 'text/javascript', body: "export const DB_NAME = 'unused-app-db'; export const DB_VERSION = 8;" });
+    if (pathname === '/core/config.js') return route.fulfill({ contentType: 'text/javascript', body: "export const DB_NAME = 'unused-app-db'; export const DB_VERSION = 9;" });
     const paths = {
       '/storage/indexed-db.js': '../web/static/js/storage/indexed-db.js',
       '/features/todo-pending.js': '../web/static/js/features/todo-pending.js',
       '/features/shopping-pending.js': '../web/static/js/features/shopping-pending.js',
+      '/features/cookbooks.js': '../web/static/js/features/cookbooks.js',
+      '/features/entity-metadata.js': '../web/static/js/features/entity-metadata.js',
+      '/storage/entity-metadata.js': '../web/static/js/storage/entity-metadata.js',
+      '/icons/lucide-icons.js': '../web/static/js/icons/lucide-icons.js',
+      '/icons/lucide-generated.js': '../web/static/js/icons/lucide-generated.js',
+      '/i18n/index.js': '../web/static/js/i18n/index.js',
     };
     if (!paths[pathname]) return route.abort();
     return route.fulfill({ contentType: 'text/javascript', body: await readFile(new URL(paths[pathname], import.meta.url), 'utf8') });

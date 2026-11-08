@@ -159,6 +159,10 @@ def make_db():
         """
     )
     db.executescript((ROOT / "api/migrations/059_add_shopping_lists.sql").read_text())
+    # This focused legacy fixture already defines its access tables. Add only
+    # the current cookbook domain schema used by recipient-specific snapshots.
+    cookbook_sql = (ROOT / "api/migrations/061_add_cookbooks.sql").read_text()
+    db.executescript("CREATE TABLE cookbooks" + cookbook_sql.split("CREATE TABLE cookbooks", 1)[1])
     db.execute("INSERT INTO users (id, username, display_name) VALUES (1, 'tobi', 'Tobi')")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")

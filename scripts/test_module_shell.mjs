@@ -186,7 +186,8 @@ assert(moduleCss.includes('.module-slot-panel[hidden]'), 'inactive module panels
 assert(!shoppingSource.includes('createEmptyModule'), 'shopping must mount its real module frame');
 assert(shoppingSource.includes('id="shopping-list-sidebar"'), 'shopping must own its sidebar navigation slot');
 assert(shoppingSource.includes('id="shopping-navigation-main"'), 'shopping must own its navigation main state');
-assert(recipesSource.includes('createEmptyModule'), 'recipes must remain an empty registered module');
+assert(recipesSource.includes('cookbook-sidebar') && recipesSource.includes('RECIPES_DIALOGS_HTML'), 'recipes must mount its cookbook navigation and shared editor');
+assert(recipesSource.includes("searchPlaceholderKey: 'cookbook.search.placeholder'"), 'cookbook search must use the module search contract');
 assert(!existsSync(new URL('web/static/js/modules/shopping-preview.js', root)), 'shopping feature implementation must not exist yet');
 assert(shoppingSource.includes('SHOPPING_DIALOGS_HTML'), 'shopping must mount its own dialogs through the module slot');
 assert(shoppingDialogsSource.includes("prefix: 'shopping-list'"), 'shopping must own the list-details dialog through the shared renderer');

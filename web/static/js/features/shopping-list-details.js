@@ -1,4 +1,5 @@
 import { t } from '../i18n/index.js';
+import { createOptimisticMetadataEntity, updateMetadataProjection } from './entity-metadata.js';
 import { safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { createEntityAppearanceController } from './entity-appearance.js';
 import { createEntityDirectSharingFeature } from './entity-direct-sharing.js';
@@ -26,41 +27,15 @@ export function createOptimisticShoppingList({
   household = null,
   householdManager = false,
 } = {}) {
-  const householdOwned = household?.id != null;
   return {
-    id,
-    name: String(name || '').trim(),
-    color: safeColor(color, DEFAULT_COLOR),
-    icon: safeIconName(icon) || null,
-    sort_order,
-    created_at: createdAt,
-    updated_at: createdAt,
-    owner_user_id: null,
-    owner_household_id: householdOwned ? household.id : null,
-    ownership_type: householdOwned ? 'household' : 'user',
-    household_name: householdOwned ? (household.name || null) : null,
-    can_edit: true,
-    can_manage: householdOwned ? householdManager === true : true,
-    is_owner: householdOwned ? householdManager === true : true,
-    is_shared: householdOwned ? householdManager !== true : false,
-    sections: [],
-    items: [],
-    preferences: { hide_empty_sections: false },
-    is_pending: true,
-    client_mutation_id: id,
+    ...createOptimisticMetadataEntity({ id, name, color, icon, sort_order, createdAt, household, householdManager }),
+    sections: [], items: [], preferences: { hide_empty_sections: false },
   };
 }
 
 export function updateShoppingListProjection(list, changes = {}, updatedAt = new Date().toISOString()) {
-  if (!list) return null;
-  return {
-    ...list,
-    ...(Object.prototype.hasOwnProperty.call(changes, 'name') ? { name: String(changes.name || '').trim() } : {}),
-    ...(Object.prototype.hasOwnProperty.call(changes, 'color') ? { color: safeColor(changes.color, list.color || DEFAULT_COLOR) } : {}),
-    ...(Object.prototype.hasOwnProperty.call(changes, 'icon') ? { icon: safeIconName(changes.icon) || null } : {}),
-    updated_at: updatedAt,
-    is_pending: true,
-  };
+  const metadata = Object.fromEntries(['name', 'color', 'icon'].filter(key => Object.hasOwn(changes, key)).map(key => [key, changes[key]]));
+  return updateMetadataProjection(list, metadata, updatedAt);
 }
 
 export function mergeShoppingListMetadata(list, metadata) {

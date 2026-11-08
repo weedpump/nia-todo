@@ -257,7 +257,7 @@ try {
     if (pathname === '/static/js/icons/lucide-icons.js') return route.fulfill({ contentType: 'text/javascript', body: lucideIconsSource });
     if (pathname === '/static/js/icons/lucide-generated.js') return route.fulfill({ contentType: 'text/javascript', body: iconsSource });
     if (pathname === '/static/js/ui/color-picker.js') return route.fulfill({ contentType: 'text/javascript', body: colorPickerSource });
-    if (pathname === '/static/js/ui/dropdowns.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const hydrateSelect=()=>{}; export const refreshSelect=()=>{};' });
+    if (pathname === '/static/js/ui/dropdowns.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const hydrateSelect=()=>{}; export const refreshSelect=()=>{}; export const isDropdownOpen=()=>false;' });
     if (pathname === '/static/js/features/ui-history.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const openUiLayer=()=>{}; export const registerUiLayer=()=>{}; export const requestCloseUiLayer=()=>false;' });
     if (pathname === '/static/js/core/config.js') return route.fulfill({ contentType: 'text/javascript', body: "export const apiResourceUrl=value=>value;" });
     if (pathname === '/static/js/core/utils.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/core/utils.js', import.meta.url), 'utf8') });

@@ -5,6 +5,7 @@ import { renderEntityAppearanceFields } from './entity-appearance.js';
 import { renderEntityDetailHeader } from './entity-detail-header.js';
 import { createFormSaveState } from './form-save-state.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { isDropdownOpen } from '../ui/dropdowns.js';
 
 function keyText(key) {
   return escapeHtmlAttr(t(key));
@@ -147,6 +148,7 @@ export function createEntityEditorModalController({
     const modal = element(ids.modal);
     const form = element(ids.form);
     if (!modal || !form) return false;
+    const focusAtOpen = doc.activeElement;
 
     currentEntity = entity;
     currentContext = context;
@@ -183,6 +185,7 @@ export function createEntityEditorModalController({
 
     globalThis.setTimeout?.(() => {
       if (requestedFocusGeneration !== focusGeneration || !modal.classList.contains('active')) return;
+      if (doc.activeElement !== focusAtOpen && doc.activeElement !== doc.body && doc.activeElement?.isConnected) return;
       if (view.readOnly) modal.querySelector?.('.modal-close-x')?.focus?.();
       else if (view.mode === 'create' || view.mode === 'create-child') appearanceController.focusName?.();
     }, 0);
@@ -206,6 +209,8 @@ export function createEntityEditorModalController({
   function bind() {
     if (bound) return;
     bound = true;
+    const modal = element(ids.modal);
+    if (modal) modal.dataset.entityEditorBound = 'true';
     ensureSaveState();
     element(ids.form)?.addEventListener?.('submit', onSubmit);
     element(ids.delete)?.addEventListener?.('click', event => {
@@ -214,6 +219,29 @@ export function createEntityEditorModalController({
       onDelete(event);
     });
     registerUiLayer(ids.modal, () => hide());
+    doc.addEventListener('keydown', event => {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !modal?.classList.contains('active')) return;
+      if (doc.getElementById('confirm-modal')?.classList.contains('active')) return;
+      const focusedModal = doc.activeElement?.closest?.('.modal.active');
+      if (focusedModal && focusedModal !== modal) return;
+      if (event.key === 'Escape') {
+        if (isDropdownOpen()) return;
+        event.preventDefault();
+        const menu = modal.querySelector('details[open]');
+        if (menu) { menu.removeAttribute('open'); menu.querySelector('summary')?.focus(); }
+        else close();
+        return;
+      }
+      if (event.key !== 'Tab' || isDropdownOpen()) return;
+      const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])'))
+        .filter(control => control.tabIndex >= 0 && !control.closest('[hidden], [inert]') && control.getClientRects().length > 0);
+      const first = focusable[0], last = focusable.at(-1);
+      if (!first) return;
+      if (!modal.contains(doc.activeElement) || (event.shiftKey ? doc.activeElement === first : doc.activeElement === last)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      }
+    });
   }
 
   return {

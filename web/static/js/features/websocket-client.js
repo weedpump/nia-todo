@@ -1,5 +1,6 @@
 import { acquireSyncCommitLock, hasPendingTodoChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
 import { collectRevokedProjectIds, runAccessFencedCommit } from './entity-access-privacy.js';
+import { cookbookMetadata } from './cookbooks.js';
 import { backfillShoppingStoreQueueListIds, collectRevokedShoppingListIds, projectShoppingSnapshot, projectShoppingStoresSnapshot, reconcileShoppingStoreQueueSnapshot } from './shopping-pending.js';
 
 export function createWebSocketClient({
@@ -18,6 +19,11 @@ export function createWebSocketClient({
   getFromDB,
   deleteFromDB,
   commitShoppingReplay = null,
+  commitCookbookReplay = null,
+  getCookbooks = () => [],
+  setCookbooks = () => {},
+  getActorId = () => null,
+  onCookbookIdRemap = () => {},
   getTodos,
   setTodos,
   getProjects,
@@ -581,9 +587,22 @@ async function handleWsMessage(msg) {
         setShoppingLists(shoppingLists);
         renderShopping();
       }
+      let revokedCookbookIds = [];
+      if (Array.isArray(msg.cookbooks)) {
+        if (!commitCookbookReplay) throw new Error('Cookbook snapshots require an atomic storage commit');
+        const reconciliation = cookbookMetadata.reconcileSnapshot(msg.cookbooks,
+          await dbGetAll('cookbooks'), await dbGetAll('syncQueue'), { actorId: getActorId() });
+        await commitCookbookReplay(reconciliation);
+        setCookbooks(reconciliation.entities);
+        for (const [from, to] of reconciliation.remaps) onCookbookIdRemap(from, to);
+        revokedCookbookIds = reconciliation.revokedIds;
+      }
       if (Object.prototype.hasOwnProperty.call(msg, 'projects')
-        || Object.prototype.hasOwnProperty.call(msg, 'shopping_lists')) {
+        || Object.prototype.hasOwnProperty.call(msg, 'shopping_lists')
+        || Object.prototype.hasOwnProperty.call(msg, 'cookbooks')) {
         onEntitySnapshotsCommitted({
+          cookbooks: Array.isArray(msg.cookbooks) ? msg.cookbooks : null,
+          revokedCookbookIds,
           projects: Array.isArray(msg.projects) ? msg.projects : null,
           revokedProjectIds,
           taskAccessSnapshot: hasTaskAccessSnapshot ? {
@@ -600,7 +619,8 @@ async function handleWsMessage(msg) {
         Object.prototype.hasOwnProperty.call(msg, 'household') ||
         Object.prototype.hasOwnProperty.call(msg, 'household_invites') ||
         Object.prototype.hasOwnProperty.call(msg, 'project_invites') ||
-        Object.prototype.hasOwnProperty.call(msg, 'shopping_invites')
+        Object.prototype.hasOwnProperty.call(msg, 'shopping_invites') ||
+        Object.prototype.hasOwnProperty.call(msg, 'cookbook_invites')
       ) {
         const accessSnapshot = {
           household: msg.household ?? null,
@@ -609,6 +629,9 @@ async function handleWsMessage(msg) {
         };
         if (Object.prototype.hasOwnProperty.call(msg, 'shopping_invites')) {
           accessSnapshot.shoppingInvites = Array.isArray(msg.shopping_invites) ? msg.shopping_invites : [];
+        }
+        if (Object.prototype.hasOwnProperty.call(msg, 'cookbook_invites')) {
+          accessSnapshot.cookbookInvites = Array.isArray(msg.cookbook_invites) ? msg.cookbook_invites : [];
         }
         onAccessSnapshot(accessSnapshot);
       }

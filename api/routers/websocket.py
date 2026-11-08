@@ -6,7 +6,9 @@ from fastapi import WebSocket
 
 from db import get_db, row_to_dict, now_iso
 from services.auth import get_current_user
-from services.entity_access import get_user_household, list_entity_access_invites
+from services.entity_access import get_user_household
+from services.entity_sharing_payloads import get_entity_invites
+from services.recipes import get_sync_cookbooks
 from services.sharing import get_project_ids_for_user, get_todo_reminder_recipient_user_id
 from services.server_updates import get_public_update_status
 from services.websocket import manager, get_project_view_for_user
@@ -183,24 +185,9 @@ def get_sync_payload(db, user_id: int) -> dict:
            ORDER BY hm.created_at, hm.id""",
         (user_id,),
     ).fetchall()
-    project_invite_rows = list_entity_access_invites(db, user_id, "project")
-    for invite in project_invite_rows:
-        project = db.execute(
-            "SELECT name, color FROM projects WHERE id = ?",
-            (invite["entity_id"],),
-        ).fetchone()
-        invite["project_id"] = invite["entity_id"]
-        invite["project_name"] = project["name"] if project else None
-        invite["project_color"] = project["color"] if project else None
-    shopping_invite_rows = list_entity_access_invites(db, user_id, "shopping_list")
-    for invite in shopping_invite_rows:
-        shopping_list = db.execute(
-            "SELECT name, color FROM shopping_lists WHERE id = ?",
-            (invite["entity_id"],),
-        ).fetchone()
-        invite["shopping_list_id"] = invite["entity_id"]
-        invite["shopping_list_name"] = shopping_list["name"] if shopping_list else None
-        invite["shopping_list_color"] = shopping_list["color"] if shopping_list else None
+    project_invite_rows = get_entity_invites(db, user_id, "project", aliases=True)
+    shopping_invite_rows = get_entity_invites(db, user_id, "shopping_list", aliases=True)
+    cookbook_invite_rows = get_entity_invites(db, user_id, "cookbook", aliases=True)
     return {
         "type": "sync_response",
         "todos": get_sync_todo_payloads(db, user_id),
@@ -209,11 +196,13 @@ def get_sync_payload(db, user_id: int) -> dict:
         "workspaces": [dict(r) for r in workspaces_rows],
         "shopping_lists": get_sync_shopping_lists(db, user_id),
         "shopping_stores": get_sync_shopping_stores(db, user_id),
+        "cookbooks": get_sync_cookbooks(db, user_id),
         "module_preferences": module_preferences_payload(user_module_row or {}),
         "household": household_payload,
         "household_invites": [dict(row) for row in household_invite_rows],
         "project_invites": project_invite_rows,
         "shopping_invites": shopping_invite_rows,
+        "cookbook_invites": cookbook_invite_rows,
     }
 
 

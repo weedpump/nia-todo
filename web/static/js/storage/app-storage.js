@@ -65,6 +65,11 @@ export function createAppStorage({ setDb }) {
     return indexedDb.evictPendingProjectEntities(projectIds, options);
   }
 
+  const commitCookbookMutation = mutation => indexedDb.commitCookbookMutation(mutation);
+  const commitCookbookReplay = replay => indexedDb.commitCookbookReplay(replay);
+  const markCookbookMutationAttempt = id => indexedDb.markCookbookMutationAttempt(id);
+  const evictPendingCookbookEntities = (ids, options) => indexedDb.evictPendingCookbookEntities(ids, options);
+
   return {
     openDB,
     clearIndexedDB,
@@ -81,5 +86,9 @@ export function createAppStorage({ setDb }) {
     commitShoppingReplay,
     evictPendingShoppingEntities,
     evictPendingProjectEntities,
+    commitCookbookMutation,
+    commitCookbookReplay,
+    markCookbookMutationAttempt,
+    evictPendingCookbookEntities,
   };
 }

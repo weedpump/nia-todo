@@ -1,5 +1,7 @@
 import { acquireSyncCommitLock, projectPendingProjectChanges, projectPendingSectionChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
 import { projectPendingShoppingChanges, projectPendingShoppingStores, projectShoppingSnapshot, projectShoppingStoresSnapshot, queueItemReferencesShoppingList, rewriteShoppingQueueReferences } from './shopping-pending.js';
+import { cookbookMetadata } from './cookbooks.js';
+import { createMetadataSyncAdapter } from './entity-metadata-sync.js';
 
 export function createSyncFeature({
   getDb,
@@ -33,7 +35,22 @@ export function createSyncFeature({
   onSectionIdRemap = () => {},
   evictPendingProjectEntities = null,
   commitTaskParentReplay = null,
+  getCookbooks = () => [],
+  setCookbooks = () => {},
+  recipesApi = null,
+  commitCookbookReplay = null,
+  markCookbookMutationAttempt = null,
+  onCookbookIdRemap = () => {},
+  renderCookbooks = () => {},
+  getActorId = () => null,
+  onCookbookSnapshotCommitted = () => {},
 }) {
+  const cookbookSync = createMetadataSyncAdapter({ contract: cookbookMetadata,
+    api: recipesApi ? { create: recipesApi.createCookbook, update: recipesApi.updateCookbook, remove: recipesApi.deleteCookbook, read: recipesApi.getCookbook } : null,
+    getEntities: getCookbooks, setEntities: setCookbooks, readQueue: () => dbGetAll('syncQueue'),
+    markAttempt: markCookbookMutationAttempt, commitReplay: commitCookbookReplay,
+    onIdRemap: onCookbookIdRemap, render: renderCookbooks,
+  });
   function isOnlineForSync(wsState) {
     // Browser/native offline state must win over a stale WebSocket state.
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
@@ -345,6 +362,7 @@ export function createSyncFeature({
   }
 
   function sanitizeQueueItem(item) {
+    if (cookbookMetadata.actions.has(item?.action)) return cookbookMetadata.sanitize(item);
     if (!item || typeof item !== 'object' || typeof item.action !== 'string') return null;
     const data = item.data && typeof item.data === 'object' ? item.data : {};
     const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
@@ -462,6 +480,11 @@ export function createSyncFeature({
       const currentQueue = await dbGetAll('syncQueue');
       const currentQueuedItem = currentQueue.find(item => String(item.id) === String(queuedItem.id));
       if (!currentQueuedItem) continue;
+      if (cookbookMetadata.actions.has(currentQueuedItem.action)) {
+        const id = cookbookMetadata.idFor(currentQueuedItem);
+        if (currentQueue.some(previous => !sameId(previous.id, currentQueuedItem.id)
+          && attemptedQueueIds.has(String(previous.id)) && cookbookMetadata.references(previous, id))) continue;
+      }
       const shoppingListIdentity = shoppingQueueListIdentity(currentQueuedItem);
       // A successful HTTP response can still be fenced out by an access change.
       // Its durable predecessor must settle before dependent writes may replay.
@@ -489,6 +512,10 @@ export function createSyncFeature({
       try {
         if (!item) {
           await deleteFromDB('syncQueue', queuedItem.id);
+          continue;
+        }
+        if (cookbookMetadata.actions.has(item.action)) {
+          if (await cookbookSync.replay(item, syncInProgressRef, requestPrivacyGeneration)) successCount++;
           continue;
         }
         if (item.action === 'CREATE_TODO') {
@@ -986,8 +1013,9 @@ export function createSyncFeature({
     let releaseCommitLock = null;
     let shouldDrainQueue = false;
     try {
-      const [todosData, projectsData, sectionsData, workspacesData, shoppingData] = await Promise.all([
+      const [todosData, projectsData, sectionsData, workspacesData, shoppingData, recipesData] = await Promise.all([
         todosApi.list(), projectsApi.list(), sectionsApi.listAll(), workspacesApi.list(), shoppingApi.snapshot(),
+        recipesApi ? recipesApi.snapshot() : Promise.resolve(null),
       ]);
       const nextProjects = projectsData.projects || [];
       const nextProjectIds = new Set(nextProjects.map(project => String(project.id)));
@@ -1000,6 +1028,7 @@ export function createSyncFeature({
         && (todo.section_id == null || nextSectionIds.has(String(todo.section_id)))
       );
       const nextWorkspaces = workspacesData.workspaces || [];
+      const nextCookbooks = recipesData?.cookbooks || [];
       const nextShoppingLists = shoppingData.shopping_lists || [];
       const nextShoppingStores = projectShoppingStoresSnapshot(
         shoppingData.shopping_stores || [],
@@ -1015,6 +1044,14 @@ export function createSyncFeature({
       if (queueBeforeCommit.length) {
         shouldDrainQueue = true;
       } else {
+        if (recipesData && !commitCookbookReplay) throw new Error('Cookbook snapshot storage is not configured');
+        const localCookbooks = recipesData ? await dbGetAll('cookbooks') : [];
+        const revokedCookbookIds = recipesData
+          ? cookbookMetadata.collectRevokedIds(nextCookbooks, [...getCookbooks(), ...localCookbooks], [], { actorId: getActorId() }) : [];
+        if (recipesData) {
+          const ids = new Set(nextCookbooks.map(book => String(book.id)));
+          await commitCookbookReplay({ entities: nextCookbooks, removeIds: localCookbooks.filter(book => !ids.has(String(book.id))).map(book => book.id) });
+        }
         if (dbClear) {
           await Promise.all([dbClear('todos'), dbClear('projects'), dbClear('sections'), dbClear('workspaces'), dbClear('shoppingLists'), dbClear('shoppingStores')]);
         }
@@ -1034,6 +1071,11 @@ export function createSyncFeature({
         setShoppingStores(nextShoppingStores);
         setShoppingLists(nextShoppingLists);
         renderShopping();
+        if (recipesData) {
+          setCookbooks(nextCookbooks);
+          onCookbookSnapshotCommitted(nextCookbooks, revokedCookbookIds);
+          renderCookbooks();
+        }
       }
     } finally {
       releaseCommitLock?.();

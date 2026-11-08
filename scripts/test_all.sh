@@ -102,6 +102,10 @@ run_step "Entity Sharing Boundaries" python3 scripts/test_entity_sharing_boundar
 run_step "Household Entity Access" python3 scripts/test_household_entity_access.py
 run_step "Frontend Households" node scripts/test_frontend_households.mjs
 run_step "Shopping Lists" python3 scripts/test_shopping_lists.py
+run_step "Cookbooks API and Ownership" python3 scripts/test_cookbooks.py
+run_step "Cookbooks Shared UI" node scripts/test_frontend_cookbooks.mjs
+run_step "Cookbooks Offline Metadata Sync" node scripts/test_offline_cookbooks_sync.mjs
+run_step "Cookbooks Real-Service E2E" node scripts/test_frontend_cookbooks_e2e.mjs
 run_step "Household API" python3 scripts/test_household_api.py
 run_step "Project Household Access" python3 scripts/test_project_household_access.py
 run_step "Household Access Regressions" python3 scripts/test_household_access_regressions.py

@@ -40,6 +40,11 @@ import { createWhatsNewFeature } from './features/whats-new.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
+import { recipesApi } from './api/recipes.js';
+import { createCookbooksController } from './features/cookbooks.js';
+import { createEntityMutationQueue } from './features/entity-metadata.js';
+import { createCookbookNavigationFeature } from './features/cookbook-navigation.js';
+import { createCookbookDetailsFeature } from './features/cookbook-details.js';
 import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
 import { createShoppingItemsController } from './features/shopping-items.js';
 import { createShoppingItemEditorFeature } from './features/shopping-item-editor.js';
@@ -72,6 +77,8 @@ let sections = [];
 let workspaces = [];
 let shoppingLists = [];
 let shoppingStores = [];
+let cookbooks = [];
+let authenticatedRuntimeEpoch = 0;
 let currentFilter = 'all';
 let currentProjectId = null;
 let currentWorkspaceId = null;
@@ -96,6 +103,23 @@ let shoppingItemEditorFeature = null;
 let shoppingStoreEditorFeature = null;
 let shoppingViewPreferencesFeature = null;
 let completedVisibilityFeature = null;
+let cookbookNavigationFeature = null;
+let cookbookDetailsFeature = null;
+
+function renderCookbooks() { cookbookNavigationFeature?.render(); }
+function remapCookbookId(from, to) {
+  cookbookDetailsFeature?.remapCookbookId(from, to);
+  cookbookNavigationFeature?.remapCookbookId(from, to);
+}
+function setCookbooksState(next) {
+  const books = Array.isArray(next) ? next : [];
+  if (cookbookNavigationFeature) cookbookNavigationFeature.replaceCookbooks(books);
+  else cookbooks = books;
+  cookbookDetailsFeature?.reconcileCookbooksChanged();
+}
+function getCookbookSessionIdentity() {
+  return currentUser ? `${currentUser.id}:${authenticatedRuntimeEpoch}` : null;
+}
 
 function renderShopping() {
   shoppingNavigationFeature?.render();
@@ -366,6 +390,17 @@ function enqueueShoppingListMutation(listIdentity, task) {
   return operation;
 }
 const syncInProgressRef = { value: syncInProgress };
+const enqueueCookbookMutation = createEntityMutationQueue({ getSessionIdentity: getCookbookSessionIdentity });
+async function commitCookbookMutation(buildMutation) {
+  const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
+  try {
+    const mutation = buildMutation();
+    if (!mutation) return null;
+    await appStorage.commitCookbookMutation(mutation);
+    updateConnectionStatusView().catch(() => {});
+    return mutation;
+  } finally { finishQueueWrite(); }
+}
 const activeBackgroundSyncOperations = new Set();
 
 function trackBackgroundSyncOperation(operation) {
@@ -411,6 +446,10 @@ const syncFeature = createSyncFeature({
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
   setWorkspaces: setWorkspacesState,
+  getCookbooks: () => cookbooks,
+  setCookbooks: setCookbooksState,
+  getActorId: () => currentUser?.id ?? null,
+  onCookbookIdRemap: remapCookbookId,
   getShoppingLists: () => shoppingLists,
   setShoppingLists: setShoppingListsState,
   getShoppingStores: () => shoppingStores,
@@ -419,6 +458,11 @@ const syncFeature = createSyncFeature({
   projectsApi,
   sectionsApi,
   workspacesApi,
+  recipesApi,
+  commitCookbookReplay: appStorage.commitCookbookReplay,
+  markCookbookMutationAttempt: appStorage.markCookbookMutationAttempt,
+  renderCookbooks,
+  onCookbookSnapshotCommitted: (serverBooks, revokedIds) => cookbookNavigationFeature?.commitAuthoritativeSnapshot(serverBooks, revokedIds),
   shoppingApi,
   commitShoppingReplay: appStorage.commitShoppingReplay,
   renderStats: () => renderStats(),
@@ -563,10 +607,12 @@ const userSettingsFeature = createUserSettingsFeature({
   logout: () => logout(),
 });
 async function disconnectAuthenticatedRuntime() {
+  authenticatedRuntimeEpoch += 1;
   syncInProgressRef.privacyGeneration = Number(syncInProgressRef.privacyGeneration || 0) + 1;
   const privacyDrains = [
     sharingFeature.suspendAccessPrivacy(),
     shoppingNavigationFeature.suspendAccessPrivacy(),
+    cookbookNavigationFeature.suspendAccessPrivacy(),
   ];
   const websocketDrain = disconnectWebSocket();
   await Promise.all([
@@ -591,17 +637,20 @@ const authSessionFeature = createAuthSessionFeature({
     workspaces = [];
     shoppingLists = [];
     shoppingStores = [];
+    cookbooks = [];
     currentProjectId = null;
     currentFilter = 'all';
     currentWorkspaceId = null;
     dashboardDrilldown = null;
     localStorage.setItem('nia-last-filter', 'all');
     localStorage.removeItem('nia-shopping-active-list');
+    localStorage.removeItem('nia-recipes-active-cookbook');
     localStorage.removeItem('nia-current-workspace');
     renderProjects();
     renderStats();
     renderTodos();
     renderShopping();
+    renderCookbooks();
     await clearIndexedDB();
   },
   initApp: () => initApp(),
@@ -670,6 +719,7 @@ const wsClient = createWebSocketClient({
   getFromDB,
   deleteFromDB,
   commitShoppingReplay: appStorage.commitShoppingReplay,
+  commitCookbookReplay: appStorage.commitCookbookReplay,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
@@ -678,6 +728,10 @@ const wsClient = createWebSocketClient({
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
   setWorkspaces: setWorkspacesState,
+  getCookbooks: () => cookbooks,
+  setCookbooks: setCookbooksState,
+  getActorId: () => currentUser?.id ?? null,
+  onCookbookIdRemap: remapCookbookId,
   getShoppingLists: () => shoppingLists,
   setShoppingLists: setShoppingListsState,
   getShoppingStores: () => shoppingStores,
@@ -711,9 +765,13 @@ const wsClient = createWebSocketClient({
     if (Object.prototype.hasOwnProperty.call(snapshot, 'shoppingInvites')) {
       shoppingNavigationFeature?.setInvites?.(snapshot.shoppingInvites || []);
     }
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'cookbookInvites')) {
+      cookbookNavigationFeature?.setInvites(snapshot.cookbookInvites || []);
+    }
     window.dispatchEvent(new CustomEvent('nia:access-snapshot', { detail: snapshot }));
   },
   onEntitySnapshotsCommitted: snapshots => {
+    if (Array.isArray(snapshots?.cookbooks)) cookbookNavigationFeature?.commitAuthoritativeSnapshot(snapshots.cookbooks, snapshots.revokedCookbookIds || []);
     if (Array.isArray(snapshots?.projects)) sharingFeature?.commitAuthoritativeSnapshot?.(snapshots.projects, snapshots.revokedProjectIds || [], snapshots.taskAccessSnapshot);
     if (Array.isArray(snapshots?.shoppingLists)) {
       shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(
@@ -900,6 +958,7 @@ syncController = createSyncController({
   onAuthoritativeRefreshCommitted: () => {
     sharingFeature?.commitAuthoritativeSnapshot?.(projects);
     shoppingNavigationFeature?.commitAuthoritativeSnapshot?.(shoppingLists);
+    cookbookNavigationFeature?.commitAuthoritativeSnapshot(cookbooks);
   },
 });
 const bindWorkspaceControls = workspacesFeature.bindWorkspaceControls;
@@ -1136,6 +1195,57 @@ shoppingItemEditorFeature = createShoppingItemEditorFeature({
   onError: error => console.error('Shopping item editor failed', error),
 });
 shoppingItemEditorFeature.bind();
+async function removeCookbookAccess(ids, { signal, getAccessibleEntities, isCurrent = () => true } = {}) {
+  const session = getCookbookSessionIdentity();
+  let blocked = new Set();
+  return runEntityPrivacyEviction({
+    syncInProgressRef, acquireCommitLock: acquireSyncCommitLock, signal,
+    evict: async () => {
+      if (session == null || session !== getCookbookSessionIdentity() || !isCurrent()) return;
+      const accessible = new Set((getAccessibleEntities?.()?.accessibleCookbookIds || []).map(String));
+      blocked = new Set(ids.map(String).filter(id => !accessible.has(id)));
+      if (blocked.size) await appStorage.evictPendingCookbookEntities([...blocked], { signal });
+    },
+    publish: () => {
+      if (session === getCookbookSessionIdentity() && isCurrent() && blocked.size) {
+        setCookbooksState(cookbooks.filter(book => !blocked.has(String(book.id))));
+      }
+    },
+  });
+}
+async function refreshCookbooks() {
+  const result = await refreshFromServer();
+  if (!result?.refreshed) throw new Error('Authoritative cookbook projection was not refreshed');
+  return cookbooks;
+}
+const cookbooksController = createCookbooksController({
+  getCookbooks: () => cookbooks, setCookbooks: setCookbooksState,
+  getCurrentUser: () => currentUser, getSessionIdentity: getCookbookSessionIdentity,
+  getAccessSnapshot: () => window.niaAccessSnapshot || null,
+  commitMutation: commitCookbookMutation, enqueueCookbookMutation,
+  isOnlineForSync, syncWithServer,
+});
+cookbookNavigationFeature = createCookbookNavigationFeature({
+  getActorId: () => currentUser?.id ?? null,
+  getCookbooks: () => cookbooks, setCookbooks: next => { cookbooks = next; },
+  cookbookApi: recipesApi, closeSidebar: options => uiShell.closeSidebar(options),
+  onAdd: () => cookbookDetailsFeature?.showCookbookModal(),
+  onDetail: id => cookbookDetailsFeature?.showCookbookModal(cookbooks.find(book => String(book.id) === String(id))),
+  onDeactivate: () => cookbookDetailsFeature?.deactivate(),
+  onCookbookIdRemap: remapCookbookId,
+  loadAuthoritativeProjection: refreshCookbooks, removePendingEntities: removeCookbookAccess,
+});
+cookbookNavigationFeature.bind();
+cookbookDetailsFeature = createCookbookDetailsFeature({
+  getCookbooks: () => cookbooks, cookbookController: cookbooksController, cookbookApi: recipesApi,
+  getSessionIdentity: getCookbookSessionIdentity, getAccessSnapshot: () => window.niaAccessSnapshot || null,
+  getPendingMutations: () => dbGetAll('syncQueue'),
+  isOnlineForSync, syncWithServer, confirmDanger, enqueueCookbookMutation, refreshCookbooks,
+  removeCookbookAccess: (id, options) => removeCookbookAccess([id], options),
+  selectCookbook: id => cookbookNavigationFeature.selectCookbook(id),
+  normalizeActiveCookbookNavigation: () => cookbookNavigationFeature.normalizeActiveCookbookNavigation(),
+  focusActiveCookbookAction: () => cookbookNavigationFeature.focusActiveCookbookAction(),
+});
 const refreshTasksModule = () => {
   renderProjects();
   renderStats();
@@ -1165,6 +1275,12 @@ moduleShell.registerController('shopping', {
   onDeactivate: () => shoppingNavigationFeature.deactivate(),
   onLanguageChange: renderShopping,
   onSearch: value => shoppingNavigationFeature.setSearchQuery(value),
+});
+moduleShell.registerController('recipes', {
+  onActivate: () => cookbookNavigationFeature.activate(),
+  onDeactivate: () => cookbookNavigationFeature.deactivate(),
+  onLanguageChange: renderCookbooks,
+  onSearch: value => cookbookNavigationFeature.setSearchQuery(value),
 });
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
@@ -1271,6 +1387,7 @@ async function refreshEntityInvitations() {
   const results = await Promise.all([
     sharingFeature.loadInvites(),
     shoppingNavigationFeature.loadInvites(),
+    cookbookNavigationFeature.loadInvites(),
   ]);
   const failed = results.find(result => result?.ok === false && !result?.stale);
   return failed || { ok: true, results };
@@ -1291,6 +1408,7 @@ const appLifecycle = createAppLifecycle({
     if (database) {
       sharingFeature.resumeAccessPrivacy();
       shoppingNavigationFeature.resumeAccessPrivacy();
+      cookbookNavigationFeature.resumeAccessPrivacy();
       wsClient.resumeWebSocket();
     }
     return database;
@@ -1302,6 +1420,7 @@ const appLifecycle = createAppLifecycle({
   setWorkspaces: setWorkspacesState,
   setShoppingLists: setShoppingListsState,
   setShoppingStores: setShoppingStoresState,
+  setCookbooks: setCookbooksState,
   setCurrentFilter: (next) => { currentFilter = next; },
   setCurrentProjectId: (next) => { currentProjectId = next; },
   setCurrentWorkspaceId: setCurrentWorkspaceState,
@@ -1353,6 +1472,7 @@ export function startAppModule() {
   moduleShell.bind();
   moduleSwitcher.bind();
   shoppingListDetailsFeature.bind();
+  cookbookDetailsFeature.bind();
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();

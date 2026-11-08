@@ -12,7 +12,6 @@ from services.entity_access import (
     get_entity_ownership,
     invite_entity_access,
     leave_entity_access,
-    list_entity_access_invites,
     list_entity_access_members,
     remove_entity_access,
     resolve_entity_access,
@@ -20,14 +19,10 @@ from services.entity_access import (
     restore_entity_access,
 )
 from services.entity_sharing_notifications import notify_entity_share_invite
+from services.entity_registry import get_entity_metadata
+from services.entity_sharing_payloads import get_entity_invites
 
 router = APIRouter(prefix="/api/entity-sharing")
-
-_ENTITY_METADATA = {
-    "project": ("projects", "name", "color"),
-    "shopping_list": ("shopping_lists", "name", "color"),
-}
-
 
 class InviteCreate(BaseModel):
     identifier: str = Field(min_length=1, max_length=320)
@@ -44,11 +39,7 @@ class RestoreAccessRequest(BaseModel):
 def _entity_metadata(db, entity_type: str, entity_id: int):
     if entity_type not in ENTITY_TYPE_REGISTRY:
         raise HTTPException(404, "Entity not found")
-    table, name_column, color_column = _ENTITY_METADATA[entity_type]
-    return db.execute(
-        f"SELECT id, {name_column} AS entity_name, {color_column} AS entity_color FROM {table} WHERE id = ?",
-        (entity_id,),
-    ).fetchone()
+    return get_entity_metadata(db, entity_type, entity_id)
 
 
 def _invite_target(db, identifier: str):
@@ -103,17 +94,7 @@ def _sync_project_member_status(db, entity_type: str, entity_id: int, user_id: i
 @router.get("/invites")
 def list_pending_entity_invites(user_id: int = Depends(require_auth)):
     with get_db() as db:
-        invites = list_entity_access_invites(db, user_id)
-        visible = []
-        for invite in invites:
-            metadata = _entity_metadata(db, invite["entity_type"], invite["entity_id"])
-            if not metadata:
-                continue
-            item = dict(invite)
-            item["entity_name"] = metadata["entity_name"]
-            item["entity_color"] = metadata["entity_color"]
-            visible.append(item)
-        return {"invites": visible}
+        return {"invites": get_entity_invites(db, user_id)}
 
 
 @router.get("/{entity_type}/{entity_id}/members")

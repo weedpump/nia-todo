@@ -1,3 +1,7 @@
+import { createMetadataCollection } from './entity-metadata.js';
+
+const metadata = createMetadataCollection({ storeName: 'shoppingLists', createAction: 'CREATE_SHOPPING_LIST', updateAction: 'UPDATE_SHOPPING_LIST', deleteAction: 'DELETE_SHOPPING_LIST', fields: ['name', 'color', 'icon', 'sort_order'] });
+
 function sameId(left, right) {
   return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
 }
@@ -9,7 +13,7 @@ function clone(value) {
 export function queueItemReferencesShoppingList(item, listId, stores = [], { orphanedStoreMatches = false } = {}) {
   const data = item?.data || {};
   if (['CREATE_SHOPPING_LIST', 'UPDATE_SHOPPING_LIST', 'DELETE_SHOPPING_LIST'].includes(item?.action)) {
-    return sameId(data.id ?? data.temp_id, listId);
+    return metadata.references(item, listId);
   }
   if (['UPDATE_SHOPPING_STORE', 'DELETE_SHOPPING_STORE'].includes(item?.action)) {
     if (data.shopping_list_id != null) return sameId(data.shopping_list_id, listId);
@@ -24,8 +28,7 @@ export function hasPendingShoppingChanges(queue = [], listId) {
 }
 
 export function hasPendingShoppingListCreate(queue = [], listId) {
-  return queue.some(item => item?.action === 'CREATE_SHOPPING_LIST'
-    && sameId(item.data?.temp_id ?? item.data?.id, listId));
+  return metadata.hasPendingCreate(queue, listId);
 }
 
 function shoppingListIdForQueueItem(item, stores = []) {
@@ -41,19 +44,9 @@ function shoppingListIdForQueueItem(item, stores = []) {
 }
 
 export function collectRevokedShoppingListIds(serverLists = [], localLists = [], queue = [], stores = []) {
-  const authoritativeIds = new Set((serverLists || []).map(list => String(list.id)));
-  const candidates = new Map();
-  for (const list of localLists || []) {
-    if (list?.id != null) candidates.set(String(list.id), list.id);
-  }
-  for (const item of queue || []) {
-    const listId = shoppingListIdForQueueItem(item, stores);
-    if (listId != null) candidates.set(String(listId), listId);
-  }
-  return [...candidates.values()].filter(listId => (
-    !authoritativeIds.has(String(listId))
-    && !hasPendingShoppingListCreate(queue, listId)
-  ));
+  return metadata.collectRevokedIds(serverLists, localLists, queue, {
+    resolveQueueId: item => shoppingListIdForQueueItem(item, stores),
+  });
 }
 
 export function backfillShoppingStoreQueueListIds(queue = [], stores = []) {
@@ -93,32 +86,10 @@ export function reconcileShoppingStoreQueueSnapshot(queue = [], {
 }
 
 export function projectShoppingSnapshot(serverLists = [], localLists = [], queue = []) {
-  const result = [];
-  const serverIds = new Set();
-  const confirmedClientMutationIds = new Set();
-  let projectedQueue = queue;
-  for (const serverList of serverLists) {
-    if (serverList?.client_mutation_id == null) continue;
-    confirmedClientMutationIds.add(String(serverList.client_mutation_id));
-    projectedQueue = rewriteShoppingQueueReferences(projectedQueue, {
-      listIdFrom: serverList.client_mutation_id,
-      listIdTo: serverList.id,
-    });
-  }
-  for (const serverList of serverLists) {
-    serverIds.add(String(serverList.id));
-    const projected = projectPendingShoppingChanges(serverList, projectedQueue);
-    if (projected) result.push(projected);
-  }
-  for (const localList of localLists) {
-    if (serverIds.has(String(localList.id))
-      || confirmedClientMutationIds.has(String(localList.id))
-      || confirmedClientMutationIds.has(String(localList.client_mutation_id))
-      || !hasPendingShoppingListCreate(queue, localList.id)) continue;
-    const projected = projectPendingShoppingChanges(localList, projectedQueue);
-    if (projected) result.push(projected);
-  }
-  return result;
+  return metadata.projectSnapshot(serverLists, localLists, queue, {
+    project: projectPendingShoppingChanges,
+    rewrite: (records, from, to) => rewriteShoppingQueueReferences(records, { listIdFrom: from, listIdTo: to }),
+  });
 }
 
 export function projectPendingShoppingStores(serverStores = [], queue = []) {
