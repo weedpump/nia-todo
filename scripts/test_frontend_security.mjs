@@ -208,7 +208,7 @@ assert(toastSource.includes("undoBtn.style.display = action ? '' : 'none'"), 'to
 assert(toastSource.includes('cancelPendingTodoDelete') && toastSource.includes("item?.action === 'DELETE_TODO'"), 'todo delete undo must cancel the queued hard-delete instead of recreating the todo');
 assert(syncSource.includes('undo_grace_until') && syncSource.includes('Date.now() < undoGraceUntil'), 'todo hard-delete sync must wait for the undo grace window');
 const todosFeatureSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
-assert(/const data = \{ id: current\.id, project_id: current\.project_id \?\? null,[\s\S]*?undo_grace_until: Date\.now\(\) \+ 5000,[\s\S]*?local_todo: structuredClone\(current\)[\s\S]*?await enqueue\('DELETE_TODO', data\)/.test(todosFeatureSource), 'todo delete must retain its current identity, project boundary, local snapshot and deferred hard-delete inside the shared queue mutation so undo can preserve subtasks, comments, and attachments');
+assert(/const data = \{ id: current\.id, project_id: current\.project_id \?\? null,[\s\S]*?undo_grace_until: Date\.now\(\) \+ 5000,[\s\S]*?local_todo: structuredClone\(withoutPrivateRoutingMetadata\(current\)\)[\s\S]*?await enqueue\('DELETE_TODO', data\)/.test(todosFeatureSource), 'todo delete must retain its current identity, project boundary, privacy-sanitized local snapshot and deferred hard-delete inside the shared queue mutation so undo can preserve subtasks, comments, and attachments');
 
 const originalGlobals = {
   window: globalThis.window,
