@@ -191,3 +191,10 @@ and sources, established quantities and stable child keys on the server. The ord
 editor/save and offline queue remain the only persistence path. Images are not sent
 to the model. The UI reuses the existing BrainDump access check, without a separate
 permission or connection setting.
+
+Recipe BrainDump refinement requests compact, optional patches using short request-local
+references. The server maps those references to stable ingredient/step keys, retains
+untouched records and protected facts, and validates the final recipe aggregate. The
+model does not need to reproduce original UUIDs or the complete recipe in its reply.
+Nonempty truncated replies share the same one-retry/deadline/access fences as empty
+reasoning-only replies. Rejections log only fixed reason categories, mode and duration.

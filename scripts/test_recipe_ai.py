@@ -46,13 +46,10 @@ def response(value):
 
 class RecipeAITests(unittest.TestCase):
     def test_refinement_preserves_numeric_facts_metadata_membership_and_explicit_links(self):
-        original=draft(); before=copy.deepcopy(original); proposed=proposal(original)
-        proposed.update(title='Invented title',description='Invented description',base_servings=99,prep_minutes=999,cook_minutes=999,tags=['Vegan'])
-        proposed['ingredient_groups'][0]['name']='Changed group'
-        proposed['ingredient_groups'][0]['ingredients'][0].update(name='Invented wheat',quantity_value=999,quantity_unit='kg',note='Invented')
-        proposed['ingredient_groups'][0]['ingredients'][1].update(name='Backpulver',quantity_value=.5,quantity_unit='pack')
-        proposed['steps'][0]['ingredients']=[]
-        proposed['steps'][1]['ingredients']=[{'ingredient_client_key':'filling-flour','show_quantity':True,'quantity_value':None,'quantity_text':None}]
+        original=draft(); before=copy.deepcopy(original)
+        proposed={'ingredients':[{'ingredient_key':'i2','name':'Backpulver','quantity_value':.5,'quantity_unit':'pack'}],
+                  'steps':[{'step_key':'s1','ingredients':[]},
+                           {'step_key':'s2','ingredients':[{'ingredient_key':'i3','show_quantity':True}]}]}
         with patch.object(ai.llm_client,'post_chat',return_value=response(proposed)) as send:
             result=ai.build_recipe_preview(config=CONFIG,draft=original)
         actual=result['draft']
@@ -67,19 +64,75 @@ class RecipeAITests(unittest.TestCase):
         sent=send.call_args.args[0]
         self.assertEqual(sent['messages'][0]['content'],ai.RECIPE_SYSTEM_PROMPT)
         self.assertNotIn('source_url',sent['messages'][1]['content'],'provenance is not model-editable or necessary prompt data')
+        context=json.loads(sent['messages'][1]['content'])['recipe_data']
+        self.assertEqual(context['ingredient_groups'][0]['client_key'],'g1')
+        self.assertEqual(context['steps'][0]['ingredients'][0]['ingredient_client_key'],'i1')
         self.assertNotIn('_deadline_at',sent,'private transport deadlines are not sent to the provider')
         self.assertLessEqual(send.call_args.args[2]['llm_timeout_seconds'],100)
 
-    def test_keys_cannot_be_added_replaced_or_moved_between_groups(self):
-        cases=[]
-        missing=proposal();missing['steps'].pop();cases.append(missing)
-        extra=proposal();extra['steps'].append({'client_key':'invented','text':'Invented step','ingredients':[]});cases.append(extra)
-        swapped=proposal();a=swapped['ingredient_groups'][0]['ingredients'];b=swapped['ingredient_groups'][1]['ingredients'];a[0],b[0]=b[0],a[0];cases.append(swapped)
-        unknown=proposal();unknown['steps'][1]['ingredients']=[{'ingredient_client_key':'foreign','show_quantity':True}];cases.append(unknown)
+    def test_references_cannot_be_added_duplicated_or_used_to_rewrite_protected_facts(self):
+        cases=[{'steps':[{'step_key':'s99','ingredients':[]}]},
+               {'steps':[{'step_key':'s1'},{'step_key':'s1'}]},
+               {'steps':[{'step_key':'s1','ingredients':[{'ingredient_key':'i99'}]}]},
+               {'steps':[{'step_key':'s1','ingredients':[{'ingredient_key':'i1'},{'ingredient_key':'i1'}]}]},
+               {'ingredients':[{'ingredient_key':'i1','name':'Invented wheat','quantity_value':1}]},
+               {'ingredients':[{'ingredient_key':'i2','name':'Backpulver'},{'ingredient_key':'i2','name':'Again'}]},
+               {'steps':[],'title':'Invented title'},
+               proposal()]
         for value in cases:
             with self.subTest(value=value),patch.object(ai.llm_client,'post_chat',return_value=response(value)),self.assertRaises(ai.RecipeAIError) as error:
                 ai.build_recipe_preview(config=CONFIG,draft=draft())
             self.assertEqual(error.exception.code,'recipe.ai.invalidResponse')
+            self.assertIn(error.exception.reason,{'schema','reference'})
+
+    def test_imported_uuid_keys_and_long_steps_need_only_a_small_partial_patch(self):
+        original=draft()
+        original['steps']=[]
+        original['ingredient_groups']=[{'client_key':'import-00000000-0000-4000-8000-000000000001','name':'Teig','ingredients':[]},
+                                       {'client_key':'import-00000000-0000-4000-8000-000000000002','name':'Füllung','ingredients':[]}]
+        for index in range(22):
+            original['ingredient_groups'][index//11]['ingredients'].append({'client_key':f'import-12345678-1234-4123-8123-{index:012d}',
+                'name':'Mehl' if index in (0,11) else f'Zutat {index}','quantity_value':50+index,'quantity_unit':'g','quantity_text':None,'note':''})
+        for index in range(7):
+            original['steps'].append({'client_key':f'import-87654321-4321-4321-8432-{index:012d}','text':(f'Schritt {index}. '+('Unveränderte ausführliche Zubereitung. '*45)).rstrip(),'ingredients':[]})
+        proposed={'steps':[{'step_key':'s2','ingredients':[{'ingredient_key':'i12','show_quantity':True,'quantity_value':25}]}]}
+        with patch.object(ai.llm_client,'post_chat',return_value=response(proposed)) as send:
+            result=ai.build_recipe_preview(config=CONFIG,draft=original)
+        actual=result['draft']
+        self.assertEqual(actual['ingredient_groups'],original['ingredient_groups'])
+        for index in (0,2,3,4,5,6):self.assertEqual(actual['steps'][index],original['steps'][index])
+        self.assertEqual(actual['steps'][1]['text'],original['steps'][1]['text'])
+        self.assertEqual(actual['steps'][1]['client_key'],original['steps'][1]['client_key'])
+        self.assertEqual(actual['steps'][1]['ingredients'][0]['ingredient_client_key'],original['ingredient_groups'][1]['ingredients'][0]['client_key'])
+        self.assertEqual(actual['steps'][1]['ingredients'][0]['quantity_value'],25)
+        self.assertIn('recipe.ai.reviewAssignments',result['warnings'])
+        context=send.call_args.args[0]['messages'][1]['content']
+        self.assertNotIn('import-',context,'provider never needs to reproduce imported UUIDs')
+        self.assertLess(len(json.dumps(proposed)),len(json.dumps(original))//20)
+
+    def test_raw_ingredient_structuring_preserves_existing_notes(self):
+        original=draft();original['ingredient_groups'][0]['ingredients'][1]['note']='Unveränderte eigene Notiz'
+        value={'ingredients':[{'ingredient_key':'i2','name':'Backpulver','quantity_value':.5,'quantity_unit':'pack','note':None}]}
+        with patch.object(ai.llm_client,'post_chat',return_value=response(value)):
+            actual=ai.build_recipe_preview(config=CONFIG,draft=original)['draft']
+        self.assertEqual(actual['ingredient_groups'][0]['ingredients'][1]['note'],'Unveränderte eigene Notiz')
+        self.assertEqual(actual['ingredient_groups'][0]['ingredients'][1]['quantity_value'],.5)
+
+    def test_partial_patch_text_only_empty_patches_and_final_quantity_validation(self):
+        for value in ({}, {'steps':[]}, {'steps':[{'step_key':'s2','text':'Füllung vorsichtig mischen.'}]}):
+            with self.subTest(value=value),patch.object(ai.llm_client,'post_chat',return_value=response(value)):
+                result=ai.build_recipe_preview(config=CONFIG,draft=draft())
+            self.assertEqual(result['draft']['steps'][0],draft()['steps'][0])
+        cases=[{'steps':[{'step_key':'s2','ingredients':[{'ingredient_key':'i3','quantity_value':51}]}]},
+               {'steps':[{'step_key':'s2','ingredients':[{'ingredient_key':'i3','quantity_value':10,'quantity_text':'etwas'}]}]},
+               {'steps':[{'step_key':'s2','ingredients':[{'ingredient_key':'i3','show_quantity':False,'quantity_value':10}]}]},
+               {'steps':[{'step_key':'s2','text':'   '}]},
+               {'steps':[{'step_key':'s2','ingredients':[{'ingredient_key':'i3','quantity_value':'10'}]}]},
+               {'steps':[{'step_key':'s2','ingredients':[{'ingredient_key':'i3','id':42}]}]}]
+        for value in cases:
+            with self.subTest(value=value),patch.object(ai.llm_client,'post_chat',return_value=response(value)),self.assertRaises(ai.RecipeAIError) as error:
+                ai.build_recipe_preview(config=CONFIG,draft=draft())
+            self.assertEqual(error.exception.reason,'schema')
 
     def test_malformed_and_unsafe_response_is_rejected(self):
         cases=['not json','[]','{"title":"a","title":"b"}','{"title":"x","base_servings":NaN}',json.dumps({**proposal(),'source_url':'https://attacker.invalid/'}),json.dumps({**proposal(),'id':123})]
@@ -163,6 +216,34 @@ class RecipeAITests(unittest.TestCase):
         with patch.object(ai.llm_client,'post_chat',return_value=empty) as send,patch.object(ai.time,'monotonic',side_effect=[0,41]),self.assertRaises(ai.RecipeAIError):
             ai.build_recipe_preview(config={**CONFIG,'llm_timeout_seconds':40},text='Recipe')
         self.assertEqual(send.call_count,1)
+
+    def test_nonempty_truncation_retries_once_with_same_deadline(self):
+        partial={'choices':[{'message':{'content':'{"steps":[{"step_key":"s1"'},'finish_reason':'length'}]}
+        good={'steps':[{'step_key':'s2','ingredients':[{'ingredient_key':'i3'}]}]}
+        with patch.object(ai.llm_client,'post_chat',side_effect=[partial,response(good)]) as send,patch.object(ai.time,'monotonic',side_effect=[0,25,26]):
+            result=ai.build_recipe_preview(config={**CONFIG,'llm_timeout_seconds':40},draft=draft())
+        self.assertEqual(result['draft']['steps'][1]['ingredients'][0]['ingredient_client_key'],'filling-flour')
+        self.assertEqual(send.call_count,2)
+        self.assertEqual(send.call_args_list[1].args[2]['llm_timeout_seconds'],15)
+        self.assertEqual(send.call_args_list[1].args[2]['_deadline_at'],40)
+        with patch.object(ai.llm_client,'post_chat',return_value=partial) as send,self.assertRaises(ai.RecipeAIError) as error:
+            ai.build_recipe_preview(config=CONFIG,draft=draft())
+        self.assertEqual(send.call_count,2)
+        self.assertEqual(error.exception.reason,'truncated')
+        self.assertEqual(str(error.exception),'recipe.ai.invalidResponse')
+        gate=unittest.mock.Mock(side_effect=[None,HTTPException(403,'revoked')])
+        with patch.object(ai.llm_client,'post_chat',return_value=partial) as send,self.assertRaises(HTTPException):
+            ai.build_recipe_preview(config=CONFIG,draft=draft(),check_access=gate)
+        self.assertEqual(send.call_count,1)
+
+    def test_diagnostic_reasons_are_fixed_categories_without_content(self):
+        secret='private-value-never-in-diagnostics'
+        for value, reason in [(secret,'json_syntax'),(json.dumps({'unknown':secret}),'schema')]:
+            with self.subTest(reason=reason),patch.object(ai.llm_client,'post_chat',return_value={'choices':[{'message':{'content':value}}]}),self.assertRaises(ai.RecipeAIError) as error:
+                ai.build_recipe_preview(config=CONFIG,draft=draft())
+            self.assertEqual(error.exception.reason,reason)
+            self.assertNotIn(secret,str(error.exception))
+        self.assertEqual(ai.RecipeAIError('recipe.ai.failed',reason=secret).reason,'unknown')
 
     def test_midflight_revocation_also_prevents_the_optional_retry(self):
         empty={'choices':[{'message':{'content':''},'finish_reason':'length'}]}

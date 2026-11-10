@@ -32,11 +32,13 @@ def _post(payload, headers, config):
             {'client_key':'water','name':'Eau','quantity_value':100,'quantity_unit':'ml','quantity_text':None,'note':''}]}],
           'steps':[{'client_key':'step-mix','text':'Mélanger 100 g de farine avec l’eau.','ingredients':[]},{'client_key':'step-rest','text':'Ajouter les 100 g de farine restants.','ingredients':[]}]}
     else:
-        recipe=copy.deepcopy(data['recipe_data'])
-        keys=[ingredient['client_key'] for group in recipe['ingredient_groups'] for ingredient in group['ingredients']]
-        recipe['steps'][0]['ingredients']=[{'ingredient_client_key':keys[0],'show_quantity':True,'quantity_value':100,'quantity_text':None},{'ingredient_client_key':keys[1],'show_quantity':True,'quantity_value':100,'quantity_text':None}]
-        recipe['steps'][1]['ingredients']=[{'ingredient_client_key':keys[0],'show_quantity':True,'quantity_value':100,'quantity_text':None}]
-        recipe['steps'][0]['text']+=' Mélanger soigneusement.'
+        source=data['recipe_data']
+        keys=[ingredient['client_key'] for group in source['ingredient_groups'] for ingredient in group['ingredients']]
+        recipe={'steps':[
+          {'step_key':source['steps'][0]['client_key'],'text':source['steps'][0]['text']+' Mélanger soigneusement.',
+           'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100,'quantity_text':None},{'ingredient_key':keys[1],'show_quantity':True,'quantity_value':100,'quantity_text':None}]},
+          {'step_key':source['steps'][1]['client_key'],
+           'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100,'quantity_text':None}]}]}
     if _control.exists() and json.loads(_control.read_text()).get('revoke'):
         database=_private_root/'e2e.db'
         assert database.parent==_private_root and not database.is_symlink()

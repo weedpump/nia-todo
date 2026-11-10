@@ -1,5 +1,6 @@
 """Authenticated, bounded recipe import previews; saving uses normal recipes API."""
 from collections import deque
+import logging
 import threading
 import time
 
@@ -16,6 +17,8 @@ router = APIRouter(prefix="/api/recipes")
 _slots = threading.BoundedSemaphore(2)
 _rate_lock = threading.Lock()
 _attempts: dict[int, deque[float]] = {}
+_logger = logging.getLogger(__name__)
+_AI_LOG_REASONS = RecipeAIError.REASONS
 
 
 class RecipeImportRequest(BaseModel):
@@ -84,6 +87,7 @@ def preview_recipe_ai(data: RecipeAIRequest, user_id: int = Depends(require_auth
     _admit(user_id, error_prefix="recipe.ai")
     if not _slots.acquire(blocking=False):
         raise HTTPException(429, {"code": "recipe.ai.busy"}, headers={"Retry-After": "5"})
+    started = time.monotonic()
     try:
         result = build_recipe_preview(config=config, text=data.text, draft=data.draft, check_access=lambda: _require_recipe_ai_access(user_id))
         # A permission revocation during a slow inference wins over its reply.
@@ -91,6 +95,14 @@ def preview_recipe_ai(data: RecipeAIRequest, user_id: int = Depends(require_auth
         return result
     except RecipeAIError as error:
         status = 503 if error.code == "recipe.ai.notConfigured" else 502 if error.code in {"recipe.ai.failed", "recipe.ai.invalidResponse"} else 422
+        reason = getattr(error, "reason", "unknown")
+        if not isinstance(reason, str) or reason not in _AI_LOG_REASONS:
+            reason = "unknown"
+        # Record diagnostics, never model output, recipe text, URLs, identifiers
+        # or exception messages (provider errors can contain credentials).
+        _logger.warning("Recipe BrainDump preview rejected mode=%s reason=%s status=%d elapsed_ms=%d",
+                        "refine" if data.draft is not None else "text", reason, status,
+                        max(0, int((time.monotonic() - started) * 1000)))
         raise HTTPException(status, {"code": error.code}) from None
     finally:
         _slots.release()

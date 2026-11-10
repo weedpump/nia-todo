@@ -280,3 +280,9 @@ protected facts, ingredient keys, strict JSON and revocation before/after retry.
 text entry, cancellation and stale/access fences. `test_recipe_ai_e2e.mjs` runs its
 own temporary app/database and mocks only the external model; it never uses an
 installed service or sends test content to the configured operator model.
+
+Recipe BrainDump compact-patch cases include import-like UUIDs and long steps, partial
+updates, unknown/duplicate references and truncated nonempty replies.
+`test_recipe_ai_diagnostics.py` checks rejection logs with deliberately injected
+sensitive-looking values; recipe content, URLs, keys and provider configuration must
+never appear in those logs. It uses only mocked dependencies and no application DB.
