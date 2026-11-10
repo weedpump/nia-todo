@@ -31,6 +31,12 @@ def _post(payload, headers, config):
             {'client_key':'flour','name':'Farine','quantity_value':200,'quantity_unit':'g','quantity_text':None,'note':''},
             {'client_key':'water','name':'Eau','quantity_value':100,'quantity_unit':'ml','quantity_text':None,'note':''}]}],
           'steps':[{'client_key':'step-mix','text':'Mélanger 100 g de farine avec l’eau.','ingredients':[]},{'client_key':'step-rest','text':'Ajouter les 100 g de farine restants.','ingredients':[]}]}
+    elif data['mode']=='assign':
+        source=data['recipe_data']
+        keys=[ingredient['client_key'] for group in source['ingredient_groups'] for ingredient in group['ingredients']]
+        recipe={'steps':[
+          {'step_key':source['steps'][0]['client_key'],'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100},{'ingredient_key':keys[1],'show_quantity':True,'quantity_value':100}]},
+          {'step_key':source['steps'][1]['client_key'],'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100}]}]}
     else:
         source=data['recipe_data']
         keys=[ingredient['client_key'] for group in source['ingredient_groups'] for ingredient in group['ingredients']]
@@ -99,17 +105,17 @@ with sqlite3.connect(path) as db:
   await page.locator('[data-recipe-action="import"]').click();await page.locator('#recipe-import-mode').waitFor({state:'visible'});
   await page.locator('[data-recipe-import-mode="text"]').click();await page.fill('#recipe-import-text',rawRecipe);await page.locator('#recipe-import-save-btn').click();
   await page.locator('#recipe-modal.active').waitFor({timeout:30000});
-  assert.equal(await page.locator('#recipe-id').inputValue(),'');assert.equal(await calls(),1);
+  assert.equal(await page.locator('#recipe-id').inputValue(),'');assert.equal(await calls(),2);
   const serverRecipes=()=>page.evaluate(async id=>(await (await import('/static/js/api/recipes.js')).recipesApi.getCookbook(id)).recipes,book.id);
   assert.equal((await serverRecipes()).length,0);
-  await page.locator('.recipe-editor-source>summary').click();await page.fill('#recipe-source-url',sourceUrl);await page.fill('#recipe-source-author','Source fixture');await page.locator('.recipe-editor-source>summary').click();
+  await page.locator('.recipe-editor-source>summary').click();await page.fill('#recipe-source-url',sourceUrl);await page.locator('.recipe-editor-source>summary').click();
   const png=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=100;canvas.height=60;canvas.getContext('2d').fillRect(0,0,100,60);return canvas.toDataURL('image/png').split(',')[1];});
   await page.locator('#recipe-image-file').setInputFiles({name:'fixture.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});await page.locator('#recipe-image-preview').waitFor({state:'visible'});
   const originalImage=await page.locator('#recipe-image-preview-img').getAttribute('src');
   phase='refine current unsaved draft and retain source/image';
   await page.locator('#recipe-ai-refine-btn').click();await poll(()=>!document.getElementById('recipe-ai-refine-btn').disabled);
-  assert.equal(await calls(),2);assert.equal((await serverRecipes()).length,0);
-  assert.equal(await page.locator('#recipe-source-url').inputValue(),sourceUrl);assert.equal(await page.locator('#recipe-source-author').inputValue(),'Source fixture');
+  assert.equal(await calls(),3);assert.equal((await serverRecipes()).length,0);
+  assert.equal(await page.locator('#recipe-source-url').inputValue(),sourceUrl);assert.equal(await page.locator('#recipe-source-author').isVisible(),false);
   assert.equal(await page.locator('#recipe-image-preview-img').getAttribute('src'),originalImage);
   assert.equal(requests[1].draft.image_data,undefined,'actual provider request never contains the image');
   assert.equal(await page.locator('#recipe-import-review').isVisible(),true);
@@ -124,7 +130,7 @@ with sqlite3.connect(path) as db:
   await page.reload({waitUntil:'domcontentloaded'});await page.locator('.recipe-reading').waitFor();
   const id=stored.id,revision=stored.revision;
   await page.locator('[data-recipe-action="edit"]').click();await page.locator('#recipe-ai-refine-btn').click();await poll(()=>!document.getElementById('recipe-ai-refine-btn').disabled);
-  assert.equal(await calls(),3);assert.equal(await page.locator('#recipe-id').inputValue(),String(id));
+  assert.equal(await calls(),4);assert.equal(await page.locator('#recipe-id').inputValue(),String(id));
   assert(!('id'in requests[2].draft.ingredient_groups[0]));assert(!('id'in requests[2].draft.ingredient_groups[0].ingredients[0]));assert(!('id'in requests[2].draft.steps[0]));
   await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   if(screenshots)await page.screenshot({path:join(screenshots,'nia-recipe-ai-editor-mobile.png')});
@@ -142,7 +148,7 @@ with sqlite3.connect(path) as db:
   phase='revocation during provider inference wins';
   await writeFile(join(app.privateDir,'provider-control.json'),JSON.stringify({revoke:true}));
   const revoked=await page.evaluate(async text=>{const headers=(await import('/static/js/api/http.js')).getAuthHeaders();const response=await fetch('/api/recipes/ai-preview',{method:'POST',headers,body:JSON.stringify({text})});return{status:response.status,body:await response.json()};},rawRecipe);
-  assert.equal(revoked.status,403);assert.equal(revoked.body.detail.code,'recipe.ai.unavailable');assert.equal(await calls(),4);
+  assert.equal(revoked.status,403);assert.equal(revoked.body.detail.code,'recipe.ai.unavailable');assert.equal(await calls(),5);
   assert.equal((await serverRecipes()).length,1,'revoked previews never save a recipe');
   assert.deepEqual(client.pageErrors,[]);
   console.log('PASS private real-app BrainDump permissions/CSRF, text/refine, source/image/partial links, existing identity, offline reload/reconnect and post-inference revocation');

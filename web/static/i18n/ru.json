@@ -2294,7 +2294,7 @@
   "recipe.source.url": "Ссылка на источник",
   "recipe.source.name": "Веб-сайт",
   "recipe.source.author": "Автор",
-  "recipe.source.yield": "Исходный выход блюда",
+  "recipe.source.yield": "Количество в исходном рецепте",
   "recipe.ai.refine": "Доработать с BrainDump",
   "recipe.ai.refining": "BrainDump дорабатывает рецепт…",
   "recipe.ai.create": "Создать с BrainDump",

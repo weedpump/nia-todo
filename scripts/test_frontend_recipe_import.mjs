@@ -12,6 +12,7 @@ import { initI18n } from '/static/js/i18n/index.js';
 import { renderRecipeEditorModal, createRecipeEditorFeature } from '/static/js/features/recipe-editor.js';
 import { renderRecipeImportModal, createRecipeImportFeature } from '/static/js/features/recipe-import.js';
 import { createRecipeController } from '/static/js/features/recipe-mutations.js';
+import { renderRecipeSource } from '/static/js/features/recipe-view.js';
 import { bindUiHistory, requestCloseUiLayer } from '/static/js/features/ui-history.js';
 localStorage.setItem('nia-todo-language','en'); await initI18n();
 document.body.innerHTML='<button data-recipe-action="import">Import</button>'+renderRecipeImportModal()+renderRecipeEditorModal();
@@ -27,7 +28,7 @@ const editor=createRecipeEditorFeature({root:document,getCookbooks:()=>books,rec
 const feature=createRecipeImportFeature({root:document,getCookbooks:()=>books,getActiveCookbookId:()=>1,getSessionIdentity:()=>session,editor,isOnline:()=>online,
   api:{importPreview:(data,{signal}={})=>new Promise((resolve,reject)=>calls.push({data,signal,resolve,reject}))},onError:error=>errors.push(error.message)});
 editor.bind();feature.bind();
-window.test={feature,editor,calls,queue,errors,saved,books:()=>books,setBooks:value=>{books=value;feature.reconcile();editor.reconcile();},
+window.test={feature,editor,calls,queue,errors,saved,renderRecipeSource,books:()=>books,setBooks:value=>{books=value;feature.reconcile();editor.reconcile();},
   setSession:value=>{session=value;feature.reconcile();editor.reconcile();},setOnline:value=>{online=value;window.dispatchEvent(new Event(value?'online':'offline'));},
   resolve:(index,response)=>calls[index].resolve(response),reject:(index,code)=>calls[index].reject(Object.assign(new Error(code),{code})),
   deactivate:()=>{feature.deactivate();editor.deactivate();},show:()=>feature.show(1)};
@@ -92,6 +93,11 @@ try {
   assert.equal(await page.locator('#recipe-cookbook-id').inputValue(), '1', 'source metadata cannot retarget the selected cookbook');
   assert.equal(await page.locator('#recipe-name').inputValue(), draft.title);
   assert.equal(await page.locator('#recipe-source-author').inputValue(), draft.source_author);
+  assert.equal(await page.locator('#recipe-source-author').getAttribute('type'), 'hidden', 'author metadata is retained without an editor field');
+  assert.equal(await page.getByLabel('Author', { exact: true }).count(), 0);
+  const sourceHtml = await page.evaluate(draft => window.test.renderRecipeSource(draft), draft);
+  assert.ok(!sourceHtml.includes('Author') && sourceHtml.includes('Amount in source recipe'), 'source display omits author and explains the original quantity');
+  assert.equal(await page.evaluate(() => window.test.renderRecipeSource({source_author:'Hidden author only'})), '', 'author alone does not render an empty source block');
   assert.equal(await page.locator('#recipe-source-url').inputValue(), draft.source_url);
   assert.equal(await page.locator('#recipe-source-yield').inputValue(), draft.source_yield);
   assert.equal(await page.locator('#recipe-save-btn').isVisible(), true, 'an unchanged imported draft is immediately saveable');

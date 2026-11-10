@@ -48,8 +48,8 @@ function metadata(recipe, { card = false } = {}) {
 export function renderRecipeSource(recipe) {
   let href = '';
   try { const url = new URL(recipe.source_url); if (['http:', 'https:'].includes(url.protocol) && !url.username && !url.password) href = url.href; } catch {}
-  if (!href && !recipe.source_name && !recipe.source_author && !recipe.source_yield) return '';
-  return `<div class="recipe-source"><span>${escapeHtml(t('recipe.source.title'))}: ${href ? `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(recipe.source_name || new URL(href).hostname)}</a>` : escapeHtml(recipe.source_name || '')}</span>${recipe.source_author ? `<span>${escapeHtml(t('recipe.source.author'))}: ${escapeHtml(recipe.source_author)}</span>` : ''}${recipe.source_yield ? `<span>${escapeHtml(t('recipe.source.yield'))}: ${escapeHtml(recipe.source_yield)}</span>` : ''}</div>`;
+  if (!href && !recipe.source_name && !recipe.source_yield) return '';
+  return `<div class="recipe-source"><span>${escapeHtml(t('recipe.source.title'))}: ${href ? `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(recipe.source_name || new URL(href).hostname)}</a>` : escapeHtml(recipe.source_name || '')}</span>${recipe.source_yield ? `<span>${escapeHtml(t('recipe.source.yield'))}: ${escapeHtml(recipe.source_yield)}</span>` : ''}</div>`;
 }
 function renderStep(step, { ingredientsHtml = '', headingTag = 'h3', headingId = '' } = {}) {
   const heading = step.title || '', body = step.text || '';

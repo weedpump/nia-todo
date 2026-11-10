@@ -119,6 +119,111 @@ class RecipeAITests(unittest.TestCase):
         self.assertIn('recipe.ai.reviewQuantities',result['warnings'])
         self.assertTrue(all(not step['ingredients'][0]['show_quantity'] for step in result['draft']['steps']))
 
+    def test_formatting_only_reply_gets_focused_assignment_pass_without_losing_edits(self):
+        original=draft()
+        for step in original['steps']:step['ingredients']=[]
+        formatting={'description':'Bereinigte Beschreibung.', 'steps':[{'step_key':'s1','title':'Teig vorbereiten'}],
+                    'ingredients':[{'ingredient_key':'i2','name':'Backpulver','quantity_value':.5,'quantity_unit':'pack'}]}
+        assignments={'steps':[{'step_key':'s1','ingredients':[{'ingredient_key':'i1','show_quantity':False}, {'ingredient_key':'i2','show_quantity':True}]},
+                              {'step_key':'s2','ingredients':[{'ingredient_key':'i3','show_quantity':True}]}]}
+        with patch.object(ai.llm_client,'post_chat',side_effect=[response(formatting),response(assignments)]) as send:
+            result=ai.build_recipe_preview(config=CONFIG,draft=original)
+        actual=result['draft']
+        self.assertEqual(send.call_count,2)
+        self.assertEqual(actual['description'],'Bereinigte Beschreibung.')
+        self.assertEqual(actual['steps'][0]['title'],'Teig vorbereiten')
+        self.assertEqual(actual['steps'][0]['text'],original['steps'][0]['text'])
+        self.assertEqual(actual['ingredient_groups'][0]['ingredients'][1]['quantity_value'],.5)
+        self.assertEqual(actual['steps'][0]['ingredients'][0]['ingredient_client_key'],'dough-flour')
+        self.assertFalse(actual['steps'][0]['ingredients'][0]['show_quantity'],'uncertain amount must retain a clear ingredient assignment')
+        self.assertIn('recipe.ai.reviewQuantities',result['warnings'])
+        context=json.loads(send.call_args_list[1].args[0]['messages'][1]['content'])
+        self.assertEqual(context['mode'],'assign')
+        self.assertEqual(context['recipe_data']['description'],'Bereinigte Beschreibung.')
+        self.assertEqual(context['recipe_data']['steps'][0]['title'],'Teig vorbereiten')
+        self.assertEqual(send.call_args_list[0].args[2]['_deadline_at'],send.call_args_list[1].args[2]['_deadline_at'])
+        self.assertLess(send.call_args_list[1].args[2]['llm_timeout_seconds'],send.call_args_list[0].args[2]['llm_timeout_seconds'])
+
+    def test_focused_assignment_may_find_no_matches_without_forcing_links(self):
+        original=draft()
+        for step in original['steps']:step.update(ingredients=[],text='Den Ofen einschalten.')
+        empty={'steps':[{'step_key':'s1','ingredients':[]},{'step_key':'s2','ingredients':[]}]}
+        with patch.object(ai.llm_client,'post_chat',side_effect=[response({'description':'Clean.'}),response(empty)]) as send:
+            result=ai.build_recipe_preview(config=CONFIG,draft=original)
+        self.assertEqual(send.call_count,2)
+        self.assertEqual(result['draft']['description'],'Clean.')
+        self.assertTrue(all(not step['ingredients'] for step in result['draft']['steps']))
+        self.assertIn('recipe.ai.reviewAssignments',result['warnings'])
+
+    def test_existing_links_survive_omission_and_authored_unresolved_amounts_stay_protected(self):
+        original=draft()
+        original['steps'][0]['ingredients']=[{'ingredient_client_key':'dough-flour','show_quantity':True,'quantity_value':None,'quantity_text':None}]
+        original['steps'][1]['ingredients']=[{'ingredient_client_key':'filling-flour','show_quantity':False,'quantity_value':None,'quantity_text':None}]
+        value={'steps':[{'step_key':'s1','ingredients':[]},
+                        {'step_key':'s2','ingredients':[{'ingredient_key':'i3','show_quantity':True,'quantity_value':25}]}]}
+        with patch.object(ai.llm_client,'post_chat',return_value=response(value)) as send:
+            result=ai.build_recipe_preview(config=CONFIG,draft=original)
+        self.assertEqual(send.call_count,1)
+        self.assertEqual([s['ingredients'] for s in result['draft']['steps']],[s['ingredients'] for s in original['steps']])
+        # Whole-total links without authored overrides can still acquire a
+        # supported partial amount in the ordinary refinement response.
+        with patch.object(ai.llm_client,'post_chat',return_value=response({'steps':[{'step_key':'s1','ingredients':[{'ingredient_key':'i1','quantity_value':100}]}]})):
+            refined=ai.build_recipe_preview(config=CONFIG,draft=original)['draft']
+        self.assertEqual(refined['steps'][0]['ingredients'][0]['quantity_value'],100)
+
+    def test_failed_or_incomplete_assignment_pass_keeps_valid_formatted_draft(self):
+        original=draft()
+        for step in original['steps']:step['ingredients']=[]
+        invalid=[response({'steps':[{'step_key':'s1','ingredients':[]}]}),
+                 response({'steps':[{'step_key':'s1','ingredients':[]},{'step_key':'s1','ingredients':[]}]}),
+                 response({'description':'Unwanted rewrite.','steps':[]}),
+                 response({'steps':[{'step_key':'s1','ingredients':[{'ingredient_key':'i99'}]},{'step_key':'s2','ingredients':[]}]}),
+                 {'choices':[{'message':{'content':'{"steps":['},'finish_reason':'length'}]},
+                 {}, {'choices':[]}, {'choices':[None]}, {'choices':[{'message':None}]},
+                 RuntimeError('private provider error')]
+        for value in invalid:
+            with self.subTest(value=str(value)[:70]),patch.object(ai.llm_client,'post_chat',side_effect=[response({'description':'Clean.'}),value]) as send:
+                result=ai.build_recipe_preview(config=CONFIG,draft=original)
+            self.assertEqual(send.call_count,2)
+            self.assertEqual(result['draft']['description'],'Clean.')
+            self.assertTrue(all(not step['ingredients'] for step in result['draft']['steps']))
+            self.assertIn('recipe.ai.reviewAssignments',result['warnings'])
+
+    def test_assignment_repair_shares_two_call_budget_with_truncation_retry(self):
+        original=draft()
+        for step in original['steps']:step['ingredients']=[]
+        partial={'choices':[{'message':{'content':'{"steps":['},'finish_reason':'length'}]}
+        with patch.object(ai.llm_client,'post_chat',side_effect=[partial,response({'description':'Clean.'})]) as send:
+            result=ai.build_recipe_preview(config=CONFIG,draft=original)
+        self.assertEqual(send.call_count,2,'a primary truncation retry consumes the repair slot')
+        self.assertEqual(result['draft']['description'],'Clean.')
+        self.assertIn('recipe.ai.reviewAssignments',result['warnings'])
+
+    def test_assignment_repair_does_not_resend_output_above_input_bound(self):
+        value=proposal()
+        value['steps']=[{'client_key':f'step-{n}','title':'','text':'x'*7000,'ingredients':[]} for n in range(20)]
+        with patch.object(ai.llm_client,'post_chat',return_value=response(value)) as send:
+            result=ai.build_recipe_preview(config=CONFIG,text='Supplied recipe')
+        self.assertGreater(len(ai._encoded(result['draft'])),ai.MAX_INPUT_BYTES)
+        self.assertEqual(send.call_count,1,'a large generated draft must not bypass the follow-up input bound')
+        self.assertIn('recipe.ai.reviewAssignments',result['warnings'])
+
+    def test_assignment_pass_rechecks_access_and_total_deadline(self):
+        original=draft()
+        for step in original['steps']:step['ingredients']=[]
+        empty={'steps':[{'step_key':'s1','ingredients':[]},{'step_key':'s2','ingredients':[]}]}
+        for allowed_calls, expected_dispatches in [(2,1),(3,2)]:
+            gate=unittest.mock.Mock(side_effect=[None]*allowed_calls+[HTTPException(403,'revoked')])
+            with self.subTest(allowed_calls=allowed_calls),patch.object(ai.llm_client,'post_chat',side_effect=[response({}),response(empty)]) as send,self.assertRaises(HTTPException):
+                ai.build_recipe_preview(config=CONFIG,draft=original,check_access=gate)
+            self.assertEqual(send.call_count,expected_dispatches)
+        with patch.object(ai.llm_client,'post_chat',side_effect=[response({}),response(empty)]) as send,patch.object(ai.time,'monotonic',side_effect=[0,25,26,41]),self.assertRaises(ai.RecipeAIError) as error:
+            ai.build_recipe_preview(config={**CONFIG,'llm_timeout_seconds':40},draft=original)
+        self.assertEqual(error.exception.reason,'deadline')
+        self.assertEqual(send.call_count,2)
+        self.assertEqual(send.call_args_list[1].args[2]['llm_timeout_seconds'],14)
+        self.assertEqual(send.call_args_list[1].args[2]['_deadline_at'],40)
+
     def test_invalid_heading_description_or_empty_step_is_rejected(self):
         cases=[{'description':'x'*4001}, {'description':42},
                {'steps':[{'step_key':'s2','title':'x'*201}]},

@@ -2294,7 +2294,7 @@
   "recipe.source.url": "Bronlink",
   "recipe.source.name": "Website",
   "recipe.source.author": "Auteur",
-  "recipe.source.yield": "Oorspronkelijke opbrengst",
+  "recipe.source.yield": "Hoeveelheid in bronrecept",
   "recipe.ai.refine": "Bewerken met BrainDump",
   "recipe.ai.refining": "BrainDump bewerkt het recept…",
   "recipe.ai.create": "Maken met BrainDump",

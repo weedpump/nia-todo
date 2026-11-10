@@ -2294,7 +2294,7 @@
   "recipe.source.url": "Link della fonte",
   "recipe.source.name": "Sito web",
   "recipe.source.author": "Autore",
-  "recipe.source.yield": "Resa originale",
+  "recipe.source.yield": "Quantità nella ricetta originale",
   "recipe.ai.refine": "Rielabora con BrainDump",
   "recipe.ai.refining": "BrainDump sta rielaborando la ricetta…",
   "recipe.ai.create": "Crea con BrainDump",

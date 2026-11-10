@@ -41,7 +41,7 @@ export function renderRecipeEditorModal() {
       <details class="recipe-editor-source"><summary>${text('recipe.source.title')}</summary><div class="recipe-editor-source-fields">
         ${field('source-url', 'recipe.source.url', 'url', 'maxlength="2048" inputmode="url"')}
         ${field('source-name', 'recipe.source.name', 'text', 'maxlength="200"')}
-        ${field('source-author', 'recipe.source.author', 'text', 'maxlength="500"')}
+        <input type="hidden" id="recipe-source-author">
         ${field('source-yield', 'recipe.source.yield', 'text', 'maxlength="500"')}
       </div></details>
       <section class="ui-detail-section ui-section-divider">${sectionHeading('recipe.tags', 'tag', 'tag-add', 'recipe.tag.add')}<div id="recipe-editor-tags" class="recipe-editor-tags"></div></section>

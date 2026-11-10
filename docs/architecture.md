@@ -199,5 +199,12 @@ model does not need to reproduce original UUIDs or the complete recipe in its re
 Refinement may add concise optional step headings, clean promotional material from
 the description, and derive step amounts from explicit instructions and ingredient
 totals. Ambiguous splits stay unresolved; authored amount overrides remain protected.
+Ingredient identity is evaluated independently of amount certainty: a supported
+assignment remains visible even when its amount is unknown. If a valid reply leaves
+all assignments empty despite ingredients and steps, one focused assignment pass
+checks every step, sharing the same two-request and absolute-time budget as retries.
+A failed optional pass retains the formatted draft with a review warning; access
+revocation and the total deadline still take precedence. Existing omitted ingredient
+links are retained during refinement, including manually unresolved amounts.
 Nonempty truncated replies share the same one-retry/deadline/access fences as empty
 reasoning-only replies. Rejections log only fixed reason categories, mode and duration.

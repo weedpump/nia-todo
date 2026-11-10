@@ -2294,7 +2294,7 @@
   "recipe.source.url": "来源链接",
   "recipe.source.name": "网站",
   "recipe.source.author": "作者",
-  "recipe.source.yield": "原始成品数量",
+  "recipe.source.yield": "原食谱份量",
   "recipe.ai.refine": "使用 BrainDump 优化",
   "recipe.ai.refining": "BrainDump 正在优化食谱…",
   "recipe.ai.create": "使用 BrainDump 创建",

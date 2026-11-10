@@ -2294,7 +2294,7 @@
   "recipe.source.url": "Odkaz na zdroj",
   "recipe.source.name": "Webová stránka",
   "recipe.source.author": "Autor",
-  "recipe.source.yield": "Původní výsledné množství",
+  "recipe.source.yield": "Množství podle zdroje",
   "recipe.ai.refine": "Upravit pomocí BrainDump",
   "recipe.ai.refining": "BrainDump upravuje recept…",
   "recipe.ai.create": "Vytvořit pomocí BrainDump",

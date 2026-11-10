@@ -2294,7 +2294,7 @@
   "recipe.source.url": "Källänk",
   "recipe.source.name": "Webbplats",
   "recipe.source.author": "Författare",
-  "recipe.source.yield": "Originalreceptets mängd",
+  "recipe.source.yield": "Mängd i källreceptet",
   "recipe.ai.refine": "Bearbeta med BrainDump",
   "recipe.ai.refining": "BrainDump bearbetar receptet…",
   "recipe.ai.create": "Skapa med BrainDump",

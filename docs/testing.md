@@ -285,6 +285,11 @@ Recipe BrainDump compact-patch cases include import-like UUIDs and long steps, p
 updates, unknown/duplicate references and truncated nonempty replies.
 Step-title regressions cover explicit optional headings, body-only imports, semantic
 description cleanup, inferred fractions/remainders and protected manual quantities.
+Assignment regressions include formatting-only replies, a bounded focused repair,
+unknown amounts with known ingredients, legitimate empty results, malformed optional
+responses, retained existing links and access/deadline fences. The private full-app
+test deliberately starts with an unlinked text result and verifies repaired links
+through normal saving and offline replay.
 The fresh-migration suite verifies the actual startup dispatch for migration 072,
 including complete rollback, stable IDs/links/amounts and the AUTOINCREMENT high-water
 mark. Editor/cooking fixtures check both reported spacing gaps at desktop/mobile
