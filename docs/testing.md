@@ -283,6 +283,12 @@ installed service or sends test content to the configured operator model.
 
 Recipe BrainDump compact-patch cases include import-like UUIDs and long steps, partial
 updates, unknown/duplicate references and truncated nonempty replies.
+Step-title regressions cover explicit optional headings, body-only imports, semantic
+description cleanup, inferred fractions/remainders and protected manual quantities.
+The fresh-migration suite verifies the actual startup dispatch for migration 072,
+including complete rollback, stable IDs/links/amounts and the AUTOINCREMENT high-water
+mark. Editor/cooking fixtures check both reported spacing gaps at desktop/mobile
+widths; the private full-app BrainDump test persists headings through offline replay.
 `test_recipe_ai_diagnostics.py` checks rejection logs with deliberately injected
 sensitive-looking values; recipe content, URLs, keys and provider configuration must
 never appear in those logs. It uses only mocked dependencies and no application DB.

@@ -47,6 +47,7 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(ingredients[3]['name'],'Salz nach Geschmack'); self.assertIsNone(ingredients[3]['quantity_value'])
         self.assertIn('recipe.import.reviewIngredients',result['warnings'])
         self.assertTrue(all(step['ingredients']==[] for step in draft['steps']))
+        self.assertTrue(all(step['title']=='' for step in draft['steps']),'plain instructions remain body text, never implicit headings')
         keys=[record['client_key'] for record in [*ingredients,*draft['steps'],*draft['ingredient_groups']]]
         self.assertEqual(len(keys),len(set(keys)))
 
@@ -55,6 +56,31 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(result['draft']['title'],'Apfelkuchen')
         self.assertEqual([step['text'] for step in result['draft']['steps']], ['Mehl mischen.'])
         self.assertTrue(all(step['ingredients']==[] for step in result['draft']['steps']))
+
+    def test_structured_step_titles_are_optional_distinct_headings(self):
+        instructions=[{'@type':'HowToSection','name':'Teig','itemListElement':[
+            {'@type':'HowToStep','name':'Teig mischen','text':'Mehl und Milch gründlich mischen.'},
+            {'@type':'HowToStep','name':'2.','text':'Zehn Minuten ruhen lassen.'},
+            {'@type':'HowToStep','name':'Äpfel hinzugeben.','text':'Äpfel hinzugeben.'},
+            {'@type':'HowToStep','name':'x'*201,'text':'Zum Schluss backen.'}]}]
+        for host in ('unknown.example','www.chefkoch.de'):
+            with self.subTest(host=host):
+                result=imports.extract_recipe_html(page(recipeInstructions=instructions),'https://'+host+'/rezept')
+                steps=result['draft']['steps']
+                self.assertEqual([step['title'] for step in steps],['Teig · Teig mischen','Teig','Teig','Teig'])
+                self.assertEqual([step['text'] for step in steps],['Mehl und Milch gründlich mischen.','Zehn Minuten ruhen lassen.','Äpfel hinzugeben.','x'*201+'\n\nZum Schluss backen.'])
+        # Unsupported schema shapes retain the site's adapter fallback as body text.
+        scraper=SimpleNamespace(schema=SimpleNamespace(data={'recipeInstructions':'Adapter-specific format'}),
+            ingredients=lambda:['1 g Mehl'],ingredient_groups=lambda:[],instructions_list=lambda:['Anderer Adaptertext.'],title=lambda:'Brot')
+        with patch.object(imports,'scrape_html',return_value=scraper):
+            steps=imports.extract_recipe_html('<html></html>','https://unknown.example/rezept')['draft']['steps']
+        self.assertEqual(steps[0]['title'],'')
+        self.assertEqual(steps[0]['text'],'Anderer Adaptertext.')
+        section={'@type':'HowToSection','name':'x'*201,'text':'Alle Zutaten zimmerwarm verwenden.',
+                 'itemListElement':[{'@type':'HowToStep','text':'Mehl mischen.'}]}
+        steps=imports.extract_recipe_html(page(recipeInstructions=[section]),'https://unknown.example/rezept')['draft']['steps']
+        self.assertEqual(steps[0]['title'],'')
+        self.assertEqual(steps[0]['text'],'Alle Zutaten zimmerwarm verwenden.\n\n'+'x'*201+'\n\nMehl mischen.')
 
     def test_yields_are_not_invented_person_counts(self):
         for raw in ['12 cookies','1 Blech','2 Kuchen','24 Stück','unbekannt']:

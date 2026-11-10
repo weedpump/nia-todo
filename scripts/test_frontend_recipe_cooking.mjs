@@ -16,8 +16,8 @@ const recipe={id:10,cookbook_id:1,title:'Kochrezept <script>unsafe</script>',des
  {client_key:'pasta',name:'Pasta',quantity_value:100,quantity_unit:'g'},
  {client_key:'salt',name:'Salz',quantity_value:2,quantity_unit:'g'},
  {client_key:'herbs',name:'Kräuter',quantity_value:null,quantity_text:'nach Bedarf'}]}],steps:[
- {client_key:'heat',text:'Wasser erhitzen\\nLangsam aufkochen.',ingredients:[{ingredient_client_key:'water',show_quantity:true},{ingredient_client_key:'pasta',show_quantity:true},{ingredient_client_key:'salt',show_quantity:false}]},
- {client_key:'mix',text:'Pasta mischen\\nMehrere Zeilen\\nbleiben erhalten.',ingredients:[{ingredient_client_key:'pasta',show_quantity:true,quantity_value:40,quantity_text:null},{ingredient_client_key:'herbs',show_quantity:true}]},
+ {client_key:'heat',title:'Wasser erhitzen',text:'Langsam aufkochen.',ingredients:[{ingredient_client_key:'water',show_quantity:true},{ingredient_client_key:'pasta',show_quantity:true},{ingredient_client_key:'salt',show_quantity:false}]},
+ {client_key:'mix',title:'Pasta mischen',text:'Mehrere Zeilen\\nbleiben erhalten.',ingredients:[{ingredient_client_key:'pasta',show_quantity:true,quantity_value:40,quantity_text:null},{ingredient_client_key:'herbs',show_quantity:true}]},
  {client_key:'finish',text:'Servieren'}]};
 const original=()=>[{id:1,name:'Nur lesen',can_edit:false,recipes:[structuredClone(recipe)]},{id:2,name:'Andere Sammlung',can_edit:false,recipes:[{...structuredClone(recipe),id:20,cookbook_id:2}]}];
 if(!history.state?.niaRecipeRoute)history.replaceState({niaModuleRoute:true,moduleId:'recipes',niaCookbookRoute:true,cookbookId:1,niaRecipeRoute:true,recipeId:10},'', '/');
@@ -59,6 +59,11 @@ try {
   assert.equal(await readStep('heat').locator('.recipe-step-ingredient').count(), 3);
   assert.equal(await readStep('heat').locator('.recipe-step-ingredient-partial').count(), 1, 'only an explicitly unresolved legacy ingredient lacks its amount; reuse keeps the full source amount');
   assert.equal(await readStep('finish').locator('.recipe-step-ingredients').count(), 0, 'legacy steps have no empty chip section');
+  assert.equal(await readStep('heat').locator('h3').textContent(), 'Wasser erhitzen');
+  assert.equal(await readStep('heat').locator('.recipe-step-copy > p').textContent(), 'Langsam aufkochen.');
+  assert.equal(await readStep('heat').locator('.recipe-step-copy').evaluate(node => node.querySelector('h3').nextElementSibling.classList.contains('recipe-step-ingredients') && node.querySelector('.recipe-step-ingredients').nextElementSibling.tagName === 'P'), true, 'step ingredients sit between optional heading and body');
+  assert.equal(await readStep('finish').locator('h3').count(), 0, 'body-only steps never promote a paragraph to a heading');
+  assert.equal(await readStep('finish').locator('.recipe-step-copy > p').textContent(), 'Servieren');
   assert.equal(await readStep('heat').locator('img,script').count(), 0, 'ingredient text stays escaped');
   assert.equal(await amount().textContent(), '50 ml');
   await page.fill('#recipe-view-servings', '4');
@@ -74,6 +79,7 @@ try {
   assert.equal(await page.locator('.recipe-cooking [data-recipe-action="edit"],.recipe-cooking [data-recipe-action="transfer"],.recipe-cooking [data-recipe-action="overview"]').count(),0,'focused header contains only return to reading');
   assert.equal(await action('exit-cooking').textContent(),'Lesemodus');
   assert.equal(await step().getAttribute('data-recipe-step-key'), 'heat');
+  assert.equal(await step().locator('h2').textContent(), 'Wasser erhitzen');
   assert.equal(await action('previous-step').isDisabled(), true);
   assert.equal(await page.locator('.recipe-cooking .recipe-description,.recipe-cooking img').count(), 0);
   assert.equal(await page.locator('#recipe-view-servings').inputValue(), '4');
@@ -83,6 +89,8 @@ try {
   assert.equal(await step().locator('[data-step-ingredient-amount="pasta"]').textContent(), '80 g', 'cooking and reading share custom step quantity formatting');
   assert.match(await step().locator('p').textContent(), /Mehrere Zeilen\nbleiben erhalten/);
   await action('next-step').focus(); await action('next-step').press('Enter');
+  assert.equal(await step().locator('h2').count(),0,'body-only cooking step has no fabricated heading');
+  assert.equal(await step().getAttribute('aria-label'),'Schritt 3','body-only cooking step retains its accessible name');
   assert.equal(await step().getAttribute('data-recipe-step-key'), 'finish');
   assert.equal(await action('next-step').isDisabled(), true);
   assert.equal(await step().locator('.recipe-step-ingredients').count(), 0);

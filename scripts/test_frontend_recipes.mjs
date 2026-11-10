@@ -174,7 +174,7 @@ await initI18n(); await storage.openDatabase();
 for (const id of ['login-overlay','boot-overlay']) { document.getElementById(id).classList.add('hidden');document.getElementById(id).style.display='none'; }
 const sample = {id:22,cookbook_id:2,title:'Pasta mit Tomaten',description:'Frische Zutaten.\\nFür jeden Tag.',base_servings:2,prep_minutes:10,cook_minutes:15,tags:['Schnell'],revision:1,can_edit:true,created_by_user_id:22,client_mutation_id:'existing-22',image_url:'/api/recipes/recipes/22/image?v='+ 'a'.repeat(64),image_version:'a'.repeat(64),
  ingredient_groups:[{id:50,client_key:'g-pasta',name:'Pasta',ingredients:[{id:60,client_key:'i-pasta',name:'Pasta',quantity_value:100,quantity_unit:'g',quantity_text:'',note:'Bissfest kochen'},{id:61,client_key:'i-salt',name:'Salz',quantity_value:null,quantity_unit:'',quantity_text:'nach Geschmack',note:''}]}],
- steps:[{id:70,client_key:'s-first',text:'Wasser erhitzen.\\nPasta kochen.'},{id:71,client_key:'s-second',text:'Tomaten hinzufügen.'}]};
+ steps:[{id:70,client_key:'s-first',title:'Wasser erhitzen.',text:'Pasta kochen.'},{id:71,client_key:'s-second',title:'Tomaten hinzufügen.',text:''}]};
 let books=[],actor='11:session',sequence=0,deferredImage=null,deferredCommit=null,commits=0;
 let serverRecipe={...sample,revision:5,title:'Server version'};
 const initial=[{id:1,name:'Personal',can_manage:true,can_edit:true,created_by_user_id:11,recipes:[],recipe_count:0},{id:2,name:'Household member',owner_household_id:7,created_by_user_id:22,can_manage:false,can_edit:true,recipes:[sample],recipe_count:1},{id:3,name:'Read only',can_manage:false,can_edit:false,recipes:[{...sample,id:33,cookbook_id:3,can_edit:false}],recipe_count:1}];

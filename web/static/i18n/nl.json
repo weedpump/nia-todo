@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Ingrediëntengroep toevoegen",
   "common.quantityText": "Hoeveelheid in tekst (in plaats van een getal)",
   "recipe.steps": "Bereiding",
-  "recipe.steps.hint": "De eerste regel is de titel. De volgende regels beschrijven de stap.",
+  "recipe.steps.hint": "Koppen zijn optioneel. Beschrijf hieronder wat je in deze stap moet doen.",
   "recipe.step.add": "Stap toevoegen",
   "recipe.step.number": "Stap {number}",
   "recipe.moveUp": "Omhoog verplaatsen",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Controleer het aantal porties in het concept.",
   "recipe.ai.draftChanged": "Het resultaat is niet toegepast omdat je het concept intussen hebt gewijzigd. Voer BrainDump indien nodig opnieuw uit.",
   "recipe.import.modeLink": "Link",
-  "recipe.import.modeText": "Tekst"
+  "recipe.import.modeText": "Tekst",
+  "recipe.step.title": "Kop (optioneel)",
+  "recipe.step.text": "Beschrijving"
 }

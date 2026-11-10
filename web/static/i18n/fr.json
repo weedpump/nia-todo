@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Ajouter un groupe d’ingrédients",
   "common.quantityText": "Quantité en texte (à la place d’un nombre)",
   "recipe.steps": "Préparation",
-  "recipe.steps.hint": "La première ligne sert de titre. Les lignes suivantes décrivent l’étape.",
+  "recipe.steps.hint": "Les titres sont facultatifs. Décrivez ci-dessous ce qu’il faut faire à cette étape.",
   "recipe.step.add": "Ajouter une étape",
   "recipe.step.number": "Étape {number}",
   "recipe.moveUp": "Déplacer vers le haut",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Vérifiez le nombre de portions du brouillon.",
   "recipe.ai.draftChanged": "Le résultat n’a pas été appliqué, car vous avez modifié le brouillon entre-temps. Relancez BrainDump si nécessaire.",
   "recipe.import.modeLink": "Lien",
-  "recipe.import.modeText": "Texte"
+  "recipe.import.modeText": "Texte",
+  "recipe.step.title": "Titre (facultatif)",
+  "recipe.step.text": "Description"
 }

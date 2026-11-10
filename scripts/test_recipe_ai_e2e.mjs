@@ -34,10 +34,10 @@ def _post(payload, headers, config):
     else:
         source=data['recipe_data']
         keys=[ingredient['client_key'] for group in source['ingredient_groups'] for ingredient in group['ingredients']]
-        recipe={'steps':[
-          {'step_key':source['steps'][0]['client_key'],'text':source['steps'][0]['text']+' Mélanger soigneusement.',
+        recipe={'description':'Une pâte simple à partager.','steps':[
+          {'step_key':source['steps'][0]['client_key'],'title':'Préparer la pâte','text':source['steps'][0]['text']+' Mélanger soigneusement.',
            'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100,'quantity_text':None},{'ingredient_key':keys[1],'show_quantity':True,'quantity_value':100,'quantity_text':None}]},
-          {'step_key':source['steps'][1]['client_key'],
+          {'step_key':source['steps'][1]['client_key'],'title':'Terminer la pâte',
            'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100,'quantity_text':None}]}]}
     if _control.exists() and json.loads(_control.read_text()).get('revoke'):
         database=_private_root/'e2e.db'
@@ -64,7 +64,7 @@ try{
 root=pathlib.Path(sys.argv[1]).resolve();path=root/'e2e.db'
 assert str(root).startswith('/tmp/nia-recipe-ai-e2e-') and path.parent==root and path.is_file() and not path.is_symlink()
 with sqlite3.connect(path) as db:
- assert db.execute('SELECT MAX(version) FROM schema_version').fetchone()[0]==71
+ assert db.execute('SELECT MAX(version) FROM schema_version').fetchone()[0]==72
  assert db.execute('SELECT COUNT(*) FROM users WHERE username=?',(sys.argv[2],)).fetchone()[0]==1
  db.execute('UPDATE users SET braindump_enabled=? WHERE username=?',(int(sys.argv[3]),sys.argv[2]))
 `,app.privateDir,USERNAME,enabled?'1':'0'],{stdio:['ignore','ignore','pipe']});
@@ -118,6 +118,8 @@ with sqlite3.connect(path) as db:
   await page.locator('#recipe-save-btn').click();await page.locator('#recipe-modal').waitFor({state:'hidden'});await queueEmpty();
   let stored=(await serverRecipes())[0];assert.equal(stored.source_url,sourceUrl);assert.match(stored.image_url,/^\/api\/recipes\/recipes\/\d+\/image/);
   assert.deepEqual(stored.steps.map(step=>step.ingredients.map(link=>link.quantity_value)),[[100,100],[100]]);
+  assert.deepEqual(stored.steps.map(step=>step.title),['Préparer la pâte','Terminer la pâte']);
+  assert.equal(stored.description,'Une pâte simple à partager.');
   phase='reload and refine the existing recipe without duplication';
   await page.reload({waitUntil:'domcontentloaded'});await page.locator('.recipe-reading').waitFor();
   const id=stored.id,revision=stored.revision;
@@ -136,6 +138,7 @@ with sqlite3.connect(path) as db:
   await page.context().setOffline(false);await queueEmpty();
   const all=await serverRecipes();assert.equal(all.length,1);stored=all[0];assert.equal(stored.id,id);assert.equal(stored.revision,revision+1);assert.equal(stored.source_url,sourceUrl);
   assert.deepEqual(stored.steps.map(step=>step.ingredients.map(link=>link.quantity_value)),[[100,100],[100]]);
+  assert.deepEqual(stored.steps.map(step=>step.title),['Préparer la pâte','Terminer la pâte'],'titles survive offline save, reload and replay');
   phase='revocation during provider inference wins';
   await writeFile(join(app.privateDir,'provider-control.json'),JSON.stringify({revoke:true}));
   const revoked=await page.evaluate(async text=>{const headers=(await import('/static/js/api/http.js')).getAuthHeaders();const response=await fetch('/api/recipes/ai-preview',{method:'POST',headers,body:JSON.stringify({text})});return{status:response.status,body:await response.json()};},rawRecipe);

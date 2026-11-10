@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Přidat skupinu ingrediencí",
   "common.quantityText": "Slovní množství (místo čísla)",
   "recipe.steps": "Postup přípravy",
-  "recipe.steps.hint": "První řádek je nadpis. Další řádky popisují postup.",
+  "recipe.steps.hint": "Nadpisy jsou volitelné. Níže popište, co se má v tomto kroku udělat.",
   "recipe.step.add": "Přidat krok",
   "recipe.step.number": "Krok {number}",
   "recipe.moveUp": "Přesunout nahoru",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Zkontrolujte počet porcí v návrhu.",
   "recipe.ai.draftChanged": "Výsledek nebyl použit, protože jste mezitím návrh změnili. V případě potřeby spusťte BrainDump znovu.",
   "recipe.import.modeLink": "Odkaz",
-  "recipe.import.modeText": "Text"
+  "recipe.import.modeText": "Text",
+  "recipe.step.title": "Nadpis (volitelný)",
+  "recipe.step.text": "Popis"
 }

@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Añadir grupo de ingredientes",
   "common.quantityText": "Cantidad en texto (en lugar de un número)",
   "recipe.steps": "Preparación",
-  "recipe.steps.hint": "La primera línea es el título. Las siguientes líneas describen el paso.",
+  "recipe.steps.hint": "Los títulos son opcionales. Describe debajo qué hay que hacer en este paso.",
   "recipe.step.add": "Añadir paso",
   "recipe.step.number": "Paso {number}",
   "recipe.moveUp": "Mover arriba",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Comprueba el número de raciones del borrador.",
   "recipe.ai.draftChanged": "El resultado no se aplicó porque modificaste el borrador mientras tanto. Vuelve a ejecutar BrainDump si es necesario.",
   "recipe.import.modeLink": "Enlace",
-  "recipe.import.modeText": "Texto"
+  "recipe.import.modeText": "Texto",
+  "recipe.step.title": "Título (opcional)",
+  "recipe.step.text": "Descripción"
 }

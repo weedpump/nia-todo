@@ -535,6 +535,42 @@ def test_import_source_attribution_survives_edits_sharing_and_receipts():
         f.call("get", endpoint, expected=404)
 
 
+def test_explicit_step_titles_body_legacy_patch_and_shared_access():
+    with fixture() as f:
+        data = payload("step-titles")
+        data["steps"][0]["title"] = "  Prepare the dough  "
+        data["steps"].append({"client_key": "rest", "title": "Rest overnight", "text": ""})
+        first = create(f, data)
+        path = f"/api/recipes/recipes/{first['id']}"
+        assert first["steps"][0]["title"] == "Prepare the dough"
+        assert first["steps"][0]["text"] == data["steps"][0]["text"], "New multiline bodies must not be split implicitly"
+        assert first["steps"][1]["title"] == "" and first["steps"][1]["text"] == "Cook."
+        assert first["steps"][2]["text"] == "" and first["steps"][2]["title"] == "Rest overnight"
+        step_ids = {step["client_key"]: step["id"] for step in first["steps"]}
+        f.actor["id"] = f.users[1]
+        assert f.call("get", path)["steps"] == first["steps"]
+        legacy_steps = [{"client_key": step["client_key"], "text": "Updated body " + step["client_key"]}
+                        for step in reversed(first["steps"])]
+        edited = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "legacy-step-titles", "steps": legacy_steps})
+        assert {step["client_key"]: step["title"] for step in edited["steps"]} == {step["client_key"]: step["title"] for step in first["steps"]}
+        assert all(step["id"] == step_ids[step["client_key"]] for step in edited["steps"])
+        explicit_steps = copy.deepcopy(edited["steps"])
+        explicit_steps[-1]["title"] = ""
+        cleared = f.call("patch", path, json={"expected_revision": 2, "client_mutation_id": "clear-step-title", "steps": explicit_steps})
+        assert cleared["steps"][-1]["title"] == "" and cleared["steps"][-1]["text"] == "Updated body mix"
+        assert f.call("get", f"/api/recipes/cookbooks/{f.books[0]}")["recipes"][0]["steps"] == cleared["steps"]
+        for invalid in ({"title": "", "text": ""}, {"title": " \n", "text": "\t"}, {"title": "x" * 201, "text": "Body"},
+                        {"title": "Title", "text": "x" * 8001}, {"title": None, "text": "Body"}):
+            f.call("patch", path, expected=422, json={"expected_revision": 3, "client_mutation_id": "invalid-step-title",
+                                                    "steps": [{"client_key": "mix", **invalid}]})
+        assert f.call("get", path)["revision"] == 3
+        # Revocation removes title/body access through both reads and receipt replay.
+        with get_db() as db:
+            db.execute("DELETE FROM entity_access_grants WHERE user_id = ?", (f.users[1],))
+        f.call("get", path, expected=404)
+        f.call("patch", path, expected=404, json={"expected_revision": 1, "client_mutation_id": "legacy-step-titles", "steps": legacy_steps})
+
+
 if __name__ == "__main__":
     tests = [value for name, value in globals().items() if name.startswith("test_") and callable(value)]
     for test in tests:

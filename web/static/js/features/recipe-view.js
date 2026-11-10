@@ -51,10 +51,9 @@ export function renderRecipeSource(recipe) {
   if (!href && !recipe.source_name && !recipe.source_author && !recipe.source_yield) return '';
   return `<div class="recipe-source"><span>${escapeHtml(t('recipe.source.title'))}: ${href ? `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(recipe.source_name || new URL(href).hostname)}</a>` : escapeHtml(recipe.source_name || '')}</span>${recipe.source_author ? `<span>${escapeHtml(t('recipe.source.author'))}: ${escapeHtml(recipe.source_author)}</span>` : ''}${recipe.source_yield ? `<span>${escapeHtml(t('recipe.source.yield'))}: ${escapeHtml(recipe.source_yield)}</span>` : ''}</div>`;
 }
-function renderStep(text, { ingredientsHtml = '', headingTag = 'h3', headingId = '' } = {}) {
-  const [heading, ...lines] = text.split(/\r?\n/);
-  const body = lines.join('\n');
-  return `<div class="recipe-step-copy"><${headingTag}${headingId ? ` id="${headingId}"` : ''}>${escapeHtml(heading)}</${headingTag}>${ingredientsHtml}${body ? `<p>${escapeHtml(body)}</p>` : ''}</div>`;
+function renderStep(step, { ingredientsHtml = '', headingTag = 'h3', headingId = '' } = {}) {
+  const heading = step.title || '', body = step.text || '';
+  return `<div class="recipe-step-copy">${heading ? `<${headingTag}${headingId ? ` id="${headingId}"` : ''}>${escapeHtml(heading)}</${headingTag}>` : ''}${ingredientsHtml}${body ? `<p>${escapeHtml(body)}</p>` : ''}</div>`;
 }
 const sortModes = ['name', 'newest', 'time'];
 const tagsForBook = book => [...new Set((book?.recipes || []).flatMap(recipe => recipe.tags || []))];
@@ -99,7 +98,7 @@ export function renderRecipeReading(cookbook, recipe, { servings = recipe.base_s
       <div class="recipe-ingredient-groups">${(recipe.ingredient_groups || []).map(group => `<section class="recipe-ingredient-group">${group.name ? `<h3>${escapeHtml(group.name)}</h3>` : ''}
         ${(group.ingredients || []).map(item => `<label class="recipe-ingredient"><span class="ui-checkbox-label ui-checkbox-round"><input type="checkbox" data-recipe-ingredient="${escapeHtmlAttr(item.client_key)}" ${checked.has(item.client_key) ? 'checked' : ''}><span class="ui-checkbox-box" aria-hidden="true">${iconSvg('check')}</span></span>
           <span class="recipe-ingredient-copy"><span class="recipe-ingredient-main"><b data-recipe-amount="${escapeHtmlAttr(item.client_key)}">${escapeHtml(ingredientAmount(item, servings, recipe.base_servings))}</b> ${escapeHtml(item.name)}</span>${item.note ? `<small>${escapeHtml(item.note)}</small>` : ''}</span></label>`).join('')}</section>`).join('')}</div></section>
-      <section aria-labelledby="recipe-steps-title"><h2 id="recipe-steps-title">${escapeHtml(t('recipe.steps'))}</h2><ol class="recipe-steps">${(recipe.steps || []).map((step, index) => `<li data-recipe-step-key="${escapeHtmlAttr(step.client_key)}"><span class="recipe-step-number" aria-hidden="true">${index + 1}</span>${renderStep(step.text, { ingredientsHtml: renderRecipeStepIngredients(recipe, step, { servings }) })}</li>`).join('')}</ol></section></div>
+      <section aria-labelledby="recipe-steps-title"><h2 id="recipe-steps-title">${escapeHtml(t('recipe.steps'))}</h2><ol class="recipe-steps">${(recipe.steps || []).map((step, index) => `<li data-recipe-step-key="${escapeHtmlAttr(step.client_key)}"><span class="recipe-step-number" aria-hidden="true">${index + 1}</span>${renderStep(step, { ingredientsHtml: renderRecipeStepIngredients(recipe, step, { servings }) })}</li>`).join('')}</ol></section></div>
     <p id="recipe-view-error" class="form-error" role="alert"></p></article>`;
 }
 
@@ -109,7 +108,7 @@ export function renderRecipeCooking(cookbook, recipe, { servings = recipe.base_s
   return `<article class="recipe-cooking">${renderRecipeViewHeader(cookbook, recipe, { cooking: true, canTransfer })}
     <div class="recipe-cooking-heading"><h1>${escapeHtml(recipe.title)}</h1>${renderServingsControl({ id: 'recipe-view-servings', labelId: 'recipe-servings-label', value: servings, recipeActions: true })}</div>
     <p class="recipe-cooking-progress" role="status" aria-live="polite">${escapeHtml(t('recipe.cooking.progress', { current: index + 1, total: steps.length }))}</p>
-    <section class="recipe-cooking-step" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}" aria-labelledby="recipe-cooking-step-title" tabindex="0"><span class="recipe-step-number" aria-hidden="true">${index + 1}</span>${renderStep(step.text, { headingTag: 'h2', headingId: 'recipe-cooking-step-title', ingredientsHtml: renderRecipeStepIngredients(recipe, step, { servings }) })}</section>
+    <section class="recipe-cooking-step" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}" ${step.title ? 'aria-labelledby="recipe-cooking-step-title"' : `aria-label="${escapeHtmlAttr(t('recipe.step.number', { number: index + 1 }))}"`} tabindex="0"><span class="recipe-step-number" aria-hidden="true">${index + 1}</span>${renderStep(step, { headingTag: 'h2', headingId: 'recipe-cooking-step-title', ingredientsHtml: renderRecipeStepIngredients(recipe, step, { servings }) })}</section>
     <nav class="recipe-cooking-navigation" aria-label="${escapeHtmlAttr(t('recipe.steps'))}">${button('previous-step', t('recipe.cooking.previous'), null, index === 0 ? 'disabled' : '')}${button('next-step', t('recipe.cooking.next'), null, index === steps.length - 1 ? 'disabled' : '')}</nav>
     <p id="recipe-view-error" class="form-error" role="alert"></p></article>`;
 }

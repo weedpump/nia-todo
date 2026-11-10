@@ -61,11 +61,15 @@ const malicious = structuredClone(cake); malicious.steps[0].ingredients[0].quant
 assert.match(renderRecipeStepIngredients(malicious,malicious.steps[0]),/&lt;img src=x/);
 assert.doesNotMatch(renderRecipeStepIngredients(malicious,malicious.steps[0]),/<img/);
 
-const canonical = { ...cake, title:'Cake', steps:[cake.steps[0]] };
+const canonical = { ...cake, title:'Cake', steps:[{...cake.steps[0],title:'Prepare dough'}] };
 const key = canonical.steps[0].client_key;
 const legacyFields = { steps:[{client_key:key,text:'Older edit',ingredients:[{ingredient_client_key:'fat',show_quantity:true}]}] };
 const merged = mergeRecipeStepIngredients(canonical,legacyFields);
 assert.equal(merged.steps[0].ingredients[0].quantity_value,20,'old reference fields inherit an existing per-step override');
+assert.equal(merged.steps[0].title,'Prepare dough','older queued updates inherit the explicit title by stable key');
+assert.equal(Object.hasOwn(legacyFields.steps[0],'title'),false,'projection must not rewrite legacy request bodies');
+assert.equal(mergeRecipeStepIngredients(canonical,{steps:[{client_key:key,text:'Body only',title:''}]}).steps[0].title,'','explicit empty title clears it');
+assert.equal(mergeRecipeStepIngredients(canonical,{steps:[{client_key:'new',text:'New body'}]}).steps[0].title,'','new steps do not inherit another title');
 const hidden = mergeRecipeStepIngredients(canonical,{steps:[{client_key:key,text:'Legacy hide',ingredients:[{ingredient_client_key:'fat',show_quantity:false}]}]});
 assert.equal(hidden.steps[0].ingredients[0].quantity_value,null,'explicit legacy hiding clears the inherited override');
 assert.equal(hidden.steps[0].ingredients[0].show_quantity,false);
@@ -88,3 +92,8 @@ for (const link of [
  assert.equal(validateRecipeChanges({...validSource,steps:[{client_key:'s',text:'Use',ingredients:[{ingredient_client_key:'fat',...link}]}]},true),null,JSON.stringify(link));
 }
 assert.ok(validateRecipeChanges({...validSource,steps:[{client_key:'s',text:'Use',ingredients:[{ingredient_client_key:'fat',quantity_value:70}]}]},true),'full source quantity is a valid override');
+assert.ok(validateRecipeChanges({...validSource,steps:[{client_key:'s',title:'Rest overnight',text:''}]},true),'title-only instructions are valid');
+for (const title of [null, 42, 'x'.repeat(201)]) {
+ assert.equal(validateRecipeChanges({...validSource,steps:[{client_key:'s',title,text:'Body'}]},true),null,'invalid step title rejected');
+}
+assert.equal(validateRecipeChanges({...validSource,steps:[{client_key:'s',title:'  ',text:'\t\n'}]},true),null,'blank instructions rejected');

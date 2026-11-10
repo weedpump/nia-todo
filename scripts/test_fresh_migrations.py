@@ -60,7 +60,7 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 71, latest
+        assert latest == 72, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
@@ -120,6 +120,7 @@ def main():
             for recipe_table in ("recipes", "recipe_ingredient_groups", "recipe_ingredients", "recipe_steps", "recipe_step_ingredients", "recipe_tags", "recipe_images", "recipe_mutation_receipts"):
                 assert db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (recipe_table,)).fetchone(), recipe_table
             assert {"quantity_value", "quantity_text"}.issubset({row[1] for row in db.execute("PRAGMA table_info(recipe_step_ingredients)")})
+            assert "title" in {row[1] for row in db.execute("PRAGMA table_info(recipe_steps)")}
             receipt_foreign_keys = {(row[2], row[3], row[6]) for row in db.execute("PRAGMA foreign_key_list(cookbook_creation_receipts)")}
             assert ("users", "user_id", "CASCADE") in receipt_foreign_keys
             assert ("cookbooks", "cookbook_id", "SET NULL") in receipt_foreign_keys
@@ -457,17 +458,101 @@ def main():
                 shutil.copy2(migration, v70_migrations / migration.name)
         run_migrations(v55_env, v70_migrations)
         with sqlite3.connect(v55_db_path) as db:
+            # Earlier recipe fixtures belong to rollback_db_path; seed this
+            # published-v55 upgrade database independently before upgrading it.
+            db.execute("PRAGMA foreign_keys = ON")
+            title_book_id = db.execute("INSERT INTO cookbooks (name) VALUES ('Step title upgrade cookbook')").lastrowid
+            recipe_id = db.execute("INSERT INTO recipes (cookbook_id,title,client_mutation_id) VALUES (?, 'Step title upgrade recipe', 'migration-step-title-recipe')", (title_book_id,)).lastrowid
+            title_group_id = db.execute("INSERT INTO recipe_ingredient_groups (recipe_id,client_key,name,sort_order) VALUES (?, 'title-group', 'Dough', 0)", (recipe_id,)).lastrowid
+            title_ingredient_id = db.execute("INSERT INTO recipe_ingredients (recipe_id,group_id,client_key,name,quantity_value,quantity_unit,sort_order) VALUES (?, ?, 'title-flour', 'Flour', 250, 'g', 0)", (recipe_id, title_group_id)).lastrowid
+            title_step_id = db.execute("INSERT INTO recipe_steps (recipe_id,client_key,text,sort_order) VALUES (?, 'step', 'Existing preparation', 0)", (recipe_id,)).lastrowid
+            db.execute("INSERT INTO recipe_step_ingredients (recipe_id,step_id,ingredient_id,show_quantity,sort_order,quantity_value) VALUES (?, ?, ?, 1, 0, 25)", (recipe_id, title_step_id, title_ingredient_id))
             db.row_factory = sqlite3.Row
             before_sources = [dict(row) for row in db.execute("SELECT * FROM recipes ORDER BY id")]
+        v71_migrations = tmp_path / "migrations-v71"
+        v71_migrations.mkdir()
+        for migration in MIGRATIONS_DIR.glob("*.sql"):
+            if int(migration.name.split("_", 1)[0]) <= 71:
+                shutil.copy2(migration, v71_migrations / migration.name)
+        run_migrations(v55_env, v71_migrations)
+        with sqlite3.connect(v55_db_path) as db:
+            db.execute("PRAGMA foreign_keys = ON")
+            existing_texts = {
+                "legacy-lf": "Prepare the filling\nSlice the apples.\nKeep the juice.",
+                "legacy-crlf": "Prepare the dough\r\nKnead well.\r\nLet it rest.",
+                "one-line": "A complete imported instruction without a heading.",
+                "long-first-line": "x" * 201 + "\nThis body must remain unchanged.",
+                "blank-rest": "Only a heading\n \t\r\n",
+                "blank-first-line": "\nAn instruction without a heading.",
+            }
+            for position, (key, text) in enumerate(existing_texts.items(), 1):
+                db.execute("INSERT INTO recipe_steps (recipe_id, client_key, text, sort_order) VALUES (?, ?, ?, ?)", (recipe_id, key, text, position))
+            deleted_step = db.execute("INSERT INTO recipe_steps (recipe_id,client_key,text,sort_order) VALUES (?, 'deleted-highest', 'Deleted', 99)", (recipe_id,)).lastrowid
+            db.execute("DELETE FROM recipe_steps WHERE id = ?", (deleted_step,))
+            db.commit()
+            before_title_migration = database_snapshot(db)
+            db.row_factory = sqlite3.Row
+            before_steps = [dict(row) for row in db.execute("SELECT * FROM recipe_steps ORDER BY id")]
+            db.row_factory = None
+            migration_72 = (MIGRATIONS_DIR / "072_add_recipe_step_titles.sql").read_text()
+            try:
+                migrate_module.apply_atomic_migration(db, migration_72 + "\nSELECT * FROM migration_72_forced_failure;\n", 72)
+            except sqlite3.OperationalError as error:
+                assert "migration_72_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 72 unexpectedly succeeded")
+            assert database_snapshot(db) == before_title_migration
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 71
+        # Exercise the real startup dispatcher too: a direct atomic-helper test
+        # would miss accidentally routing this rebuild through executescript.
+        failing_v72_migrations = tmp_path / "migrations-v72-failure"
+        failing_v72_migrations.mkdir()
+        (failing_v72_migrations / "072_add_recipe_step_titles.sql").write_text(
+            migration_72 + "\nSELECT * FROM migration_72_dispatch_failure;\n"
+        )
+        try:
+            run_migrations(v55_env, failing_v72_migrations)
+        except subprocess.CalledProcessError as error:
+            assert error.returncode != 0
+        else:
+            raise AssertionError("fault-injected startup migration 72 unexpectedly succeeded")
+        with sqlite3.connect(v55_db_path) as db:
+            assert database_snapshot(db) == before_title_migration
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 71
         run_migrations(v55_env)
         with sqlite3.connect(v55_db_path) as db:
+            db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = sqlite3.Row
             after_sources = [dict(row) for row in db.execute("SELECT * FROM recipes ORDER BY id")]
             fields = {"source_url", "source_name", "source_author", "source_yield"}
             assert [{key: value for key, value in row.items() if key not in fields} for row in after_sources] == before_sources
             assert all(row[field] == "" for row in after_sources for field in fields)
             db.row_factory = None
-            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 71
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 72
+            db.row_factory = sqlite3.Row
+            after_steps = [dict(row) for row in db.execute("SELECT * FROM recipe_steps ORDER BY id")]
+            db.row_factory = None
+            expected_steps = []
+            for step in before_steps:
+                if step["client_key"] in {"legacy-lf", "legacy-crlf"}:
+                    title, body = step["text"].split("\n", 1)
+                    step = {**step, "title": title.rstrip("\r"), "text": body}
+                else:
+                    step = {**step, "title": ""}
+                expected_steps.append(step)
+            assert after_steps == expected_steps
+            for table, rows in before_title_migration[1].items():
+                if table not in {"schema_version", "recipe_steps"}:
+                    assert db.execute(f'SELECT * FROM "{table}" ORDER BY rowid').fetchall() == rows, table
+            title_only_id = db.execute("INSERT INTO recipe_steps (recipe_id,client_key,title,text,sort_order) VALUES (?, 'title-only', 'Serve', '', 100)", (recipe_id,)).lastrowid
+            assert title_only_id > deleted_step, "Rebuilding steps must preserve the AUTOINCREMENT high-water mark"
+            for title, body in (("", ""), (" \n", "\t"), ("x" * 201, "Body"), ("Title", "x" * 8001)):
+                try:
+                    db.execute("INSERT INTO recipe_steps (recipe_id,client_key,title,text,sort_order) VALUES (?, 'invalid-step', ?, ?, 101)", (recipe_id, title, body))
+                except sqlite3.IntegrityError:
+                    pass
+                else:
+                    raise AssertionError("Step title/body schema accepted invalid content")
             project_member_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
             assert "is_direct_access_mirror" not in project_member_columns, project_member_columns
             migrated_grants = db.execute(

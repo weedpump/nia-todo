@@ -29,7 +29,7 @@ await storage.put('cookbooks',books[0]);
 const controller=createRecipeController({getCookbooks:()=>books,setCookbooks:value=>{books=value;editor?.reconcile();},
  getSessionIdentity:()=>session,getCurrentUser:()=>({id:11}),createTempId:()=> 'temp-step-'+(++sequence),
  commitMutation:async build=>{writes++;try{if(held)await held;const mutation=build();if(mutation){await storage.commitRecipeMutation(mutation);mutations.push(structuredClone(mutation));}return mutation;}finally{writes--;}}});
-editor=createRecipeEditorFeature({getCookbooks:()=>books,recipeController:controller,getSessionIdentity:()=>session,onError:err=>errors.push(err.message)});
+editor=createRecipeEditorFeature({getCookbooks:()=>books,recipeController:controller,getSessionIdentity:()=>session,getBrainDumpAccess:()=>true,onError:err=>errors.push(err.message)});
 editor.bind(); editor.showEdit(101);
 window.stepTest={editor,controller,storage,mutations,errors,special,t,pending:()=>writes,hasOpenUiLayer,validateRecipeChanges,sanitizeRecipeEntry,setLanguagePreference,
  books:()=>structuredClone(books),queue:()=>storage.getAll('syncQueue'),draft:()=>editor.getDraft(),
@@ -93,7 +93,9 @@ try {
   assert.equal(await page.locator('#recipe-save-btn').isVisible(), false, 'legacy missing arrays do not make the editor dirty');
   assert.deepEqual((await draft()).steps.map(row => row.ingredients), [[], []], 'legacy steps receive empty editor link arrays only');
   assert.equal(await page.locator('.recipe-editor-step-ingredients[open]').count(), 0);
+  await step('s1').locator('[data-field="step-title"]').fill('Separate heading <img src=x>');
   await step('s1').locator('textarea').fill('Draft heading\nKeep this multiline text.');
+  assert.equal((await draft()).steps[0].title,'Separate heading <img src=x>');
   await page.evaluate(() => { window.originalStepTextarea=document.querySelector('.recipe-editor-step[data-key="s1"] textarea'); });
   await openPicker('s1');
   assert.equal(await step('s1').locator('[data-step-group]').count(),2);
@@ -141,6 +143,7 @@ try {
   await step('s1').locator('[data-recipe-editor-action="step-down"]').click();
   assert.deepEqual((await draft()).steps.map(row => row.client_key), ['s2','s1']);
   assert.equal((await draft()).steps[1].text, 'Draft heading\nKeep this multiline text.');
+  assert.equal((await draft()).steps[1].title,'Separate heading <img src=x>','heading follows its stable step key through reorder');
   assert.equal(await step('s1').locator('[data-step-group="g1"]').evaluate(node=>node.open),true,'expanded groups follow stable step keys through reorder');
   assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:true,quantity_value:20,quantity_text:null}]);
   await openGroups('s1'); await choice('s1', 2).check();
@@ -157,6 +160,8 @@ try {
   ], 'queued payload contains only ordered stable links and flags');
   await page.evaluate(() => window.stepTest.editor.showEdit(101));
   assert.equal(await page.locator('#recipe-save-btn').isVisible(), false, 'reopening a queued linked recipe has no phantom dirty state');
+  assert.equal(await step('s1').locator('[data-field="step-title"]').inputValue(),'Separate heading <img src=x>');
+  assert.equal(await step('s1').locator('img').count(),0,'step headings remain escaped input content');
   assert.equal(await page.locator('.recipe-editor-step-ingredients[open]').count(), 0, 'a reopened editor starts with collapsed assignment pickers');
   await openGroups('s1'); assert.equal(await choice('s1',0).isChecked(), true);
   assert.equal(await choice('s1',0).isDisabled(), false);
@@ -225,6 +230,31 @@ try {
   const followup = restoredQueue.filter(row=>row.action==='UPDATE_RECIPE'&&row.data.id===102).at(-1);
   assert.notEqual(followup.id,old.id);
   assert.deepEqual(followup.data.changes.steps[0].ingredients,inheritedLinks,'next offline step edit persists retained links rather than clearing them');
+  await page.evaluate(() => {
+    const source=window.stepTest.books()[0].recipes[0];
+    window.stepTest.editor.showImport(source,2,{warnings:['recipe.ai.reviewQuantities']});
+    document.querySelector('.recipe-editor-source').open=true;
+  });
+  for(const width of [1280,390,320]) {
+    await page.setViewportSize({width,height:900});
+    const spaces=await page.evaluate(()=>{
+      const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+      return {ai:rect('#recipe-import-review').top-rect('.recipe-ai-tools').bottom,
+        source:rect('.recipe-editor-source').top-rect('.recipe-editor-intro').bottom,
+        intro:rect('.recipe-editor-intro').top-rect('#recipe-import-review').bottom,
+        overflow:document.documentElement.scrollWidth>innerWidth};
+    });
+    assert.ok(spaces.ai>=12,`BrainDump notice keeps spacing at ${width}px: ${JSON.stringify(spaces)}`);
+    assert.ok(spaces.source>=16,`expanded source keeps spacing below portions/times at ${width}px: ${JSON.stringify(spaces)}`);
+    assert.ok(spaces.intro>=16,`import notice keeps spacing before title at ${width}px`);
+    assert.equal(spaces.overflow,false);
+  }
+  const firstStep=page.locator('.recipe-editor-step').first();
+  await firstStep.locator('textarea').fill('');
+  await firstStep.locator('[data-field="step-title"]').fill('Title-only step');
+  assert.equal(await page.locator('#recipe-save-btn').isVisible(),true,'a title-only step is valid without an artificial required body');
+  await firstStep.locator('[data-field="step-title"]').fill('');
+  assert.equal(await page.locator('#recipe-save-btn').isVisible(),false,'a step still requires a heading or body');
   assert.deepEqual(await page.evaluate(() => window.stepTest.errors), []); assert.deepEqual(errors, []);
   console.log('✅ Recipe step editor: stable links, pruning, offline payload, language, mobile and lifecycle guards');
 } finally { await browser.close(); }

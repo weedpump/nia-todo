@@ -55,7 +55,7 @@ const identity = value => ({ ...(value.id != null ? { id: value.id } : {}), clie
 const cloneContent = recipe => ({
   tags: [...(recipe?.tags || [])],
   ingredient_groups: (recipe?.ingredient_groups || []).map(group => ({ ...identity(group), name: group.name || '', ingredients: (group.ingredients || []).map(item => ({ ...identity(item), name: item.name || '', quantity_value: item.quantity_value ?? null, quantity_unit: item.quantity_unit || '', quantity_text: item.quantity_text || '', note: item.note || '' })) })),
-  steps: (recipe?.steps || []).map(step => ({ ...identity(step), text: step.text || '',
+  steps: (recipe?.steps || []).map(step => ({ ...identity(step), title: step.title || '', text: step.text || '',
     ingredients: (step.ingredients || []).map(link => ({ ingredient_client_key: link.ingredient_client_key, show_quantity: link.show_quantity !== false,
       ...(Object.hasOwn(link, 'quantity_value') || Object.hasOwn(link, 'quantity_text') ? { quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text ?? null } : {}) })) })),
 });
@@ -96,7 +96,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     const ingredientKeys = new Set(groups.flatMap(group => group.ingredients.map(item => item.client_key)));
     const steps = Array.from(el('editor-steps')?.querySelectorAll('.recipe-editor-step') || []).map(node => {
       const step = model.steps.find(step => step.client_key === node.dataset.key) || { client_key: node.dataset.key };
-      return { ...identity(step), text: node.querySelector('textarea').value.trim(),
+      return { ...identity(step), title: value(node, 'step-title').trim(), text: node.querySelector('textarea').value.trim(),
         ingredients: (step.ingredients || []).filter(link => ingredientKeys.has(link.ingredient_client_key)).map(link => ({ ...link })) };
     });
     return { title: el('name')?.value.trim() || '', description: el('description')?.value.trim() || '',
@@ -277,7 +277,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
           </div></div>`;
       }).join('')}</div>
       <button type="button" class="btn btn-secondary" data-recipe-editor-action="ingredient-add" data-group-key="${escapeHtmlAttr(group.client_key)}" ${total >= 500 ? 'disabled data-bound-disabled="true"' : ''}>${iconSvg('plus')}${text('recipe.ingredient.add')}</button></section>`).join('');
-    el('editor-steps').innerHTML = model.steps.map((step, index) => `<div class="recipe-editor-step" data-key="${escapeHtmlAttr(step.client_key)}"><div class="recipe-editor-row-heading"><label for="recipe-step-${escapeHtmlAttr(step.client_key)}"><span data-recipe-step-label>${escapeHtml(t('recipe.step.number', { number: index + 1 }))}</span></label>${orderButtons('step', step.client_key, index, model.steps.length)}</div><textarea id="recipe-step-${escapeHtmlAttr(step.client_key)}" class="ui-field" rows="3" required maxlength="8000" aria-describedby="recipe-step-hint">${escapeHtml(step.text)}</textarea><details class="recipe-editor-step-ingredients" ${openPickers.has(step.client_key) ? 'open' : ''}><summary data-recipe-editor-action="step-ingredients-toggle" data-key="${escapeHtmlAttr(step.client_key)}">${text('recipe.step.ingredients.assign')}<span data-step-selected-count></span></summary><p class="recipe-step-hint">${text('recipe.step.ingredients.hint')}</p><div data-step-picker-content role="group" aria-label="${escapeHtmlAttr(t('recipe.step.ingredients.label'))}" data-i18n-aria-label-key="recipe.step.ingredients.label"></div></details></div>`).join('');
+    el('editor-steps').innerHTML = model.steps.map((step, index) => `<div class="recipe-editor-step" data-key="${escapeHtmlAttr(step.client_key)}"><div class="recipe-editor-row-heading"><span data-recipe-step-label>${escapeHtml(t('recipe.step.number', { number: index + 1 }))}</span>${orderButtons('step', step.client_key, index, model.steps.length)}</div><div class="recipe-editor-step-fields"><label for="recipe-step-title-${escapeHtmlAttr(step.client_key)}">${text('recipe.step.title')}<input id="recipe-step-title-${escapeHtmlAttr(step.client_key)}" class="ui-field" data-field="step-title" maxlength="200" value="${escapeHtmlAttr(step.title)}" autocomplete="off"></label><label for="recipe-step-${escapeHtmlAttr(step.client_key)}">${text('recipe.step.text')}<textarea id="recipe-step-${escapeHtmlAttr(step.client_key)}" class="ui-field" rows="3" maxlength="8000" aria-describedby="recipe-step-hint">${escapeHtml(step.text)}</textarea></label></div><details class="recipe-editor-step-ingredients" ${openPickers.has(step.client_key) ? 'open' : ''}><summary data-recipe-editor-action="step-ingredients-toggle" data-key="${escapeHtmlAttr(step.client_key)}">${text('recipe.step.ingredients.assign')}<span data-step-selected-count></span></summary><p class="recipe-step-hint">${text('recipe.step.ingredients.hint')}</p><div data-step-picker-content role="group" aria-label="${escapeHtmlAttr(t('recipe.step.ingredients.label'))}" data-i18n-aria-label-key="recipe.step.ingredients.label"></div></details></div>`).join('');
     el('editor-tags').innerHTML = model.tags.map((tag, index) => `<div class="recipe-editor-tag"><input class="ui-field" value="${escapeHtmlAttr(tag)}" required maxlength="80" aria-label="${escapeHtmlAttr(t('recipe.tag'))}" data-i18n-aria-label-key="recipe.tag"><button type="button" class="btn btn-secondary btn-icon" data-recipe-editor-action="tag-remove" data-index="${index}" aria-label="${escapeHtmlAttr(t('common.delete'))}" data-i18n-aria-label-key="common.delete">${iconSvg('trash-2')}</button></div>`).join('');
     for (const [action, count, max] of [['group-add', model.ingredient_groups.length, 50], ['step-add', model.steps.length, 100], ['tag-add', model.tags.length, 40]]) {
       const node = el('form').querySelector(`[data-recipe-editor-action="${action}"]`); node.disabled = count >= max; node.dataset.boundDisabled = String(count >= max);
@@ -555,7 +555,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     let focusKey;
     const [kind, operation] = action.split('-');
     if (action === 'group-add' && model.ingredient_groups.length < 50) { const group = { client_key: newKey(), name: '', ingredients: [] }; model.ingredient_groups.push(group); focusKey = group.client_key; }
-    else if (action === 'step-add' && model.steps.length < 100) { const step = { client_key: newKey(), text: '', ingredients: [] }; model.steps.push(step); focusKey = step.client_key; }
+    else if (action === 'step-add' && model.steps.length < 100) { const step = { client_key: newKey(), title: '', text: '', ingredients: [] }; model.steps.push(step); focusKey = step.client_key; }
     else if (action === 'tag-add' && model.tags.length < 40) model.tags.push('');
     else if (action === 'tag-remove') model.tags.splice(Number(target.dataset.index), 1);
     else {

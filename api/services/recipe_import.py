@@ -185,6 +185,58 @@ def _bound_instruction_tree(value, *, budget=None, depth=0):
         _bound_instruction_tree(value["itemListElement"], budget=budget, depth=depth + 1)
 
 
+def _structured_instructions(value) -> list[dict] | None:
+    """Read explicit schema step fields before adapters flatten name into text.
+
+    Several adapters return section names and step headings as extra instruction
+    lines. Standard structured steps keep those fields separate. Unsupported
+    schema shapes fall back to the adapter; no heading is guessed from prose.
+    The complete schema tree was bounded before this helper is called.
+    """
+    steps = []
+    def visit(item, context=()):
+        if isinstance(item, list):
+            return all(visit(child, context) for child in item)
+        if not isinstance(item, dict):
+            return False
+        if "itemListElement" in item:
+            name = _text(item.get("name"))
+            # Section names carry preparation context but are not separate
+            # cooking steps. Keep them with their descendant instructions.
+            section_context = (*context, name) if name and not re.fullmatch(r"\d+[.)]?", name) else context
+            start = len(steps)
+            if not visit(item["itemListElement"], section_context):
+                return False
+            introduction = _text(item.get("text"))
+            if introduction and len(steps) > start and introduction not in steps[start]["text"]:
+                steps[start]["text"] = introduction + "\n\n" + steps[start]["text"]
+            return True
+        if not item.get("text"):
+            return False
+        body, name = _text(item["text"]), _text(item.get("name"))
+        if not body:
+            return False
+        titles = list(dict.fromkeys((*context, name)))
+        headings = []
+        for title in titles:
+            if not title or title == body or re.fullmatch(r"\d+[.)]?", title):
+                continue
+            if len(title) > 200:
+                # A paragraph placed in name is still source content: retain it
+                # as body rather than discarding it or rendering a huge heading.
+                if title not in body:
+                    body = title + "\n\n" + body
+            else:
+                headings.append(title)
+        title = " · ".join(headings)
+        if len(title) > 200:
+            body = title + "\n\n" + body
+            title = ""
+        steps.append({"title": title, "text": body})
+        return True
+    return steps if visit(value) and steps else None
+
+
 def extract_recipe_html(html: str, url: str) -> dict:
     """Parse already downloaded HTML. The library is never allowed to fetch."""
     warnings: list[str] = []
@@ -204,6 +256,7 @@ def extract_recipe_html(html: str, url: str) -> dict:
                 if isinstance(schema.get(field), list) and len(schema[field]) > maximum:
                     raise PublicFetchError("recipe.import.invalidRecipe")
             _bound_instruction_tree(schema.get("recipeInstructions"))
+            structured_instructions = _structured_instructions(schema.get("recipeInstructions"))
             raw_ingredients = _bounded_records(_read(scraper, "ingredients", []), 500)
             raw_groups = _bounded_records(_read(scraper, "ingredient_groups"), 50)
             group_lines = []
@@ -214,7 +267,9 @@ def extract_recipe_html(html: str, url: str) -> dict:
                 if count > 500:
                     raise PublicFetchError("recipe.import.invalidRecipe")
                 group_lines.append(lines)
-            instructions = _bounded_records(_read(scraper, "instructions_list", []), 100)
+            instructions = _bounded_records(
+                structured_instructions if structured_instructions is not None else _read(scraper, "instructions_list", []), 100
+            )
             if not instructions:
                 instructions = _bounded_records(str(_read(scraper, "instructions", "") or "").splitlines(), 100)
             title, description = _text(_read(scraper, "title")), _text(_read(scraper, "description"))
@@ -258,8 +313,12 @@ def extract_recipe_html(html: str, url: str) -> dict:
                 if uncertain: warn("recipe.import.reviewIngredients")
     # Some site adapters expose standalone ordinal labels as instruction lines.
     # Nia numbers its own steps; an isolated "1." is not a cooking instruction.
-    steps = [{"client_key": _key(), "text": _text(line), "ingredients": []} for line in instructions
-             if _text(line) and not re.fullmatch(r"\d+[.)]", _text(line))]
+    steps = []
+    for line in instructions:
+        body = line["text"] if structured_instructions is not None else _text(line)
+        if body and not re.fullmatch(r"\d+[.)]", body):
+            steps.append({"client_key": _key(), "title": line["title"] if structured_instructions is not None else "",
+                          "text": body, "ingredients": []})
     if not any(group["ingredients"] for group in groups) and not steps:
         raise PublicFetchError("recipe.import.notFound")
     servings = _servings_from_yield(yield_values)

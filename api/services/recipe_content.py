@@ -106,16 +106,24 @@ class RecipeStepIngredient(BaseModel):
 
 class RecipeStep(BaseModel):
     client_key: ClientKey
-    text: str = Field(min_length=1, max_length=8000)
+    title: str = Field(default="", max_length=200)
+    text: str = Field(default="", max_length=8000)
     ingredients: list[RecipeStepIngredient] = Field(default_factory=list, max_length=500)
 
-    @field_validator("client_key", "text")
+    @field_validator("client_key")
     @classmethod
     def required(cls, value):
         return _required(value)
 
+    @field_validator("title", "text")
+    @classmethod
+    def trim_content(cls, value):
+        return value.strip()
+
     @model_validator(mode="after")
     def unique_ingredients(self):
+        if not self.title and not self.text:
+            raise ValueError("A recipe step needs a title or body")
         keys = [item.ingredient_client_key for item in self.ingredients]
         if len(keys) != len(set(keys)):
             raise ValueError("Duplicate step ingredient client_key")
@@ -232,6 +240,8 @@ def merge_recipe_patch(current: dict, patch: RecipePatch) -> dict:
     old_steps = {step["client_key"]: step for step in current["steps"]}
     result["steps"] = [dict(step) for step in result["steps"]]
     for step in result["steps"]:
+        if "title" not in step:
+            step["title"] = old_steps.get(step["client_key"], {}).get("title", "")
         old_links = {link["ingredient_client_key"]: link for link in old_steps.get(step["client_key"], {}).get("ingredients", [])}
         if "steps" not in changes or "ingredients" not in step:
             inherited = old_links.values()
@@ -279,7 +289,7 @@ def _project_recipes(db, rows, *, can_edit: bool) -> list[dict]:
         step_ingredients.setdefault(row["step_id"], []).append({"ingredient_client_key": row["client_key"], "show_quantity": bool(row["show_quantity"]),
                                                              "quantity_value": row["quantity_value"], "quantity_text": row["quantity_text"]})
     for row in db.execute(f"SELECT * FROM recipe_steps WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
-        steps.setdefault(row["recipe_id"], []).append({**{key: row[key] for key in ("id", "client_key", "text")}, "ingredients": step_ingredients.get(row["id"], [])})
+        steps.setdefault(row["recipe_id"], []).append({**{key: row[key] for key in ("id", "client_key", "title", "text")}, "ingredients": step_ingredients.get(row["id"], [])})
     for row in db.execute(f"SELECT * FROM recipe_tags WHERE recipe_id IN ({placeholders}) ORDER BY sort_order", ids):
         tags.setdefault(row["recipe_id"], []).append(row["name"])
     images = {row["recipe_id"]: row["content_hash"] for row in db.execute(f"SELECT recipe_id, content_hash FROM recipe_images WHERE recipe_id IN ({placeholders})", ids)}
@@ -323,7 +333,7 @@ def write_recipe_children(db, recipe_id: int, content: RecipeCreate):
     old_groups, group_ids = _sync_children(db, "recipe_ingredient_groups", recipe_id, group_rows, ("name",))
     ingredient_rows = [{**ingredient.model_dump(), "group_id": group_ids[group.client_key]} for group in content.ingredient_groups for ingredient in group.ingredients]
     old_ingredients, ingredient_ids = _sync_children(db, "recipe_ingredients", recipe_id, ingredient_rows, ("group_id", "name", "quantity_value", "quantity_unit", "quantity_text", "note"))
-    old_steps, step_ids = _sync_children(db, "recipe_steps", recipe_id, [step.model_dump() for step in content.steps], ("text",))
+    old_steps, step_ids = _sync_children(db, "recipe_steps", recipe_id, [step.model_dump() for step in content.steps], ("title", "text"))
     for table, old, new in (("recipe_ingredients", old_ingredients, ingredient_ids), ("recipe_ingredient_groups", old_groups, group_ids), ("recipe_steps", old_steps, step_ids)):
         for key in old.keys() - new.keys():
             db.execute(f"DELETE FROM {table} WHERE id = ? AND recipe_id = ?", (old[key], recipe_id))

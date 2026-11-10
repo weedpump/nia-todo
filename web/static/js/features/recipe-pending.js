@@ -30,13 +30,14 @@ export function rebaseRecipeQueue(queue, id, revision) {
     ? { ...entry, data: { ...entry.data, expected_revision: revision } } : entry);
 }
 /** Match PATCH semantics without changing durable request bodies: omitted
- * links inherit from the same step key, while an explicit [] clears them. */
+ * titles and links inherit from the same step key; explicit empty values clear. */
 export function mergeRecipeStepIngredients(current, changes) {
   const merged = { ...current, ...changes };
   if (!Array.isArray(merged.steps)) return merged;
   const available = new Set((merged.ingredient_groups || []).flatMap(group => (group.ingredients || []).map(item => item.client_key)));
   merged.steps = merged.steps.map(step => {
     const previous = current?.steps?.find(row => row.client_key === step.client_key);
+    step = { ...step, title: Object.hasOwn(step, 'title') ? step.title : previous?.title ?? '' };
     if (Object.hasOwn(changes || {}, 'steps') && Object.hasOwn(step, 'ingredients')) return { ...step, ingredients: step.ingredients.map(link => {
       if (Object.hasOwn(link, 'quantity_value') || Object.hasOwn(link, 'quantity_text')) return { ...link, quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text ?? null };
       if (link.show_quantity === false) return { ...link, quantity_value: null, quantity_text: null };
@@ -145,7 +146,10 @@ export function validateRecipeChanges(input, creating = false) {
   for (const key of ['prep_minutes', 'cook_minutes']) if (Object.hasOwn(data, key) && data[key] != null && !(Number.isInteger(data[key]) && data[key] >= 0 && data[key] <= 100000)) return null;
   if (Object.hasOwn(data, 'tags') && (!Array.isArray(data.tags) || data.tags.length > 40 || data.tags.some(tag => typeof tag !== 'string' || !tag.trim() || tag.length > 80))) return null;
   const keys = values => values.every(value => value && typeof value.client_key === 'string' && value.client_key.trim() && value.client_key.length <= 200) && new Set(values.map(value => value.client_key)).size === values.length;
-  if (Object.hasOwn(data, 'steps') && (!Array.isArray(data.steps) || data.steps.length > 100 || !keys(data.steps) || data.steps.some(step => typeof step.text !== 'string' || !step.text.trim() || step.text.length > 8000))) return null;
+  if (Object.hasOwn(data, 'steps') && (!Array.isArray(data.steps) || data.steps.length > 100 || !keys(data.steps) || data.steps.some(step =>
+    typeof step.text !== 'string' || step.text.length > 8000
+    || Object.hasOwn(step, 'title') && (typeof step.title !== 'string' || step.title.length > 200)
+    || !step.text.trim() && !String(step.title ?? '').trim()))) return null;
   if (Object.hasOwn(data, 'ingredient_groups')) {
     const groups = data.ingredient_groups;
     if (!Array.isArray(groups) || groups.length > 50 || !keys(groups)) return null;

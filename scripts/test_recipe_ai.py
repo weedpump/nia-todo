@@ -32,8 +32,8 @@ def draft():
                 {'client_key':'filling','name':'Füllung','ingredients':[
                     {'client_key':'filling-flour','name':'Mehl','quantity_value':50,'quantity_unit':'g','quantity_text':None,'note':''}]}],
             'steps':[
-                {'client_key':'mix','text':'Teig mischen.','ingredients':[{'ingredient_client_key':'dough-flour','show_quantity':True,'quantity_value':100,'quantity_text':None}]},
-                {'client_key':'fill','text':'Füllung herstellen.','ingredients':[]}]}
+                {'client_key':'mix','title':'','text':'Teig mischen.','ingredients':[{'ingredient_client_key':'dough-flour','show_quantity':True,'quantity_value':100,'quantity_text':None}]},
+                {'client_key':'fill','title':'','text':'Füllung herstellen.','ingredients':[]}]}
 
 
 def proposal(value=None):
@@ -70,6 +70,65 @@ class RecipeAITests(unittest.TestCase):
         self.assertNotIn('_deadline_at',sent,'private transport deadlines are not sent to the provider')
         self.assertLessEqual(send.call_args.args[2]['llm_timeout_seconds'],100)
 
+    def test_refinement_separates_headings_and_cleans_description_without_changing_source(self):
+        original=draft()
+        original['description']='Saftiger Kuchen. Über 40 Bewertungen. Mit Portionsrechner und Video-Tipps!'
+        original['steps'][1]['text']='Mehl für die Füllung vorsichtig mischen und ruhen lassen.'
+        value={'description':'Saftiger Kuchen.', 'steps':[{'step_key':'s2','title':'Füllung vorbereiten'}]}
+        with patch.object(ai.llm_client,'post_chat',return_value=response(value)) as send:
+            actual=ai.build_recipe_preview(config=CONFIG,draft=original)['draft']
+        self.assertEqual(actual['description'],'Saftiger Kuchen.')
+        self.assertEqual(actual['steps'][1]['title'],'Füllung vorbereiten')
+        self.assertEqual(actual['steps'][1]['text'],original['steps'][1]['text'])
+        self.assertEqual(actual['steps'][1]['client_key'],'fill')
+        for field in ai.SOURCE_FIELDS:self.assertEqual(actual[field],original[field])
+        self.assertIn('remaining amounts',send.call_args.args[0]['messages'][0]['content'])
+        # Boilerplate-only descriptions may be cleared; omitted titles stay intact.
+        original['steps'][1]['title']='Eigener Titel'
+        for description in ('',None):
+            with self.subTest(description=description),patch.object(ai.llm_client,'post_chat',return_value=response({'description':description})):
+                cleaned=ai.build_recipe_preview(config=CONFIG,draft=original)['draft']
+            self.assertEqual(cleaned['description'],'')
+            self.assertEqual(cleaned['steps'][1]['title'],'Eigener Titel')
+        # A title-only source can move its instructions into the body explicitly.
+        original['steps'][1].update(title='Alle Zutaten mischen und für zehn Minuten ruhen lassen.',text='')
+        with patch.object(ai.llm_client,'post_chat',return_value=response({'steps':[{'step_key':'s2','title':'Mischen und ruhen lassen','text':original['steps'][1]['title']}]})):
+            moved=ai.build_recipe_preview(config=CONFIG,draft=original)['draft']['steps'][1]
+        self.assertEqual(moved['title'],'Mischen und ruhen lassen')
+        self.assertEqual(moved['text'],original['steps'][1]['title'])
+
+    def test_refinement_uses_explicit_partial_and_remaining_amounts_with_same_named_groups(self):
+        original=draft()
+        original['steps'][0]['ingredients']=[]
+        original['steps'][0]['text']='100 g Mehl vom Teig mischen.'
+        original['steps'][1]['text']='Das restliche Mehl vom Teig und die 50 g Mehl für die Füllung verwenden.'
+        value={'steps':[{'step_key':'s1','ingredients':[{'ingredient_key':'i1','show_quantity':True,'quantity_value':100}]},
+                        {'step_key':'s2','ingredients':[{'ingredient_key':'i1','show_quantity':True,'quantity_value':150},
+                                                       {'ingredient_key':'i3','show_quantity':True}]}]}
+        with patch.object(ai.llm_client,'post_chat',return_value=response(value)):
+            result=ai.build_recipe_preview(config=CONFIG,draft=original)
+        steps=result['draft']['steps']
+        self.assertEqual([step['ingredients'][0]['quantity_value'] for step in steps],[100,150])
+        self.assertEqual(steps[1]['ingredients'][1]['ingredient_client_key'],'filling-flour')
+        self.assertIsNone(steps[1]['ingredients'][1]['quantity_value'],'null override displays the original whole total')
+        self.assertNotIn('recipe.ai.reviewQuantities',result['warnings'])
+        uncertain={'steps':[{'step_key':'s1','ingredients':[{'ingredient_key':'i1','show_quantity':False}]},
+                            {'step_key':'s2','ingredients':[{'ingredient_key':'i1','show_quantity':False}]}]}
+        with patch.object(ai.llm_client,'post_chat',return_value=response(uncertain)):
+            result=ai.build_recipe_preview(config=CONFIG,draft=original)
+        self.assertIn('recipe.ai.reviewQuantities',result['warnings'])
+        self.assertTrue(all(not step['ingredients'][0]['show_quantity'] for step in result['draft']['steps']))
+
+    def test_invalid_heading_description_or_empty_step_is_rejected(self):
+        cases=[{'description':'x'*4001}, {'description':42},
+               {'steps':[{'step_key':'s2','title':'x'*201}]},
+               {'steps':[{'step_key':'s2','title':42}]},
+               {'steps':[{'step_key':'s2','title':'','text':''}]}]
+        for value in cases:
+            with self.subTest(value=str(value)[:40]),patch.object(ai.llm_client,'post_chat',return_value=response(value)),self.assertRaises(ai.RecipeAIError) as error:
+                ai.build_recipe_preview(config=CONFIG,draft=draft())
+            self.assertEqual(error.exception.reason,'schema')
+
     def test_references_cannot_be_added_duplicated_or_used_to_rewrite_protected_facts(self):
         cases=[{'steps':[{'step_key':'s99','ingredients':[]}]},
                {'steps':[{'step_key':'s1'},{'step_key':'s1'}]},
@@ -94,7 +153,7 @@ class RecipeAITests(unittest.TestCase):
             original['ingredient_groups'][index//11]['ingredients'].append({'client_key':f'import-12345678-1234-4123-8123-{index:012d}',
                 'name':'Mehl' if index in (0,11) else f'Zutat {index}','quantity_value':50+index,'quantity_unit':'g','quantity_text':None,'note':''})
         for index in range(7):
-            original['steps'].append({'client_key':f'import-87654321-4321-4321-8432-{index:012d}','text':(f'Schritt {index}. '+('Unveränderte ausführliche Zubereitung. '*45)).rstrip(),'ingredients':[]})
+            original['steps'].append({'client_key':f'import-87654321-4321-4321-8432-{index:012d}','title':'','text':(f'Schritt {index}. '+('Unveränderte ausführliche Zubereitung. '*45)).rstrip(),'ingredients':[]})
         proposed={'steps':[{'step_key':'s2','ingredients':[{'ingredient_key':'i12','show_quantity':True,'quantity_value':25}]}]}
         with patch.object(ai.llm_client,'post_chat',return_value=response(proposed)) as send:
             result=ai.build_recipe_preview(config=CONFIG,draft=original)
@@ -155,6 +214,7 @@ class RecipeAITests(unittest.TestCase):
         value=proposal()
         value['description']=None
         value['tags']=None
+        for step in value['steps']:step['title']=None
         for group in value['ingredient_groups']:
             group['name']=None
             for ingredient in group['ingredients']:ingredient['note']=None
@@ -162,6 +222,7 @@ class RecipeAITests(unittest.TestCase):
             result=ai.build_recipe_preview(config=CONFIG,text='Original recipe text')
         self.assertEqual(result['draft']['description'],'')
         self.assertEqual(result['draft']['tags'],[])
+        self.assertTrue(all(step['title']=='' for step in result['draft']['steps']))
         self.assertTrue(all(group['name']=='' for group in result['draft']['ingredient_groups']))
         self.assertTrue(all(item['note']=='' for group in result['draft']['ingredient_groups'] for item in group['ingredients']))
         self.assertIsNone(value['description'],'only parsed model output is normalized')

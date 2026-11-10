@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Dodaj grupę składników",
   "common.quantityText": "Ilość opisowa (zamiast liczby)",
   "recipe.steps": "Przygotowanie",
-  "recipe.steps.hint": "Pierwszy wiersz to tytuł. Kolejne wiersze opisują krok.",
+  "recipe.steps.hint": "Nagłówki są opcjonalne. Poniżej opisz, co należy zrobić w tym kroku.",
   "recipe.step.add": "Dodaj krok",
   "recipe.step.number": "Krok {number}",
   "recipe.moveUp": "Przesuń w górę",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Sprawdź liczbę porcji w wersji roboczej.",
   "recipe.ai.draftChanged": "Wynik nie został zastosowany, ponieważ w międzyczasie zmieniono wersję roboczą. W razie potrzeby uruchom BrainDump ponownie.",
   "recipe.import.modeLink": "Link",
-  "recipe.import.modeText": "Tekst"
+  "recipe.import.modeText": "Tekst",
+  "recipe.step.title": "Nagłówek (opcjonalny)",
+  "recipe.step.text": "Opis"
 }

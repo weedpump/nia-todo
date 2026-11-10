@@ -2180,7 +2180,7 @@
   "recipe.group.add": "添加食材分组",
   "common.quantityText": "文字用量（代替数字）",
   "recipe.steps": "制作方法",
-  "recipe.steps.hint": "第一行是标题，后续行用于描述操作步骤。",
+  "recipe.steps.hint": "标题为可选项。请在下方描述此步骤的具体做法。",
   "recipe.step.add": "添加步骤",
   "recipe.step.number": "第 {number} 步",
   "recipe.moveUp": "上移",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "请检查草稿中的份数。",
   "recipe.ai.draftChanged": "由于你在此期间修改了草稿，结果未被应用。如有需要，请再次运行 BrainDump。",
   "recipe.import.modeLink": "链接",
-  "recipe.import.modeText": "文本"
+  "recipe.import.modeText": "文本",
+  "recipe.step.title": "标题（可选）",
+  "recipe.step.text": "说明"
 }

@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Zutatengruppe hinzufügen",
   "common.quantityText": "Freie Mengenangabe (statt einer Zahl)",
   "recipe.steps": "Zubereitung",
-  "recipe.steps.hint": "Die erste Zeile ist die Überschrift. Weitere Zeilen beschreiben den Schritt.",
+  "recipe.steps.hint": "Überschriften sind optional. Beschreibe darunter, was in diesem Schritt zu tun ist.",
   "recipe.step.add": "Schritt hinzufügen",
   "recipe.step.number": "Schritt {number}",
   "recipe.moveUp": "Nach oben",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Bitte prüfe die Portionszahl im Entwurf.",
   "recipe.ai.draftChanged": "Das Ergebnis wurde nicht übernommen, weil du den Entwurf inzwischen geändert hast. Starte BrainDump bei Bedarf erneut.",
   "recipe.import.modeLink": "Link",
-  "recipe.import.modeText": "Text"
+  "recipe.import.modeText": "Text",
+  "recipe.step.title": "Überschrift (optional)",
+  "recipe.step.text": "Beschreibung"
 }

@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Lägg till ingrediensgrupp",
   "common.quantityText": "Mängd i text (i stället för ett tal)",
   "recipe.steps": "Tillagning",
-  "recipe.steps.hint": "Den första raden är rubriken. Följande rader beskriver steget.",
+  "recipe.steps.hint": "Rubriker är valfria. Beskriv nedan vad som ska göras i detta steg.",
   "recipe.step.add": "Lägg till steg",
   "recipe.step.number": "Steg {number}",
   "recipe.moveUp": "Flytta upp",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Kontrollera antalet portioner i utkastet.",
   "recipe.ai.draftChanged": "Resultatet tillämpades inte eftersom du ändrade utkastet under tiden. Kör BrainDump igen vid behov.",
   "recipe.import.modeLink": "Länk",
-  "recipe.import.modeText": "Text"
+  "recipe.import.modeText": "Text",
+  "recipe.step.title": "Rubrik (valfri)",
+  "recipe.step.text": "Beskrivning"
 }

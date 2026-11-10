@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Добавить группу ингредиентов",
   "common.quantityText": "Количество словами (вместо числа)",
   "recipe.steps": "Способ приготовления",
-  "recipe.steps.hint": "Первая строка — заголовок. Следующие строки описывают шаг.",
+  "recipe.steps.hint": "Заголовки необязательны. Ниже опишите, что нужно сделать на этом шаге.",
   "recipe.step.add": "Добавить шаг",
   "recipe.step.number": "Шаг {number}",
   "recipe.moveUp": "Переместить вверх",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Проверьте число порций в черновике.",
   "recipe.ai.draftChanged": "Результат не применён, поскольку вы успели изменить черновик. При необходимости запустите BrainDump ещё раз.",
   "recipe.import.modeLink": "Ссылка",
-  "recipe.import.modeText": "Текст"
+  "recipe.import.modeText": "Текст",
+  "recipe.step.title": "Заголовок (необязательно)",
+  "recipe.step.text": "Описание"
 }

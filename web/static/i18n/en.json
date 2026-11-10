@@ -2180,7 +2180,7 @@
   "recipe.group.add": "Add ingredient group",
   "common.quantityText": "Free quantity (instead of a number)",
   "recipe.steps": "Preparation",
-  "recipe.steps.hint": "The first line is the heading. Use the following lines for instructions.",
+  "recipe.steps.hint": "Headings are optional. Describe below what to do in this step.",
   "recipe.step.add": "Add step",
   "recipe.step.number": "Step {number}",
   "recipe.moveUp": "Move up",
@@ -2317,5 +2317,7 @@
   "recipe.ai.reviewServings": "Please check the number of servings in the draft.",
   "recipe.ai.draftChanged": "The result was not applied because you changed the draft in the meantime. Run BrainDump again if needed.",
   "recipe.import.modeLink": "Link",
-  "recipe.import.modeText": "Text"
+  "recipe.import.modeText": "Text",
+  "recipe.step.title": "Heading (optional)",
+  "recipe.step.text": "Description"
 }
