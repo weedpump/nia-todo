@@ -119,6 +119,9 @@ def make_db():
         );
         """
     )
+    # Apply the actual todo idempotency schema without unrelated routing tables.
+    todo_mutation_sql = (ROOT / "api/migrations/060_add_braindump_module_routes.sql").read_text()
+    db.executescript(todo_mutation_sql.split("CREATE TABLE braindump_module_route_learning", 1)[0])
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'tobi', 'Tobi', NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")
@@ -137,7 +140,12 @@ def make_client(db):
 
     @contextlib.contextmanager
     def fake_get_db():
-        yield db
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
     todos_router.get_db = fake_get_db
     todos_router.broadcast_change = noop_broadcast
