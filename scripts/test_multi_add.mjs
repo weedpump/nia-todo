@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 const url = pathToFileURL(path.resolve('web/static/js/features/multi-add.js'));
 let shared;
@@ -28,13 +28,19 @@ console.log('✅ Shared multi-add API and neutral renderer passed');
 import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
 const browser = await chromium.launch({headless:true});
+const staticJsRoot = path.resolve(fileURLToPath(new URL('../web/static/js/', import.meta.url)));
 try {
  const page = await browser.newPage();
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route('http://capture.test/**', async route => {
   const pathname = new URL(route.request().url()).pathname;
   if (pathname.endsWith('.js')) {
-   try { return await route.fulfill({contentType:'text/javascript',body:await readFile(path.resolve('web/static/js/features', pathname.slice(1)), 'utf8')}); }
+   try {
+    const relative = pathname.slice(1);
+    const file = path.resolve(staticJsRoot, /^(?:core|i18n|icons)\//.test(relative) ? relative : `features/${relative}`);
+    if (!file.startsWith(staticJsRoot + path.sep)) throw new Error('outside fixture');
+    return await route.fulfill({contentType:'text/javascript',body:await readFile(file, 'utf8')});
+   }
    catch { return route.fulfill({status:404,body:'Unknown module'}); }
   }
   await route.fulfill({contentType:'text/html',body:`<div id="sample-modal" class="active"><h2 id="sample-modal-title"></h2><form id="sample-form"><input id="single" required>${shared.renderMultiAddModeSwitch({prefix:'sample',singleKey:'one',multipleKey:'many'})}${html}<button id="sample-save-btn">Save</button></form></div><script type="module">

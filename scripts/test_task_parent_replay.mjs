@@ -17,11 +17,14 @@ try {
       '/features/shopping-pending.js': '../web/static/js/features/shopping-pending.js',
       '/features/cookbooks.js': '../web/static/js/features/cookbooks.js',
       '/features/recipe-pending.js': '../web/static/js/features/recipe-pending.js',
+      '/features/recipe-shopping-pending.js': '../web/static/js/features/recipe-shopping-pending.js',
       '/features/entity-metadata.js': '../web/static/js/features/entity-metadata.js',
       '/storage/entity-metadata.js': '../web/static/js/storage/entity-metadata.js',
       '/icons/lucide-icons.js': '../web/static/js/icons/lucide-icons.js',
       '/icons/lucide-generated.js': '../web/static/js/icons/lucide-generated.js',
       '/i18n/index.js': '../web/static/js/i18n/index.js',
+      '/core/quantity-units.js': '../web/static/js/core/quantity-units.js',
+      '/core/quantity-unit-data.js': '../web/static/js/core/quantity-unit-data.js',
     };
     if (!paths[pathname]) return route.abort();
     return route.fulfill({ contentType: 'text/javascript', body: await readFile(new URL(paths[pathname], import.meta.url), 'utf8') });
