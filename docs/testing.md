@@ -272,3 +272,11 @@ address pinning, redirects and download bounds; `test_recipe_import.py` parses l
 HTML fixtures with network access prohibited. `test_frontend_recipe_import.mjs` uses
 a private mocked browser origin and never the development database. Existing recipe
 API, image, migration and offline suites cover source-field persistence and upgrade.
+
+Recipe BrainDump regressions: `test_recipe_ai.py` mocks model calls/access and checks
+protected facts, ingredient keys, strict JSON and revocation before/after retry.
+`test_llm_client.py` verifies shared provider adapters and bounded transport.
+`test_frontend_recipe_ai.mjs` uses a private mocked origin for current-draft refinement,
+text entry, cancellation and stale/access fences. `test_recipe_ai_e2e.mjs` runs its
+own temporary app/database and mocks only the external model; it never uses an
+installed service or sends test content to the configured operator model.

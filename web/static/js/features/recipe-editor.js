@@ -27,6 +27,7 @@ export function renderRecipeEditorModal() {
     bodyHtml: `<form id="recipe-form" class="entity-modal-form ui-detail-shell">
       <input type="hidden" id="recipe-id"><input type="hidden" id="recipe-cookbook-id">
       <div id="recipe-editor-conflict"></div>
+      <div class="recipe-ai-tools"><button type="button" id="recipe-ai-refine-btn" class="btn btn-secondary" data-recipe-editor-action="brain-dump" hidden>${iconSvg('sparkles')}${text('recipe.ai.refine')}</button><p id="recipe-ai-status" class="recipe-step-hint" role="status" aria-live="polite" hidden></p></div>
       <div id="recipe-import-review" class="recipe-import-review" role="status" hidden></div>
       <section class="ui-detail-section ui-section-divider ui-detail-title-section recipe-editor-intro">
         <div class="recipe-editor-title-row"><div class="form-group ui-detail-title-group"><label for="recipe-name">${text('recipe.title')}</label><input id="recipe-name" class="ui-field ui-detail-title-field" required maxlength="200" autocomplete="off"></div>
@@ -66,11 +67,12 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
   getSessionIdentity = () => 'embedded', root = globalThis.document, confirmDanger = async () => false,
   prepareRecipeImage = async () => { throw Object.assign(new Error('Image preparation unavailable'), { code: 'recipe.image.invalid' }); },
   loadRecipeImage = async () => false, releaseRecipeImage = () => {},
+  api = null, getBrainDumpAccess = () => false, isOnline = () => globalThis.navigator?.onLine !== false,
   onSaved = () => {}, onDeleted = () => {}, onError = console.error,
 } = {}) {
   let model = cloneContent(null), baseline = null, openedRecipe = null, openedBook = null, baselineRevision = null;
   let session, generation = 0, imageGeneration = 0, imageData, preparing = false, busy = null, bound = false, errorKey = '';
-  let importWarnings = null;
+  let importWarnings = null, reviewHintKey = 'recipe.import.reviewHint';
   const el = suffix => root.getElementById(`recipe-${suffix}`);
   const books = () => getCookbooks();
   const book = () => books().find(candidate => sameEntityId(candidate.id, el('cookbook-id')?.value)
@@ -118,7 +120,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     canEdit: () => active() && editable() && !current()?.conflict && !busy,
     getHasImage: hasImage, onRemove: removeImage });
   function permissions() {
-    const disabled = !editable() || Boolean(current()?.conflict);
+    const disabled = !editable() || Boolean(current()?.conflict) || busy?.kind === 'ai';
     for (const field of el('form')?.querySelectorAll('input:not([type="hidden"]),textarea,select,button[data-recipe-editor-action]') || []) field.disabled = disabled;
     if (!disabled) {
       for (const node of el('form').querySelectorAll('[data-bound-disabled="true"]')) node.disabled = true;
@@ -137,6 +139,8 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     imagePicker.refresh();
     refreshStepIngredientPermissions();
     modal?.syncDeleteMenu(Boolean(el('id')?.value && editable() && !current()?.conflict));
+    if (el('delete-btn') && busy?.kind === 'ai') el('delete-btn').disabled = true;
+    refreshAI();
     modal?.refreshSaveState();
   }
   const appearance = { setValues: ({ name = '' }, { editable: canEdit = true } = {}) => { el('name').value = name; el('name').disabled = !canEdit; }, focusName: () => el('name')?.focus() };
@@ -153,7 +157,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     const host = el('import-review');
     if (!host) return;
     host.hidden = importWarnings === null;
-    host.innerHTML = importWarnings === null ? '' : `<p>${text('recipe.import.reviewHint')}</p>${importWarnings.length ? `<ul>${importWarnings.map(key => `<li>${escapeHtml(t(key))}</li>`).join('')}</ul>` : ''}`;
+    host.innerHTML = importWarnings === null ? '' : `<p>${text(reviewHintKey)}</p>${importWarnings.length ? `<ul>${importWarnings.map(key => `<li>${escapeHtml(t(key))}</li>`).join('')}</ul>` : ''}`;
   }
   function renderContent(entity) {
       imagePicker.close();
@@ -165,7 +169,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       el('prep-minutes').value = entity?.prep_minutes ?? ''; el('cook-minutes').value = entity?.cook_minutes ?? '';
       for (const key of ['url', 'name', 'author', 'yield']) if (el(`source-${key}`)) el(`source-${key}`).value = entity?.[`source_${key}`] || '';
       el('form').querySelector('.recipe-editor-source')?.removeAttribute('open');
-      importWarnings = null; renderImportReview();
+      importWarnings = null; reviewHintKey = 'recipe.import.reviewHint'; renderImportReview();
       el('image-file').value = ''; renderRows(); el('editor-conflict').innerHTML = renderRecipeConflict(entity);
       renderImage();
   }
@@ -318,6 +322,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     el('image-file').value = ''; renderImage(); modal.refreshSaveState();
   }
   function open(recipe, cookbookId) {
+    abortAI();
     openedBook = books().find(candidate => sameEntityId(candidate.id, cookbookId));
     if (!canEditRecipe(recipe, openedBook)) return false;
     generation++; session = getSessionIdentity(); el('cookbook-id').value = openedBook.id; openedRecipe = recipe; baselineRevision = recipe?.revision ?? null; busy = null;
@@ -329,7 +334,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     renderImage();
     return ok;
   }
-  function showImport(draft, cookbookId, { warnings = [] } = {}) {
+  function showImport(draft, cookbookId, { warnings = [], reviewHint = 'recipe.import.reviewHint' } = {}) {
     // Keep the original empty-create baseline: an imported draft is immediately
     // saveable, but it still has no persisted recipe identity or revision.
     const content = draft && validateRecipeChanges(draft, true);
@@ -342,18 +347,84 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     renderContent(content);
     appearance.setValues({ name: content.title });
     imageData = content.image_data || undefined;
-    importWarnings = [...new Set(warnings.filter(key => typeof key === 'string' && key.startsWith('recipe.import.')))];
+    importWarnings = [...new Set(warnings.filter(key => typeof key === 'string' && /^(?:recipe\.import\.|recipe\.ai\.)/u.test(key)))];
+    reviewHintKey = reviewHint === 'recipe.ai.reviewHint' ? reviewHint : 'recipe.import.reviewHint';
     renderImportReview(); renderImage(); permissions(); modal.refreshSaveState();
     return true;
   }
+  const aiErrors = new Set(['unavailable', 'notConfigured', 'invalidInput', 'failed', 'invalidResponse', 'tooLarge', 'busy', 'rateLimited', 'offline'].map(key => `recipe.ai.${key}`));
+  function refreshAI() {
+    const button = el('ai-refine-btn'), status = el('ai-status');
+    if (button) {
+      button.hidden = !getBrainDumpAccess() || !active() || !editable() || Boolean(current()?.conflict);
+      button.disabled = !getBrainDumpAccess() || !editable() || Boolean(busy) || preparing || !isOnline() || !valid(readState());
+    }
+    if (status) { status.hidden = busy?.kind !== 'ai'; status.textContent = busy?.kind === 'ai' ? t('recipe.ai.refining') : ''; }
+  }
+  function abortAI() {
+    if (busy?.kind !== 'ai') return;
+    busy.controller?.abort(); busy = null;
+  }
+  async function refineWithBrainDump() {
+    if (!active() || !editable() || current()?.conflict || busy || preparing) return false;
+    if (!getBrainDumpAccess() || typeof api?.aiPreview !== 'function') { error('recipe.ai.unavailable'); return false; }
+    if (!isOnline()) { error('recipe.ai.offline'); return false; }
+    const before = readState(), submitted = validateRecipeChanges(before, true);
+    if (!submitted || !activeIngredientValid() || !el('form').reportValidity()) { error('recipe.ai.invalidInput'); return false; }
+    delete submitted.image_data;
+    for (const group of submitted.ingredient_groups) {
+      delete group.id;
+      for (const ingredient of group.ingredients) delete ingredient.id;
+    }
+    for (const step of submitted.steps) delete step.id;
+    const captured = generation, capturedSession = session, capturedId = el('id').value, capturedBook = book().id;
+    const signature = JSON.stringify(comparable(before));
+    const token = { kind: 'ai', controller: typeof AbortController === 'undefined' ? null : new AbortController() };
+    const isCurrent = () => busy === token && captured === generation && capturedSession === getSessionIdentity()
+      && active() && editable() && getBrainDumpAccess() && !current()?.conflict
+      && el('id').value === capturedId && sameEntityId(book()?.id, capturedBook);
+    busy = token; error(''); permissions();
+    try {
+      const response = await api.aiPreview({ draft: submitted }, { signal: token.controller?.signal });
+      if (!isCurrent()) return false;
+      if (JSON.stringify(comparable(readState())) !== signature) { error('recipe.ai.draftChanged'); return false; }
+      const data = response?.draft && validateRecipeChanges(response.draft, true);
+      if (!data) throw Object.assign(new Error('Invalid recipe response'), { code: 'recipe.ai.invalidResponse' });
+      delete data.image_data;
+      // Source attribution and the actual image are owned by the current editor,
+      // never by model output. Stable client keys retain local child identities.
+      for (const key of ['source_url', 'source_name', 'source_author', 'source_yield']) data[key] = before[key] || '';
+      const groups = new Map(before.ingredient_groups.map(group => [group.client_key, group]));
+      const ingredients = new Map(before.ingredient_groups.flatMap(group => group.ingredients).map(item => [item.client_key, item]));
+      const steps = new Map(before.steps.map(step => [step.client_key, step]));
+      for (const group of data.ingredient_groups) {
+        delete group.id; if (groups.get(group.client_key)?.id != null) group.id = groups.get(group.client_key).id;
+        for (const item of group.ingredients) { delete item.id; if (ingredients.get(item.client_key)?.id != null) item.id = ingredients.get(item.client_key).id; }
+      }
+      for (const step of data.steps) { delete step.id; if (steps.get(step.client_key)?.id != null) step.id = steps.get(step.client_key).id; }
+      const retainedImage = imageData;
+      renderContent({ ...data, cookbook_id: capturedBook });
+      appearance.setValues({ name: data.title }); imageData = retainedImage;
+      importWarnings = [...new Set((Array.isArray(response.warnings) ? response.warnings : []).filter(key => typeof key === 'string' && key.startsWith('recipe.ai.')))];
+      reviewHintKey = 'recipe.ai.reviewHint';
+      renderImportReview(); renderImage();
+      return true;
+    } catch (err) {
+      if (!isCurrent()) return false;
+      error(aiErrors.has(err.code || err.data?.detail?.code) ? (err.code || err.data.detail.code) : 'recipe.ai.failed');
+      onError(err); return false;
+    } finally { if (busy === token) { busy = null; permissions(); modal.refreshSaveState(); } }
+  }
   function deactivate() {
+    abortAI();
     generation++; imageGeneration++; busy = null; preparing = false; imageData = undefined;
     imagePicker.close(); closeOpenDropdown('recipe-deactivate'); ingredientEdit = null;
     releaseRecipeImage(el('image-preview-img')); openedRecipe = null; openedBook = null;
     if (!closeUiLayerNow('recipe-modal', { reason: 'module-deactivate' })) modal.close({ fromHistory: true });
   }
   function reconcile() {
-    if (!active()) return false;
+    if (!active()) { abortAI(); return false; }
+    if (!getBrainDumpAccess()) abortAI();
     if (!validSession() || !book() || (el('id').value && !current())) { deactivate(); return true; }
     if (current()?.conflict) el('editor-conflict').innerHTML = renderRecipeConflict(current());
     else el('editor-conflict').innerHTML = '';
@@ -417,6 +488,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     if (!target || !el('form')?.contains(target)) return;
     event.preventDefault();
     const action = target.dataset.recipeEditorAction || target.dataset.recipeAction;
+    if (action === 'brain-dump') { await refineWithBrainDump(); return; }
     if (['keep-local', 'use-server'].includes(action)) {
       const recipe = current(); if (!recipe?.conflict || busy || !editable()) return;
       const draft = readState(), original = comparable(baseline), content = comparable(draft);
@@ -502,9 +574,15 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
   }
   function bind() {
     if (bound) return; bound = true; modal.bind(); imagePicker.bind(); root.addEventListener('click', action);
+    const win = root.defaultView || globalThis.window;
+    win?.addEventListener('online', refreshAI);
+    win?.addEventListener('offline', () => { if (busy?.kind === 'ai') { abortAI(); error('recipe.ai.offline'); permissions(); } else refreshAI(); });
+    if (win?.MutationObserver && el('modal')) new win.MutationObserver(() => {
+      if (!active() && busy?.kind === 'ai') { abortAI(); permissions(); }
+    }).observe(el('modal'), { attributes: true, attributeFilter: ['class'] });
     globalThis.window?.addEventListener('nia-language-change', () => {
       translatePage(el('modal'));
-      renderImportReview();
+      renderImportReview(); refreshAI();
       imagePicker.refresh();
       const ingredients = new Map(readState().ingredient_groups.flatMap(group => group.ingredients).map(item => [item.client_key, item]));
       for (const row of el('editor-groups').querySelectorAll('.recipe-editor-ingredient')) {
@@ -529,7 +607,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
         row.querySelector('.recipe-editor-ingredient-copy').innerHTML = ingredientSummary(item);
       }
       if (row || event.target.matches('[data-field="group-name"]')) refreshStepPickers();
-      validateQuantities(); if (new TextEncoder().encode(JSON.stringify(readState())).length > 512 * 1024) error('recipe.error.tooLarge'); modal.refreshSaveState();
+      validateQuantities(); if (new TextEncoder().encode(JSON.stringify(readState())).length > 512 * 1024) error('recipe.error.tooLarge'); refreshAI(); modal.refreshSaveState();
     });
     el('form').addEventListener('change', event => {
       if (updateStepQuantity(event.target)) return;
@@ -564,5 +642,5 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     });
   }
   return { bind, showCreate: cookbookId => open(null, cookbookId), showImport, showEdit: id => { const recipe = recipeController.getRecipe(id); return recipe ? open(recipe, recipe.cookbook_id) : false; },
-    reconcile, remapRecipeId, deactivate, save, deleteCurrentRecipe: remove, getDraft: readState };
+    reconcile, remapRecipeId, deactivate, save, refineWithBrainDump, deleteCurrentRecipe: remove, getDraft: readState };
 }

@@ -271,6 +271,7 @@ const whatsNewFeature = createWhatsNewFeature({
   getCurrentUser: () => currentUser,
 });
 const brainDumpLiveFeature = createBrainDumpLiveFeature({
+  onAccessChange: () => { recipeEditorFeature?.reconcile(); recipeImportFeature?.reconcile(); },
   routingMemory,
   loadTaskSections: () => dbGetAll('sections'),
   getProjects: () => projects,
@@ -696,6 +697,8 @@ const userSettingsFeature = createUserSettingsFeature({
 async function disconnectAuthenticatedRuntime() {
   authenticatedRuntimeEpoch += 1;
   routingMemory?.clear();
+  recipeEditorFeature?.deactivate();
+  recipeImportFeature?.deactivate();
   recipeShoppingTransferFeature?.deactivate();
   syncInProgressRef.privacyGeneration = Number(syncInProgressRef.privacyGeneration || 0) + 1;
   const privacyDrains = [
@@ -1390,6 +1393,8 @@ recipeViewFeature = createRecipeViewFeature({
   loadRecipeImage: recipeImagesFeature.load, releaseRecipeImage: recipeImagesFeature.release,
 });
 recipeEditorFeature = createRecipeEditorFeature({
+  api: recipesApi,
+  getBrainDumpAccess: () => Boolean(currentUser?.braindump_enabled && brainDumpLiveFeature.hasAccess?.()),
   getCookbooks: () => cookbooks, recipeController, getSessionIdentity: getCookbookSessionIdentity,
   confirmDanger, prepareRecipeImage, loadRecipeImage: recipeImagesFeature.load,
   releaseRecipeImage: recipeImagesFeature.release,
@@ -1397,6 +1402,7 @@ recipeEditorFeature = createRecipeEditorFeature({
   onDeleted: () => recipeViewFeature.showOverview({ replaceHistory: true }),
 });
 recipeImportFeature = createRecipeImportFeature({
+  getBrainDumpAccess: () => Boolean(currentUser?.braindump_enabled && brainDumpLiveFeature.hasAccess?.()),
   api: recipesApi, editor: recipeEditorFeature, getCookbooks: () => cookbooks,
   getActiveCookbookId: () => cookbookNavigationFeature.getActiveCookbookId(),
   getSessionIdentity: getCookbookSessionIdentity,

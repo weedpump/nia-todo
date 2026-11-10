@@ -122,6 +122,10 @@ run_step "Cookbooks Offline Metadata Sync" node scripts/test_offline_cookbooks_s
 run_step "Cookbooks Real-Service E2E" node scripts/test_frontend_cookbooks_e2e.mjs
 run_step "HTTP Request Cancellation" node scripts/test_http_cancellation.mjs
 run_step "Recipe Public URL Downloads" python3 scripts/test_public_fetch.py
+run_step "Shared LLM Client" python3 scripts/test_llm_client.py
+run_step "Recipe BrainDump AI" python3 scripts/test_recipe_ai.py
+run_step "Recipe BrainDump UI" node scripts/test_frontend_recipe_ai.mjs
+run_step "Recipe BrainDump Real-App E2E" node scripts/test_recipe_ai_e2e.mjs
 run_step "Recipe Import Parsing" python3 scripts/test_recipe_import.py
 run_step "Recipe Import Preview UI" node scripts/test_frontend_recipe_import.mjs
 run_step "Recipe Import Real-App E2E" node scripts/test_recipe_import_e2e.mjs

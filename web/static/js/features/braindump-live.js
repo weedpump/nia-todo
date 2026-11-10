@@ -187,7 +187,11 @@ export function createBrainDumpLiveFeature(options = {}) {
     return [...new Set(options.getSupportedModules() || [])].filter(id => ['tasks', 'shopping'].includes(id));
   }
 
+  let publishedAccess = null;
+  const hasAccess = () => Boolean(state.accessChecked && state.enabled && state.accessToken === getAuthToken() && getAuthToken());
   function refreshLauncher({ checkAccess = true } = {}) {
+    const access = hasAccess();
+    if (publishedAccess !== access) { publishedAccess = access; options.onAccessChange?.(access); }
     const fab = document.getElementById('braindump-fab');
     const root = options.getLauncherRoot?.() || document.body;
     if (fab && fab.parentElement !== root) root?.appendChild(fab);
@@ -1609,5 +1613,5 @@ export function createBrainDumpLiveFeature(options = {}) {
     `;
   }
 
-  return { init, open, refreshLauncher };
+  return { init, open, refreshLauncher, hasAccess };
 }

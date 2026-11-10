@@ -15,6 +15,11 @@ import time
 from dataclasses import dataclass
 from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
+from services.http_transport import (
+    DNS_POOL, DNS_SLOTS, DNSBusyError, DeadlineConnection, resolve_addresses,
+    start_deadline_watchdog, close_deadline_connection,
+)
+
 
 class PublicFetchError(ValueError):
     def __init__(self, code: str):
@@ -30,8 +35,11 @@ class PublicResponse:
     charset: str | None = None
 
 
-_DNS = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="nia-public-dns")
-_DNS_SLOTS = threading.BoundedSemaphore(8)
+# Compatibility seams for existing transport tests; all HTTP clients share
+# one bounded resolver and one deadline/socket implementation.
+_DNS = DNS_POOL
+_DNS_SLOTS = DNS_SLOTS
+_PinnedConnection = DeadlineConnection
 _MAX_REDIRECTS = 4
 
 
@@ -74,66 +82,14 @@ def _public_ip(value: str) -> bool:
 
 def _addresses(host: str, port: int, remaining: float) -> list[tuple[int, str]]:
     try:
-        literal = ipaddress.ip_address(host)
-    except ValueError:
-        literal = None
-    if literal is not None:
-        records = [(socket.AF_INET6 if literal.version == 6 else socket.AF_INET, host)]
-    else:
-        if not _DNS_SLOTS.acquire(blocking=False):
-            raise PublicFetchError("recipe.import.busy")
-        future = _DNS.submit(socket.getaddrinfo, host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
-        future.add_done_callback(lambda _: _DNS_SLOTS.release())
-        try:
-            answers = future.result(timeout=max(.01, remaining))
-            records = list(dict.fromkeys((answer[0], answer[4][0]) for answer in answers))
-        except (OSError, concurrent.futures.TimeoutError):
-            future.cancel()
-            raise PublicFetchError("recipe.import.downloadFailed") from None
+        records = resolve_addresses(host, port, remaining, pool=_DNS, slots=_DNS_SLOTS)
+    except DNSBusyError:
+        raise PublicFetchError("recipe.import.busy") from None
+    except OSError:
+        raise PublicFetchError("recipe.import.downloadFailed") from None
     if not records or any(family not in {socket.AF_INET, socket.AF_INET6} or not _public_ip(address) for family, address in records):
         raise PublicFetchError("recipe.import.blockedUrl")
     return records
-
-
-class _PinnedConnection(http.client.HTTPConnection):
-    def __init__(self, host: str, port: int, family: int, address: str, *, tls: bool, deadline: float):
-        super().__init__(host, port, timeout=max(.01, deadline - time.monotonic()))
-        self.family, self.address, self.tls, self.deadline = family, address, tls, deadline
-        self._deadline_socket = None
-        self._deadline_expired = threading.Event()
-
-    def abort_deadline(self):
-        self._deadline_expired.set()
-        sock = self._deadline_socket
-        if sock is not None:
-            try: sock.shutdown(socket.SHUT_RDWR)
-            except OSError: pass
-            try: sock.close()
-            except OSError: pass
-
-    def _check_deadline(self):
-        if self._deadline_expired.is_set() or time.monotonic() >= self.deadline:
-            self.abort_deadline()
-            raise TimeoutError()
-
-    def connect(self):
-        sock = socket.socket(self.family, socket.SOCK_STREAM)
-        self._deadline_socket = sock
-        try:
-            self._check_deadline()
-            sock.settimeout(max(.01, self.deadline - time.monotonic()))
-            sock.connect((self.address, self.port))
-            self._check_deadline()
-            if self.tls:
-                sock = ssl.create_default_context().wrap_socket(sock, server_hostname=self.host, do_handshake_on_connect=False)
-                self._deadline_socket = sock
-                self._check_deadline()
-                sock.do_handshake()
-            self._check_deadline()
-            self.sock = sock
-        except Exception:
-            sock.close()
-            raise
 
 
 def fetch_public(url: str, *, max_bytes: int = 2 * 1024 * 1024, timeout: float = 15,
@@ -155,9 +111,7 @@ def fetch_public(url: str, *, max_bytes: int = 2 * 1024 * 1024, timeout: float =
         family, address = min(addresses, key=lambda entry: entry[0] != socket.AF_INET)
         connection = _PinnedConnection(host, port, family, address, tls=tls, deadline=deadline)
         response = None
-        watchdog = threading.Timer(max(.01, deadline - time.monotonic()), getattr(connection, 'abort_deadline', lambda: None))
-        watchdog.daemon = True
-        watchdog.start()
+        watchdog = start_deadline_watchdog(connection, deadline)
         try:
             connection.request("GET", urlunsplit(("", "", parts.path, parts.query, "")), headers={
                 "Host": parts.netloc, "User-Agent": "Nia/recipe-import", "Accept-Encoding": "identity",
@@ -212,11 +166,7 @@ def fetch_public(url: str, *, max_bytes: int = 2 * 1024 * 1024, timeout: float =
         except (OSError, ValueError, http.client.HTTPException):
             raise PublicFetchError("recipe.import.downloadFailed") from None
         finally:
-            watchdog.cancel()
             if response is not None:
                 response.close()
-            connection.close()
-            retained = getattr(connection, '_deadline_socket', None)
-            if retained is not None:
-                retained.close()
+            close_deadline_connection(connection, watchdog)
     raise PublicFetchError("recipe.import.downloadFailed")

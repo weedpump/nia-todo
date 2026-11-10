@@ -242,3 +242,13 @@
   .recipe-editor-source-fields { grid-template-columns: minmax(0,1fr); }
   .recipe-import-content .ui-detail-header-actions .btn { min-height: 44px; white-space: normal; }
 }
+
+.recipe-ai-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+.recipe-ai-tools:has(>button[hidden]):has(>p[hidden]) { display: none; }
+.recipe-ai-tools .btn { max-width: 100%; white-space: normal; }
+.recipe-ai-tools .recipe-step-hint { margin: 0; }
+.recipe-import-mode { width: fit-content; max-width: 100%; }
+.recipe-import-mode .ui-segmented-option { display: inline-flex; align-items: center; gap: 6px; }
+.recipe-import-mode[hidden], .recipe-import-content [hidden] { display: none; }
+.recipe-import-content textarea.ui-field { min-height: 220px; resize: vertical; }
+@media(max-width:768px) { .recipe-ai-tools { align-items: stretch; } .recipe-ai-tools .btn { min-height: 44px; } }

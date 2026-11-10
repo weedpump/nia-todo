@@ -36,6 +36,8 @@ from routers.todos import (
 )
 from urllib.parse import urlparse
 
+from services import llm_client
+from services.ai_access import require_braindump_ai_access
 from services.braindump_config import build_effective_system_prompt, get_braindump_config, llm_chat_url, parse_extra_headers
 from services.braindump_candidates import can_apply_learned_route, candidate_context_payload, enabled_candidate_modules, is_shopping_candidate, load_shopping_context, normalize_candidates
 from services.braindump_v2 import (
@@ -941,73 +943,30 @@ def _is_local_openclaw_base_url(base_url: str) -> bool:
 
 
 
+# Compatibility wrappers keep existing extractor/probe injection points while
+# BrainDump and recipe BrainDump use one provider implementation.
 def _post_llm_chat(payload: dict, headers: dict[str, str], config: dict) -> dict:
-    body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        llm_chat_url(config),
-        data=body,
-        headers=headers,
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=float(config.get("llm_timeout_seconds") or 180)) as response:
-        return json.loads(response.read().decode("utf-8"))
+    return llm_client.post_chat(payload, headers, config)
 
 
 def _llm_request_payload(payload: dict, config: dict) -> dict:
-    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
-    if provider == "ollama":
-        options = {"temperature": payload.get("temperature", 0)}
-        if payload.get("max_tokens"):
-            options["num_predict"] = payload["max_tokens"]
-        return {
-            "model": payload["model"],
-            "messages": payload["messages"],
-            "stream": False,
-            "options": options,
-        }
-    return payload
+    return llm_client.request_payload(payload, config)
 
 
 def _llm_response_content(result: dict, config: dict) -> str:
-    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
-    if provider == "ollama":
-        return str(result.get("message", {}).get("content") or "")
-    return result["choices"][0]["message"].get("content", "")
+    return llm_client.response_content(result, config)
 
 
 def _llm_finish_reason(result: dict, config: dict) -> str | None:
-    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
-    if provider == "ollama":
-        done_reason = result.get("done_reason") or result.get("message", {}).get("done_reason")
-        return str(done_reason) if done_reason else None
-    choices = result.get("choices") or []
-    if not choices:
-        return None
-    finish_reason = choices[0].get("finish_reason")
-    return str(finish_reason) if finish_reason else None
+    return llm_client.finish_reason(result, config)
 
 
 def _llm_usage(result: dict, config: dict) -> dict | None:
-    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
-    if provider == "ollama":
-        usage = {
-            "prompt_tokens": result.get("prompt_eval_count"),
-            "completion_tokens": result.get("eval_count"),
-        }
-        usage = {key: value for key, value in usage.items() if value is not None}
-        return usage or None
-    usage = result.get("usage")
-    return usage if isinstance(usage, dict) else None
+    return llm_client.usage(result, config)
 
 
 def _llm_reasoning_tokens(usage: dict | None) -> int | None:
-    if not usage:
-        return None
-    details = usage.get("completion_tokens_details")
-    if not isinstance(details, dict):
-        return None
-    value = details.get("reasoning_tokens")
-    return int(value) if isinstance(value, int) else None
+    return llm_client.reasoning_tokens(usage)
 
 
 def _braindump_llm_max_tokens(text: str, *, retry: bool = False) -> int:
@@ -1036,16 +995,11 @@ def _llm_empty_content_diagnostic(result: dict, config: dict, max_tokens: int) -
 
 
 def _should_retry_empty_llm_content(result: dict, config: dict) -> bool:
-    finish_reason = (_llm_finish_reason(result, config) or "").lower()
-    usage = _llm_usage(result, config)
-    reasoning_tokens = _llm_reasoning_tokens(usage) or 0
-    return finish_reason in {"length", "max_tokens"} or reasoning_tokens > 0
+    return llm_client.should_retry_empty(result, config)
 
 
 def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
     config = config or get_braindump_config(include_secrets=True)
-    base_url = str(config.get("llm_base_url") or "").strip()
-    token = str(config.get("llm_api_key") or "").strip()
     system_prompt = build_effective_system_prompt(config, supported_modules=(workspace_context or {}).get("supported_modules") if (workspace_context or {}).get("typed_candidates") else None)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
@@ -1068,10 +1022,7 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
             "user": f"nia-todo-live-braindump-{segment_id}-{int(time.time() * 1000)}",
         }
 
-    headers = {"Content-Type": "application/json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
+    headers = llm_client.build_headers(config)
 
     def send_payload(payload_to_send: dict) -> dict:
         request_payload = _llm_request_payload(payload_to_send, config)
@@ -1107,16 +1058,8 @@ _extract_with_openclaw = _extract_with_llm
 
 
 def require_braindump_access(user_id: int):
-    config = get_braindump_config(include_secrets=True)
-    if not config.get("enabled"):
-        raise HTTPException(403, "BrainDump is disabled")
-    with get_db() as db:
-        try:
-            ensure_braindump_enabled(db, user_id)
-        except PermissionError as exc:
-            if str(exc) == "user_not_found":
-                raise HTTPException(404, "User not found")
-            raise HTTPException(403, "BrainDump is not enabled for this user")
+    require_braindump_ai_access(user_id, config_loader=get_braindump_config,
+                                database=get_db, user_gate=ensure_braindump_enabled)
 
 
 @router.get("/access")

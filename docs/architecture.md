@@ -179,5 +179,15 @@ Recipe URL import uses `recipe-scrapers` on bounded, DNS-pinned public HTTP(S) d
 The authenticated preview endpoint returns an unsaved aggregate and optional normalized
 image; it never creates a recipe. The ordinary recipe editor, authorization, mutation
 receipts and offline queue handle saving. Source URL, site, author and original yield
-are recipe fields and inherit cookbook access. No LLM is called; uncertain ingredient
-lines and yields are preserved for review, and step quantities are not inferred.
+are recipe fields and inherit cookbook access. URL parsing calls no LLM; uncertain ingredient lines and yields are preserved
+for review, and step quantities are not inferred by that parser.
+
+Recipe BrainDump uses the shared LLM transport and the existing global and per-user
+BrainDump permission. Its text/refine endpoint returns only an unsaved preview and
+rechecks access around every provider request. One recipe-domain prompt structures
+text or assigns recipe-local ingredient keys to steps; it does not alter BrainDump's
+Tasks/Shopping extraction prompt. Refinement preserves recipe identity on the client
+and sources, established quantities and stable child keys on the server. The ordinary
+editor/save and offline queue remain the only persistence path. Images are not sent
+to the model. The UI reuses the existing BrainDump access check, without a separate
+permission or connection setting.
