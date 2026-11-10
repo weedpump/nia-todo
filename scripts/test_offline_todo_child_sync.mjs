@@ -637,6 +637,15 @@ websocketSyncRef.value = false;
 await realtimeOwnCreate;
 assert.deepEqual(websocketStores.todos.map(todo => todo.id), [902]);
 
+websocketStores.todos = [];
+websocketStores.syncQueue = [{ id: 61, action: 'DELETE_TODO', data: { id: 902, undo_grace_until: Date.now() + 5000 } }];
+await websocketClient.handleWsMessage({
+  type: 'todo_create', payload: { id: 902, title: 'Create echo after optimistic deletion', comments: [], subtasks: [] },
+});
+assert.deepEqual(websocketStores.todos, [], 'a create echo must keep a pending-deleted Todo out of cache and UI');
+assert.equal(websocketStores.syncQueue[0].action, 'DELETE_TODO', 'the create echo must retain the server deletion intent');
+websocketStores.syncQueue = [];
+
 websocketSyncRef.value = false;
 websocketSyncRef.privacyGeneration = 0;
 websocketStores.projects = [{ id: 980, name: 'Private project' }];

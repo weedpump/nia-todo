@@ -229,29 +229,54 @@ async function run() {
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
-    await openTodoModal();
-    await page.fill('#todo-title', 'Delete Shortcut Todo');
-    await page.selectOption('#todo-project', { label: 'Frontend Project A' }, { force: true });
-    await ensureSectionOptions(['Section A Renamed', 'Section B']);
-    await page.click('button[form="todo-form"]');
-    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await page.waitForFunction(() => document.body.innerText.includes('Delete Shortcut Todo'), { timeout: 10000 });
-    await page.evaluate(() => {
-      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes('Delete Shortcut Todo'));
-      const item = titleEl?.closest('.todo-item');
-      if (!item) throw new Error('Delete Shortcut Todo item missing');
-      item.dispatchEvent(new PointerEvent('pointerover', { pointerId: 91, pointerType: 'mouse', isPrimary: true, bubbles: true }));
-    });
-    await page.keyboard.press('Delete');
-    await visible('#confirm-modal');
-    await page.waitForFunction(() => document.activeElement?.id === 'confirm-confirm-btn', { timeout: 5000 });
-    await page.keyboard.press('Enter');
-    await page.locator('#confirm-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await waitForPageCondition(page, async () => {
-      const jwt = localStorage.getItem('jwt_token');
-      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
-      return !data.todos.some(todo => todo.title === 'Delete Shortcut Todo');
-    }, null, { timeout: 10000 });
+    // Hold the actual create request so deleting an optimistic row is a
+    // deterministic regression instead of depending on runner/network speed.
+    let releaseShortcutCreate;
+    const shortcutCreateGate = new Promise(resolve => { releaseShortcutCreate = resolve; });
+    const isShortcutCreate = request => request.method() === 'POST'
+      && new URL(request.url()).pathname === '/api/todos'
+      && request.postDataJSON()?.title === 'Delete Shortcut Todo';
+    const holdShortcutCreate = async route => {
+      if (isShortcutCreate(route.request())) await shortcutCreateGate;
+      await route.continue();
+    };
+    await page.route('**/api/todos', holdShortcutCreate);
+    try {
+      await openTodoModal();
+      await page.fill('#todo-title', 'Delete Shortcut Todo');
+      await page.selectOption('#todo-project', { label: 'Frontend Project A' }, { force: true });
+      await ensureSectionOptions(['Section A Renamed', 'Section B']);
+      const createStarted = page.waitForRequest(isShortcutCreate, { timeout: 10000 });
+      await page.click('button[form="todo-form"]');
+      await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+      await createStarted;
+      const shortcutTodo = page.locator('.todo-item').filter({ has: page.locator('.todo-title', { hasText: 'Delete Shortcut Todo' }) });
+      await shortcutTodo.waitFor({ state: 'visible', timeout: 10000 });
+      if (!(await shortcutTodo.getAttribute('data-id'))?.startsWith('temp-')) {
+        throw new Error('Shortcut regression must exercise a pending temporary Todo');
+      }
+      await shortcutTodo.hover();
+      await page.keyboard.press('Delete');
+      await visible('#confirm-modal');
+      await page.waitForFunction(() => document.activeElement?.id === 'confirm-confirm-btn', null, { timeout: 5000 });
+      await page.keyboard.press('Enter');
+      await page.locator('#confirm-modal').waitFor({ state: 'hidden', timeout: 5000 });
+      await shortcutTodo.waitFor({ state: 'detached', timeout: 5000 });
+      const createFinished = page.waitForResponse(response => isShortcutCreate(response.request()), { timeout: 10000 });
+      releaseShortcutCreate();
+      const response = await createFinished;
+      if (!response.ok()) throw new Error(`Held Todo creation failed: ${response.status()}`);
+      const createdId = (await response.json()).id;
+      if (!Number.isSafeInteger(createdId) || createdId <= 0) throw new Error('Held Todo creation did not return a canonical ID');
+      await waitForPageCondition(page, async id => {
+        const jwt = localStorage.getItem('jwt_token');
+        const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+        return !data.todos.some(todo => todo.id === id || todo.title === 'Delete Shortcut Todo');
+      }, createdId, { timeout: 10000 });
+    } finally {
+      releaseShortcutCreate();
+      await page.unroute('**/api/todos', holdShortcutCreate);
+    }
 
     const deleteSectionButton = page.locator('.section-header').filter({ hasText: 'Section A Renamed' }).first().locator('.section-delete');
     await deleteSectionButton.click();

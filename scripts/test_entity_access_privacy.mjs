@@ -424,11 +424,12 @@ const attachmentFeature = createTodoAttachmentsFeature({
   getTodos: () => attachmentTodos,
   setTodos: next => { attachmentTodos = structuredClone(next); },
   getProjects: () => attachmentProjects,
-  getCurrentUser: () => ({ attachment_remaining_bytes: 100, attachments_enabled: true }),
+  getCurrentUser: () => ({ id: 1, attachment_remaining_bytes: 100, attachments_enabled: true }),
   setCurrentUser() {}, getAppInitialized: () => true, getDb: () => ({}),
   dbPut: async () => { attachmentWrites += 1; },
   isOnlineForSync: () => true,
   todosApi: {
+    getAttachmentUsage: async () => ({ enabled: true, used_bytes: 0, remaining_bytes: 100, quota_bytes: 100, max_upload_bytes: 100, allowed_types: ['text/plain'] }),
     uploadAttachment: async () => {
       signalAttachmentRequest();
       await attachmentResponseGate;
@@ -466,12 +467,13 @@ const projectedAttachmentFeature = createTodoAttachmentsFeature({
   getTodos: () => projectedAttachmentTodos,
   setTodos: next => { projectedAttachmentTodos = structuredClone(next); },
   getProjects: () => [{ id: 990 }],
-  getCurrentUser: () => ({ attachment_remaining_bytes: 100, attachments_enabled: true }),
+  getCurrentUser: () => ({ id: 1, attachment_remaining_bytes: 100, attachments_enabled: true }),
   setCurrentUser() {}, getAppInitialized: () => true, getDb: () => ({}),
   dbGetAll: async store => store === 'syncQueue' ? structuredClone(projectedAttachmentQueue) : [],
   dbPut: async (store, value) => { if (store === 'todos') projectedAttachmentDurable = structuredClone(value); },
   isOnlineForSync: () => true,
   todosApi: {
+    getAttachmentUsage: async () => ({ enabled: true, used_bytes: 0, remaining_bytes: 100, quota_bytes: 100, max_upload_bytes: 100, allowed_types: ['text/plain'] }),
     uploadAttachment: async () => {
       signalProjectedAttachment();
       await projectedAttachmentGate;
@@ -629,7 +631,7 @@ assert.match(todosSource, /listByProject\(projectId\)[\s\S]*runAccessFencedCommi
 assert.match(projectsSource, /transferToHousehold[\s\S]*runAccessFencedCommit/);
 assert.match(todosSource, /todosApi\.create\(todoData\)[\s\S]*runAccessFencedCommit/);
 assert.match(todosSource, /todosApi\.createComment[\s\S]*applyCommentTodoResponse\(response, commentPrivacyGeneration\)/);
-assert.match(attachmentsSource, /uploadAttachment\(id, file\)[\s\S]*applyAttachmentTodoResponse\(latestResponse, privacyGeneration\)/);
+assert.match(attachmentsSource, /uploadAttachment\(id, file\)[\s\S]*applyAttachmentTodoResponse\(latestResponse, privacyGeneration, sameSelection\)/);
 assert.match(attachmentsSource, /deleteAttachment\(todoId, attachmentId\)[\s\S]*applyAttachmentTodoResponse\(response, privacyGeneration\)/);
 assert.match(attachmentsSource, /projectPendingTodoChanges\(updatedTodo, queue\)/);
 assert.match(todosSource, /projectPendingTodoChanges\(updatedTodo, queue\)/);

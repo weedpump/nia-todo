@@ -54,6 +54,7 @@ jobs:
       - name: Install package and run test suite
         env:
           MOBILE_SWIPE_BROWSERS: chromium
+          ITEM_DND_BROWSERS: chromium
         run: scripts/release/install-and-test.sh dist/release/ci/nia-todo-server-v0.0.0-full.deb
 
   webkit-swipe:
@@ -75,3 +76,8 @@ jobs:
         env:
           MOBILE_SWIPE_BROWSERS: webkit
         run: node scripts/test_mobile_swipe_underlay.mjs
+
+      - name: Run WebKit shared item drag-drop regression
+        env:
+          ITEM_DND_BROWSER: webkit
+        run: node scripts/test_shared_item_drag_drop.mjs

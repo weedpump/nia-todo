@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import HTTPException
 from paths import ATTACHMENT_DIR
+from services.sharing import can_access_project
 
 DEFAULT_ATTACHMENTS_ENABLED = True
 DEFAULT_ALLOWED_ATTACHMENT_TYPES = [
@@ -579,11 +580,49 @@ def update_attachment_config(db, data: dict[str, Any]) -> dict[str, Any]:
 
 
 def attachment_usage_bytes(db, user_id: int) -> int:
+    """Charge retained uploads only while their uploader can access the todo.
+
+    Keep uploader attribution and file lifetime independent of quota accounting.
+    The short read snapshot also makes existing uploads and their access sources
+    agree, without leaving a read transaction open for an unrelated caller write.
+    Upload enforcement already holds the SQLite writer transaction.
+    """
+    own_snapshot = not db.in_transaction
+    if own_snapshot:
+        db.execute("SAVEPOINT attachment_usage")
     try:
-        row = db.execute("SELECT COALESCE(SUM(size_bytes), 0) AS total FROM todo_attachments WHERE user_id = ?", (user_id,)).fetchone()
-    except Exception:
-        return 0
-    return int(row["total"] if row else 0)
+        try:
+            rows = db.execute(
+                """SELECT todo.project_id, todo.user_id AS todo_user_id,
+                          SUM(attachment.size_bytes) AS total
+                   FROM todo_attachments attachment
+                   JOIN todos todo ON todo.id = attachment.todo_id
+                   WHERE attachment.user_id = ?
+                   GROUP BY todo.project_id, todo.user_id""",
+                (user_id,),
+            ).fetchall()
+        except sqlite3.OperationalError as error:
+            # Compatibility with pre-attachment schemas; other database errors
+            # must not silently make an exhausted quota appear empty.
+            if "no such table: todo_attachments" in str(error):
+                return 0
+            raise
+        access_by_project = {}
+        total = 0
+        for row in rows:
+            project_id = row["project_id"]
+            if project_id is None:
+                accessible = row["todo_user_id"] == user_id
+            else:
+                if project_id not in access_by_project:
+                    access_by_project[project_id] = can_access_project(db, project_id, user_id)
+                accessible = access_by_project[project_id]
+            if accessible:
+                total += int(row["total"] or 0)
+        return total
+    finally:
+        if own_snapshot:
+            db.execute("RELEASE attachment_usage")
 
 
 def user_attachment_quota_bytes(db, user_id: int) -> int:

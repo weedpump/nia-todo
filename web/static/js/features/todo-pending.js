@@ -77,7 +77,9 @@ export function runCurrentEntityMutation(entityId, {
   if (typeof commit !== 'function') throw new TypeError('commit is required');
   if (typeof mutate !== 'function') throw new TypeError('mutate is required');
   return commit(async enqueue => {
-    const current = (getEntities() || []).find(entity => String(entity?.id) === String(entityId));
+    const currentId = typeof entityId === 'function' ? entityId() : entityId;
+    if (currentId == null) return null;
+    const current = (getEntities() || []).find(entity => String(entity?.id) === String(currentId));
     if (!current) return null;
     return mutate(current, enqueue);
   });

@@ -13,6 +13,7 @@ import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.
 import { acquireSyncCommitLock, projectPendingSectionsSnapshot, projectPendingTodoChanges, runCurrentEntityMutation } from './todo-pending.js';
 import { runAccessFencedCommit } from './entity-access-privacy.js';
 import { mergeRoutingFeedback } from './routing-memory-matcher.js';
+import { withoutPrivateRoutingMetadata } from './entity-metadata.js';
 
 const TODO_META_SUMMARY_CONTROL_IDS = new Set([
   'todo-project',
@@ -91,6 +92,7 @@ export function createTodosFeature({
   openDateTimePicker,
   getActiveModule = () => 'tasks',
   routingMemory = null,
+  getSessionIdentity = () => null,
   syncInProgressRef = {},
 }) {
   const nativeBridge = createNativeBridge();
@@ -99,6 +101,7 @@ export function createTodosFeature({
   let savedPlaces = [];
   let todoSaveSnapshot = null;
   let hoveredTodoId = null;
+  const pendingDeleteTargets = new Set();
   let badgeOpenedSingleChoiceTarget = null;
   let pendingMetaReturnFocusTarget = null;
   let todoRoutingDefaults = { projectId: null, sectionId: null };
@@ -2433,7 +2436,7 @@ export function createTodosFeature({
       const todoId = getShortcutTodoId();
       if (!todoId) return;
       event.preventDefault();
-      if (isDelete) await deleteTodo(Number(todoId));
+      if (isDelete) await deleteTodo(todoId);
       else await toggleTodo(todoId);
     });
   }
@@ -2783,7 +2786,8 @@ export function createTodosFeature({
           await dbPut('todos', nextTodo);
           setTodos(getTodos().map(todo => String(todo.id) === String(id) ? nextTodo : todo));
           const pendingCreate = String(id).startsWith('temp-')
-            ? (await dbGetAll('syncQueue')).find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(id) && !item.attempted)
+            ? (await dbGetAll('syncQueue')).find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(id)
+              && !item.attempted && !item.data?.create_attempted && !item.data?.create_receipt)
             : null;
           if (pendingCreate) {
             const feedback = mergeRoutingFeedback(pendingCreate.data.routing_feedback, routingFeedback);
@@ -3053,36 +3057,65 @@ export function createTodosFeature({
 
   function deleteTodoFromModal() {
     const id = document.getElementById('todo-id').value;
-    if (id) deleteTodo(parseInt(id));
+    if (id) return deleteTodo(id);
+  }
+
+  function remapTodoId(from, to) {
+    const same = id => String(id) === String(from);
+    for (const target of pendingDeleteTargets) {
+      if (target.isCurrent() && same(target.id)) target.id = to;
+    }
+    if (same(hoveredTodoId)) hoveredTodoId = to;
+    const field = document.getElementById('todo-id');
+    if (field?.value && same(field.value)) field.value = String(to);
   }
 
   async function deleteTodo(id) {
-    const confirmed = await confirmDanger({
-      title: t('todo.deleteTitle'),
-      message: t('todo.deleteMessage'),
-      confirmText: t('todo.deleteConfirm'),
-    });
-    if (!confirmed) return;
-    const todo = await runCurrentEntityMutation(id, {
-      getEntities: getTodos,
-      commit: commitQueuedMutation,
-      mutate: async (current, enqueue) => {
-        await deleteFromDB('todos', current.id);
-        setTodos(getTodos().filter(candidate => String(candidate.id) !== String(current.id)));
-        await enqueue('DELETE_TODO', { id: current.id, undo_grace_until: Date.now() + 5000 });
-        return current;
-      },
-    });
-    if (!todo) return;
-    renderStats();
-    renderTodos();
-    closeModal('todo-modal');
-    showToast(t('todo.toast.deleted'), { type: 'delete', id, data: { ...todo } });
+    const original = getTodos().find(todo => String(todo.id) === String(id));
+    const actorId = getCurrentUser?.()?.id;
+    if (!original || actorId == null) return;
+    const privacyGeneration = Number(syncInProgressRef.privacyGeneration || 0);
+    const sessionIdentity = getSessionIdentity();
+    const target = { id: original.id, isCurrent: () => getCurrentUser?.()?.id != null
+      && String(getCurrentUser().id) === String(actorId)
+      && getSessionIdentity() === sessionIdentity
+      && Number(syncInProgressRef.privacyGeneration || 0) === privacyGeneration };
+    pendingDeleteTargets.add(target);
+    try {
+      const confirmed = await confirmDanger({
+        title: t('todo.deleteTitle'),
+        message: t('todo.deleteMessage'),
+        confirmText: t('todo.deleteConfirm'),
+      });
+      if (!confirmed || !target.isCurrent()) return;
+      const todo = await runCurrentEntityMutation(() => target.isCurrent() ? target.id : null, {
+        getEntities: getTodos,
+        commit: commitQueuedMutation,
+        mutate: async (current, enqueue) => {
+          if (!target.isCurrent()) return null;
+          const data = { id: current.id, project_id: current.project_id ?? null,
+            undo_grace_until: Date.now() + 5000,
+            local_todo: structuredClone(withoutPrivateRoutingMetadata(current)) };
+          await deleteFromDB('todos', current.id);
+          if (!target.isCurrent()) return null;
+          setTodos(getTodos().filter(candidate => String(candidate.id) !== String(current.id)));
+          await enqueue('DELETE_TODO', data);
+          return current;
+        },
+      });
+      if (!todo || !target.isCurrent()) return;
+      renderStats();
+      renderTodos();
+      closeModal('todo-modal');
+      showToast(t('todo.toast.deleted'), { type: 'delete', id: todo.id, data: withoutPrivateRoutingMetadata(todo) });
 
-    if (isOnlineForSync()) await syncWithServer();
-    setTimeout(() => {
-      if (isOnlineForSync()) syncWithServer();
-    }, 5200);
+      if (isOnlineForSync()) await syncWithServer();
+      setTimeout(() => {
+        if (target.isCurrent() && isOnlineForSync()) syncWithServer();
+      }, 5200);
+    } finally {
+      pendingDeleteTargets.delete(target);
+    }
   }
 
   function resolveTodoActionId(target) {
@@ -3159,5 +3192,5 @@ export function createTodosFeature({
     document.getElementById('todo-project')?.addEventListener('change', onProjectChange);
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, resetTodoShortcutTarget, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, remapPendingTargetId, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, resetTodoShortcutTarget, remapTodoId, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, remapPendingTargetId, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

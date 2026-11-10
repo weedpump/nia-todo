@@ -79,6 +79,20 @@ run_step_retry() {
   fi
 }
 
+run_shared_item_drag_drop() {
+  local browser label
+  local -a requested_browsers
+  IFS=',' read -r -a requested_browsers <<< "${ITEM_DND_BROWSERS:-chromium,webkit}"
+  for browser in "${requested_browsers[@]}"; do
+    case "$browser" in
+      chromium) label="Chromium" ;;
+      webkit) label="WebKit" ;;
+      *) echo "Unsupported item drag-drop browser: $browser" >&2; return 2 ;;
+    esac
+    run_step "Shared Item Drag-Drop $label" env ITEM_DND_BROWSER="$browser" node scripts/test_shared_item_drag_drop.mjs
+  done
+}
+
 step "🧪 nia-todo Release Gate"
 echo "Repo: $(pwd)"
 echo "Time: $(date '+%Y-%m-%d %H:%M:%S %Z')"
@@ -154,6 +168,8 @@ run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.
 run_step "Subtasks API" python3 scripts/test_subtasks.py
 run_step "Todo Comments API" python3 scripts/test_todo_comments.py
 run_step "Todo Attachments API" python3 scripts/test_todo_attachments.py
+run_step "Todo Attachment Access Quota" python3 scripts/test_attachment_quota_access.py
+run_step "Todo Attachment Quota Preflight" node scripts/test_todo_attachment_quota.mjs
 run_step "Location Reminder Backend" python3 scripts/test_location_reminders.py
 run_step "Location Reminder WebSocket" python3 scripts/test_websocket_location_reminders.py
 run_step "Location Reminder Opt-Out Transaction" node scripts/test_location_reminder_opt_out_transaction.mjs
@@ -192,6 +208,7 @@ run_step "Shared Entity Ownership" node scripts/test_entity_ownership_field.mjs
 run_step "Shared Entity Direct Sharing" node scripts/test_entity_direct_sharing.mjs
 run_step "Shared Entity Invitations" node scripts/test_entity_invitations.mjs
 run_step "Entity Access Privacy" node scripts/test_entity_access_privacy.mjs
+run_step "Todo Delete Identity" node scripts/test_todo_delete_identity.mjs
 run_step "Entity Invitation i18n" node scripts/test_entity_invitation_i18n.mjs
 run_step "Shopping List Access Browser" node scripts/test_frontend_shopping_access.mjs
 run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
@@ -233,8 +250,7 @@ run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.m
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run_step "Shared Item Swipe" node scripts/test_shared_item_swipe.mjs
-run_step "Shared Item Drag-Drop Chromium" node scripts/test_shared_item_drag_drop.mjs
-run_step "Shared Item Drag-Drop WebKit" env ITEM_DND_BROWSER=webkit node scripts/test_shared_item_drag_drop.mjs
+run_shared_item_drag_drop
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summary_live_updates.mjs
@@ -243,6 +259,7 @@ run_step "Pending Project Navigation and Replay" node scripts/test_pending_proje
 run_step "Atomic Task Parent Receipts" node scripts/test_task_parent_replay.mjs
 run_step "WebSocket Access Snapshot" node scripts/test_frontend_access_snapshot.mjs
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
+run_step "Offline Todo Delete Sync Contracts" node scripts/test_offline_todo_delete_sync.mjs
 run_step "Offline Shopping Sync Contracts" node scripts/test_offline_shopping_sync.mjs
 run_step "Frontend Shopping Realtime" node scripts/test_frontend_shopping_realtime.mjs
 run_step "Shopping Store Snapshot" node scripts/test_shopping_store_snapshot.mjs

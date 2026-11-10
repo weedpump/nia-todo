@@ -632,12 +632,13 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
 @router.get("/users")
 def list_users(_: bool = Depends(require_admin)):
     with get_db() as db:
+        if not db.in_transaction:
+            db.execute("BEGIN")
         rows = db.execute("""
             SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at, u.email_trust_source,
                    u.pending_email, u.password_hash IS NOT NULL AS password_configured, u.is_admin, u.language, u.created_at,
                    COALESCE(u.braindump_enabled, 0) AS braindump_enabled,
                    u.attachment_quota_bytes,
-                   COALESCE((SELECT SUM(ta.size_bytes) FROM todo_attachments ta WHERE ta.user_id = u.id), 0) AS attachment_usage_bytes,
                    COALESCE(u.two_factor_enabled, 0) AS two_factor_enabled,
                    CASE WHEN u.two_factor_totp_secret IS NOT NULL AND u.two_factor_totp_secret != '' THEN 1 ELSE 0 END AS has_totp,
                    CASE WHEN u.two_factor_recovery_hashes IS NOT NULL AND u.two_factor_recovery_hashes != '[]' THEN 1 ELSE 0 END AS has_recovery_codes,
@@ -651,6 +652,7 @@ def list_users(_: bool = Depends(require_admin)):
         users = []
         for row in rows:
             item = dict(row)
+            item["attachment_usage_bytes"] = attachment_usage_bytes(db, item["id"])
             item["has_email_fallback"] = bool(email_mfa_available and item.get("email") and item.get("email_verified_at"))
             item["attachment_quota_effective_bytes"] = user_attachment_quota_bytes(db, item["id"])
             users.append(item)
