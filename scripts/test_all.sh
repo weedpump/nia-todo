@@ -119,6 +119,7 @@ run_step "Recipe Offline Sync" node scripts/test_offline_recipes_sync.mjs
 run_step "Recipe Shopping Transfer UI" node scripts/test_frontend_recipe_shopping_transfer.mjs
 run_step "Recipe Shopping Transfer Offline Sync" node scripts/test_offline_recipe_shopping_transfer.mjs
 run_step "Recipe Shopping Transfer Real-App E2E" node scripts/test_recipe_shopping_transfer_e2e.mjs
+run_step "Shared Routing Memory Real-App E2E" node scripts/test_shared_routing_memory_e2e.mjs
 run_step "Recipe Image Cache" node scripts/test_recipe_image_cache.mjs
 run_step "Recipe Real-Service E2E" node scripts/test_frontend_recipes_e2e.mjs
 run_step "Household API" python3 scripts/test_household_api.py
@@ -138,6 +139,15 @@ run_step "Quantity Unit Spellings" python3 scripts/test_quantity_units.py
 run_step "Quantity Registry Refresh" python3 scripts/test_quantity_registry_update.py
 run_step "BrainDump Shopping Extraction" python3 scripts/test_braindump_shopping_extraction.py
 run_step "BrainDump Shopping Learning and Retry" python3 scripts/test_braindump_shopping_learning.py
+run_step "Shared Routing Memory API" python3 scripts/test_routing_memory.py
+run_step "Routing Base Rules" python3 scripts/test_routing_memory_base.py
+run_step "Shared Routing Memory Cache" node scripts/test_routing_memory.mjs
+run_step "Shared Routing Memory Lifecycle" node scripts/test_routing_memory_lifecycle.mjs
+run_step "Shared Routing Memory Prepared Models" node scripts/test_routing_memory_prepared.mjs
+run_step "Shared Routing Memory Matching" node scripts/test_routing_memory_matching.mjs
+run_step "Routing Base Recognition" node scripts/test_routing_memory_base_recognition.mjs
+run_step "Tasks Routing Memory Matching" node scripts/test_task_routing_memory.mjs
+run_step "Tasks Routing Memory UI" node scripts/test_frontend_todo_routing_memory.mjs
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
 run_step "Recurring Todos" python3 scripts/test_recurring_todos.py
 run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.py
@@ -191,6 +201,7 @@ run_step "Shopping Stores" node scripts/test_shopping_stores.mjs
 run_step "Shopping Items" node scripts/test_shopping_items.mjs
 run_step "Shopping Item Editor Browser" node scripts/test_frontend_shopping_item_create.mjs
 run_step "Shopping List Content Browser" node scripts/test_frontend_shopping_content.mjs
+run_step "Shopping Shared Routing Memory" node scripts/test_frontend_shopping_routing_memory.mjs
 run_step "Shared Entity Editor Modal" node scripts/test_entity_editor_modal.mjs
 run_step "Shared Entity Appearance" node scripts/test_frontend_entity_appearance.mjs
 run_step "Shared Entity Appearance Browser" node scripts/test_frontend_entity_appearance_browser.mjs

@@ -1,3 +1,4 @@
+import { createRoutingMemoryFeature } from './features/routing-memory.js';
 import { createRecipeShoppingTransferController } from './features/recipe-shopping-pending.js';
 import { createRecipeShoppingTransferFeature } from './features/recipe-shopping-transfer.js';
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
@@ -85,6 +86,7 @@ let shoppingLists = [];
 let shoppingStores = [];
 let cookbooks = [];
 let authenticatedRuntimeEpoch = 0;
+let routingMemory = null;
 let currentFilter = 'all';
 let currentProjectId = null;
 let currentWorkspaceId = null;
@@ -156,6 +158,7 @@ function renderShopping() {
 function setShoppingListsState(next, { reconcileDetails = true } = {}) {
   const previousActiveListId = shoppingNavigationFeature?.getActiveListId?.() ?? null;
   shoppingLists = Array.isArray(next) ? next : [];
+  void routingMemory?.refresh();
   shoppingNavigationFeature?.replaceLists(shoppingLists);
   shoppingItemEditorFeature?.reconcile?.();
   recipeShoppingTransferFeature?.reconcile();
@@ -207,6 +210,20 @@ function setTodosState(next, { nativeReminderSnapshotAuthoritative = true } = {}
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
 let currentUser = null;  // { id, username, display_name, token }
+routingMemory = createRoutingMemoryFeature({
+  getActorId: () => currentUser?.id ?? null, getSessionIdentity: getCookbookSessionIdentity,
+  getLists: () => shoppingLists, getStores: () => shoppingStores,
+  getProjects: () => projects, getSections: () => sections,
+  getEnabled: () => currentUser?.braindump_learning_enabled !== false && currentUser?.braindump_learning_enabled !== 0,
+  onEnabledChange: enabled => {
+    if (!currentUser || currentUser.braindump_learning_enabled === enabled) return;
+    currentUser = { ...currentUser, braindump_learning_enabled: enabled };
+    try {
+      const cached = JSON.parse(localStorage.getItem('cached_user') || 'null');
+      if (cached && String(cached.id) === String(currentUser.id)) localStorage.setItem('cached_user', JSON.stringify({ ...cached, braindump_learning_enabled: enabled }));
+    } catch { /* A later authenticated refresh replaces invalid user metadata. */ }
+  },
+});
 
 function persistCachedAvatarMetadata(payload) {
   if (!currentUser?.id) return;
@@ -250,6 +267,8 @@ const whatsNewFeature = createWhatsNewFeature({
   getCurrentUser: () => currentUser,
 });
 const brainDumpLiveFeature = createBrainDumpLiveFeature({
+  routingMemory,
+  loadTaskSections: () => dbGetAll('sections'),
   getProjects: () => projects,
   getSections: () => sections,
   getCurrentWorkspaceId: () => currentWorkspaceId,
@@ -276,6 +295,7 @@ const brainDumpLiveFeature = createBrainDumpLiveFeature({
         store_ids: candidate.shopping_store_ids || [],
         client_mutation_id: candidate.client_mutation_id,
         braindump_route: candidate.braindump_route,
+        ...(candidate.routing_feedback ? { routing_feedback: candidate.routing_feedback } : {}),
       })),
     });
     if (!Array.isArray(created) || created.length !== candidates.length) {
@@ -524,6 +544,7 @@ const syncFeature = createSyncFeature({
   renderShopping: () => renderShopping(),
 });
 const todosFeature = createTodosFeature({
+  routingMemory,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
@@ -647,6 +668,7 @@ const userMenuFeature = createUserMenuFeature({
   logout: () => logout(),
 });
 const userSettingsFeature = createUserSettingsFeature({
+  routingMemory,
   authApi,
   placesApi,
   getCurrentUser: () => currentUser,
@@ -664,6 +686,7 @@ const userSettingsFeature = createUserSettingsFeature({
 });
 async function disconnectAuthenticatedRuntime() {
   authenticatedRuntimeEpoch += 1;
+  routingMemory?.clear();
   recipeShoppingTransferFeature?.deactivate();
   syncInProgressRef.privacyGeneration = Number(syncInProgressRef.privacyGeneration || 0) + 1;
   const privacyDrains = [
@@ -683,6 +706,7 @@ const authSessionFeature = createAuthSessionFeature({
   getAppInitialized: () => appInitialized,
   setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   onCurrentUserChange: () => {
+    void routingMemory?.refresh();
     moduleShell?.applyModulePreferences();
     moduleSwitcher?.render();
     recipeShoppingTransferFeature?.reconcile();
@@ -918,6 +942,7 @@ const calendarViewFeature = createCalendarViewFeature({
 });
 
 const sectionActions = createSectionActionsFeature({
+  routingMemory,
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
@@ -1130,6 +1155,7 @@ const shoppingSectionsAdapter = createShoppingSectionsAdapter({
   },
 });
 const shoppingItemsController = createShoppingItemsController({
+  routingMemory,
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
   getStores: () => shoppingStores,
@@ -1246,6 +1272,7 @@ shoppingListDetailsFeature = createShoppingListDetailsFeature({
   shoppingApi,
 });
 shoppingItemEditorFeature = createShoppingItemEditorFeature({
+  routingMemory,
   getLists: () => shoppingLists,
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
   getStores: () => shoppingStores,
@@ -1331,6 +1358,7 @@ const recipeShoppingTransferController = createRecipeShoppingTransferController(
   isOnlineForSync, syncWithServer,
 });
 recipeShoppingTransferFeature = createRecipeShoppingTransferFeature({
+  routingMemory,
   getCookbooks: () => cookbooks, getLists: () => shoppingLists, getStores: () => shoppingStores,
   getCurrentUser: () => currentUser, getSessionIdentity: getCookbookSessionIdentity,
   canUseShopping: canUseShoppingForTransfer,

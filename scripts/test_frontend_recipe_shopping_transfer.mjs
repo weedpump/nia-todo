@@ -26,7 +26,13 @@ let lists=[{id:10,name:'Haushalt',can_edit:true,sections:[{id:100,name:'Gemüse'
 let stores=[{id:20,shopping_list_id:10,name:'Markt',active:true},{id:21,shopping_list_id:11,name:'Andere Liste',active:true},
  {id:22,shopping_list_id:10,name:'Inaktiv',active:false}];
 const errors=[];
-const feature=createRecipeShoppingTransferFeature({getCookbooks:()=>books,getLists:()=>lists,getStores:()=>stores,
+let memoryRows=[],memoryEnabled=false,memoryGate=null,releaseMemory=null,memoryRefreshes=0;
+const routingMemory={
+ suggest:(name,listId)=>memoryEnabled?memoryRows.find(row=>row.name===name&&(listId==null||String(row.shopping_list_id)===String(listId)))||null:null,
+ feedback:(fields,{eventId})=>memoryEnabled?{event_id:eventId,generation:7,fields}:undefined,
+ refresh:async()=>{memoryRefreshes++;if(memoryGate)await memoryGate;},
+};
+const feature=createRecipeShoppingTransferFeature({getCookbooks:()=>books,getLists:()=>lists,getStores:()=>stores,routingMemory,
  getSessionIdentity:()=>session,getCurrentUser:()=>actor==null?null:{id:actor},canUseShopping:()=>enabled,
  transfer:async(payload,{isCurrent})=>{requests.push(structuredClone(payload));if(requestGate)await requestGate.promise;if(fail)throw new Error('expected transfer failure');return isCurrent()?{client_mutation_id:'operation-'+requests.length,shopping_list_id:payload.shoppingListId,status:'queued'}:null;},
  readPendingTransfers:async()=>{pendingReads++;if(pendingGate)await pendingGate.promise;pendingDone++;return structuredClone(pending);},
@@ -36,7 +42,13 @@ feature.bind();
 const view=createRecipeViewFeature({getCookbooks:()=>books,getActiveCookbookId:()=>1,getSessionIdentity:()=>session,
  getActorId:()=>actor,onTransfer:(recipe,options)=>feature.show(recipe,options)});view.bind();view.selectRecipe(8,{updateNavigation:false});
 const defer=()=>{let release;return {promise:new Promise(resolve=>{release=resolve;}),release:()=>release()};};
-window.test={feature,view,language:setLanguagePreference,show:()=>feature.show(books[0].recipes[0]),state:()=>({requests,queued,errors,pendingReads,pendingDone}),
+window.test={feature,view,
+ memory:rows=>{memoryEnabled=rows!==null;memoryRows=rows||[];},
+ memoryRefreshes:()=>memoryRefreshes,
+ memoryNotify:rows=>{memoryEnabled=rows!==null;memoryRows=rows||[];window.dispatchEvent(new CustomEvent('nia-routing-memory-changed'));},
+ holdMemory:()=>{memoryRows=[];memoryEnabled=true;memoryGate=new Promise(resolve=>{releaseMemory=resolve;});},
+ releaseMemory:rows=>{memoryRows=rows;memoryGate=null;releaseMemory?.();},
+ language:setLanguagePreference,show:()=>feature.show(books[0].recipes[0]),state:()=>({requests,queued,errors,pendingReads,pendingDone}),
  seedFlour:(different=false)=>{books[0].recipes=[{...recipe,ingredient_groups:[{client_key:'dough',name:'Teig',ingredients:[{client_key:'flour-dough',name:'Mehl',quantity_value:.25,quantity_unit:'kg',note:different?'Type 405':'gesiebt'}]},{client_key:'surface',name:'Arbeitsfläche',ingredients:[{client_key:'flour-surface',name:'Mehl',quantity_value:100,quantity_unit:'grams',note:different?'Type 1050':'gesiebt'}]}],steps:[{ingredients:[{ingredient_client_key:'flour-dough'},{ingredient_client_key:'flour-dough'}]}]}];},
  restoreRecipe:()=>{books[0].recipes=[structuredClone(recipe)];},
  oneList:()=>{lists=[lists[0]];},denyList:()=>{lists[0].can_edit=false;feature.reconcile();},
@@ -146,9 +158,82 @@ try {
   ] });
   await waitForPageCondition(page, () => window.test.state().queued.length === 1);
 
+  const remembered=[
+    {name:'Pasta',shopping_list_id:10,section_id:100,section_known:true,store_ids:[20],stores_known:true,memory_fields:['list','section','stores']},
+    {name:'Salz',shopping_list_id:10,section_id:101,section_known:true,store_ids:[],stores_known:true,memory_fields:['list','section','stores']},
+  ];
+  await page.evaluate(rows=>window.test.memory(rows),remembered);await show();
+  assert.equal(await page.locator('#recipe-transfer-list').inputValue(),'10','one unambiguous remembered list is selected across ingredients');
+  assert.equal(await page.locator('#recipe-transfer-list-memory [data-source="memory"] .quick-add-memory-icon svg').count(),1,'the unambiguously remembered list uses the shared memory chip');
+  assert.equal(await page.locator('.recipe-transfer-row[data-key="pasta"] [data-source="memory"] .quick-add-memory-icon svg').count(),2,'each automatically applied ingredient destination carries a brain icon');
+  assert.equal(await page.locator('.recipe-transfer-row[data-key="salt"] [data-source="memory"].store').count(),1,'a deliberately remembered empty store set has a memory badge too');
+  let memoryDraft=await page.evaluate(()=>window.test.feature.getDraft());
+  assert.deepEqual(memoryDraft.ingredients.slice(0,2),[
+    {ingredient_client_key:'pasta',section_id:100,store_ids:[20]},
+    {ingredient_client_key:'salt',section_id:101,store_ids:[]},
+  ],'each ingredient receives its own remembered section and stores');
+  await page.locator('#recipe-transfer-save-btn').click();await modal.waitFor({state:'hidden'});
+  let learnedPayload=(await page.evaluate(()=>window.test.state())).requests.at(-1);
+  assert.ok(learnedPayload.ingredients.every(row=>!row.routing_feedback),'accepting remembered defaults does not teach them again');
+  await show();await portions.focus();
+  const readsBeforeLive=await page.evaluate(()=>window.test.memoryRefreshes());
+  const changedMemory=remembered.map(row=>row.name==='Pasta'?{...row,section_id:101,store_ids:[]}:row);
+  await page.evaluate(rows=>window.test.memoryNotify(rows),changedMemory);
+  assert.match(await page.locator('.recipe-transfer-row[data-key="pasta"]').textContent(),/Vorrat/,'a live remembered destination updates its visible chip');
+  assert.equal(await portions.evaluate(input=>input===document.activeElement),true,'live Recipe memory updates do not steal portions focus');
+  assert.equal(await page.evaluate(()=>window.test.memoryRefreshes()),readsBeforeLive,'Recipe memory notifications do not perform another API read');
+  memoryDraft=await page.evaluate(()=>window.test.feature.getDraft());
+  assert.deepEqual(memoryDraft.ingredients[0],{ingredient_client_key:'pasta',section_id:101,store_ids:[]},'the live visible destination matches the actual draft');
+  await page.evaluate(()=>window.test.memoryNotify(null));
+  assert.equal(await page.locator('#recipe-transfer-modal [data-source="memory"]').count(),0,'resetting memory removes stale Recipe origins');
+  assert.ok((await page.evaluate(()=>window.test.feature.getDraft())).ingredients.every(row=>row.section_id===null&&row.store_ids.length===0),'a reset removes inferred destinations from the actual draft');
+  await close();await page.evaluate(rows=>window.test.memory(rows),remembered);
+  await show();await page.evaluate(()=>{window.test.hold();window.test.fail(true);});
+  await page.locator('#recipe-transfer-save-btn').click();
+  await waitForPageCondition(page,()=>document.getElementById('recipe-transfer-form').getAttribute('aria-busy')==='true');
+  await page.evaluate(rows=>window.test.memoryNotify(rows),changedMemory);
+  assert.match(await page.locator('.recipe-transfer-row[data-key="pasta"]').textContent(),/Gemüse/,'an in-flight transfer retains the reviewed destination while disabled');
+  assert.equal((await page.evaluate(()=>window.test.state())).requests.at(-1).ingredients[0].section_id,100,'a live update never rewrites the in-flight transfer request');
+  await page.evaluate(()=>window.test.release());await ready();
+  assert.match(await page.locator('.recipe-transfer-row[data-key="pasta"]').textContent(),/Vorrat/,'deferred memory changes refresh the visible route after a failed transfer finishes');
+  assert.equal((await page.evaluate(()=>window.test.feature.getDraft())).ingredients[0].section_id,101);
+  assert.deepEqual(await page.evaluate(()=>window.test.state().errors.splice(0)),['expected transfer failure']);
+  await page.evaluate(()=>window.test.fail(false));await close();await page.evaluate(rows=>window.test.memory(rows),remembered);
+  await show();await page.locator('#recipe-transfer-defaults > summary').click();
+  await page.locator('#recipe-transfer-section').selectOption('',{force:true});
+  const rememberedPasta=page.locator('.recipe-transfer-row[data-key="pasta"]');await rememberedPasta.locator('summary').click();
+  await rememberedPasta.locator('[data-target="store"]').selectOption('',{force:true});
+  assert.equal(await rememberedPasta.locator('[data-source="memory"]').count(),0,'explicit empty ingredient targets remove their memory icons');
+  await page.evaluate(rows=>window.test.memoryNotify(rows),remembered.map(row=>({...row,section_id:100,store_ids:[20]})));
+  assert.equal(await rememberedPasta.locator('[data-source="memory"]').count(),0,'live suggestions never overwrite explicitly cleared Recipe destinations');
+  assert.deepEqual((await page.evaluate(()=>window.test.feature.getDraft())).ingredients[0],{ingredient_client_key:'pasta',section_id:null,store_ids:[]});
+  await page.evaluate(()=>window.test.fail(true));
+  await page.locator('#recipe-transfer-save-btn').click();await ready();
+  learnedPayload=(await page.evaluate(()=>window.test.state())).requests.at(-1);
+  assert.deepEqual(learnedPayload.ingredients[0].routing_feedback.fields,['section','stores'],'only explicitly changed fields teach, including empty destinations');
+  assert.equal(learnedPayload.ingredients[0].section_id,null);assert.deepEqual(learnedPayload.ingredients[0].store_ids,[]);
+  assert.deepEqual(learnedPayload.ingredients[1].routing_feedback.fields,['section'],'a global section choice teaches selected sources without teaching inherited stores');
+  const feedbackBefore=learnedPayload.ingredients.map(row=>row.routing_feedback);
+  await page.locator('#recipe-transfer-save-btn').click();await ready();
+  assert.deepEqual((await page.evaluate(()=>window.test.state())).requests.at(-1).ingredients.map(row=>row.routing_feedback),feedbackBefore,'failed submit retains stable event identities');
+  await page.evaluate(()=>window.test.fail(false));await close();
+  await page.evaluate(rows=>window.test.memory(rows),remembered);
+  await page.evaluate(()=>window.test.holdMemory());await show();
+  await page.locator('#recipe-transfer-list').selectOption('11',{force:true});
+  await page.evaluate(rows=>window.test.releaseMemory(rows),remembered);await ready();
+  assert.equal(await page.locator('#recipe-transfer-list').inputValue(),'11','late remembered suggestions never override a manually selected list');
+  assert.equal(await page.locator('#recipe-transfer-modal [data-source="memory"]').count(),0,'a manually selected other list never retains stale memory markers');
+  memoryDraft=await page.evaluate(()=>window.test.feature.getDraft());
+  assert.ok(memoryDraft.ingredients.every(row=>row.section_id===null&&row.store_ids.length===0),'routes remembered for another list never leak into the selected list');
+  await close();await page.evaluate(()=>window.test.memory(null));
+
   await page.evaluate(() => {window.test.oneList();window.test.seedFlour();});await show();
   assert.equal(await page.locator('.recipe-transfer-summary-row').count(),1,'same product across recipe groups consolidates automatically');
   assert.equal(await page.locator('.recipe-transfer-summary-amount').textContent(),'350 g','compatible kg/g source quantities sum once, independently of repeated step references');
+  await close();await page.evaluate(()=>window.test.memory([{name:'Mehl',shopping_list_id:10,section_id:100,section_known:true,store_ids:[20],stores_known:true,memory_fields:['list','section','stores']}]));await show();
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),1,'remembered compatible destinations preserve one merged ingredient row');
+  assert.equal(await page.locator('.recipe-transfer-summary-row [data-source="memory"]').count(),2,'a merged row shows each remembered destination once');
+  await close();await page.evaluate(()=>window.test.memory(null));await show();
   assert.equal(await page.locator('[data-transfer-combine]').count(),0,'identical notes use the existing automatic backend contract');
   assert.equal(await page.evaluate(()=>window.test.feature.getDraft().ingredients.every(row=>!Object.hasOwn(row,'merge_group'))),true);
   await close();await page.evaluate(()=>window.test.seedFlour(true));await show();
@@ -272,6 +357,6 @@ try {
   await page.evaluate(() => window.test.enable()); await show();
   await page.evaluate(() => window.test.evictSource()); await modal.waitFor({ state: 'hidden' });
   assert.deepEqual(errors, []);
-  assert.deepEqual(await page.evaluate(() => window.test.state().errors), ['expected transfer failure']);
+  assert.deepEqual(await page.evaluate(() => window.test.state().errors), ['expected transfer failure','expected transfer failure','expected transfer failure']);
   console.log('✅ Recipe transfer selection, scaled preview, targets, pending intents and lifecycle guards passed');
 } finally { await browser.close(); }

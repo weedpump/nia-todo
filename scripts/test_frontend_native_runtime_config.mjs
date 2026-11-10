@@ -56,27 +56,31 @@ async function installTauriStub(page, settings, options = {}) {
 
 async function testNativeConfiguredServerProbeDoesNotBlockStartup() {
   const { browser, page, dumpErrors } = await launchPage();
+  let releaseProbe;
+  const pendingProbes = [];
+  const probeGate = new Promise(resolve => { releaseProbe = resolve; });
   try {
     await installTauriStub(page, { serverUrl: BASE_URL });
-    await page.route(`${BASE_URL}/api/instance`, async route => {
-      await new Promise(resolve => setTimeout(resolve, 5_000));
-      await route.fulfill({
+    await page.route(`${BASE_URL}/api/instance`, route => {
+      const pendingProbe = probeGate.then(() => route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ app: 'nia-todo' }),
-      });
+      }));
+      pendingProbes.push(pendingProbe);
+      return pendingProbe;
     });
-    const startedAt = Date.now();
-    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    const probeStarted = page.waitForRequest(`${BASE_URL}/api/instance`);
+    await Promise.all([probeStarted, page.goto(BASE_URL, { waitUntil: 'commit' })]);
+    // The probe remains unresolved until cleanup. This proves startup does not
+    // await it, without conflating cold module downloads with probe latency.
     await page.locator('#boot-overlay').waitFor({ state: 'hidden', timeout: 2_000 });
-    const elapsedMs = Date.now() - startedAt;
-    if (elapsedMs >= 2_000) {
-      throw new Error(`Configured native server probe blocked startup for ${elapsedMs}ms`);
-    }
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
   } finally {
+    releaseProbe();
+    await Promise.allSettled(pendingProbes);
     await browser.close();
   }
 }

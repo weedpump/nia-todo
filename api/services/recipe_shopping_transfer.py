@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from db import now_iso
 from services.quantity_units import convert_quantity, normalize_quantity_unit
+from services.routing_memory import RoutingFeedback, record_route_choice, recipe_event_key
 from services.recipe_content import get_authorized_recipe_row, get_recipe_view
 from services.shopping_items import (
     clean_item_text, insert_shopping_item, list_item_targets, require_list_access, validate_item_target,
@@ -27,6 +28,7 @@ class TransferIngredient(BaseModel):
     section_id: EntityId | None = None
     store_ids: list[EntityId] = Field(default_factory=list, max_length=50)
     merge_group: MutationId | None = None
+    routing_feedback: RoutingFeedback | None = None
 
     @field_validator("ingredient_client_key", "merge_group")
     @classmethod
@@ -80,6 +82,43 @@ class RecipeShoppingTransfer(BaseModel):
 
 def normalized_ingredient_name(value):
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+def _confirmed_routing_choices(ingredients, selected, shopping_list_id):
+    """One item can have several real transfer routes, but memory is per field.
+
+    A disagreement between explicitly chosen source destinations is not evidence
+    for either choice. Keep independently agreed fields; never let source order
+    choose which of conflicting destinations will be proposed next time.
+    """
+    values, observations = {}, {}
+    for ingredient in ingredients:
+        target = selected.get(ingredient["client_key"])
+        feedback = target.routing_feedback if target else None
+        if feedback is None or not feedback.fields:
+            continue
+        name = clean_item_text(ingredient["name"], 500, required=True)
+        name_key = normalized_ingredient_name(name)
+        chosen = {"module":"shopping","list": shopping_list_id, "section": target.section_id, "stores": tuple(sorted(set(target.store_ids)))}
+        per_field = values.setdefault((name_key, feedback.generation), {})
+        for field in feedback.fields:
+            per_field.setdefault(field, set()).add(chosen[field])
+        # Keep epochs separate: an old pending source cannot borrow the current
+        # generation from another source to recreate forgotten choices.
+        observation = observations.setdefault((name_key, feedback.generation),
+            {"name": name, "feedback": feedback, "fields": set()})
+        observation["fields"].update(feedback.fields)
+    result = []
+    for (name_key, generation), observation in observations.items():
+        per_field = values[(name_key, generation)]
+        fields = sorted(field for field in observation["fields"] if len(per_field[field]) == 1)
+        if not fields:
+            continue
+        section_id = next(iter(per_field["section"])) if "section" in fields else None
+        store_ids = list(next(iter(per_field["stores"]))) if "stores" in fields else []
+        result.append((observation["name"], section_id, store_ids,
+                       observation["feedback"].model_copy(update={"fields": fields})))
+    return result
 
 
 def _finite_quantity(value):
@@ -157,6 +196,8 @@ def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
     for ingredient in request_data["ingredients"]:
         if ingredient["merge_group"] is None:
             del ingredient["merge_group"]
+        if ingredient["routing_feedback"] is None:
+            del ingredient["routing_feedback"]
     request_hash = hashlib.sha256(json.dumps(
         {"recipe_id": recipe_id, **request_data}, sort_keys=True, ensure_ascii=False, allow_nan=False,
     ).encode()).hexdigest()
@@ -185,6 +226,7 @@ def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
     for item in selected.values():
         validate_item_target(targets, item.section_id, item.store_ids, active_only=True)
     groups = _merge_groups(ingredients, selected)
+    routing_choices = _confirmed_routing_choices(ingredients, selected, payload.shopping_list_id)
 
     assignments = {}
     for row in db.execute(
@@ -263,6 +305,10 @@ def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
             )
     except (InvalidOperation, OverflowError, ZeroDivisionError):
         raise HTTPException(422, "Scaled quantity is outside the supported range") from None
+    for name, section_id, store_ids, feedback in routing_choices:
+        record_route_choice(db, actor_id, name, payload.shopping_list_id, section_id, store_ids, feedback,
+                            event_key=recipe_event_key(payload.client_mutation_id, name, payload.shopping_list_id,
+                                                      section_id, store_ids, feedback))
     db.execute("UPDATE recipe_shopping_transfers SET created_count = ?, merged_count = ? WHERE id = ?", (created_count, merged_count, transfer_id))
     return {"created_count": created_count, "merged_count": merged_count,
             "client_mutation_id": payload.client_mutation_id, "source_revision": source_revision}, True

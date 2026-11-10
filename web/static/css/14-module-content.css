@@ -237,8 +237,11 @@
 .shopping-item-copy { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .shopping-item-caption { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; color: var(--text-muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
 
-.shopping-item-quantity {
+.shopping-item-quantity.ui-badge {
   flex: 0 1 auto;
+  min-width: 0;
+  max-width: 45%;
+  white-space: normal;
   margin-left: auto;
   overflow-wrap: anywhere;
   text-align: right;

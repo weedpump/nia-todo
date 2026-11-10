@@ -2,6 +2,7 @@
 
 import sqlite3
 import math
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.braindump_routes import BrainDumpRouteFeedback, record_confirmed_route
+from services.routing_memory import RoutingFeedback, record_route_choice, legacy_feedback
 from services.appearance import normalize_color, normalize_icon
 from services.quantity_units import normalize_quantity_unit
 from services.shopping_items import (
@@ -121,6 +123,7 @@ class ShoppingItemTextFields(BaseModel):
 
 class ShoppingItemCreate(ShoppingItemTextFields):
     braindump_route: BrainDumpRouteFeedback | None = None
+    routing_feedback: RoutingFeedback | None = None
     name: str = Field(..., max_length=500)
     section_id: Optional[int] = None
     quantity_value: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
@@ -137,6 +140,7 @@ class ShoppingItemCreate(ShoppingItemTextFields):
 
 
 class ShoppingItemUpdate(ShoppingSortOrderUpdate, ShoppingItemTextFields):
+    routing_feedback: RoutingFeedback | None = None
     name: Optional[str] = Field(default=None, max_length=500)
     section_id: Optional[int] = None
     quantity_value: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
@@ -845,9 +849,12 @@ async def create_shopping_item(shopping_list_id: int, data: ShoppingItemCreate, 
                 section_id=data.section_id, quantity_value=data.quantity_value, quantity_unit=data.quantity_unit,
                 quantity_text=data.quantity_text, note=data.note, store_ids=store_ids,
                 sort_order=data.sort_order, client_mutation_id=data.client_mutation_id)
-            record_confirmed_route(db, user_id, name, "shopping", shopping_list_id=shopping_list_id,
-                                   shopping_section_id=data.section_id, shopping_store_ids=store_ids,
-                                   feedback=data.braindump_route)
+            if data.routing_feedback is not None:
+                record_route_choice(db, user_id, name, shopping_list_id, data.section_id, store_ids, data.routing_feedback)
+            else:
+                record_confirmed_route(db, user_id, name, "shopping", shopping_list_id=shopping_list_id,
+                                       shopping_section_id=data.section_id, shopping_store_ids=store_ids,
+                                       feedback=data.braindump_route)
             db.commit()
         except sqlite3.IntegrityError as exc:
             db.rollback()
@@ -893,6 +900,8 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
         validate_item_amount(updates.get("quantity_value", existing["quantity_value"]),
                              updates.get("quantity_text", existing["quantity_text"]))
         store_ids = None
+        previous_store_ids = sorted(row[0] for row in db.execute(
+            "SELECT shopping_store_id FROM shopping_item_stores WHERE shopping_item_id = ?", (item_id,)))
         if "store_ids" in fields_set:
             store_ids = _normalize_store_ids(
                 db,
@@ -924,7 +933,20 @@ async def update_shopping_item(item_id: int, data: ShoppingItemUpdate, user_id: 
                    VALUES (?, ?, ?, ?)""",
                 [(item_id, store_id, shopping_list_id, index) for index, store_id in enumerate(store_ids)],
             )
-        if updates or store_ids is not None:
+        final_section = updates.get("section_id", existing["section_id"])
+        final_stores = store_ids if store_ids is not None else previous_store_ids
+        feedback = data.routing_feedback
+        if feedback is None:
+            changed_fields = []
+            if "section_id" in fields_set and final_section != existing["section_id"]:
+                changed_fields.append("section")
+            if store_ids is not None and sorted(store_ids) != previous_store_ids:
+                changed_fields.append("stores")
+            if changed_fields:
+                feedback = legacy_feedback(db, user_id, "legacy-update:" + uuid.uuid4().hex, changed_fields)
+        learned = record_route_choice(db, user_id, updates.get("name", existing["name"]), shopping_list_id,
+                                      final_section, final_stores, feedback)
+        if updates or store_ids is not None or learned:
             db.commit()
         row = db.execute("SELECT * FROM shopping_items WHERE id = ?", (item_id,)).fetchone()
         result = _item_view(db, row, user_id)

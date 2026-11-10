@@ -1,3 +1,6 @@
+import { escapeHtmlAttr } from '../core/utils.js';
+import { iconSvg } from '../icons/lucide-icons.js';
+
 export function normalizeQuickAddName(value) {
   return String(value || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -12,6 +15,20 @@ export function resolveQuickAddNamedEntity(name, entities = []) {
   return { entity: found.length === 1 ? found[0] : null, ambiguous: found.length > 1 };
 }
 
+/** Shared, escaped chips for parsed and automatically applied field values. */
+function quickAddChipData(match, t) {
+  const remembered = match.source === 'memory';
+  return { className: `quick-add-chip ${match.type || ''}`.trim(), label: match.label || '', value: match.value ?? match.token ?? '',
+    remembered, title: remembered ? t('routingMemory.applied') : '', icon: remembered ? iconSvg('sparkles') : '' };
+}
+
+export function renderQuickAddChips(matches = [], t = key => key) {
+  return matches.map(match => {
+    const data = quickAddChipData(match, t);
+    return `<span class="${escapeHtmlAttr(data.className)}"${data.remembered ? ` data-source="memory" title="${escapeHtmlAttr(data.title)}"` : ''}>${data.icon ? `<span class="quick-add-memory-icon" role="img" aria-label="${escapeHtmlAttr(data.title)}">${data.icon}</span>` : ''}<span class="quick-add-chip-label">${escapeHtmlAttr(data.label)}</span><strong>${escapeHtmlAttr(data.value)}</strong></span>`;
+  }).join('');
+}
+
 export function renderQuickAddPreview(element, result, t = key => key) {
   if (!element) return;
   element.replaceChildren();
@@ -22,16 +39,17 @@ export function renderQuickAddPreview(element, result, t = key => key) {
     element.appendChild(item);
   };
   for (const match of result?.matches || []) {
-    const chip = element.ownerDocument.createElement('span');
-    chip.className = `quick-add-chip ${match.type || ''}`.trim();
-    const label = element.ownerDocument.createElement('span');
-    label.className = 'quick-add-chip-label';
-    label.textContent = match.label;
-    const value = element.ownerDocument.createElement('strong');
-    value.textContent = match.value ?? match.token ?? '';
-    chip.appendChild(label);
-    chip.appendChild(value);
-    element.appendChild(chip);
+    const data = quickAddChipData(match, t), doc = element.ownerDocument;
+    const chip = doc.createElement('span'); chip.className = data.className;
+    if (data.remembered) {
+      chip.setAttribute('data-source', 'memory'); chip.setAttribute('title', data.title);
+      const icon = doc.createElement('span'); icon.className = 'quick-add-memory-icon';
+      icon.setAttribute('role', 'img'); icon.setAttribute('aria-label', data.title); icon.innerHTML = data.icon;
+      chip.appendChild(icon);
+    }
+    const label = doc.createElement('span'); label.className = 'quick-add-chip-label'; label.textContent = data.label;
+    const value = doc.createElement('strong'); value.textContent = data.value;
+    chip.appendChild(label); chip.appendChild(value); element.appendChild(chip);
   }
   for (const key of result?.errors || []) append('quick-add-chip quick-add-error error', t(key));
   for (const key of result?.warnings || []) append('quick-add-chip quick-add-warning warning', t(key));

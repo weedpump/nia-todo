@@ -25,6 +25,8 @@ export function createTodoMultiAddFeature({
   getProjects = () => [],
   getSections = () => [],
   getCurrentProjectId,
+  getCurrentWorkspaceId = () => null,
+  routingMemory = null,
   getAppInitialized,
   getDb,
   dbPut,
@@ -44,6 +46,8 @@ export function createTodoMultiAddFeature({
 }) {
   const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
   let optionsGeneration=0;
+  let projectExplicit = false, sectionExplicit = false;
+  let saving = false, memoryRefreshPending = false, saveOperation = null;
   function syncProjectOptions() {
     const source = document.getElementById('todo-project');
     const target = document.getElementById('todo-multi-project');
@@ -88,10 +92,13 @@ export function createTodoMultiAddFeature({
   const feature = createMultiAddFeature({
     prefix:'todo',t,showToast,
     copy:{count:'todo.multiAdd.count',create:'todo.multiAdd.create',title:'todo.multiAdd.title',subtitle:'todo.multiAdd.subtitle',singleTitle:'todo.new',singleSubtitle:'todo.modal.subtitle'},
-    readDefaults:()=>({projectId:document.getElementById('todo-multi-project')?.value || '',sectionId:document.getElementById('todo-multi-section')?.value || '',priority:Number(document.getElementById('todo-multi-priority')?.value || 3)}),
-    getContext:()=>getCurrentProjectId(),
+    readDefaults:()=>({projectId:document.getElementById('todo-multi-project')?.value || '',sectionId:document.getElementById('todo-multi-section')?.value || '',priority:Number(document.getElementById('todo-multi-priority')?.value || 3),projectExplicit,sectionExplicit}),
+    getContext:()=>({projectId:getCurrentProjectId(),workspaceId:getCurrentWorkspaceId()}),
     getSingleFields:()=>Array.from(document.querySelectorAll('#todo-form .todo-editor-section input, #todo-form .todo-editor-section textarea, #todo-form .todo-editor-section select')),
-    parse:(raw,defaults,context)=>parseQuickAddTitle(raw,context,defaults.projectId || null),
+    parse:(raw,defaults,context)=>parseQuickAddTitle(raw,context.projectId,defaults.projectId || null,{
+      projectExplicit:defaults.projectExplicit,sectionExplicit:defaults.sectionExplicit,sectionId:defaults.sectionId,syntaxOverridesDefaults:true,
+      routingSnapshot:saveOperation?.routingSnapshot,
+    }),
     validate:result=>getMultiTodoValidationKey(result.changes || {}),
     onModeChange:mode=>{
       const root=document.getElementById('todo-modal');
@@ -107,6 +114,7 @@ export function createTodoMultiAddFeature({
     },
     onSave:async(results,{isCurrent,defaults})=>{
       if(!getAppInitialized()||!getDb())return false;
+      const routingSnapshot=saveOperation?.routingSnapshot || routingMemory;
       const {projectId,sectionId,priority}=defaults;
       const sections=await loadSectionsForQuickAdd();
       if(!isCurrent())return false;
@@ -128,8 +136,8 @@ export function createTodoMultiAddFeature({
         location_reminders: [],
       };
       if (parsed.changes.priority) todoData.priority = parsed.changes.priority;
-      if (parsed.changes.project_id) todoData.project_id = parsed.changes.project_id;
-      if (parsed.changes.section_id) todoData.section_id = parsed.changes.section_id;
+      if (Object.hasOwn(parsed.changes, 'project_id')) todoData.project_id = parsed.changes.project_id;
+      if (Object.hasOwn(parsed.changes, 'section_id')) todoData.section_id = parsed.changes.section_id;
       if (parsed.changes.due_date) todoData.due_date = parsed.changes.due_date;
       if (parsed.changes.remind_at) todoData.remind_at = parsed.changes.remind_at;
       if (parsed.changes.recurring_rule) todoData.recurring_rule = parsed.changes.recurring_rule;
@@ -141,13 +149,16 @@ export function createTodoMultiAddFeature({
       Object.assign(todoData, targets);
       todoData.location_reminders = todoData.location_reminder ? [todoData.location_reminder] : [];
       if(getMultiTodoValidationKey(todoData))return false;
-      prepared.push(todoData);
+      const fields = new Set(parsed.routing_fields || []);
+      if (!(parsed.memory_fields || []).includes('list') && getCurrentProjectId() != null
+        && String(todoData.project_id) === String(getCurrentProjectId())) fields.add('list');
+      prepared.push({ todoData, routingFeedback: routingSnapshot?.feedback([...fields]) });
       }
     const now = Date.now();
     const created = [];
     let commitAborted = false;
     await commitQueuedMutation(async enqueue => {
-      const liveSections = prepared.some(todoData => todoData.section_id != null)
+      const liveSections = prepared.some(({todoData}) => todoData.section_id != null)
         ? await loadSectionsForQuickAdd()
         : [];
       if (!isCurrent()) {
@@ -155,7 +166,7 @@ export function createTodoMultiAddFeature({
         return;
       }
       const liveProjects = getProjects();
-      const invalidParent = prepared.some(todoData => {
+      const invalidParent = prepared.some(({todoData}) => {
         if (todoData.project_id != null
           && !liveProjects.some(project => String(project.id) === String(todoData.project_id))) return true;
         if (todoData.section_id == null) return false;
@@ -166,12 +177,12 @@ export function createTodoMultiAddFeature({
         commitAborted = true;
         return;
       }
-      for (const [index, todoData] of prepared.entries()) {
+      for (const [index, {todoData,routingFeedback}] of prepared.entries()) {
         const tempId = `temp-${now}-${index}`;
         const nowIso = new Date(now + index).toISOString();
         const newTodo = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: [], subtasks: [] };
         await dbPut('todos', newTodo);
-        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, ...(routingFeedback ? {routing_feedback:routingFeedback} : {}) });
         created.push(newTodo);
       }
       setTodos([...getTodos(), ...created]);
@@ -190,7 +201,24 @@ export function createTodoMultiAddFeature({
   });
   let domainBound=false;
   return {...feature,
-    bind(){feature.bind();if(domainBound)return;domainBound=true;document.getElementById('todo-multi-project')?.addEventListener('change',()=>{void syncSectionOptions();});},
-    reset(options){optionsGeneration++;feature.reset(options);},
+    bind(){feature.bind();if(domainBound)return;domainBound=true;document.getElementById('todo-multi-project')?.addEventListener('change',()=>{projectExplicit=true;sectionExplicit=false;void syncSectionOptions().then(()=>feature.refresh());});
+      document.getElementById('todo-multi-section')?.addEventListener('change',()=>{sectionExplicit=true;feature.refresh();});
+      globalThis.window?.addEventListener('nia-routing-memory-changed',()=>{if(!feature.isActive())return;if(saving)memoryRefreshPending=true;else feature.refresh();});},
+    save(){
+      if(saveOperation)return saveOperation.promise;
+      const operation={routingSnapshot:routingMemory?.capture?.() || routingMemory,promise:null};
+      saveOperation=operation;saving=true;
+      operation.promise=Promise.resolve().then(()=>{
+        if(saveOperation!==operation)return false;
+        return feature.save();
+      }).finally(()=>{
+        // A canceled save may settle after a new modal/save has started.
+        if(saveOperation!==operation)return;
+        saveOperation=null;saving=false;
+        if(memoryRefreshPending){memoryRefreshPending=false;if(feature.isActive())feature.refresh();}
+      });
+      return operation.promise;
+    },
+    reset(options){optionsGeneration++;projectExplicit=false;sectionExplicit=false;saveOperation=null;saving=false;memoryRefreshPending=false;feature.reset(options);},
   };
 }

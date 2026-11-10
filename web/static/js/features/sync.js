@@ -1,3 +1,4 @@
+import { withoutPrivateRoutingMetadata } from './entity-metadata.js';
 import { isRecipeShoppingTransfer, sanitizeRecipeShoppingTransfer, recipeShoppingTransferPayload, transferHasPendingDependencies, transferSourceIsAccessible } from './recipe-shopping-pending.js';
 import { acquireSyncCommitLock, projectPendingProjectChanges, projectPendingSectionChanges, projectPendingTodoChanges, queueItemReferencesTodo } from './todo-pending.js';
 import { projectPendingShoppingChanges, projectPendingShoppingStores, projectShoppingSnapshot, projectShoppingStoresSnapshot, queueItemReferencesShoppingList, rewriteShoppingQueueReferences } from './shopping-pending.js';
@@ -436,7 +437,7 @@ export function createSyncFeature({
     if (!item || typeof item !== 'object' || typeof item.action !== 'string') return null;
     const data = item.data && typeof item.data === 'object' ? item.data : {};
     const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
-    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', 'location_reminder', 'recurring_rule', 'subtasks', 'confirm_incomplete_subtasks_completion', '_tempId'];
+    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', 'location_reminder', 'recurring_rule', 'subtasks', 'confirm_incomplete_subtasks_completion', 'routing_feedback', '_tempId'];
     const projectFields = ['name', 'color', 'icon', 'sort_order', 'parent_id', 'workspace_id', 'household_id', '_tempId'];
     const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
     const shoppingListFields = ['name', 'color', 'icon', 'sort_order', 'household_id', 'client_mutation_id'];
@@ -456,7 +457,7 @@ export function createSyncFeature({
 
     switch (item.action) {
       case 'CREATE_TODO':
-        return { ...item, data: { ...pickAllowed(data, todoFields), undo_grace_until: data.undo_grace_until } };
+        return { ...item, data: { ...pickAllowed(data, todoFields.concat('client_mutation_id')), undo_grace_until: data.undo_grace_until } };
       case 'UPDATE_TODO':
         return { ...item, data: withProjectBoundary({ id: data.id, changes: pickAllowed(changes, todoFields.filter(f => f !== '_tempId')) }) };
       case 'DELETE_TODO':
@@ -504,9 +505,9 @@ export function createSyncFeature({
       case 'DELETE_SHOPPING_SECTION':
         return { ...item, data: { shopping_list_id: data.shopping_list_id, section_id: data.section_id } };
       case 'CREATE_SHOPPING_ITEM':
-        return { ...item, data: { shopping_list_id: data.shopping_list_id, temp_id: data.temp_id, item: pickAllowed(data.item, shoppingItemFields.concat('braindump_route')), client_mutation_id: data.client_mutation_id } };
+        return { ...item, data: { shopping_list_id: data.shopping_list_id, temp_id: data.temp_id, item: pickAllowed(data.item, shoppingItemFields.concat('braindump_route', 'routing_feedback')), client_mutation_id: data.client_mutation_id } };
       case 'UPDATE_SHOPPING_ITEM':
-        return { ...item, data: { shopping_list_id: data.shopping_list_id, item_id: data.item_id, changes: pickAllowed(changes, shoppingItemFields.filter(field => field !== 'client_mutation_id').concat('completed')) } };
+        return { ...item, data: { shopping_list_id: data.shopping_list_id, item_id: data.item_id, changes: pickAllowed(changes, shoppingItemFields.filter(field => field !== 'client_mutation_id').concat('completed', 'routing_feedback')) } };
       case 'DELETE_SHOPPING_ITEM':
         return { ...item, data: { shopping_list_id: data.shopping_list_id, item_id: data.item_id } };
       case 'DELETE_COMPLETED_SHOPPING_ITEMS':
@@ -620,30 +621,30 @@ export function createSyncFeature({
             const currentQueueItem = await getFromDB('syncQueue', item.id);
             const currentItem = sanitizeQueueItem(currentQueueItem);
             if (!currentItem || currentItem.action !== 'CREATE_TODO') continue;
+            const undoGraceUntil = Number(currentItem.data.undo_grace_until || 0);
+            if (undoGraceUntil && Date.now() < undoGraceUntil) continue;
             const currentTempTodo = currentItem.data._tempId
               ? await getFromDB('todos', currentItem.data._tempId)
               : null;
             if (currentItem.data._tempId && !currentTempTodo) continue;
-            const projectId = currentTempTodo?.project_id ?? currentItem.data.project_id;
-            const sectionId = currentTempTodo?.section_id ?? currentItem.data.section_id;
+            const projectId = currentItem.data.project_id !== undefined ? currentItem.data.project_id : currentTempTodo?.project_id;
+            const sectionId = currentItem.data.section_id !== undefined ? currentItem.data.section_id : currentTempTodo?.section_id;
             if (projectId != null
               && !getProjects().some(project => String(project.id) === String(projectId))) continue;
             if (sectionId != null) {
               const targetSection = getSections().find(section => String(section.id) === String(sectionId));
               if (!targetSection || String(targetSection.project_id) !== String(projectId)) continue;
             }
-            item = currentItem;
+            item = { ...currentItem, attempted: true };
+            if (!currentQueueItem.attempted) await dbPut('syncQueue', item);
             requestPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
           } finally {
             releaseRequestLock();
           }
-          const undoGraceUntil = Number(item.data.undo_grace_until || 0);
-          if (undoGraceUntil && Date.now() < undoGraceUntil) {
-            continue;
-          }
           const createData = { ...item.data };
           delete createData.undo_grace_until;
-          let res = await todosApi.create(createData);
+          if (!createData.client_mutation_id && createData._tempId) createData.client_mutation_id = createData._tempId;
+          const res = await todosApi.create(createData);
           let capturedTempTodo = null;
           if (createData._tempId) {
             const releaseCaptureLock = await acquireSyncCommitLock(syncInProgressRef);
@@ -660,9 +661,6 @@ export function createSyncFeature({
               }
             } finally {
               releaseCaptureLock();
-            }
-            if (String(capturedTempTodo.section_id ?? '') !== String(createData.section_id ?? '')) {
-              res = await todosApi.update(res.id, { section_id: capturedTempTodo.section_id });
             }
           }
           const committed = await commitQueueItem(item, async () => {
@@ -702,7 +700,8 @@ export function createSyncFeature({
             const cleanServerTodo = serverTodo ? { ...serverTodo } : null;
             if (cleanServerTodo) delete cleanServerTodo.recurrence_created_todo;
             const localTodo = await getFromDB('todos', item.data.id);
-            const nextTodo = cleanServerTodo || (localTodo ? { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() } : null);
+            const contentChanges = withoutPrivateRoutingMetadata(item.data.changes);
+            const nextTodo = cleanServerTodo || (localTodo ? { ...localTodo, ...contentChanges, updated_at: new Date().toISOString() } : null);
             if (nextTodo) await persistTodoWithPending(nextTodo, item.id);
             if (recurrenceCreatedTodo?.id) {
               await dbPut('todos', recurrenceCreatedTodo);

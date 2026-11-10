@@ -11,6 +11,7 @@ import { ingredientAmount } from './recipe-view.js';
 import { renderServingsControl, refreshServingsControl, stepServings } from '../ui/servings-control.js';
 import { formatQuantity } from '../core/recipe-quantities.js';
 import { buildRecipeShoppingPreview } from './recipe-shopping-preview.js';
+import { renderQuickAddChips, renderQuickAddPreview } from './quick-add.js';
 
 const prefix = 'recipe-transfer';
 const text = key => `<span data-i18n-key="${escapeHtmlAttr(key)}">${escapeHtmlAttr(t(key))}</span>`;
@@ -23,7 +24,7 @@ export function renderRecipeShoppingTransferModal() {
       actionsHtml: `<button type="submit" form="${prefix}-form" id="${prefix}-save-btn" class="btn btn-primary">${text('common.apply')}</button><button type="button" class="modal-close-x" data-close-modal="${prefix}-modal" aria-label="${escapeHtmlAttr(t('common.close'))}" data-i18n-aria-label-key="common.close">${iconSvg('x')}</button>` }),
     bodyHtml: `<form id="${prefix}-form" class="entity-modal-form ui-detail-shell">
       <div class="recipe-transfer-heading"><p id="${prefix}-recipe" class="recipe-transfer-title"></p>${renderServingsControl({ id: `${prefix}-servings`, required: true })}</div>
-      <div class="form-group">${field('list', 'recipe.transfer.list')}</div>
+      <div class="form-group">${field('list', 'recipe.transfer.list')}<span id="${prefix}-list-memory" class="quick-add-preview" hidden></span></div>
       <details id="${prefix}-defaults" class="recipe-transfer-defaults"><summary>${text('recipe.transfer.defaults')}</summary><div class="recipe-transfer-targets"><div class="form-group">${field('section', 'common.section')}</div><div class="form-group">${field('store', 'shopping.item.store')}</div></div></details>
       <section class="recipe-transfer-summary" aria-labelledby="${prefix}-summary-title"><div class="recipe-transfer-selection"><h4 id="${prefix}-summary-title">${text('recipe.ingredients')}</h4><button type="button" id="${prefix}-select-all" class="btn btn-secondary">${text('recipe.transfer.selectNone')}</button></div><div id="${prefix}-preview"><div id="${prefix}-ingredients"></div></div></section><div id="${prefix}-pending" class="recipe-transfer-pending" role="status"></div>
       <p id="${prefix}-status" class="form-error" role="status"></p>
@@ -50,14 +51,16 @@ const fingerprint = recipe => JSON.stringify([recipe.revision, recipe.pending, r
 
 export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], getLists = () => [], getStores = () => [],
   getSessionIdentity = () => null, getCurrentUser = () => null, canUseShopping = () => true,
-  transfer, readPendingTransfers = async () => [], cancelTransfer = async () => false,
+  routingMemory = null, transfer, readPendingTransfers = async () => [], cancelTransfer = async () => false,
   onQueued = () => {}, onError = console.error, root = globalThis.document } = {}) {
   const el = name => root.getElementById(`${prefix}-${name}`);
   let source = null, sourceRef = null, bookRef = null, initialFingerprint = '', session, actor;
   let generation = 0, pendingRead = 0, busy = null, bound = false, sourceChanged = false, pendingReady = false;
   let listRef = null, defaultSection = null, defaultStore = null, pending = [], errorKey = '';
   const captureReference = entity => reference(entity, actor);
-  const selected = new Set(), overrides = new Map();
+  const selected = new Set(), overrides = new Map(), defaultFields = new Set(), rowFields = new Map(), feedbackIds = new Map();
+  let listChosen = false, listRemembered = false;
+  let memoryRenderPending = false;
   const separated = new Set();
   let previewHtml = null, preview = { families: [], mergeGroups: new Map() };
   const selectOptions = new WeakMap(), selectDisabled = new WeakMap();
@@ -76,10 +79,60 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
   function sourceSelections({ all = false } = {}) {
     return ingredientsOf(source).filter(item => all || selected.has(item.client_key)).map(item => {
       const override = overrides.get(item.client_key) || {};
-      const section_id = fieldValue(override.section === undefined ? defaultSection : override.section, sections());
-      const store = fieldValue(override.store === undefined ? defaultStore : override.store, stores());
-      return { ingredient_client_key: item.client_key, section_id, store_ids: store === null ? [] : [store] };
+      const remembered = currentList() && routingMemory?.suggest(item.name, currentList().id);
+      const section = override.section !== undefined ? override.section : defaultFields.has('section') ? defaultSection
+        : remembered?.section_known ? remembered.section_id == null ? null : captureReference(sections().find(row => sameEntityId(row.id, remembered.section_id))) : defaultSection;
+      const section_id = fieldValue(section, sections());
+      let store_ids;
+      if (override.store === undefined && !defaultFields.has('stores') && remembered?.stores_known) {
+        store_ids = (remembered.store_ids || []).map(id => stores().find(row => sameEntityId(row.id, id))?.id);
+      } else {
+        const store = fieldValue(override.store === undefined ? defaultStore : override.store, stores());
+        store_ids = store === null ? [] : [store];
+      }
+      return { ingredient_client_key: item.client_key, section_id, store_ids };
     });
+  }
+  function applyRememberedList() {
+    if (listChosen || currentList() || !routingMemory) return;
+    const choices = ingredientsOf(source).map(item => routingMemory.suggest(item.name, null)).filter(Boolean);
+    const ids = new Set(choices.map(row => String(row.shopping_list_id)));
+    if (ids.size !== 1) return;
+    const list = editableLists().find(row => sameEntityId(row.id, choices[0].shopping_list_id));
+    if (list && !sameEntityId(list.id, currentList()?.id)) { listRef = captureReference(list); listRemembered = true; }
+  }
+  function listMemoryChips() {
+    const list = currentList();
+    const applied = listRemembered && !listChosen && list && ingredientsOf(source).some(item => {
+      const route = routingMemory?.suggest(item.name, null);
+      return sameEntityId(route?.shopping_list_id, list.id) && (route?.memory_fields?.includes('list') ?? true);
+    });
+    renderQuickAddPreview(el('list-memory'), { matches: applied ? [{ type: 'list', label: t('recipe.transfer.list'), value: list.name, source: 'memory' }] : [] }, t);
+  }
+  function destinationChips(group) {
+    const selectedKeys = group.sourceKeys.filter(key => selected.has(key));
+    const keys = selectedKeys.length ? selectedKeys : group.sourceKeys;
+    const rememberedFields = ['section', 'stores'].filter(field => keys.every(key => {
+      const item = ingredientsOf(source).find(item => item.client_key === key);
+      const override = overrides.get(key) || {};
+      if (override[field === 'stores' ? 'store' : field] !== undefined || defaultFields.has(field)) return false;
+      const route = currentList() && routingMemory?.suggest(item.name, currentList().id);
+      return (route?.memory_fields?.includes(field) ?? true) && route?.[field === 'stores' ? 'stores_known' : 'section_known'];
+    }));
+    const section = sections().find(section => sameEntityId(section.id, group.sectionId));
+    const storeNames = group.storeIds.map(id => stores().find(store => sameEntityId(store.id, id))?.name).filter(Boolean);
+    const matches = [];
+    if (section || rememberedFields.includes('section')) matches.push({ type: 'section', label: t('common.section'), value: section?.name || t('shopping.section.unsorted'), source: rememberedFields.includes('section') ? 'memory' : undefined });
+    if (storeNames.length || rememberedFields.includes('stores')) matches.push({ type: 'store', label: t('shopping.item.store'), value: storeNames.join(', ') || t('shopping.item.store.none'), source: rememberedFields.includes('stores') ? 'memory' : undefined });
+    return renderQuickAddChips(matches, t);
+  }
+  function feedbackPayload(payload) {
+    return { ...payload, ingredients: payload.ingredients.map(row => {
+      const explicit = rowFields.get(row.ingredient_client_key) || new Set();
+      const fields = ['list', 'section', 'stores'].filter(field => field === 'list' ? listChosen : explicit.has(field) || defaultFields.has(field));
+      const routing_feedback = fields.length ? routingMemory?.feedback(fields, { eventId: feedbackIds.get(row.ingredient_client_key) }) : undefined;
+      return { ...row, ...(routing_feedback ? { routing_feedback } : {}) };
+    }) };
   }
   function draft() {
     const recipe = currentSource(), list = currentList(), servings = Number(el('servings')?.value);
@@ -101,10 +154,9 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
       const selections = allSelections.filter(row => keys.includes(row.ingredient_client_key) && selected.has(row.ingredient_client_key));
       const selectedGroup = buildRecipeShoppingPreview(source, selections, { servings, separated }).families[0]?.groups[0];
       const total = selectedGroup || group, amount = total.quantityText || formatQuantity(total.amount, total.unit, getActiveLocale(), { kitchen: true });
-      const section = sections().find(section => sameEntityId(section.id, group.sectionId));
-      const destinations = [section?.name, ...group.storeIds.map(id => stores().find(store => sameEntityId(store.id, id))?.name)].filter(Boolean);
+      const destinations = destinationChips(group);
       const single = keys.length === 1, notes = total.notes;
-      const content = `<span class="recipe-transfer-copy"><span class="recipe-transfer-summary-title"><strong>${escapeHtmlAttr(group.name)}</strong><span class="ui-badge recipe-transfer-summary-amount" ${single ? `data-transfer-amount="${escapeHtmlAttr(keys[0])}"` : ''}>${escapeHtmlAttr(amount)}</span></span>${single ? notes.map(note => `<small>${escapeHtmlAttr(note)}</small>`).join('') : ''}${destinations.length ? `<small>${escapeHtmlAttr(destinations.join(' · '))}</small>` : ''}</span>`;
+      const content = `<span class="recipe-transfer-copy"><span class="recipe-transfer-summary-title"><strong>${escapeHtmlAttr(group.name)}</strong><span class="ui-badge recipe-transfer-summary-amount" ${single ? `data-transfer-amount="${escapeHtmlAttr(keys[0])}"` : ''}>${escapeHtmlAttr(amount)}</span></span>${single ? notes.map(note => `<small>${escapeHtmlAttr(note)}</small>`).join('') : ''}${destinations ? `<span class="recipe-transfer-memory-chips">${destinations}</span>` : ''}</span>`;
       return `<div class="recipe-transfer-row recipe-transfer-summary-row${selections.length ? '' : ' is-unselected'}" ${single ? `data-key="${escapeHtmlAttr(keys[0])}"` : ''}>${checkbox(keys, id, content)}${single ? targets(keys, id) : `<details class="recipe-transfer-sources" data-transfer-details="${escapeHtmlAttr(JSON.stringify(['sources', ...keys]))}"><summary>${text('recipe.transfer.sources')} <span class="recipe-transfer-source-count">${escapeHtmlAttr(t('recipe.transfer.sourceCount', { count: keys.length }))}</span></summary><div class="recipe-transfer-source-rows">${keys.map((key, sourceIndex) => {
         const sourceGroup = source.ingredient_groups.find(group => group.ingredients.some(item => item.client_key === key));
         const item = sourceGroup.ingredients.find(item => item.client_key === key), sourceId = `${id}-source-${sourceIndex}`;
@@ -154,6 +206,7 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
   }
   function populateTargets() {
     setOptions(el('list'), editableLists(), listRef, 'recipe.transfer.chooseList');
+    listMemoryChips();
     setOptions(el('section'), sections(), defaultSection, 'shopping.section.unsorted');
     setOptions(el('store'), stores(), defaultStore, 'shopping.item.store.none');
     for (const details of el('ingredients').querySelectorAll('.recipe-transfer-corrections[open]')) populateRow(details);
@@ -165,6 +218,7 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
   }
   function refresh() {
     if (!el('form')) return;
+    listMemoryChips();
     renderPreview();
     const allowed = active() && sessionCurrent() && canUseShopping() && !sourceChanged && !busy && pendingReady && !pending.length;
     el('form').setAttribute('aria-busy', String(Boolean(busy || (!pendingReady && !errorKey))));
@@ -216,18 +270,26 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
     const book = getCookbooks().find(book => (book.recipes || []).some(item => sameEntityId(item.id, recipe.id)));
     if (!book || !canUseShopping() || getCurrentUser()?.id == null || getSessionIdentity() == null) return false;
     generation++; pendingRead++; busy = null; session = getSessionIdentity(); actor = getCurrentUser().id;
+    memoryRenderPending = false;
     source = structuredClone(recipe); sourceRef = captureReference(recipe); bookRef = captureReference(book); initialFingerprint = fingerprint(recipe);
-    sourceChanged = false; pendingReady = false; pending = []; errorKey = ''; overrides.clear(); selected.clear(); separated.clear();
-    for (const item of ingredientsOf(source)) selected.add(item.client_key);
+    sourceChanged = false; pendingReady = false; pending = []; errorKey = ''; overrides.clear(); selected.clear(); separated.clear(); defaultFields.clear(); rowFields.clear(); feedbackIds.clear(); listChosen = false; listRemembered = false;
+    for (const item of ingredientsOf(source)) { selected.add(item.client_key); feedbackIds.set(item.client_key, `recipe-route-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`); }
     listRef = editableLists().length === 1 ? captureReference(editableLists()[0]) : null; defaultSection = defaultStore = null;
+    applyRememberedList();
     modal.open(); el('recipe').textContent = recipe.title; el('servings').value = Number(servings) > 0 ? servings : recipe.base_servings;
     el('defaults')?.removeAttribute('open');
     previewHtml = null; el('ingredients').replaceChildren();
     populateTargets(); renderPending(); refresh(); void loadPending();
+    const captured = generation;
+    if (routingMemory) void routingMemory.refresh().then(() => {
+      if (captured !== generation || !sessionCurrent() || !active()) return;
+      applyRememberedList(); populateTargets(); refresh();
+    }).catch(onError);
     el('list').focus(); return true;
   }
   function deactivate() {
     generation++; pendingRead++; busy = null; closeOwnedDropdown();
+    memoryRenderPending = false;
     if (!closeUiLayerNow(`${prefix}-modal`)) modal.close({ fromHistory: true });
   }
   function closeOwnedDropdown() {
@@ -248,14 +310,20 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
     const isCurrent = () => captured === generation && sessionCurrent() && active() && canUseShopping()
       && fingerprint(currentSource() || {}) === initialFingerprint && Boolean(draft());
     try {
-      const result = await transfer(payload, { isCurrent });
+      const result = await transfer(feedbackPayload(payload), { isCurrent });
       if (!isCurrent()) return;
       if (!result) throw new Error('Transfer was not queued');
       if (result.status === 'blocked') { await loadPending(); return; }
       generation++; closeOwnedDropdown();
       modal.close({ afterClose: () => { if (sessionCurrent()) onQueued(result); } });
     } catch (error) { if (isCurrent()) { errorKey = 'recipe.transfer.failed'; onError(error); } }
-    finally { if (busy === token) { busy = null; if (captured === generation && active()) refresh(); } }
+    finally { if (busy === token) { busy = null; if (captured === generation && active()) { if (memoryRenderPending) handleRoutingMemoryChange(); else refresh(); } } }
+  }
+  function handleRoutingMemoryChange() {
+    if (!routingMemory || !active() || !sessionCurrent() || !canUseShopping()) return;
+    if (busy) { memoryRenderPending = true; return; }
+    memoryRenderPending = false;
+    applyRememberedList(); populateTargets(); refresh();
   }
   function reconcileSource() { sourceChanged ||= !currentSource() || fingerprint(currentSource()) !== initialFingerprint; refresh(); }
   function bind() {
@@ -277,8 +345,9 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
     });
     el('list').addEventListener('change', () => {
       if (busy) return;
+      listChosen = true; listRemembered = false;
       listRef = captureReference(editableLists().find(list => sameEntityId(list.id, el('list').value)));
-      defaultSection = defaultStore = null; overrides.clear(); separated.clear(); errorKey = ''; populateTargets(); refresh();
+      defaultSection = defaultStore = null; overrides.clear(); separated.clear(); defaultFields.clear(); rowFields.clear(); errorKey = ''; populateTargets(); refresh();
     });
     el('form').addEventListener('change', event => {
       if (busy || !sessionCurrent()) return;
@@ -289,12 +358,17 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
         const keys = target.dataset.transferKeys ? JSON.parse(target.dataset.transferKeys) : [target.dataset.transferIngredient];
         for (const key of keys) { if (target.checked) selected.add(key); else selected.delete(key); }
       }
-      if (target === el('section')) defaultSection = captureReference(sections().find(section => sameEntityId(section.id, target.value)));
-      if (target === el('store')) defaultStore = captureReference(stores().find(store => sameEntityId(store.id, target.value)));
+      if (target === el('section')) { defaultSection = captureReference(sections().find(section => sameEntityId(section.id, target.value))); defaultFields.add('section'); }
+      if (target === el('store')) { defaultStore = captureReference(stores().find(store => sameEntityId(store.id, target.value))); defaultFields.add('stores'); }
       if (target.matches('[data-target]') && target.value !== '__invalid__') {
         const keys = JSON.parse(target.closest('details').dataset.transferTargetKeys), field = target.dataset.target;
         const value = target.value === '__default__' ? undefined : captureReference((field === 'section' ? sections() : stores()).find(item => sameEntityId(item.id, target.value)));
-        for (const key of keys) overrides.set(key, { ...(overrides.get(key) || {}), [field]: value });
+        for (const key of keys) {
+          overrides.set(key, { ...(overrides.get(key) || {}), [field]: value });
+          const fields = rowFields.get(key) || new Set(), name = field === 'store' ? 'stores' : field;
+          if (value === undefined) fields.delete(name); else fields.add(name);
+          rowFields.set(key, fields);
+        }
       }
       refresh();
       if (changedTarget) {
@@ -320,9 +394,10 @@ export function createRecipeShoppingTransferFeature({ getCookbooks = () => [], g
       const captured = generation, token = {}; busy = token; errorKey = ''; refresh();
       try { if (!await cancelTransfer(entry.client_mutation_id)) throw new Error('Transfer was not canceled'); }
       catch (error) { if (captured === generation && sessionCurrent()) { errorKey = 'recipe.transfer.failed'; onError(error); } }
-      finally { if (busy === token) { busy = null; if (captured === generation && sessionCurrent() && active()) void loadPending(); } }
+      finally { if (busy === token) { busy = null; if (captured === generation && sessionCurrent() && active()) { if (memoryRenderPending) handleRoutingMemoryChange(); void loadPending(); } } }
     });
     root.defaultView?.addEventListener('nia-language-change', () => { if (active()) { translatePage(el('modal')); populateTargets(); renderPending(); refresh(); } });
+    root.defaultView?.addEventListener('nia-routing-memory-changed', handleRoutingMemoryChange);
   }
   return { bind, show, reconcile, deactivate, getDraft: draft };
 }

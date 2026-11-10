@@ -10,7 +10,10 @@ async function parseOrThrow(response, fallback = 'Request failed') {
 
 export const todosApi = {
   list: () => http.get('/api/todos'),
-  create: (data) => http.post('/api/todos', data),
+  create: (data) => {
+    const mutationId = data.client_mutation_id || data._tempId || data.routing_feedback?.event_id;
+    return http.post('/api/todos', mutationId ? { ...data, client_mutation_id: mutationId } : data);
+  },
   update: (todoId, changes) => http.patch(`/api/todos/${todoId}`, changes),
   createSubtask: (todoId, data) => http.post(`/api/todos/${todoId}/subtasks`, data),
   updateSubtask: (todoId, subtaskId, data) => http.patch(`/api/todos/${todoId}/subtasks/${subtaskId}`, data),

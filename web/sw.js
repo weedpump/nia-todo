@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'nia-v4-module-platform-preview-336';
+const CACHE_REVISION = 'nia-v4-module-platform-preview-345';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -75,6 +75,10 @@ const PRECACHE_ASSETS = [
   '/static/js/api/sharing.js',
   '/static/js/api/todos.js',
   '/static/js/api/shopping.js',
+  '/static/js/api/routing-memory.js',
+  '/static/js/features/routing-memory.js',
+  '/static/js/features/routing-memory-matcher.js',
+  '/static/js/core/routing-memory-rule-data.js',
   '/static/js/api/server-updates.js',
   '/static/js/core/config.js',
   '/static/js/core/boot.js',

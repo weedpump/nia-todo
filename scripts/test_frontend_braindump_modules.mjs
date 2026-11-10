@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import {
   brainDumpCandidatePayload,
+  brainDumpCandidateError,
+  brainDumpCandidateMemoryFields,
   brainDumpOriginalRoute,
   changeBrainDumpCandidateModule,
   resolveBrainDumpShoppingTarget,
@@ -20,6 +22,46 @@ changeBrainDumpCandidateModule(converted, 'shopping');
 assert.equal(converted.shopping_list_id, 'temp-list', 'module correction roundtrip preserves the previous domain draft');
 assert.equal(resolveBrainDumpShoppingTarget({ shopping_list_id: 1, shopping_store_ids: [20] }, [{ id: 1, can_edit: true }], [{ id: 20, shopping_list_id: 2, active: true }]), null, 'cross-list store IDs fail closed');
 
+const memory = { feedback: (fields, {eventId}) => ({event_id:eventId,generation:7,fields}) };
+const inferred = {module_id:'shopping',title:'Milk',shopping_list_id:1,shopping_section_id:11,shopping_store_ids:[101,102],explicit_route_fields:[],client_mutation_id:'bd-memory-1'};
+const inferredPayload = brainDumpCandidatePayload(inferred,{routingMemory:memory});
+assert.deepEqual(inferredPayload.routing_feedback,{event_id:'bd-memory-1',generation:7,fields:[]},'accepting inferred routing sends a no-learning marker');
+assert.deepEqual(inferredPayload.shopping_store_ids,[101,102],'all selected stores survive confirmation');
+assert.deepEqual(brainDumpCandidateMemoryFields({...inferred,memory_route_fields:['list','section','stores'],explicit_route_fields:['stores']}),['list','section'],'explicit fields suppress only their own memory marker');
+assert.equal(Object.hasOwn(brainDumpCandidatePayload({...inferred,module_id:'tasks',memory_route_fields:['section']}),'memory_route_fields'),false,'read-only memory metadata never enters a Task creation payload');
+assert.ok(resolveBrainDumpShoppingTarget(inferred,[{id:1,can_edit:true,sections:[{id:11}]}],[{id:101,shopping_list_id:1},{id:102,shopping_list_id:1}]),'multiple authorized stores are valid');
+const corrected = {...inferred,explicit_route_fields:['container','stores'],_bdRoutingFields:['section'],_bdRoutingEventId:'manual-event'};
+assert.deepEqual(brainDumpCandidatePayload(corrected,{routingMemory:memory}).routing_feedback,{event_id:'manual-event',generation:7,fields:['list','stores','section']},'only spoken targets and manually touched fields teach shared routing');
+assert.deepEqual(brainDumpCandidatePayload(corrected,{routingMemory:memory}),brainDumpCandidatePayload(corrected,{routingMemory:memory}),'feedback identity stays stable across render/retry');
+assert.deepEqual(brainDumpCandidatePayload({...corrected,_bdRoutingListChanged:true,_bdRoutingFields:['list'],shopping_section_id:null,shopping_store_ids:[]},{routingMemory:memory}).routing_feedback.fields,['list'],'resetting child destinations during a list change does not teach explicit empty choices');
+const switched = {...corrected,_bdOriginalRoute:{...brainDumpOriginalRoute(corrected),original_module_id:'tasks'},_bdRoutingFields:[]};
+assert.deepEqual(brainDumpCandidatePayload(switched,{routingMemory:memory}).routing_feedback.fields,['module'],'a module correction does not teach a former Task project as a Shopping destination');
+
+const inferredTask = {module_id:'tasks',title:'Wäsche waschen',project_id:7,section_id:71,project_name:'Personal',section_name:'Calls',memory_route_fields:['list','section'],explicit_route_fields:[],client_mutation_id:'bd-task-memory'};
+assert.deepEqual(brainDumpCandidateMemoryFields(inferredTask),['list','section']);
+assert.deepEqual(brainDumpCandidatePayload(inferredTask,{routingMemory:memory}).routing_feedback,{event_id:'bd-task-memory',generation:7,fields:[]},'Task predictions use the same no-learning envelope as Shopping');
+assert.deepEqual(brainDumpCandidatePayload({...inferredTask,_bdRoutingFields:['section'],section_id:null,section_name:null},{routingMemory:memory}).routing_feedback.fields,['section'],'an explicit empty Task section is a deliberate choice');
+assert.deepEqual(brainDumpCandidatePayload({...inferredTask,_bdRoutingProjectChanged:true,_bdRoutingFields:['list'],explicit_route_fields:['container','section'],section_id:null,section_name:null},{routingMemory:memory}).routing_feedback.fields,['list'],'project changes do not teach an implicit empty section');
+assert.deepEqual(brainDumpCandidateMemoryFields({...inferredTask,_bdRoutingFields:['section']}),['list'],'manual Task section changes remove only the section source icon');
+assert.deepEqual(brainDumpOriginalRoute(inferredTask),{original_module_id:'tasks',original_shopping_list_id:null,original_shopping_section_id:null,original_shopping_store_ids:[],original_project_id:7,original_section_id:71,original_project_name:'Personal',original_section_name:'Calls',original_route_present:true});
+const taskTargets={projects:[{id:7,name:'Personal'}],sections:[{id:71,project_id:7}]};
+assert.equal(brainDumpCandidateError(inferredTask,taskTargets),null);
+assert.equal(brainDumpCandidateError({...inferredTask,project_id:'temp-project'},taskTargets),'capture.target.required','temporary Task projects cannot silently fall back to a name route');
+assert.equal(brainDumpCandidateError({...inferredTask,section_id:'temp-section'},taskTargets),'capture.target.required','temporary Task sections must wait for canonical IDs');
+assert.equal(brainDumpCandidateError(inferredTask,{...taskTargets,projects:[{id:7,name:'Personal',can_edit:0}]}),'capture.target.required','numeric read-only project flags fail closed');
+assert.equal(brainDumpCandidateError(inferredTask,{...taskTargets,projects:[{id:7,name:'Personal',can_edit_content:0}]}),'capture.target.required','numeric content-edit revocation fails closed');
+assert.equal(brainDumpCandidateError({...inferredTask,project_id:null,section_id:null},{...taskTargets,projects:[{id:7,name:'Personal'},{id:8,name:'Personal'}]}),'capture.target.required','ambiguous legacy names require an explicit target instead of guessing');
+assert.equal(brainDumpCandidateError(inferredTask,{...taskTargets,projects:[]}), 'capture.target.required','revoked Task IDs fail closed');
+assert.equal(brainDumpCandidateError({...inferredTask,section_id:72},taskTargets), 'capture.target.required','cross-project section IDs fail closed');
+const taskRoundtrip={...inferredTask,_bdRoutingFields:['section'],_bdOriginalRoute:brainDumpOriginalRoute(inferredTask)};
+changeBrainDumpCandidateModule(taskRoundtrip,'shopping');
+assert.deepEqual(taskRoundtrip._bdRoutingFields,[],'Task field edits are not carried into Shopping intent');
+assert.deepEqual(brainDumpCandidatePayload(taskRoundtrip,{routingMemory:memory}).routing_feedback.fields,['module'],'module-only corrections carry explicit module intent without an inferred container');
+assert.equal(taskRoundtrip.project_id,null);
+changeBrainDumpCandidateModule(taskRoundtrip,'tasks');
+assert.equal(taskRoundtrip.project_id,7);
+assert.deepEqual(taskRoundtrip._bdRoutingFields,['section'],'module roundtrips restore only their own explicit choices');
+
 const fixture = `
   import { createBrainDumpLiveFeature } from '/static/js/features/braindump-live.js';
   import { initI18n } from '/static/js/i18n/index.js';
@@ -27,6 +69,9 @@ const fixture = `
   localStorage.setItem('nia-todo-language', '${process.env.NIA_BRAINDUMP_SCREENSHOTS ? 'de' : 'en'}');
   await initI18n();
   let active = 'tasks', modules = ['tasks', 'shopping'];
+  let projects = [{id:7,name:'Personal',workspace_id:9}];
+  let sections = [{id:71,project_id:7,name:'Calls'},{id:81,project_id:8,name:'Laundry'}];
+  let sectionGate = null, releaseSections = null, sectionReads = 0;
   let lists = [
     { id: 1, name: 'Same name', can_edit: true, sections: [{id:11,name:'Cold'}] },
     { id: 2, name: 'Same name', can_edit: true, sections: [{id:21,name:'Fruit'}] },
@@ -51,11 +96,16 @@ const fixture = `
   window.AudioContext = undefined;
   Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})}});
   const feature = createBrainDumpLiveFeature({
+    routingMemory: {feedback:(fields,{eventId})=>({event_id:eventId,generation:7,fields})},
     getActiveModule: () => active,
     getSupportedModules: () => modules,
     getLauncherRoot: () => document.getElementById('module-floating-slot'),
-    getProjects: () => [{id:7,name:'Personal',workspace_id:9}],
-    getSections: () => [{id:71,project_id:7,name:'Calls'}],
+    getProjects: () => projects,
+    getSections: () => [], // Dashboard/current-project projection is deliberately incomplete.
+    loadTaskSections: async () => {
+      sectionReads++; const result=structuredClone(sections); const gate=sectionGate; sectionGate=null;
+      if(gate) await gate; return result;
+    },
     getCurrentWorkspaceId: () => 9,
     getShoppingLists: () => lists,
     getShoppingStores: () => stores,
@@ -75,6 +125,10 @@ const fixture = `
     module:value=>{active=value;feature.refreshLauncher();},
     modules:value=>{modules=value;feature.refreshLauncher();},
     lists:value=>{lists=value;feature.refreshLauncher();},
+    projects:value=>{projects=value;feature.refreshLauncher();},
+    sections:value=>{sections=value;}, reconcile:()=>feature.refreshLauncher(),
+    holdSections:()=>{sectionGate=new Promise(resolve=>{releaseSections=resolve;});},
+    releaseSections:()=>releaseSections?.(), sectionReads:()=>sectionReads,
     failList:value=>{failList=value;},
     holdNext:()=>{shoppingGate=new Promise(resolve=>{releaseShopping=resolve;});},
     release:()=>releaseShopping?.(), finished:()=>shoppingFinished,
@@ -181,10 +235,12 @@ try {
 
   await page.evaluate(() => window.test.failList(2));
   await capture([
-    {module_id:'shopping',title:'Milk',shopping_list_id:1,shopping_section_id:11,shopping_store_ids:[101],quantity_value:0,quantity_unit:'l'},
+    {module_id:'shopping',title:'Milk',shopping_list_id:1,shopping_section_id:11,shopping_store_ids:[101],quantity_value:0,quantity_unit:'l',memory_route_fields:['list','section','stores']},
     {module_id:'shopping',title:'Apples',shopping_list_id:2,shopping_section_id:21,shopping_store_ids:[201],quantity_value:3,quantity_unit:'x'},
     {module_id:'tasks',title:'Call dentist',project_name:'Personal',section_name:'Calls'},
   ]);
+  assert.equal(await page.locator('.braindump-candidate-card').filter({hasText:'Milk'}).locator('[data-source="memory"] .quick-add-memory-icon svg').count(),3,'BrainDump displays one shared brain badge per actually remembered field');
+  assert.equal(await page.locator('.braindump-candidate-card').filter({hasText:'Apples'}).locator('[data-source="memory"]').count(),0,'model-inferred fields are not falsely labeled as remembered');
   assert.deepEqual(extractionRequests.at(-1).supported_modules, ['tasks', 'shopping']);
   assert.equal(extractionRequests.at(-1).workspace_id, 9);
   assert.equal(await page.locator('[data-bd-group="shopping:1"]').count(), 1);
@@ -198,10 +254,100 @@ try {
   assert.deepEqual(attempts.map(group => Number(group[0].shopping_list_id)), [1, 2, 2], 'retry must not replay the accepted first group');
   assert.equal(attempts[1][0].client_mutation_id, attempts[2][0].client_mutation_id, 'failed group retries retain mutation identity');
   assert.equal(attempts[0][0].quantity_value, 0, 'zero quantity is preserved');
+  assert.deepEqual(attempts[0][0].routing_feedback.fields,[], 'inferred preview targets do not reinforce themselves');
+  assert.deepEqual(attempts[1][0].routing_feedback,attempts[2][0].routing_feedback,'retrying a failed Shopping group retains the same routing event');
   assert.match(attempts[0][0].client_mutation_id, /^temp-bd-/);
   assert.equal(taskRequests.length, 1);
+  assert.deepEqual(taskRequests[0].candidates[0].routing_feedback.fields,[],'model-inferred Task destinations do not reinforce themselves');
   assert.equal(await page.locator('#braindump-modal').isVisible(), true, 'success remains inspectable without an unscoped delayed close');
   await close();
+
+  await capture([{module_id:'shopping',title:'Milk',shopping_list_id:1,shopping_section_id:11,shopping_store_ids:[101],memory_route_fields:['list','section','stores']}]);
+  await page.locator('.braindump-edit-candidate').click();
+  await page.locator('[data-bd-field="shopping_section_id"]').selectOption('',{force:true});
+  assert.equal(await page.locator('.braindump-candidate-card [data-source="memory"]').count(),2,'clearing a section removes that brain icon while preserving independently remembered fields');
+  const renamed=page.locator('[data-bd-field="title"]');
+  await renamed.fill('Butter');
+  assert.equal(await page.locator('.braindump-candidate-card [data-source="memory"]').count(),0,'editing a name clears stale memory markers immediately without replacing the input');
+  assert.equal(await renamed.evaluate(input=>input===document.activeElement),true,'badge refresh preserves the editor input focus');
+  await close();
+
+  await page.evaluate(() => window.test.projects([{id:7,name:'Personal',workspace_id:9},{id:8,name:'Personal',workspace_id:9}]));
+  await capture([{module_id:'tasks',title:'Wäsche waschen',project_id:7,section_id:71,project_name:'Personal',section_name:'Calls',explicit_route_fields:[],memory_route_fields:['list','section']}]);
+  assert.equal(await page.locator('.braindump-candidate-card [data-source="memory"] .quick-add-memory-icon svg').count(),2,'Task project and section use the same automatic AI chips as Shopping');
+  assert.equal(await page.locator('.braindump-candidate-card [data-source="memory"] button').count(),0,'Task memories need no acceptance step');
+  if (process.env.NIA_BRAINDUMP_SCREENSHOTS) await page.screenshot({path:'/tmp/nia-braindump-tasks-memory.png',animations:'disabled'});
+  await page.locator('.braindump-edit-candidate').click();
+  assert.equal(await page.locator('[data-bd-field="project_name"]').inputValue(),'7','stable IDs distinguish identical project names');
+  assert.equal(await page.locator('[data-bd-field="section_name"]').inputValue(),'71');
+  await page.locator('[data-bd-field="section_name"]').selectOption('',{force:true});
+  assert.equal(await page.locator('.braindump-candidate-card [data-source="memory"]').count(),1,'clearing a Task section preserves the independently remembered project');
+  await page.locator('[data-bd-field="project_name"]').selectOption('8',{force:true});
+  assert.equal(await page.locator('[data-bd-field="section_name"]').inputValue(),'');
+  assert.equal(await page.locator('[data-bd-field="section_name"] option[value="71"]').count(),0,'project switching removes foreign Task sections');
+  await page.locator('[data-bd-field="section_name"]').selectOption('81',{force:true});
+  await page.locator('#braindump-create').click();
+  await page.waitForFunction(() => document.querySelector('.braindump-candidate-card').classList.contains('is-saved'));
+  const learnedTask=taskRequests.at(-1).candidates[0];
+  assert.equal(learnedTask.project_id,8);
+  assert.equal(learnedTask.section_id,81);
+  assert.equal(learnedTask.braindump_route.original_project_id,7);
+  assert.deepEqual(learnedTask.routing_feedback.fields,['list','section']);
+  assert.equal('memory_route_fields' in learnedTask,false);
+  await close();
+
+  await capture([{module_id:'tasks',title:'Wäsche waschen',project_id:7,section_id:71,project_name:'Personal',section_name:'Calls',explicit_route_fields:[],memory_route_fields:['list','section']}]);
+  await page.locator('.braindump-edit-candidate').click();
+  const taskTitle=page.locator('[data-bd-field="title"]');
+  await taskTitle.fill('Wäsche aufhängen');
+  assert.equal(await page.locator('.braindump-candidate-card [data-source="memory"]').count(),0,'Task name edits clear stale origins immediately');
+  assert.equal(await taskTitle.evaluate(input=>input===document.activeElement),true,'Task badge changes preserve input focus');
+  await close();
+
+  await capture([{module_id:'tasks',title:'Wäsche waschen',project_id:7,section_id:71,project_name:'Personal',section_name:'Calls',explicit_route_fields:[],memory_route_fields:['list','section']}]);
+  await page.evaluate(() => window.test.projects([{id:8,name:'Personal',workspace_id:9}]));
+  assert.equal(await page.locator('#braindump-create').isDisabled(),true,'Task parent revocation blocks an open preview');
+  assert.equal(await page.locator('.braindump-candidate-card [data-source="memory"]').count(),0,'revoked routes lose their remembered-field markers');
+  assert.doesNotMatch(await page.locator('.braindump-candidate-card').textContent(),/Personal|Calls/,'revoked Task IDs do not display stale private target names');
+  await close();
+  await page.evaluate(() => window.test.projects([{id:7,name:'Personal',workspace_id:9},{id:8,name:'Personal',workspace_id:9}]));
+
+  const readsBeforeRevocation=await page.evaluate(()=>window.test.sectionReads());
+  await capture([{module_id:'tasks',title:'Wäsche waschen',project_id:7,section_id:71,project_name:'Personal',section_name:'Calls',explicit_route_fields:[],memory_route_fields:['list','section']}]);
+  assert.equal(await page.locator('#braindump-create').isDisabled(),false,'a complete child catalog supports other-project targets while the Dashboard projection is empty');
+  const tasksBeforeSectionRevocation=taskRequests.length;
+  await page.evaluate(()=>window.test.sections([{id:81,project_id:8,name:'Laundry'}]));
+  await page.locator('#braindump-create').click();
+  await page.waitForFunction(()=>document.querySelector('.braindump-candidate-card').classList.contains('is-editing'));
+  assert.equal(taskRequests.length,tasksBeforeSectionRevocation,'a fresh child catalog is revalidated before a Task POST');
+  assert.equal(await page.locator('#braindump-create').isDisabled(),true);
+  assert.ok(await page.evaluate(()=>window.test.sectionReads())>readsBeforeRevocation);
+  await close();
+  await page.evaluate(()=>window.test.sections([{id:71,project_id:7,name:'Calls'},{id:81,project_id:8,name:'Laundry'}]));
+
+  await capture([{module_id:'tasks',title:'Wäsche waschen',project_id:7,section_id:71,project_name:'Personal',section_name:'Calls',explicit_route_fields:[],memory_route_fields:['list','section']}]);
+  const readsBeforeRace=await page.evaluate(()=>window.test.sectionReads());
+  await page.evaluate(()=>{window.test.holdSections();window.test.reconcile();});
+  await page.waitForFunction(count=>window.test.sectionReads()>count,readsBeforeRace);
+  await page.evaluate(()=>{window.test.sections([]);window.test.reconcile();});
+  await page.waitForFunction(()=>document.querySelector('#braindump-create').disabled);
+  await page.evaluate(()=>window.test.releaseSections());
+  assert.equal(await page.locator('#braindump-create').isDisabled(),true,'an older catalog read cannot undo a later section revocation');
+  await close();
+  await page.evaluate(()=>window.test.sections([{id:71,project_id:7,name:'Calls'},{id:81,project_id:8,name:'Laundry'}]));
+
+  await capture([{module_id:'tasks',title:'Wäsche waschen',project_id:7,section_id:71,project_name:'Personal',section_name:'Calls',explicit_route_fields:[],memory_route_fields:['list','section']}]);
+  const readsBeforeNewSession=await page.evaluate(()=>window.test.sectionReads());
+  await page.evaluate(()=>{window.test.holdSections();window.test.reconcile();});
+  await page.waitForFunction(count=>window.test.sectionReads()>count,readsBeforeNewSession);
+  await close();
+  await page.evaluate(()=>window.test.sections([]));
+  await capture([{module_id:'tasks',title:'New capture',project_id:7,section_id:71,project_name:'Personal',section_name:'Calls',explicit_route_fields:[],memory_route_fields:['list','section']}]);
+  assert.equal(await page.locator('#braindump-create').isDisabled(),true);
+  await page.evaluate(()=>window.test.releaseSections());
+  assert.equal(await page.locator('#braindump-create').isDisabled(),true,'a catalog response from a closed capture cannot populate a newer capture');
+  await close();
+  await page.evaluate(()=>window.test.sections([{id:71,project_id:7,name:'Calls'},{id:81,project_id:8,name:'Laundry'}]));
 
   await capture([{module_id:'shopping',title:'Tomaten',shopping_list_id:null,shopping_store_ids:[],quantity_value:.25,quantity_unit:'Packung'}]);
   assert.equal(await page.locator('#braindump-create').isDisabled(), true);
@@ -240,6 +386,8 @@ try {
   await page.locator('#braindump-create').click();
   await page.waitForFunction(() => document.querySelector('.braindump-candidate-card').classList.contains('is-saved'));
   assert.equal(taskRequests.at(-1).candidates[0].braindump_route.original_module_id, 'shopping');
+  assert.deepEqual(taskRequests.at(-1).candidates[0].routing_feedback.fields,['module'],'switching only the module never teaches an inferred default project');
+  assert.deepEqual(taskRequests.at(-1).candidates[0].explicit_route_fields,[],'module learning does not alter the spoken-container provenance contract');
   await close();
 
   failTaskOnce = true;

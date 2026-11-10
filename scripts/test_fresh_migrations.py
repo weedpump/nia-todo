@@ -60,7 +60,7 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 66, latest
+        assert latest == 70, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
@@ -99,6 +99,9 @@ def main():
             assert "idx_todo_comments_client_mutation" in comment_indexes, comment_indexes
             workspace_columns = {row[1] for row in db.execute("PRAGMA table_info(workspaces)")}
             user_columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
+            assert "routing_memory_generation" in user_columns, user_columns
+            for table in ("routing_memory_entries", "routing_memory_events", "routing_memory_observations"):
+                assert db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone(), table
             assert "hidden_modules_json" not in workspace_columns, workspace_columns
             assert "disabled_modules_json" in user_columns, user_columns
 
@@ -449,7 +452,7 @@ def main():
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
         run_migrations(v55_env)
         with sqlite3.connect(v55_db_path) as db:
-            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 66
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 70
             project_member_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
             assert "is_direct_access_mirror" not in project_member_columns, project_member_columns
             migrated_grants = db.execute(

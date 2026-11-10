@@ -1,5 +1,5 @@
 import { isRecipeShoppingTransfer, rewriteRecipeShoppingTransfer } from './recipe-shopping-pending.js';
-import { createMetadataCollection } from './entity-metadata.js';
+import { createMetadataCollection, withoutPrivateRoutingMetadata } from './entity-metadata.js';
 
 const metadata = createMetadataCollection({ storeName: 'shoppingLists', createAction: 'CREATE_SHOPPING_LIST', updateAction: 'UPDATE_SHOPPING_LIST', deleteAction: 'DELETE_SHOPPING_LIST', fields: ['name', 'color', 'icon', 'sort_order'] });
 
@@ -140,6 +140,7 @@ export function projectPendingShoppingChanges(serverList, queue = []) {
   let projected = clone(serverList);
   const listId = projected?.id;
   if (listId === undefined || listId === null) return projected;
+  if (Array.isArray(projected.items)) projected.items = projected.items.map(withoutPrivateRoutingMetadata);
 
   for (const entry of queue) {
     if (!queueItemReferencesShoppingList(entry, listId)) continue;
@@ -173,7 +174,7 @@ export function projectPendingShoppingChanges(serverList, queue = []) {
           completed: false,
           store_ids: [],
           stores: [],
-          ...clone(data.item || {}),
+          ...withoutPrivateRoutingMetadata(clone(data.item || {})),
           id: data.temp_id,
           shopping_list_id: projected.id,
           is_pending: true,
@@ -183,7 +184,7 @@ export function projectPendingShoppingChanges(serverList, queue = []) {
       }
       case 'UPDATE_SHOPPING_ITEM':
         projected.items = (projected.items || []).map(item => sameId(item.id, data.item_id) ? {
-          ...item, ...clone(changes),
+          ...item, ...withoutPrivateRoutingMetadata(clone(changes)),
           ...(['quantity_value', 'quantity_unit', 'quantity_text'].some(key => Object.hasOwn(changes, key)) ? { quantity_display_mode: 'exact' } : {}),
           is_pending: true,
         } : item);

@@ -373,11 +373,13 @@ def test_admin_prompt_preview_matches_the_transmitted_current_default():
 def test_existing_task_learning_does_not_rewrite_shopping_candidates():
     shopping = {"module_id": "shopping", "title": "Milk", "shopping_list_id": 1, "shopping_section_id": 1, "shopping_store_ids": [1]}
     parsed = {"candidates": [shopping, {"module_id": "tasks", "title": "Call Alex", "project_name": None, "section_name": None}]}
-    with patch.object(router, "_learning_enabled_for_user", return_value=True), \
-         patch.object(router, "_best_learned_route", return_value=(None, None, 0, 0)) as learn:
+    # The compatibility boundary delegates once to the common engine with its
+    # declared Tasks-only capability; there is no second historical learner.
+    with patch.object(router,"apply_module_routes",return_value=parsed) as shared, \
+         patch.object(router,"_best_learned_route",side_effect=AssertionError("retired runtime learner called")):
         result = router._apply_learned_routes(None, 1, None, parsed)
     assert result["candidates"][0] == shopping
-    assert learn.call_count == 1 and learn.call_args.args[3] == "Call Alex"
+    assert shared.call_count == 1 and shared.call_args.args[4] == {"supported_modules":["tasks"]}
 
 
 def test_text_and_combined_audio_negotiate_the_same_contract():

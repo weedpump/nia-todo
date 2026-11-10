@@ -6,6 +6,7 @@ Beim Server-Start wird automatisch geprüft welche fehlen und ausgeführt.
 
 import sqlite3
 import re
+import unicodedata
 from pathlib import Path
 
 from paths import DB_PATH
@@ -666,6 +667,14 @@ def apply_cookbooks_migration(conn, sql: str):
 
 def apply_atomic_migration(conn, sql: str, version: int):
     """Apply an unreleased migration and its version marker in one transaction."""
+    if version == 70:
+        # Freeze migration normalization here rather than importing mutable
+        # application matching policy or depending on a SQLite Unicode extension.
+        conn.create_function(
+            "nia_routing_name_key", 1,
+            lambda value: " ".join(unicodedata.normalize("NFKC", str(value or "")).casefold().split()),
+            deterministic=True,
+        )
     conn.commit()
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -758,7 +767,7 @@ def run_migrations():
                     apply_household_entity_access_migration(conn, sql)
                 elif version == 61:
                     apply_cookbooks_migration(conn, sql)
-                elif version in (56, 57, 59, 60, 62, 63, 64, 65, 66):
+                elif version in (56, 57, 59, 60, 62, 63, 64, 65, 66, 67, 68, 69, 70):
                     apply_atomic_migration(conn, sql, version)
                 else:
                     conn.executescript(sql)

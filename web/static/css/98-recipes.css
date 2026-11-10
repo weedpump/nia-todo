@@ -162,6 +162,7 @@
 .recipe-transfer-ingredient { display: flex; align-items: flex-start; gap: 8px; min-height: 44px; cursor: pointer; }
 .recipe-transfer-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 4px; padding-top: 8px; overflow-wrap: anywhere; font-size: 14px; }
 .recipe-transfer-copy>span:not(.recipe-transfer-summary-title),.recipe-transfer-copy>small { color: var(--text-muted); }
+.recipe-transfer-memory-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 .recipe-transfer-summary-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .recipe-transfer-summary-title>strong { min-width: 0; }
 .recipe-transfer-summary-amount { flex: none; max-width: 50%; white-space: normal; overflow-wrap: anywhere; }

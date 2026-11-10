@@ -508,6 +508,7 @@ def test_legacy_receipt_fingerprint_survives_optional_merge_capability():
         old_contract = transfers.RecipeShoppingTransfer(**data).model_dump()
         for ingredient in old_contract["ingredients"]:
             del ingredient["merge_group"]
+            del ingredient["routing_feedback"]
         old_hash = hashlib.sha256(json.dumps({"recipe_id": source["id"], **old_contract}, sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
         with get_db() as db:
             db.execute("UPDATE recipe_shopping_transfers SET request_hash = ? WHERE client_mutation_id = ?", (old_hash, data["client_mutation_id"]))
@@ -553,6 +554,32 @@ def test_rollback_concurrent_receipts_and_tombstones():
         assert replay["shopping_list"]["items"] == [] and counts() == (0, 1, 0)
         with get_db() as db:
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_stale_recipe_feedback_does_not_conflict_with_current_generation():
+    from services.routing_memory import reset_routing_memory, routing_state
+    with fixture() as f:
+        payload = recipe_payload()
+        payload['ingredient_groups'][0]['ingredients'].append({
+            'client_key': 'flour-second', 'name': 'Flour', 'quantity_value': 100, 'quantity_unit': 'g',
+        })
+        source = create_recipe(f, payload)
+        with get_db() as db:
+            reset_routing_memory(db, f.users[0])
+        data = request(f, keys=('flour', 'flour-second'), cmi='mixed-learning-generations')
+        data['ingredients'][0].update(section_id=None, routing_feedback={
+            'event_id': 'old-recipe-choice', 'generation': 0, 'fields': ['section'],
+        })
+        data['ingredients'][1]['routing_feedback'] = {
+            'event_id': 'fresh-recipe-choice', 'generation': 1, 'fields': ['section'],
+        }
+        transfer(f, source, data)
+        with get_db() as db:
+            state = routing_state(db, f.users[0])
+        learned = [row for row in state['entries'] if row['name_key'] == 'flour']
+        assert state['generation'] == 1 and len(learned) == 1
+        assert learned[0]['section_known'] and learned[0]['section_id'] == f.sections[0]
+        assert learned[0]['evidence']['section']['observations'] == 1
 
 
 def main():

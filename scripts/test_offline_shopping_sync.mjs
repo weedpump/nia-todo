@@ -37,6 +37,19 @@ const queue = [
 ];
 
 const projected = projectPendingShoppingChanges(serverList, queue);
+const privateFeedback = {event_id:'private-learning-event',generation:4,fields:['section']};
+const privateRoute = {original_module_id:'shopping',original_shopping_list_id:7};
+const privateQueue = [
+  {action:'CREATE_SHOPPING_ITEM',data:{shopping_list_id:7,temp_id:'temp-private',item:{name:'Offline item',routing_feedback:privateFeedback,braindump_route:privateRoute}}},
+  {action:'UPDATE_SHOPPING_ITEM',data:{shopping_list_id:7,item_id:20,changes:{section_id:10,routing_feedback:privateFeedback,braindump_route:privateRoute}}},
+];
+const privateQueueBefore=structuredClone(privateQueue);
+const privateProjection=projectPendingShoppingChanges({...serverList,items:serverList.items.map(item=>({...item,routing_feedback:privateFeedback,braindump_route:privateRoute}))},privateQueue);
+for(const item of privateProjection.items){
+  assert.equal(Object.hasOwn(item,'routing_feedback'),false,'pending content never contains private learning feedback');
+  assert.equal(Object.hasOwn(item,'braindump_route'),false,'pending content never contains private legacy routing provenance');
+}
+assert.deepEqual(privateQueue,privateQueueBefore,'private request intent survives projection and remains replayable');
 const kitchenList = { ...serverList, items: [{ ...serverList.items[0], quantity_value: 250 / 3, quantity_unit: 'ml', quantity_display_mode: 'kitchen' }] };
 const renameOnly = projectPendingShoppingChanges(kitchenList, [{ action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 7, item_id: 20, changes: { name: 'Renamed' } } }]);
 assert.equal(renameOnly.items[0].quantity_display_mode, 'kitchen');

@@ -111,7 +111,7 @@ const result = await feature.syncWithServer({ wsState: 'connected', syncInProgre
 assert.equal(result.failCount, 0);
 assert.equal(result.successCount, 3);
 assert.deepEqual(calls.map(call => call.slice(0, 3)), [
-  ['createTodo', { title: 'Offline parent', _tempId: 'temp-todo-1' }],
+  ['createTodo', { title: 'Offline parent', _tempId: 'temp-todo-1', client_mutation_id: 'temp-todo-1' }],
   ['createComment', 101, { body: 'Offline draft', client_mutation_id: 'temp-comment-1' }],
   ['updateComment', 101, 201],
 ]);
@@ -740,5 +740,58 @@ assert.deepEqual(
 
 await websocketClient.disconnectWebSocket();
 globalThis.WebSocket = originalWebSocket;
+
+// An in-flight create keeps its original target; the queued move follows its real ID.
+let signalMovedCreate,releaseMovedCreate;
+const movedCreateStarted=new Promise(resolve=>{signalMovedCreate=resolve;});
+const movedCreateGate=new Promise(resolve=>{releaseMovedCreate=resolve;});
+const movedWrites=[];
+const movedCreateHarness=createHarness({
+  projects:[{id:801},{id:802}],sections:[{id:811,project_id:801},{id:812,project_id:802}],
+  todos:[{id:'temp-moved-memory',title:'Wäsche waschen',project_id:801,section_id:811,comments:[],subtasks:[]}],
+  queue:[{id:810,action:'CREATE_TODO',data:{_tempId:'temp-moved-memory',title:'Wäsche waschen',project_id:801,section_id:811}}],
+  api:{
+    create:async data=>{movedWrites.push(structuredClone(data));signalMovedCreate();await movedCreateGate;return {id:820,title:data.title,project_id:801,section_id:811,comments:[],subtasks:[]};},
+    update:async(id,changes)=>{assert.equal(id,820);assert.equal(changes.project_id,802,'a post-create section assignment includes its new project');movedWrites.push(structuredClone(changes));return {id,title:'Wäsche waschen',project_id:changes.project_id,section_id:changes.section_id,comments:[],subtasks:[]};},
+  },
+});
+const movedCreateSync=movedCreateHarness.feature.syncWithServer({wsState:'connected',syncInProgressRef:{value:false}});
+await movedCreateStarted;
+assert.equal(movedCreateHarness.stores.syncQueue[0].attempted,true,'attempt is durable before transport');
+const attemptedCreate=structuredClone(movedCreateHarness.stores.syncQueue[0]);
+movedCreateHarness.stores.todos[0]={...movedCreateHarness.stores.todos[0],project_id:802,section_id:812};
+movedCreateHarness.stores.syncQueue.push({id:813,action:'UPDATE_TODO',data:{id:'temp-moved-memory',changes:{project_id:802,section_id:812,routing_feedback:{event_id:'move-after-send',generation:0,fields:['list','section']}}}});
+assert.deepEqual(movedCreateHarness.stores.syncQueue[0],attemptedCreate);
+releaseMovedCreate();
+const movedCreateResult=await movedCreateSync;
+assert.equal(movedCreateResult.failCount,0);
+assert.equal(movedCreateHarness.stores.syncQueue.length,0);
+assert.equal(movedWrites.length,2,'one create plus its durable move; no ad-hoc section-only PATCH');
+assert.equal(movedCreateHarness.stores.todos[0].project_id,802);
+assert.equal(movedCreateHarness.stores.todos[0].section_id,812);
+
+// Personal memory intent survives durable replay but never becomes shared content.
+const memoryFeedback = {event_id:'offline-memory-choice',generation:7,fields:['list','section']};
+const memoryWrites=[];
+const memoryHarness=createHarness({
+  projects:[{id:42}],sections:[{id:43,project_id:42}],
+  todos:[{id:'temp-memory',title:'Wäsche waschen',project_id:42,section_id:43,comments:[],subtasks:[]}],
+  queue:[
+    {id:901,action:'CREATE_TODO',data:{_tempId:'temp-memory',title:'Wäsche waschen',project_id:42,section_id:43,routing_feedback:memoryFeedback}},
+    {id:902,action:'UPDATE_TODO',data:{id:'temp-memory',changes:{section_id:null,routing_feedback:{...memoryFeedback,event_id:'offline-memory-move',fields:['section']}}}},
+  ],
+  api:{
+    create:async data=>{memoryWrites.push(structuredClone(data));return {id:903,title:data.title,project_id:42,section_id:43,comments:[],subtasks:[]};},
+    update:async(id,changes)=>{memoryWrites.push(structuredClone(changes));return {id,title:'Wäsche waschen',project_id:42,section_id:null,comments:[],subtasks:[]};},
+  },
+});
+await memoryHarness.feature.syncWithServer({wsState:'connected',syncInProgressRef:{value:false}});
+assert.deepEqual(memoryWrites[0].routing_feedback,memoryFeedback,'create sanitizer preserves stable versioned memory intent');
+assert.equal(memoryWrites[1].routing_feedback.event_id,'offline-memory-move','move receipt survives temporary todo ID remapping');
+assert.equal(memoryHarness.stores.syncQueue.length,0);
+assert.equal(Object.hasOwn(memoryHarness.stores.todos[0],'routing_feedback'),false,'authoritative todo content does not retain personal feedback');
+const projectedMemory=projectPendingTodoChanges({id:903,title:'Wäsche waschen'},[{action:'UPDATE_TODO',data:{id:903,changes:{section_id:43,routing_feedback:memoryFeedback}}}]);
+assert.equal(projectedMemory.section_id,43);
+assert.equal(Object.hasOwn(projectedMemory,'routing_feedback'),false,'pending projection excludes personal learning intent');
 
 console.log('✅ Offline todo child sync test passed');

@@ -14,7 +14,8 @@ export function sanitizeRecipeShoppingTransfer(entry) {
     ...(data.source_mutation_id != null ? { source_mutation_id: data.source_mutation_id } : {}),
     ingredients: (data.ingredients || []).map(row => ({ ingredient_client_key: row.ingredient_client_key,
       section_id: row.section_id ?? null, store_ids: [...(row.store_ids || [])],
-      ...(row.merge_group != null ? { merge_group: row.merge_group } : {}) })),
+      ...(row.merge_group != null ? { merge_group: row.merge_group } : {}),
+      ...(row.routing_feedback != null ? { routing_feedback: structuredClone(row.routing_feedback) } : {}) })),
   } };
 }
 export function recipeShoppingTransferPayload(entry) {
@@ -111,7 +112,8 @@ export function createRecipeShoppingTransferController({ getCookbooks = () => []
           const stores = (row.store_ids || []).map(id => resolve(id, getStores().filter(store => sameEntityId(store.shopping_list_id, list.id)), originalStores));
           if (section === undefined || stores.some(id => id == null) || new Set(stores.map(String)).size !== stores.length) return null;
           selected.push({ ingredient_client_key: row.ingredient_client_key, section_id: section, store_ids: stores,
-            ...(row.merge_group != null ? { merge_group: row.merge_group.trim() } : {}) });
+            ...(row.merge_group != null ? { merge_group: row.merge_group.trim() } : {}),
+            ...(row.routing_feedback != null ? { routing_feedback: structuredClone(row.routing_feedback) } : {}) });
         }
         const pending = queue.filter(row => ['CREATE_RECIPE', 'UPDATE_RECIPE'].includes(row.action)
           && sameEntityId(row.data?.id ?? row.data?.temp_id, source.recipe.id) && sameEntityId(row.actor_id, actor)).at(-1);

@@ -1,5 +1,11 @@
 import { safeColor, safeIconName } from '../icons/lucide-icons.js';
 
+/** Request-private learning intent belongs in the durable queue, never content. */
+export function withoutPrivateRoutingMetadata(value) {
+  const { routing_feedback, braindump_route, ...content } = value || {};
+  return content;
+}
+
 export function sameEntityId(left, right) {
   return left != null && right != null && String(left) === String(right);
 }
