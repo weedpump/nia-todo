@@ -27,6 +27,7 @@ export function renderRecipeEditorModal() {
     bodyHtml: `<form id="recipe-form" class="entity-modal-form ui-detail-shell">
       <input type="hidden" id="recipe-id"><input type="hidden" id="recipe-cookbook-id">
       <div id="recipe-editor-conflict"></div>
+      <div id="recipe-import-review" class="recipe-import-review" role="status" hidden></div>
       <section class="ui-detail-section ui-section-divider ui-detail-title-section recipe-editor-intro">
         <div class="recipe-editor-title-row"><div class="form-group ui-detail-title-group"><label for="recipe-name">${text('recipe.title')}</label><input id="recipe-name" class="ui-field ui-detail-title-field" required maxlength="200" autocomplete="off"></div>
           ${renderImagePicker({ prefix: 'recipe-image', labelKey: 'recipe.image.title', chooseKey: 'recipe.image.choose', removeKey: 'recipe.image.remove', accept: 'image/jpeg,image/png,image/webp' })}
@@ -36,6 +37,12 @@ export function renderRecipeEditorModal() {
           <div class="recipe-editor-meta">${field('base-servings', 'recipe.baseServings', 'number', 'required min="0" max="100000" step="any"')}${field('prep-minutes', 'recipe.prepLabel', 'number', 'min="0" max="100000" step="1"')}${field('cook-minutes', 'recipe.cookLabel', 'number', 'min="0" max="100000" step="1"')}</div>
         </div>
       </section>
+      <details class="recipe-editor-source"><summary>${text('recipe.source.title')}</summary><div class="recipe-editor-source-fields">
+        ${field('source-url', 'recipe.source.url', 'url', 'maxlength="2048" inputmode="url"')}
+        ${field('source-name', 'recipe.source.name', 'text', 'maxlength="200"')}
+        ${field('source-author', 'recipe.source.author', 'text', 'maxlength="500"')}
+        ${field('source-yield', 'recipe.source.yield', 'text', 'maxlength="500"')}
+      </div></details>
       <section class="ui-detail-section ui-section-divider">${sectionHeading('recipe.tags', 'tag', 'tag-add', 'recipe.tag.add')}<div id="recipe-editor-tags" class="recipe-editor-tags"></div></section>
       <section class="ui-detail-section ui-section-divider">${sectionHeading('recipe.ingredients', 'list-todo', 'group-add', 'recipe.group.add')}<div id="recipe-editor-groups"></div></section>
       <section class="ui-detail-section ui-section-divider">${sectionHeading('recipe.steps', 'chef-hat')}<p id="recipe-step-hint" class="recipe-step-hint">${text('recipe.steps.hint')}</p><div id="recipe-editor-steps"></div>${addButton('step-add', 'recipe.step.add')}</section>
@@ -63,6 +70,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
 } = {}) {
   let model = cloneContent(null), baseline = null, openedRecipe = null, openedBook = null, baselineRevision = null;
   let session, generation = 0, imageGeneration = 0, imageData, preparing = false, busy = null, bound = false, errorKey = '';
+  let importWarnings = null;
   const el = suffix => root.getElementById(`recipe-${suffix}`);
   const books = () => getCookbooks();
   const book = () => books().find(candidate => sameEntityId(candidate.id, el('cookbook-id')?.value)
@@ -93,6 +101,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       base_servings: el('base-servings') ? Number(el('base-servings').value) : 2,
       prep_minutes: el('prep-minutes') ? optionalNumber(el('prep-minutes')) : null, cook_minutes: el('cook-minutes') ? optionalNumber(el('cook-minutes')) : null,
       tags: Array.from(el('editor-tags')?.querySelectorAll('input') || []).map(input => input.value.trim()), ingredient_groups: groups, steps,
+      ...Object.fromEntries(['url', 'name', 'author', 'yield'].map(key => [`source_${key}`, el(`source-${key}`)?.value.trim() || ''])),
       ...(imageData !== undefined ? { image_data: imageData } : {}),
     };
   }
@@ -137,7 +146,16 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       appearanceEditable: canEditRecipe(entity, book()), ownershipCanManage: false, canDelete: Boolean(entity && canEditRecipe(entity, book()) && !entity.conflict), readOnly: !canEditRecipe(entity, book()),
       restoreFocus: () => root.querySelector('[data-recipe-action="edit"]') || root.querySelector('[data-recipe-action="create"]'),
     }),
-    renderDomain: ({ entity }) => {
+    renderDomain: ({ entity }) => renderContent(entity),
+    applyDomainPermissions: permissions, clearError: () => error(''), onSubmit: save, onDelete: remove, onError,
+  });
+  function renderImportReview() {
+    const host = el('import-review');
+    if (!host) return;
+    host.hidden = importWarnings === null;
+    host.innerHTML = importWarnings === null ? '' : `<p>${text('recipe.import.reviewHint')}</p>${importWarnings.length ? `<ul>${importWarnings.map(key => `<li>${escapeHtml(t(key))}</li>`).join('')}</ul>` : ''}`;
+  }
+  function renderContent(entity) {
       imagePicker.close();
       ingredientEdit = null;
       for (const picker of el('editor-steps')?.querySelectorAll('.recipe-editor-step-ingredients[open]') || []) picker.open = false;
@@ -145,10 +163,12 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       el('cookbook-id').value = entity?.cookbook_id ?? openedBook?.id ?? '';
       el('description').value = entity?.description || ''; el('base-servings').value = entity?.base_servings ?? 2;
       el('prep-minutes').value = entity?.prep_minutes ?? ''; el('cook-minutes').value = entity?.cook_minutes ?? '';
+      for (const key of ['url', 'name', 'author', 'yield']) if (el(`source-${key}`)) el(`source-${key}`).value = entity?.[`source_${key}`] || '';
+      el('form').querySelector('.recipe-editor-source')?.removeAttribute('open');
+      importWarnings = null; renderImportReview();
       el('image-file').value = ''; renderRows(); el('editor-conflict').innerHTML = renderRecipeConflict(entity);
       renderImage();
-    }, applyDomainPermissions: permissions, clearError: () => error(''), onSubmit: save, onDelete: remove, onError,
-  });
+  }
   function ingredientSummary(item) {
     return `<span class="recipe-editor-ingredient-name"><span class="recipe-editor-ingredient-amount">${escapeHtml(item.quantity_text || formatQuantity(item.quantity_value, item.quantity_unit, getActiveLocale()))}</span><strong>${escapeHtml(item.name || t('recipe.ingredient.name'))}</strong></span>${item.note ? `<small>${escapeHtml(item.note)}</small>` : ''}`;
   }
@@ -309,6 +329,23 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     renderImage();
     return ok;
   }
+  function showImport(draft, cookbookId, { warnings = [] } = {}) {
+    // Keep the original empty-create baseline: an imported draft is immediately
+    // saveable, but it still has no persisted recipe identity or revision.
+    const content = draft && validateRecipeChanges(draft, true);
+    if (active() || !content || !open(null, cookbookId)) return false;
+    for (const group of content.ingredient_groups || []) {
+      delete group.id;
+      for (const ingredient of group.ingredients || []) delete ingredient.id;
+    }
+    for (const step of content.steps || []) delete step.id;
+    renderContent(content);
+    appearance.setValues({ name: content.title });
+    imageData = content.image_data || undefined;
+    importWarnings = [...new Set(warnings.filter(key => typeof key === 'string' && key.startsWith('recipe.import.')))];
+    renderImportReview(); renderImage(); permissions(); modal.refreshSaveState();
+    return true;
+  }
   function deactivate() {
     generation++; imageGeneration++; busy = null; preparing = false; imageData = undefined;
     imagePicker.close(); closeOpenDropdown('recipe-deactivate'); ingredientEdit = null;
@@ -467,6 +504,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     if (bound) return; bound = true; modal.bind(); imagePicker.bind(); root.addEventListener('click', action);
     globalThis.window?.addEventListener('nia-language-change', () => {
       translatePage(el('modal'));
+      renderImportReview();
       imagePicker.refresh();
       const ingredients = new Map(readState().ingredient_groups.flatMap(group => group.ingredients).map(item => [item.client_key, item]));
       for (const row of el('editor-groups').querySelectorAll('.recipe-editor-ingredient')) {
@@ -525,6 +563,6 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       finally { if (requested === imageGeneration && captured === generation && capturedSession === getSessionIdentity()) { preparing = false; modal.refreshSaveState(); } }
     });
   }
-  return { bind, showCreate: cookbookId => open(null, cookbookId), showEdit: id => { const recipe = recipeController.getRecipe(id); return recipe ? open(recipe, recipe.cookbook_id) : false; },
+  return { bind, showCreate: cookbookId => open(null, cookbookId), showImport, showEdit: id => { const recipe = recipeController.getRecipe(id); return recipe ? open(recipe, recipe.cookbook_id) : false; },
     reconcile, remapRecipeId, deactivate, save, deleteCurrentRecipe: remove, getDraft: readState };
 }

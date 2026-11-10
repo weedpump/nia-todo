@@ -120,6 +120,11 @@ run_step "Cookbooks API and Ownership" python3 scripts/test_cookbooks.py
 run_step "Cookbooks Shared UI" node scripts/test_frontend_cookbooks.mjs
 run_step "Cookbooks Offline Metadata Sync" node scripts/test_offline_cookbooks_sync.mjs
 run_step "Cookbooks Real-Service E2E" node scripts/test_frontend_cookbooks_e2e.mjs
+run_step "HTTP Request Cancellation" node scripts/test_http_cancellation.mjs
+run_step "Recipe Public URL Downloads" python3 scripts/test_public_fetch.py
+run_step "Recipe Import Parsing" python3 scripts/test_recipe_import.py
+run_step "Recipe Import Preview UI" node scripts/test_frontend_recipe_import.mjs
+run_step "Recipe Import Real-App E2E" node scripts/test_recipe_import_e2e.mjs
 run_step "Recipe Aggregate API" python3 scripts/test_recipes.py
 run_step "Recipe Quantity Rounding" node scripts/test_recipe_quantities.mjs
 run_step "Recipe Shopping Preview" node scripts/test_recipe_shopping_preview.mjs

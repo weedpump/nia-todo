@@ -3,7 +3,7 @@ import { isRecipeShoppingTransfer, rewriteRecipeShoppingTransfer, transferRefere
 import { sameEntityId } from './entity-metadata.js';
 
 export const recipeActions = new Set(['CREATE_RECIPE', 'UPDATE_RECIPE', 'DELETE_RECIPE']);
-export const recipeFields = ['title', 'description', 'base_servings', 'prep_minutes', 'cook_minutes', 'tags', 'ingredient_groups', 'steps', 'image_data'];
+export const recipeFields = ['title', 'description', 'base_servings', 'prep_minutes', 'cook_minutes', 'tags', 'ingredient_groups', 'steps', 'image_data', 'source_url', 'source_name', 'source_author', 'source_yield'];
 export const recipeId = entry => recipeActions.has(entry?.action) ? entry.data?.id ?? entry.data?.temp_id : null;
 export const recipeBookId = entry => recipeActions.has(entry?.action) ? entry.data?.cookbook_id : null;
 export const pickRecipeFields = source => Object.fromEntries(recipeFields.filter(key => Object.hasOwn(source || {}, key)).map(key => [key, structuredClone(source[key])]));
@@ -132,6 +132,15 @@ export function validateRecipeChanges(input, creating = false) {
   if (creating || Object.hasOwn(data, 'title')) { data.title = String(data.title || '').trim(); if (!data.title || data.title.length > 200) return null; }
   if (creating) Object.assign(data, { description: data.description ?? '', base_servings: data.base_servings ?? 1, prep_minutes: data.prep_minutes ?? null, cook_minutes: data.cook_minutes ?? null, tags: data.tags ?? [], ingredient_groups: data.ingredient_groups ?? [], steps: data.steps ?? [] });
   if (Object.hasOwn(data, 'description') && (typeof data.description !== 'string' || data.description.length > 4000)) return null;
+  for (const [key, limit] of Object.entries({ source_url: 2048, source_name: 200, source_author: 500, source_yield: 500 })) {
+    if (!Object.hasOwn(data, key)) continue;
+    if (typeof data[key] !== 'string' || data[key].length > limit) return null;
+    data[key] = data[key].trim();
+    if (key === 'source_url' && data[key]) {
+      try { const url = new URL(data[key]); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || /[\x00-\x20\x7f]/u.test(data[key])) return null; }
+      catch { return null; }
+    }
+  }
   if (Object.hasOwn(data, 'base_servings') && !(Number.isFinite(data.base_servings) && data.base_servings > 0 && data.base_servings <= 100000)) return null;
   for (const key of ['prep_minutes', 'cook_minutes']) if (Object.hasOwn(data, key) && data[key] != null && !(Number.isInteger(data[key]) && data[key] >= 0 && data[key] <= 100000)) return null;
   if (Object.hasOwn(data, 'tags') && (!Array.isArray(data.tags) || data.tags.length > 40 || data.tags.some(tag => typeof tag !== 'string' || !tag.trim() || tag.length > 80))) return null;

@@ -174,3 +174,10 @@ Operational constraints:
 - Todos can carry location reminder metadata for Android-native arrival/departure triggers.
 - Address data is stored server-side for the owning user and synchronized to linked location reminders when a saved place address changes.
 - Android handles local geofence-style reminder behavior; browser/PWA push remains separate.
+
+Recipe URL import uses `recipe-scrapers` on bounded, DNS-pinned public HTTP(S) downloads.
+The authenticated preview endpoint returns an unsaved aggregate and optional normalized
+image; it never creates a recipe. The ordinary recipe editor, authorization, mutation
+receipts and offline queue handle saving. Source URL, site, author and original yield
+are recipe fields and inherit cookbook access. No LLM is called; uncertain ingredient
+lines and yields are preserved for review, and step quantities are not inferred.

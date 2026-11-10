@@ -45,6 +45,12 @@ function metadata(recipe, { card = false } = {}) {
   const wrapper = card ? 'span' : 'div';
   return `<${wrapper} class="recipe-metadata">${values.join('')}${shown.map(tag => `<span class="recipe-tag">${escapeHtml(tag)}</span>`).join('')}${remaining}</${wrapper}>`;
 }
+export function renderRecipeSource(recipe) {
+  let href = '';
+  try { const url = new URL(recipe.source_url); if (['http:', 'https:'].includes(url.protocol) && !url.username && !url.password) href = url.href; } catch {}
+  if (!href && !recipe.source_name && !recipe.source_author && !recipe.source_yield) return '';
+  return `<div class="recipe-source"><span>${escapeHtml(t('recipe.source.title'))}: ${href ? `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(recipe.source_name || new URL(href).hostname)}</a>` : escapeHtml(recipe.source_name || '')}</span>${recipe.source_author ? `<span>${escapeHtml(t('recipe.source.author'))}: ${escapeHtml(recipe.source_author)}</span>` : ''}${recipe.source_yield ? `<span>${escapeHtml(t('recipe.source.yield'))}: ${escapeHtml(recipe.source_yield)}</span>` : ''}</div>`;
+}
 function renderStep(text, { ingredientsHtml = '', headingTag = 'h3', headingId = '' } = {}) {
   const [heading, ...lines] = text.split(/\r?\n/);
   const body = lines.join('\n');
@@ -70,7 +76,7 @@ export function renderRecipeOverview(cookbook, query = '', { tags = [], sort = '
   return `<section class="recipe-overview"><div class="recipe-page-heading"><div><p class="module-page-eyebrow">${escapeHtml(t('recipe.cookbook'))}</p><h1>${escapeHtml(cookbook.name)}</h1>
     ${cookbook.description ? `<p class="recipe-description">${escapeHtml(cookbook.description)}</p>` : ''}</div>
 </div>
-    <div class="recipe-overview-tools"><p class="recipe-result-count" role="status">${escapeHtml(t('recipe.count', { count: recipes.length }))}</p>
+    <div class="recipe-overview-tools">${canEditRecipe(null, cookbook) ? `<button type="button" class="btn btn-secondary" data-recipe-action="import">${iconSvg('download')}${escapeHtml(t('recipe.import.title'))}</button>` : ''}<p class="recipe-result-count" role="status">${escapeHtml(t('recipe.count', { count: recipes.length }))}</p>
       <div class="recipe-sort-field"><label for="recipe-overview-sort" id="recipe-sort-label">${escapeHtml(t('recipe.sort'))}</label><select id="recipe-overview-sort" class="ui-field" data-recipe-sort>${sortModes.map(value => `<option value="${value}"${value === mode ? ' selected' : ''}>${escapeHtml(t(`recipe.sort.${value}`))}</option>`).join('')}</select></div></div>
     ${availableTags.length ? `<div class="recipe-tag-filters" role="group" aria-label="${escapeHtmlAttr(t('recipe.filter.tags'))}">${availableTags.map(tag => `<button type="button" class="btn btn-secondary recipe-filter-tag" data-recipe-action="filter-tag" data-recipe-tag="${escapeHtmlAttr(tag)}" aria-pressed="${selected.includes(tag)}">${escapeHtml(tag)}</button>`).join('')}${selected.length ? button('clear-filters', t('recipe.filter.clear')) : ''}</div>` : ''}
     <div class="recipe-list">${recipes.map(recipe => `<button type="button" class="recipe-card recipe-list-row" data-recipe-action="open" data-recipe-id="${escapeHtmlAttr(recipe.id)}">
@@ -87,7 +93,7 @@ function renderRecipeViewHeader(cookbook, recipe, { cooking = false, canTransfer
 }
 export function renderRecipeReading(cookbook, recipe, { servings = recipe.base_servings, checked = new Set(), canTransfer = false } = {}) {
   return `<article class="recipe-reading">${renderRecipeViewHeader(cookbook, recipe, { canTransfer })}
-    ${renderRecipeConflict(recipe, { editable: canEditRecipe(recipe, cookbook) })}<div class="recipe-heading"><div><h1>${escapeHtml(recipe.title)}</h1>${recipe.description ? `<p class="recipe-description">${escapeHtml(recipe.description)}</p>` : ''}${metadata(recipe)}</div>${image(recipe, 'recipe-title-image')}</div>
+    ${renderRecipeConflict(recipe, { editable: canEditRecipe(recipe, cookbook) })}<div class="recipe-heading"><div><h1>${escapeHtml(recipe.title)}</h1>${recipe.description ? `<p class="recipe-description">${escapeHtml(recipe.description)}</p>` : ''}${metadata(recipe)}${renderRecipeSource(recipe)}</div>${image(recipe, 'recipe-title-image')}</div>
     <div class="recipe-columns"><section aria-labelledby="recipe-ingredients-title"><div class="recipe-section-heading"><h2 id="recipe-ingredients-title">${escapeHtml(t('recipe.ingredients'))}</h2>
       ${renderServingsControl({ id: 'recipe-view-servings', labelId: 'recipe-servings-label', value: servings, recipeActions: true })}</div>
       <div class="recipe-ingredient-groups">${(recipe.ingredient_groups || []).map(group => `<section class="recipe-ingredient-group">${group.name ? `<h3>${escapeHtml(group.name)}</h3>` : ''}
@@ -111,7 +117,7 @@ export function renderRecipeCooking(cookbook, recipe, { servings = recipe.base_s
 export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCookbookId = () => null,
   getActorId = () => null, getSessionIdentity = () => 'embedded', root = globalThis.document,
   historyTarget = globalThis.history, eventTarget = globalThis.window,
-  onCreate = () => {}, onEdit = () => {}, onTransfer = null, canTransfer = () => true, recipeController, confirmDanger = async () => false,
+  onCreate = () => {}, onImport = () => {}, onEdit = () => {}, onTransfer = null, canTransfer = () => true, recipeController, confirmDanger = async () => false,
   loadRecipeImage = async () => false, releaseRecipeImage = () => {}, onError = console.error,
 } = {}) {
   let activeId = null, bookIdentity = null, previous = [], session = getSessionIdentity(), epoch = 0, bound = false, visible = true;
@@ -288,6 +294,7 @@ export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCook
     else if (action === 'previous-step') moveCookingStep(-1);
     else if (action === 'next-step') moveCookingStep(1);
     else if (action === 'create' && canEditRecipe(null, book)) onCreate(book);
+    else if (action === 'import' && canEditRecipe(null, book)) onImport(book);
     else if (action === 'edit' && canEditRecipe(recipe, book)) onEdit(recipe);
     else if (action === 'transfer' && visible && recipe && onTransfer && canTransfer()) onTransfer(recipe, { servings: portions });
     else if (action === 'more' || action === 'less') updatePortions(stepServings(portions, action === 'more' ? 1 : -1));

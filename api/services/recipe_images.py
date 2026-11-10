@@ -28,6 +28,21 @@ def normalize_recipe_image(data_uri: str | None) -> dict | None:
         raw = base64.b64decode(match[2], validate=True)
         if len(raw) > MAX_RECIPE_IMAGE_BYTES:
             raise ValueError("Recipe image exceeds the upload limit")
+        return normalize_recipe_image_bytes(raw)
+    except (binascii.Error, UnidentifiedImageError, OSError, SyntaxError,
+            Image.DecompressionBombError, Image.DecompressionBombWarning) as error:
+        raise ValueError("Invalid recipe image") from error
+
+
+def normalize_recipe_image_bytes(raw: bytes) -> dict:
+    """Normalize bounded decoded raster bytes from an import or normal upload.
+
+    Import downloads may exceed the final upload size; pixels are always bounded
+    before decoding and the stored result obeys the same private image limits.
+    """
+    if not isinstance(raw, bytes) or len(raw) > 8 * 1024 * 1024:
+        raise ValueError("Recipe image exceeds the download limit")
+    try:
         image = load_raster_image(raw, max_pixels=MAX_RECIPE_IMAGE_PIXELS,
                                   formats={"JPEG", "PNG", "WEBP"}, transpose=True)
         image.thumbnail((MAX_RECIPE_IMAGE_EDGE, MAX_RECIPE_IMAGE_EDGE), Image.Resampling.LANCZOS)
@@ -40,7 +55,7 @@ def normalize_recipe_image(data_uri: str | None) -> dict | None:
             content = output.getvalue()
         if len(content) > MAX_RECIPE_IMAGE_BYTES:
             raise ValueError("Recipe image exceeds the upload limit")
-    except (binascii.Error, UnidentifiedImageError, OSError, SyntaxError,
+    except (UnidentifiedImageError, OSError, SyntaxError,
             Image.DecompressionBombError, Image.DecompressionBombWarning) as error:
         raise ValueError("Invalid recipe image") from error
     return {"content": content, "content_hash": hashlib.sha256(content).hexdigest(), "media_type": "image/webp"}

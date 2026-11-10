@@ -266,3 +266,9 @@ For audio/STT work, use controlled fixture recordings instead of making Tobi tri
 - Review subagents should not run full gates by default. They may run static/syntax checks or a focused suite only when explicitly requested.
 - `web/manifest.json` and `src-tauri/frontend-dist/` are maintained by the dev/release flow; source tests generally target `web/` unless a native packaging test says otherwise.
 - In CI, `install-and-test.sh` runs the release gate against the real installed `.deb` service, owned by the `nia-todo` system user rather than the CI runner user (`NIA_TODO_TEST_SUDO_FS=1`). Scripts touching that data use `sudo -n` for filesystem operations and must use the app's venv Python explicitly (`APP_PYTHON` in `frontend_test_lib.mjs`, similar constant in `test_backend.py`) - a bare `python3` under `sudo -n` loses the venv from `PATH` and misses `fastapi`. New DB-touching test scripts must set `NIA_TODO_DATA_DIR` themselves rather than relying on the ambient environment, or they'll target the real service data dir.
+
+URL import regressions: `test_public_fetch.py` mocks DNS/sockets/HTTP to check public
+address pinning, redirects and download bounds; `test_recipe_import.py` parses local
+HTML fixtures with network access prohibited. `test_frontend_recipe_import.mjs` uses
+a private mocked browser origin and never the development database. Existing recipe
+API, image, migration and offline suites cover source-field persistence and upgrade.

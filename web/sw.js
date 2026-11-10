@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'nia-v4-module-platform-preview-346';
+const CACHE_REVISION = 'nia-v4-module-platform-preview-347';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -190,6 +190,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/cookbooks.js',
   '/static/js/features/recipe-view.js',
   '/static/js/features/recipe-editor.js',
+  '/static/js/features/recipe-import.js',
   '/static/js/features/recipe-images.js',
   '/static/js/features/recipe-pending.js',
   '/static/js/features/recipe-mutations.js',

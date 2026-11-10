@@ -46,6 +46,7 @@ import { createNavigationFeature } from './features/navigation.js';
 import { recipesApi } from './api/recipes.js';
 import { createRecipeController } from './features/recipe-mutations.js';
 import { createRecipeViewFeature } from './features/recipe-view.js';
+import { createRecipeImportFeature } from './features/recipe-import.js';
 import { createRecipeEditorFeature } from './features/recipe-editor.js';
 import { createRecipeImagesFeature, prepareRecipeImage } from './features/recipe-images.js';
 import { createCookbooksController } from './features/cookbooks.js';
@@ -115,10 +116,12 @@ let cookbookNavigationFeature = null;
 let cookbookDetailsFeature = null;
 let recipeViewFeature = null;
 let recipeEditorFeature = null;
+let recipeImportFeature = null;
 let recipeShoppingTransferFeature = null;
 
 function renderCookbooks() { cookbookNavigationFeature?.render(); recipeShoppingTransferFeature?.reconcile(); }
 function remapCookbookId(from, to) {
+  recipeImportFeature?.remapCookbookId(from, to);
   cookbookDetailsFeature?.remapCookbookId(from, to);
   cookbookNavigationFeature?.remapCookbookId(from, to);
 }
@@ -142,6 +145,7 @@ function setCookbooksState(next) {
   for (const [from, to] of remaps) remapRecipeId(from, to);
   cookbookDetailsFeature?.reconcileCookbooksChanged();
   recipeEditorFeature?.reconcile();
+  recipeImportFeature?.reconcile();
   recipeShoppingTransferFeature?.reconcile();
 }
 function getCookbookSessionIdentity() {
@@ -1328,6 +1332,7 @@ cookbookNavigationFeature = createCookbookNavigationFeature({
   onDeactivate: () => {
     cookbookDetailsFeature?.deactivate();
     recipeEditorFeature?.deactivate();
+    recipeImportFeature?.deactivate();
     recipeShoppingTransferFeature?.deactivate();
     recipeViewFeature?.deactivate();
   },
@@ -1378,6 +1383,7 @@ recipeViewFeature = createRecipeViewFeature({
   getActorId: () => currentUser?.id ?? null, getSessionIdentity: getCookbookSessionIdentity,
   recipeController, confirmDanger,
   onCreate: book => recipeEditorFeature?.showCreate(book.id),
+  onImport: book => recipeImportFeature?.show(book.id),
   onEdit: recipe => recipeEditorFeature?.showEdit(recipe.id),
   canTransfer: canUseShoppingForTransfer,
   onTransfer: (recipe, options) => recipeShoppingTransferFeature?.show(recipe, options),
@@ -1389,6 +1395,12 @@ recipeEditorFeature = createRecipeEditorFeature({
   releaseRecipeImage: recipeImagesFeature.release,
   onSaved: recipe => recipeViewFeature.selectRecipe(recipe.id),
   onDeleted: () => recipeViewFeature.showOverview({ replaceHistory: true }),
+});
+recipeImportFeature = createRecipeImportFeature({
+  api: recipesApi, editor: recipeEditorFeature, getCookbooks: () => cookbooks,
+  getActiveCookbookId: () => cookbookNavigationFeature.getActiveCookbookId(),
+  getSessionIdentity: getCookbookSessionIdentity,
+  isOnline: () => navigator.onLine !== false,
 });
 cookbookNavigationFeature.setRecipeView(recipeViewFeature);
 const refreshTasksModule = () => {
@@ -1621,6 +1633,7 @@ export function startAppModule() {
   cookbookDetailsFeature.bind();
   recipeViewFeature.bind();
   recipeEditorFeature.bind();
+  recipeImportFeature.bind();
   recipeShoppingTransferFeature.bind();
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();

@@ -209,3 +209,36 @@
 .recipe-editor-step-quantity-fields>.btn { justify-self: start; }
 .recipe-editor-step-number { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .recipe-editor-step-number>.ui-field { width: 120px; max-width: 100%; }
+
+/* Imports use the same modal/editor and round checkbox as other recipe flows. */
+@media(min-width:1181px) {
+  .modal-content.ui-detail-modal-content.recipe-import-content {
+    width: min(680px,calc(100vw - 40px));
+    height: auto;
+    min-height: 0;
+    max-height: calc(100vh - 32px);
+  }
+}
+.recipe-import-content .entity-modal-form { display: grid; gap: 16px; }
+.recipe-import-content .form-group { margin-bottom: 0; min-width: 0; }
+.recipe-import-content .ui-field { width: 100%; min-width: 0; }
+.recipe-import-image-option { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+.recipe-import-image-option .ui-checkbox-label { flex: 0 0 auto; }
+.recipe-import-content .recipe-step-hint,.recipe-import-content .form-error { margin: 0; }
+.recipe-import-review { padding: 12px 16px; border-radius: 16px; background: color-mix(in srgb,var(--bg-tertiary) 45%,transparent); color: var(--text-muted); font-size: 13px; overflow-wrap: anywhere; }
+.recipe-import-review[hidden] { display: none; }
+.recipe-import-review p { margin: 0; }
+.recipe-import-review ul { margin: 8px 0 0; padding-left: 20px; }
+.recipe-editor-source { min-width: 0; }
+.recipe-editor-source>summary { cursor: pointer; min-height: 44px; padding: 12px 0; font-size: 13px; font-weight: 650; }
+.recipe-editor-source[open] { padding: 0 16px 16px; border-radius: 16px; background: color-mix(in srgb,var(--bg-tertiary) 45%,transparent); }
+.recipe-editor-source-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.recipe-editor-source-fields .form-group { min-width: 0; }
+.recipe-editor-source-fields .ui-field { width: 100%; min-width: 0; }
+.recipe-source { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 12px; color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; min-width: 0; margin-top: 12px; }
+.recipe-source a { color: var(--accent); max-width: 100%; }
+.recipe-source>span { min-width: 0; }
+@media(max-width:768px) {
+  .recipe-editor-source-fields { grid-template-columns: minmax(0,1fr); }
+  .recipe-import-content .ui-detail-header-actions .btn { min-height: 44px; white-space: normal; }
+}

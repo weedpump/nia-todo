@@ -235,9 +235,9 @@ async def create_recipe(cookbook_id: CookbookId, data: RecipeCreate, user_id: in
         if replay is not None:
             return replay
         recipe_id = db.execute(
-            """INSERT INTO recipes (cookbook_id, title, description, base_servings, prep_minutes, cook_minutes, created_by_user_id, client_mutation_id, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (cookbook_id, data.title, data.description, data.base_servings, data.prep_minutes, data.cook_minutes, user_id, data.client_mutation_id, now_iso()),
+            """INSERT INTO recipes (cookbook_id, title, description, base_servings, prep_minutes, cook_minutes, source_url, source_name, source_author, source_yield, created_by_user_id, client_mutation_id, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (cookbook_id, data.title, data.description, data.base_servings, data.prep_minutes, data.cook_minutes, data.source_url, data.source_name, data.source_author, data.source_yield, user_id, data.client_mutation_id, now_iso()),
         ).lastrowid
         write_recipe_children(db, recipe_id, data)
         _write_recipe_image(db, recipe_id, data)
@@ -295,8 +295,8 @@ async def update_recipe(recipe_id: CookbookId, data: RecipePatch, user_id: int =
             raise HTTPException(422, "Invalid recipe aggregate") from error
         revision = current["revision"] + 1
         db.execute(
-            """UPDATE recipes SET title = ?, description = ?, base_servings = ?, prep_minutes = ?, cook_minutes = ?, revision = ?, updated_at = ? WHERE id = ?""",
-            (content.title, content.description, content.base_servings, content.prep_minutes, content.cook_minutes, revision, now_iso(), recipe_id),
+            """UPDATE recipes SET title = ?, description = ?, base_servings = ?, prep_minutes = ?, cook_minutes = ?, source_url = ?, source_name = ?, source_author = ?, source_yield = ?, revision = ?, updated_at = ? WHERE id = ?""",
+            (content.title, content.description, content.base_servings, content.prep_minutes, content.cook_minutes, content.source_url, content.source_name, content.source_author, content.source_yield, revision, now_iso(), recipe_id),
         )
         write_recipe_children(db, recipe_id, content)
         _write_recipe_image(db, recipe_id, data)

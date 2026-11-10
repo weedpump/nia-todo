@@ -46,9 +46,11 @@ try {
     async function commit(build) {const mutation=build();if(mutation)await s.commitRecipeMutation(mutation);return mutation;}
     const controller=createRecipeController({getCookbooks:()=>books,setCookbooks:value=>{books=value;},commitMutation:commit,getSessionIdentity:()=>actor,getCurrentUser:()=>({id:1}),createTempId:()=>`temp-recipe-${++number}`,recipesApi:{getRecipe:async()=>recipe(20,8,'Remote latest')}});
     const adapter=api=>createRecipeSyncAdapter({api,getCookbooks:()=>books,setCookbooks:value=>{books=value;},readQueue:()=>s.getAll('syncQueue'),markAttempt:s.markRecipeMutationAttempt,commitReplay:s.commitRecipeReplay,onIdRemap:(from,to)=>{check(!ref.commitLocked,'callback outside commit lock');remaps.push([from,to]);}});
-    await reset();let created=await controller.create(10,{title:'Draft'});await controller.update(created.id,{title:'Edited',steps:[{client_key:'s1',text:'One\nmultiline step'}]});
+    await reset();let created=await controller.create(10,{title:'Draft',source_url:'https://example.com/recipe',source_name:'Kitchen',source_author:'Cook',source_yield:'12 cookies'});await controller.update(created.id,{title:'Edited',steps:[{client_key:'s1',text:'One\nmultiline step'}]});
     let queue=await s.getAll('syncQueue');check(queue.length===1&&queue[0].action==='CREATE_RECIPE'&&queue[0].data.title==='Edited','unsent create/update collapses');
     check((await s.get('cookbooks',10)).recipes[0].steps[0].text==='One\nmultiline step','aggregate durable');
+    check(queue[0].data.source_url==='https://example.com/recipe' && queue[0].data.source_author==='Cook','source attribution survives offline collapse');
+    check((await s.get('cookbooks',10)).recipes[0].source_yield==='12 cookies','original yield remains durable across ordinary editor changes');
     await controller.remove(created.id);check(!(await s.getAll('syncQueue')).length&&books[0].recipes.length===0,'unsent create/delete collapses');
     groups.push('durable aggregate and safe unsent collapse');
     await reset();created=await controller.create(10,{title:'Before'});queue=await s.getAll('syncQueue');let release,started;

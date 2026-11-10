@@ -60,7 +60,7 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 70, latest
+        assert latest == 71, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
@@ -450,9 +450,24 @@ def main():
                     db.execute("ROLLBACK TO invalid_step_quantity")
                     db.execute("RELEASE invalid_step_quantity")
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+        v70_migrations = tmp_path / "migrations-v70"
+        v70_migrations.mkdir()
+        for migration in MIGRATIONS_DIR.glob("*.sql"):
+            if int(migration.name.split("_", 1)[0]) <= 70:
+                shutil.copy2(migration, v70_migrations / migration.name)
+        run_migrations(v55_env, v70_migrations)
+        with sqlite3.connect(v55_db_path) as db:
+            db.row_factory = sqlite3.Row
+            before_sources = [dict(row) for row in db.execute("SELECT * FROM recipes ORDER BY id")]
         run_migrations(v55_env)
         with sqlite3.connect(v55_db_path) as db:
-            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 70
+            db.row_factory = sqlite3.Row
+            after_sources = [dict(row) for row in db.execute("SELECT * FROM recipes ORDER BY id")]
+            fields = {"source_url", "source_name", "source_author", "source_yield"}
+            assert [{key: value for key, value in row.items() if key not in fields} for row in after_sources] == before_sources
+            assert all(row[field] == "" for row in after_sources for field in fields)
+            db.row_factory = None
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 71
             project_member_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
             assert "is_direct_access_mirror" not in project_member_columns, project_member_columns
             migrated_grants = db.execute(

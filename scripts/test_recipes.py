@@ -513,6 +513,28 @@ def test_scoped_child_keys_and_cookbook_cascade():
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
+def test_import_source_attribution_survives_edits_sharing_and_receipts():
+    with fixture() as f:
+        source = {"source_url": "https://example.com/recipes/pasta", "source_name": "Family Kitchen",
+                  "source_author": "A & B", "source_yield": "12 pieces"}
+        data = {**payload("import-source"), **source}
+        recipe = create(f, data)
+        assert all(recipe[key] == value for key, value in source.items())
+        endpoint = f"/api/recipes/recipes/{recipe['id']}"
+        f.actor["id"] = f.users[1]
+        shared = f.call("get", endpoint)
+        assert all(shared[key] == value for key, value in source.items())
+        edited = f.call("patch", endpoint, json={"client_mutation_id": "source-legacy-edit", "expected_revision": 1, "description": "Edited"})
+        assert all(edited[key] == value for key, value in source.items())
+        for url in ("javascript:alert(1)", "data:text/html,test", "https://user:password@example.com/", "https://example.com:invalid/"):
+            f.call("patch", endpoint, expected=422, json={"client_mutation_id": "invalid-source", "expected_revision": edited["revision"], "source_url": url})
+        f.call("patch", endpoint, expected=422, json={"client_mutation_id": "null-source", "expected_revision": edited["revision"], "source_author": None})
+        cleared = f.call("patch", endpoint, json={"client_mutation_id": "clear-source", "expected_revision": edited["revision"], **dict.fromkeys(source, "")})
+        assert all(cleared[key] == "" for key in source)
+        f.actor["id"] = f.users[2]
+        f.call("get", endpoint, expected=404)
+
+
 if __name__ == "__main__":
     tests = [value for name, value in globals().items() if name.startswith("test_") and callable(value)]
     for test in tests:

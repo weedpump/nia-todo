@@ -31,9 +31,13 @@ export function getAuthHeaders() {
   return headers;
 }
 
-async function request(method, path, body) {
+async function request(method, path, body, { signal = null, timeoutMs = 8000 } = {}) {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timeout = controller ? setTimeout(() => controller.abort(), 8000) : null;
+  const abort = () => controller?.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener?.('abort', abort, { once: true });
+  const deadline = Number.isFinite(timeoutMs) ? Math.min(120000, Math.max(1, timeoutMs)) : 8000;
+  const timeout = controller ? setTimeout(abort, deadline) : null;
   const options = {
     method,
     headers: getAuthHeaders(),
@@ -44,15 +48,16 @@ async function request(method, path, body) {
   try {
     const r = await fetch(API + path, options);
     if (!r.ok) await apiErrorFromResponse(r, `${r.status} ${r.statusText}`);
-    return r.json();
+    return await r.json();
   } finally {
     if (timeout) clearTimeout(timeout);
+    signal?.removeEventListener?.('abort', abort);
   }
 }
 
 export const http = {
   get: (path) => request('GET', path),
-  post: (path, body) => request('POST', path, body),
+  post: (path, body, options) => request('POST', path, body, options),
   patch: (path, body) => request('PATCH', path, body),
   del: (path) => request('DELETE', path),
 };

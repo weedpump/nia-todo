@@ -2,6 +2,7 @@
 
 import json
 import math
+from urllib.parse import urlsplit
 from typing import Annotated
 
 from fastapi import HTTPException
@@ -131,7 +132,26 @@ class RecipePayload(BaseModel):
     ingredient_groups: list[IngredientGroup] | None = Field(default=None, max_length=50)
     steps: list[RecipeStep] | None = Field(default=None, max_length=100)
     image_data: str | None = Field(default=None, max_length=430000)
+    source_url: str = Field(default="", max_length=2048)
+    source_name: str = Field(default="", max_length=200)
+    source_author: str = Field(default="", max_length=500)
+    source_yield: str = Field(default="", max_length=500)
     client_mutation_id: ClientKey
+
+    @field_validator("source_url", "source_name", "source_author", "source_yield")
+    @classmethod
+    def source_text(cls, value, info):
+        value = value.strip()
+        if info.field_name == "source_url" and value:
+            try:
+                parsed = urlsplit(value)
+                valid = parsed.scheme.lower() in {"http", "https"} and parsed.hostname and not parsed.username and not parsed.password
+                parsed.port
+            except ValueError:
+                valid = False
+            if not valid or any(ord(char) < 33 or ord(char) == 127 for char in value):
+                raise ValueError("Invalid recipe source URL")
+        return value
 
     @field_validator("title", "client_mutation_id")
     @classmethod
