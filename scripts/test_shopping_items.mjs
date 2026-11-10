@@ -747,7 +747,7 @@ let updateLists = [{
     completed: false,
   }],
 }];
-let updateStores = [{ id: 'temp-update-store', client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
+let updateStores = [{ id: 'temp-update-store', shopping_list_id: 'update-list', client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
 const updateGate = deferred();
 let updateMutation = null;
 let updatePublishes = 0;
@@ -787,7 +787,7 @@ updateLists = [{
   items: [{ ...updateLists[0].items[0], id: 81 }],
 }];
 activeUpdateListId = 61;
-updateStores = [{ id: 91, client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
+updateStores = [{ id: 91, shopping_list_id: 61, client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
 updateGate.resolve();
 const updatedItem = await firstUpdate;
 assert.equal(updateMutation.action, 'UPDATE_SHOPPING_ITEM');
