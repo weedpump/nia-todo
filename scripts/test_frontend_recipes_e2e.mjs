@@ -61,7 +61,13 @@ async function addIngredient(page, groupIndex, fields) {
   const group = page.locator('.recipe-editor-group').nth(groupIndex);
   await group.locator('[data-recipe-editor-action="ingredient-add"]').click();
   const item = group.locator('.recipe-editor-ingredient').last();
+  if (Object.hasOwn(fields, 'quantity_text')) {
+    const modeId = await item.locator('[data-field="quantity_mode"]').getAttribute('id');
+    await item.locator(`[data-select-id="${modeId}"] .ui-select-trigger`).click();
+    await page.locator(`#${modeId}-ui-menu .ui-select-option[data-value="text"]`).click();
+  }
   for (const [key, value] of Object.entries(fields)) await item.locator(`[data-field="${key}"]`).fill(String(value));
+  await item.locator('[data-recipe-editor-action="ingredient-done"]').click();
 }
 async function run() {
   const clients = []; const expectedErrorRanges = []; let expectedErrorStart = -1, expectedErrorEnd = -1;
