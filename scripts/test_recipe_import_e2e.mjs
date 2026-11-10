@@ -112,7 +112,7 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('.recipe-reading').waitFor();
   assert.equal(await page.locator('.recipe-source a').getAttribute('href'), sourceUrl);
-  assert((await page.locator('.recipe-source').textContent()).includes(sourceAuthor));
+  assert(!(await page.locator('.recipe-source').textContent()).includes(sourceAuthor), 'retained author metadata is omitted from the recipe view');
   await poll(() => document.querySelector('.recipe-title-image img')?.naturalWidth > 0);
   await client.dismissWhatsNewIfVisible();
   await page.locator('[data-recipe-action="overview"]').click();

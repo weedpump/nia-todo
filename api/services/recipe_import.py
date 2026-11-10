@@ -15,6 +15,7 @@ from urllib.parse import urljoin, urlsplit
 from bs4 import BeautifulSoup, UnicodeDammit
 from pydantic import ValidationError
 from recipe_scrapers import scrape_html
+from recipe_scrapers._grouping_utils import group_ingredients
 
 from services.public_fetch import PublicFetchError, fetch_public
 from services.quantity_units import get_unit_definition, normalize_quantity_unit
@@ -170,6 +171,43 @@ def _bounded_records(value, maximum: int) -> list | tuple:
     return value
 
 
+def _source_ingredient_groups(scraper, url: str, ingredients: list | tuple, groups: list | tuple):
+    """Fill a known adapter gap without changing its canonical ingredient lines.
+
+    Chefkoch's structured recipe has a flat ingredient list; its visible group
+    headings live in HTML. The pinned adapter currently checks only generic
+    WordPress grouping selectors. Supply its missing source selectors here until
+    the adapter supports them, and accept the result only if every original line
+    remains in exactly the same order (the library matcher can otherwise guess).
+    """
+    if len(groups) > 1 or groups and _text(getattr(groups[0], "purpose", None)):
+        return groups, False
+    selectors = {
+        "chefkoch.de": (".ds-ingredients-table .ds-ingredients-table__headline",
+                        ".ds-ingredients-table .ds-ingredients-table__tr"),
+    }.get((urlsplit(url).hostname or "").lower().removeprefix("www."))
+    soup = getattr(scraper, "soup", None)
+    if not selectors or soup is None or not ingredients:
+        return groups, False
+    heading_selector, row_selector = selectors
+    headings = soup.select(heading_selector, limit=51)
+    if not headings:
+        return groups, False
+    rows = soup.select(row_selector, limit=501)
+    if len(headings) > 50 or len(rows) > 500:
+        raise PublicFetchError("recipe.import.invalidRecipe")
+    if len(rows) != len(ingredients):
+        return groups, True
+    try:
+        recovered = group_ingredients(list(ingredients), soup, heading_selector, row_selector)
+    except Exception:
+        return groups, True
+    recovered = _bounded_records(recovered, 50)
+    if [line for group in recovered for line in group.ingredients] != list(ingredients):
+        return groups, True
+    return recovered, False
+
+
 def _bound_instruction_tree(value, *, budget=None, depth=0):
     """Bound nested HowToSection arrays before the scraper flattens them."""
     budget = [512] if budget is None else budget
@@ -259,6 +297,9 @@ def extract_recipe_html(html: str, url: str) -> dict:
             structured_instructions = _structured_instructions(schema.get("recipeInstructions"))
             raw_ingredients = _bounded_records(_read(scraper, "ingredients", []), 500)
             raw_groups = _bounded_records(_read(scraper, "ingredient_groups"), 50)
+            raw_groups, uncertain_groups = _source_ingredient_groups(scraper, url, raw_ingredients, raw_groups)
+            if uncertain_groups:
+                warn("recipe.import.reviewIngredients")
             group_lines = []
             count = 0
             for group in raw_groups:

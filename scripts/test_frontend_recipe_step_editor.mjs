@@ -255,6 +255,27 @@ try {
   assert.equal(await page.locator('#recipe-save-btn').isVisible(),true,'a title-only step is valid without an artificial required body');
   await firstStep.locator('[data-field="step-title"]').fill('');
   assert.equal(await page.locator('#recipe-save-btn').isVisible(),false,'a step still requires a heading or body');
+  for (const width of [1280,390,320]) {
+    await page.setViewportSize({width,height:900});
+    for (const name of ['', 'Dough <img src=x>']) {
+      assert.equal(await page.evaluate(name => {
+        const source=structuredClone(window.stepTest.books()[0].recipes[0]);
+        source.ingredient_groups=[{client_key:'only',name,ingredients:source.ingredient_groups.flatMap(group=>group.ingredients)},
+          {client_key:'empty',name:'Unused group',ingredients:[]}];
+        window.stepTest.editor.deactivate();
+        return window.stepTest.editor.showImport(source,2);
+      },name),true);
+      await openPicker('s1');
+      assert.equal(await step('s1').locator('[data-step-group]').count(),0,'a single populated group needs no second disclosure');
+      assert.equal(await choice('s1',0).isVisible(),true,`ingredients are immediately available at ${width}px`);
+      assert.equal(await choice('s1',0).isChecked(),true,'existing step assignments remain selected');
+      assert.equal(await step('s1').locator('.recipe-editor-step-group-name').count(),name ? 1 : 0,'only a named group keeps its static heading');
+      assert.equal(await step('s1').locator('img').count(),0,'single group names stay escaped');
+      await choice('s1',0).uncheck(); await choice('s1',0).check();
+      assert.equal(await choice('s1',0).isVisible(),true,'changing an assignment keeps the direct list visible');
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    }
+  }
   assert.deepEqual(await page.evaluate(() => window.stepTest.errors), []); assert.deepEqual(errors, []);
   console.log('✅ Recipe step editor: stable links, pruning, offline payload, language, mobile and lifecycle guards');
 } finally { await browser.close(); }

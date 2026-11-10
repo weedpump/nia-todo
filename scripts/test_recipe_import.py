@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Pure fixtures for recipe extraction/import; no app DB or live sites."""
 import base64
+import contextlib
+import html
 import io
 import json
 import socket
@@ -56,6 +58,52 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(result['draft']['title'],'Apfelkuchen')
         self.assertEqual([step['text'] for step in result['draft']['steps']], ['Mehl mischen.'])
         self.assertTrue(all(step['ingredients']==[] for step in result['draft']['steps']))
+
+    def test_chefkoch_html_groups_preserve_flat_schema_ingredients(self):
+        initial=[f'{index} g Grundzutat {index}' for index in range(1,11)]
+        sauce=['200 ml Sojamilch','5 EL Margarine','20 g Mehl','1 TL Muskat']
+        topping=['2 EL Margarine','4 EL Hefeflocken','3 TL Mehl','1 TL Salz',
+                 '1 Prise Paprikapulver','1 Prise Pfeffer','1 TL Senf','150 ml Wasser']
+        sections=[('',initial),('Für die Sauce: (Béchamel-)',sauce),('Für den Belag: (Hefeschmelz)',topping)]
+        lines=[line for _,values in sections for line in values]
+        def table(name,values):
+            heading=f'<thead><tr><th><h3 class="ds-ingredients-table__headline">{html.escape(name)}</h3></th></tr></thead>' if name else ''
+            rows=''.join(f'<tr class="ds-ingredients-table__tr"><td>{html.escape(line)}</td></tr>' for line in values)
+            return f'<table class="ds-ingredients-table">{heading}<tbody>{rows}</tbody></table>'
+        markup=page(recipeIngredient=lines)+''.join(table(name,values) for name,values in sections)
+        url='https://www.chefkoch.de/rezepte/123/lasagne.html'
+        with patch.object(socket,'socket',side_effect=AssertionError('parser must not access network')):
+            result=imports.extract_recipe_html(markup,url)
+        groups=result['draft']['ingredient_groups']
+        self.assertEqual([group['name'] for group in groups],[name for name,_ in sections])
+        self.assertEqual([len(group['ingredients']) for group in groups],[10,4,8])
+        expected=[imports.parse_ingredient(line)[0] for line in lines]
+        fields=('name','quantity_value','quantity_unit','quantity_text','note')
+        self.assertEqual([{key:item[key] for key in fields} for group in groups for item in group['ingredients']],
+                         [{key:item[key] for key in fields} for item in expected])
+        self.assertEqual(groups[1]['ingredients'][1]['quantity_value'],5)
+        self.assertEqual(groups[2]['ingredients'][0]['quantity_value'],2,'near-identical ingredient names retain their source amounts and groups')
+        unrelated_heading='<h3 class="ds-ingredients-table__headline">Unrelated recipe heading</h3>'
+        decorated=unrelated_heading+markup.replace('</table>','</table>'+unrelated_heading)
+        decorated_groups=imports.extract_recipe_html(decorated,url)['draft']['ingredient_groups']
+        self.assertEqual([group['name'] for group in decorated_groups],[name for name,_ in sections],
+                         'same-class headings outside ingredient tables cannot relabel ingredients')
+        # Host matching is exact; an unrelated site cannot opt into an adapter
+        # just by placing the recognized site name in its own hostname.
+        unrelated=imports.extract_recipe_html(markup,'https://chefkoch.de.example/rezept')['draft']
+        self.assertEqual(len(unrelated['ingredient_groups']),1)
+        # A source change or uncertain fuzzy match must not lose/reorder lines.
+        for candidate in (markup.replace('class="ds-ingredients-table__tr"','class="changed-row"',1),markup):
+            options={} if candidate!=markup else {'return_value':[SimpleNamespace(purpose='Wrong',ingredients=list(reversed(lines)))]}
+            with patch.object(imports,'group_ingredients',**options) if options else contextlib.nullcontext():
+                fallback=imports.extract_recipe_html(candidate,url)
+            self.assertEqual(len(fallback['draft']['ingredient_groups']),1)
+            self.assertEqual(len(fallback['draft']['ingredient_groups'][0]['ingredients']),22)
+            self.assertIn('recipe.import.reviewIngredients',fallback['warnings'])
+        for extra in ('<h3 class="ds-ingredients-table__headline">Heading</h3>'*51,
+                      '<tr class="ds-ingredients-table__tr"><td>Extra</td></tr>'*501):
+            with self.assertRaises(PublicFetchError):
+                imports.extract_recipe_html(markup+'<table class="ds-ingredients-table">'+extra+'</table>',url)
 
     def test_structured_step_titles_are_optional_distinct_headings(self):
         instructions=[{'@type':'HowToSection','name':'Teig','itemListElement':[

@@ -272,6 +272,10 @@ address pinning, redirects and download bounds; `test_recipe_import.py` parses l
 HTML fixtures with network access prohibited. `test_frontend_recipe_import.mjs` uses
 a private mocked browser origin and never the development database. Existing recipe
 API, image, migration and offline suites cover source-field persistence and upgrade.
+Grouping fixtures verify Chefkoch's HTML sections against the unchanged structured
+ingredient sequence, including similar names with different amounts and safe fallback
+when the page structure no longer matches. Step-editor fixtures cover direct access
+for one populated group and collapsed sections for multiple groups on mobile/desktop.
 
 Recipe BrainDump regressions: `test_recipe_ai.py` mocks model calls/access and checks
 protected facts, ingredient keys, strict JSON and revocation before/after retry.

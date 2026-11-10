@@ -181,6 +181,10 @@ image; it never creates a recipe. The ordinary recipe editor, authorization, mut
 receipts and offline queue handle saving. Source URL, site, author and original yield
 are recipe fields and inherit cookbook access. URL parsing calls no LLM; uncertain ingredient lines and yields are preserved
 for review, and step quantities are not inferred by that parser.
+For the pinned library's Chefkoch grouping gap, a small source adapter supplies the
+visible HTML heading/row selectors to the existing library helper. Recovered groups
+are accepted only when the complete canonical ingredient sequence is unchanged;
+drift falls back to the flat list with a review hint. No groups are inferred by an LLM.
 
 Recipe BrainDump uses the shared LLM transport and the existing global and per-user
 BrainDump permission. Its text/refine endpoint returns only an unsaved preview and
