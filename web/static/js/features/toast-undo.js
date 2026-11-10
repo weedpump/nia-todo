@@ -274,7 +274,7 @@ export function createToastUndoFeature({
     const queue = await dbGetAll('syncQueue');
     if (!isCurrent()) return false;
     const pendingEntries = queue.filter(item => queueItemReferencesTodo(item, id));
-    if (pendingEntries.some(item => item.action === 'CREATE_TODO' && (item.data?.create_attempted || item.data?.create_receipt))) return false;
+    if (pendingEntries.some(item => item.action === 'CREATE_TODO' && (item.attempted || item.data?.create_attempted || item.data?.create_receipt))) return false;
     const canceledCreate = pendingEntries.some(item => item?.action === 'CREATE_TODO' && String(item?.data?._tempId) === String(id));
     for (const item of pendingEntries) {
       if (!isCurrent()) return false;

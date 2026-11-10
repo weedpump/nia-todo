@@ -232,6 +232,25 @@ try {
   assert.equal(duplicate.posts.length, 1); assert.equal(duplicate.remote.size, 0); assert.deepEqual(duplicated.stores.syncQueue, []);
   console.log('✅ Undo Duplicate keeps an attempted create until its canonical delete can finish');
 
+
+  const legacyDuplicate = scenario('legacy-undo-duplicate', { hold: true });
+  const legacyDuplicated = harness(legacyDuplicate);
+  const legacyDuplicateSync = legacyDuplicated.sync(); await legacyDuplicate.started.promise;
+  const legacyAttempt = legacyDuplicated.stores.syncQueue.find(item => item.action === 'CREATE_TODO');
+  assert.equal(legacyAttempt.attempted, true);
+  // Shared-memory queues originally persisted only this top-level marker.
+  delete legacyAttempt.data.create_attempted;
+  legacyDuplicated.undo.showToast('Duplicated', { type: 'duplicate', id: legacyDuplicated.temporary.id });
+  legacyDuplicated.undo.undoLastAction();
+  await until(() => legacyDuplicated.stores.syncQueue.some(item => item.action === 'DELETE_TODO'));
+  assert(legacyDuplicated.stores.syncQueue.some(item => item.action === 'CREATE_TODO'),
+    'Undo must retain a legacy top-level attempted create until its held response supplies the canonical ID');
+  legacyDuplicate.responseGate.resolve(); await legacyDuplicateSync;
+  assert.equal(legacyDuplicate.posts.length, 1); assert.equal(legacyDuplicate.deletes.length, 1);
+  assert.equal(legacyDuplicate.remote.size, 0); assert.deepEqual(legacyDuplicated.stores.syncQueue, []);
+  assert.deepEqual(legacyDuplicated.visible(), []);
+  console.log('✅ Undo Duplicate also retains old top-level attempted creates and deletes their canonical result');
+
   const callbackGap = harness(scenario('undo-callback-gap'), { deleted: true });
   callbackGap.stores.syncQueue = [{ id: 2, action: 'DELETE_TODO', data: {
     id: 999, original_todo_id: callbackGap.temporary.id, project_id: 1, local_todo: { ...callbackGap.temporary, id: 999 },
