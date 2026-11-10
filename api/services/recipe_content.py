@@ -1,8 +1,10 @@
 """Validated recipe aggregates; children inherit their cookbook's boundary."""
 
 import json
+import math
 from typing import Annotated
 
+from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from services.entity_access import resolve_entity_access
@@ -72,11 +74,33 @@ class RecipeStepIngredient(BaseModel):
     model_config = ConfigDict(extra="forbid")
     ingredient_client_key: ClientKey
     show_quantity: bool = Field(default=True, strict=True)
+    quantity_value: float | None = Field(default=None, gt=0, allow_inf_nan=False, strict=True)
+    quantity_text: str | None = Field(default=None, max_length=500)
 
     @field_validator("ingredient_client_key")
     @classmethod
     def required_key(cls, value):
         return _required(value)
+
+    @field_validator("quantity_value", mode="before")
+    @classmethod
+    def finite_quantity(cls, value):
+        if isinstance(value, float) and not math.isfinite(value):
+            raise HTTPException(422, "Step quantity must be finite")
+        return value
+
+    @field_validator("quantity_text")
+    @classmethod
+    def optional_text(cls, value):
+        return value.strip() or None if value is not None else None
+
+    @model_validator(mode="after")
+    def quantity_contract(self):
+        if self.quantity_value is not None and self.quantity_text is not None:
+            raise ValueError("Numeric and free step quantities are mutually exclusive")
+        if not self.show_quantity and (self.quantity_value is not None or self.quantity_text is not None):
+            raise ValueError("Explicit step quantities require show_quantity")
+        return self
 
 
 class RecipeStep(BaseModel):
@@ -161,9 +185,14 @@ class RecipeCreate(RecipePayload):
 
     @model_validator(mode="after")
     def ingredient_references(self):
-        keys = {ingredient.client_key for group in self.ingredient_groups for ingredient in group.ingredients}
-        if any(link.ingredient_client_key not in keys for step in self.steps for link in step.ingredients):
-            raise ValueError("Step ingredient does not belong to this recipe")
+        ingredients = {ingredient.client_key: ingredient for group in self.ingredient_groups for ingredient in group.ingredients}
+        for step in self.steps:
+            for link in step.ingredients:
+                ingredient = ingredients.get(link.ingredient_client_key)
+                if ingredient is None:
+                    raise ValueError("Step ingredient does not belong to this recipe")
+                if link.quantity_value is not None and (ingredient.quantity_value is None or link.quantity_value > ingredient.quantity_value):
+                    raise ValueError("Step quantity exceeds the numeric ingredient total")
         return self
 
 
@@ -183,9 +212,19 @@ def merge_recipe_patch(current: dict, patch: RecipePatch) -> dict:
     old_steps = {step["client_key"]: step for step in current["steps"]}
     result["steps"] = [dict(step) for step in result["steps"]]
     for step in result["steps"]:
+        old_links = {link["ingredient_client_key"]: link for link in old_steps.get(step["client_key"], {}).get("ingredients", [])}
         if "steps" not in changes or "ingredients" not in step:
-            inherited = old_steps.get(step["client_key"], {}).get("ingredients", [])
+            inherited = old_links.values()
             step["ingredients"] = [dict(link) for link in inherited if link["ingredient_client_key"] in ingredient_keys]
+        else:
+            links = []
+            for link in step["ingredients"]:
+                link = dict(link)
+                if "quantity_value" not in link and "quantity_text" not in link:
+                    previous = {} if link.get("show_quantity") is False else old_links.get(link["ingredient_client_key"], {})
+                    link.update({field: previous.get(field) for field in ("quantity_value", "quantity_text")})
+                links.append(link)
+            step["ingredients"] = links
     return result
 
 
@@ -212,12 +251,13 @@ def _project_recipes(db, rows, *, can_edit: bool) -> list[dict]:
     for row in db.execute(f"SELECT * FROM recipe_ingredient_groups WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
         groups.setdefault(row["recipe_id"], []).append({"id": row["id"], "client_key": row["client_key"], "name": row["name"], "ingredients": ingredients.get(row["id"], [])})
     for row in db.execute(
-        f"""SELECT link.step_id, ingredient.client_key, link.show_quantity
+        f"""SELECT link.step_id, ingredient.client_key, link.show_quantity, link.quantity_value, link.quantity_text
             FROM recipe_step_ingredients link
             JOIN recipe_ingredients ingredient ON ingredient.id = link.ingredient_id AND ingredient.recipe_id = link.recipe_id
             WHERE link.recipe_id IN ({placeholders}) ORDER BY link.step_id, link.sort_order, link.ingredient_id""", ids,
     ):
-        step_ingredients.setdefault(row["step_id"], []).append({"ingredient_client_key": row["client_key"], "show_quantity": bool(row["show_quantity"])})
+        step_ingredients.setdefault(row["step_id"], []).append({"ingredient_client_key": row["client_key"], "show_quantity": bool(row["show_quantity"]),
+                                                             "quantity_value": row["quantity_value"], "quantity_text": row["quantity_text"]})
     for row in db.execute(f"SELECT * FROM recipe_steps WHERE recipe_id IN ({placeholders}) ORDER BY sort_order, id", ids):
         steps.setdefault(row["recipe_id"], []).append({**{key: row[key] for key in ("id", "client_key", "text")}, "ingredients": step_ingredients.get(row["id"], [])})
     for row in db.execute(f"SELECT * FROM recipe_tags WHERE recipe_id IN ({placeholders}) ORDER BY sort_order", ids):
@@ -269,9 +309,9 @@ def write_recipe_children(db, recipe_id: int, content: RecipeCreate):
             db.execute(f"DELETE FROM {table} WHERE id = ? AND recipe_id = ?", (old[key], recipe_id))
     db.execute("DELETE FROM recipe_step_ingredients WHERE recipe_id = ?", (recipe_id,))
     db.executemany(
-        """INSERT INTO recipe_step_ingredients (recipe_id, step_id, ingredient_id, show_quantity, sort_order)
-           VALUES (?, ?, ?, ?, ?)""",
-        [(recipe_id, step_ids[step.client_key], ingredient_ids[link.ingredient_client_key], int(link.show_quantity), position)
+        """INSERT INTO recipe_step_ingredients (recipe_id, step_id, ingredient_id, show_quantity, sort_order, quantity_value, quantity_text)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        [(recipe_id, step_ids[step.client_key], ingredient_ids[link.ingredient_client_key], int(link.show_quantity), position, link.quantity_value, link.quantity_text)
          for step in content.steps for position, link in enumerate(step.ingredients)],
     )
     db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (recipe_id,))

@@ -13,7 +13,8 @@ export function sanitizeRecipeShoppingTransfer(entry) {
     client_mutation_id: data.client_mutation_id,
     ...(data.source_mutation_id != null ? { source_mutation_id: data.source_mutation_id } : {}),
     ingredients: (data.ingredients || []).map(row => ({ ingredient_client_key: row.ingredient_client_key,
-      section_id: row.section_id ?? null, store_ids: [...(row.store_ids || [])] })),
+      section_id: row.section_id ?? null, store_ids: [...(row.store_ids || [])],
+      ...(row.merge_group != null ? { merge_group: row.merge_group } : {}) })),
   } };
 }
 export function recipeShoppingTransferPayload(entry) {
@@ -104,11 +105,13 @@ export function createRecipeShoppingTransferController({ getCookbooks = () => []
         const selected = [];
         for (const row of selections) {
           if (!available.has(row.ingredient_client_key) || keys.has(row.ingredient_client_key) || !Array.isArray(row.store_ids ?? []) || (row.store_ids || []).length > 50) return null;
+          if (row.merge_group != null && (typeof row.merge_group !== 'string' || !row.merge_group.trim() || row.merge_group.trim().length > 200)) return null;
           keys.add(row.ingredient_client_key);
           const section = resolve(row.section_id, list.sections || [], originalSections);
           const stores = (row.store_ids || []).map(id => resolve(id, getStores().filter(store => sameEntityId(store.shopping_list_id, list.id)), originalStores));
           if (section === undefined || stores.some(id => id == null) || new Set(stores.map(String)).size !== stores.length) return null;
-          selected.push({ ingredient_client_key: row.ingredient_client_key, section_id: section, store_ids: stores });
+          selected.push({ ingredient_client_key: row.ingredient_client_key, section_id: section, store_ids: stores,
+            ...(row.merge_group != null ? { merge_group: row.merge_group.trim() } : {}) });
         }
         const pending = queue.filter(row => ['CREATE_RECIPE', 'UPDATE_RECIPE'].includes(row.action)
           && sameEntityId(row.data?.id ?? row.data?.temp_id, source.recipe.id) && sameEntityId(row.actor_id, actor)).at(-1);

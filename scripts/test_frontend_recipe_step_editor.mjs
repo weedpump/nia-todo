@@ -67,9 +67,13 @@ const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 const step = key => page.locator(`.recipe-editor-step[data-key="${key}"]`);
 const toggle = key => step(key).locator('[data-recipe-editor-action="step-ingredients-toggle"]');
-const openPicker = async key => { if (!await step(key).locator('details').evaluate(node => node.open)) await toggle(key).click(); };
+const openPicker = async key => { if (!await step(key).locator('.recipe-editor-step-ingredients').evaluate(node => node.open)) await toggle(key).click(); };
+const openGroups = async key => { await openPicker(key); for (const group of await step(key).locator('[data-step-group]').all()) if (!await group.evaluate(node=>node.open)) await group.locator(':scope > summary').click(); };
 const choice = (key, index) => step(key).locator('[data-step-ingredient]').nth(index);
-const partial = (key, index) => step(key).locator('[data-step-ingredient-partial]').nth(index);
+const quantity = (key, index) => step(key).locator('[data-step-quantity-value]').nth(index);
+const freeQuantity = (key, index) => step(key).locator('[data-step-quantity-text]').nth(index);
+const editAmount = async (key, index) => { const details=step(key).locator('.recipe-editor-step-quantity').nth(index); if (!await details.evaluate(node=>node.open)) await details.locator('summary').click(); };
+const setAmount = async (key,index,value,free=false) => { await editAmount(key,index); await (free?freeQuantity(key,index):quantity(key,index)).fill(value); };
 const draft = () => page.evaluate(() => window.stepTest.draft());
 const links = async key => (await draft()).steps.find(row => row.client_key === key).ingredients;
 const closed = () => waitForPageCondition(page, () => !document.getElementById('recipe-modal').classList.contains('active') && !window.stepTest.hasOpenUiLayer());
@@ -92,17 +96,39 @@ try {
   await step('s1').locator('textarea').fill('Draft heading\nKeep this multiline text.');
   await page.evaluate(() => { window.originalStepTextarea=document.querySelector('.recipe-editor-step[data-key="s1"] textarea'); });
   await openPicker('s1');
+  assert.equal(await step('s1').locator('[data-step-group]').count(),2);
+  assert.equal(await step('s1').locator('[data-step-group][open]').count(),0,'ingredient groups start collapsed');
+  assert.equal(await choice('s1',0).isVisible(),false);
+  await step('s1').locator('[data-step-group="g1"] > summary').press('Enter');
+  assert.equal(await choice('s1',0).isVisible(),true,'keyboard opens only its ingredient group');
+  assert.equal(await choice('s1',2).isVisible(),false,'other ingredient groups stay collapsed');
+  await openGroups('s1');
   assert.equal(await choice('s1', 0).isChecked(), false);
   assert.equal(await choice('s1', 1).locator('..').locator('..').textContent().then(text => text.includes('盐')), true);
   assert.equal(await page.locator('[data-step-picker-content] img').count(), 0, 'ingredient names stay text');
   assert.equal(await page.evaluate(() => Boolean(window.stepXss)), false);
-  await choice('s1', 0).check(); await partial('s1', 0).check();
+  await choice('s1', 0).check(); await setAmount('s1', 0, '20');
   await choice('s1', 1).check(); await choice('s1', 1).uncheck();
-  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:false}]);
+  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:true,quantity_value:20,quantity_text:null}]);
   assert.deepEqual(await links('s2'), [], 'adding a link never assigns another step automatically');
+  assert.equal(await step('s1').locator('[data-step-group="g1"] [data-step-group-count]').textContent(),' (1)');
+  await step('s1').locator('[data-step-group="g1"] > summary').click();
+  assert.equal(await choice('s1',0).isVisible(),false);
+  assert.equal((await links('s1'))[0].quantity_value,20,'collapsing keeps the selected step amount');
+  await step('s1').locator('[data-step-group="g1"] > summary').press('Space');
+  assert.equal(await quantity('s1',0).inputValue(),'20','reopening preserves selected quantities');
+
+  await page.evaluate(() => { window.stepAmountInput=document.querySelector('[data-step-quantity-value]'); });
+  await quantity('s1',0).fill('101');
+  assert.equal(await page.locator('#recipe-save-btn').isVisible(),false,'step quantity cannot exceed its source total');
+  assert.equal(await quantity('s1',0).evaluate(node=>node===window.stepAmountInput&&document.activeElement===node),true,'typing preserves the amount input and focus');
+  await quantity('s1',0).fill('20');
+  await step('s1').locator('[data-recipe-editor-action="step-quantity-reset"]').first().click();
+  assert.deepEqual(await links('s1'),[{ingredient_client_key:'i1',show_quantity:true,quantity_value:null,quantity_text:null}],'reset explicitly returns to the full source amount');
+  await setAmount('s1',0,'20');
   assert.equal(await page.evaluate(() => window.originalStepTextarea===document.querySelector('.recipe-editor-step[data-key="s1"] textarea')), true, 'picker changes retain the textarea node and draft');
   assert.equal(await step('s1').locator('textarea').inputValue(), 'Draft heading\nKeep this multiline text.');
-  await openPicker('s2'); await choice('s2', 0).check();
+  await openGroups('s2'); await choice('s2', 0).check();
   assert.deepEqual(await links('s2'), [{ingredient_client_key:'i1',show_quantity:true}], 'reuse leaves the explicit source flag intact');
   assert.equal((await page.evaluate(() => window.stepTest.queue())).length, 0, 'picker choices are draft edits, not backend writes');
 
@@ -110,19 +136,20 @@ try {
   await page.locator('.recipe-editor-ingredient[data-key="i1"] [data-recipe-editor-action="ingredient-edit"]').click();
   await page.locator('.recipe-editor-ingredient[data-key="i1"] [data-field="name"]').fill('New flour – мука');
   assert.equal(await choice('s1', 0).locator('..').locator('..').textContent().then(text => text.includes('New flour – мука')), true);
-  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:false}]);
+  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:true,quantity_value:20,quantity_text:null}]);
   await page.locator('.recipe-editor-ingredient[data-key="i1"] [data-recipe-editor-action="ingredient-done"]').click();
   await step('s1').locator('[data-recipe-editor-action="step-down"]').click();
   assert.deepEqual((await draft()).steps.map(row => row.client_key), ['s2','s1']);
   assert.equal((await draft()).steps[1].text, 'Draft heading\nKeep this multiline text.');
-  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:false}]);
-  await openPicker('s1'); await choice('s1', 2).check();
+  assert.equal(await step('s1').locator('[data-step-group="g1"]').evaluate(node=>node.open),true,'expanded groups follow stable step keys through reorder');
+  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:true,quantity_value:20,quantity_text:null}]);
+  await openGroups('s1'); await choice('s1', 2).check();
   await page.locator('.recipe-editor-group[data-key="g2"] [data-recipe-editor-action="group-remove"]').click();
-  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:false}], 'removing a group prunes its ingredient references');
+  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i1',show_quantity:true,quantity_value:20,quantity_text:null}], 'removing a group prunes its ingredient references');
   await page.locator('.recipe-editor-ingredient[data-key="i1"] [data-recipe-editor-action="ingredient-edit"]').click();
   await page.locator('.recipe-editor-ingredient[data-key="i1"] [data-recipe-editor-action="ingredient-remove"]').click();
   assert.deepEqual(await links('s1'), []); assert.deepEqual(await links('s2'), [], 'removing an ingredient prunes every step');
-  await openPicker('s1'); await choice('s1', 0).check();
+  await openGroups('s1'); await choice('s1', 0).check();
   await page.click('#recipe-save-btn'); await closed();
   const queue = await page.evaluate(() => window.stepTest.queue());
   assert.deepEqual(queue[0].data.changes.steps.map(row => [row.client_key,row.ingredients]), [
@@ -131,16 +158,17 @@ try {
   await page.evaluate(() => window.stepTest.editor.showEdit(101));
   assert.equal(await page.locator('#recipe-save-btn').isVisible(), false, 'reopening a queued linked recipe has no phantom dirty state');
   assert.equal(await page.locator('.recipe-editor-step-ingredients[open]').count(), 0, 'a reopened editor starts with collapsed assignment pickers');
-  await openPicker('s1'); assert.equal(await choice('s1',0).isChecked(), true);
+  await openGroups('s1'); assert.equal(await choice('s1',0).isChecked(), true);
   assert.equal(await choice('s1',0).isDisabled(), false);
-  assert.equal(await partial('s1',0).isDisabled(), false, 'selected ingredient partial control is enabled after reopen');
-  await partial('s1',0).check();
+  assert.equal(await freeQuantity('s1',0).isDisabled(), false, 'selected ingredient free amount control is enabled after reopen');
+  assert.equal(await quantity('s1',0).isDisabled(), true, 'a free source amount cannot invent a numeric total');
+  await setAmount('s1',0,'eine Prise',true);
   await step('s2').locator('[data-recipe-editor-action="step-remove"]').click();
   assert.deepEqual((await draft()).steps.map(row=>row.client_key), ['s1']);
 
   for (const width of [1280,390,320]) {
     await page.setViewportSize({width,height:900});
-    await openPicker('s1');
+    await openGroups('s1');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth), true, `no body overflow at ${width}`);
     assert.equal(await choice('s1',0).evaluate(input=>input.closest('label').getBoundingClientRect().height>=44), true);
   }
@@ -148,15 +176,15 @@ try {
   await page.evaluate(() => window.stepTest.setLanguagePreference('en'));
   assert.ok((await toggle('s1').textContent()).includes(await page.evaluate(() => window.stepTest.t('recipe.step.ingredients.assign'))));
   assert.equal(await step('s1').locator('textarea').inputValue(), beforeLanguage);
-  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i-盐<>',show_quantity:false}]);
+  assert.deepEqual(await links('s1'), [{ingredient_client_key:'i-盐<>',show_quantity:true,quantity_value:null,quantity_text:'eine Prise'}]);
   await page.evaluate(() => window.stepTest.permission(false));
-  assert.equal(await choice('s1',0).isDisabled(), true); assert.equal(await partial('s1',0).isDisabled(), true);
+  assert.equal(await choice('s1',0).isDisabled(), true); assert.equal(await freeQuantity('s1',0).isDisabled(), true);
   assert.equal(await toggle('s1').getAttribute('aria-disabled'), 'true');
   await page.evaluate(() => window.stepTest.permission(true));
   assert.equal(await choice('s1',0).isDisabled(), false);
   await page.keyboard.press('Escape'); await closed(); // Content details must not consume the modal Escape.
   await page.evaluate(() => window.stepTest.editor.showEdit(101));
-  await openPicker('s1'); await partial('s1',0).check();
+  await openGroups('s1'); await setAmount('s1',0,'eine Prise',true);
   const beforeHeld = await page.evaluate(() => window.stepTest.queue());
   await page.evaluate(() => window.stepTest.hold()); await page.click('#recipe-save-btn');
   assert.equal(await choice('s1',0).isDisabled(), true, 'pending save disables assignment controls');
@@ -173,11 +201,14 @@ try {
     return {legacy:valid(base,true).steps[0].ingredients,
       patchMissing:Object.hasOwn(valid({steps:base.steps}).steps[0],'ingredients'),
       unknown:valid(explicit([{ingredient_client_key:'other'}]),true),duplicate:valid(explicit([{ingredient_client_key:'i'},{ingredient_client_key:'i'}]),true),
-      badFlag:valid(explicit([{ingredient_client_key:'i',show_quantity:0}]),true),extra:valid(explicit([{ingredient_client_key:'i',quantity_value:1}]),true),
+      badFlag:valid(explicit([{ingredient_client_key:'i',show_quantity:0}]),true),extra:valid(explicit([{ingredient_client_key:'i',quantity_unit:'g'}]),true),
       defaultFlag:valid(explicit([{ingredient_client_key:'i'}]),true).steps[0].ingredients[0].show_quantity,
-      immutable:JSON.stringify(sanitize(attempted).data.changes.steps)===JSON.stringify(base.steps)};
+      immutable:JSON.stringify(sanitize(attempted).data.changes.steps)===JSON.stringify(base.steps),
+      numericWithoutSource:valid(explicit([{ingredient_client_key:'i',quantity_value:1}]),true),
+      both:valid(explicit([{ingredient_client_key:'i',quantity_value:1,quantity_text:'some'}]),true),
+      legacyWithValue:valid(explicit([{ingredient_client_key:'i',show_quantity:false,quantity_text:'some'}]),true)};
   });
-  assert.deepEqual(checks,{legacy:[],patchMissing:false,unknown:null,duplicate:null,badFlag:null,extra:null,defaultFlag:true,immutable:true});
+  assert.deepEqual(checks,{legacy:[],patchMissing:false,unknown:null,duplicate:null,badFlag:null,extra:null,defaultFlag:true,immutable:true,numericWithoutSource:null,both:null,legacyWithValue:null});
   // Restoring an older durable PATCH must inherit canonical step links locally,
   // so opening and saving another offline draft cannot turn omission into [].
   const legacy = await page.evaluate(() => window.stepTest.legacy());

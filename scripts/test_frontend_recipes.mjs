@@ -363,6 +363,18 @@ try {
   assert.equal(await page.evaluate(() => window.recipeTest.editor.getDraft().ingredient_groups[0].name), 'Pasta heading draft');
   await groupHeading.fill('Pasta');
 
+  for (const width of [1280, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await pastaSummary.click();
+    assert.equal(await pastaSummary.evaluate(node => document.activeElement === node), true, `opening an existing ingredient keeps focus on its summary at ${width}px`);
+    assert.equal(await pastaRow.locator('[data-field="name"]').isEnabled(), true, 'existing fields remain available without automatic input focus');
+    await pastaSummary.press('Enter');
+    assert.equal(await openIngredientEditors().count(), 0, 'the focused summary can close the ingredient with the keyboard');
+    await modal.locator('[data-recipe-editor-action="ingredient-add"]').first().click();
+    assert.equal(await openIngredientEditors().locator('[data-field="name"]').evaluate(node => document.activeElement === node), true, `a new ingredient still focuses its name at ${width}px`);
+    await openIngredientEditors().locator('[data-recipe-editor-action="ingredient-cancel"]').click();
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await pastaSummary.click();
   await pastaRow.locator('[data-field="note"]').fill('Toggle draft note');
   await pastaSummary.click();
@@ -487,9 +499,21 @@ try {
   assert.equal(await openIngredientEditors().count(), 0);
   assert.match(await ingredientSummary(ingredient), /nach Bedarf.*Wasser/);
   await page.locator('[data-recipe-editor-action="group-add"]').click();
+  assert.equal(await page.locator('.recipe-editor-group').nth(1).locator('[data-field="group-name"]').evaluate(node => node === document.activeElement), true, 'a new group still focuses its title');
   await page.locator('.recipe-editor-group').nth(1).locator('[data-field="group-name"]').fill('Belag');
+  const movedGroupKey = await page.locator('.recipe-editor-group').nth(1).getAttribute('data-key');
+  const movedGroup = page.locator(`.recipe-editor-group[data-key="${movedGroupKey}"]`);
   await page.locator('.recipe-editor-group').nth(1).locator('[data-recipe-editor-action="group-up"]').click();
   assert.deepEqual(await page.locator('.recipe-editor-group [data-field="group-name"]').evaluateAll(nodes => nodes.map(node => node.value)), ['Belag','Teig']);
+  for (const width of [1280, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await movedGroup.locator('[data-recipe-editor-action="group-down"]').click();
+    assert.equal(await movedGroup.locator('[data-recipe-editor-action="group-up"]').evaluate(node => node === document.activeElement), true, `moving to the bottom focuses the enabled reorder button instead of the group title at ${width}px`);
+    await movedGroup.locator('[data-recipe-editor-action="group-up"]').press('Enter');
+    assert.equal(await movedGroup.locator('[data-recipe-editor-action="group-down"]').evaluate(node => node === document.activeElement), true, `moving to the top keeps keyboard focus on a reorder button at ${width}px`);
+    assert.deepEqual(await page.locator('.recipe-editor-group [data-field="group-name"]').evaluateAll(nodes => nodes.map(node => node.value)), ['Belag','Teig']);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   assert.equal(await page.locator(`.recipe-editor-group[data-key="${groupKey}"] [data-field="name"]`).first().inputValue(), 'Mehl');
   await page.locator('[data-recipe-editor-action="step-add"]').click();
   await page.locator('.recipe-editor-step textarea').first().fill('Erste Zeile.\nZweite Zeile.\n\nDritter Absatz.');

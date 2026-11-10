@@ -36,8 +36,14 @@ export function mergeRecipeStepIngredients(current, changes) {
   if (!Array.isArray(merged.steps)) return merged;
   const available = new Set((merged.ingredient_groups || []).flatMap(group => (group.ingredients || []).map(item => item.client_key)));
   merged.steps = merged.steps.map(step => {
-    if (Object.hasOwn(changes || {}, 'steps') && Object.hasOwn(step, 'ingredients')) return { ...step, ingredients: structuredClone(step.ingredients) };
     const previous = current?.steps?.find(row => row.client_key === step.client_key);
+    if (Object.hasOwn(changes || {}, 'steps') && Object.hasOwn(step, 'ingredients')) return { ...step, ingredients: step.ingredients.map(link => {
+      if (Object.hasOwn(link, 'quantity_value') || Object.hasOwn(link, 'quantity_text')) return { ...link, quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text ?? null };
+      if (link.show_quantity === false) return { ...link, quantity_value: null, quantity_text: null };
+      const old = previous?.ingredients?.find(value => value.ingredient_client_key === link.ingredient_client_key);
+      return { ...link, ...(old && (Object.hasOwn(old, 'quantity_value') || Object.hasOwn(old, 'quantity_text'))
+        ? { quantity_value: old.quantity_value ?? null, quantity_text: old.quantity_text ?? null } : {}) };
+    }) };
     return { ...step, ingredients: (previous?.ingredients || []).filter(link => available.has(link.ingredient_client_key)).map(link => ({ ...link })) };
   });
   return merged;
@@ -153,7 +159,7 @@ export function validateRecipeChanges(input, creating = false) {
   }
   if (Object.hasOwn(data, 'steps')) {
     const available = Object.hasOwn(data, 'ingredient_groups')
-      ? new Set(data.ingredient_groups.flatMap(group => group.ingredients.map(item => item.client_key))) : null;
+      ? new Map(data.ingredient_groups.flatMap(group => group.ingredients.map(item => [item.client_key, item]))) : null;
     for (const step of data.steps) {
       if (!Object.hasOwn(step, 'ingredients')) {
         if (!creating) continue;
@@ -162,12 +168,22 @@ export function validateRecipeChanges(input, creating = false) {
       if (!Array.isArray(step.ingredients) || step.ingredients.length > 500) return null;
       const seen = new Set();
       for (const link of step.ingredients) {
-        if (!link || Object.keys(link).some(key => !['ingredient_client_key', 'show_quantity'].includes(key)) || typeof link.ingredient_client_key !== 'string' || !link.ingredient_client_key.trim()
+        if (!link || Object.keys(link).some(key => !['ingredient_client_key', 'show_quantity', 'quantity_value', 'quantity_text'].includes(key)) || typeof link.ingredient_client_key !== 'string' || !link.ingredient_client_key.trim()
           || link.ingredient_client_key.length > 200 || seen.has(link.ingredient_client_key)
           || available && !available.has(link.ingredient_client_key)
           || Object.hasOwn(link, 'show_quantity') && typeof link.show_quantity !== 'boolean') return null;
         seen.add(link.ingredient_client_key);
         if (!Object.hasOwn(link, 'show_quantity')) link.show_quantity = true;
+        const amount = link.quantity_value, free = link.quantity_text;
+        if (amount != null && (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0)
+          || free != null && (typeof free !== 'string' || free.length > 500)
+          || amount != null && String(free || '').trim()
+          || link.show_quantity === false && (amount != null || String(free || '').trim())) return null;
+        if (amount != null && available) {
+          const source = available.get(link.ingredient_client_key);
+          if (!(Number.isFinite(source.quantity_value) && source.quantity_value > 0) || amount > source.quantity_value) return null;
+        }
+        if (Object.hasOwn(link, 'quantity_text')) link.quantity_text = free?.trim() || null;
       }
     }
   }

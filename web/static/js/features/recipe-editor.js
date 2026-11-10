@@ -1,5 +1,5 @@
 import { normalizeQuantityUnit, formatQuantityUnit } from '../core/quantity-units.js';
-import { formatQuantity } from '../core/recipe-quantities.js';
+import { formatQuantity, formatRecipeStepIngredientAmount } from '../core/recipe-quantities.js';
 import { t, translatePage, getActiveLocale } from '../i18n/index.js';
 import { escapeHtml, escapeHtmlAttr } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
@@ -48,7 +48,8 @@ const cloneContent = recipe => ({
   tags: [...(recipe?.tags || [])],
   ingredient_groups: (recipe?.ingredient_groups || []).map(group => ({ ...identity(group), name: group.name || '', ingredients: (group.ingredients || []).map(item => ({ ...identity(item), name: item.name || '', quantity_value: item.quantity_value ?? null, quantity_unit: item.quantity_unit || '', quantity_text: item.quantity_text || '', note: item.note || '' })) })),
   steps: (recipe?.steps || []).map(step => ({ ...identity(step), text: step.text || '',
-    ingredients: (step.ingredients || []).map(link => ({ ingredient_client_key: link.ingredient_client_key, show_quantity: link.show_quantity !== false })) })),
+    ingredients: (step.ingredients || []).map(link => ({ ingredient_client_key: link.ingredient_client_key, show_quantity: link.show_quantity !== false,
+      ...(Object.hasOwn(link, 'quantity_value') || Object.hasOwn(link, 'quantity_text') ? { quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text ?? null } : {}) })) })),
 });
 function orderButtons(kind, key, index, length, groupKey = '') {
   const attributes = `data-key="${escapeHtmlAttr(key)}"${groupKey ? ` data-group-key="${escapeHtmlAttr(groupKey)}"` : ''}`;
@@ -98,7 +99,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
   const valid = data => Boolean(validateRecipeChanges(data, true));
   const comparable = data => ({ ...data,
     ingredient_groups: data.ingredient_groups.map(({ id, ingredients, ...group }) => ({ ...group, ingredients: ingredients.map(({ id, ...item }) => item) })),
-    steps: data.steps.map(({ id, ...step }) => step),
+    steps: data.steps.map(({ id, ...step }) => ({ ...step, ingredients: (step.ingredients || []).map(link => ({ ...link, quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text || null })) })),
   });
   let ingredientEdit = null;
   let modal;
@@ -160,41 +161,76 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
   const stepPickerSignatures = new WeakMap();
   function refreshStepIngredientPermissions() {
     const disabled = !active() || !editable() || Boolean(current()?.conflict) || Boolean(busy);
-    for (const input of el('editor-steps')?.querySelectorAll('[data-step-ingredient],[data-step-ingredient-partial]') || []) {
-      input.disabled = disabled || (input.hasAttribute('data-step-ingredient-partial') && input.closest('[data-step-choice]').querySelector('[data-step-ingredient]').checked === false);
+    for (const choice of el('editor-steps')?.querySelectorAll('[data-step-choice]') || []) {
+      const selected = choice.querySelector('[data-step-ingredient]').checked;
+      for (const control of choice.querySelectorAll('input,button')) control.disabled = disabled || (control.hasAttribute('data-step-quantity-value') && control.dataset.noNumeric === 'true') || (!control.hasAttribute('data-step-ingredient') && !selected);
+      choice.querySelector('[data-recipe-editor-action="step-quantity-toggle"]').setAttribute('aria-disabled', String(disabled || !selected));
     }
     for (const summary of el('editor-steps')?.querySelectorAll('[data-recipe-editor-action="step-ingredients-toggle"]') || []) summary.setAttribute('aria-disabled', String(disabled));
   }
   function refreshStepPickers(data = readState()) {
-    const signature = JSON.stringify([getActiveLocale(), data.ingredient_groups.map(group => [group.client_key, group.name,
-      group.ingredients.map(item => [item.client_key, item.name])])]);
+    const ingredients = new Map(data.ingredient_groups.flatMap(group => group.ingredients.map(item => [item.client_key, item])));
+    const signature = JSON.stringify([getActiveLocale(), data.ingredient_groups]);
     for (const node of el('editor-steps')?.querySelectorAll('.recipe-editor-step') || []) {
       const step = model.steps.find(value => value.client_key === node.dataset.key);
       if (!step) continue;
-      const keys = new Set(data.ingredient_groups.flatMap(group => group.ingredients.map(item => item.client_key)));
-      step.ingredients = (step.ingredients || []).filter(link => keys.has(link.ingredient_client_key));
+      step.ingredients = (step.ingredients || []).filter(link => ingredients.has(link.ingredient_client_key));
       const selected = new Map(step.ingredients.map(link => [link.ingredient_client_key, link]));
       const container = node.querySelector('[data-step-picker-content]');
+      const focus = container.contains(root.activeElement) ? { key: root.activeElement.closest('[data-step-choice]')?.dataset.stepChoice,
+        number: root.activeElement.hasAttribute('data-step-quantity-value'), free: root.activeElement.hasAttribute('data-step-quantity-text'),
+        value: root.activeElement.value, start: root.activeElement.selectionStart, end: root.activeElement.selectionEnd } : null;
       if (node.querySelector('.recipe-editor-step-ingredients').open && stepPickerSignatures.get(container) !== signature) {
-        container.innerHTML = data.ingredient_groups.map(group => group.ingredients.length ? `<div class="recipe-editor-step-ingredient-group">${group.name ? `<p class="recipe-editor-step-group-name">${escapeHtml(group.name)}</p>` : ''}${group.ingredients.map(item => `<div class="recipe-editor-step-ingredient-choice" data-step-choice="${escapeHtmlAttr(item.client_key)}"><label class="recipe-editor-step-ingredient-label"><span class="ui-checkbox-label ui-checkbox-round"><input type="checkbox" data-step-ingredient="${escapeHtmlAttr(item.client_key)}"><span class="ui-checkbox-box" aria-hidden="true">${iconSvg('check')}</span></span><span>${escapeHtml(item.name || t('recipe.ingredient.name'))}</span></label><label class="recipe-editor-step-partial" hidden><span class="ui-checkbox-label ui-checkbox-round"><input type="checkbox" data-step-ingredient-partial="${escapeHtmlAttr(item.client_key)}"><span class="ui-checkbox-box" aria-hidden="true">${iconSvg('check')}</span></span>${text('recipe.step.ingredients.partial')}</label></div>`).join('')}</div>` : '').join('') || `<p class="recipe-step-hint">${text('recipe.step.ingredients.empty')}</p>`;
+        const opened = new Set(Array.from(container.querySelectorAll('[data-step-choice] details[open]')).map(details => details.closest('[data-step-choice]').dataset.stepChoice));
+        const openGroups = new Set(Array.from(container.querySelectorAll('[data-step-group][open]')).map(details => details.dataset.stepGroup));
+        container.innerHTML = data.ingredient_groups.map(group => group.ingredients.length ? `<details class="recipe-editor-step-ingredient-group" data-step-group="${escapeHtmlAttr(group.client_key)}" ${openGroups.has(group.client_key) ? 'open' : ''}><summary class="recipe-editor-step-group-name">${escapeHtml(group.name || t('recipe.ingredients'))}<span data-step-group-count></span></summary>${group.ingredients.map(item => `<div class="recipe-editor-step-ingredient-choice" data-step-choice="${escapeHtmlAttr(item.client_key)}"><label class="recipe-editor-step-ingredient-label"><span class="ui-checkbox-label ui-checkbox-round"><input type="checkbox" data-step-ingredient="${escapeHtmlAttr(item.client_key)}"><span class="ui-checkbox-box" aria-hidden="true">${iconSvg('check')}</span></span><span>${escapeHtml(item.name || t('recipe.ingredient.name'))}<small class="recipe-editor-step-source">${escapeHtml(t('recipe.step.ingredients.sourceTotal', { quantity: item.quantity_text || formatQuantity(item.quantity_value, item.quantity_unit, getActiveLocale()) }))}</small></span></label><details class="recipe-editor-step-quantity" ${opened.has(item.client_key) ? 'open' : ''} hidden><summary data-recipe-editor-action="step-quantity-toggle"><span data-step-quantity-preview></span></summary><div class="recipe-editor-step-quantity-fields"><label>${text('recipe.step.ingredients.quantity')}<span class="recipe-editor-step-number"><input class="ui-field" type="number" min="0" step="any" data-step-quantity-value data-no-numeric="${!(Number.isFinite(item.quantity_value) && item.quantity_value > 0)}"><span>${escapeHtml(formatQuantityUnit(item.quantity_unit, getActiveLocale()))}</span></span></label><label>${text('common.quantityText')}<input class="ui-field" maxlength="500" data-step-quantity-text></label><button type="button" class="btn btn-secondary" data-recipe-editor-action="step-quantity-reset">${text('recipe.step.ingredients.full')}</button></div></details><small class="form-error recipe-editor-step-quantity-error" data-step-quantity-error hidden>${text('recipe.step.ingredients.invalidQuantity')}</small></div>`).join('')}</details>` : '').join('') || `<p class="recipe-step-hint">${text('recipe.step.ingredients.empty')}</p>`;
         stepPickerSignatures.set(container, signature);
       }
       for (const choice of container.querySelectorAll('[data-step-choice]')) {
-        const link = selected.get(choice.dataset.stepChoice);
+        const key = choice.dataset.stepChoice, link = selected.get(key), ingredient = ingredients.get(key);
         choice.querySelector('[data-step-ingredient]').checked = Boolean(link);
-        choice.querySelector('[data-step-ingredient-partial]').checked = link?.show_quantity === false;
-        choice.querySelector('.recipe-editor-step-partial').hidden = !link;
+        choice.querySelector('.recipe-editor-step-quantity').hidden = !link;
+        const number = choice.querySelector('[data-step-quantity-value]'), free = choice.querySelector('[data-step-quantity-text]');
+        if (root.activeElement !== number) number.value = link?.quantity_value ?? '';
+        if (root.activeElement !== free) free.value = link?.quantity_text ?? '';
+        if (Number.isFinite(ingredient.quantity_value)) number.max = String(ingredient.quantity_value); else number.removeAttribute('max');
+        const invalid = link?.quantity_value != null && (!(Number.isFinite(link.quantity_value) && link.quantity_value > 0) || !Number.isFinite(ingredient.quantity_value) || link.quantity_value > ingredient.quantity_value);
+        number.setCustomValidity(invalid ? t('recipe.step.ingredients.invalidQuantity') : '');
+        choice.querySelector('[data-step-quantity-error]').hidden = !invalid;
+        choice.querySelector('[data-step-quantity-preview]').textContent = link?.show_quantity === false ? t('recipe.step.ingredients.unspecified')
+          : link && (link.quantity_value != null || link.quantity_text) ? formatRecipeStepIngredientAmount(ingredient, link, data.base_servings, data.base_servings, getActiveLocale()) : t('recipe.step.ingredients.quantity');
+      }
+      if (focus?.key && (focus.number || focus.free)) {
+        const choice = Array.from(container.querySelectorAll('[data-step-choice]')).find(row => row.dataset.stepChoice === focus.key);
+        const input = choice?.querySelector(focus.number ? '[data-step-quantity-value]' : '[data-step-quantity-text]');
+        if (input && input !== root.activeElement) { input.value = focus.value; input.focus({ preventScroll: true }); if (focus.free) input.setSelectionRange(focus.start, focus.end); }
+      }
+      for (const group of container.querySelectorAll('[data-step-group]')) {
+        const count = group.querySelectorAll('[data-step-ingredient]:checked').length;
+        group.querySelector('[data-step-group-count]').textContent = count ? ` (${count})` : '';
       }
       node.querySelector('[data-step-selected-count]').textContent = step.ingredients.length ? ` (${step.ingredients.length})` : '';
     }
     refreshStepIngredientPermissions();
   }
+  function updateStepQuantity(input) {
+    if (!input.matches('[data-step-quantity-value],[data-step-quantity-text]') || !active() || !editable() || current()?.conflict || busy) return false;
+    const choice = input.closest('[data-step-choice]'), step = model.steps.find(step => step.client_key === input.closest('.recipe-editor-step').dataset.key);
+    const link = step?.ingredients?.find(link => link.ingredient_client_key === choice.dataset.stepChoice);
+    if (!link) return false;
+    link.show_quantity = true;
+    link.quantity_value = input.hasAttribute('data-step-quantity-value') && input.value !== '' ? Number(input.value) : null;
+    link.quantity_text = input.hasAttribute('data-step-quantity-text') ? input.value.trim() || null : null;
+    choice.querySelector(input.hasAttribute('data-step-quantity-value') ? '[data-step-quantity-text]' : '[data-step-quantity-value]').value = '';
+    refreshStepPickers(); modal.refreshSaveState(); return true;
+  }
   function pruneStepIngredients() {
     const keys = new Set(model.ingredient_groups.flatMap(group => group.ingredients.map(item => item.client_key)));
     for (const step of model.steps) step.ingredients = (step.ingredients || []).filter(link => keys.has(link.ingredient_client_key));
   }
-  function renderRows(focusKey = null) {
+  function renderRows(focusKey = null, focusAction = null) {
     const openPickers = new Set(Array.from(el('editor-steps')?.querySelectorAll('.recipe-editor-step-ingredients[open]') || []).map(node => node.closest('.recipe-editor-step').dataset.key));
+    const openGroups = new Set(Array.from(el('editor-steps')?.querySelectorAll('[data-step-group][open]') || []).map(node => JSON.stringify([node.closest('.recipe-editor-step').dataset.key, node.dataset.stepGroup])));
     pruneStepIngredients();
     const total = model.ingredient_groups.flatMap(group => group.ingredients).length;
     closeOpenDropdown('recipe-render');
@@ -223,11 +259,18 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       const node = el('form').querySelector(`[data-recipe-editor-action="${action}"]`); node.disabled = count >= max; node.dataset.boundDisabled = String(count >= max);
     }
     refreshStepPickers();
+    for (const group of el('editor-steps').querySelectorAll('[data-step-group]')) group.open = openGroups.has(JSON.stringify([group.closest('.recipe-editor-step').dataset.key, group.dataset.stepGroup]));
     permissions();
     if (focusKey != null) {
       const row = Array.from(el('form').querySelectorAll('[data-key]')).find(node => node.dataset.key === focusKey);
-      const name = row?.querySelector('input[data-field="name"]');
-      (name && !name.disabled ? name : row?.querySelector('input[data-field="group-name"],textarea,button[data-recipe-editor-action="ingredient-edit"]'))?.focus();
+      if (focusAction) {
+        const opposite = focusAction === 'group-up' ? 'group-down' : 'group-up';
+        (row?.querySelector(`button[data-recipe-editor-action="${focusAction}"]:not(:disabled)`)
+          || row?.querySelector(`button[data-recipe-editor-action="${opposite}"]:not(:disabled)`))?.focus();
+      } else {
+        const name = row?.querySelector('input[data-field="name"]');
+        (name && !name.disabled ? name : row?.querySelector('input[data-field="group-name"],textarea,button[data-recipe-editor-action="ingredient-edit"]'))?.focus();
+      }
     }
     validateQuantities();
   }
@@ -364,6 +407,15 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       return;
     }
     if (!editable() || current()?.conflict || busy || !active()) return;
+    if (action === 'step-quantity-toggle' || action === 'step-quantity-reset') {
+      const choice = target.closest('[data-step-choice]');
+      const step = model.steps.find(step => step.client_key === target.closest('.recipe-editor-step').dataset.key);
+      const link = step?.ingredients?.find(link => link.ingredient_client_key === choice.dataset.stepChoice);
+      if (!link) return;
+      if (action === 'step-quantity-toggle') { const details = target.closest('details'); details.open = !details.open; }
+      else { link.show_quantity = true; link.quantity_value = link.quantity_text = null; choice.querySelector('[data-step-quantity-value]').value = ''; choice.querySelector('[data-step-quantity-text]').value = ''; refreshStepPickers(); modal.refreshSaveState(); }
+      return;
+    }
     if (action === 'step-ingredients-toggle') {
       const picker = target.closest('details'); picker.open = !picker.open;
       if (picker.open) refreshStepPickers();
@@ -386,11 +438,9 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
         }
         ingredientEdit = null;
       }
-      renderRows(action === 'ingredient-cancel' && index >= group.ingredients.length ? null : target.dataset.key);
-      if (!ingredientEdit) {
-        const row = Array.from(el('editor-groups').querySelectorAll('.recipe-editor-ingredient')).find(node => node.dataset.key === target.dataset.key);
-        (row?.querySelector('[data-recipe-editor-action="ingredient-edit"]') || Array.from(el('editor-groups').querySelectorAll('[data-recipe-editor-action="ingredient-add"]')).find(node => node.dataset.groupKey === group.client_key))?.focus();
-      }
+      renderRows();
+      const row = Array.from(el('editor-groups').querySelectorAll('.recipe-editor-ingredient')).find(node => node.dataset.key === target.dataset.key);
+      (row?.querySelector('[data-recipe-editor-action="ingredient-edit"]') || Array.from(el('editor-groups').querySelectorAll('[data-recipe-editor-action="ingredient-add"]')).find(node => node.dataset.groupKey === group.client_key))?.focus({ preventScroll: true });
       modal.refreshSaveState(); return;
     }
     let focusKey;
@@ -411,7 +461,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
         }
       }
     }
-    renderRows(focusKey); modal.refreshSaveState();
+    renderRows(focusKey, kind === 'group' && ['up', 'down'].includes(operation) ? action : null); modal.refreshSaveState();
   }
   function bind() {
     if (bound) return; bound = true; modal.bind(); imagePicker.bind(); root.addEventListener('click', action);
@@ -434,6 +484,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       }
     });
     el('form').addEventListener('input', event => {
+      if (updateStepQuantity(event.target)) return;
       const row = event.target.closest('.recipe-editor-ingredient');
       if (row) {
         const item = readState().ingredient_groups.flatMap(group => group.ingredients).find(item => item.client_key === row.dataset.key);
@@ -443,18 +494,14 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       validateQuantities(); if (new TextEncoder().encode(JSON.stringify(readState())).length > 512 * 1024) error('recipe.error.tooLarge'); modal.refreshSaveState();
     });
     el('form').addEventListener('change', event => {
-      if (event.target.matches('[data-step-ingredient],[data-step-ingredient-partial]')) {
+      if (updateStepQuantity(event.target)) return;
+      if (event.target.matches('[data-step-ingredient]')) {
         if (!active() || !editable() || current()?.conflict || busy) { refreshStepPickers(); return; }
         const step = model.steps.find(value => value.client_key === event.target.closest('.recipe-editor-step')?.dataset.key);
         if (!step) return;
-        const key = event.target.dataset.stepIngredient ?? event.target.dataset.stepIngredientPartial;
-        if (event.target.hasAttribute('data-step-ingredient')) {
-          step.ingredients = (step.ingredients || []).filter(link => link.ingredient_client_key !== key);
-          if (event.target.checked) step.ingredients.push({ ingredient_client_key: key, show_quantity: true });
-        } else {
-          const link = step.ingredients?.find(value => value.ingredient_client_key === key);
-          if (link) link.show_quantity = !event.target.checked;
-        }
+        const key = event.target.dataset.stepIngredient;
+        step.ingredients = (step.ingredients || []).filter(link => link.ingredient_client_key !== key);
+        if (event.target.checked) step.ingredients.push({ ingredient_client_key: key, show_quantity: true });
         refreshStepPickers(); modal.refreshSaveState(); return;
       }
       if (event.target.dataset.field === 'quantity_unit' && editable() && !current()?.conflict && !busy) {

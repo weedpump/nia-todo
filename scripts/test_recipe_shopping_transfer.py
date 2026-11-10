@@ -9,6 +9,8 @@ import asyncio
 import contextlib
 import copy
 import io
+import hashlib
+import json
 import os
 import sqlite3
 import sys
@@ -403,6 +405,129 @@ def test_generic_amount_validation_zero_nonfinite_and_bounds():
         before = counts()
         transfer(f, tiny_source, request(f, cmi="scaled-underflow", keys=("flour",), servings=1e-20), 422)
         assert counts() == before
+
+
+def equivalent_flour_payload(cmi="equivalent-source", notes=("Sifted", "For topping")):
+    data = recipe_payload(cmi)
+    data["ingredient_groups"][0]["ingredients"][0]["note"] = notes[0]
+    data["ingredient_groups"].append({"client_key": "topping", "name": "Topping", "ingredients": [
+        {"client_key": "flour-topping", "name": " FLOUR ", "quantity_value": .05, "quantity_unit": "kg", "note": notes[1]}]})
+    data["steps"] = [{"client_key": "mix", "text": "Use a portion, then reuse the prepared flour.",
+                      "ingredients": [{"ingredient_client_key": "flour", "quantity_value": 10}]}]
+    return data
+
+
+def grouped_request(f, cmi="grouped-transfer"):
+    data = request(f, keys=("flour", "flour-topping"), servings=4, cmi=cmi)
+    for ingredient in data["ingredients"]:
+        ingredient["merge_group"] = "same-flour"
+    return data
+
+
+def test_explicit_equivalence_preserves_source_notes_totals_and_receipts():
+    with fixture() as f:
+        source = create_recipe(f, equivalent_flour_payload())
+        original = f.call("get", f"/api/recipes/recipes/{source['id']}")
+        first_note = item(f, "Flour", 1, "kg", note="Sifted")
+        other_note = item(f, "Flour", 2, "kg", note="For topping")
+        completed = item(f, "Flour", 3, "kg", note="Sifted\nFor topping")
+        f.call("patch", f"/api/shopping/items/{completed['id']}", json={"completed": True})
+        data = grouped_request(f)
+        first = transfer(f, source, data)
+        assert (first["created_count"], first["merged_count"]) == (1, 1)
+        rows = {row["id"]: row for row in first["shopping_list"]["items"]}
+        assert rows[first_note["id"]]["quantity_value"] == 1
+        assert rows[other_note["id"]]["quantity_value"] == 2
+        assert rows[completed["id"]]["quantity_value"] == 3 and rows[completed["id"]]["completed"]
+        grouped = next(row for row in rows.values() if row["id"] not in (first_note["id"], other_note["id"], completed["id"]))
+        assert (grouped["quantity_value"], grouped["quantity_unit"], grouped["note"]) == (300, "g", "Sifted\nFor topping")
+        assert [(row["ingredient_client_key"], row["quantity_value"], row["quantity_unit"], row["note"]) for row in grouped["recipe_sources"]] == [
+            ("flour", 250, "g", "Sifted"), ("flour-topping", .05, "kg", "For topping")]
+        before = counts()
+        assert transfer(f, source, data) == first and counts() == before
+        reused = copy.deepcopy(data); reused["ingredients"][0]["merge_group"] = "different-group"
+        assert transfer(f, source, reused, 409)["detail"]["code"] == "recipe.transferMutationReused"
+        second = transfer(f, source, grouped_request(f, "second-grouped-transfer"))
+        same = next(row for row in second["shopping_list"]["items"] if row["id"] == grouped["id"])
+        assert same["quantity_value"] == 600 and same["recipe_sources_count"] == 4
+        assert (second["created_count"], second["merged_count"]) == (0, 2)
+        # Omitting the explicit capability keeps the pre-existing exact-note
+        # behavior; it does not conflate different recipe components by name.
+        ungrouped = transfer(f, source, request(f, keys=("flour", "flour-topping"), servings=4, cmi="ungrouped-notes"))
+        rows = {row["id"]: row for row in ungrouped["shopping_list"]["items"]}
+        assert rows[first_note["id"]]["quantity_value"] == 1.25
+        assert rows[other_note["id"]]["quantity_value"] == 2.05
+        assert rows[grouped["id"]]["quantity_value"] == 600
+        assert f.call("get", f"/api/recipes/recipes/{source['id']}") == original
+
+
+def test_group_validation_authorization_and_long_note_isolation():
+    with fixture() as f:
+        source = create_recipe(f, equivalent_flour_payload())
+        for value in ("", " ", "x" * 201, 1):
+            invalid = grouped_request(f)
+            invalid["ingredients"][0]["merge_group"] = value
+            transfer(f, source, invalid, 422)
+        before = counts()
+        invalid = grouped_request(f)
+        invalid["ingredients"][1]["section_id"] = None
+        transfer(f, source, invalid, 422)
+        invalid = grouped_request(f)
+        invalid["ingredients"][1]["store_ids"] = []
+        transfer(f, source, invalid, 422)
+        invalid = grouped_request(f)
+        invalid["ingredients"][1]["store_ids"] = [f.stores[1]]
+        transfer(f, source, invalid, 400)
+        for field, value in (("name", "Different ingredient"), ("quantity_unit", "ml"), ("quantity_value", None)):
+            data = equivalent_flour_payload("bad-equivalence-" + field)
+            data["ingredient_groups"][1]["ingredients"][0][field] = value
+            bad_source = create_recipe(f, data)
+            transfer(f, bad_source, grouped_request(f), 422)
+        assert counts() == before
+        f.actor["id"] = f.users[2]
+        transfer(f, source, grouped_request(f), 404)
+        f.actor["id"] = f.users[0]
+        notes = ("a" * 1500, "b" * 1500)
+        long_source = create_recipe(f, equivalent_flour_payload("long-group-notes", notes))
+        truncated = (notes[0] + "\n" + notes[1])[:1999] + "…"
+        existing = item(f, "Flour", 1, "kg", note=truncated)
+        result = transfer(f, long_source, grouped_request(f, "long-note-group"))
+        assert (result["created_count"], result["merged_count"]) == (1, 1)
+        untouched = next(row for row in result["shopping_list"]["items"] if row["id"] == existing["id"])
+        new = next(row for row in result["shopping_list"]["items"] if row["id"] != existing["id"])
+        assert untouched["quantity_value"] == 1 and untouched["recipe_sources_count"] == 0
+        assert new["quantity_value"] == 300 and new["note"] == truncated and len(new["note"]) == 2000
+        assert [row["note"] for row in new["recipe_sources"]] == list(notes)
+
+
+def test_legacy_receipt_fingerprint_survives_optional_merge_capability():
+    with fixture() as f:
+        source = create_recipe(f)
+        data = request(f, cmi="pre66-receipt")
+        first = transfer(f, source, data)
+        old_contract = transfers.RecipeShoppingTransfer(**data).model_dump()
+        for ingredient in old_contract["ingredients"]:
+            del ingredient["merge_group"]
+        old_hash = hashlib.sha256(json.dumps({"recipe_id": source["id"], **old_contract}, sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+        with get_db() as db:
+            db.execute("UPDATE recipe_shopping_transfers SET request_hash = ? WHERE client_mutation_id = ?", (old_hash, data["client_mutation_id"]))
+        before = counts()
+        assert transfer(f, source, data) == first and counts() == before
+
+
+def test_grouped_transfer_rollback_is_atomic():
+    with fixture() as f:
+        source = create_recipe(f, equivalent_flour_payload())
+        data = grouped_request(f)
+        data["ingredients"].append({"ingredient_client_key": "salt", "section_id": f.sections[0], "store_ids": [f.stores[0]]})
+        real_insert = transfers.insert_shopping_item
+        def insert_or_fail(*args, **kwargs):
+            if kwargs.get("name") == "Salt":
+                raise RuntimeError("forced failure after grouped create and merge")
+            return real_insert(*args, **kwargs)
+        with patch.object(transfers, "insert_shopping_item", side_effect=insert_or_fail):
+            transfer(f, source, data, 500)
+        assert counts() == (0, 0, 0)
 
 
 def test_rollback_concurrent_receipts_and_tombstones():

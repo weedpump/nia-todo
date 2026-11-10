@@ -37,6 +37,8 @@ const view=createRecipeViewFeature({getCookbooks:()=>books,getActiveCookbookId:(
  getActorId:()=>actor,onTransfer:(recipe,options)=>feature.show(recipe,options)});view.bind();view.selectRecipe(8,{updateNavigation:false});
 const defer=()=>{let release;return {promise:new Promise(resolve=>{release=resolve;}),release:()=>release()};};
 window.test={feature,view,language:setLanguagePreference,show:()=>feature.show(books[0].recipes[0]),state:()=>({requests,queued,errors,pendingReads,pendingDone}),
+ seedFlour:(different=false)=>{books[0].recipes=[{...recipe,ingredient_groups:[{client_key:'dough',name:'Teig',ingredients:[{client_key:'flour-dough',name:'Mehl',quantity_value:.25,quantity_unit:'kg',note:different?'Type 405':'gesiebt'}]},{client_key:'surface',name:'Arbeitsfläche',ingredients:[{client_key:'flour-surface',name:'Mehl',quantity_value:100,quantity_unit:'grams',note:different?'Type 1050':'gesiebt'}]}],steps:[{ingredients:[{ingredient_client_key:'flour-dough'},{ingredient_client_key:'flour-dough'}]}]}];},
+ restoreRecipe:()=>{books[0].recipes=[structuredClone(recipe)];},
  oneList:()=>{lists=[lists[0]];},denyList:()=>{lists[0].can_edit=false;feature.reconcile();},
  changeSource:()=>{books=[{...books[0],recipes:[{...books[0].recipes[0],revision:2}]}];feature.reconcile();},
  evictSource:()=>{books=[];feature.reconcile();},disable:()=>{enabled=false;feature.reconcile();},enable:()=>{enabled=true;lists[0].can_edit=true;},
@@ -47,14 +49,14 @@ window.test={feature,view,language:setLanguagePreference,show:()=>feature.show(b
  changeActor:()=>{actor=2;session='2:second';feature.reconcile();},
 };
 `;
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, ...(process.env.NIA_TEST_BROWSER_EXECUTABLE ? { executablePath: process.env.NIA_TEST_BROWSER_EXECUTABLE } : {}) });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
   await page.route('http://recipe-transfer.test/**', async route => {
     const path = new URL(route.request().url()).pathname;
-    if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/static/style.css"></head><body><main class="main"><div id="cookbook-navigation-main"></div></main><div id="dialogs"></div><script type="module" src="/fixture.js"></script></body></html>' });
+    if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/static/style.css"></head><body><main class="main"><div id="cookbook-navigation-main"></div></main><div id="dialogs"></div><script type="module" src="/fixture.js"></script></body></html>' });
     if (path === '/fixture.js') return route.fulfill({ contentType: 'text/javascript', body: fixture });
     if (path.startsWith('/static/')) return route.fulfill({ body: readFileSync(new URL(`../web${path}`, import.meta.url)), contentType: path.endsWith('.json') ? 'application/json' : path.endsWith('.css') ? 'text/css' : 'text/javascript' });
     return route.fulfill({ status: 404, body: 'No real network allowed' });
@@ -76,6 +78,8 @@ try {
   assert.equal(await page.locator('[data-transfer-amount="salt"]').textContent(), 'nach Geschmack');
   assert.equal(await modal.locator('script').count(), 0, 'ingredient names/notes remain escaped text');
   assert.match(await modal.textContent(), /Bissfest/);
+  assert.equal(await page.locator('#recipe-transfer-sources').count(), 0, 'there is no second global ingredient list');
+  assert.equal(await page.locator('.recipe-transfer-summary-row:visible').count(), 3, 'one visible checklist combines selection and quantities');
   await choose();
   assert.equal(await page.locator('#recipe-transfer-save-btn').isVisible(), true, 'the initially selected payload does not require a fake dirty edit');
   const portions = page.locator('#recipe-transfer-servings');
@@ -132,6 +136,7 @@ try {
   for (const width of [1280, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     assert.equal(await modal.locator('.modal-content').evaluate(node => node.scrollWidth <= node.clientWidth), true, `transfer fits at ${width}px`);
+    assert.equal(await page.locator('.recipe-transfer-summary').evaluate(node => node.getBoundingClientRect().top - document.querySelector('#recipe-transfer-defaults .recipe-transfer-targets').getBoundingClientRect().bottom >= 12),true,`expanded defaults keep a clear gap before ingredients at ${width}px`);
   }
   await page.locator('#recipe-transfer-save-btn').click(); await modal.waitFor({ state: 'hidden' });
   const payload = (await page.evaluate(() => window.test.state())).requests[0];
@@ -140,6 +145,94 @@ try {
     { ingredient_client_key: 'salt', section_id: 101, store_ids: [] },
   ] });
   await waitForPageCondition(page, () => window.test.state().queued.length === 1);
+
+  await page.evaluate(() => {window.test.oneList();window.test.seedFlour();});await show();
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),1,'same product across recipe groups consolidates automatically');
+  assert.equal(await page.locator('.recipe-transfer-summary-amount').textContent(),'350 g','compatible kg/g source quantities sum once, independently of repeated step references');
+  assert.equal(await page.locator('[data-transfer-combine]').count(),0,'identical notes use the existing automatic backend contract');
+  assert.equal(await page.evaluate(()=>window.test.feature.getDraft().ingredients.every(row=>!Object.hasOwn(row,'merge_group'))),true);
+  await close();await page.evaluate(()=>window.test.seedFlour(true));await show();
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),1,'different notes combine by default');
+  const productDetails=page.locator('.recipe-transfer-sources');
+  assert.equal(await productDetails.getAttribute('open'),null,'original source lines start collapsed under their product');
+  assert.equal(await page.locator('[data-transfer-separate]').count(),1,'a single toggle offers explicit separation');
+  assert.equal(await page.locator('[data-transfer-combine]').count(),0);
+  let grouped=await page.evaluate(()=>window.test.feature.getDraft());
+  assert.deepEqual(grouped.ingredients.map(row=>row.ingredient_client_key),['flour-dough','flour-surface']);
+  assert.equal(new Set(grouped.ingredients.map(row=>row.merge_group)).size,1);assert.ok(grouped.ingredients.every(row=>typeof row.merge_group==='string'));
+  await portions.fill('4');assert.equal(await page.locator('.recipe-transfer-summary-amount').textContent(),'700 g','round only after summing and scaling sources');
+  await page.locator('[data-transfer-keys]').uncheck();
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),1,'unchecked products remain available in the same checklist');
+  assert.equal(await page.locator('#recipe-transfer-save-btn').isHidden(),true);
+  await page.locator('[data-transfer-keys]').check();
+  assert.equal(await page.locator('#recipe-transfer-save-btn').isVisible(),true);
+  await productDetails.locator(':scope > summary').click();
+  assert.match(await productDetails.textContent(),/Type 405/);assert.match(await productDetails.textContent(),/Type 1050/);
+  await page.locator('[data-transfer-ingredient="flour-surface"]').uncheck();
+  assert.equal(await page.locator('.recipe-transfer-summary-amount').textContent(),'500 g');
+  assert.equal(await page.locator('[data-transfer-keys]').evaluate(input=>input.indeterminate),true,'partial source selection is represented on the parent checkbox');
+  assert.equal(await page.locator('[data-transfer-ingredient="flour-surface"]').evaluate(input=>input===document.activeElement),true,'source selection retains keyboard focus');
+  assert.notEqual(await productDetails.getAttribute('open'),null,'source details stay open while selecting');
+  assert.deepEqual((await page.evaluate(()=>window.test.feature.getDraft())).ingredients.map(row=>row.ingredient_client_key),['flour-dough']);
+  await page.locator('[data-transfer-ingredient="flour-surface"]').check();
+  assert.equal(await page.locator('.recipe-transfer-summary-amount').textContent(),'700 g');
+  assert.equal(await page.locator('[data-transfer-keys]').evaluate(input=>input.indeterminate),false);
+  await page.evaluate(()=>window.test.language('en'));
+  assert.equal(await page.locator('[data-transfer-separate]').textContent(),'Keep separate');
+  assert.notEqual(await productDetails.getAttribute('open'),null,'language changes preserve the expanded source selection');
+  await page.evaluate(()=>window.test.language('de'));
+  await page.locator('[data-transfer-separate]').focus();await page.locator('[data-transfer-separate]').press('Enter');
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),2);
+  assert.equal(await page.locator('[data-transfer-combine]').evaluate(button=>button===document.activeElement),true,'toggling grouping retains keyboard focus');
+  assert.equal(await page.evaluate(()=>window.test.feature.getDraft().ingredients.every(row=>!Object.hasOwn(row,'merge_group'))),true);
+  await portions.fill('3');
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),2,'portion edits preserve explicit separation');
+  await page.evaluate(()=>window.test.equivalent());await ready();
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),2,'equivalent snapshots preserve explicit separation');
+  await page.locator('[data-transfer-combine]').click();
+  assert.equal(await page.locator('[data-transfer-separate]').evaluate(button=>button===document.activeElement),true,'regrouping retains keyboard focus on the toggle');
+  await portions.fill('4');
+  if(!await productDetails.evaluate(node=>node.open))await productDetails.locator(':scope > summary').click();
+  assert.equal(await productDetails.locator('.recipe-transfer-corrections').count(),1,'combined ingredients expose one shared target editor');
+  assert.equal(await productDetails.locator('.recipe-transfer-source-row .recipe-transfer-corrections').count(),0,'original source rows do not duplicate the target editor');
+  const commonTargets=productDetails.locator('.recipe-transfer-corrections');
+  await commonTargets.locator(':scope > summary').click();
+  assert.notEqual(await commonTargets.evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)','expanded target editor has a background');
+  await commonTargets.locator('[data-select-id$="-section"] .ui-select-trigger').click();
+  await page.getByRole('option',{name:'Vorrat',exact:true}).click();
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),1,'editing the shared target keeps the ingredients combined');
+  assert.equal(await page.evaluate(()=>window.test.feature.getDraft().ingredients.every(row=>row.section_id===101)),true,'shared section applies to every original source');
+  assert.equal(await commonTargets.locator('[data-select-id$="-section"] .ui-select-trigger').evaluate(node=>node===document.activeElement),true,'shared target changes retain dropdown focus');
+  await commonTargets.locator('[data-select-id$="-store"] .ui-select-trigger').click();
+  await page.getByRole('option',{name:'Markt',exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.test.feature.getDraft().ingredients.every(row=>JSON.stringify(row.store_ids)==='[20]')),true,'shared store applies to every original source');
+  for(const width of [1280,390,320]) {
+    await page.setViewportSize({width,height:900});
+    const gap=await page.locator('.recipe-transfer-product').evaluate(node=>node.querySelector('.recipe-transfer-combine').getBoundingClientRect().top-node.querySelector('.recipe-transfer-sources').getBoundingClientRect().bottom);
+    assert.ok(gap>=12,`expanded details leave a gap before the separate button at ${width}px`);
+  }
+  await page.locator('[data-transfer-separate]').click();
+  assert.equal(await page.locator('.recipe-transfer-corrections').count(),2,'separated ingredients have independent target editors');
+  const flourSingle=page.locator('.recipe-transfer-row[data-key="flour-surface"]');
+  await flourSingle.locator('.recipe-transfer-corrections > summary').click();
+  await flourSingle.locator('[data-select-id$="-section"] .ui-select-trigger').click();
+  await page.getByRole('option',{name:'Vorgaben verwenden',exact:true}).click();
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),2,'different destinations cannot be grouped');
+  assert.equal(await page.locator('[data-transfer-separate],[data-transfer-combine]').count(),0);
+  assert.equal(await flourSingle.locator('[data-select-id$="-section"] .ui-select-trigger').evaluate(button=>button===document.activeElement),true,'independent target changes retain trigger focus');
+  await flourSingle.locator('[data-select-id$="-section"] .ui-select-trigger').click();
+  await page.getByRole('option',{name:'Vorrat',exact:true}).click();
+  assert.equal(await page.locator('.recipe-transfer-summary-row').count(),1,'matching destinations restore the default combined row');
+  assert.notEqual(await productDetails.getAttribute('open'),null,'regrouping exposes the shared target editor');
+  assert.notEqual(await commonTargets.getAttribute('open'),null,'the shared target stays expanded after regrouping');
+  assert.equal(await commonTargets.locator('[data-select-id$="-section"] .ui-select-trigger').evaluate(button=>button===document.activeElement),true,'regrouping from a non-first source keeps focus on the shared target trigger');
+  assert.equal(await page.locator('.ui-select-menu:not([hidden])').count(),0,'choosing a source target leaves no detached dropdown menu');
+  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.equal(await modal.locator('.modal-content').evaluate(node=>node.scrollWidth<=node.clientWidth),true,`consolidated preview fits at ${width}px`);}
+  await page.locator('#recipe-transfer-save-btn').click();await modal.waitFor({state:'hidden'});
+  grouped=(await page.evaluate(()=>window.test.state())).requests.at(-1);
+  assert.deepEqual(grouped.ingredients.map(row=>row.ingredient_client_key),['flour-dough','flour-surface'],'submission preserves each original provenance key');
+  assert.ok(grouped.ingredients.every(row=>row.merge_group===grouped.ingredients[0].merge_group));
+  await page.evaluate(()=>window.test.restoreRecipe());
 
   await page.evaluate(() => window.test.oneList()); await show();
   assert.equal(await page.locator('#recipe-transfer-list').inputValue(), '10');

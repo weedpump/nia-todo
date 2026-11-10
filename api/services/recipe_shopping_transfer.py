@@ -26,10 +26,13 @@ class TransferIngredient(BaseModel):
     ingredient_client_key: MutationId
     section_id: EntityId | None = None
     store_ids: list[EntityId] = Field(default_factory=list, max_length=50)
+    merge_group: MutationId | None = None
 
-    @field_validator("ingredient_client_key")
+    @field_validator("ingredient_client_key", "merge_group")
     @classmethod
     def nonblank_key(cls, value):
+        if value is None:
+            return None
         if not value.strip():
             raise ValueError("Ingredient key cannot be blank")
         return value.strip()
@@ -108,6 +111,38 @@ def _route_key(name, note, section_id, store_ids):
     return normalized_ingredient_name(name), note or "", section_id, tuple(sorted(store_ids))
 
 
+def _merge_groups(ingredients, selected):
+    """Validate request-local equivalence, preserving every original source.
+
+    Explicit groups override only note differences. Names, quantities, units
+    and authorized destinations must still agree. Truncated display notes are
+    never sufficient evidence to match a pre-existing Shopping item.
+    """
+    groups = {}
+    for ingredient in ingredients:
+        target = selected.get(ingredient["client_key"])
+        if target is not None and target.merge_group is not None:
+            groups.setdefault(target.merge_group, []).append((ingredient, target))
+    result = {}
+    for group_id, members in groups.items():
+        first, first_target = members[0]
+        first_name = normalized_ingredient_name(clean_item_text(first["name"], 500, required=True))
+        notes = []
+        for ingredient, target in members:
+            if (ingredient["quantity_value"] is None or ingredient["quantity_text"]
+                    or normalized_ingredient_name(clean_item_text(ingredient["name"], 500, required=True)) != first_name
+                    or target.section_id != first_target.section_id or target.store_ids != first_target.store_ids
+                    or convert_quantity(Decimal(1), ingredient["quantity_unit"], first["quantity_unit"]) is None):
+                raise HTTPException(422, "Merge group ingredients must have matching names, numeric compatible amounts and destinations")
+            note = ingredient["note"]
+            if note and note not in notes:
+                notes.append(note)
+        note = "\n".join(notes)
+        truncated = len(note) > 2000
+        result[group_id] = {"note": note[:1999] + "…" if truncated else note, "match_existing": not truncated, "candidates": []}
+    return result
+
+
 def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
     """Return receipt fields and whether a new batch was applied; never commit.
 
@@ -117,8 +152,13 @@ def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
     if not db.in_transaction:
         raise RuntimeError("Recipe transfer requires a writer transaction")
     require_list_access(db, payload.shopping_list_id, actor_id, write=True)
+    request_data = payload.model_dump()
+    # Absent new capabilities must retain pre-66 durable receipt fingerprints.
+    for ingredient in request_data["ingredients"]:
+        if ingredient["merge_group"] is None:
+            del ingredient["merge_group"]
     request_hash = hashlib.sha256(json.dumps(
-        {"recipe_id": recipe_id, **payload.model_dump()}, sort_keys=True, ensure_ascii=False, allow_nan=False,
+        {"recipe_id": recipe_id, **request_data}, sort_keys=True, ensure_ascii=False, allow_nan=False,
     ).encode()).hexdigest()
     receipt = db.execute(
         "SELECT * FROM recipe_shopping_transfers WHERE user_id = ? AND client_mutation_id = ?",
@@ -144,6 +184,7 @@ def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
     targets = list_item_targets(db, payload.shopping_list_id)
     for item in selected.values():
         validate_item_target(targets, item.section_id, item.store_ids, active_only=True)
+    groups = _merge_groups(ingredients, selected)
 
     assignments = {}
     for row in db.execute(
@@ -179,12 +220,14 @@ def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
             name = clean_item_text(ingredient["name"], 500, required=True)
             unit = normalize_quantity_unit(ingredient["quantity_unit"])
             scaled = _finite_quantity(amount) if amount is not None else None
-            note = ingredient["note"]
+            group = groups.get(target.merge_group)
+            note = group["note"] if group is not None else ingredient["note"]
             key = _route_key(name, note, target.section_id, target.store_ids)
             merged = None
             # Free and unmeasured ingredients always create their own row.
             if amount is not None and not ingredient["quantity_text"]:
-                for candidate in buckets.get(key, []):
+                candidates = (group["candidates"] or (buckets.get(key, []) if group["match_existing"] else [])) if group is not None else buckets.get(key, [])
+                for candidate in candidates:
                     converted = convert_quantity(amount, unit, candidate["quantity_unit"])
                     if converted is not None:
                         total = Decimal(str(candidate["quantity_value"])) + converted
@@ -192,6 +235,8 @@ def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
                         db.execute("UPDATE shopping_items SET quantity_value = ?, quantity_display_mode = 'kitchen', updated_at = ? WHERE id = ?",
                                    (combined, now_iso(), candidate["id"]))
                         candidate["quantity_value"] = combined
+                        if group is not None and not group["candidates"]:
+                            group["candidates"].append(candidate)
                         merged = candidate["id"]
                         merged_count += 1
                         break
@@ -203,14 +248,18 @@ def apply_recipe_shopping_transfer(db, recipe_id, actor_id, payload):
                 next_order = min(9223372036854775807, next_order + 1)
                 created_count += 1
                 if amount is not None and not ingredient["quantity_text"]:
-                    buckets.setdefault(key, []).append({"id": merged, "quantity_value": scaled, "quantity_unit": unit})
+                    candidate = {"id": merged, "quantity_value": scaled, "quantity_unit": unit}
+                    if group is None or group["match_existing"]:
+                        buckets.setdefault(key, []).append(candidate)
+                    if group is not None:
+                        group["candidates"].append(candidate)
             db.execute(
                 """INSERT INTO shopping_item_recipe_sources
                    (shopping_item_id, transfer_id, recipe_id, source_revision, recipe_title, ingredient_client_key,
                     ingredient_name, quantity_value, quantity_unit, quantity_text, note, base_servings, servings)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (merged, transfer_id, recipe_id, source_revision, recipe["title"], ingredient["client_key"], ingredient["name"],
-                 scaled, unit, ingredient["quantity_text"], note, recipe["base_servings"], payload.servings),
+                 scaled, unit, ingredient["quantity_text"], ingredient["note"], recipe["base_servings"], payload.servings),
             )
     except (InvalidOperation, OverflowError, ZeroDivisionError):
         raise HTTPException(422, "Scaled quantity is outside the supported range") from None

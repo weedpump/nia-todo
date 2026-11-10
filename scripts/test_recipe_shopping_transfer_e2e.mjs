@@ -103,23 +103,39 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
   phase = 'logging into actual web app';
   client = await launchPage({ serviceWorkers: 'allow' });
   const { page } = client;
-  let injectedOffline = false;
+  let injectedOffline = false, networkTransition = 'online', diagnosticSequence = 0;
   const requestFailures = [], socketFailures = [], consoleFailures = [];
+  const requestExposure = new WeakMap(), inFlightRequests = new Set(), openSockets = new Map();
+
   const diagnosticUrl = value => {
     try { const url = new URL(value); return `${url.origin}${url.pathname}`; }
     catch { return ''; }
   };
   const diagnosticText = value => value.replace(/(?:https?|wss?):\/\/[^\s'"<>]+/g, diagnosticUrl);
-  page.context().on('requestfailed', request => requestFailures.push({
-    url: diagnosticUrl(request.url()), method: request.method(),
-    errorText: request.failure()?.errorText || '', injectedOffline, phase,
-  }));
-  page.on('websocket', socket => socket.on('socketerror', errorText => socketFailures.push({
-    url: diagnosticUrl(socket.url()), errorText: diagnosticText(String(errorText)), injectedOffline, phase,
-  })));
+  page.context().on('request', request => {
+    requestExposure.set(request, { started: ++diagnosticSequence, exposedOffline: injectedOffline });
+    inFlightRequests.add(request);
+  });
+  page.context().on('requestfinished', request => inFlightRequests.delete(request));
+  page.context().on('requestfailed', request => {
+    const exposure = requestExposure.get(request) || {};
+    requestFailures.push({ url: diagnosticUrl(request.url()), method: request.method(),
+      errorText: request.failure()?.errorText || '', ...exposure,
+      sequence: ++diagnosticSequence, injectedOffline, networkTransition, phase });
+    inFlightRequests.delete(request);
+  });
+  page.on('websocket', socket => {
+    const exposure = { started: ++diagnosticSequence, exposedOffline: injectedOffline };
+    openSockets.set(socket, exposure);
+    socket.on('socketerror', errorText => socketFailures.push({ url: diagnosticUrl(socket.url()),
+      errorText: diagnosticText(String(errorText)), ...exposure,
+      sequence: ++diagnosticSequence, injectedOffline, networkTransition, phase }));
+    socket.on('close', () => openSockets.delete(socket));
+  });
   page.on('console', message => {
     if (message.type() === 'error') consoleFailures.push({ message: diagnosticText(message.text()),
-      url: diagnosticUrl(message.location().url), injectedOffline, phase });
+      url: diagnosticUrl(message.location().url), sequence: ++diagnosticSequence,
+      injectedOffline, networkTransition, phase });
   });
   await page.context().route('**/*', route => new URL(route.request().url()).origin === base
     ? route.continue() : route.abort('blockedbyclient'));
@@ -143,7 +159,7 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
           { ingredient_client_key: 'powder', show_quantity: true },
         ] },
         { client_key: 'finish', text: 'Serve gently.\nAdd the spice.', ingredients: [
-          { ingredient_client_key: 'milk', show_quantity: false }, { ingredient_client_key: 'tiny', show_quantity: true },
+          { ingredient_client_key: 'milk', show_quantity: true, quantity_value: 100 }, { ingredient_client_key: 'tiny', show_quantity: true },
         ] },
       ] });
     const list = await shoppingApi.createList({ name: 'Transfer E2E groceries', client_mutation_id: 'e2e-list' });
@@ -174,16 +190,20 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
   await recipeModal.waitFor({ state: 'visible' });
   const editorStep = recipeModal.locator('.recipe-editor-step[data-key="mix"]');
   await editorStep.locator('[data-recipe-editor-action="step-ingredients-toggle"]').click();
+  await editorStep.locator('[data-step-group="main"] > summary').click();
   await editorStep.locator('[data-step-ingredient="custom"]').check();
-  await editorStep.locator('[data-step-ingredient-partial="custom"]').check();
+  const customChoice = editorStep.locator('[data-step-choice="custom"]');
+  await customChoice.locator('.recipe-editor-step-quantity > summary').click();
+  await customChoice.locator('[data-step-quantity-value]').fill('0.125');
   await page.click('#recipe-save-btn');
   await recipeModal.waitFor({ state: 'hidden' });
   await poll(async id => (await window.dbGetAll('cookbooks')).flatMap(book => book.recipes || []).some(recipe => recipe.id === id && recipe.revision === 2 && !recipe.pending), seeded.recipe);
   const savedLinks = await page.evaluate(async id => (await (await import('/static/js/api/recipes.js')).recipesApi.getRecipe(id)).steps[0].ingredients, seeded.recipe);
-  assert.deepEqual(savedLinks.at(-1), { ingredient_client_key: 'custom', show_quantity: false });
+  assert.deepEqual(savedLinks.at(-1), { ingredient_client_key: 'custom', show_quantity: true, quantity_value: .125, quantity_text: null });
   phase = 'reading step ingredients and entering actual cooking mode';
   assert.equal(await page.locator('.recipe-steps>li[data-recipe-step-key="mix"] .recipe-step-ingredient').count(), 4);
-  assert.equal(await page.locator('[data-step-ingredient-amount="milk"]').count(), 0, 'reused ingredients do not repeat full recipe quantities');
+  assert.deepEqual(await page.locator('[data-step-ingredient-amount="milk"]').allTextContents(), ['250 ml', '100 ml'], 'full and custom step amounts remain visible for repeated ingredients');
+  assert.equal(await page.locator('[data-step-ingredient-amount="custom"]').textContent(), `${new Intl.NumberFormat(locale).format(.125)} Hansdampf`);
   assert.equal(await page.locator('[data-step-ingredient-amount="powder"]').textContent(), `¼ ${packLabel}`);
   await page.locator('[data-recipe-action="cook"]').click();
   await page.locator('.recipe-cooking-step[data-recipe-step-key="mix"]').waitFor({ state: 'visible' });
@@ -195,6 +215,7 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('.recipe-cooking-step[data-recipe-step-key="finish"]').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#recipe-view-servings').inputValue(), '4');
+  assert.equal(await page.locator('[data-step-ingredient-amount="milk"]').textContent(), '200 ml', 'custom step amount scales and survives cooking reload');
   await client.dismissWhatsNewIfVisible();
   await page.goBack();
   await page.locator('.recipe-reading').waitFor({ state: 'visible' });
@@ -238,8 +259,12 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
   phase = 'mobile offline enqueue and real PWA reload';
   await page.setViewportSize({ width: 390, height: 844 });
   await poll(() => navigator.serviceWorker?.controller?.state === 'activated');
-  injectedOffline = true;
+  networkTransition = 'going-offline'; injectedOffline = true;
+  // Requests/sockets already open when transport is disabled were also exposed.
+  for (const request of inFlightRequests) requestExposure.get(request).exposedOffline = true;
+  for (const exposure of openSockets.values()) exposure.exposedOffline = true;
   await page.context().setOffline(true); await poll(() => navigator.onLine === false);
+  networkTransition = 'offline';
   await applyThroughUi(2);
   const queued = await page.evaluate(async () => (await window.dbGetAll('syncQueue')).filter(row => row.action === 'TRANSFER_RECIPE_TO_SHOPPING'));
   assert.equal(queued.length, 1); assert.equal(queued[0].attempted, undefined);
@@ -253,8 +278,12 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
   assert.equal(afterReload.length, 1); assert.deepEqual(afterReload[0].data, queued[0].data);
   assert.equal(await page.evaluate(() => navigator.onLine), false);
   phase = 'reconnecting durable transfer';
-  injectedOffline = false;
-  await page.context().setOffline(false); await transferQueueEmpty();
+  networkTransition = 'reconnecting';
+  // setOffline() dispatches transport failures while changing network state.
+  // The offline exposure ends after that transition, never before its await.
+  await page.context().setOffline(false);
+  injectedOffline = false; networkTransition = 'online';
+  await transferQueueEmpty();
   const second = await serverList();
   assert.equal(second.items.length, 7, 'free amounts remain separate on a new transfer');
   const finalMilk = second.items.find(item => item.id === seeded.milk);
@@ -282,21 +311,56 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
     await quantity.waitFor({ state: 'visible' });
     assert.equal(await quantity.textContent(), label);
   }
+  phase = 'consolidating matching source ingredients across recipe groups';
+  const flourRecipe = await page.evaluate(async book => (await import('/static/js/api/recipes.js')).recipesApi.createRecipe(book, {
+    title: 'Grouped flour recipe', base_servings: 4, client_mutation_id: 'e2e-grouped-flour',
+    ingredient_groups: [
+      {client_key:'dough',name:'Dough',ingredients:[{client_key:'dough-flour',name:'Wheat flour',quantity_value:250,quantity_unit:'g',note:'For dough'}]},
+      {client_key:'filling',name:'Filling',ingredients:[{client_key:'filling-flour',name:'Wheat flour',quantity_value:100,quantity_unit:'g',note:'For filling'}]},
+    ], steps:[{client_key:'prepare',text:'Prepare dough',ingredients:[{ingredient_client_key:'dough-flour',show_quantity:true,quantity_value:125}]}],
+  }), seeded.book);
+  await poll(async id => (await window.dbGetAll('cookbooks')).some(book=>book.recipes?.some(recipe=>recipe.id===id)), flourRecipe.id);
+  await page.click('#module-switcher-button');
+  await page.click('[data-module-action="select"][data-module-id="recipes"]');
+  await page.locator(`#cookbook-sidebar [data-entity-sidebar-action="select"][data-entity-id="${seeded.book}"]`).click();
+  await page.locator(`.recipe-card[data-recipe-id="${flourRecipe.id}"]`).click();
+  await page.locator('.recipe-reading [data-recipe-action="transfer"]').click();
+  await modal.waitFor({state:'visible'});
+  await poll(()=>document.getElementById('recipe-transfer-form')?.getAttribute('aria-busy')==='false');
+  assert.equal(await page.locator('#recipe-transfer-servings').inputValue(),'4');
+  assert.equal(await page.locator('#recipe-transfer-preview .recipe-transfer-summary-row').count(),1,'compatible ingredients with differing notes combine by default');
+  assert.equal(await page.locator('[data-transfer-separate]').count(),1,'separation remains an explicit per-product option');
+  assert.equal(await page.locator('#recipe-transfer-preview .recipe-transfer-summary-row').count(),1);
+  assert.equal(await page.locator('#recipe-transfer-preview .recipe-transfer-summary-amount').textContent(),'350 g','preview sums both original source totals, not the custom step amount');
+  await page.click('#recipe-transfer-save-btn');await modal.waitFor({state:'hidden'});await transferQueueEmpty();
+  const groupedRows=(await serverList()).items.filter(item=>item.name==='Wheat flour');
+  assert.equal(groupedRows.length,1,'one Shopping item across two recipe groups');
+  assert.equal(groupedRows[0].quantity_value,350);assert.equal(groupedRows[0].quantity_unit,'g');
+  assert.equal(groupedRows[0].recipe_sources_count,2);
+  assert.deepEqual(groupedRows[0].recipe_sources.map(source=>source.quantity_value),[250,100]);
+  assert.deepEqual(groupedRows[0].recipe_sources.map(source=>source.note),['For dough','For filling']);
+
   assert.deepEqual(client.pageErrors, []);
+  const nearestFailure = (failures, error, predicate) => failures
+    .filter(failure => failure.started <= error.sequence && predicate(failure))
+    .sort((left, right) => Math.abs(left.sequence - error.sequence) - Math.abs(right.sequence - error.sequence))[0];
   const expectedOfflineError = error => {
-    if (!error.injectedOffline) return false;
     if (/^Failed to load resource: net::ERR_(?:FAILED|INTERNET_DISCONNECTED)$/.test(error.message)) {
-      // Service-worker fetch failures can surface as ERR_FAILED instead of
-      // ERR_INTERNET_DISCONNECTED. Require a real same-URL transport failure
-      // observed while this test explicitly injected offline mode.
-      return Boolean(error.url) && requestFailures.some(request => request.injectedOffline
-        && request.url === error.url && /^net::ERR_(?:FAILED|INTERNET_DISCONNECTED)$/.test(request.errorText));
+      // Console delivery and requestfailed callbacks may arrive on either side
+      // of the awaited reconnect. Correlate to the actual request lifetime,
+      // not the network flag at callback time. A fresh online failure at the
+      // same URL must not inherit an earlier offline failure's exemption.
+      const failure = nearestFailure(requestFailures, error, request => request.url === error.url
+        && /^net::ERR_(?:FAILED|INTERNET_DISCONNECTED)$/.test(request.errorText));
+      return Boolean(error.url) && failure?.exposedOffline === true;
     }
     const socketUrl = error.message.match(/^WebSocket connection to '([^']+)' failed/);
-    if (socketUrl) return socketFailures.some(socket => socket.injectedOffline && socket.url === diagnosticUrl(socketUrl[1]));
-    if (/^\[WS\].*Error: Event$/.test(error.message)) return socketFailures.some(socket => socket.injectedOffline);
+    if (socketUrl) return nearestFailure(socketFailures, error,
+      socket => socket.url === diagnosticUrl(socketUrl[1]))?.exposedOffline === true;
+    if (!error.injectedOffline) return false;
+    if (/^\[WS\].*Error: Event$/.test(error.message)) return socketFailures.some(socket => socket.exposedOffline);
     if (/^WS: message handler failed TypeError: Failed to fetch$/.test(error.message)) {
-      return requestFailures.some(request => request.injectedOffline
+      return requestFailures.some(request => request.exposedOffline
         && /^net::ERR_(?:FAILED|INTERNET_DISCONNECTED)$/.test(request.errorText));
     }
     return false;

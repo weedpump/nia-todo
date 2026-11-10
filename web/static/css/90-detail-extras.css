@@ -90,7 +90,7 @@ body.is-minimal-todos .todo-actions {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
 }
 
-.ui-checkbox-label:has(input:checked) .ui-checkbox-box {
+.ui-checkbox-label:has(input:checked,input:indeterminate) .ui-checkbox-box {
   border-color: var(--accent);
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #22c55e));
   box-shadow: 0 6px 16px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.24));
@@ -100,6 +100,15 @@ body.is-minimal-todos .todo-actions {
   opacity: 1;
   transform: scale(1) rotate(0deg);
 }
+
+.ui-checkbox-label:has(input:indeterminate) .ui-checkbox-box::after {
+  content: "";
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+.ui-checkbox-label:has(input:indeterminate) .ui-checkbox-box .ui-icon { display: none; }
 
 .todo-subtasks-editor {
   display: grid;

@@ -108,6 +108,7 @@ run_step "Cookbooks Offline Metadata Sync" node scripts/test_offline_cookbooks_s
 run_step "Cookbooks Real-Service E2E" node scripts/test_frontend_cookbooks_e2e.mjs
 run_step "Recipe Aggregate API" python3 scripts/test_recipes.py
 run_step "Recipe Quantity Rounding" node scripts/test_recipe_quantities.mjs
+run_step "Recipe Shopping Preview" node scripts/test_recipe_shopping_preview.mjs
 run_step "Recipe Step Ingredients" node scripts/test_recipe_step_ingredients.mjs
 run_step "Recipe Step Ingredient Editor" node scripts/test_frontend_recipe_step_editor.mjs
 run_step "Recipe Cooking View" node scripts/test_frontend_recipe_cooking.mjs

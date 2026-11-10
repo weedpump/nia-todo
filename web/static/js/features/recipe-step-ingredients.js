@@ -1,24 +1,18 @@
 import { t, getActiveLocale } from '../i18n/index.js';
 import { escapeHtmlAttr } from '../core/utils.js';
-import { formatRecipeIngredient } from '../core/recipe-quantities.js';
+import { formatRecipeIngredient, formatRecipeStepIngredientAmount } from '../core/recipe-quantities.js';
 
 /** Resolve stable recipe-local references. Never infer links from names/text. */
 function ingredientResolver(recipe) {
   const ingredients = new Map((recipe?.ingredient_groups || []).flatMap(group => group.ingredients || []).map(item => [item.client_key, item]));
-  const usage = new Map();
-  for (const item of recipe?.steps || []) {
-    for (const key of new Set((item.ingredients || []).map(link => link.ingredient_client_key))) {
-      usage.set(key, (usage.get(key) || 0) + 1);
-    }
-  }
   return step => {
     const seen = new Set();
     return (step?.ingredients || []).flatMap(link => {
       const key = link?.ingredient_client_key, ingredient = ingredients.get(key);
       if (!ingredient || seen.has(key)) return [];
       seen.add(key);
-      const partial = link.show_quantity === false || (usage.get(key) || 0) > 1;
-      return [{ ingredient, showQuantity: !partial, partial }];
+      const partial = link.show_quantity === false && link.quantity_value == null && !link.quantity_text;
+      return [{ ingredient, link, showQuantity: !partial, partial }];
     });
   };
 }
@@ -30,9 +24,9 @@ export function getRecipeStepIngredients(recipe, step) {
 export function renderRecipeStepIngredients(recipe, step, { servings = recipe.base_servings, locale = getActiveLocale() } = {}) {
   const selected = getRecipeStepIngredients(recipe, step);
   if (!selected.length) return '';
-  return `<ul class="recipe-step-ingredients" aria-label="${escapeHtmlAttr(t('recipe.step.ingredients.label'))}">${selected.map(({ ingredient, showQuantity, partial }) => {
-    const quantity = showQuantity ? formatRecipeIngredient(ingredient, servings, recipe.base_servings, locale) : '';
-    return `<li class="ui-badge recipe-step-ingredient">${showQuantity ? `<span class="recipe-step-ingredient-amount" data-step-ingredient-amount="${escapeHtmlAttr(ingredient.client_key)}" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}">${escapeHtmlAttr(quantity)}</span>` : ''}<span class="recipe-step-ingredient-name">${escapeHtmlAttr(ingredient.name)}</span>${partial ? `<span class="recipe-step-ingredient-partial">${escapeHtmlAttr(t('recipe.step.ingredients.partial'))}</span>` : ''}</li>`;
+  return `<ul class="recipe-step-ingredients" aria-label="${escapeHtmlAttr(t('recipe.step.ingredients.label'))}">${selected.map(({ ingredient, link, showQuantity, partial }) => {
+    const quantity = formatRecipeStepIngredientAmount(ingredient, link, servings, recipe.base_servings, locale);
+    return `<li class="ui-badge recipe-step-ingredient">${showQuantity ? `<span class="recipe-step-ingredient-amount" data-step-ingredient-amount="${escapeHtmlAttr(ingredient.client_key)}" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}">${escapeHtmlAttr(quantity)}</span>` : ''}<span class="recipe-step-ingredient-name">${escapeHtmlAttr(ingredient.name)}</span>${partial ? `<span class="recipe-step-ingredient-partial">${escapeHtmlAttr(t('recipe.step.ingredients.unspecified'))}</span><small class="recipe-step-ingredient-source" data-step-ingredient-source="${escapeHtmlAttr(ingredient.client_key)}" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}">${escapeHtmlAttr(t('recipe.step.ingredients.sourceTotal', { quantity: formatRecipeIngredient(ingredient, servings, recipe.base_servings, locale) }))}</small>` : ''}</li>`;
   }).join('')}</ul>`;
 }
 
@@ -44,6 +38,11 @@ export function refreshRecipeStepIngredientAmounts(container, recipe, servings, 
     const step = steps.get(node.dataset.recipeStepKey);
     if (!resolved.has(step)) resolved.set(step, new Map(resolve(step).map(row => [row.ingredient.client_key, row])));
     const row = resolved.get(step).get(node.dataset.stepIngredientAmount);
-    node.textContent = row?.showQuantity ? formatRecipeIngredient(row.ingredient, servings, recipe.base_servings, locale) : '';
+    node.textContent = row ? formatRecipeStepIngredientAmount(row.ingredient, row.link, servings, recipe.base_servings, locale) : '';
+  }
+  for (const node of container?.querySelectorAll('[data-step-ingredient-source]') || []) {
+    const step = steps.get(node.dataset.recipeStepKey);
+    const row = resolve(step).find(row => row.ingredient.client_key === node.dataset.stepIngredientSource);
+    node.textContent = row ? t('recipe.step.ingredients.sourceTotal', { quantity: formatRecipeIngredient(row.ingredient, servings, recipe.base_servings, locale) }) : '';
   }
 }

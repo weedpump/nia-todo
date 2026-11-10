@@ -92,6 +92,21 @@ try {
     pending=await controller.listPending();check(pending[0].can_cancel&&await controller.cancel(pending[0].client_mutation_id),'invalid target is explicitly cancelable');
     groups.push('400 target invalidation stays blocked without losing intent');
 
+    await reset();
+    for(const merge_group of ['', ' ', 123, 'x'.repeat(201)]) check(await controller.transfer({...selection(),ingredients:[{...selection().ingredients[0],merge_group}]})===null,'invalid merge group rejected before enqueue');
+    await controller.transfer({...selection(),ingredients:[{...selection().ingredients[0],merge_group:'chosen-same-product'}]});
+    const groupedIntent=(await s.getAll('syncQueue'))[0];
+    check(groupedIntent.data.ingredients[0].merge_group==='chosen-same-product','explicit combination retained in durable intent');
+    const groupedReload=t.sanitizeRecipeShoppingTransfer(JSON.parse(JSON.stringify(groupedIntent)));
+    check(t.recipeShoppingTransferPayload(groupedReload).ingredients[0].merge_group==='chosen-same-product','combination survives serialization and API sanitization');
+    const groupedRemap=t.rewriteRecipeShoppingTransfer(groupedReload,{listIdFrom:70,listIdTo:71,sectionIdFrom:80,sectionIdTo:81,storeIdFrom:90,storeIdTo:91});
+    check(groupedRemap.data.ingredients[0].merge_group==='chosen-same-product'&&groupedRemap.data.ingredients[0].section_id===81,'combination survives temporary target remapping');
+    const groupedAttempts=[];let groupLost=false;
+    api.transferToShopping=async(_id,payload)=>{groupedAttempts.push(structuredClone(payload));if(!groupLost){groupLost=true;throw Object.assign(new Error('lost grouped reply'),{status:503});}return response(payload);};
+    await run();await run();eq(groupedAttempts[0],groupedAttempts[1],'grouped lost-response replay keeps identical request body');
+    check(groupedAttempts[0].ingredients[0].merge_group==='chosen-same-product'&&!(await s.getAll('syncQueue')).length,'confirmed grouped replay clears its intent');
+    groups.push('explicit combination persists through reload, remapping and uncertain replay');
+
     await reset();await s.put('syncQueue',{id:100,action:'CREATE_RECIPE',actor_id:1,data:{temp_id:'temp-recipe',cookbook_id:'temp-book',client_mutation_id:'source-write'}});
     books=[{...book(),id:'temp-book',client_mutation_id:'temp-book',recipes:[{...recipe,id:'temp-recipe',cookbook_id:'temp-book',revision:0}]}];
     lists=[{...list(),id:'temp-list',sections:[{id:'temp-section',shopping_list_id:'temp-list'}]}];stores=[{id:'temp-store',shopping_list_id:'temp-list'}];
@@ -158,5 +173,5 @@ try {
     groups.push('foreign actor isolation and current actor progress');
     return groups;
   });
-  assert.equal(groups.length,13);for(const group of groups)console.log(`PASS ${group}`);
+  assert.equal(groups.length,14);for(const group of groups)console.log(`PASS ${group}`);
 } finally { await browser.close(); }

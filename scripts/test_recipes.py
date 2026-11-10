@@ -144,8 +144,8 @@ def test_step_ingredient_order_legacy_preserve_clear_and_prune():
         first = create(f)
         path = f"/api/recipes/recipes/{first['id']}"
         assert first["steps"][0]["ingredients"] == [
-            {"ingredient_client_key": "flour", "show_quantity": True},
-            {"ingredient_client_key": "salt", "show_quantity": False}]
+            {"ingredient_client_key": "flour", "show_quantity": True, "quantity_value": None, "quantity_text": None},
+            {"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None}]
         old_ids = {step["client_key"]: step["id"] for step in first["steps"]}
         legacy_steps = [{"client_key": step["client_key"], "text": step["text"] + " Updated"} for step in reversed(first["steps"])]
         legacy = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "legacy-steps", "steps": legacy_steps})
@@ -159,7 +159,7 @@ def test_step_ingredient_order_legacy_preserve_clear_and_prune():
         groups[0]["ingredients"] = []
         pruned = f.call("patch", path, json={"expected_revision": 3, "client_mutation_id": "remove-ingredient", "ingredient_groups": groups})
         mix = next(step for step in pruned["steps"] if step["client_key"] == "mix")
-        assert mix["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False}]
+        assert mix["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None}]
         # Missing field preserves the existing cook link; explicit [] clears
         # mix; a new legacy step starts with no ingredient references.
         cleared = f.call("patch", path, json={"expected_revision": 4, "client_mutation_id": "clear-step-links", "steps": [
@@ -228,7 +228,7 @@ def test_step_ingredient_permissions_bounded_projection_and_database_boundaries(
         f.actor["id"] = f.users[1]
         shared = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "shared-step-link", "steps": [
             {"client_key": "mix", "text": "Shared step", "ingredients": [{"ingredient_client_key": "salt", "show_quantity": False}]}]})
-        assert shared["steps"][0]["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False}]
+        assert shared["steps"][0]["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None}]
         assert f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "shared-step-link", "steps": []})["applied_revision"] == 2
         f.call("patch", path, expected=409, json={"expected_revision": 1, "client_mutation_id": "stale-step-link", "steps": []})
         for user in (f.users[2], f.users[3]):
@@ -295,6 +295,90 @@ def test_step_ingredient_receipt_failure_rolls_back_and_recipe_delete_cascades()
         with get_db() as db:
             assert db.execute("SELECT 1 FROM recipe_step_ingredients WHERE recipe_id = ?", (first["id"],)).fetchone() is None
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_step_quantities_preserve_legacy_patch_reset_and_source_totals():
+    with fixture() as f:
+        data = payload("step-quantities")
+        data["steps"][0]["ingredients"] = [{"ingredient_client_key": "flour", "quantity_value": 100},
+                                            {"ingredient_client_key": "salt", "quantity_text": "a pinch"}]
+        # Preparing and later adding the same source can exceed the total if
+        # summed across steps. This is intentionally not a consumption ledger.
+        data["steps"][1]["ingredients"] = [{"ingredient_client_key": "flour", "quantity_value": 200}]
+        first = create(f, data)
+        path = f"/api/recipes/recipes/{first['id']}"
+        assert first["steps"][0]["ingredients"][0]["quantity_value"] == 100
+        assert first["steps"][0]["ingredients"][1]["quantity_text"] == "a pinch"
+        assert first["steps"][1]["ingredients"][0]["quantity_value"] == 200
+        assert first["ingredient_groups"][0]["ingredients"][0]["quantity_value"] == 250
+        legacy_steps = [{**step, "ingredients": [{"ingredient_client_key": link["ingredient_client_key"], "show_quantity": link["show_quantity"]}
+                                                 for link in step["ingredients"]]} for step in reversed(first["steps"])]
+        legacy = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "legacy-quantity-omitted", "steps": legacy_steps})
+        assert legacy["steps"][0] == first["steps"][1]
+        assert legacy["steps"][1] == first["steps"][0]
+        # One explicit new field selects a new amount mode; it must not inherit
+        # the old field of a different mode and accidentally create an XOR error.
+        switched = copy.deepcopy(legacy["steps"])
+        switched[0]["ingredients"] = [{"ingredient_client_key": "flour", "quantity_text": "half of the prepared flour"}]
+        changed = f.call("patch", path, json={"expected_revision": 2, "client_mutation_id": "step-free-quantity", "steps": switched})
+        assert changed["steps"][0]["ingredients"][0]["quantity_value"] is None
+        assert changed["steps"][0]["ingredients"][0]["quantity_text"] == "half of the prepared flour"
+        reset = copy.deepcopy(changed["steps"])
+        reset[0]["ingredients"][0].update(quantity_value=None, quantity_text=None)
+        full = f.call("patch", path, json={"expected_revision": 3, "client_mutation_id": "step-full-quantity", "steps": reset})
+        assert full["steps"][0]["ingredients"][0] == {"ingredient_client_key": "flour", "show_quantity": True, "quantity_value": None, "quantity_text": None}
+        assert full["steps"][1]["ingredients"][0]["quantity_value"] == 100
+        # Existing authorization, revision and receipt contracts still cover
+        # the complete step amount as part of the aggregate.
+        replay = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "step-full-quantity", "steps": []})
+        assert replay["applied_revision"] == 4 and replay["steps"] == full["steps"]
+        f.call("patch", path, expected=409, json={"expected_revision": 1, "client_mutation_id": "step-quantity-stale", "steps": []})
+        f.actor["id"] = f.users[1]
+        assert f.call("get", path)["steps"] == full["steps"]
+        f.actor["id"] = f.users[2]
+        f.call("get", path, expected=404)
+        f.call("patch", path, expected=404, json={"expected_revision": 4, "client_mutation_id": "step-quantity-denied", "steps": reset})
+        f.actor["id"] = f.users[0]
+        hidden_steps = [{**step, "ingredients": [{"ingredient_client_key": link["ingredient_client_key"], "show_quantity": False}
+                                                for link in step["ingredients"]]} for step in full["steps"]]
+        hidden = f.call("patch", path, json={"expected_revision": 4, "client_mutation_id": "legacy-explicit-hide", "steps": hidden_steps})
+        assert all(link == {"ingredient_client_key": link["ingredient_client_key"], "show_quantity": False, "quantity_value": None, "quantity_text": None}
+                   for step in hidden["steps"] for link in step["ingredients"])
+
+
+
+def test_step_quantity_validation_and_atomic_rollback():
+    with fixture() as f:
+        first = create(f)
+        path = f"/api/recipes/recipes/{first['id']}"
+        for link in (
+            {"quantity_value": 0}, {"quantity_value": -1}, {"quantity_value": True}, {"quantity_value": 251},
+            {"quantity_value": 100, "quantity_text": "a little"}, {"quantity_value": 100, "show_quantity": False},
+            {"quantity_text": "a little", "show_quantity": False}, {"quantity_text": "x" * 501}, {"quantity_unit": "kg"},
+        ):
+            changes = {"expected_revision": 1, "client_mutation_id": "invalid-step-quantity", "title": "Do not persist",
+                       "steps": [{"client_key": "mix", "text": "Mix", "ingredients": [{"ingredient_client_key": "flour", **link}]}]}
+            f.call("patch", path, expected=422, json=changes)
+        f.call("patch", path, expected=422, json={"expected_revision": 1, "client_mutation_id": "free-source-numeric",
+            "steps": [{"client_key": "cook", "text": "Cook", "ingredients": [{"ingredient_client_key": "salt", "quantity_value": 1}]}]})
+        for raw in ("NaN", "Infinity", "-Infinity"):
+            body = ('{"expected_revision":1,"client_mutation_id":"nonfinite-step","steps":[{"client_key":"mix","text":"Mix",'
+                    '"ingredients":[{"ingredient_client_key":"flour","quantity_value":' + raw + '}]}]}')
+            f.call("patch", path, expected=422, content=body, headers={"Content-Type": "application/json"})
+        valid_steps = [{"client_key": "mix", "text": "Mix", "ingredients": [{"ingredient_client_key": "flour", "quantity_value": 100}]}]
+        f.call("patch", path, expected=422, json={"expected_revision": 1, "client_mutation_id": "rollback-step-quantity",
+            "steps": valid_steps, "image_data": "https://invalid.example/image.png"})
+        after = f.call("get", path)
+        assert after["revision"] == 1 and after["steps"] == first["steps"]
+        updated = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "valid-step-quantity", "steps": valid_steps})
+        groups = copy.deepcopy(updated["ingredient_groups"])
+        groups[0]["ingredients"][0]["quantity_value"] = 90
+        f.call("patch", path, expected=422, json={"expected_revision": 2, "client_mutation_id": "source-below-step", "ingredient_groups": groups})
+        assert f.call("get", path)["revision"] == 2
+        with get_db() as db:
+            assert db.execute("SELECT 1 FROM recipe_mutation_receipts WHERE client_mutation_id = 'rollback-step-quantity'").fetchone() is None
+            row = db.execute("SELECT quantity_value, quantity_text FROM recipe_step_ingredients WHERE recipe_id = ?", (first["id"],)).fetchone()
+            assert tuple(row) == (100, None)
 
 
 def test_cookbook_content_permissions_and_revocation():

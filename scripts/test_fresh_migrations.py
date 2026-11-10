@@ -60,7 +60,7 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 65, latest
+        assert latest == 66, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
@@ -114,8 +114,9 @@ def main():
             cookbook_columns = {row[1] for row in db.execute("PRAGMA table_info(cookbooks)")}
             assert {"id", "name", "description", "color", "icon", "sort_order", "created_by_user_id", "client_mutation_id"}.issubset(cookbook_columns), cookbook_columns
             assert "archived_at" not in cookbook_columns
-            for recipe_table in ("recipes", "recipe_ingredient_groups", "recipe_ingredients", "recipe_steps", "recipe_tags", "recipe_images", "recipe_mutation_receipts"):
+            for recipe_table in ("recipes", "recipe_ingredient_groups", "recipe_ingredients", "recipe_steps", "recipe_step_ingredients", "recipe_tags", "recipe_images", "recipe_mutation_receipts"):
                 assert db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (recipe_table,)).fetchone(), recipe_table
+            assert {"quantity_value", "quantity_text"}.issubset({row[1] for row in db.execute("PRAGMA table_info(recipe_step_ingredients)")})
             receipt_foreign_keys = {(row[2], row[3], row[6]) for row in db.execute("PRAGMA foreign_key_list(cookbook_creation_receipts)")}
             assert ("users", "user_id", "CASCADE") in receipt_foreign_keys
             assert ("cookbooks", "cookbook_id", "SET NULL") in receipt_foreign_keys
@@ -412,9 +413,43 @@ def main():
                     assert db.execute(f'SELECT * FROM "{table}" ORDER BY rowid').fetchall() == rows, table
             assert db.execute("SELECT COUNT(*) FROM recipe_step_ingredients").fetchone()[0] == 0
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+            ingredient_id = db.execute("SELECT id FROM recipe_ingredients WHERE recipe_id = ?", (recipe_id,)).fetchone()[0]
+            step_id = db.execute("SELECT id FROM recipe_steps WHERE recipe_id = ?", (recipe_id,)).fetchone()[0]
+            db.execute("INSERT INTO recipe_step_ingredients(recipe_id,step_id,ingredient_id,show_quantity,sort_order) VALUES (?,?,?,0,0)", (recipe_id, step_id, ingredient_id))
+            before_migration_66_failure = database_snapshot(db)
+            migration_66 = (MIGRATIONS_DIR / "066_add_recipe_step_quantities.sql").read_text()
+            try:
+                migrate_module.apply_atomic_migration(db, migration_66 + "\nSELECT * FROM migration_66_forced_failure;\n", 66)
+            except sqlite3.OperationalError as error:
+                assert "migration_66_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 66 unexpectedly succeeded")
+            assert database_snapshot(db) == before_migration_66_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 65
+            migrate_module.apply_atomic_migration(db, migration_66, 66)
+            for table, rows in before_migration_66_failure[1].items():
+                if table == "schema_version":
+                    continue
+                current = db.execute(f'SELECT * FROM "{table}" ORDER BY rowid').fetchall()
+                if table == "recipe_step_ingredients":
+                    assert all(row[-2:] == (None, None) for row in current)
+                    current = [row[:-2] for row in current]
+                assert current == rows, table
+            for value, text, shown in ((0, None, 1), (float("inf"), None, 1), (10, "a little", 1), (10, None, 0), (None, "a little", 0)):
+                db.execute("SAVEPOINT invalid_step_quantity")
+                try:
+                    db.execute("UPDATE recipe_step_ingredients SET quantity_value=?,quantity_text=?,show_quantity=?", (value, text, shown))
+                except sqlite3.IntegrityError:
+                    pass
+                else:
+                    raise AssertionError("Step quantity schema accepted invalid numeric/free/legacy state")
+                finally:
+                    db.execute("ROLLBACK TO invalid_step_quantity")
+                    db.execute("RELEASE invalid_step_quantity")
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
         run_migrations(v55_env)
         with sqlite3.connect(v55_db_path) as db:
-            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 65
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 66
             project_member_columns = {row[1] for row in db.execute("PRAGMA table_info(project_members)")}
             assert "is_direct_access_mirror" not in project_member_columns, project_member_columns
             migrated_grants = db.execute(

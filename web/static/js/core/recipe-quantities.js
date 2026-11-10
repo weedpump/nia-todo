@@ -51,3 +51,11 @@ export function formatRecipeIngredient(ingredient, servings, baseServings, local
   const amount = Number(ingredient.quantity_value) * Number(servings) / Number(baseServings);
   return formatQuantity(amount, ingredient.quantity_unit, locale, { kitchen: true });
 }
+
+/** Step overrides use the same scaling and presentation as the source list. */
+export function formatRecipeStepIngredientAmount(ingredient, link, servings, baseServings, locale) {
+  if (link?.quantity_text) return link.quantity_text;
+  if (link?.quantity_value != null) return formatRecipeIngredient({ ...ingredient, quantity_value: link.quantity_value, quantity_text: null }, servings, baseServings, locale);
+  if (link?.show_quantity === false) return '';
+  return formatRecipeIngredient(ingredient, servings, baseServings, locale);
+}
