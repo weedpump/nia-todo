@@ -223,12 +223,24 @@ releaseCurrentMutation();
 assert.equal(await currentMutation, null, 'a writer waiting behind privacy eviction must reject a removed entity');
 assert.equal(currentMutationCalls, 0, 'a removed entity must not reach durable mutation code');
 
+// A later edit is a durable UPDATE_TODO, not an extra request synthesized
+// from the local temporary snapshot after the immutable create acknowledgement.
+async function expectReplayRequest(started, replay, label) {
+  await Promise.race([started, replay.then(() => assert.fail(`${label} was never dispatched`))]);
+}
+
 let createReplayQueue = [{
   id: 41,
   action: 'CREATE_TODO',
+  attempted: true,
   data: { title: 'Queued', project_id: 980, section_id: 981, _tempId: 'temp-982' },
+}, {
+  id: 42,
+  action: 'UPDATE_TODO',
+  data: { id: 'temp-982', project_id: 980, changes: { section_id: 983 } },
 }];
 let createReplayTodos = [{ id: 'temp-982', title: 'Queued', project_id: 980, section_id: 983 }];
+let createReplayAccess = true;
 let releaseSectionCorrection;
 let signalSectionCorrection;
 const sectionCorrectionGate = new Promise(resolve => { releaseSectionCorrection = resolve; });
@@ -237,7 +249,10 @@ const createReplaySyncRef = { value: false, privacyGeneration: 0 };
 const createReplayFeature = createSyncFeature({
   getDb: () => ({}),
   dbGetAll: async store => store === 'syncQueue' ? structuredClone(createReplayQueue) : [],
-  dbPut: async () => {},
+  dbPut: async (store, value) => {
+    if (store === 'syncQueue') createReplayQueue = [...createReplayQueue.filter(item => String(item.id) !== String(value.id)), structuredClone(value)];
+    if (store === 'todos') createReplayTodos = [...createReplayTodos.filter(todo => String(todo.id) !== String(value.id)), structuredClone(value)];
+  },
   dbClear: async () => {},
   getFromDB: async (store, id) => {
     if (store === 'syncQueue') return structuredClone(createReplayQueue.find(item => String(item.id) === String(id)) || null);
@@ -250,12 +265,22 @@ const createReplayFeature = createSyncFeature({
   },
   getTodos: () => createReplayTodos,
   setTodos: next => { createReplayTodos = structuredClone(next); },
-  getProjects: () => [{ id: 980 }], setProjects() {},
-  getSections: () => [{ id: 983, project_id: 980 }], setSections() {},
+  getProjects: () => createReplayAccess ? [{ id: 980 }] : [], setProjects() {},
+  getSections: () => createReplayAccess ? [{ id: 981, project_id: 980 }, { id: 983, project_id: 980 }] : [], setSections() {},
   getWorkspaces: () => [], setWorkspaces() {},
   todosApi: {
-    create: async () => ({ id: 982, title: 'Queued', project_id: 980, section_id: 981 }),
-    update: async () => {
+    create: async data => {
+      assert.equal(data.section_id, 981, 'the create must retain its immutable dispatched section');
+      assert.equal(createReplaySyncRef.commitLocked, false, 'CREATE_TODO must release its commit lock before HTTP');
+      return { id: 982, title: 'Queued', project_id: 980, section_id: 981 };
+    },
+    update: async (id, changes) => {
+      assert.equal(id, 982, 'the durable UPDATE must reference the canonical create identity');
+      assert.deepEqual(changes, { section_id: 983 });
+      assert.equal(createReplaySyncRef.commitLocked, false, 'queued UPDATE_TODO must release its commit lock before HTTP');
+      assert.equal(createReplayQueue.some(item => item.action === 'CREATE_TODO'), false);
+      assert.equal(createReplayQueue.find(item => item.action === 'UPDATE_TODO')?.data.id, 982,
+        'the correction must be durably remapped before dispatch');
       signalSectionCorrection();
       await sectionCorrectionGate;
       return { id: 982, title: 'Queued', project_id: 980, section_id: 983 };
@@ -264,12 +289,17 @@ const createReplayFeature = createSyncFeature({
   projectsApi: {}, sectionsApi: {}, workspacesApi: {},
 });
 const createReplay = createReplayFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: createReplaySyncRef });
-await sectionCorrectionStarted;
+await expectReplayRequest(sectionCorrectionStarted, createReplay, 'queued section update');
 let createReplayEvictionStarted = false;
 const createReplayEviction = runEntityPrivacyEviction({
   syncInProgressRef: createReplaySyncRef,
   acquireCommitLock: acquireSyncCommitLock,
-  evict: async () => { createReplayEvictionStarted = true; },
+  evict: async () => {
+    createReplayEvictionStarted = true;
+    createReplayAccess = false;
+    createReplayQueue = [];
+    createReplayTodos = [];
+  },
 });
 await new Promise(resolve => setTimeout(resolve, 0));
 const evictionProgressedDuringRequest = createReplayEvictionStarted;
@@ -278,15 +308,23 @@ await Promise.all([createReplay, createReplayEviction]);
 assert.equal(
   evictionProgressedDuringRequest,
   true,
-  'CREATE_TODO section correction must not hold the global commit lock during its network request',
+  'the regular UPDATE_TODO after CREATE must not hold the global commit lock during its network request',
 );
+assert.deepEqual(createReplayQueue, [], 'a held UPDATE response must not restore an evicted queue');
+assert.deepEqual(createReplayTodos, [], 'a held UPDATE response must not republish an inaccessible todo');
 
 let revokedCreateQueue = [{
   id: 42,
   action: 'CREATE_TODO',
+  attempted: true,
   data: { title: 'Queued', project_id: 980, section_id: 981, _tempId: 'temp-984' },
+}, {
+  id: 43,
+  action: 'UPDATE_TODO',
+  data: { id: 'temp-984', project_id: 980, changes: { section_id: 983 } },
 }];
 let revokedCreateTodos = [{ id: 'temp-984', title: 'Queued', project_id: 980, section_id: 983 }];
+let revokedCreateAccess = true;
 let releaseInitialCreate;
 let signalInitialCreate;
 const initialCreateGate = new Promise(resolve => { releaseInitialCreate = resolve; });
@@ -296,7 +334,11 @@ const revokedCreateSyncRef = { value: false, privacyGeneration: 0 };
 const revokedCreateFeature = createSyncFeature({
   getDb: () => ({}),
   dbGetAll: async store => store === 'syncQueue' ? structuredClone(revokedCreateQueue) : [],
-  dbPut: async () => {}, dbClear: async () => {},
+  dbPut: async (store, value) => {
+    if (store === 'syncQueue') revokedCreateQueue = [...revokedCreateQueue.filter(item => String(item.id) !== String(value.id)), structuredClone(value)];
+    if (store === 'todos') revokedCreateTodos = [...revokedCreateTodos.filter(todo => String(todo.id) !== String(value.id)), structuredClone(value)];
+  },
+  dbClear: async () => {},
   getFromDB: async (store, id) => {
     if (store === 'syncQueue') return structuredClone(revokedCreateQueue.find(item => String(item.id) === String(id)) || null);
     if (store === 'todos') return structuredClone(revokedCreateTodos.find(todo => String(todo.id) === String(id)) || null);
@@ -307,11 +349,13 @@ const revokedCreateFeature = createSyncFeature({
     if (store === 'todos') revokedCreateTodos = revokedCreateTodos.filter(todo => String(todo.id) !== String(id));
   },
   getTodos: () => revokedCreateTodos, setTodos: next => { revokedCreateTodos = structuredClone(next); },
-  getProjects: () => [{ id: 980 }], setProjects() {},
-  getSections: () => [{ id: 983, project_id: 980 }], setSections() {},
+  getProjects: () => revokedCreateAccess ? [{ id: 980 }] : [], setProjects() {},
+  getSections: () => revokedCreateAccess ? [{ id: 981, project_id: 980 }, { id: 983, project_id: 980 }] : [], setSections() {},
   getWorkspaces: () => [], setWorkspaces() {},
   todosApi: {
-    create: async () => {
+    create: async data => {
+      assert.equal(data.section_id, 981);
+      assert.equal(revokedCreateSyncRef.commitLocked, false, 'a held CREATE cannot block privacy eviction');
       signalInitialCreate();
       await initialCreateGate;
       return { id: 984, title: 'Queued', project_id: 980, section_id: 981 };
@@ -324,18 +368,21 @@ const revokedCreateFeature = createSyncFeature({
   projectsApi: {}, sectionsApi: {}, workspacesApi: {},
 });
 const revokedCreateReplay = revokedCreateFeature.syncWithServer({ wsState: 'connected', syncInProgressRef: revokedCreateSyncRef });
-await initialCreateStarted;
+await expectReplayRequest(initialCreateStarted, revokedCreateReplay, 'initial create');
 await runEntityPrivacyEviction({
   syncInProgressRef: revokedCreateSyncRef,
   acquireCommitLock: acquireSyncCommitLock,
   evict: async () => {
+    revokedCreateAccess = false;
     revokedCreateQueue = [];
     revokedCreateTodos = [];
   },
 });
 releaseInitialCreate();
 await revokedCreateReplay;
-assert.equal(revokedSectionCorrectionCalls, 0, 'CREATE_TODO must not send its correction request after access loss is already known');
+assert.equal(revokedSectionCorrectionCalls, 0, 'CREATE_TODO must not dispatch its queued UPDATE after access loss is already known');
+assert.deepEqual(revokedCreateQueue, [], 'a revoked CREATE response must not restore its receipt or dependent UPDATE');
+assert.deepEqual(revokedCreateTodos, [], 'a revoked CREATE response must not republish its todo');
 
 let staleCreateQueue = [{
   id: 43,
@@ -629,7 +676,7 @@ const attachmentsSource = readFileSync(new URL('../web/static/js/features/todo-a
 assert.match(navigationSource, /listByProject\(currentProjectId\)[\s\S]*runAccessFencedCommit/);
 assert.match(todosSource, /listByProject\(projectId\)[\s\S]*runAccessFencedCommit/);
 assert.match(projectsSource, /transferToHousehold[\s\S]*runAccessFencedCommit/);
-assert.match(todosSource, /todosApi\.create\(todoData\)[\s\S]*runAccessFencedCommit/);
+assert.match(todosSource, /todosApi\.create\(withRoutingFeedback\(todoData\)\)[\s\S]*runAccessFencedCommit/);
 assert.match(todosSource, /todosApi\.createComment[\s\S]*applyCommentTodoResponse\(response, commentPrivacyGeneration\)/);
 assert.match(attachmentsSource, /uploadAttachment\(id, file\)[\s\S]*applyAttachmentTodoResponse\(latestResponse, privacyGeneration, sameSelection\)/);
 assert.match(attachmentsSource, /deleteAttachment\(todoId, attachmentId\)[\s\S]*applyAttachmentTodoResponse\(response, privacyGeneration\)/);
