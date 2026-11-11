@@ -13,12 +13,13 @@ try {
       import * as storage from '/static/js/storage/indexed-db.js';
       import { DB_NAME,DB_VERSION } from '/static/js/core/config.js';
       import { createRecipeController } from '/static/js/features/recipe-mutations.js';
+      import { mergeRecipeStepIngredients } from '/static/js/features/recipe-pending.js';
       import { createRecipeSyncAdapter } from '/static/js/features/recipe-sync.js';
       import { createMetadataSyncAdapter } from '/static/js/features/entity-metadata-sync.js';
       import { cookbookMetadata } from '/static/js/features/cookbooks.js';
       import { createSyncFeature } from '/static/js/features/sync.js';
       Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true});
-      window.test={storage,DB_NAME,DB_VERSION,createRecipeController,createRecipeSyncAdapter,createMetadataSyncAdapter,cookbookMetadata,createSyncFeature};
+      window.test={storage,DB_NAME,DB_VERSION,createRecipeController,mergeRecipeStepIngredients,createRecipeSyncAdapter,createMetadataSyncAdapter,cookbookMetadata,createSyncFeature};
     </script>` });
     try { return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL(`../web${path}`, import.meta.url), 'utf8') }); }
     catch { return route.fulfill({ status: 404 }); }
@@ -26,7 +27,7 @@ try {
   await page.goto('http://recipe-storage.test/');
   await page.waitForFunction(() => Boolean(window.test));
   const groups = await page.evaluate(async () => {
-    const { storage:s, DB_NAME, DB_VERSION, createRecipeController, createRecipeSyncAdapter, createMetadataSyncAdapter, cookbookMetadata, createSyncFeature } = window.test;
+    const { storage:s, DB_NAME, DB_VERSION, createRecipeController, mergeRecipeStepIngredients, createRecipeSyncAdapter, createMetadataSyncAdapter, cookbookMetadata, createSyncFeature } = window.test;
     const check = (condition, message) => { if (!condition) throw new Error(message); };
     const eq = (a,b,message) => check(JSON.stringify(a) === JSON.stringify(b), message);
     const groups = [];
@@ -53,6 +54,37 @@ try {
     check((await s.get('cookbooks',10)).recipes[0].source_yield==='12 cookies','original yield remains durable across ordinary editor changes');
     await controller.remove(created.id);check(!(await s.getAll('syncQueue')).length&&books[0].recipes.length===0,'unsent create/delete collapses');
     groups.push('durable aggregate and safe unsent collapse');
+    for (const creating of [false, true]) for (const clearing of [false, true]) {
+      const initial = {...recipe(), ingredient_groups:[{client_key:'g',name:'Dough',ingredients:[
+        {client_key:'flour',name:'Flour',quantity_value:200,quantity_unit:'g'},
+        {client_key:'salt',name:'Salt',quantity_value:2,quantity_unit:'g'},
+      ]}],steps:[{client_key:'s',title:'Original title',text:'Original body',excluded_ingredients:['salt'],ingredients:[
+        {ingredient_client_key:'flour',origin:'braindump',show_quantity:true,quantity_value:50,quantity_text:null},
+      ]}]};
+      await reset(creating ? [book()] : [{...book(),recipes:[initial]}]);
+      const target = creating ? await controller.create(10,initial) : initial;
+      await controller.update(target.id,{steps:[{client_key:'s',title:'New title',text:'First edit',excluded_ingredients:['salt'],ingredients:[
+        {ingredient_client_key:'flour',origin:'manual',show_quantity:true,quantity_value:100,quantity_text:null},
+      ]}]});
+      await controller.update(target.id,{steps:[{client_key:'s',text:'Legacy reference edit',ingredients:[{ingredient_client_key:'flour',origin:'manual',show_quantity:true}]}]});
+      if (clearing) await controller.update(target.id,{steps:[{client_key:'s',title:'',text:'Clear choices',ingredients:[],excluded_ingredients:[]}]});
+      await controller.update(target.id,{steps:[{client_key:'s',text:'Last body-only edit'}]});
+      queue=await s.getAll('syncQueue');
+      check(queue.length===1,'unsent edits still coalesce to one request');
+      const fields=creating ? queue[0].data : queue[0].data.changes;
+      const expected={client_key:'s',text:'Last body-only edit',title:clearing?'':'New title',excluded_ingredients:clearing?[]:['salt'],ingredients:clearing?[]:[
+        {ingredient_client_key:'flour',origin:'manual',show_quantity:true,quantity_value:100,quantity_text:null},
+      ]};
+      eq(fields.steps,[expected],`${creating?'create':'update'} coalescing retains inherited step title, partial amount, origin and exclusions or explicit clears`);
+      if (!creating) check(!Object.hasOwn(fields,'title')&&!Object.hasOwn(fields,'ingredient_groups')&&!Object.hasOwn(fields,'description'),'step coalescing never materializes unrelated recipe fields');
+      await adapter({
+        createRecipe:async(_id,payload)=>({...initial,...payload,id:20,cookbook_id:10,revision:1,applied_revision:1}),
+        updateRecipe:async(_id,payload)=>({...mergeRecipeStepIngredients(initial,payload),revision:2,applied_revision:2}),
+      }).replay(queue[0],ref,0);
+      eq(books[0].recipes[0].steps,[expected],'acknowledgement cannot revert the effective offline step edits');
+      eq((await s.get('cookbooks',10)).recipes[0].steps,[expected],'acknowledged step choices remain durable');
+    }
+    groups.push('unsent recipe step PATCH coalescing preserves quantities, origins, exclusions and explicit clearing');
     await reset();created=await controller.create(10,{title:'Before'});queue=await s.getAll('syncQueue');let release,started;
     const start=new Promise(resolve=>{started=resolve;});const wait=new Promise(resolve=>{release=resolve;});
     const replay=adapter({createRecipe:async(_id,payload)=>{started(payload);await wait;return {...recipe(20),...payload,applied_revision:1};}}).replay(queue[0],ref,0);
@@ -139,6 +171,6 @@ try {
     groups.push('shared cache readiness cancellation and generation fencing');
     return groups;
   });
-  assert.equal(groups.length,10);
+  assert.equal(groups.length,11);
   for (const group of groups) console.log(`PASS ${group}`);
 } finally { await browser.close(); }

@@ -789,7 +789,8 @@ def test_migration_upgrade_preserves_old_routes_opt_out_and_is_atomic():
                 migrate.run_migrations()
             with get_db() as db:
                 assert (
-                    db.execute("SELECT version FROM schema_version").fetchone()[0] == 70
+                    db.execute("SELECT version FROM schema_version").fetchone()[0]
+                    == max(version for version, _ in files)
                 )
                 imported = db.execute(
                     "SELECT * FROM routing_memory_entries WHERE key_kind='token'"
@@ -1578,7 +1579,8 @@ def test_real_069_upgrade_imports_all_sources_without_dual_counting_and_rolls_ba
                 migrate.run_migrations()
             with get_db() as db:
                 assert (
-                    db.execute("SELECT version FROM schema_version").fetchone()[0] == 70
+                    db.execute("SELECT version FROM schema_version").fetchone()[0]
+                    == max(version for version, _ in migrations)
                 )
                 assert not db.execute(
                     "SELECT name FROM sqlite_master WHERE name IN ('braindump_route_learning','braindump_module_route_learning')"
@@ -2964,7 +2966,7 @@ def test_real_068_upgrade_canonicalizes_legacy_tokens_before_correction_and_hidd
         with patch.object(migrate, "get_migration_files", return_value=files), contextlib.redirect_stdout(io.StringIO()):
             migrate.run_migrations()
         with get_db() as db:
-            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 70
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == max(version for version, _ in files)
             assert {row[0] for row in db.execute("SELECT name_key FROM routing_memory_entries")} == {"salz", "zucker"}
         assert suggest_route(state(f)["entries"], "Salz kaufen")["shopping_list_id"] == f.lists[0]
         create(f, "Salz kaufen", listing=1, section=f.sections[1][0], routing=feedback(["list", "section"]))

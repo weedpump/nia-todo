@@ -6,6 +6,7 @@ import base64
 import contextlib
 import copy
 import io
+import json
 import os
 import sqlite3
 import sys
@@ -129,14 +130,43 @@ def test_validation_bounds_duplicates_quantities_and_drafts():
         for value in (float("nan"), float("inf"), -float("inf")):
             try:
                 RecipeCreate.model_validate({**payload(), "base_servings": value})
-            except ValidationError:
-                pass
+            except HTTPException as error:
+                assert error.status_code == 422
             else:
                 raise AssertionError("Nonfinite servings must fail validation")
         draft = create(f, {"title": "Draft", "client_mutation_id": "draft"})
         assert draft["ingredient_groups"] == draft["steps"] == [] and draft["base_servings"] == 1
         for null_field in ("title", "description", "base_servings", "ingredient_groups", "steps", "tags"):
             f.call("patch", f"/api/recipes/recipes/{draft['id']}", expected=422, json={"expected_revision": 1, "client_mutation_id": "null", null_field: None})
+
+
+def test_nonfinite_recipe_numbers_return_422_without_writes():
+    with fixture() as f:
+        recipe = create(f)
+        with get_db() as db:
+            original = tuple(db.iterdump())
+        broadcasts = f.broadcasts.await_count
+        for method in ("post", "patch"):
+            endpoint = (f"/api/recipes/cookbooks/{f.books[0]}/recipes" if method == "post"
+                        else f"/api/recipes/recipes/{recipe['id']}")
+            for field in ("base_servings", "quantity_value", "prep_minutes", "cook_minutes", "expected_revision"):
+                if method == "post" and field == "expected_revision":
+                    continue
+                for raw in ("NaN", "Infinity", "-Infinity"):
+                    data = (payload("nonfinite-create") if method == "post" else {
+                        "expected_revision": 1, "client_mutation_id": "nonfinite-update", "title": "Must not persist"})
+                    if field != "quantity_value":
+                        data[field] = float(raw)
+                    else:
+                        data["ingredient_groups"] = payload()["ingredient_groups"]
+                        data["ingredient_groups"][0]["ingredients"][0][field] = float(raw)
+                    # Send the wire representation directly: JSON clients
+                    # normally refuse these floats before reaching the server.
+                    f.call(method, endpoint, expected=422, content=json.dumps(data),
+                           headers={"Content-Type": "application/json"})
+                    with get_db() as db:
+                        assert tuple(db.iterdump()) == original, (method, field, raw)
+                    assert f.broadcasts.await_count == broadcasts
 
 
 def test_step_ingredient_order_legacy_preserve_clear_and_prune():

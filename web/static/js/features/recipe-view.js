@@ -224,10 +224,21 @@ export function createRecipeViewFeature({ getCookbooks = () => [], getActiveCook
       const item = (book.recipes || []).find(candidate => sameEntityId(candidate.id, img.dataset.recipeImage));
       if (!item) continue;
       const key = JSON.stringify([item.id, item.image_version, item.image_url, item.image_data]);
-      if (imageKeys.get(img) === key) continue;
-      imageKeys.set(img, key);
-      const isCurrent = () => imageKeys.get(img) === key && requestedEpoch === epoch && capturedSession === getSessionIdentity() && img.isConnected && recipes().some(candidate => sameEntityId(candidate.id, item.id));
-      Promise.resolve(loadRecipeImage(img, item, { isCurrent })).then(ok => { if (isCurrent()) { img.hidden = !ok; const placeholder = img.parentElement.querySelector('.recipe-image-placeholder'); if (placeholder) placeholder.hidden = Boolean(ok); } }).catch(error => { if (isCurrent()) onError(error); });
+      if (imageKeys.get(img)?.key === key) continue;
+      const request = { key };
+      imageKeys.set(img, request);
+      const isCurrent = () => imageKeys.get(img) === request && requestedEpoch === epoch && capturedSession === getSessionIdentity() && img.isConnected && recipes().some(candidate => sameEntityId(candidate.id, item.id));
+      Promise.resolve(loadRecipeImage(img, item, { isCurrent })).then(ok => {
+        if (!isCurrent()) return;
+        if (!ok) imageKeys.delete(img);
+        img.hidden = !ok;
+        const placeholder = img.parentElement.querySelector('.recipe-image-placeholder');
+        if (placeholder) placeholder.hidden = Boolean(ok);
+      }).catch(error => {
+        if (!isCurrent()) return;
+        imageKeys.delete(img);
+        onError(error);
+      });
     }
     const fab = root.querySelector('[data-module-panel="recipes"][data-module-slot="floating"] [data-recipe-action="create"]');
     if (fab) { fab.hidden = cooking || !canEditRecipe(null, book); fab.disabled = cooking || !canEditRecipe(null, book); }

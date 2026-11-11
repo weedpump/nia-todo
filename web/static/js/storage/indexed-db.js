@@ -2,7 +2,7 @@ import { TRANSFER_RECIPE_TO_SHOPPING, isRecipeShoppingTransfer, sanitizeRecipeSh
 import { DB_NAME, DB_VERSION } from '../core/config.js';
 import { queueItemReferencesShoppingList } from '../features/shopping-pending.js';
 import { queueItemReferencesTodo } from '../features/todo-pending.js';
-import { recipeActions, recipeBookId, recipeReferences, sanitizeRecipeEntry } from '../features/recipe-pending.js';
+import { mergeRecipeStepIngredients, recipeActions, recipeBookId, recipeReferences, sanitizeRecipeEntry } from '../features/recipe-pending.js';
 import { cookbookMetadata } from '../features/cookbooks.js';
 import { commitEntityReplay, commitMetadataMutation, evictEntityMetadata, markMetadataMutationAttempt } from './entity-metadata.js';
 
@@ -650,10 +650,20 @@ export function commitRecipeMutation({ cookbook, recipe, deleteRecipeId, clearRe
             && transfer.data.source_mutation_id != null
             && transfer.data.source_mutation_id === entry.data.client_mutation_id);
           const record = { ...sanitizeRecipeEntry({ action, data }), actor_id, timestamp, localRecipe: recipe || result };
+          const coalesceChanges = previous => {
+            const changes = { ...previous, ...record.data.changes };
+            // Replacing an unsent steps array must retain the effective PATCH
+            // defaults from preceding edits, without widening unrelated fields.
+            if (Object.hasOwn(changes, 'steps')) {
+              const current = record.localRecipe || cookbook.recipes?.find(row => String(row.id) === String(target)) || previous;
+              changes.steps = mergeRecipeStepIngredients(current, record.data.changes).steps;
+            }
+            return changes;
+          };
           if (action === 'DELETE_RECIPE' && create && related.every(entry => !entry.attempted && !sealed(entry))) related.forEach(entry => store.delete(entry.id));
-          else if (action === 'UPDATE_RECIPE' && create && !create.attempted && !sealed(create)) store.put({ ...create, data: { ...create.data, ...record.data.changes } });
+          else if (action === 'UPDATE_RECIPE' && create && !create.attempted && !sealed(create)) store.put({ ...create, data: coalesceChanges(create.data) });
           else if (action === 'UPDATE_RECIPE' && last?.action === 'UPDATE_RECIPE' && !last.attempted && !sealed(last)) store.put({ ...last,
-            data: { ...last.data, changes: { ...last.data.changes, ...record.data.changes } } });
+            data: { ...last.data, changes: coalesceChanges(last.data.changes) } });
           else if (action === 'CREATE_RECIPE' && create || action === 'DELETE_RECIPE' && last?.action === 'DELETE_RECIPE') { /* Already queued. */ }
           else {
             if (action === 'DELETE_RECIPE') related.filter(entry => entry.action === 'UPDATE_RECIPE' && !entry.attempted && !sealed(entry)).forEach(entry => store.delete(entry.id));

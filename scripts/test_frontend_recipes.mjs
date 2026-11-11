@@ -15,6 +15,68 @@ async function assertControlIcon(control, name) {
   })), { paths, circles: 0 }, `${name} must render its actual central paths instead of a circle fallback`);
 }
 
+async function assertRecipeImageRetries(browser) {
+  const page = await browser.newPage();
+  try {
+    await page.route('http://recipe-image-retry.test/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === '/') return route.fulfill({ contentType: 'text/html', body: `<div id="cookbook-navigation-main"></div><script type="module">
+        import { createRecipeViewFeature } from '/static/js/features/recipe-view.js';
+        window.createRecipeViewFeature = createRecipeViewFeature;
+      </script>` });
+      try { return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL(`../web${path}`, import.meta.url), 'utf8') }); }
+      catch { return route.fulfill({ status: 404 }); }
+    });
+    await page.goto('http://recipe-image-retry.test/');
+    await page.waitForFunction(() => Boolean(window.createRecipeViewFeature));
+    const result = await page.evaluate(async () => {
+      const recipe = { id: 20, cookbook_id: 10, title: 'Recipe', tags: [], image_url: '/api/recipes/recipes/20/image', image_version: 'a' };
+      const books = [{ id: 10, name: 'Book', recipes: [recipe] }], loads = [], errors = [];
+      const view = window.createRecipeViewFeature({ getCookbooks: () => books, getActiveCookbookId: () => 10,
+        getActorId: () => 1, getSessionIdentity: () => 'same-session',
+        loadRecipeImage: () => new Promise((resolve, reject) => loads.push({ resolve, reject })),
+        onError: error => errors.push(error.message) });
+      const settle = async () => { await Promise.resolve(); await Promise.resolve(); };
+      view.render(); view.render();
+      const inFlightCount = loads.length;
+      loads[0].resolve(false); await settle(); view.render();
+      const falseRetryCount = loads.length;
+      loads[1].reject(new Error('temporary failure')); await settle(); view.render();
+      const rejectedRetryCount = loads.length;
+      loads[2].resolve(true); await settle(); view.render();
+      const successfulCount = loads.length;
+      const image = document.querySelector('img');
+      recipe.image_version = 'b'; view.render();
+      recipe.image_version = 'c'; view.render();
+      const newerVersionCount = loads.length;
+      loads[3].reject(new Error('obsolete failure')); await settle(); view.render();
+      const afterObsoleteFailureCount = loads.length;
+      loads[4].resolve(true); await settle(); view.render();
+      const abaRaces = [];
+      for (const failure of ['false', 'reject']) {
+        const start = loads.length;
+        recipe.image_version = `aba-${failure}-a`; view.render(); const oldA = loads.at(-1);
+        recipe.image_version = `aba-${failure}-b`; view.render(); const oldB = loads.at(-1);
+        recipe.image_version = `aba-${failure}-a`; view.render(); const newA = loads.at(-1);
+        if (failure === 'false') oldA.resolve(false); else oldA.reject(new Error('obsolete A failure'));
+        await settle(); view.render();
+        const afterOldA = loads.length - start;
+        oldB.resolve(false); await settle(); view.render();
+        const afterOldB = loads.length - start;
+        newA.resolve(true); await settle(); view.render();
+        abaRaces.push({ failure, afterOldA, afterOldB, finalCount: loads.length - start, imageVisible: !image.hidden });
+      }
+      return { inFlightCount, falseRetryCount, rejectedRetryCount, successfulCount, newerVersionCount,
+        afterObsoleteFailureCount, finalCount: loads.length, sameImage: image === document.querySelector('img'),
+        imageVisible: !image.hidden, abaRaces, errors };
+    });
+    assert.deepEqual(result, { inFlightCount: 1, falseRetryCount: 2, rejectedRetryCount: 3, successfulCount: 3,
+      newerVersionCount: 5, afterObsoleteFailureCount: 5, finalCount: 11, sameImage: true, imageVisible: true,
+      abaRaces: ['false', 'reject'].map(failure => ({ failure, afterOldA: 3, afterOldB: 3, finalCount: 3, imageVisible: true })),
+      errors: ['temporary failure'] }, 'temporary image failures retry on unchanged views; pending/successful loads deduplicate and obsolete failures cannot clear a newer request');
+  } finally { await page.close(); }
+}
+
 async function assertRecipeCardOverview(page) {
   const original = await page.evaluate(() => ({ books: window.recipeTest.books(), history: history.state }));
   const samples = [
@@ -245,6 +307,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, tim
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
+  await assertRecipeImageRetries(browser);
   await page.route('http://recipes-ui.test/**', async route => {
     const pathname = new URL(route.request().url()).pathname;
     if (pathname === '/') {
