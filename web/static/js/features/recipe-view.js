@@ -72,22 +72,25 @@ export function renderRecipeOverview(cookbook, query = '', { tags = [], sort = '
       if (mode === 'time') { const left = completeTime(a), right = completeTime(b); if (left !== right) return left < right ? -1 : 1; }
       return byName(a, b);
     });
-  return `<section class="recipe-overview"><div class="recipe-page-heading"><div><p class="module-page-eyebrow">${escapeHtml(t('recipe.cookbook'))}</p><h1>${escapeHtml(cookbook.name)}</h1>
+  return `<section class="recipe-overview"><div class="recipe-page-heading"><div><h1>${escapeHtml(cookbook.name)}</h1>
     ${cookbook.description ? `<p class="recipe-description">${escapeHtml(cookbook.description)}</p>` : ''}</div>
-</div>
-    <div class="recipe-overview-tools">${canEditRecipe(null, cookbook) ? `<button type="button" class="btn btn-secondary" data-recipe-action="import">${iconSvg('download')}${escapeHtml(t('recipe.import.title'))}</button>` : ''}<p class="recipe-result-count" role="status">${escapeHtml(t('recipe.count', { count: recipes.length }))}</p>
+${canEditRecipe(null, cookbook) ? button('import', t('recipe.import.title'), 'download') : ''}</div>
+    <div class="recipe-overview-tools"><p class="recipe-result-count" role="status">${escapeHtml(t('recipe.count', { count: recipes.length }))}</p>
       <div class="recipe-sort-field"><label for="recipe-overview-sort" id="recipe-sort-label">${escapeHtml(t('recipe.sort'))}</label><select id="recipe-overview-sort" class="ui-field" data-recipe-sort>${sortModes.map(value => `<option value="${value}"${value === mode ? ' selected' : ''}>${escapeHtml(t(`recipe.sort.${value}`))}</option>`).join('')}</select></div></div>
     ${availableTags.length ? `<div class="recipe-tag-filters" role="group" aria-label="${escapeHtmlAttr(t('recipe.filter.tags'))}">${availableTags.map(tag => `<button type="button" class="btn btn-secondary recipe-filter-tag" data-recipe-action="filter-tag" data-recipe-tag="${escapeHtmlAttr(tag)}" aria-pressed="${selected.includes(tag)}">${escapeHtml(tag)}</button>`).join('')}${selected.length ? button('clear-filters', t('recipe.filter.clear')) : ''}</div>` : ''}
     <div class="recipe-list">${recipes.map(recipe => `<button type="button" class="recipe-card recipe-list-row" data-recipe-action="open" data-recipe-id="${escapeHtmlAttr(recipe.id)}">
       ${image(recipe, 'recipe-thumbnail')}<span class="recipe-list-copy"><strong>${escapeHtml(recipe.title)}</strong>${recipe.description?.trim() ? `<span class="recipe-card-description">${escapeHtml(recipe.description)}</span>` : ''}${metadata(recipe, { card: true })}${recipe.conflict ? `<span class="recipe-conflict-label">${escapeHtml(t('recipe.conflict.title'))}</span>` : ''}</span></button>`).join('')}</div>
     ${!recipes.length ? `<p class="recipe-empty">${escapeHtml(t(selected.length ? 'recipe.filter.empty' : term ? 'recipe.search.empty' : 'cookbook.recipes.empty'))}</p>` : ''}</section>`;
 }
+function backButton(action, label) {
+  return `<button type="button" class="btn btn-secondary recipe-back" data-recipe-action="${action}" title="${escapeHtmlAttr(label)}" aria-label="${escapeHtmlAttr(label)}">${iconSvg('arrow-left')}<span>${escapeHtml(label)}</span></button>`;
+}
 function renderRecipeViewHeader(cookbook, recipe, { cooking = false, canTransfer = false } = {}) {
-  if (cooking) return `<div class="recipe-breadcrumb"><button type="button" class="recipe-back" data-recipe-action="exit-cooking">${iconSvg('arrow-left')}${escapeHtml(t('recipe.cooking.exit'))}</button></div>`;
+  if (cooking) return `<div class="recipe-breadcrumb">${backButton('exit-cooking', t('recipe.cooking.exit'))}</div>`;
   const modeSwitch = recipe.steps?.length ? `<div class="ui-segmented-control recipe-view-mode" role="group" aria-label="${escapeHtmlAttr(t('recipe.view.mode'))}">
     <button type="button" class="ui-segmented-option" data-recipe-action="exit-cooking" aria-pressed="${!cooking}">${escapeHtml(t('recipe.cooking.exit'))}</button>
     <button type="button" class="ui-segmented-option" data-recipe-action="cook" aria-pressed="${cooking}">${escapeHtml(t('recipe.cooking.start'))}</button></div>` : '';
-  return `<div class="recipe-breadcrumb"><button type="button" class="recipe-back" data-recipe-action="overview">${iconSvg('arrow-left')}${escapeHtml(cookbook.name)}</button>
+  return `<div class="recipe-breadcrumb">${backButton('overview', cookbook.name)}
     <div class="recipe-reading-actions">${modeSwitch}${canTransfer ? `<button type="button" class="btn btn-secondary" data-recipe-action="transfer">${iconSvg('shopping-cart')}${escapeHtml(t('recipe.transfer.action'))}</button>` : ''}${canEditRecipe(recipe, cookbook) ? button('edit', t('recipe.edit'), 'pencil') : ''}</div></div>`;
 }
 export function renderRecipeReading(cookbook, recipe, { servings = recipe.base_servings, checked = new Set(), canTransfer = false } = {}) {

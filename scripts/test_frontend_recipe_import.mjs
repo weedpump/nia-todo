@@ -19,17 +19,20 @@ document.body.innerHTML='<button data-recipe-action="import">Import</button>'+re
 bindUiHistory();
 document.addEventListener('click',event=>{const button=event.target.closest('[data-close-modal]');if(button)requestCloseUiLayer(button.dataset.closeModal);});
 let books=[{id:1,can_edit:true,name:'Own',created_by_user_id:11,recipes:[]},{id:2,can_edit:false,name:'Read only',recipes:[]}];
-let session='11:first',online=true,sequence=0;
+let session='11:first',online=true,brainDumpAccess=false,sequence=0;
 const calls=[],queue=[],errors=[],saved=[];
 const controller=createRecipeController({getCookbooks:()=>books,setCookbooks:value=>{books=value;},getSessionIdentity:()=>session,getCurrentUser:()=>({id:11}),
   createTempId:()=> 'temp-recipe-import-'+(++sequence),commitMutation:async build=>{const mutation=build();if(mutation)queue.push(structuredClone(mutation));return mutation;}});
 const editor=createRecipeEditorFeature({root:document,getCookbooks:()=>books,recipeController:controller,getSessionIdentity:()=>session,
   loadRecipeImage:async(img,recipe,options)=>{if(!options.isCurrent()||!recipe.image_data)return false;img.src=recipe.image_data;return true;},releaseRecipeImage:img=>img?.removeAttribute('src'),onSaved:recipe=>saved.push(recipe),onError:error=>errors.push(error.message)});
 const feature=createRecipeImportFeature({root:document,getCookbooks:()=>books,getActiveCookbookId:()=>1,getSessionIdentity:()=>session,editor,isOnline:()=>online,
-  api:{importPreview:(data,{signal}={})=>new Promise((resolve,reject)=>calls.push({data,signal,resolve,reject}))},onError:error=>errors.push(error.message)});
+  getBrainDumpAccess:()=>brainDumpAccess,
+  api:{importPreview:(data,{signal}={})=>new Promise((resolve,reject)=>calls.push({data,signal,resolve,reject})),
+    aiPreview:(data,{signal}={})=>new Promise((resolve,reject)=>calls.push({data,signal,resolve,reject}))},onError:error=>errors.push(error.message)});
 editor.bind();feature.bind();
 window.test={feature,editor,calls,queue,errors,saved,renderRecipeSource,books:()=>books,setBooks:value=>{books=value;feature.reconcile();editor.reconcile();},
   setSession:value=>{session=value;feature.reconcile();editor.reconcile();},setOnline:value=>{online=value;window.dispatchEvent(new Event(value?'online':'offline'));},
+  setBrainDumpAccess:value=>{brainDumpAccess=value;feature.reconcile();},
   resolve:(index,response)=>calls[index].resolve(response),reject:(index,code)=>calls[index].reject(Object.assign(new Error(code),{code})),
   deactivate:()=>{feature.deactivate();editor.deactivate();},show:()=>feature.show(1)};
 `;
@@ -51,7 +54,7 @@ try {
   async function capture(name) {
     if (!screenshots || captured.has(name)) return;
     await mkdir(screenshots, { recursive: true });
-    await page.screenshot({ path: path.join(screenshots, `nia-recipe-import-${name}.png`) });
+    await page.screenshot({ path: path.join(screenshots, `nia-recipe-import-${name}.png`), animations: 'disabled' });
     captured.add(name);
   }
   const pageErrors = []; page.on('pageerror', error => pageErrors.push(error.message));
@@ -158,6 +161,22 @@ try {
   assert.equal(await page.locator('#recipe-import-modal').isVisible(), true, 'failed analysis preserves its input for retry');
   assert.equal(await page.locator('#recipe-import-url').inputValue(), 'https://recipes.example/recipe');
   assert.equal(await page.locator('#recipe-import-url').isDisabled(), false);
+  await page.evaluate(() => window.test.setBrainDumpAccess(true));
+  for (const width of [1280,390,320]) {
+    await page.setViewportSize({width,height:844});
+    for (const mode of ['link','text']) {
+      await page.locator(`[data-recipe-import-mode="${mode}"]`).click();
+      assert.equal(await page.locator(`[data-recipe-import-mode="${mode}"]`).getAttribute('aria-pressed'),'true');
+      const layout=await page.evaluate(mode=>{
+        const switcher=document.querySelector('#recipe-import-mode').getBoundingClientRect();
+        const label=document.querySelector(mode==='text'?'#recipe-import-text-group>label':'#recipe-import-url-group>label').getBoundingClientRect();
+        return {gap:label.top-switcher.bottom,overflow:document.documentElement.scrollWidth>innerWidth+1};
+      },mode);
+      assert.ok(layout.gap>=12,`${mode} field label stays separated from its mode switch at ${width}px: ${JSON.stringify(layout)}`);
+      assert.equal(layout.overflow,false,`${mode} import fits at ${width}px`);
+      await capture(`dialog-${mode}-${width}`);
+    }
+  }
   assert.deepEqual(pageErrors, []);
   console.log('✅ Recipe link import shared modal/editor, source/image durable create, desktop/mobile, cancellation and session/access fences passed');
 } finally { await browser.close(); }

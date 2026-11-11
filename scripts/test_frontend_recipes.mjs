@@ -106,6 +106,25 @@ async function assertRecipeCardOverview(page) {
     await page.locator('#recipe-overview-sort').selectOption('name', { force: true });
     for (const [width, columns] of [[1280, 3], [390, 2], [320, 1]]) {
       await page.setViewportSize({ width, height: 900 });
+      const heading=page.locator('.recipe-overview .recipe-page-heading');
+      const importButton=heading.locator('[data-recipe-action="import"]');
+      assert.equal(await heading.locator('.module-page-eyebrow').count(),0,'cookbook title has no redundant eyebrow');
+      assert.equal(await importButton.getAttribute('aria-label'),'Rezept importieren','icon-only import retains its accessible name');
+      assert.equal((await importButton.textContent()).trim(),'');
+      await assertControlIcon(importButton,'download');
+      assert.equal(await page.locator('.recipe-overview-tools [data-recipe-action="import"]').count(),0,'import belongs to the title row');
+      const headerLayout=await heading.evaluate(node=>{
+        const title=node.querySelector('h1'), action=node.querySelector('button');
+        const a=title.getBoundingClientRect(),b=action.getBoundingClientRect();
+        return {color:getComputedStyle(title).color,accent:getComputedStyle(document.querySelector('.recipe-tag')).color,
+          beside:a.right<=b.left&&b.top<a.bottom,touch:b.width>=44&&b.height>=44};
+      });
+      assert.equal(headerLayout.color,headerLayout.accent,'cookbook title uses the existing accent color');
+      assert.ok(headerLayout.beside&&headerLayout.touch,`import stays beside title with a touch target at ${width}px`);
+      if (process.env.NIA_TODO_TEST_OUTPUT_DIR) {
+        mkdirSync(process.env.NIA_TODO_TEST_OUTPUT_DIR,{recursive:true});
+        await page.screenshot({path:`${process.env.NIA_TODO_TEST_OUTPUT_DIR}/cookbook-overview-${width}.png`,animations:'disabled'});
+      }
       const layout = await page.locator('.recipe-list').evaluate(node => ({
         columns: getComputedStyle(node).gridTemplateColumns.split(' ').filter(Boolean).length,
         overflow: document.documentElement.scrollWidth > innerWidth,
@@ -258,6 +277,8 @@ try {
   assert.equal(await page.locator('#recipe-view-servings').inputValue(), '3', 'module roundtrip preserves cooking portions');
   assert.equal(await page.locator('[data-recipe-ingredient="i-pasta"]').isChecked(), true);
   assert.equal(await page.locator('.recipe-steps li').count(), 2);
+  await assertControlIcon(page.locator('.recipe-back'),'arrow-left');
+  assert.equal(await page.locator('.recipe-back').evaluate(node=>node.classList.contains('btn-secondary')&&getComputedStyle(node).backgroundColor!=='rgba(0, 0, 0, 0)'&&node.getBoundingClientRect().height>=44),true,'return action has a visible shared button surface');
   assert.equal(await page.locator('.recipe-steps li h3').first().textContent(), 'Wasser erhitzen.');
   assert.equal(await page.locator('.recipe-steps li p').first().textContent(), 'Pasta kochen.');
   assert.equal(await page.locator('.recipe-steps li').nth(1).locator('h3').textContent(), 'Tomaten hinzufügen.');
