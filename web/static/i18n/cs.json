@@ -2325,5 +2325,6 @@
   "recipe.ai.issue.evidence": "Místo v receptu",
   "recipe.ai.issue.notListed": "{ingredient}: Zde se používá, ale chybí v seznamu surovin.",
   "recipe.ai.issue.amountMissing": "{ingredient}: Potřebné množství není uvedeno.",
-  "recipe.ai.issue.alreadyUsed": "{ingredient}: Již zpracováno. Množství pro další použití chybí."
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: Již zpracováno. Množství pro další použití chybí.",
+  "recipe.step.ingredients.totalInline": "celkem: {quantity}"
 }

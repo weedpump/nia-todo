@@ -41,4 +41,5 @@
   .recipe-cooking-step p { font-size: 17px; }
 }
 
-.recipe-step-ingredient-source { flex-basis: 100%; color: var(--text-muted); font-size: 11px; }
+.recipe-step-ingredient-source { color: var(--text-muted); font-size: 11px; }
+.recipe-step-ingredient-source:empty { display: none; }

@@ -2325,5 +2325,6 @@
   "recipe.ai.issue.evidence": "Tekst in het recept",
   "recipe.ai.issue.notListed": "{ingredient}: wordt hier gebruikt, maar ontbreekt in de ingrediëntenlijst.",
   "recipe.ai.issue.amountMissing": "{ingredient}: de benodigde hoeveelheid is niet vermeld.",
-  "recipe.ai.issue.alreadyUsed": "{ingredient}: al verwerkt. De extra benodigde hoeveelheid ontbreekt."
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: al verwerkt. De extra benodigde hoeveelheid ontbreekt.",
+  "recipe.step.ingredients.totalInline": "totaal: {quantity}"
 }

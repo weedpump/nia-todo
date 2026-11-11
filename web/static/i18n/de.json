@@ -2325,5 +2325,6 @@
   "recipe.ai.issue.evidence": "Textstelle im Rezept",
   "recipe.ai.issue.notListed": "{ingredient}: Wird hier verwendet, fehlt aber in der Zutatenliste.",
   "recipe.ai.issue.amountMissing": "{ingredient}: Die benötigte Menge ist nicht angegeben.",
-  "recipe.ai.issue.alreadyUsed": "{ingredient}: Bereits verarbeitet. Die Menge für die zusätzliche Zugabe fehlt."
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: Bereits verarbeitet. Die Menge für die zusätzliche Zugabe fehlt.",
+  "recipe.step.ingredients.totalInline": "gesamt: {quantity}"
 }

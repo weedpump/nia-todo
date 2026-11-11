@@ -58,6 +58,8 @@ try {
   assert.equal(await mode().evaluate(node => node.getBoundingClientRect().height), await action('transfer').evaluate(node => node.getBoundingClientRect().height), 'desktop mode switch matches action button height');
   assert.equal(await readStep('heat').locator('.recipe-step-ingredient').count(), 3);
   assert.equal(await readStep('heat').locator('.recipe-step-ingredient-partial').count(), 1, 'only an explicitly unresolved legacy ingredient lacks its amount; reuse keeps the full source amount');
+  assert.equal(await readStep('heat').locator('[data-step-ingredient-source="salt"]').textContent(), '(gesamt: 2 g)', 'unknown step amounts use only the compact parenthesized recipe total');
+  assert(!(await readStep('heat').locator('.recipe-step-ingredients').textContent()).includes('Menge nicht angegeben'));
   assert.equal(await readStep('finish').locator('.recipe-step-ingredients').count(), 0, 'legacy steps have no empty chip section');
   assert.equal(await readStep('heat').locator('h3').textContent(), 'Wasser erhitzen');
   assert.equal(await readStep('heat').locator('.recipe-step-copy > p').textContent(), 'Langsam aufkochen.');
@@ -68,6 +70,7 @@ try {
   assert.equal(await amount().textContent(), '50 ml');
   await page.fill('#recipe-view-servings', '4');
   assert.equal(await amount().textContent(), '100 ml', 'reading step chips follow shared portions');
+  assert.equal(await readStep('heat').locator('[data-step-ingredient-source="salt"]').textContent(), '(gesamt: 4 g)', 'compact source totals also follow portions');
   assert.equal(await readStep('mix').locator('[data-step-ingredient-amount="herbs"]').textContent(), 'nach Bedarf');
   assert.equal(await readStep('mix').locator('[data-step-ingredient-amount="pasta"]').textContent(), '80 g', 'custom step amounts scale using the same portions helper');
   assert.equal(await readStep('heat').locator('[data-step-ingredient-amount="pasta"]').textContent(), '200 g', 'another use may still show the full amount');

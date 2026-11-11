@@ -21,12 +21,17 @@ export function getRecipeStepIngredients(recipe, step) {
   return ingredientResolver(recipe)(step);
 }
 
+function totalLabel(ingredient, servings, baseServings, locale) {
+  const quantity = formatRecipeIngredient(ingredient, servings, baseServings, locale);
+  return quantity ? `(${t('recipe.step.ingredients.totalInline', { quantity })})` : '';
+}
+
 export function renderRecipeStepIngredients(recipe, step, { servings = recipe.base_servings, locale = getActiveLocale() } = {}) {
   const selected = getRecipeStepIngredients(recipe, step);
   if (!selected.length) return '';
   return `<ul class="recipe-step-ingredients" aria-label="${escapeHtmlAttr(t('recipe.step.ingredients.label'))}">${selected.map(({ ingredient, link, showQuantity, partial }) => {
     const quantity = formatRecipeStepIngredientAmount(ingredient, link, servings, recipe.base_servings, locale);
-    return `<li class="ui-badge recipe-step-ingredient">${showQuantity ? `<span class="recipe-step-ingredient-amount" data-step-ingredient-amount="${escapeHtmlAttr(ingredient.client_key)}" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}">${escapeHtmlAttr(quantity)}</span>` : ''}<span class="recipe-step-ingredient-name">${escapeHtmlAttr(ingredient.name)}</span>${partial ? `<span class="recipe-step-ingredient-partial">${escapeHtmlAttr(t('recipe.step.ingredients.unspecified'))}</span><small class="recipe-step-ingredient-source" data-step-ingredient-source="${escapeHtmlAttr(ingredient.client_key)}" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}">${escapeHtmlAttr(t('recipe.step.ingredients.sourceTotal', { quantity: formatRecipeIngredient(ingredient, servings, recipe.base_servings, locale) }))}</small>` : ''}</li>`;
+    return `<li class="ui-badge recipe-step-ingredient">${showQuantity ? `<span class="recipe-step-ingredient-amount" data-step-ingredient-amount="${escapeHtmlAttr(ingredient.client_key)}" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}">${escapeHtmlAttr(quantity)}</span>` : ''}<span class="recipe-step-ingredient-name">${escapeHtmlAttr(ingredient.name)}</span>${partial ? `<span class="recipe-step-ingredient-source recipe-step-ingredient-partial" data-step-ingredient-source="${escapeHtmlAttr(ingredient.client_key)}" data-recipe-step-key="${escapeHtmlAttr(step.client_key)}">${escapeHtmlAttr(totalLabel(ingredient, servings, recipe.base_servings, locale))}</span>` : ''}</li>`;
   }).join('')}</ul>`;
 }
 
@@ -43,6 +48,6 @@ export function refreshRecipeStepIngredientAmounts(container, recipe, servings, 
   for (const node of container?.querySelectorAll('[data-step-ingredient-source]') || []) {
     const step = steps.get(node.dataset.recipeStepKey);
     const row = resolve(step).find(row => row.ingredient.client_key === node.dataset.stepIngredientSource);
-    node.textContent = row ? t('recipe.step.ingredients.sourceTotal', { quantity: formatRecipeIngredient(row.ingredient, servings, recipe.base_servings, locale) }) : '';
+    node.textContent = row ? totalLabel(row.ingredient, servings, recipe.base_servings, locale) : '';
   }
 }

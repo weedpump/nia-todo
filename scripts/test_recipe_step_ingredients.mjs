@@ -24,6 +24,10 @@ assert.match(html, /to taste/);
 assert.match(html, /Milk &lt;script&gt;/);
 assert.doesNotMatch(html, /<script>/);
 assert.match(html, /recipe-step-ingredient-partial/);
+const unknownTotal = renderRecipeStepIngredients({base_servings:1,ingredient_groups:[{ingredients:[{client_key:'flour',name:'Mehl'}]}]},
+  {client_key:'mix',ingredients:[{ingredient_client_key:'flour',show_quantity:false}]});
+assert.match(unknownTotal, />Mehl<\/span>/);
+assert.doesNotMatch(unknownTotal, /recipe\.step\.ingredients\.(?:unspecified|sourceTotal|totalInline)|\(\)/, 'an ingredient without a total has no empty label');
 assert.deepEqual(recipe, original, 'rendering/portion scaling never changes source data');
 assert.equal(renderRecipeStepIngredients(recipe, { client_key: 'legacy', text: 'Old step' }), '');
 assert.equal(renderRecipeStepIngredients(recipe, { ingredients: [{ ingredient_client_key: 'not-here' }] }), '');

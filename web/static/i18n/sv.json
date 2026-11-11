@@ -2325,5 +2325,6 @@
   "recipe.ai.issue.evidence": "Textställe i receptet",
   "recipe.ai.issue.notListed": "{ingredient}: används här men saknas i ingredienslistan.",
   "recipe.ai.issue.amountMissing": "{ingredient}: den mängd som behövs anges inte.",
-  "recipe.ai.issue.alreadyUsed": "{ingredient}: redan inarbetad. Mängden för ytterligare tillsats saknas."
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: redan inarbetad. Mängden för ytterligare tillsats saknas.",
+  "recipe.step.ingredients.totalInline": "totalt: {quantity}"
 }

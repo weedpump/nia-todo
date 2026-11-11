@@ -2325,5 +2325,6 @@
   "recipe.ai.issue.evidence": "食谱原文",
   "recipe.ai.issue.notListed": "{ingredient}：此步骤使用了该食材，但食材清单中未列出。",
   "recipe.ai.issue.amountMissing": "{ingredient}：未注明所需用量。",
-  "recipe.ai.issue.alreadyUsed": "{ingredient}：已在此前的步骤中使用，未注明此次额外添加的用量。"
+  "recipe.ai.issue.alreadyUsed": "{ingredient}：已在此前的步骤中使用，未注明此次额外添加的用量。",
+  "recipe.step.ingredients.totalInline": "总量：{quantity}"
 }

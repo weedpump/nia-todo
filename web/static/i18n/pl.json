@@ -2325,5 +2325,6 @@
   "recipe.ai.issue.evidence": "Fragment przepisu",
   "recipe.ai.issue.notListed": "{ingredient}: używany w tym kroku, ale nie ma go na liście składników.",
   "recipe.ai.issue.amountMissing": "{ingredient}: nie podano potrzebnej ilości.",
-  "recipe.ai.issue.alreadyUsed": "{ingredient}: został już wykorzystany. Nie podano dodatkowej ilości."
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: został już wykorzystany. Nie podano dodatkowej ilości.",
+  "recipe.step.ingredients.totalInline": "łącznie: {quantity}"
 }
