@@ -490,6 +490,22 @@ def migrate_household_entity_access(conn):
     if not conn.in_transaction:
         raise sqlite3.OperationalError("Migration 58 requires an active transaction")
 
+    # Old user deletion could retain Inbox projects whose user_id had no FK.
+    # The SQL backfill above must not turn those historical rows into invalid
+    # ownership records. Retain the projects and their content, without assigning
+    # them to another account or creating grants for a nonexistent owner.
+    conn.execute("""
+        DELETE FROM entity_access
+        WHERE entity_type = 'project'
+          AND owner_household_id IS NULL
+          AND EXISTS (
+              SELECT 1 FROM projects p
+              WHERE p.id = entity_access.entity_id
+                AND p.user_id = entity_access.owner_user_id
+                AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = p.user_id)
+          )
+    """)
+
     execute_transactional_schema_script(conn, """
     ALTER TABLE project_members RENAME TO project_members__migration_058;
     CREATE TABLE project_members (
