@@ -37,6 +37,9 @@ assert.match(linuxDesktopTemplate, /^Exec=\{\{exec\}\} %u$/m, 'Debian desktop en
 assert.match(linuxDesktopTemplate, /^MimeType=x-scheme-handler\/nia-todo;$/m, 'Debian desktop entry must register the nia-todo URL scheme');
 
 const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nia-todo-deb-repack-'));
+// Debian control directories/scripts require ordinary package permissions even
+// when an isolated test harness uses a restrictive umask. The parent stays 0700.
+const previousUmask = process.umask(0o022);
 try {
   const packageRoot = path.join(fixtureRoot, 'package');
   const executableDir = path.join(packageRoot, 'usr/bin');
@@ -123,6 +126,7 @@ try {
   assert.notEqual(unsupportedRepack.status, 0, 'Debian repack must reject a non-shell preinst');
   assert.match(unsupportedRepack.stderr, /Unsupported existing preinst interpreter/, 'Unsupported preinst rejection must explain the interpreter constraint');
 } finally {
+  process.umask(previousUmask);
   fs.rmSync(fixtureRoot, { recursive: true, force: true });
 }
 

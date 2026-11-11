@@ -1,4 +1,4 @@
-nia-todo
+Nia
 
 Copyright (C) 2026 Tobias Kneidl
 
@@ -25,3 +25,9 @@ Third-party icon notices:
 - Android icon from Google Material Symbols
   Source: https://github.com/google/material-design-icons
   License: Apache-2.0
+
+Unit name data:
+
+- Unicode CLDR 48.2.3, subset for supported locales
+  Source: https://github.com/unicode-org/cldr-json/tree/48.2.3
+  License: Unicode-3.0 (api/resources/quantity_units.LICENSE)

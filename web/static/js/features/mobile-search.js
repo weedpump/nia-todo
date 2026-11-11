@@ -5,7 +5,7 @@ function isTypingTarget(element) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element?.isContentEditable;
 }
 
-export function createMobileSearchFeature({ renderStats, renderTodos, toggleTodayFocus, toggleMinimalTodos }) {
+export function createMobileSearchFeature({ onSearch, toggleTodayFocus, toggleMinimalTodos, getActiveModule = () => 'tasks' }) {
   function openMobileSearch() {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
@@ -23,7 +23,7 @@ export function createMobileSearchFeature({ renderStats, renderTodos, toggleToda
     if (box?.classList.contains('open') && !fromHistory && requestCloseUiLayer('mobile-search', { reason: 'ui' })) return;
     if (input?.value) {
       input.value = '';
-      renderTodos();
+      onSearch?.('');
     }
     box?.classList.remove('open');
     input?.blur();
@@ -43,8 +43,7 @@ export function createMobileSearchFeature({ renderStats, renderTodos, toggleToda
     mobileSearchEventsBound = true;
     document.getElementById('search-toggle-btn')?.addEventListener('click', () => toggleMobileSearch());
     document.getElementById('search-input')?.addEventListener('input', () => {
-      renderStats();
-      renderTodos();
+      onSearch?.(document.getElementById('search-input')?.value || '');
     });
     document.getElementById('search-input')?.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeMobileSearch();
@@ -57,6 +56,7 @@ export function createMobileSearchFeature({ renderStats, renderTodos, toggleToda
     document.addEventListener('keydown', (event) => {
       const key = event.key?.toLowerCase();
       if ((key !== 't' && key !== 'c') || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+      if (getActiveModule() !== 'tasks') return;
       if (isTypingTarget(event.target) || document.querySelector('.modal.active')) return;
       event.preventDefault();
       if (key === 't') toggleTodayFocus();

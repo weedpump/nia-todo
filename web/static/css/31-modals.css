@@ -12,6 +12,11 @@
 
 .modal.active { display: flex; }
 
+.modal.ui-modal-underlay {
+  z-index: 299;
+  pointer-events: none;
+}
+
 #app-downloads-modal.active {
   z-index: 1200;
 }

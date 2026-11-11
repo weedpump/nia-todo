@@ -38,13 +38,34 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             user_id INTEGER,
+            parent_id INTEGER,
             is_inbox INTEGER DEFAULT 0
         );
         CREATE TABLE project_members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
-            status TEXT DEFAULT 'accepted'
+            status TEXT DEFAULT 'accepted',
+            workspace_id INTEGER,
+            user_color TEXT
+        );
+        CREATE TABLE entity_access (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            owner_user_id INTEGER,
+            owner_household_id INTEGER
+        );
+        CREATE TABLE entity_access_grants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_access_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            invited_by_user_id INTEGER,
+            granted_by_user_id INTEGER,
+            invite_identifier_type TEXT,
+            status TEXT NOT NULL DEFAULT 'accepted',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE sections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,12 +124,21 @@ def make_db():
             ON todo_comments(todo_id, user_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL;
         """
     )
+    # Apply the actual todo idempotency schema without unrelated routing tables.
+    todo_mutation_sql = (ROOT / "api/migrations/060_add_braindump_module_routes.sql").read_text()
+    db.executescript(todo_mutation_sql.split("CREATE TABLE braindump_module_route_learning", 1)[0])
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'owner', 'Owner Display', NULL)")
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (2, 'member', 'Member Display', NULL)")
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (3, 'stranger', 'Stranger Display', NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared', 1, 0)")
+    db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 1, 1)")
+    db.execute("INSERT INTO entity_access (entity_type, entity_id, owner_user_id) VALUES ('project', 2, 1)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
+    db.execute("""INSERT INTO entity_access_grants (entity_access_id, user_id, invited_by_user_id, granted_by_user_id, status)
+        SELECT access.id, member.user_id, access.owner_user_id, access.owner_user_id, member.status
+        FROM project_members member JOIN entity_access access
+          ON access.entity_type = 'project' AND access.entity_id = member.project_id""")
     db.commit()
     return db
 
@@ -136,7 +166,12 @@ def make_client(db, user_id=1, broadcast_events=None):
 
     @contextlib.contextmanager
     def fake_get_db():
-        yield db
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
     todos_router.get_db = fake_get_db
     todos_router.broadcast_change = make_broadcast_collector(broadcast_events) if broadcast_events is not None else noop_broadcast

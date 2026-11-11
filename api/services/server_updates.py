@@ -18,7 +18,7 @@ from typing import Any
 from db import get_db, now_iso
 from services.instance_config import _read_web_app_version, get_update_analytics_enabled
 
-DEFAULT_PRIMARY_URL = "https://nia-todo.homelabdiary.dev/update/stable.json"
+DEFAULT_PRIMARY_URL = "https://nia.homelabdiary.dev/update/stable.json"
 DEFAULT_RELEASE_API_LATEST = "https://api.github.com/repos/weedpump/nia-todo/releases/latest"
 DEFAULT_RELEASES_URL = "https://github.com/weedpump/nia-todo/releases"
 DEFAULT_UMAMI_URL = "https://umami.homelabdiary.dev"
@@ -358,7 +358,7 @@ def send_update_check_event() -> None:
             "type": "event",
             "payload": {
                 "website": UPDATE_UMAMI_WEBSITE_ID,
-                "hostname": "nia-todo.homelabdiary.dev",
+                "hostname": "nia.homelabdiary.dev",
                 "url": "/update/stable.json",
                 "name": "server-update-check",
             },

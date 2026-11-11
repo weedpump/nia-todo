@@ -42,6 +42,12 @@ async function clickBadgeAndExpectSelect(page, targetId) {
   }, targetId);
 }
 
+async function chooseOpenSelectOption(page, value) {
+  const option = page.locator(`.ui-select-option[data-value="${value}"]`);
+  await option.waitFor({ state: 'visible', timeout: 5000 });
+  await option.click();
+}
+
 async function dismissSelectAndDrawer(page) {
   const modal = page.locator('#todo-modal');
   const openTrigger = page.locator('#todo-meta-drawer .ui-select-trigger[aria-expanded="true"]');
@@ -100,7 +106,7 @@ async function run() {
     await openTodoModal();
     await closeMetaDrawer(page);
     await clickBadgeAndExpectSelect(page, 'todo-status');
-    await page.selectOption('#todo-status', 'in_progress', { force: true });
+    await chooseOpenSelectOption(page, 'in_progress');
     await page.waitForFunction(() => !document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'));
     const liveStatusBadge = await page.locator('.todo-meta-summary-chip[data-meta-edit-target="todo-status"] strong').textContent();
     if (!liveStatusBadge?.match(/In progress|In Arbeit/i)) {

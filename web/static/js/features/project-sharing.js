@@ -1,6 +1,7 @@
 import { t } from '../i18n/index.js';
-import { refreshSelect } from '../ui/dropdowns.js';
-import { iconSvg } from '../icons/lucide-icons.js';
+import { createEntityDirectSharingFeature } from './entity-direct-sharing.js';
+import { createEntityInvitationsFeature, renderEntityInvitationsHost } from './entity-invitations.js';
+import { createEntityAccessPrivacyController } from './entity-access-privacy.js';
 
 export function createProjectSharingFeature({
   getProjects,
@@ -11,206 +12,138 @@ export function createProjectSharingFeature({
   showToast,
   confirmDanger,
   projectsApi,
+  loadAuthoritativeProjection = () => projectsApi.list(),
+  removePendingEntities = async () => {},
 }) {
   let currentProject = null;
-  let currentMembers = [];
+  let accessibleProjectIds = [];
+  let accessibleTaskEntities = {};
+  let accessPrivacySuspended = false;
   const localPendingMembersByProject = new Map();
+  const privacy = createEntityAccessPrivacyController({
+    evictEntities: (ids, options) => removePendingEntities(ids, {
+      ...options,
+      getAccessibleEntities: () => ({ accessibleProjectIds, ...accessibleTaskEntities }),
+    }),
+    onError: error => console.error('Failed to evict pending project data', error),
+  });
 
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
+
+  function pendingMembers(projectId) {
+    return localPendingMembersByProject.get(Number(projectId)) || [];
   }
 
-  function isOwner(project) {
-    if (!project) return false;
-    if (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1') return true;
-    if (project.is_shared) return false;
-    return !!project.user_id;
+  async function listMembers(projectId) {
+    const response = await projectsApi.listMembers(projectId);
+    const serverMembers = response?.members || [];
+    const seen = new Set(serverMembers.map(member => Number(member.user_id ?? member.id)));
+    return serverMembers.concat(pendingMembers(projectId).filter(member => !seen.has(Number(member.user_id ?? member.id))));
   }
+
+  const directSharing = createEntityDirectSharingFeature({
+    prefix: 'project',
+    listMembers,
+    grantMember: (projectId, identifier) => projectsApi.shareProject(projectId, identifier),
+    revokeMember: (projectId, userId) => projectsApi.removeMember(projectId, userId),
+    leaveEntity: projectId => projectsApi.leaveProject(projectId),
+    confirmDanger,
+    onMemberAdded: (member, project) => {
+      project.has_sharing_activity = true;
+      const key = Number(project.id);
+      const pending = pendingMembers(key).filter(item => Number(item.user_id ?? item.id) !== Number(member.user_id ?? member.id));
+      if (member.status === 'pending') pending.push(member);
+      localPendingMembersByProject.set(key, pending);
+      showToast(t('project.share.inviteSent'), {
+        type: 'member_invite',
+        data: { projectId: project.id, userId: member.user_id ?? member.id, username: member.username },
+      });
+    },
+    onMemberRemoved: (member, project) => {
+      const key = Number(project.id);
+      localPendingMembersByProject.set(key, pendingMembers(key).filter(item => Number(item.user_id ?? item.id) !== Number(member.user_id ?? member.id)));
+      showToast(t('entity.share.userRemoved'), {
+        type: 'member_remove',
+        data: { projectId: project.id, userId: member.user_id ?? member.id, username: member.username },
+      });
+    },
+    onLeft: project => {
+      setProjects(getProjects().filter(candidate => candidate.id !== project.id));
+      renderProjects();
+      renderStats();
+      renderTodos();
+      showToast(t('project.share.left'), {
+        type: 'project_leave',
+        data: { projectId: project.id, project },
+      });
+    },
+  });
+
+  const invitations = createEntityInvitationsFeature({
+    entityType: 'project',
+    listInvitations: async () => {
+      const response = await projectsApi.listInvites();
+      privacy.beginGeneration();
+      return response;
+    },
+    normalizeInvitation: invite => ({
+      ...invite,
+      entityId: invite.project_id ?? invite.entity_id,
+      name: invite.project_name ?? invite.entity_name ?? invite.name,
+    }),
+    respondInvitation: (invite, accept) => projectsApi.respondInvite(invite.entityId, invite.id, accept),
+    loadAuthoritativeProjection,
+    applyAuthoritativeProjection: (response, invitation, context) => {
+      if (!Array.isArray(response?.projects)) return;
+      setProjects(response.projects);
+      if (context?.isCurrent?.()) privacy.commitAccessible([invitation.entityId]);
+      renderProjects();
+      renderStats();
+      renderTodos();
+    },
+    render: state => {
+      privacy.schedulePending(state.invitations.map(invite => invite.entityId));
+      renderEntityInvitationsHost({
+        sectionId: 'invites-section',
+        listId: 'invites-list',
+        entityType: 'project',
+        state,
+      });
+    },
+  });
 
   async function loadMembers(projectId) {
-    const res = await projectsApi.listMembers(projectId);
-    const serverMembers = res?.members || [];
-    const localPending = localPendingMembersByProject.get(Number(projectId)) || [];
-    const seen = new Set(serverMembers.map(member => Number(member.user_id)));
-    currentMembers = serverMembers.concat(localPending.filter(member => !seen.has(Number(member.user_id))));
-    renderMembers();
-    updateSharingVisibility();
-    return currentMembers;
-  }
-
-  function setShareError(message) {
-    const errorEl = document.getElementById('project-share-error');
-    if (errorEl) errorEl.textContent = message || '';
-  }
-
-  function updateSharingVisibility() {
-    const sharingContent = document.getElementById('project-sharing-content');
-    const shareStartRow = document.getElementById('project-share-start-row');
-    const inviteRow = document.getElementById('project-share-row');
-    if (!currentProject) return;
-
-    const hasMembers = currentMembers.some(member => member?.status === 'accepted' || member?.status === 'pending') || !!currentProject.has_sharing_activity;
-    const own = isOwner(currentProject);
-    const sharedProject = !!currentProject.is_shared && !own;
-
-    if (own) {
-      if (hasMembers) {
-        if (sharingContent) sharingContent.style.display = '';
-        if (shareStartRow) shareStartRow.style.display = 'none';
-        if (inviteRow) inviteRow.style.display = '';
-      }
-      return;
+    if (accessPrivacySuspended) return [];
+    if (!currentProject || String(currentProject.id) !== String(projectId)) {
+      currentProject = getProjects().find(project => String(project.id) === String(projectId)) || null;
     }
-
-    if (sharedProject) {
-      if (sharingContent) sharingContent.style.display = 'none';
-      if (shareStartRow) shareStartRow.style.display = 'none';
-      if (inviteRow) inviteRow.style.display = 'none';
-    }
-  }
-
-  function renderMembers() {
-    const el = document.getElementById('project-members-list');
-    if (!el) return;
-    if (!currentProject) {
-      el.innerHTML = '';
-      return;
-    }
-
-    const rows = [];
-    // owner wird nicht angezeigt, nur member
-
-    for (const member of currentMembers) {
-      if (!member || member.user_id == null) continue;
-      if (member.status !== 'accepted' && member.status !== 'pending') continue;
-      const displayName = member.display_name || member.username;
-      const usernamePart = member.display_name && member.display_name !== member.username ? ` <span class="sharing-display">(${escapeHtml(member.username)})</span>` : '';
-      const status = member.status === 'pending' ? `<span class="sharing-pending">${escapeHtml(t('project.share.pending'))}</span>` : '';
-      const remove = isOwner(currentProject) && member.user_id !== currentProject.user_id
-        ? `<button class="sharing-remove" data-remove-member="${member.user_id}" title="${escapeHtml(t('project.share.remove'))}" aria-label="${escapeHtml(t('project.share.removeMember'))}">${iconSvg('x')}</button>`
-        : '';
-      rows.push(`
-        <div class="sharing-member-row">
-          <div class="sharing-member-main">
-            <span class="sharing-member-name">${escapeHtml(displayName)}</span>${usernamePart}${status}
-          </div>
-          <div class="sharing-actions">${remove}</div>
-        </div>
-      `);
-    }
-
-    el.innerHTML = rows.join('');
-    el.querySelectorAll('[data-remove-member]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const memberId = Number(btn.getAttribute('data-remove-member'));
-        const member = currentMembers.find(m => Number(m.user_id) === memberId);
-        if (!member) return;
-        const confirmed = await confirmDanger({
-          title: t('project.share.removeMember'),
-          message: t('project.share.removeMemberConfirm', { username: member.username }),
-          confirmText: t('project.share.remove'),
-        });
-        if (!confirmed) return;
-        await removeMember(member);
-      });
-    });
+    await directSharing.setEntity(currentProject);
+    return [];
   }
 
   async function setProject(project) {
-    currentProject = project;
-    if (!project) return;
-    await loadMembers(project.id);
+    if (accessPrivacySuspended) return;
+    currentProject = project || null;
+    await directSharing.setEntity(currentProject);
   }
 
   async function inviteByUsername() {
-    if (!currentProject) return;
-    const input = document.getElementById('project-share-username');
-    if (!input) return;
-    const username = input.value.trim();
-    setShareError('');
-    if (!username) {
-      setShareError(t('project.share.identifierRequired'));
-      input.focus();
-      return;
-    }
-    try {
-      const result = await projectsApi.shareProject(currentProject.id, username);
-      input.value = '';
-      const member = result?.member;
-      if (!member) throw new Error('Invitation response did not include a member');
-      currentProject.has_sharing_activity = true;
-      const projectId = Number(currentProject.id);
-      const pending = localPendingMembersByProject.get(projectId) || [];
-      if (!pending.some(item => Number(item.user_id) === Number(member.user_id))) {
-        pending.push({ ...member, status: member.status || 'pending' });
-        localPendingMembersByProject.set(projectId, pending);
-      }
-      showToast(t('project.share.inviteSent'), {
-        type: 'member_invite',
-        data: {
-          projectId: currentProject.id,
-          userId: member.user_id,
-          username: member.username || username,
-        },
-      });
-      await loadMembers(currentProject.id);
-    } catch (err) {
-      const msg = (err?.message || '').toLowerCase();
-      if (msg.includes('404') || msg.includes('not found')) {
-        setShareError(t('project.share.notFound', { identifier: username }));
-      } else if (msg.includes('403') || msg.includes('forbidden')) {
-        setShareError(t('project.share.forbidden'));
-      } else if (msg.includes('already')) {
-        setShareError(t('project.share.alreadyHasAccess', { identifier: username }));
-      } else {
-        setShareError(t('project.share.inviteFailed', { error: err?.message || t('project.share.unknownError') }));
-      }
-    }
+    return directSharing.grant();
   }
 
   async function removeMember(member) {
-    if (!currentProject) return;
-    await projectsApi.removeMember(currentProject.id, member.user_id);
-    currentMembers = currentMembers.filter(m => Number(m.user_id) !== Number(member.user_id));
-    renderMembers();
-    showToast(t('project.share.userRemoved'), {
-      type: 'member_remove',
-      data: {
-        projectId: currentProject.id,
-        userId: member.user_id,
-        username: member.username,
-      },
-    });
+    return directSharing.revoke(member?.user_id ?? member?.id);
   }
 
   async function leaveProject() {
-    if (!currentProject) return;
-    await projectsApi.leaveProject(currentProject.id);
-    const removedProject = currentProject;
-    setProjects(getProjects().filter(p => p.id !== currentProject.id));
-    renderProjects();
-    renderStats();
-    renderTodos();
-    showToast(t('project.share.left'), {
-      type: 'project_leave',
-      data: {
-        projectId: removedProject.id,
-        project: removedProject,
-      },
-    });
+    return directSharing.leave();
   }
 
   async function undoLeaveProject(data) {
     if (!data?.projectId) return;
     await projectsApi.undoLeaveProject(data.projectId);
-    const res = await projectsApi.list();
-    if (res?.projects) {
-      setProjects(res.projects);
+    const response = await projectsApi.list();
+    if (response?.projects) {
+      setProjects(response.projects);
       renderProjects();
       renderStats();
       renderTodos();
@@ -230,157 +163,84 @@ export function createProjectSharingFeature({
   }
 
   async function acceptInvite(projectId, inviteId) {
-    await projectsApi.respondInvite(projectId, inviteId, true);
-    showToast(t('project.share.accepted'));
-    // Reload projects from server
-    const res = await projectsApi.list();
-    if (res?.projects) {
-      setProjects(res.projects);
-      renderProjects();
-      renderStats();
-      renderTodos();
-    }
-    await loadInvites();
+    const accepted = await invitations.respond(inviteId, true);
+    if (accepted) showToast(t('project.share.accepted'));
+    return accepted;
   }
 
   async function declineInvite(projectId, inviteId) {
-    const row = document.querySelector(`[data-invite-id="${CSS.escape(String(inviteId))}"]`);
-    if (row) row.remove();
-    await projectsApi.respondInvite(projectId, inviteId, false);
-    showToast(t('project.share.declined'));
-    await loadInvites();
+    const declined = await invitations.respond(inviteId, false);
+    if (declined) showToast(t('project.share.declined'));
+    return declined;
   }
 
   async function loadInvites() {
-    try {
-      const res = await projectsApi.listInvites();
-      const invites = res?.invites || [];
-      // Find renderInvites function - it might be in appRendering
-      if (typeof window.renderInvites === 'function') {
-        window.renderInvites(invites);
-      }
-      return { ok: true, invites };
-    } catch (error) {
-      console.warn('Failed to load invites:', error);
-      return { ok: false, error };
-    }
+    if (accessPrivacySuspended) return { ok: false, stale: true };
+    return invitations.load();
   }
 
-  let projectSharingActionsBound = false;
+  function setInvites(next) {
+    if (accessPrivacySuspended) return;
+    privacy.beginGeneration();
+    return invitations.setInvitations(next);
+  }
+
+  function commitAuthoritativeSnapshot(authoritativeProjects, revokedProjectIds = [], taskAccessSnapshot = null) {
+    if (accessPrivacySuspended) return;
+    const accessibleProjects = Array.isArray(authoritativeProjects) ? authoritativeProjects : getProjects();
+    accessibleProjectIds = accessibleProjects.map(project => project?.id);
+    accessibleTaskEntities = {
+      accessibleTodoIds: taskAccessSnapshot?.todoIds || [],
+      accessibleSectionIds: taskAccessSnapshot?.sectionIds || [],
+    };
+    privacy.commitAccessible(accessibleProjectIds);
+    privacy.schedulePending(revokedProjectIds);
+    invitations.render();
+  }
+
+  function renderInvites() {
+    invitations.render();
+  }
+
+  async function suspendAccessPrivacy() {
+    accessPrivacySuspended = true;
+    const drain = privacy.suspend();
+    invitations.destroy();
+    invitations.setInvitations([]);
+    currentProject = null;
+    accessibleProjectIds = [];
+    accessibleTaskEntities = {};
+    localPendingMembersByProject.clear();
+    await Promise.all([drain, directSharing.setEntity(null)]);
+  }
+
+  function resumeAccessPrivacy() {
+    if (!accessPrivacySuspended) return;
+    accessPrivacySuspended = false;
+    invitations.setInvitations([]);
+    privacy.resume();
+    invitations.bind();
+  }
+
   function bindProjectSharingActions() {
-    if (projectSharingActionsBound) return;
-    projectSharingActionsBound = true;
-    document.addEventListener('click', async (event) => {
-      const target = event.target?.closest?.('[data-project-sharing-action]');
-      if (!target) return;
-      const action = target.dataset.projectSharingAction;
-      event.preventDefault();
-      if (action === 'invite') {
-        await inviteByUsername();
-      } else if (action === 'leave') {
-        await leaveProject();
-      } else if (action === 'show-share-input') {
-        showShareInput();
-      } else if (action === 'accept-invite') {
-        await acceptInvite(target.dataset.projectId, target.dataset.inviteId);
-      } else if (action === 'decline-invite') {
-        await declineInvite(target.dataset.projectId, target.dataset.inviteId);
-      }
-    });
+    directSharing.bind();
+    invitations.bind();
   }
 
   function showShareInput() {
-    const content = document.getElementById('project-sharing-content');
-    const startRow = document.getElementById('project-share-start-row');
-    const inviteRow = document.getElementById('project-share-row');
-    if (content) content.style.display = '';
-    if (startRow) startRow.style.display = 'none';
-    if (inviteRow) inviteRow.style.display = '';
-    setShareError('');
+    return directSharing.showShareInput();
   }
 
-  function applyProjectModalState(project, canEdit, shared) {
+  function setEntity(project) {
+    if (accessPrivacySuspended) return;
     currentProject = project;
-    const isOwn = isOwner(project);
-    const sharingSection = document.getElementById('project-sharing-section');
-    const sharingContent = document.getElementById('project-sharing-content');
-    const shareStartRow = document.getElementById('project-share-start-row');
-    const leaveBtn = document.getElementById('project-leave-btn');
-    const leaveRow = document.getElementById('project-leave-row');
-    const ownerInfo = document.getElementById('project-owner-info');
-    const inviteRow = document.getElementById('project-share-row');
-    const fields = ['project-name', 'project-color', 'project-parent-id', 'project-icon'];
-    const displayWorkspace = document.getElementById('project-display-workspace-id');
-    const iconPicker = document.getElementById('project-icon-picker');
-    const saveBtn = document.getElementById('project-save-btn');
-
-    if (sharingSection) sharingSection.style.display = project ? '' : 'none';
-    if (leaveRow) leaveRow.style.display = shared && !isOwn ? '' : 'none';
-    if (leaveBtn) leaveBtn.style.display = '';
-    if (ownerInfo) {
-      if (project && shared && !isOwn) {
-        const ownerName = project.owner_display_name || project.owner_username || 'Unbekannt';
-        const ownerUser = project.owner_username && project.owner_username !== ownerName ? ` (${project.owner_username})` : '';
-        const nameEl = ownerInfo.querySelector('.project-owner-name');
-        if (nameEl) nameEl.textContent = `${ownerName}${ownerUser}`;
-        else ownerInfo.textContent = `Geteilt von ${ownerName}${ownerUser}`;
-        ownerInfo.style.display = 'flex';
-      } else {
-        const nameEl = ownerInfo.querySelector('.project-owner-name');
-        if (nameEl) nameEl.textContent = '';
-        ownerInfo.style.display = 'none';
-      }
-    }
-    setShareError('');
-
-    if (!project) {
-      if (sharingContent) sharingContent.style.display = 'none';
-      if (shareStartRow) shareStartRow.style.display = 'none';
-      if (inviteRow) inviteRow.style.display = 'none';
-    } else if (isOwn) {
-      if (shared || project.has_sharing_activity) {
-        if (sharingContent) sharingContent.style.display = '';
-        if (shareStartRow) shareStartRow.style.display = 'none';
-        if (inviteRow) inviteRow.style.display = '';
-      } else {
-        if (sharingContent) sharingContent.style.display = 'none';
-        if (shareStartRow) shareStartRow.style.display = '';
-        if (inviteRow) inviteRow.style.display = 'none';
-      }
-    } else {
-      if (sharingContent) sharingContent.style.display = 'none';
-      if (shareStartRow) shareStartRow.style.display = 'none';
-      if (inviteRow) inviteRow.style.display = 'none';
-    }
-
-    const projectForm = document.getElementById('project-form');
-    if (projectForm) projectForm.classList.toggle('readonly-project', !!project && !canEdit);
-    for (const id of fields) {
-      const el = document.getElementById(id);
-      if (el) {
-        el.disabled = !canEdit;
-        el.setAttribute('aria-readonly', canEdit ? 'false' : 'true');
-        if (el.tagName === 'SELECT') refreshSelect(el);
-      }
-    }
-    const canMoveSharedDisplay = !!project && shared && !isOwn;
-    const canMoveOwnProject = !!project && isOwn && !project.is_inbox;
-    if (displayWorkspace) {
-      displayWorkspace.disabled = !(canMoveSharedDisplay || canMoveOwnProject);
-      refreshSelect(displayWorkspace);
-    }
-    if (iconPicker) {
-      iconPicker.style.pointerEvents = canEdit ? '' : 'none';
-      iconPicker.style.opacity = canEdit ? '' : '0.6';
-      iconPicker.setAttribute('aria-disabled', canEdit ? 'false' : 'true');
-    }
-    if (saveBtn) saveBtn.style.display = (canEdit || canMoveSharedDisplay || canMoveOwnProject) ? '' : 'none';
-    if (project?.id) loadMembers(project.id).catch(() => {});
+    return directSharing.setEntity(project);
   }
 
   return {
     setProject,
     inviteByUsername,
+    removeMember,
     leaveProject,
     undoLeaveProject,
     undoRemoveMember,
@@ -388,8 +248,13 @@ export function createProjectSharingFeature({
     acceptInvite,
     declineInvite,
     loadInvites,
+    setInvites,
+    commitAuthoritativeSnapshot,
+    renderInvites,
+    suspendAccessPrivacy,
+    resumeAccessPrivacy,
     bindProjectSharingActions,
-    applyProjectModalState,
+    setEntity,
     loadMembers,
     showShareInput,
   };

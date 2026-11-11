@@ -66,6 +66,7 @@ export function createServiceWorkerUpdatesFeature({ appVersion = '' } = {}) {
     '/static/css/93-todo-detail-meta-drawer.css',
     '/static/css/94-todo-detail-header-actions.css',
     '/static/css/95-todo-detail-mobile-viewport.css',
+    '/static/css/99-ui-primitives.css',
   ];
   const FALLBACK_HARD_RELOAD_ASSETS = [
     '/',

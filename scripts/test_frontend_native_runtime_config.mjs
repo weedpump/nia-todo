@@ -56,27 +56,31 @@ async function installTauriStub(page, settings, options = {}) {
 
 async function testNativeConfiguredServerProbeDoesNotBlockStartup() {
   const { browser, page, dumpErrors } = await launchPage();
+  let releaseProbe;
+  const pendingProbes = [];
+  const probeGate = new Promise(resolve => { releaseProbe = resolve; });
   try {
     await installTauriStub(page, { serverUrl: BASE_URL });
-    await page.route(`${BASE_URL}/api/instance`, async route => {
-      await new Promise(resolve => setTimeout(resolve, 5_000));
-      await route.fulfill({
+    await page.route(`${BASE_URL}/api/instance`, route => {
+      const pendingProbe = probeGate.then(() => route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ app: 'nia-todo' }),
-      });
+      }));
+      pendingProbes.push(pendingProbe);
+      return pendingProbe;
     });
-    const startedAt = Date.now();
-    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    const probeStarted = page.waitForRequest(`${BASE_URL}/api/instance`);
+    await Promise.all([probeStarted, page.goto(BASE_URL, { waitUntil: 'commit' })]);
+    // The probe remains unresolved until cleanup. This proves startup does not
+    // await it, without conflating cold module downloads with probe latency.
     await page.locator('#boot-overlay').waitFor({ state: 'hidden', timeout: 2_000 });
-    const elapsedMs = Date.now() - startedAt;
-    if (elapsedMs >= 2_000) {
-      throw new Error(`Configured native server probe blocked startup for ${elapsedMs}ms`);
-    }
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
   } finally {
+    releaseProbe();
+    await Promise.allSettled(pendingProbes);
     await browser.close();
   }
 }
@@ -122,18 +126,21 @@ async function testNativeAboutChangelogBadgeOpensWebsiteOnce() {
     const badge = page.locator('.about-changelog-badge');
     await badge.waitFor({ state: 'visible', timeout: 10_000 });
     const href = await badge.getAttribute('href');
-    if (href !== 'https://nia-todo.homelabdiary.dev/changelog/') {
+    if (href !== 'https://nia.homelabdiary.dev/changelog/') {
       throw new Error(`Expected public website changelog URL, got ${href}`);
     }
+    const pathBeforeClick = await page.evaluate(() => location.pathname);
     await badge.dispatchEvent('click');
     await page.waitForFunction(() => {
       const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
-      return opened.length === 1 && opened[0] === 'https://nia-todo.homelabdiary.dev/changelog/';
+      return opened.length === 1 && opened[0] === 'https://nia.homelabdiary.dev/changelog/';
     }, null, { timeout: 10_000 });
     const opened = await page.evaluate(() => window.__nativeOpenedUrls || []);
     if (opened.length !== 1) throw new Error(`Expected exactly one native openExternal call, got ${opened.length}`);
-    const path = await page.evaluate(() => location.pathname);
-    if (path !== '/') throw new Error(`Native About changelog click must not navigate inside app, got ${path}`);
+    const pathAfterClick = await page.evaluate(() => location.pathname);
+    if (pathAfterClick !== pathBeforeClick) {
+      throw new Error(`Native About changelog click must not navigate inside app, got ${pathBeforeClick} -> ${pathAfterClick}`);
+    }
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
@@ -160,13 +167,16 @@ async function testNativeDocumentationOpensExternally() {
     await page.click('#user-menu-button');
     await page.click('#menu-settings-btn');
     await page.locator('#settings-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+    const pathBeforeClick = await page.evaluate(() => location.pathname);
     await page.locator('#settings-modal [data-external-resource]').dispatchEvent('click');
     await page.waitForFunction(() => {
       const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
-      return opened.length === 1 && opened[0] === 'https://nia-todo.homelabdiary.dev/docs/api/';
+      return opened.length === 1 && opened[0] === 'https://nia.homelabdiary.dev/docs/api/';
     }, null, { timeout: 10_000 });
-    const apiDocsPath = await page.evaluate(() => location.pathname);
-    if (apiDocsPath !== '/') throw new Error(`Native API documentation click must not navigate inside app, got ${apiDocsPath}`);
+    const pathAfterClick = await page.evaluate(() => location.pathname);
+    if (pathAfterClick !== pathBeforeClick) {
+      throw new Error(`Native API documentation click must not navigate inside app, got ${pathBeforeClick} -> ${pathAfterClick}`);
+    }
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;

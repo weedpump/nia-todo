@@ -5,6 +5,15 @@ globalThis.location = { origin: 'http://localhost' };
 
 const projectList = { innerHTML: '' };
 globalThis.document = {
+  createElement() {
+    let value = '';
+    return {
+      set textContent(next) { value = String(next ?? ''); },
+      get innerHTML() {
+        return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+      },
+    };
+  },
   getElementById(id) {
     return id === 'project-list' ? projectList : null;
   },

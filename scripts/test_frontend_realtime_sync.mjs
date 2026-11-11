@@ -1,9 +1,35 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+import { waitForPageCondition, withFreshDb, launchPage } from './frontend_test_lib.mjs';
+
+async function delayStartupWorkspaceRefresh(page) {
+  let releaseRefresh;
+  let markBlocked;
+  let delayed = false;
+  const blocked = new Promise(resolve => { markBlocked = resolve; });
+  const released = new Promise(resolve => { releaseRefresh = resolve; });
+  await page.route('**/api/workspaces*', async route => {
+    const url = new URL(route.request().url());
+    if (!delayed && route.request().method() === 'GET' && url.pathname === '/api/workspaces') {
+      delayed = true;
+      markBlocked();
+      await released;
+    }
+    await route.continue();
+  });
+  return {
+    waitUntilBlocked: () => blocked,
+    release: () => releaseRefresh(),
+  };
+}
 
 async function installRealtimeProbe(page) {
   await page.addInitScript(() => {
-    window.__niaRealtimeProbe = { authOk: 0, syncResponses: 0, outboundSyncRequests: 0, dataMessages: [] };
+    window.__niaRealtimeProbe = {
+      authOk: 0,
+      syncResponses: 0,
+      outboundSyncRequests: 0,
+      dataMessages: [],
+    };
     const NativeWebSocket = window.WebSocket;
     class TrackedWebSocket extends NativeWebSocket {
       constructor(...args) {
@@ -22,7 +48,9 @@ async function installRealtimeProbe(page) {
       send(data) {
         try {
           const msg = JSON.parse(data);
-          if (msg.type === 'sync_request') window.__niaRealtimeProbe.outboundSyncRequests += 1;
+          if (msg.type === 'sync_request') {
+            window.__niaRealtimeProbe.outboundSyncRequests += 1;
+          }
         } catch {}
         return super.send(data);
       }
@@ -38,15 +66,17 @@ async function installRealtimeProbe(page) {
 async function waitForRealtimeReady(page, label) {
   await page.waitForFunction(() => {
     const probe = window.__niaRealtimeProbe;
-    return probe?.authOk >= 1;
+    return probe?.authOk >= 1
+      && probe.outboundSyncRequests === 2
+      && probe.syncResponses === 2;
   }, null, { timeout: 15000 }).catch(async error => {
     const probe = await page.evaluate(() => window.__niaRealtimeProbe || null).catch(() => null);
-    throw new Error(`${label} WebSocket auth not ready after login: ${JSON.stringify(probe)} (${error.message})`);
+    throw new Error(`${label} WebSocket access snapshot not ready after login: ${JSON.stringify(probe)} (${error.message})`);
   });
 }
 
 async function waitForTodoInDb(page, title, timeout = 15000) {
-  await page.waitForFunction(async value => {
+  await waitForPageCondition(page, async value => {
     if (typeof window.dbGetAll !== 'function') return false;
     const todos = await window.dbGetAll('todos');
     return todos.some(todo => todo.title === value);
@@ -64,6 +94,8 @@ async function run() {
   const clientB = await launchPage();
   await installRealtimeProbe(clientA.page);
   await installRealtimeProbe(clientB.page);
+  const startupRefreshA = await delayStartupWorkspaceRefresh(clientA.page);
+  const startupRefreshB = await delayStartupWorkspaceRefresh(clientB.page);
   await clientA.page.addInitScript(() => localStorage.setItem('nia-hide-done', 'false'));
   await clientB.page.addInitScript(() => localStorage.setItem('nia-hide-done', 'false'));
   const { browser: browserA, page: pageA, loginApp: loginA, visible: visibleA, waitForText: waitForTextA, openTodoModal } = clientA;
@@ -73,17 +105,25 @@ async function run() {
     await loginA();
     await visibleA('#sidebar');
     await pageA.locator('#online-status').waitFor({ state: 'hidden', timeout: 10000 });
+    await startupRefreshA.waitUntilBlocked();
+    await pageA.waitForFunction(() => window.__niaRealtimeProbe?.syncResponses >= 1);
+    startupRefreshA.release();
     await waitForRealtimeReady(pageA, 'Client A');
 
     await loginB();
     await visibleB('#sidebar');
     await pageB.locator('#online-status').waitFor({ state: 'hidden', timeout: 10000 });
+    await startupRefreshB.waitUntilBlocked();
+    await pageB.waitForFunction(() => window.__niaRealtimeProbe?.syncResponses >= 1);
+    startupRefreshB.release();
     await waitForRealtimeReady(pageB, 'Client B');
 
-    const startupProbeA = await pageA.evaluate(() => window.__niaRealtimeProbe);
-    const startupProbeB = await pageB.evaluate(() => window.__niaRealtimeProbe);
-    if (startupProbeA.outboundSyncRequests || startupProbeB.outboundSyncRequests) {
-      throw new Error(`Normal WebSocket startup must not request full sync: A=${JSON.stringify(startupProbeA)} B=${JSON.stringify(startupProbeB)}`);
+    const startupProbeA = await pageA.evaluate(() => ({ ...window.__niaRealtimeProbe }));
+    const startupProbeB = await pageB.evaluate(() => ({ ...window.__niaRealtimeProbe }));
+    for (const [label, probe] of [['A', startupProbeA], ['B', startupProbeB]]) {
+      if (probe.outboundSyncRequests !== 2 || probe.syncResponses !== 2) {
+        throw new Error(`WebSocket startup with a concurrent REST refresh must settle after exactly one replacement snapshot: ${label}=${JSON.stringify(probe)}`);
+      }
     }
 
     await openTodoModal();
@@ -101,7 +141,7 @@ async function run() {
     await pageA.click('button[form="todo-form"]');
     await pageA.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
-    await pageB.waitForFunction(async () => {
+    await waitForPageCondition(pageB, async () => {
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === 'Realtime Sync Todo');
       return todo?.status === 'done';
@@ -127,7 +167,7 @@ async function run() {
       return { parentId: parent.id, childId: child.id, todoId: todo.id, workspaceId: parent.workspace_id };
     });
 
-    await pageB.waitForFunction(async ({ parentId, childId, todoId, workspaceId }) => {
+    await waitForPageCondition(pageB, async ({ parentId, childId, todoId, workspaceId }) => {
       const projects = await window.dbGetAll('projects');
       const todos = await window.dbGetAll('todos');
       const inbox = projects.find(project => project.is_inbox && String(project.workspace_id || '') === String(workspaceId || ''));

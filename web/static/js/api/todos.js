@@ -10,7 +10,10 @@ async function parseOrThrow(response, fallback = 'Request failed') {
 
 export const todosApi = {
   list: () => http.get('/api/todos'),
-  create: (data) => http.post('/api/todos', data),
+  create: (data) => {
+    const mutationId = data.client_mutation_id || data._tempId || data.routing_feedback?.event_id;
+    return http.post('/api/todos', mutationId ? { ...data, client_mutation_id: mutationId } : data);
+  },
   update: (todoId, changes) => http.patch(`/api/todos/${todoId}`, changes),
   createSubtask: (todoId, data) => http.post(`/api/todos/${todoId}/subtasks`, data),
   updateSubtask: (todoId, subtaskId, data) => http.patch(`/api/todos/${todoId}/subtasks/${subtaskId}`, data),
@@ -19,6 +22,7 @@ export const todosApi = {
   updateComment: (todoId, commentId, data) => http.patch(`/api/todos/${todoId}/comments/${commentId}`, data),
   deleteComment: (todoId, commentId) => http.del(`/api/todos/${todoId}/comments/${commentId}`),
   listAttachments: (todoId) => http.get(`/api/todos/${todoId}/attachments`),
+  getAttachmentUsage: () => http.get('/api/todos/attachments/usage'),
   async uploadAttachment(todoId, file) {
     const headers = getAuthHeaders();
     delete headers['Content-Type'];

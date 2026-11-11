@@ -62,6 +62,7 @@ export function createWorkspacesFeature({
     form.addEventListener('submit', saveWorkspace);
     form.addEventListener('input', refreshWorkspaceSaveButtonState);
     form.addEventListener('change', refreshWorkspaceSaveButtonState);
+
     document.getElementById('workspace-icon-picker')?.addEventListener('click', (event) => {
       if (!event.target?.closest?.('.icon-picker-option')) return;
       window.setTimeout(refreshWorkspaceSaveButtonState, 0);
@@ -154,7 +155,7 @@ export function createWorkspacesFeature({
           </div>`;
         }).join('')}
       </div>
-      <button type="button" class="ui-menu-item workspace-menu-add" data-workspace-action="new"><span class="entity-icon add-project-icon workspace-menu-add-icon" data-icon="plus" aria-hidden="true"></span><span>${escapeHtml(t('workspace.add'))}</span></button>
+      <button type="button" class="ui-menu-item workspace-menu-add" data-workspace-action="new"><span class="entity-icon entity-sidebar-add-icon workspace-menu-add-icon" data-icon="plus" aria-hidden="true"></span><span>${escapeHtml(t('workspace.add'))}</span></button>
     `;
     hydrateIcons(menu);
   }
@@ -249,6 +250,7 @@ export function createWorkspacesFeature({
     document.getElementById('workspace-name').value = workspace?.name || '';
     document.getElementById('workspace-color').value = workspace?.color || '#6366f1';
     document.getElementById('workspace-icon').value = workspace?.icon || '';
+
     renderIconPicker({
       container: document.getElementById('workspace-icon-picker'),
       input: document.getElementById('workspace-icon'),
@@ -323,6 +325,7 @@ export function createWorkspacesFeature({
         const updated = await workspacesApi.update(editingWorkspaceId, { name, color, icon });
         await dbPut('workspaces', updated);
         setWorkspaces(getWorkspaces().map(w => String(w.id) === String(updated.id) ? updated : w));
+
         showToast?.(t('workspace.saved')); 
         closeWorkspaceModal();
       } else {

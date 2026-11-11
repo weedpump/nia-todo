@@ -4,8 +4,8 @@ import calendar
 import json
 import re
 import secrets
-import shutil
 import sqlite3
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -13,15 +13,19 @@ from urllib.parse import quote, unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from db import get_db, row_to_dict, now_iso
 from paths import ATTACHMENT_DIR
 from routers.auth import require_auth
+from routers.websocket import broadcast_sync_to_users
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
-from services.sharing import can_access_project, can_manage_todos, get_project_ids_for_user
-from services.attachments import MAX_ATTACHMENT_BYTES, attachment_usage_payload, enforce_attachment_upload_policy, sniff_attachment_content_type
+from services.routing_memory import RoutingFeedback, record_task_route_choice, legacy_feedback
+from services.creation_receipts import creation_replay
+from services.entity_access import get_entity_ownership
+from services.sharing import can_access_project, can_access_todo, can_edit_project, can_manage_todos, get_project_ids_for_user, get_project_participant_user_ids, get_todo_reminder_recipient_user_id
+from services.attachments import AttachmentCleanupBatch, AttachmentFileCleanupBatch, AttachmentUploadStaging, AttachmentUploadTempLease, MAX_ATTACHMENT_BYTES, attachment_usage_payload, commit_with_attachment_recovery, enforce_attachment_upload_policy, sniff_attachment_content_type
 
 router = APIRouter(prefix="/api/todos")
 
@@ -35,6 +39,8 @@ class TodoSubtaskInput(BaseModel):
     sort_order: Optional[int] = None
 
 class TodoCreate(BaseModel):
+    client_mutation_id: Optional[str] = Field(default=None,max_length=200,validation_alias=AliasChoices("client_mutation_id","_tempId"))
+    routing_feedback: Optional[RoutingFeedback] = None
     title: str = Field(..., max_length=500)
     description: str = Field(default="", max_length=50000)
     priority: int = Field(default=3, ge=1, le=4)
@@ -50,6 +56,7 @@ class TodoCreate(BaseModel):
     confirm_incomplete_subtasks_completion: bool = False
 
 class TodoUpdate(BaseModel):
+    routing_feedback: Optional[RoutingFeedback] = None
     title: Optional[str] = Field(default=None, max_length=500)
     description: Optional[str] = Field(default=None, max_length=50000)
     priority: Optional[int] = None
@@ -100,7 +107,10 @@ MAX_ATTACHMENTS_PER_TODO = 20
 
 def get_user_inbox_project_id(db, user_id: int) -> Optional[int]:
     row = db.execute(
-        "SELECT id FROM projects WHERE user_id = ? AND COALESCE(is_inbox, 0) = 1 ORDER BY id LIMIT 1",
+        """SELECT p.id FROM projects p
+           JOIN entity_access ea ON ea.entity_type = 'project' AND ea.entity_id = p.id
+           WHERE ea.owner_user_id = ? AND COALESCE(p.is_inbox, 0) = 1
+           ORDER BY p.id LIMIT 1""",
         (user_id,)
     ).fetchone()
     return row['id'] if row else None
@@ -328,12 +338,19 @@ def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Opti
             "SELECT id, remind_at, sent_at, COALESCE(source, 'explicit') AS source FROM reminders WHERE todo_id = ? ORDER BY remind_at",
             (todo_id,)
         ).fetchall()
-    else:
+    elif get_todo_reminder_recipient_user_id(db, d) == reminder_user_id:
         rem_rows = db.execute(
             """SELECT id, remind_at, sent_at, COALESCE(source, 'explicit') AS source FROM reminders
                WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL)
                ORDER BY remind_at""",
             (todo_id, reminder_user_id)
+        ).fetchall()
+    else:
+        rem_rows = db.execute(
+            """SELECT id, remind_at, sent_at, COALESCE(source, 'explicit') AS source FROM reminders
+               WHERE todo_id = ? AND user_id = ?
+               ORDER BY remind_at""",
+            (todo_id, reminder_user_id),
         ).fetchall()
     d['reminders'] = [dict(r) for r in rem_rows]
     d['subtasks'] = _subtasks_for_todo(db, todo_id)
@@ -346,18 +363,37 @@ def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Opti
     return _recurring_rule_response(d)
 
 
+async def broadcast_todo_change(db, event_type: str, todo_id: int, actor_user_id: int, project_id: int | None = None):
+    """Broadcast a todo using each recipient's private reminder/location view."""
+    recipients = {actor_user_id}
+    if project_id is not None:
+        recipients.update(get_project_participant_user_ids(db, project_id))
+    for recipient_user_id in recipients:
+        todo = fetch_todo(db, todo_id, recipient_user_id)
+        if todo is not None:
+            await broadcast_change(event_type, todo, recipient_user_id)
+
+
 def _todo_project_access(db, todo: dict, user_id: int) -> bool:
     project_id = todo.get('project_id')
     if project_id is None:
         return todo.get('user_id') == user_id
-    return can_access_project(db, project_id, user_id) or todo.get('user_id') == user_id
+    return can_access_project(db, project_id, user_id)
+
+
+def _todo_lifecycle_access(db, todo: dict, user_id: int) -> bool:
+    """Restrict destructive lifecycle operations to the effective entity owner."""
+    project_id = todo.get("project_id")
+    if project_id is None:
+        return todo.get("user_id") == user_id
+    return can_edit_project(db, project_id, user_id)
 
 
 def _todo_attachment_write_access(db, todo: dict, user_id: int) -> bool:
     project_id = todo.get('project_id')
     if project_id is None:
         return todo.get('user_id') == user_id
-    return can_manage_todos(db, project_id, user_id) or todo.get('user_id') == user_id
+    return can_manage_todos(db, project_id, user_id)
 
 
 def _require_attachment_readable_todo(db, todo_id: int, user_id: int) -> dict:
@@ -709,16 +745,20 @@ def _location_reminders_for_todo(db, todo_id: int, user_id: Optional[int] = None
 
 def _sync_default_due_reminder(db, todo_id: int, user_id: int, due_date: Optional[str]):
     """Create/update the automatic due-date reminder without touching explicit reminders."""
+    todo = db.execute("SELECT user_id, project_id FROM todos WHERE id = ?", (todo_id,)).fetchone()
+    legacy_recipient_user_id = get_todo_reminder_recipient_user_id(db, todo) if todo else None
+    include_legacy = legacy_recipient_user_id == user_id
+    owner_filter = "(user_id = ? OR user_id IS NULL)" if include_legacy else "user_id = ?"
     rows = db.execute(
-        """SELECT id, COALESCE(source, 'explicit') AS source FROM reminders
-           WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL)""",
+        f"""SELECT id, COALESCE(source, 'explicit') AS source FROM reminders
+            WHERE todo_id = ? AND {owner_filter}""",
         (todo_id, user_id),
     ).fetchall()
     has_explicit = any(row['source'] != AUTO_REMINDER_SOURCE for row in rows)
     if has_explicit:
         return
     db.execute(
-        "DELETE FROM reminders WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL) AND COALESCE(source, 'explicit') = ?",
+        f"DELETE FROM reminders WHERE todo_id = ? AND {owner_filter} AND COALESCE(source, 'explicit') = ?",
         (todo_id, user_id, AUTO_REMINDER_SOURCE),
     )
     remind_at = _default_reminder_at_for_due_date(db, user_id, due_date)
@@ -752,10 +792,10 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         """
         if project_ids:
             placeholders = ','.join('?' for _ in project_ids)
-            sql += f" AND (t.user_id = ? OR t.project_id IN ({placeholders}))"
+            sql += f" AND ((t.project_id IS NULL AND t.user_id = ?) OR t.project_id IN ({placeholders}))"
             params.extend([user_id, *project_ids])
         else:
-            sql += " AND t.user_id = ?"
+            sql += " AND t.project_id IS NULL AND t.user_id = ?"
             params.append(user_id)
         if status:
             sql += " AND t.status = ?"
@@ -768,7 +808,8 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
             params.append(section_id)
         sql += " ORDER BY COALESCE(t.is_pinned, 0) DESC, CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
         rows = db.execute(sql, params).fetchall()
-        todos = [row_to_dict(r) for r in rows]
+        todos = [todo for row in rows if (todo := row_to_dict(row)) is not None]
+        todos_by_id = {todo["id"]: todo for todo in todos}
         todo_ids = [todo['id'] for todo in todos]
         reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         subtasks_by_todo = {todo_id: [] for todo_id in todo_ids}
@@ -778,14 +819,21 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         if todo_ids:
             placeholders = ','.join('?' for _ in todo_ids)
             reminder_rows = db.execute(
-                f"""SELECT id, todo_id, remind_at, sent_at, COALESCE(source, 'explicit') AS source FROM reminders
+                f"""SELECT id, todo_id, user_id AS reminder_user_id, remind_at, sent_at,
+                           COALESCE(source, 'explicit') AS source FROM reminders
                    WHERE todo_id IN ({placeholders}) AND (user_id = ? OR user_id IS NULL)
                    ORDER BY remind_at""",
                 [*todo_ids, user_id]
             ).fetchall()
             for reminder in reminder_rows:
                 reminder_dict = dict(reminder)
-                reminders_by_todo.setdefault(reminder_dict.pop('todo_id'), []).append(reminder_dict)
+                reminder_todo_id = reminder_dict.pop('todo_id')
+                reminder_owner_id = reminder_dict.pop('reminder_user_id')
+                if reminder_owner_id is None:
+                    todo = todos_by_id[reminder_todo_id]
+                    if get_todo_reminder_recipient_user_id(db, todo) != user_id:
+                        continue
+                reminders_by_todo.setdefault(reminder_todo_id, []).append(reminder_dict)
             subtask_rows = db.execute(
                 f"""SELECT id, todo_id, title, is_done, sort_order, created_at, updated_at
                    FROM todo_subtasks
@@ -857,6 +905,14 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     if data.status == 'done' and _has_open_subtasks(subtasks) and not data.confirm_incomplete_subtasks_completion:
         raise HTTPException(409, "Cannot complete todo with open subtasks without confirmation")
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        mutation_id = (data.client_mutation_id or "").strip() or None
+        if mutation_id:
+            receipt = creation_replay(db, "todo", user_id, mutation_id)
+            if receipt:
+                if not can_access_todo(db,receipt,user_id):
+                    raise HTTPException(403,"Not authorized")
+                return fetch_todo(db,receipt["id"],user_id)
         if data.project_id is None and data.section_id is None:
             data.project_id = get_user_inbox_project_id(db, user_id)
         _validate_todo_target(db, data.project_id, data.section_id, user_id)
@@ -867,10 +923,12 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
             raise HTTPException(422, "Recurring todos require due_date")
         c = db.execute(
             """INSERT INTO todos
-               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, recurring_rule, now, user_id)
+               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id,client_mutation_id,client_mutation_user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, recurring_rule, now, user_id,mutation_id,user_id if mutation_id else None)
         )
+        if c.lastrowid is None:
+            raise RuntimeError("Todo insert did not return an id")
         todo_id = c.lastrowid
         if subtasks:
             _replace_subtasks(db, todo_id, subtasks)
@@ -881,9 +939,10 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
         location = _validate_location_reminder(db, data.location_reminder, user_id)
         if location:
             _insert_location_reminder(db, todo_id, user_id, location)
+        record_task_route_choice(db,user_id,data.title,data.project_id,data.section_id,data.routing_feedback)
         db.commit()
         todo = fetch_todo(db, todo_id, user_id)
-        await broadcast_change("todo_create", todo, user_id, data.project_id)
+        await broadcast_todo_change(db, "todo_create", todo_id, user_id, data.project_id)
         return todo
 
 @router.get("/{todo_id}")
@@ -906,23 +965,65 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
     _validate_todo_status(data.status)
     subtasks_update = _normalize_subtasks(data.subtasks) if data.subtasks is not None else None
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         existing = fetch_todo(db, todo_id, user_id)
         if not existing:
             raise HTTPException(404, "Todo not found")
         if not _todo_project_access(db, existing, user_id):
             raise HTTPException(403, "Not authorized")
         dumped = data.model_dump(exclude_unset=True)
+        if (
+            data.status is not None
+            and (data.status == "archived" or existing.get("status") == "archived")
+            and not _todo_lifecycle_access(db, existing, user_id)
+        ):
+            raise HTTPException(403, "Only the entity owner can archive todos")
         effective_subtasks = subtasks_update if subtasks_update is not None else existing.get('subtasks', [])
         if dumped.get('status') == 'done' and existing.get('status') != 'done' and _has_open_subtasks(effective_subtasks) and not data.confirm_incomplete_subtasks_completion:
             raise HTTPException(409, "Cannot complete todo with open subtasks without confirmation")
         target_project_id = dumped.get('project_id', existing.get('project_id'))
         target_section_id = dumped.get('section_id', existing.get('section_id'))
         _validate_todo_target(db, target_project_id, target_section_id, user_id)
+        source_project_id = existing.get('project_id')
+        moving_projects = source_project_id != target_project_id
+        previous_recipient_ids = set()
+        if moving_projects:
+            if source_project_id is None:
+                previous_recipient_ids.add(existing.get('user_id'))
+            else:
+                previous_recipient_ids.update(get_project_participant_user_ids(db, source_project_id))
+        if moving_projects:
+            if source_project_id is None:
+                source_owner = ("user", existing.get('user_id'))
+                source_managed = existing.get('user_id') == user_id
+            else:
+                source_ownership = get_entity_ownership(db, "project", source_project_id) or {}
+                source_owner = (
+                    ("user", source_ownership.get("owner_user_id"))
+                    if source_ownership.get("owner_user_id") is not None
+                    else ("household", source_ownership.get("owner_household_id"))
+                )
+                source_managed = can_edit_project(db, source_project_id, user_id)
+            if target_project_id is None:
+                target_owner = ("user", user_id)
+                target_managed = True
+            else:
+                target_ownership = get_entity_ownership(db, "project", target_project_id) or {}
+                target_owner = (
+                    ("user", target_ownership.get("owner_user_id"))
+                    if target_ownership.get("owner_user_id") is not None
+                    else ("household", target_ownership.get("owner_household_id"))
+                )
+                target_managed = can_edit_project(db, target_project_id, user_id)
+            if source_owner != target_owner and (not source_managed or not target_managed):
+                raise HTTPException(403, "Only entity owners can move todos across ownership boundaries")
 
         updates = {}
         for f in ["title", "description", "priority", "is_pinned", "project_id", "section_id", "due_date", "status"]:
             if f in dumped:
                 updates[f] = dumped[f]
+        if moving_projects and target_project_id is None:
+            updates["user_id"] = user_id
         if 'recurring_rule' in dumped:
             updates['recurring_rule'] = _normalize_recurring_rule(dumped.get('recurring_rule'))
         effective_due_date = dumped.get('due_date', existing.get('due_date'))
@@ -937,7 +1038,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                 updates['completed_at'] = None
             if 'is_pinned' in updates:
                 updates['is_pinned'] = int(bool(updates['is_pinned']))
-            allowed_cols = {"title", "description", "priority", "is_pinned", "project_id", "section_id", "due_date", "status", "completed_at", "updated_at", "recurring_rule"}
+            allowed_cols = {"title", "description", "priority", "is_pinned", "project_id", "section_id", "due_date", "status", "completed_at", "updated_at", "recurring_rule", "user_id"}
             safe_updates = {k:v for k,v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
@@ -951,7 +1052,8 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                 if due_date_changed:
                     _sync_default_due_reminder(db, todo_id, user_id, effective_due_date)
             else:
-                if existing.get('user_id') == user_id:
+                legacy_reminder_owner_id = get_todo_reminder_recipient_user_id(db, existing)
+                if legacy_reminder_owner_id == user_id:
                     db.execute(
                         "DELETE FROM reminders WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL)",
                         (todo_id, user_id)
@@ -989,15 +1091,27 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                 reminder_base = data.remind_at or existing_reminder.get('remind_at')
                 next_remind_at = _next_recurring_datetime(reminder_base, rule)
             if next_due_date or next_remind_at:
-                existing_next = db.execute(
-                    """SELECT id FROM todos
-                       WHERE parent_id = ?
-                         AND user_id = ?
-                         AND COALESCE(due_date, '') = COALESCE(?, '')
-                         AND status != 'archived'
-                       ORDER BY id LIMIT 1""",
-                    (recurrence_series_parent_id, user_id, next_due_date)
-                ).fetchone()
+                if target_project_id is None:
+                    existing_next = db.execute(
+                        """SELECT id FROM todos
+                           WHERE parent_id = ?
+                             AND project_id IS NULL
+                             AND user_id = ?
+                             AND COALESCE(due_date, '') = COALESCE(?, '')
+                             AND status != 'archived'
+                           ORDER BY id LIMIT 1""",
+                        (recurrence_series_parent_id, user_id, next_due_date),
+                    ).fetchone()
+                else:
+                    existing_next = db.execute(
+                        """SELECT id FROM todos
+                           WHERE parent_id = ?
+                             AND project_id = ?
+                             AND COALESCE(due_date, '') = COALESCE(?, '')
+                             AND status != 'archived'
+                           ORDER BY id LIMIT 1""",
+                        (recurrence_series_parent_id, target_project_id, next_due_date),
+                    ).fetchone()
                 if existing_next:
                     recurrence_existing_next_id = existing_next['id']
                 else:
@@ -1018,16 +1132,40 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                         )
                     if next_remind_at:
                         _insert_reminder(db, recurrence_existing_next_id, next_remind_at, user_id, reminder_source)
+        feedback = data.routing_feedback
+        if feedback is None:
+            chosen_fields = []
+            if moving_projects:
+                chosen_fields.append("list")
+            if target_section_id != existing.get("section_id") and not moving_projects:
+                chosen_fields.append("section")
+            if chosen_fields:
+                feedback = legacy_feedback(db,user_id,"legacy-task-update:"+uuid.uuid4().hex,chosen_fields)
+        record_task_route_choice(db,user_id,updates.get("title",existing.get("title")),target_project_id,target_section_id,feedback)
         db.commit()
+        updated_todo_row = db.execute("SELECT * FROM todos WHERE id = ?", (todo_id,)).fetchone()
+        revoked_user_ids = {
+            previous_user_id
+            for previous_user_id in previous_recipient_ids
+            if previous_user_id is not None and not can_access_todo(db, updated_todo_row, previous_user_id)
+        }
         todo = fetch_todo(db, todo_id, user_id)
         if became_done and rule and recurrence_existing_next_id:
             recurrence_created_todo = fetch_todo(db, recurrence_existing_next_id, user_id)
             todo['recurrence_created_todo'] = recurrence_created_todo
-        broadcast_todo = dict(todo)
-        broadcast_todo.pop('recurrence_created_todo', None)
-        await broadcast_change("todo_update", broadcast_todo, user_id, todo.get('project_id'))
+        await broadcast_todo_change(db, "todo_update", todo_id, user_id, todo.get('project_id') if todo else target_project_id)
+        if revoked_user_ids:
+            await broadcast_sync_to_users(revoked_user_ids)
         if recurrence_created_todo and recurrence_inserted:
-            await broadcast_change("todo_create", recurrence_created_todo, user_id, recurrence_created_todo.get('project_id'))
+            if recurrence_existing_next_id is None:
+                raise RuntimeError("Recurring todo insert did not return an id")
+            await broadcast_todo_change(
+                db,
+                "todo_create",
+                recurrence_existing_next_id,
+                user_id,
+                recurrence_created_todo.get('project_id'),
+            )
         return todo
 
 
@@ -1221,7 +1359,7 @@ async def delete_todo_comment(todo_id: int, comment_id: int, user_id: int = Depe
         comment = db.execute("SELECT * FROM todo_comments WHERE id = ? AND todo_id = ?", (comment_id, todo_id)).fetchone()
         if not comment:
             raise HTTPException(404, "Comment not found")
-        if comment['user_id'] != user_id and existing.get('user_id') != user_id:
+        if comment['user_id'] != user_id and not _todo_lifecycle_access(db, existing, user_id):
             raise HTTPException(403, "Not authorized")
         now = now_iso()
         db.execute("DELETE FROM todo_comments WHERE id = ?", (comment_id,))
@@ -1253,20 +1391,20 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
     )
     suffix = Path(original_filename).suffix[:20]
     stored_filename = f"{secrets.token_hex(16)}{suffix}"
-    target_path = _stored_attachment_path(todo_id, stored_filename)
-    tmp_path = target_path.with_suffix(target_path.suffix + f".{secrets.token_hex(6)}.tmp")
+    upload_temp_root = ATTACHMENT_DIR / ".upload-temp"
+    tmp_path = upload_temp_root / f"{secrets.token_hex(16)}.tmp"
+    upload_temp_lease = AttachmentUploadTempLease(tmp_path)
+    upload_temp_lease.__enter__()
     try:
         with get_db() as db:
             todo = _require_attachment_writable_todo(db, todo_id, user_id)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
         size_bytes, sample = await _stream_attachment_to_temp(request, tmp_path)
         if size_bytes <= 0:
             raise HTTPException(400, "Attachment is required")
         detected_content_type = sniff_attachment_content_type(sample)
         with get_db() as db:
-            todo = _require_attachment_writable_todo(db, todo_id, user_id)
-            db.commit()
             db.execute("BEGIN IMMEDIATE")
+            todo = _require_attachment_writable_todo(db, todo_id, user_id)
             policy = enforce_attachment_upload_policy(
                 db,
                 user_id=user_id,
@@ -1278,8 +1416,8 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
             current_count = _attachment_count_for_todo(db, todo_id)
             if current_count >= MAX_ATTACHMENTS_PER_TODO:
                 raise HTTPException(422, "Too many attachments")
-            tmp_path.replace(target_path)
             now = now_iso()
+            upload_staging = None
             try:
                 cursor = db.execute(
                     """INSERT INTO todo_attachments
@@ -1287,19 +1425,31 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
                     (todo_id, user_id, original_filename, stored_filename, policy["content_type"], size_bytes, now),
                 )
+                upload_staging = AttachmentUploadStaging(tmp_path, {
+                    "id": cursor.lastrowid,
+                    "todo_id": todo_id,
+                    "stored_filename": stored_filename,
+                })
+                upload_staging.stage()
                 db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
-                db.commit()
+                commit_with_attachment_recovery(db, upload_staging)
             except Exception:
                 try:
-                    target_path.unlink(missing_ok=True)
+                    if upload_staging is not None and not upload_staging.preserve_for_recovery:
+                        db.rollback()
+                        upload_staging.rollback()
                 finally:
                     raise
+            upload_staging.publish()
             attachment = _public_attachment(_attachment_row(db, cursor.lastrowid))
             updated_todo = fetch_todo(db, todo_id, user_id)
             await broadcast_change("todo_attachment_create", _attachment_event_payload(db, todo_id, attachment=attachment), user_id, updated_todo.get('project_id'))
             return {"attachment": attachment, "todo": updated_todo, "usage": attachment_usage_payload(db, user_id)}
     finally:
-        tmp_path.unlink(missing_ok=True)
+        try:
+            tmp_path.unlink(missing_ok=True)
+        finally:
+            upload_temp_lease.__exit__(None, None, None)
 
 
 @router.get("/{todo_id}/attachments/{attachment_id}/download")
@@ -1325,16 +1475,16 @@ def download_todo_attachment(todo_id: int, attachment_id: int, user_id: int = De
 @router.delete("/{todo_id}/attachments/{attachment_id}")
 async def delete_todo_attachment(todo_id: int, attachment_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         todo = _require_attachment_writable_todo(db, todo_id, user_id)
         attachment = _attachment_row(db, attachment_id)
         if not attachment or int(attachment['todo_id']) != int(todo_id):
             raise HTTPException(404, "Attachment not found")
         now = now_iso()
-        db.execute("DELETE FROM todo_attachments WHERE id = ?", (attachment_id,))
-        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
-        db.commit()
-        path = _stored_attachment_path(todo_id, attachment['stored_filename'])
-        path.unlink(missing_ok=True)
+        with AttachmentFileCleanupBatch([attachment]) as cleanup:
+            db.execute("DELETE FROM todo_attachments WHERE id = ?", (attachment_id,))
+            db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+            commit_with_attachment_recovery(db, cleanup)
         updated_todo = fetch_todo(db, todo_id, user_id)
         await broadcast_change("todo_attachment_delete", _attachment_event_payload(db, todo_id, attachment_id=attachment_id), user_id, updated_todo.get('project_id'))
         return {"deleted": attachment_id, "todo": updated_todo}
@@ -1342,13 +1492,17 @@ async def delete_todo_attachment(todo_id: int, attachment_id: int, user_id: int 
 @router.delete("/{todo_id}")
 async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         existing = fetch_todo(db, todo_id, user_id)
         if not existing:
             raise HTTPException(404, "Todo not found")
-        if not _todo_project_access(db, existing, user_id):
+        if not _todo_lifecycle_access(db, existing, user_id):
             raise HTTPException(403, "Not authorized")
-        db.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
-        db.commit()
-        shutil.rmtree(ATTACHMENT_DIR / str(todo_id), ignore_errors=True)
+        required_todo_ids = [todo_id] if db.execute(
+            "SELECT 1 FROM todo_attachments WHERE todo_id = ? LIMIT 1", (todo_id,)
+        ).fetchone() else []
+        with AttachmentCleanupBatch([todo_id], required_todo_ids=required_todo_ids) as cleanup:
+            db.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
+            commit_with_attachment_recovery(db, cleanup)
         await broadcast_change("todo_delete", {"id": todo_id}, user_id, existing.get('project_id'))
         return {"deleted": todo_id}

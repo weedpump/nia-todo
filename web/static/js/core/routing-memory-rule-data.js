@@ -1,0 +1,104 @@
+// Generated from api/resources/routing_memory_rules.json. Do not edit by hand.
+export const routingMemoryRules = {
+  "version": 2,
+  "max_input_characters": 4096,
+  "max_tokens": 64,
+  "max_candidate_phrases": 256,
+  "min_ideographic_phrase_chars": 2,
+  "min_statistical_similarity": 0.5,
+  "min_term_route_fraction": 0.7,
+  "min_target_route_fraction": 0.7,
+  "min_target_score_margin": 0.1,
+  "ideographic_ranges": [
+    [
+      12294,
+      12295
+    ],
+    [
+      12321,
+      12329
+    ],
+    [
+      12344,
+      12346
+    ],
+    [
+      13312,
+      19903
+    ],
+    [
+      19968,
+      40959
+    ],
+    [
+      63744,
+      64109
+    ],
+    [
+      64112,
+      64217
+    ],
+    [
+      94180,
+      94180
+    ],
+    [
+      94194,
+      94198
+    ],
+    [
+      94208,
+      101589
+    ],
+    [
+      101631,
+      101662
+    ],
+    [
+      101760,
+      101874
+    ],
+    [
+      110960,
+      111355
+    ],
+    [
+      131072,
+      173791
+    ],
+    [
+      173824,
+      178205
+    ],
+    [
+      178208,
+      183981
+    ],
+    [
+      183984,
+      191456
+    ],
+    [
+      191472,
+      192093
+    ],
+    [
+      194560,
+      195101
+    ],
+    [
+      196608,
+      201546
+    ],
+    [
+      201552,
+      210041
+    ]
+  ],
+  "min_statistical_source_coverage": 0.5,
+  "unknown_term_weight": 0.6931471805599453,
+  "max_model_entries": 4000,
+  "min_typo_word_characters": 7,
+  "max_typo_edits": 1,
+  "max_typo_comparisons": 20000
+};

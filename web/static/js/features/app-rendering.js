@@ -4,6 +4,8 @@ import { getActiveLocale, t } from '../i18n/index.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { calculateDashboardMetrics, filterTodosForDashboard, filterTodosForDashboardDrilldown, filterTodosForTodayFocus, getEffectiveDashboardPreferences, selectDashboardWorkspaceTodos } from './dashboard-preferences.js';
+import { classifyEntityOwnership, renderEntitySidebarRow, renderEntitySidebarSection } from './entity-sidebar.js';
+import { renderSectionCollection } from './section-ui.js';
 
 export function createAppRenderingFeature({
   appVersion,
@@ -28,7 +30,6 @@ export function createAppRenderingFeature({
   getFocusProjectSearch,
   sortTodoList,
   renderTodoItem,
-  renderSectionHeader,
   renderCalendarView,
   cleanupCalendarView,
   getInvites,
@@ -96,7 +97,9 @@ export function createAppRenderingFeature({
   function getWorkspaceTodos() {
     const workspaceProjects = getWorkspaceProjects();
     const projectIds = new Set(workspaceProjects.map(project => Number(project.id)));
-    return selectDashboardWorkspaceTodos(getTodos(), projectIds, getCurrentWorkspaceId?.());
+    const identities = new Set(workspaceProjects.map(project => String(project.id)));
+    const scopedTodos = getTodos().filter(todo => todo.project_id == null || todo.project_id === '' || identities.has(String(todo.project_id)));
+    return selectDashboardWorkspaceTodos(scopedTodos, projectIds, getCurrentWorkspaceId?.());
   }
 
   function countByProject(pid) {
@@ -110,45 +113,43 @@ export function createAppRenderingFeature({
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
 
-    const ownProjects = projects.filter(p => !p.is_shared);
-    const sharedProjects = projects.filter(p => p.is_shared);
+    const personalProjects = projects.filter(project => classifyEntityOwnership(project) === 'personal');
+    const householdProjects = projects.filter(project => classifyEntityOwnership(project) === 'household');
+    const sharedProjects = projects.filter(project => classifyEntityOwnership(project) === 'shared');
 
-    const projectMap = new Map();
-    ownProjects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    function buildProjectTree(items) {
+      const projectMap = new Map();
+      items.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
+      const roots = [];
+      projectMap.forEach(project => {
+        const parent = project.parent_id == null ? null : projectMap.get(project.parent_id);
+        if (parent) parent.children.push(project);
+        else roots.push(project);
+      });
+      roots.sort((a, b) => {
+        if (!!a.is_inbox !== !!b.is_inbox) return a.is_inbox ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      return roots;
+    }
 
-    const rootProjects = [];
-    projectMap.forEach(p => {
-      if (p.parent_id === null || p.parent_id === undefined) {
-        rootProjects.push(p);
-      } else {
-        const parent = projectMap.get(p.parent_id);
-        if (parent) parent.children.push(p);
-      }
-    });
-
-    rootProjects.sort((a, b) => {
-      if (!!a.is_inbox !== !!b.is_inbox) return a.is_inbox ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
+    const personalRoots = buildProjectTree(personalProjects);
+    const householdRoots = buildProjectTree(householdProjects);
 
     function renderProjectTree(project, depth = 0) {
-      const indent = depth * 16;
       const hasChildren = project.children && project.children.length > 0;
-
-      let html = '';
-      html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
-      html += `<div class="nav-item-with-action">`;
-      const isActiveProject = Number(currentProjectId) === Number(project.id);
-      html += `<button class="nav-btn ui-nav-pill project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}" aria-label="${escapeHtmlAttr(project.name)}" title="${escapeHtmlAttr(project.name)}">`;
-      html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
-      html += `<span class="nav-label">${escapeHtml(project.name)}</span>`;
-      html += `<span class="badge">${countByProject(project.id)}</span>`;
-      html += `</button>`;
-      html += `<button class="nav-edit" data-project-action="edit" data-project-id="${escapeHtmlAttr(project.id)}" title="${escapeHtmlAttr(t('common.edit'))}">`;
-      html += iconSvg('edit-3');
-      html += `</button>`;
-      html += `</div>`;
-      html += `</div>`;
+      const isActiveProject = currentProjectId != null && String(currentProjectId) === String(project.id);
+      let html = renderEntitySidebarRow({
+        entity: project,
+        entityType: 'project',
+        active: isActiveProject,
+        count: countByProject(project.id),
+        depth,
+        rowClass: 'project-tree-item',
+        selectClass: 'project-drop-target',
+        selectAttributes: { 'data-filter': project.id, 'data-project-id': project.id },
+        detailAttributes: { 'data-project-id': project.id },
+      });
 
       if (hasChildren) {
         project.children.sort((a, b) => a.name.localeCompare(b.name));
@@ -159,14 +160,29 @@ export function createAppRenderingFeature({
     }
 
     let html = '';
-    if (rootProjects.length) {
-      html += rootProjects.map(p => renderProjectTree(p)).join('');
+    if (personalRoots.length) {
+      html += renderEntitySidebarSection({
+        section: 'personal',
+        rows: personalRoots.map(project => renderProjectTree(project)).join(''),
+        sectionAttributes: { 'data-project-section': 'personal' },
+      });
+    }
+    if (householdRoots.length) {
+      html += renderEntitySidebarSection({
+        section: 'household',
+        title: t('common.household'),
+        icon: 'house-heart',
+        rows: householdRoots.map(project => renderProjectTree(project)).join(''),
+        sectionAttributes: { 'data-project-section': 'household' },
+      });
     }
     if (sharedProjects.length) {
-      html += `<div class="nav-title shared-title">${escapeHtml(t('project.sharedProjects'))}</div>`;
-      for (const project of sharedProjects) {
-        html += renderProjectTree({ ...project, children: [] });
-      }
+      html += renderEntitySidebarSection({
+        section: 'shared',
+        title: t('common.sharedWithMe'),
+        rows: sharedProjects.map(project => renderProjectTree({ ...project, children: [] })).join(''),
+        sectionAttributes: { 'data-project-section': 'shared' },
+      });
     }
     el.innerHTML = html;
   }
@@ -681,7 +697,7 @@ export function createAppRenderingFeature({
     const search = document.getElementById('search-input')?.value?.trim().toLowerCase() || '';
 
     let filtered = getWorkspaceTodos();
-    if (currentProjectId) filtered = filtered.filter(t => t.project_id === currentProjectId);
+    if (currentProjectId) filtered = filtered.filter(t => String(t.project_id) === String(currentProjectId));
     if (search) {
       filtered = filtered.filter(t =>
         (t.title || '').toLowerCase().includes(search) ||
@@ -716,11 +732,11 @@ export function createAppRenderingFeature({
 
     if (currentProjectId) {
       let html = '';
-      const currentProject = projects.find(p => Number(p.id) === Number(currentProjectId));
-      const projectTodos = getWorkspaceTodos().filter(t => Number(t.project_id) === Number(currentProjectId));
+      const currentProject = projects.find(p => String(p.id) === String(currentProjectId));
+      const projectTodos = getWorkspaceTodos().filter(t => String(t.project_id) === String(currentProjectId));
       if (!search) html += renderProjectDashboard(currentProject, projectTodos);
-      const sections = allSections.filter(s => Number(s.project_id) === Number(currentProjectId));
-      const validSectionIds = new Set(sections.map(s => s.id));
+      const sections = allSections.filter(s => String(s.project_id) === String(currentProjectId));
+
 
       if (currentFilter !== 'all' && ['pending','in_progress','done'].includes(currentFilter)) {
         filtered = filtered.filter(t => t.status === currentFilter);
@@ -737,30 +753,21 @@ export function createAppRenderingFeature({
         </div>`;
       }
 
-      sections.forEach((section, index) => {
-        const sectionTodos = sortProjectSectionTodos(sectionSource.filter(t => t.section_id === section.id));
-        html += `<div class="section-dropzone" data-drop-index="${index}"></div>`;
-        html += renderSectionHeader(section, sectionTodos);
-        html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}">`;
-        html += sectionTodos.map(t => renderTodoItem(t)).join('');
-        html += `</div>`;
+      const sectionItems = sectionSource.map(todo => todo);
+      const validSectionIds = new Set(sections.map(section => String(section.id)));
+      const unsortedCount = sectionItems.filter(todo => todo.section_id == null || !validSectionIds.has(String(todo.section_id))).length;
+      html += renderSectionCollection({
+        sections,
+        items: sectionItems,
+        canManage: true,
+        unsortedLabel: t('section.unsorted'),
+        deleteLabel: t('section.delete'),
+        newLabel: t('section.new'),
+        clearCompletedLabel: t('todo.clearDone'),
+        renderItem: todo => renderTodoItem(todo),
+        sortItems: sortProjectSectionTodos,
+        showUnsorted: Boolean(unsortedCount || sections.length),
       });
-      if (sections.length) {
-        html += `<div class="section-dropzone" data-drop-index="${sections.length}"></div>`;
-      }
-
-      const unsorted = sortProjectSectionTodos(sectionSource.filter(t => !t.section_id || !validSectionIds.has(t.section_id)));
-      if (unsorted.length || sections.length) {
-        html += renderSectionHeader(null, unsorted);
-        html += `<div class="section-todos" data-section-id="null">`;
-        html += unsorted.map(t => renderTodoItem(t)).join('');
-        html += `</div>`;
-      }
-
-      html += `<div class="add-section-row">
-        <button type="button" class="btn btn-secondary btn-small" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
-        <button type="button" class="btn btn-secondary btn-small" data-project-action="clear-done-current">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
-      </div>`;
 
       if (!filtered.length && !sections.length) {
         html += `<div class="empty-state">
@@ -916,30 +923,5 @@ export function createAppRenderingFeature({
     if (currentFilter === 'focus') hydrateFocusControls();
   }
 
-  function renderInvites(invites) {
-    const section = document.getElementById('invites-section');
-    const el = document.getElementById('invites-list');
-    if (!section || !el) return;
-    if (!invites || !invites.length) {
-      section.style.display = 'none';
-      el.innerHTML = '';
-      return;
-    }
-    section.style.display = '';
-    let html = '';
-    for (const invite of invites) {
-      html += `
-        <div class="invite-item" data-invite-id="${escapeHtmlAttr(invite.id)}">
-          <span class="invite-title">${iconSvg('mail')} ${escapeHtml(invite.project_name)}</span>
-          <div class="invite-actions">
-            <button class="btn btn-secondary btn-icon invite-action invite-accept" data-project-sharing-action="accept-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.accept'))}" aria-label="${escapeHtmlAttr(t('invite.acceptAria'))}">${iconSvg('check')}</button>
-            <button class="btn btn-danger btn-icon invite-action invite-decline" data-project-sharing-action="decline-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.decline'))}" aria-label="${escapeHtmlAttr(t('invite.declineAria'))}">${iconSvg('x')}</button>
-          </div>
-        </div>
-      `;
-    }
-    el.innerHTML = html;
-  }
-
-  return { renderVersionInfo, renderProjects, renderStats, renderTodos, countByProject, renderInvites };
+  return { renderVersionInfo, renderProjects, renderStats, renderTodos, countByProject };
 }

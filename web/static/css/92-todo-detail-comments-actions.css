@@ -9,13 +9,6 @@
   background: transparent;
 }
 
-#todo-modal.todo-detail-view .todo-subtasks-card:hover,
-#todo-modal.todo-detail-view .todo-attachments-card:hover,
-#todo-modal.todo-detail-view .todo-comments-card:hover {
-  border-color: color-mix(in srgb, var(--border) 44%, transparent);
-  background: transparent;
-}
-
 #todo-modal.todo-detail-view #todo-attachment-file-name {
   max-width: 150px;
   overflow: hidden;

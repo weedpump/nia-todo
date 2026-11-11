@@ -1,11 +1,16 @@
+import { normalizeQuantityUnit, formatQuantityUnit } from '../core/quantity-units.js';
 import { API } from '../core/config.js';
 import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
 import { hydrateIcons, iconSvg } from '../icons/lucide-icons.js';
-import { t } from '../i18n/index.js';
+import { t, getActiveLocale } from '../i18n/index.js';
 import { closeOpenDropdown, hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { renderDetailModalFrame } from '../ui/detail-modal.js';
+import { brainDumpCandidateModule, brainDumpOriginalRoute, brainDumpCandidateError, brainDumpCandidatePayload, brainDumpCandidateMemoryFields, changeBrainDumpCandidateModule, resolveBrainDumpShoppingTarget } from './braindump-candidate-review.js';
+import { formatShoppingQuantity } from './shopping-items.js';
+import { renderQuickAddChips } from './quick-add.js';
 
 const SILENCE_LEVEL = 0.035;
 const NATIVE_VOICE_LEVEL = 0.09;
@@ -53,6 +58,10 @@ export function createBrainDumpLiveFeature(options = {}) {
   const nativeBridge = createNativeBridge();
   const state = {
     accessChecked: false,
+    accessToken: null,
+    accessPromise: null,
+    sessionAuthToken: null,
+    initTimer: null,
     enabled: false,
     recorder: null,
     stream: null,
@@ -97,41 +106,106 @@ export function createBrainDumpLiveFeature(options = {}) {
     editingCandidateKey: '',
     workspaceId: null,
     savedPlaces: [],
+    taskSections: null,
+    taskSectionsRequest: 0,
+    taskSectionsPromise: null,
   };
 
-  async function init() {
+  async function init({ forceAccess = false } = {}) {
+    if (forceAccess) state.accessChecked = false;
     const app = document.getElementById('app');
-    if (!app || document.getElementById('braindump-modal')) return;
+    if (!app) return scheduleInitRetry();
     const loginOverlay = document.getElementById('login-overlay');
     const loginVisible = loginOverlay && window.getComputedStyle(loginOverlay).display !== 'none';
-    if (loginVisible || !getAuthToken()) return scheduleInitRetry();
+    if (loginVisible || !getAuthToken()) {
+      state.accessChecked = false;
+      state.enabled = false;
+      refreshLauncher({ checkAccess: false });
+      return scheduleInitRetry();
+    }
     await checkAccess();
-    if (!state.enabled) return;
+    if (!state.enabled) {
+      refreshLauncher({ checkAccess: false });
+      if (!state.accessChecked) scheduleInitRetry();
+      return;
+    }
+    if (state.initTimer) clearTimeout(state.initTimer);
+    state.initTimer = null;
+    state.initAttempts = 0;
     injectLauncher();
     injectModal();
     window.openBrainDump = open;
+    refreshLauncher({ checkAccess: false });
   }
 
   function scheduleInitRetry() {
-    if (state.initAttempts >= 8 || document.getElementById('braindump-modal')) return;
-    state.initAttempts += 1;
-    setTimeout(init, 1500);
+    if (state.initTimer) return;
+    state.initTimer = setTimeout(() => {
+      state.initTimer = null;
+      void init();
+    }, Math.min(30000, 1500 * (2 ** Math.min(state.initAttempts++, 5))));
   }
 
   async function checkAccess() {
-    if (state.accessChecked) return;
-    state.accessChecked = true;
-    try {
+    const token = getAuthToken();
+    if (state.accessChecked && state.accessToken === token) return;
+    if (state.accessPromise && state.accessToken === token) return state.accessPromise;
+    state.accessToken = token;
+    const request = (async () => { try {
       const response = await fetch(`${API}/api/braindump/v2/access`, {
         headers: getAuthHeaders(),
         credentials: 'include',
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        if (response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) {
+          if (state.accessToken === token && getAuthToken() === token) {
+            state.accessChecked = true;
+            state.enabled = false;
+          }
+          return;
+        }
+        throw new Error('BrainDump access unavailable');
+      }
       const data = await response.json();
+      if (state.accessToken !== token || getAuthToken() !== token) return;
+      state.accessChecked = true;
       state.enabled = Boolean(data.enabled);
     } catch {
-      state.enabled = false;
+      if (state.accessToken === token) {
+        state.accessChecked = false;
+        state.enabled = false;
+      }
+    } })();
+    state.accessPromise = request;
+    try { await request; } finally {
+      if (state.accessPromise === request) state.accessPromise = null;
     }
+  }
+
+  function supportedModules() {
+    if (typeof options.getSupportedModules !== 'function') return ['tasks'];
+    return [...new Set(options.getSupportedModules() || [])].filter(id => ['tasks', 'shopping'].includes(id));
+  }
+
+  let publishedAccess = null;
+  const hasAccess = () => Boolean(state.accessChecked && state.enabled && state.accessToken === getAuthToken() && getAuthToken());
+  function refreshLauncher({ checkAccess = true } = {}) {
+    const access = hasAccess();
+    if (publishedAccess !== access) { publishedAccess = access; options.onAccessChange?.(access); }
+    const fab = document.getElementById('braindump-fab');
+    const root = options.getLauncherRoot?.() || document.body;
+    if (fab && fab.parentElement !== root) root?.appendChild(fab);
+    const active = options.getActiveModule?.() || 'tasks';
+    const visible = state.enabled && state.accessToken === getAuthToken() && Boolean(getAuthToken()) && supportedModules().includes(active);
+    if (fab) {
+      fab.hidden = !visible;
+      fab.disabled = !visible;
+    }
+    if (document.getElementById('braindump-modal')?.classList.contains('active')) {
+      if (!visible || (state.sessionAuthToken && state.sessionAuthToken !== getAuthToken())) void close();
+      else { state.candidateRenderSignature = ''; render(); void loadTaskSections({force:true}); }
+    }
+    if (checkAccess && (!state.enabled || state.accessToken !== getAuthToken()) && getAuthToken()) void init();
   }
 
   function injectLauncher() {
@@ -143,7 +217,8 @@ export function createBrainDumpLiveFeature(options = {}) {
     updateLauncherLabel(fab);
     fab.innerHTML = iconSvg('mic');
     fab.addEventListener('click', open);
-    document.body.appendChild(fab);
+    const launcherRoot = options.getLauncherRoot?.() || document.body;
+    launcherRoot.appendChild(fab);
   }
 
   function updateLauncherLabel(fab = document.getElementById('braindump-fab')) {
@@ -154,23 +229,26 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   function injectModal() {
     if (document.getElementById('braindump-modal')) return;
-    const modal = document.createElement('div');
-    modal.id = 'braindump-modal';
-    modal.className = 'modal braindump-modal ui-detail-modal ui-detail-view';
-    modal.innerHTML = `
-      <div class="modal-overlay" id="braindump-overlay"></div>
-      <div class="modal-content braindump-modal-content ui-detail-modal-content" role="dialog" aria-modal="true" aria-labelledby="braindump-title">
-        <div class="braindump-hero ui-detail-modal-header">
+    const template = document.createElement('template');
+    template.innerHTML = renderDetailModalFrame({
+      id: 'braindump-modal',
+      rootClasses: 'modal braindump-modal ui-detail-modal ui-detail-view',
+      rootAttributes: { 'aria-hidden': 'true' },
+      overlayId: 'braindump-overlay',
+      overlayAttributes: {},
+      contentClasses: 'modal-content braindump-modal-content ui-detail-modal-content',
+      contentAttributes: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'braindump-title' },
+      bodyClasses: 'modal-body braindump-body ui-detail-modal-body',
+      headerHtml: `<div class="braindump-hero ui-detail-modal-header">
           <div class="braindump-orb ui-detail-title-icon" id="braindump-orb">${iconSvg('sparkles')}</div>
           <div>
             <h3 id="braindump-title">${t('braindump.title')}</h3>
             <p id="braindump-subtitle">${t('braindump.subtitle')}</p>
           </div>
           <button class="modal-close-x braindump-close" id="braindump-close" type="button" aria-label="${escapeHtml(t('common.close'))}" title="${escapeHtml(t('common.close'))}">${iconSvg('x')}</button>
-        </div>
-        <div class="modal-body braindump-body ui-detail-modal-body">
-          <div class="braindump-shell ui-detail-shell">
-            <section class="ui-section-card ui-detail-section braindump-stage-section" id="braindump-stage">
+        </div>`,
+      bodyHtml: `          <div class="braindump-shell ui-detail-shell">
+            <section class="ui-section-card ui-detail-section ui-section-divider braindump-stage-section" id="braindump-stage">
               <div class="ui-section-heading ui-detail-section-heading braindump-section-heading">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="mic"></div>
                 <div>
@@ -181,7 +259,7 @@ export function createBrainDumpLiveFeature(options = {}) {
               <div class="braindump-wave" id="braindump-wave" aria-hidden="true">${Array.from({ length: 24 }, (_, index) => `<span style="--i:${index}"></span>`).join('')}</div>
               <div class="braindump-processing" id="braindump-processing" hidden><span class="braindump-spinner" aria-hidden="true"></span><span id="braindump-processing-text">${t('braindump.processing.transcribing')}</span></div>
             </section>
-            <section class="ui-section-card ui-detail-section braindump-transcript-section" id="braindump-transcript-section" hidden>
+            <section class="ui-section-card ui-detail-section ui-section-divider braindump-transcript-section" id="braindump-transcript-section" hidden>
               <div class="ui-section-heading ui-detail-section-heading braindump-section-heading">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
                 <div>
@@ -191,7 +269,7 @@ export function createBrainDumpLiveFeature(options = {}) {
               </div>
               <div class="braindump-transcript" id="braindump-transcript"></div>
             </section>
-            <section class="ui-section-card ui-detail-section braindump-results" id="braindump-results" hidden>
+            <section class="ui-section-card ui-detail-section ui-section-divider braindump-results" id="braindump-results" hidden>
               <div class="ui-section-heading ui-detail-section-heading braindump-results-head">
                 <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
                 <div>
@@ -204,16 +282,15 @@ export function createBrainDumpLiveFeature(options = {}) {
               <div class="braindump-create-status" id="braindump-create-status"></div>
             </section>
             <div class="braindump-error" id="braindump-error" hidden></div>
-          </div>
-        </div>
-        <div class="modal-actions braindump-actions">
+          </div>`,
+      footerHtml: `<div class="modal-actions braindump-actions">
           <button type="button" class="btn btn-secondary" id="braindump-cancel">${t('common.close')}</button>
           <button type="button" class="btn btn-secondary" id="braindump-retry" hidden>${t('braindump.retry')}</button>
           <button type="button" class="btn btn-primary" id="braindump-record" hidden>${t('braindump.record.finish')}</button>
           <button type="button" class="btn btn-primary" id="braindump-create" hidden disabled>${t('braindump.create')}</button>
-        </div>
-      </div>
-    `;
+        </div>`,
+    });
+    const modal = template.content.firstElementChild;
     document.body.appendChild(modal);
     hydrateIcons(modal);
     document.getElementById('braindump-overlay')?.addEventListener('click', close);
@@ -227,6 +304,9 @@ export function createBrainDumpLiveFeature(options = {}) {
       updateLauncherLabel();
       updateStaticLabels();
       render();
+    });
+    window.addEventListener('nia:access-snapshot', () => {
+      if (document.getElementById('braindump-modal')?.classList.contains('active')) void loadTaskSections({force:true});
     });
     window.addEventListener('nia:saved-places-updated', (event) => {
       state.savedPlaces = Array.isArray(event.detail?.places) ? event.detail.places : [];
@@ -246,7 +326,11 @@ export function createBrainDumpLiveFeature(options = {}) {
       const field = event.target?.closest?.('[data-bd-field]');
       if (field) {
         updateCandidateField(field);
-        if (field.tagName === 'SELECT') refreshSelect(field);
+        if (field.tagName === 'SELECT') {
+          const nextField = Array.from(modal.querySelectorAll('select[data-bd-field]')).find(candidate => candidate.dataset.bdCandidateKey === field.dataset.bdCandidateKey && candidate.dataset.bdField === field.dataset.bdField);
+          refreshSelect(nextField);
+          nextField?.focus();
+        }
       }
     });
     modal.addEventListener('input', (event) => {
@@ -288,7 +372,9 @@ export function createBrainDumpLiveFeature(options = {}) {
   function open() {
     injectModal();
     updateStaticLabels();
+    if (typeof options.getActiveModule === 'function' && (!state.enabled || !supportedModules().includes(options.getActiveModule()))) return;
     document.getElementById('braindump-modal')?.classList.add('active');
+    document.getElementById('braindump-modal')?.setAttribute('aria-hidden', 'false');
     openUiLayer('braindump-modal');
     render();
     void loadSavedPlaces();
@@ -301,6 +387,8 @@ export function createBrainDumpLiveFeature(options = {}) {
     if (document.getElementById('braindump-modal')?.classList.contains('active') && !fromHistory && requestCloseUiLayer('braindump-modal', { reason: 'ui' })) return;
     cancelSession();
     document.getElementById('braindump-modal')?.classList.remove('active');
+    document.getElementById('braindump-modal')?.setAttribute('aria-hidden', 'true');
+    document.getElementById('braindump-fab')?.focus();
   }
 
   registerUiLayer('braindump-modal', () => { void close({ fromHistory: true }); });
@@ -323,6 +411,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.processingPhase = '';
     state.candidateRenderSignature = '';
     state.starting = false;
+    state.creating = false;
     state.level = 0;
     state.peak = 0;
     state.startedAt = 0;
@@ -331,6 +420,40 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.hasVoice = false;
     state.voiceStartedAt = 0;
     state.workspaceId = null;
+    state.sessionAuthToken = null;
+    state.taskSections = null;
+    state.taskSectionsRequest++;
+    state.taskSectionsPromise = null;
+  }
+
+  function getTaskSections() {
+    return typeof options.loadTaskSections === 'function' ? state.taskSections || [] : options.getSections?.() || [];
+  }
+
+  async function loadTaskSections({force=false} = {}) {
+    if (typeof options.loadTaskSections !== 'function') return true;
+    if (!force && state.taskSectionsPromise) return state.taskSectionsPromise;
+    if (!force && state.taskSections !== null) return true;
+    const auth = getAuthToken(), token = state.startToken, workspace = activeWorkspaceId();
+    const request = ++state.taskSectionsRequest;
+    const sameSession = () => Boolean(auth && auth === getAuthToken() && auth === state.sessionAuthToken
+      && token === state.startToken && workspace === activeWorkspaceId()
+      && document.getElementById('braindump-modal')?.classList.contains('active'));
+    const current = () => sameSession() && request === state.taskSectionsRequest;
+    const operation = Promise.resolve().then(() => options.loadTaskSections()).then(rows => {
+      if (!sameSession()) return false;
+      if (!current()) return loadTaskSections();
+      if (!Array.isArray(rows)) throw new Error('Invalid section catalog');
+      state.taskSections = rows;
+      state.candidateRenderSignature = '';
+      render();
+      return true;
+    }).catch(() => {
+      if (sameSession() && !current()) return loadTaskSections();
+      return false;
+    }).finally(() => { if (state.taskSectionsPromise === operation) state.taskSectionsPromise = null; });
+    state.taskSectionsPromise = operation;
+    return operation;
   }
 
   async function loadSavedPlaces() {
@@ -397,8 +520,10 @@ export function createBrainDumpLiveFeature(options = {}) {
     }
     resetSession();
     state.workspaceId = currentWorkspaceId();
+    state.sessionAuthToken = getAuthToken();
     const startToken = state.startToken + 1;
     state.startToken = startToken;
+    void loadTaskSections();
     state.starting = true;
     render();
     try {
@@ -409,7 +534,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       try {
         const stream = await getMicrophoneStream();
         const modalActive = document.getElementById('braindump-modal')?.classList.contains('active');
-        if (startToken !== state.startToken || !state.starting || !modalActive) {
+        if (startToken !== state.startToken || state.sessionAuthToken !== getAuthToken() || !state.starting || !modalActive) {
           stream?.getTracks?.().forEach((track) => track.stop());
           return;
         }
@@ -417,7 +542,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       } catch (error) {
         if (!hasNativeAudioBridge()) throw error;
         const modalActive = document.getElementById('braindump-modal')?.classList.contains('active');
-        if (startToken !== state.startToken || !state.starting || !modalActive) return;
+        if (startToken !== state.startToken || state.sessionAuthToken !== getAuthToken() || !state.starting || !modalActive) return;
         console.warn('[BrainDump] WebView microphone capture failed; using native Android recorder', error);
         startNativeAudioRecording();
         return;
@@ -643,6 +768,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       audioEndMs,
       kind: reason,
       sessionToken: state.startToken,
+      authToken: state.sessionAuthToken,
     };
     state.latestQueuedSegmentId = item.segmentId;
     if (state.stoppedAt) {
@@ -699,6 +825,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   async function processSegment({ item, blob }) {
     const sessionToken = item.sessionToken;
     if (sessionToken !== state.startToken) return;
+    if (!item.authToken || item.authToken !== getAuthToken()) return;
     const workspaceId = activeWorkspaceId();
     const params = new URLSearchParams({
       segment_id: String(item.segmentId),
@@ -720,6 +847,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       if (!transcribeResponse.ok) throw new Error(await transcribeResponse.text());
       const transcribed = await transcribeResponse.json();
       if (sessionToken !== state.startToken) return;
+    if (!item.authToken || item.authToken !== getAuthToken()) return;
       if (state.stoppedAt && item.segmentId < state.finalSegmentId) return;
       if (!state.stoppedAt && item.segmentId < state.latestQueuedSegmentId) return;
       state.transcript = transcribed.transcript || state.transcript || '';
@@ -736,20 +864,25 @@ export function createBrainDumpLiveFeature(options = {}) {
           audio_start_ms: item.audioStartMs,
           audio_end_ms: item.audioEndMs,
           workspace_id: workspaceId ? Number(workspaceId) : null,
+          ...(typeof options.getSupportedModules === 'function' ? { supported_modules: supportedModules() } : {}),
         }),
       });
       if (!extractResponse.ok) throw new Error(await extractResponse.text());
       const data = await extractResponse.json();
       if (sessionToken !== state.startToken) return;
+    if (!item.authToken || item.authToken !== getAuthToken()) return;
       if (state.stoppedAt && item.segmentId < state.finalSegmentId) return;
       if (!state.stoppedAt && item.segmentId < state.latestQueuedSegmentId) return;
       const candidates = Array.isArray(data.json?.candidates) ? data.json.candidates : [];
+      if (candidates.some(candidate => brainDumpCandidateModule(candidate) === 'tasks') && !await loadTaskSections()) throw new Error(t('common.error'));
+      if (sessionToken !== state.startToken || !item.authToken || item.authToken !== getAuthToken()) return;
       state.latestAppliedSegmentId = Math.max(state.latestAppliedSegmentId, item.segmentId);
       applyCandidates(candidates);
       state.error = '';
       if (state.stoppedAt && item.segmentId === state.finalSegmentId) state.finalProcessed = true;
     } catch (error) {
       if (sessionToken !== state.startToken) return;
+    if (!item.authToken || item.authToken !== getAuthToken()) return;
       state.error = String(error?.message || error);
       state.processing = false;
       state.processingPhase = '';
@@ -757,7 +890,10 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function rawCandidateKey(candidate) {
-    return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder, JSON.stringify(candidate.recurring_rule || null), JSON.stringify(candidate.location_reminder || null)].map((value) => String(value || '').trim()).join('|');
+    return JSON.stringify([brainDumpCandidateModule(candidate), candidate.title, candidate.project_id, candidate.section_id, candidate.project_name, candidate.section_name,
+      candidate.deadline, candidate.reminder, candidate.recurring_rule, candidate.location_reminder,
+      candidate.shopping_list_id, candidate.shopping_section_id, candidate.shopping_store_ids,
+      candidate.quantity_value, candidate.quantity_unit]);
   }
 
   function candidateKey(candidate) {
@@ -769,48 +905,64 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function applyCandidates(candidates) {
-    const previousByRawKey = new Map(state.candidates.map(candidate => [rawCandidateKey(candidate), candidate]));
-    const nextCandidates = (Array.isArray(candidates) ? candidates : []).map((candidate) => {
-      const next = { ...candidate };
-      const previous = previousByRawKey.get(rawCandidateKey(candidate));
-      if (previous?._bdId) next._bdId = previous._bdId;
-      next.original_project_name = previous?.original_project_name ?? next.project_name ?? null;
-      next.original_section_name = previous?.original_section_name ?? next.section_name ?? null;
+    const previousByRawKey = new Map();
+    for (const candidate of state.candidates) {
+      const key = candidate._bdSourceKey || rawCandidateKey(candidate);
+      if (!previousByRawKey.has(key)) previousByRawKey.set(key, []);
+      previousByRawKey.get(key).push(candidate);
+    }
+    const previousSelected = state.selectedCandidateKeys;
+    const nextCandidates = (Array.isArray(candidates) ? candidates : []).map(candidate => {
+      const sourceKey = rawCandidateKey(candidate);
+      const previous = previousByRawKey.get(sourceKey)?.shift();
+      const next = { ...candidate, ...(previous?._bdEdited || {}) };
+      next._bdId = previous?._bdId;
+      next._bdSourceKey = sourceKey;
+      next._bdEdited = previous?._bdEdited || {};
+      next._bdSaved = Boolean(previous?._bdSaved);
+      next._bdOriginalRoute = previous?._bdOriginalRoute || brainDumpOriginalRoute(candidate);
+      next._bdRoutingFields = previous?._bdRoutingFields || [];
+      next._bdMemoryInvalidated = Boolean(previous?._bdMemoryInvalidated);
+      next._bdMemoryFields = next._bdMemoryInvalidated ? [] : candidate.memory_route_fields ?? [];
+      next._bdRoutingListChanged = previous?._bdRoutingListChanged || false;
+      next._bdRoutingProjectChanged = previous?._bdRoutingProjectChanged || false;
+      next._bdRoutingEventId = previous?._bdRoutingEventId || `bd-route-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+      next.client_mutation_id = previous?.client_mutation_id || `temp-bd-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${state.candidateIdCounter + 1}-${Math.random().toString(16).slice(2)}`}`;
+      next._bdSubmittedPayload = previous?._bdSubmittedPayload || null;
+      next._bdModuleDrafts = previous?._bdModuleDrafts || {};
+      next._bdModuleRoutingDrafts = previous?._bdModuleRoutingDrafts || {};
+      next.original_project_name = next._bdOriginalRoute.original_project_name;
+      next.original_section_name = next._bdOriginalRoute.original_section_name;
       next.original_route_present = true;
       candidateKey(next);
+      next._bdSelected = !next._bdSaved && (!previous || previousSelected.has(next._bdId));
       return next;
     });
-    const previousSelected = state.selectedCandidateKeys;
     state.candidates = nextCandidates;
-    state.selectedCandidateKeys = new Set(nextCandidates.map((candidate) => {
-      const key = candidateKey(candidate);
-      return previousSelected.size === 0 || previousSelected.has(key) ? key : null;
-    }).filter(Boolean));
+    state.selectedCandidateKeys = new Set(nextCandidates.filter(candidate => candidate._bdSelected).map(candidateKey));
     state.candidateRenderSignature = '';
   }
 
   function candidateForCreate(candidate) {
-    const { _bdId, ...clean } = candidate;
-    if (clean.location_reminder) {
-      const location = clean.location_reminder;
-      clean.location_reminder = {
-        trigger_type: location.trigger_type === 'departure' ? 'departure' : 'arrival',
-        place_id: location.place_id || null,
-        place_name: location.place_name || null,
-      };
-    }
-    return clean;
+    return brainDumpCandidatePayload(candidate, { routingMemory: options.routingMemory });
+  }
+
+  function selectedCandidateRecords() {
+    return state.candidates.filter(candidate => !candidate._bdSaved && state.selectedCandidateKeys.has(candidateKey(candidate)));
   }
 
   function selectedCandidates() {
-    return state.candidates
-      .filter((candidate) => state.selectedCandidateKeys.has(candidateKey(candidate)))
-      .map(candidateForCreate);
+    return selectedCandidateRecords().map(candidateForCreate);
+  }
+
+  function candidateError(candidate) {
+    return brainDumpCandidateError(candidate, { actorId: options.getActorId?.() ?? null, modules: supportedModules(), lists: options.getShoppingLists?.() || [], stores: options.getShoppingStores?.() || [], projects: getProjectOptions(), sections: getTaskSections() });
   }
 
   function toggleAllCandidates() {
-    const allSelected = state.candidates.length && selectedCandidates().length === state.candidates.length;
-    state.selectedCandidateKeys = allSelected ? new Set() : new Set(state.candidates.map(candidateKey));
+    const available = state.candidates.filter(candidate => !candidate._bdSaved);
+    const allSelected = available.length && selectedCandidates().length === available.length;
+    state.selectedCandidateKeys = allSelected ? new Set() : new Set(available.map(candidateKey));
     render();
   }
 
@@ -821,8 +973,40 @@ export function createBrainDumpLiveFeature(options = {}) {
   function updateCandidateField(field, { rerender = true } = {}) {
     const candidate = findCandidate(field.getAttribute('data-bd-candidate-key'));
     const name = field.getAttribute('data-bd-field');
-    if (!candidate || !name) return;
-    if (name === 'deadline' || name === 'reminder') {
+    if (!candidate || !name || candidate._bdSaved || candidate._bdSubmittedPayload || state.creating || state.starting || state.recording || state.processing) return;
+    if (name === 'module_id') {
+      if (!supportedModules().includes(field.value)) return;
+      changeBrainDumpCandidateModule(candidate, field.value);
+    } else if (name === 'project_name') {
+      const project = projectForOption(field.value);
+      candidate.project_id = project?.id ?? null;
+      candidate.project_name = project?.name || field.value || null;
+      candidate.section_id = null;
+      candidate.section_name = null;
+      candidate._bdRoutingProjectChanged = true;
+      candidate._bdRoutingFields = (candidate._bdRoutingFields || []).filter(value => value === 'list');
+    } else if (name === 'section_name') {
+      const sections = getSectionOptionsForProject(candidate);
+      const named = sections.filter(value => String(value.name) === field.value);
+      const section = sections.find(value => String(value.id) === field.value) || (named.length === 1 ? named[0] : null);
+      candidate.section_id = section?.id ?? null;
+      candidate.section_name = section?.name || field.value || null;
+    } else if (name === 'shopping_list_id') {
+      candidate.shopping_list_id = field.value || null;
+      candidate._bdRoutingListChanged = true;
+      candidate._bdRoutingFields = (candidate._bdRoutingFields || []).filter(field => field === 'list');
+      candidate.shopping_section_id = null;
+      candidate.shopping_store_ids = [];
+    } else if (name === 'shopping_section_id') {
+      candidate.shopping_section_id = field.value || null;
+    } else if (name === 'shopping_store_ids') {
+      candidate.shopping_store_ids = field.value ? [field.value] : [];
+    } else if (name === 'quantity_unit') {
+      candidate.quantity_unit = rerender ? normalizeQuantityUnit(field.value) : field.value || null;
+      if (rerender) field.value = formatQuantityUnit(candidate.quantity_unit, getActiveLocale());
+    } else if (name === 'quantity_value') {
+      candidate.quantity_value = field.value === '' ? null : field.value;
+    } else if (name === 'deadline' || name === 'reminder') {
       candidate[name] = dateTimeLocalToIso(field.value);
     } else if (name === 'recurring_frequency') {
       const frequency = field.value || 'none';
@@ -857,9 +1041,21 @@ export function createBrainDumpLiveFeature(options = {}) {
     } else {
       candidate[name] = field.value || null;
     }
-    if (name === 'project_name') candidate.section_name = null;
+    if (['title', 'shopping_list_id', 'project_name', 'module_id'].includes(name)) { candidate._bdMemoryFields = []; candidate._bdMemoryInvalidated = true; }
+    const routeField = { project_name: 'list', section_name: 'section', shopping_list_id: 'list', shopping_section_id: 'section', shopping_store_ids: 'stores' }[name];
+    if (routeField) {
+      candidate._bdRoutingFields = [...new Set([...(candidate._bdRoutingFields || []), routeField])];
+      candidate._bdMemoryFields = brainDumpCandidateMemoryFields(candidate).filter(field => field !== routeField);
+    }
+    candidate._bdEdited = Object.fromEntries(Object.entries(candidate).filter(([key]) => !key.startsWith('_bd')));
     state.candidateRenderSignature = '';
     if (rerender) render();
+    else {
+      const meta = field.closest('.braindump-candidate-card')?.querySelector('.braindump-meta-row');
+      if (meta) meta.innerHTML = candidateMeta(candidate);
+      const createButton = document.getElementById('braindump-create');
+      if (createButton) createButton.disabled = state.creating || state.processing || state.recording || !selectedCandidates().length || selectedCandidateRecords().some(candidate => candidateError(candidate));
+    }
   }
 
   function toggleCandidateEditor(key) {
@@ -871,30 +1067,83 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   async function createSelectedTodos() {
     closeOpenDropdown('braindump-create');
-    const candidates = selectedCandidates();
-    if (!candidates.length || state.creating) return;
+    const records = selectedCandidateRecords();
+    if (!records.length || state.creating) return;
+    const sessionToken = state.startToken;
+    const authToken = getAuthToken();
+    const current = () => Boolean(authToken && authToken === getAuthToken() && sessionToken === state.startToken
+      && supportedModules().includes(options.getActiveModule?.() || 'tasks')
+      && document.getElementById('braindump-modal')?.classList.contains('active'));
+    const markSaved = saved => {
+      for (const candidate of saved) {
+        candidate._bdSaved = true;
+        state.selectedCandidateKeys.delete(candidateKey(candidate));
+      }
+      if (current()) { state.candidateRenderSignature = ''; render(); }
+    };
     state.creating = true;
     state.createMessage = '';
     render();
     try {
-      const response = await fetch(`${API}/api/braindump/v2/todos`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ candidates, workspace_id: activeWorkspaceId() ? Number(activeWorkspaceId()) : null }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
-      const count = Array.isArray(data.todos) ? data.todos.length : 0;
-      state.createMessage = t(count === 1 ? 'braindump.created.one' : 'braindump.created.many', { count });
-      state.selectedCandidateKeys.clear();
-      if (typeof window.refreshFromServer === 'function') await window.refreshFromServer();
-      setTimeout(close, 850);
+      if (records.some(candidate => brainDumpCandidateModule(candidate) === 'tasks') && !await loadTaskSections({force:true})) throw new Error(t('common.error'));
+      if (!current()) return;
+      const invalid = records.find(candidate => candidateError(candidate));
+      if (invalid) {
+        state.createMessage = t(candidateError(invalid));
+        state.editingCandidateKey = candidateKey(invalid);
+        state.candidateRenderSignature = '';
+        render();
+        return;
+      }
+      const groups = new Map();
+      for (const candidate of records) {
+        const moduleId = brainDumpCandidateModule(candidate);
+        const key = moduleId === 'shopping' ? `shopping:${String(candidate.shopping_list_id)}` : 'tasks';
+        if (!groups.has(key)) groups.set(key, { moduleId, records: [] });
+        groups.get(key).records.push(candidate);
+      }
+      for (const group of groups.values()) {
+        if (!current()) return;
+        if (group.records.some(candidate => candidateError(candidate))) throw new Error(t('capture.target.required'));
+        const candidates = group.records.map(candidate => candidate._bdSubmittedPayload || candidateForCreate(candidate));
+        if (group.moduleId === 'shopping') {
+          const created = await options.createShoppingCandidates?.(candidates, {
+            isCurrent: () => current() && group.records.every(candidate => !candidateError(candidate)),
+          });
+          if (!Array.isArray(created) || created.length !== candidates.length) throw new Error(t('shopping.item.error.saveFailed'));
+        } else {
+          group.records.forEach((candidate, index) => { candidate._bdSubmittedPayload = structuredClone(candidates[index]); });
+          state.candidateRenderSignature = '';
+          render();
+          const response = await fetchWithTimeout(`${API}/api/braindump/v2/todos`, {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ candidates, workspace_id: activeWorkspaceId() ? Number(activeWorkspaceId()) : null }),
+          });
+          if (!response.ok) {
+            if (response.status >= 400 && response.status < 500 && response.status !== 408) group.records.forEach(candidate => { candidate._bdSubmittedPayload = null; });
+            throw new Error(await response.text());
+          }
+          const data = await response.json();
+          if (!Array.isArray(data.todos) || data.todos.length !== candidates.length) throw new Error(t('common.error'));
+        }
+        if (!current()) return;
+        markSaved(group.records);
+        void Promise.resolve().then(() => options.routingMemory?.refresh?.()).catch(() => {});
+      }
+      if (!current()) return;
+      const count = records.length;
+      state.createMessage = t(count === 1 ? 'capture.created.one' : 'capture.created.many', { count });
+      // Refresh is optional; a failed refresh must not undo accepted durable writes.
+      if (typeof window.refreshFromServer === 'function') {
+        void Promise.resolve().then(() => window.refreshFromServer()).catch(error => console.warn('[BrainDump] refresh failed', error));
+      }
     } catch (error) {
-      state.createMessage = t('common.error') + ': ' + String(error?.message || error);
+      if (!current()) return;
+      state.createMessage = `${records.some(candidate => candidate._bdSaved) ? `${t('capture.validation.partial')} ` : ''}${t('common.error')}: ${String(error?.message || error)}`;
     } finally {
-      state.creating = false;
-      render();
+      if (sessionToken === state.startToken) { state.creating = false; render(); }
     }
   }
 
@@ -975,7 +1224,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     if (retryBtn) retryBtn.hidden = state.starting || state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
     if (createBtn) {
       createBtn.hidden = !state.candidates.length;
-      createBtn.disabled = state.creating || state.starting || state.recording || state.processing || !selectedCount;
+      createBtn.disabled = state.creating || state.starting || state.recording || state.processing || !selectedCount || selectedCandidateRecords().some(candidate => candidateError(candidate));
       createBtn.classList.toggle('is-muted', createBtn.disabled || !selectedCount);
       createBtn.textContent = state.creating ? t('braindump.create.busy') : t('braindump.create.count', { count: selectedCount });
     }
@@ -998,21 +1247,31 @@ export function createBrainDumpLiveFeature(options = {}) {
     const status = document.getElementById('braindump-create-status');
     if (!container) return;
     if (subtitle) subtitle.textContent = t(state.candidates.length === 1 ? 'braindump.results.count.one' : 'braindump.results.count.many', { count: state.candidates.length });
-    if (selectAll) selectAll.textContent = selectedCandidates().length === state.candidates.length ? t('braindump.selectNone') : t('braindump.selectAll');
+    if (selectAll) selectAll.textContent = selectedCandidates().length === state.candidates.filter(candidate => !candidate._bdSaved).length ? t('braindump.selectNone') : t('braindump.selectAll');
     if (status) status.textContent = state.createMessage || '';
     const signature = JSON.stringify({
-      candidates: state.candidates.map(candidate => [candidateKey(candidate), rawCandidateKey(candidate)].join(':')),
+      candidates: state.candidates.map(candidate => [candidateKey(candidate), rawCandidateKey(candidate), candidate._bdSaved, Boolean(candidate._bdSubmittedPayload)].join(':')),
+      shoppingLists: (options.getShoppingLists?.() || []).map(list => [list.id, list.client_mutation_id, list.name, list.can_edit, (list.sections || []).map(section => [section.id, section.client_mutation_id, section.name])]),
+      shoppingStores: (options.getShoppingStores?.() || []).map(store => [store.id, store.client_mutation_id, store.shopping_list_id, store.name, store.active]),
+      modules: supportedModules(), creating: state.creating, captureBusy: Boolean(state.starting || state.recording || state.processing || state.active || state.queue.length),
       selected: Array.from(state.selectedCandidateKeys).sort(),
       projectOptions: getProjectOptions().map(project => `${project.id}:${project.name}`).join('|'),
-      sectionOptions: (typeof options.getSections === 'function' ? options.getSections() : []).map(section => `${section.project_id}:${section.name}`).join('|'),
+      sectionOptions: getTaskSections().map(section => `${section.id}:${section.project_id}:${section.name}`).join('|'),
       places: state.savedPlaces.map(place => `${place.id}:${place.name}`).join('|'),
       editing: state.editingCandidateKey,
       language: document.documentElement.lang || '',
     });
     if (signature === state.candidateRenderSignature) return;
     state.candidateRenderSignature = signature;
+    const focused = document.activeElement;
+    const focusKey = focused?.getAttribute?.('data-bd-candidate-key');
+    const focusField = focused?.getAttribute?.('data-bd-field');
+    closeOpenDropdown('braindump-render');
     container.innerHTML = renderCandidateGroups();
     hydrateCandidateSelects(container);
+    if (focusKey && focusField) {
+      Array.from(container.querySelectorAll('[data-bd-field]')).find(field => field.getAttribute('data-bd-candidate-key') === focusKey && field.getAttribute('data-bd-field') === focusField)?.focus();
+    }
   }
 
   function hydrateCandidateSelects(container) {
@@ -1030,7 +1289,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   function getProjectOptions() {
     const workspaceId = activeWorkspaceId();
     const projects = (typeof options.getProjects === 'function' ? options.getProjects() : [])
-      .filter(project => project && !project.archived)
+      .filter(project => project && !project.archived && project.can_edit !== false && project.can_edit !== 0 && project.can_edit_content !== false && project.can_edit_content !== 0)
       .filter(project => !workspaceId || String(project.workspace_id || '') === String(workspaceId));
     const projectMap = new Map();
     projects.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
@@ -1056,12 +1315,23 @@ export function createBrainDumpLiveFeature(options = {}) {
   function getProjectByName(name) {
     const normalized = String(name || '').trim().toLowerCase();
     if (!normalized) return null;
-    return getProjectOptions().find(project => String(project.name || '').trim().toLowerCase() === normalized) || null;
+    const matches = getProjectOptions().filter(project => String(project.name || '').trim().toLowerCase() === normalized);
+    return matches.length === 1 ? matches[0] : null;
   }
 
-  function getSectionOptionsForProject(projectName) {
-    const sections = typeof options.getSections === 'function' ? options.getSections() : [];
-    const project = getProjectByName(projectName);
+  function projectForOption(value) {
+    if (!value) return null;
+    return getProjectOptions().find(project => String(project.id) === String(value)) || getProjectByName(value);
+  }
+
+  function projectForCandidate(candidate) {
+    if (candidate.project_id != null) return getProjectOptions().find(project => String(project.id) === String(candidate.project_id)) || null;
+    return getProjectByName(candidate.project_name);
+  }
+
+  function getSectionOptionsForProject(candidate) {
+    const sections = getTaskSections();
+    const project = typeof candidate === 'object' ? projectForCandidate(candidate) : getProjectByName(candidate);
     if (!project) return [];
     return sections
       .filter(section => String(section.project_id || '') === String(project.id))
@@ -1069,32 +1339,42 @@ export function createBrainDumpLiveFeature(options = {}) {
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
   }
 
-  function candidateProjectLabel(candidate) {
-    return candidate.project_name || t('braindump.route.inbox');
+  function sectionForCandidate(candidate) {
+    const sections = getSectionOptionsForProject(candidate);
+    if (candidate.section_id != null) return sections.find(section => String(section.id) === String(candidate.section_id)) || null;
+    const matches = sections.filter(section => String(section.name || '') === String(candidate.section_name || ''));
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  function shoppingListForCandidate(candidate) {
+    const id = candidate.shopping_list_id;
+    return (options.getShoppingLists?.() || []).find(list => list.can_edit === true
+      && id != null && [list.id, list.client_mutation_id].some(value => value != null && String(value) === String(id))) || null;
+  }
+
+  function candidateTargetLabel(candidate) {
+    if (brainDumpCandidateModule(candidate) === 'shopping') return shoppingListForCandidate(candidate)?.name || t('capture.target.chooseList');
+    const project = projectForCandidate(candidate);
+    return candidate.project_id != null && !project ? t('capture.target.required') : project?.name || candidate.project_name || t('braindump.route.inbox');
   }
 
   function groupedCandidates() {
-    const byProject = new Map();
+    const groups = new Map();
     state.candidates.forEach((candidate, index) => {
-      const project = candidateProjectLabel(candidate);
-      if (!byProject.has(project)) byProject.set(project, { project, inbox: !candidate.project_name, items: [] });
-      byProject.get(project).items.push({ candidate, index });
+      const moduleId = brainDumpCandidateModule(candidate);
+      const identity = moduleId === 'shopping' ? candidate.shopping_list_id : (candidate.project_id ?? candidate.project_name ?? '');
+      const key = `${moduleId}:${String(identity ?? '')}`;
+      if (!groups.has(key)) groups.set(key, {
+        key, project: `${t(`module.${moduleId}.label`)} · ${candidateTargetLabel(candidate)}`, items: [],
+      });
+      groups.get(key).items.push({ candidate, index });
     });
-    return Array.from(byProject.values()).sort((a, b) => {
-      if (a.inbox !== b.inbox) return a.inbox ? 1 : -1;
-      return a.project.localeCompare(b.project, undefined, { sensitivity: 'base' });
-    }).map(group => ({
-      ...group,
-      items: group.items.slice().sort((a, b) => {
-        const sectionCompare = String(a.candidate.section_name || '').localeCompare(String(b.candidate.section_name || ''), undefined, { sensitivity: 'base' });
-        return sectionCompare || a.index - b.index;
-      }),
-    }));
+    return Array.from(groups.values());
   }
 
   function renderCandidateGroups() {
     return groupedCandidates().map(group => `
-      <section class="braindump-candidate-group" aria-label="${escapeHtmlAttr(group.project)}">
+      <section class="braindump-candidate-group" data-bd-group="${escapeHtmlAttr(group.key)}" aria-label="${escapeHtmlAttr(group.project)}">
         <div class="braindump-candidate-group-head">
           <span>${escapeHtml(group.project)}</span>
           <small>${t(group.items.length === 1 ? 'braindump.group.count.one' : 'braindump.group.count.many', { count: group.items.length })}</small>
@@ -1106,27 +1386,26 @@ export function createBrainDumpLiveFeature(options = {}) {
     `).join('');
   }
 
-  function renderProjectOptions(selectedName) {
-    const selected = String(selectedName || '');
-    const optionsHtml = [`<option value="">${escapeHtml(t('braindump.route.inbox'))}</option>`];
+  function renderProjectOptions(candidate) {
+    const selected = projectForCandidate(candidate);
+    const optionsHtml = [`<option value="" ${!candidate.project_id && !candidate.project_name ? 'selected' : ''}>${escapeHtml(t('braindump.route.inbox'))}</option>`];
     getProjectOptions().forEach(project => {
       const name = String(project.name || '');
       const depth = Number(project._bdDepth || 0);
-      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" data-depth="${depth}" data-project-color="${escapeHtmlAttr(project.color || '#6366f1')}" data-project-icon="${escapeHtmlAttr(project.icon || '')}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`);
+      optionsHtml.push(`<option value="${escapeHtmlAttr(project.id)}" data-depth="${depth}" data-project-color="${escapeHtmlAttr(project.color || '#6366f1')}" data-project-icon="${escapeHtmlAttr(project.icon || '')}" ${project === selected || String(project.id) === String(selected?.id) ? 'selected' : ''}>${escapeHtml(name)}</option>`);
     });
-    if (selected && !getProjectByName(selected)) optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(selected)}</option>`);
+    if ((candidate.project_id != null || candidate.project_name) && !selected) optionsHtml.push(`<option value="${escapeHtmlAttr(candidate.project_id ?? candidate.project_name)}" selected>${escapeHtml(candidate.project_id != null ? t('capture.target.required') : candidate.project_name || t('capture.target.required'))}</option>`);
     return optionsHtml.join('');
   }
 
   function renderSectionOptions(candidate) {
-    const selected = String(candidate.section_name || '');
-    const sections = getSectionOptionsForProject(candidate.project_name);
-    const optionsHtml = [`<option value="">${escapeHtml(t('braindump.quickfix.noSection'))}</option>`];
+    const selected = sectionForCandidate(candidate);
+    const sections = getSectionOptionsForProject(candidate);
+    const optionsHtml = [`<option value="" ${!candidate.section_id && !candidate.section_name ? 'selected' : ''}>${escapeHtml(t('braindump.quickfix.noSection'))}</option>`];
     sections.forEach(section => {
-      const name = String(section.name || '');
-      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`);
+      optionsHtml.push(`<option value="${escapeHtmlAttr(section.id)}" ${String(section.id) === String(selected?.id) ? 'selected' : ''}>${escapeHtml(section.name || '')}</option>`);
     });
-    if (selected && !sections.some(section => String(section.name || '') === selected)) optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(selected)}</option>`);
+    if ((candidate.section_id != null || candidate.section_name) && !selected) optionsHtml.push(`<option value="${escapeHtmlAttr(candidate.section_id ?? candidate.section_name)}" selected>${escapeHtml(candidate.section_id != null ? t('capture.target.required') : candidate.section_name || t('capture.target.required'))}</option>`);
     return optionsHtml.join('');
   }
 
@@ -1146,13 +1425,12 @@ export function createBrainDumpLiveFeature(options = {}) {
     return `${t(triggerKey)}: ${place}`;
   }
 
-  function renderCandidateMetaChips({ route, due, reminder, recurrence, location }) {
+  function renderCandidateMetaChips({ due, reminder, recurrence, location }) {
     return [
-      route ? `<span class="todo-meta-chip braindump-route">${iconSvg('folder')} ${escapeHtml(route)}</span>` : '',
-      due ? `<span class="todo-meta-chip todo-due">${iconSvg('calendar')} ${escapeHtml(t('braindump.meta.due', { date: due }))}</span>` : '',
-      reminder ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${escapeHtml(t('braindump.meta.reminder', { date: reminder }))}</span>` : '',
-      recurrence ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrence)}</span>` : '',
-      location ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(t('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(location)}</span>` : '',
+      due ? `<span class="todo-meta-chip ui-badge todo-due">${iconSvg('calendar')} ${escapeHtml(t('braindump.meta.due', { date: due }))}</span>` : '',
+      reminder ? `<span class="todo-meta-chip ui-badge todo-reminder">${iconSvg('bell')} ${escapeHtml(t('braindump.meta.reminder', { date: reminder }))}</span>` : '',
+      recurrence ? `<span class="todo-meta-chip ui-badge todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrence)}</span>` : '',
+      location ? `<span class="todo-meta-chip ui-badge todo-location" title="${escapeHtmlAttr(t('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(location)}</span>` : '',
     ].filter(Boolean).join('');
   }
 
@@ -1174,40 +1452,134 @@ export function createBrainDumpLiveFeature(options = {}) {
     return ['arrival', 'departure'].map(trigger => `<option value="${trigger}" ${trigger === selected ? 'selected' : ''}>${escapeHtml(t(`todo.location.${trigger}`))}</option>`).join('');
   }
 
+  function renderCandidateSelect(candidate, field, labelKey, optionsHtml, { disabled = false } = {}) {
+    const key = candidateKey(candidate);
+    const label = `braindump-${field}-label-${key}`;
+    return `<div class="braindump-quickfix-field">
+      <span id="${escapeHtmlAttr(label)}">${escapeHtml(t(labelKey))}</span>
+      <select data-ui-select class="ui-field braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="${escapeHtmlAttr(field)}" aria-labelledby="${escapeHtmlAttr(label)}" ${disabled ? 'disabled' : ''}>${optionsHtml}</select>
+    </div>`;
+  }
+
+  function renderModuleField(candidate) {
+    if (typeof options.getSupportedModules !== 'function') return '';
+    const moduleId = brainDumpCandidateModule(candidate);
+    const modules = supportedModules();
+    const ids = modules.includes(moduleId) ? modules : [moduleId, ...modules];
+    return renderCandidateSelect(candidate, 'module_id', 'capture.module', ids.map(id => (
+      `<option value="${id}" ${id === moduleId ? 'selected' : ''} ${modules.includes(id) ? '' : 'disabled'}>${escapeHtml(t(`module.${id}.label`))}</option>`
+    )).join(''));
+  }
+
+  function renderShoppingFields(candidate) {
+    const key = candidateKey(candidate);
+    const list = shoppingListForCandidate(candidate);
+    const listOptions = [`<option value="">${escapeHtml(t('capture.target.chooseList'))}</option>`];
+    for (const value of options.getShoppingLists?.() || []) {
+      if (value.can_edit !== true) continue;
+      listOptions.push(`<option value="${escapeHtmlAttr(value.id)}" ${list === value ? 'selected' : ''}>${escapeHtml(value.name || '')}</option>`);
+    }
+    if (candidate.shopping_list_id != null && !list) listOptions.push(`<option value="${escapeHtmlAttr(candidate.shopping_list_id)}" selected>${escapeHtml(t('capture.target.required'))}</option>`);
+    const sectionOptions = [`<option value="">${escapeHtml(t('shopping.section.unsorted'))}</option>`];
+    let sectionSelected = candidate.shopping_section_id == null;
+    for (const section of list?.sections || []) {
+      const selected = [section.id, section.client_mutation_id].some(id => id != null && candidate.shopping_section_id != null && String(id) === String(candidate.shopping_section_id));
+      sectionSelected ||= selected;
+      sectionOptions.push(`<option value="${escapeHtmlAttr(section.id)}" ${selected ? 'selected' : ''}>${escapeHtml(section.name || '')}</option>`);
+    }
+    if (!sectionSelected) sectionOptions.push(`<option value="${escapeHtmlAttr(candidate.shopping_section_id)}" selected>${escapeHtml(t('capture.target.required'))}</option>`);
+    const storeOptions = [`<option value="">${escapeHtml(t('shopping.item.store.none'))}</option>`];
+    const selectedStoreId = candidate.shopping_store_ids?.[0];
+    let storeSelected = selectedStoreId == null;
+    for (const store of options.getShoppingStores?.() || []) {
+      if (!list || store.active === false || ![list.id, list.client_mutation_id].some(id => id != null && String(id) === String(store.shopping_list_id))) continue;
+      const selected = [store.id, store.client_mutation_id].some(id => id != null && selectedStoreId != null && String(id) === String(selectedStoreId));
+      storeSelected ||= selected;
+      storeOptions.push(`<option value="${escapeHtmlAttr(store.id)}" ${selected ? 'selected' : ''}>${escapeHtml(store.name || '')}</option>`);
+    }
+    if (!storeSelected) storeOptions.push(`<option value="${escapeHtmlAttr(selectedStoreId)}" selected>${escapeHtml(t('capture.target.required'))}</option>`);
+    return `${renderCandidateSelect(candidate, 'shopping_list_id', 'capture.target.list', listOptions.join(''))}
+      ${renderCandidateSelect(candidate, 'shopping_section_id', 'common.section', sectionOptions.join(''), { disabled: !list })}
+      ${renderCandidateSelect(candidate, 'shopping_store_ids', 'shopping.item.store', storeOptions.join(''), { disabled: !list })}
+      <label class="braindump-quickfix-field"><span>${escapeHtml(t('common.quantity'))}</span>
+        <input class="ui-field braindump-field" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtmlAttr(candidate.quantity_value ?? '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_value">
+      </label>
+      <label class="braindump-quickfix-field"><span>${escapeHtml(t('common.unit'))}</span>
+        <input class="ui-field braindump-field" type="text" maxlength="40" value="${escapeHtmlAttr(formatQuantityUnit(candidate.quantity_unit, getActiveLocale()))}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_unit">
+      </label>`;
+  }
+
+  function shoppingMeta(candidate) {
+    const target = resolveBrainDumpShoppingTarget(candidate, options.getShoppingLists?.() || [], options.getShoppingStores?.() || [], { actorId: options.getActorId?.() ?? null });
+    const remembered = new Set(brainDumpCandidateMemoryFields(candidate));
+    const matches = [{ type: 'list', label: t('capture.target.list'), value: target?.list.name || t('capture.target.chooseList'), source: target && remembered.has('list') ? 'memory' : undefined }];
+    if (target?.section || (target && remembered.has('section'))) matches.push({ type: 'section', label: t('common.section'), value: target.section?.name || t('shopping.section.unsorted'), source: remembered.has('section') ? 'memory' : undefined });
+    if (target?.stores.length || (target && remembered.has('stores'))) matches.push({ type: 'store', label: t('shopping.item.store'), value: target.stores.map(store => store.name || '').join(', ') || t('shopping.item.store.none'), source: remembered.has('stores') ? 'memory' : undefined });
+    const quantity = formatShoppingQuantity({ quantity_value: candidate.quantity_value, quantity_unit: candidate.quantity_unit }, getActiveLocale());
+    return `${renderQuickAddChips(matches, t)}${quantity ? `<span class="ui-badge">${escapeHtml(quantity)}</span>` : ''}`;
+  }
+
+  function taskMeta(candidate) {
+    const project = projectForCandidate(candidate);
+    const section = sectionForCandidate(candidate);
+    const remembered = new Set(brainDumpCandidateMemoryFields(candidate));
+    const hasProject = candidate.project_id != null || Boolean(candidate.project_name);
+    const invalidProject = candidate.project_id != null && !project;
+    const invalidSection = candidate.section_id != null && !section;
+    const matches = [{ type: 'list', label: t('braindump.quickfix.project'), value: invalidProject ? t('capture.target.required') : project?.name || candidate.project_name || t('braindump.route.inbox'), source: (!hasProject || project) && remembered.has('list') ? 'memory' : undefined }];
+    if (!invalidProject && (section || candidate.section_name || remembered.has('section'))) matches.push({ type: 'section', label: t('common.section'), value: invalidSection ? t('capture.target.required') : section?.name || candidate.section_name || t('braindump.quickfix.noSection'), source: (section || (project && candidate.section_id == null && !candidate.section_name)) && remembered.has('section') ? 'memory' : undefined });
+    return renderQuickAddChips(matches, t) + renderCandidateMetaChips({
+      due: candidate.deadline ? formatDate(candidate.deadline) : '',
+      reminder: candidate.reminder ? formatDate(candidate.reminder) : '',
+      recurrence: recurringLabel(candidate.recurring_rule),
+      location: locationReminderLabel(candidate.location_reminder),
+    });
+  }
+
+  function candidateMeta(candidate) {
+    const moduleId = brainDumpCandidateModule(candidate);
+    const moduleChip = brainDumpCandidateMemoryFields(candidate).includes('module')
+      ? renderQuickAddChips([{type:'module',label:t('capture.module'),value:t(`module.${moduleId}.label`),source:'memory'}],t) : '';
+    return moduleChip + (moduleId === 'shopping' ? shoppingMeta(candidate) : taskMeta(candidate));
+  }
+
   function renderCandidate(candidate, index) {
     const key = candidateKey(candidate);
-    const checked = state.selectedCandidateKeys.has(key) ? 'checked' : '';
-    const isEditing = state.editingCandidateKey === key;
+    const saved = Boolean(candidate._bdSaved);
+    const checked = !saved && state.selectedCandidateKeys.has(key) ? 'checked' : '';
+    const shopping = brainDumpCandidateModule(candidate) === 'shopping';
+    const invalid = !saved && candidateError(candidate);
+    const pending = Boolean(candidate._bdSubmittedPayload) && !saved;
+    const captureBusy = Boolean(state.starting || state.recording || state.processing || state.active || state.queue.length);
+    const isEditing = !pending && state.editingCandidateKey === key;
     const checkboxId = `braindump-candidate-${key}`;
-    const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || t('braindump.route.inbox');
-    const due = candidate.deadline ? formatDate(candidate.deadline) : '';
-    const reminder = candidate.reminder ? formatDate(candidate.reminder) : '';
-    const recurrence = recurringLabel(candidate.recurring_rule);
-    const location = locationReminderLabel(candidate.location_reminder);
-    const meta = renderCandidateMetaChips({ route, due, reminder, recurrence, location });
+    const meta = candidateMeta(candidate);
     return `
-      <div class="braindump-candidate-card todo-item ${isEditing ? 'is-editing' : ''}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
-        <input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" ${checked}>
-        <label class="todo-check braindump-check" for="${escapeHtmlAttr(checkboxId)}">${checked ? iconSvg('check') : ''}</label>
-        <span class="todo-body has-meta">
-          <span class="todo-main">
-            <span class="todo-title">${escapeHtml(candidate.title || '')}</span>
-            <button class="braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
+      <div class="braindump-candidate-card ui-item-card ${isEditing ? 'is-editing' : ''} ${saved ? 'is-saved' : ''}" data-bd-module="${brainDumpCandidateModule(candidate)}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
+        <label class="ui-checkbox-label braindump-check" for="${escapeHtmlAttr(checkboxId)}"><input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-label="${escapeHtmlAttr(candidate.title || '')}" ${checked} ${saved || state.creating ? 'disabled' : ''}><span class="ui-checkbox-box" aria-hidden="true">${iconSvg('check')}</span></label>
+        <span class="braindump-candidate-body">
+          <span class="braindump-candidate-main">
+            <span class="braindump-candidate-title">${escapeHtml(candidate.title || '')}</span>
           </span>
-          ${meta ? `<span class="todo-meta-row braindump-meta-row">${meta}</span>` : ''}
-          ${isEditing ? `
-            <span class="braindump-quickfix-panel">
+          ${meta ? `<span class="braindump-meta-row">${meta}</span>` : ''}
+          ${saved ? `<span class="ui-badge braindump-saved">${escapeHtml(t('capture.saved'))}</span>` : ''}
+          ${pending ? `<span class="braindump-route-error" role="status">${escapeHtml(t('capture.pending'))}</span>` : ''}
+          ${invalid ? `<span class="braindump-route-error" role="status">${escapeHtml(t(invalid))}</span>` : ''}
+          ${isEditing && !saved ? `
+            <span class="braindump-quickfix-panel" ${state.creating ? 'inert' : ''}>
+              ${renderModuleField(candidate)}
               <label class="braindump-quickfix-field braindump-quickfix-title-field">
                 <span>${escapeHtml(t('braindump.quickfix.title'))}</span>
-                <input class="braindump-title-input" type="text" value="${escapeHtmlAttr(candidate.title || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="title">
+                <input class="ui-field braindump-title-input" type="text" maxlength="500" value="${escapeHtmlAttr(candidate.title || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="title">
               </label>
+              ${shopping ? renderShoppingFields(candidate) : `
               <div class="braindump-quickfix-field">
                 <span id="braindump-project-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.project'))}</span>
-                <select data-ui-select data-project-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate.project_name)}</select>
+                <select data-ui-select data-project-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate)}</select>
               </div>
               <div class="braindump-quickfix-field">
-                <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.section'))}</span>
-                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
+                <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('common.section'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${projectForCandidate(candidate) ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
               </div>
               <label class="braindump-quickfix-field">
                 <span>${escapeHtml(t('todo.deadline'))}</span>
@@ -1232,13 +1604,14 @@ export function createBrainDumpLiveFeature(options = {}) {
               <div class="braindump-quickfix-field ${candidate.location_reminder ? '' : 'is-disabled'}">
                 <span id="braindump-location-trigger-label-${escapeHtmlAttr(key)}">${escapeHtml(t('todo.location.trigger'))}</span>
                 <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="location_trigger_type" aria-labelledby="braindump-location-trigger-label-${escapeHtmlAttr(key)}" ${candidate.location_reminder ? '' : 'disabled'}>${renderLocationTriggerOptions(candidate)}</select>
-              </div>
+              </div>`}
             </span>
           ` : ''}
         </span>
+        <button class="braindump-edit-candidate" type="button" ${saved || pending || state.creating || captureBusy ? 'disabled' : ''} data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
       </div>
     `;
   }
 
-  return { init, open };
+  return { init, open, refreshLauncher, hasAccess };
 }

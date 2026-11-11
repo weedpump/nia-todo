@@ -1,6 +1,7 @@
 import { hideAutoScrollbars } from './auto-scrollbars.js';
 import { closeUiLayerNow, openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { t } from '../i18n/index.js';
+import { isDropdownOpen } from '../ui/dropdowns.js';
 
 const DESKTOP_SIDEBAR_MODES = ['expanded', 'rail', 'hidden'];
 const DESKTOP_SIDEBAR_MODE_STORAGE_KEY = 'nia-desktop-sidebar-mode';
@@ -75,6 +76,8 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
   }
 
   function closeFloatingMenus() {
+    document.getElementById('module-switcher-menu')?.classList.remove('open');
+    document.getElementById('module-switcher-button')?.setAttribute('aria-expanded', 'false');
     const userMenu = document.getElementById('user-menu');
     const userButton = document.getElementById('user-menu-button');
     userMenu?.classList.remove('active');
@@ -133,9 +136,10 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     if (modalId === 'settings-modal' && modal?.classList.contains('mfa-enrollment-locked')) return;
     if (modal?.classList.contains('active') && !fromHistory && requestCloseUiLayer(modalId, { reason: 'ui' })) return;
     modal?.classList.remove('active');
+    modal?.setAttribute('aria-hidden', 'true');
 
     const activeElement = document.activeElement;
-    if (activeElement?.matches?.('.nav-edit, [data-project-action="edit"], [data-workspace-action="edit"]')) {
+    if (activeElement?.matches?.('.entity-sidebar-detail, [data-workspace-action="edit"]')) {
       activeElement.blur();
     }
   }
@@ -263,6 +267,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
 
   function bindKeyboardShortcuts() {
     document.addEventListener('keydown', async (e) => {
+      if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
       const canUseGlobalShortcut = !isTypingTarget(document.activeElement)
         && !document.querySelector('.modal.active, .ui-menu.active')
         && document.getElementById('login-overlay')?.classList.contains('hidden');
@@ -271,6 +276,9 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
         await showTodoModal();
       }
       if (e.key === 'Escape') {
+        if (isDropdownOpen()) return;
+        if (document.getElementById('confirm-modal')?.classList.contains('active')) return;
+        if (document.querySelector('.modal.active[data-entity-editor-bound="true"]')) return;
         if (document.getElementById('attachment-preview-modal')?.classList.contains('active')) {
           e.preventDefault();
           window.closeAttachmentPreview?.();
@@ -278,6 +286,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
         }
         closeModal('todo-modal');
         closeModal('project-modal');
+        closeModal('shopping-list-modal');
       }
     });
   }

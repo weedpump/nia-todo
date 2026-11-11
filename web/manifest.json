@@ -1,7 +1,7 @@
 {
-  "name": "nia-todo",
-  "short_name": "nia-todo",
-  "description": "Selfhosted Todo-System von Nia",
+  "name": "Nia",
+  "short_name": "Nia",
+  "description": "Aufgaben, Einkaufslisten und Rezepte für deinen Alltag – selbst gehostet.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

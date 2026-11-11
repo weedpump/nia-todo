@@ -1,11 +1,20 @@
+import { getQuickAddAliases, normalizeQuickAddName, escapeQuickAddRegExp, renderQuickAddPreview as renderSharedQuickAddPreview, createQuickAddPreviewController } from './quick-add.js';
+
 export function createTodoQuickAddFeature({
   getActiveLanguage,
   t,
   getProjects,
   getCurrentProjectId,
+  getCurrentWorkspaceId = () => null,
+  getRoutingProjectId = () => undefined,
   getSavedPlaces = () => [],
   dbGetAll,
+  routingMemory = null,
+  onRoutingPreview = () => {},
 }) {
+  let formRouting = { projectExplicit: false, sectionExplicit: false, sectionId: null };
+  const has = (value, field) => Object.prototype.hasOwnProperty.call(value, field);
+  const sameId = (left, right) => String(left ?? '') === String(right ?? '');
   function startOfToday(base = new Date()) {
     const d = new Date(base);
     d.setHours(0, 0, 0, 0);
@@ -21,7 +30,7 @@ export function createTodoQuickAddFeature({
   }
 
   function normalizedName(value) {
-    return String(value || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+    return normalizeQuickAddName(value);
   }
 
   function compactName(value) {
@@ -29,9 +38,7 @@ export function createTodoQuickAddFeature({
   }
 
   function quickAddAliases(key) {
-    const value = t(key);
-    if (!value || value === key) return [];
-    return value.split('|').map(item => item.trim().toLowerCase()).filter(Boolean);
+    return getQuickAddAliases(t, key);
   }
 
   function findProjectByQuickAddName(rawName) {
@@ -116,7 +123,7 @@ export function createTodoQuickAddFeature({
   }
 
   function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return escapeQuickAddRegExp(value);
   }
 
   function aliasPattern(aliases) {
@@ -164,9 +171,12 @@ export function createTodoQuickAddFeature({
     markTokenRange(used, tokenSpans, start, end);
   }
 
-  async function parseQuickAddTitle(rawTitle, currentProjectId, formProjectId = null) {
+  async function parseQuickAddTitle(rawTitle, currentProjectId, formProjectId = null, routingOptions = {}) {
     const original = String(rawTitle || '').trim();
     if (!original) return { title: original, changes: {}, matches: [] };
+    // Section loading is async; an update to memory during that wait must not
+    // silently change the route captured for this parse or submission.
+    const routingSnapshot = routingOptions.routingSnapshot || routingMemory?.capture?.() || routingMemory;
     const now = new Date();
     const tokens = original.split(/\s+/);
     const tokenSpans = tokenIndexMap(original);
@@ -282,7 +292,7 @@ export function createTodoQuickAddFeature({
           if (!section) continue;
           changes.section_id = section.id;
           if (!changes.project_id && section.project_id) changes.project_id = section.project_id;
-          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'section', start, end, t('quickAdd.detected.section'), section.name, 'section_id');
+          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'section', start, end, t('common.section'), section.name, 'section_id');
         }
       }
     }
@@ -406,45 +416,126 @@ export function createTodoQuickAddFeature({
     }
 
     const title = tokens.filter((_, index) => !used.has(index)).join(' ').trim() || original;
-    return { title, changes, matches };
+    const explicitFields = new Set();
+    if (has(changes, 'project_id')) explicitFields.add('list');
+    if (has(changes, 'section_id')) explicitFields.add('section');
+    if (routingOptions.projectExplicit && !(routingOptions.syntaxOverridesDefaults && has(changes, 'project_id'))) {
+      changes.project_id = formProjectId || null;
+      explicitFields.add('list');
+      for (let i = matches.length - 1; i >= 0; i--) if (matches[i].type === 'project') matches.splice(i, 1);
+      // A section shortcut resolved inside the written project cannot survive
+      // a deliberate dropdown change to another project. Its new section may
+      // still be supplied by memory, unless the user explicitly chooses one.
+      if (has(changes, 'section_id') && changes.section_id != null
+        && !allSections.some(section => sameId(section.id, changes.section_id) && sameId(section.project_id, changes.project_id))) {
+        delete changes.section_id;
+        explicitFields.delete('section');
+        for (let i = matches.length - 1; i >= 0; i--) if (matches[i].type === 'section') matches.splice(i, 1);
+      }
+    }
+    if (routingOptions.sectionExplicit && !(routingOptions.syntaxOverridesDefaults && has(changes, 'section_id'))
+      && (!routingOptions.syntaxOverridesDefaults || sameId(changes.project_id ?? formProjectId, formProjectId))) {
+      changes.section_id = routingOptions.sectionId || null;
+      explicitFields.add('section');
+      for (let i = matches.length - 1; i >= 0; i--) if (matches[i].type === 'section') matches.splice(i, 1);
+    }
+    const memoryFields = [];
+    if (routingOptions.applyMemory !== false && routingSnapshot?.suggestTask) {
+      const fixedProject = explicitFields.has('list') ? changes.project_id ?? formProjectId : null;
+      const contextProject = routingOptions.sectionExplicit ? formProjectId : routingOptions.contextProjectId ?? formProjectId ?? currentProjectId;
+      let route = routingSnapshot.suggestTask(title, getCurrentWorkspaceId(), fixedProject, allSections);
+      if (route && !explicitFields.has('list') && routingOptions.sectionExplicit && !sameId(route.project_id, formProjectId)) {
+        route = routingSnapshot.suggestTask(title, getCurrentWorkspaceId(), formProjectId, allSections);
+      }
+      if (!route && fixedProject == null && contextProject != null) {
+        route = routingSnapshot.suggestTask(title, getCurrentWorkspaceId(), contextProject, allSections);
+      }
+      const project = getProjects().find(value => sameId(value.id, route?.project_id));
+      if (route && project) {
+        const routeFields = route.memory_fields || [];
+        if (!explicitFields.has('list') && (route.list_known || route.project_known) && routeFields.includes('list')) {
+          changes.project_id = project.id;
+          memoryFields.push('list');
+          matches.push({ type: 'project', source: 'memory', label: t('quickAdd.detected.project'), value: project.name });
+        }
+        const effectiveProject = changes.project_id ?? contextProject;
+        if (!explicitFields.has('section') && route.section_known && routeFields.includes('section') && sameId(effectiveProject, project.id)) {
+          const section = allSections.find(value => sameId(value.id, route.section_id) && sameId(value.project_id, project.id));
+          if (route.section_id == null || section) {
+            changes.section_id = route.section_id ?? null;
+            // This is the existing form context, not a learned project choice.
+            if (!has(changes, 'project_id')) changes.project_id = effectiveProject;
+            memoryFields.push('section');
+            matches.push({ type: 'section', source: 'memory', label: t('common.section'), value: section?.name || t('todo.section.none') });
+          }
+        }
+      }
+    }
+    return { title, changes, matches, routing_fields: [...explicitFields], memory_fields: memoryFields, routing_sections: allSections };
   }
 
   function renderQuickAddPreview(result) {
-    const preview = document.getElementById('quick-add-preview');
-    if (!preview) return;
-    const matches = result?.matches || [];
-    preview.innerHTML = '';
-    preview.hidden = !matches.length;
-    if (!matches.length) return;
-    for (const match of matches) {
-      const chip = document.createElement('span');
-      chip.className = `quick-add-chip ${match.type}`;
-      const label = document.createElement('span');
-      label.className = 'quick-add-chip-label';
-      label.textContent = match.label;
-      const value = document.createElement('strong');
-      value.textContent = match.value || match.token || '';
-      chip.append(label, value);
-      preview.appendChild(chip);
-    }
+    renderSharedQuickAddPreview(document.getElementById('quick-add-preview'), result, t);
+  }
+
+  let previewController = null;
+  let previewInput = null;
+  let routingBusy = false, memoryRefreshPending = false;
+
+  function setRoutingPreviewBusy(busy) {
+    routingBusy = busy;
+    if (!busy && memoryRefreshPending) { memoryRefreshPending = false; void previewController?.refresh(); }
+  }
+
+  function currentRoutingOptions() {
+    return { ...formRouting, sectionId: document.getElementById('todo-section')?.value || null,
+      contextProjectId: getRoutingProjectId() };
+  }
+
+  function resetRoutingPreview() {
+    formRouting = { projectExplicit: false, sectionExplicit: false, sectionId: null };
+    previewController?.invalidate();
   }
 
   function bindQuickAddPreview() {
     const input = document.getElementById('todo-title');
-    if (!input || input.dataset.quickAddPreviewBound === '1') return;
-    input.dataset.quickAddPreviewBound = '1';
-    let seq = 0;
-    const update = async () => {
-      const id = document.getElementById('todo-id')?.value;
-      if (id) { renderQuickAddPreview(null); return; }
-      const mySeq = ++seq;
-      const projectId = document.getElementById('todo-project')?.value || null;
-      const result = await parseQuickAddTitle(input.value, getCurrentProjectId(), projectId);
-      if (mySeq === seq) renderQuickAddPreview(result);
-    };
-    input.addEventListener('input', update);
-    document.getElementById('todo-project')?.addEventListener('change', update);
-    window.setTimeout(update, 0);
+    if (!input) return;
+    if (previewInput !== input) {
+      previewController?.destroy();
+      previewInput = input;
+      previewController = createQuickAddPreviewController({
+        input,
+        getContext: () => JSON.stringify([
+          getActiveLanguage(),
+          getCurrentProjectId(),
+          document.getElementById('todo-project')?.value || null,
+          document.getElementById('todo-id')?.value || '',
+          getCurrentWorkspaceId(), formRouting,
+        ]),
+        isActive: () => !document.getElementById('todo-id')?.value
+          && Boolean(document.getElementById('todo-modal')?.classList.contains('active'))
+          && !document.getElementById('todo-modal')?.classList.contains('todo-multi-add-mode'),
+        parse: raw => parseQuickAddTitle(raw, getCurrentProjectId(), document.getElementById('todo-project')?.value || null, currentRoutingOptions()),
+        render: result => { onRoutingPreview(result); renderQuickAddPreview(result); },
+      });
+      document.getElementById('todo-project')?.addEventListener('change', () => {
+        formRouting.projectExplicit = true;
+        formRouting.sectionExplicit = false;
+        void previewController?.refresh();
+      });
+      document.getElementById('todo-section')?.addEventListener('change', () => {
+        formRouting.sectionExplicit = true;
+        void previewController?.refresh();
+      });
+      globalThis.window?.addEventListener('nia-language-change', () => void previewController?.refresh());
+      globalThis.window?.addEventListener('nia-routing-memory-changed', () => {
+        if (routingBusy) memoryRefreshPending = true;
+        else void previewController?.refresh();
+      });
+    }
+    previewController.invalidate();
+    globalThis.setTimeout(() => void previewController?.refresh(), 0);
+    void routingMemory?.refresh?.();
   }
 
 
@@ -454,5 +545,8 @@ export function createTodoQuickAddFeature({
     parseQuickAddTitle,
     renderQuickAddPreview,
     bindQuickAddPreview,
+    currentRoutingOptions,
+    resetRoutingPreview,
+    setRoutingPreviewBusy,
   };
 }

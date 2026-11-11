@@ -1,12 +1,19 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
+import { resolveKnownTodoTargets } from './todo-targets.js';
 import { getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
+import { registerItemSwipeAdapter } from '../ui/item-swipe.js';
+import { shouldAutoFocusEntityEditorTitle } from './entity-editor-focus.js';
 import { createNativeBridge } from './native-bridge.js';
 import { createTodoAttachmentsFeature } from './todo-attachments.js';
 import { createTodoQuickAddFeature } from './todo-quick-add.js';
 import { createTodoMultiAddFeature } from './todo-multi-add.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { acquireSyncCommitLock, projectPendingSectionsSnapshot, projectPendingTodoChanges, runCurrentEntityMutation } from './todo-pending.js';
+import { runAccessFencedCommit } from './entity-access-privacy.js';
+import { mergeRoutingFeedback } from './routing-memory-matcher.js';
+import { withoutPrivateRoutingMetadata } from './entity-metadata.js';
 
 const TODO_META_SUMMARY_CONTROL_IDS = new Set([
   'todo-project',
@@ -55,6 +62,7 @@ export function createTodosFeature({
   getTodos,
   setTodos,
   getProjects,
+  getSections,
   getCurrentProjectId,
   getCurrentWorkspaceId,
   getCurrentUser,
@@ -82,14 +90,21 @@ export function createTodosFeature({
   renderMarkdown,
   syncDateTimePickers,
   openDateTimePicker,
+  getActiveModule = () => 'tasks',
+  routingMemory = null,
+  getSessionIdentity = () => null,
+  syncInProgressRef = {},
 }) {
   const nativeBridge = createNativeBridge();
   const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
   let todoFormBound = false;
   let savedPlaces = [];
   let todoSaveSnapshot = null;
+  let hoveredTodoId = null;
+  const pendingDeleteTargets = new Set();
   let badgeOpenedSingleChoiceTarget = null;
   let pendingMetaReturnFocusTarget = null;
+  let todoRoutingDefaults = { projectId: null, sectionId: null };
   const deletingSubtaskIds = new Set();
   const TODO_MODAL_CLASSES = Object.freeze({
     detail: 'todo-detail-view',
@@ -110,11 +125,13 @@ export function createTodosFeature({
     getTodos,
     setTodos,
     getProjects,
+    getSections,
     getCurrentUser,
     setCurrentUser,
     getAppInitialized,
     getDb,
     dbPut,
+    dbGetAll,
     isOnlineForSync,
     todosApi,
     renderStats,
@@ -125,10 +142,10 @@ export function createTodosFeature({
     t,
     iconSvg,
     escapeHtmlAttr,
-    setTodoCollapsibleOpen,
     refreshTodoActionButtonState,
     refreshTodoSaveButtonState,
     nativeBridge,
+    syncInProgressRef,
   });
 
   const {
@@ -137,20 +154,31 @@ export function createTodosFeature({
     parseQuickAddTitle,
     renderQuickAddPreview,
     bindQuickAddPreview,
+    currentRoutingOptions,
+    resetRoutingPreview,
+    setRoutingPreviewBusy,
   } = createTodoQuickAddFeature({
     getActiveLanguage,
     t,
     getProjects,
     getCurrentProjectId,
+    getCurrentWorkspaceId,
     getSavedPlaces: () => savedPlaces,
+    getRoutingProjectId: () => todoRoutingDefaults.projectId,
     dbGetAll,
+    routingMemory,
+    onRoutingPreview: applyTodoRoutingPreview,
   });
 
   const multiAddFeature = createTodoMultiAddFeature({
     t,
     getTodos,
     setTodos,
+    getProjects,
+    getSections,
     getCurrentProjectId,
+    getCurrentWorkspaceId,
+    routingMemory,
     getAppInitialized,
     getDb,
     dbPut,
@@ -168,6 +196,43 @@ export function createTodosFeature({
     closeModal,
     showToast,
   });
+
+  function renderTodoSectionOptions(projectId, sections, selectedSectionId = null) {
+    const select = document.getElementById('todo-section');
+    if (!select) return;
+    select.replaceChildren();
+    const none = document.createElement('option');
+    none.value = ''; none.dataset.i18nKey = 'todo.section.none'; none.textContent = t('todo.section.none'); select.appendChild(none);
+    for (const section of sections.filter(value => String(value.project_id) === String(projectId))) {
+      const option = document.createElement('option'); option.value = section.id; option.textContent = section.name; select.appendChild(option);
+    }
+    select.disabled = !projectId;
+    select.value = selectedSectionId || '';
+    refreshTodoSelect('todo-section');
+  }
+
+  function applyTodoRoutingPreview(parsed) {
+    if (document.getElementById('todo-id')?.value) return;
+    const project = document.getElementById('todo-project');
+    const section = document.getElementById('todo-section');
+    if (!project || !section) return;
+    const options = currentRoutingOptions();
+    if (options.projectExplicit) todoRoutingDefaults = { projectId: project.value || null, sectionId: null };
+    if (options.sectionExplicit) todoRoutingDefaults = { projectId: project.value || null, sectionId: section.value || null };
+    const changes = parsed?.changes || {};
+    const projectId = Object.hasOwn(changes, 'project_id') ? changes.project_id : todoRoutingDefaults.projectId;
+    const sectionId = Object.hasOwn(changes, 'section_id') ? changes.section_id
+      : String(projectId ?? '') === String(todoRoutingDefaults.projectId ?? '') ? todoRoutingDefaults.sectionId : null;
+    const projectChanged = String(project.value || '') !== String(projectId || '');
+    if (projectChanged) project.value = projectId || '';
+    const sections = parsed?.routing_sections || getSections();
+    if (projectChanged || (sectionId != null && !Array.from(section.options).some(option => String(option.value) === String(sectionId)))) {
+      renderTodoSectionOptions(projectId, sections, sectionId);
+    }
+    section.value = sectionId || '';
+    refreshTodoSelect('todo-project'); refreshTodoSelect('todo-section');
+    renderTodoMetaSummary(null);
+  }
 
   function escapeHtmlAttr(value) {
     return String(value ?? '')
@@ -192,12 +257,6 @@ export function createTodosFeature({
   function getOpenSubtaskCount(todoOrSubtasks) {
     const subtasks = Array.isArray(todoOrSubtasks) ? todoOrSubtasks : todoOrSubtasks?.subtasks;
     return normalizeSubtasks(subtasks).filter(subtask => !subtask.is_done).length;
-  }
-
-  function setTodoCollapsibleOpen(panelId, shouldOpen) {
-    const panel = document.getElementById(panelId);
-    if (!panel) return;
-    panel.open = Boolean(shouldOpen);
   }
 
   function getTodoModal() {
@@ -228,19 +287,6 @@ export function createTodosFeature({
       titleField.form?.requestSubmit();
     });
   }
-
-
-  function updateTodoMetaPanelsOpenState(todo = null) {
-    const existingTodo = Boolean(todo?.id);
-    setTodoCollapsibleOpen('todo-subtasks-panel', existingTodo);
-    setTodoCollapsibleOpen('todo-comments-panel', existingTodo);
-    setTodoCollapsibleOpen('todo-attachments-panel', existingTodo);
-    if (existingTodo) return;
-    setTodoCollapsibleOpen('todo-subtasks-panel', true);
-    setTodoCollapsibleOpen('todo-comments-panel', true);
-    setTodoCollapsibleOpen('todo-attachments-panel', true);
-  }
-
   function formatTodoMetaDate(value) {
     if (!value) return '';
     const date = new Date(value);
@@ -272,9 +318,13 @@ export function createTodosFeature({
 
   function ensureTodoMetaDrawer() {
     const form = document.getElementById('todo-form');
-    const organize = document.getElementById('todo-organize-panel');
-    const schedule = document.getElementById('todo-schedule-panel');
-    if (!form || !organize || !schedule) return null;
+    const panels = [
+      'todo-organize-panel',
+      'todo-schedule-panel',
+      'todo-recurring-panel',
+      'todo-location-reminder-panel',
+    ].map(id => document.getElementById(id));
+    if (!form || panels.some(panel => !panel)) return null;
     let drawer = document.getElementById('todo-meta-drawer');
     if (!drawer) {
       drawer = document.createElement('aside');
@@ -295,8 +345,9 @@ export function createTodosFeature({
       form.appendChild(drawer);
     }
     const body = drawer.querySelector('.todo-meta-drawer-body') || drawer;
-    if (organize.parentElement !== body) body.appendChild(organize);
-    if (schedule.parentElement !== body) body.appendChild(schedule);
+    panels.forEach(panel => {
+      if (panel.parentElement !== body) body.appendChild(panel);
+    });
     return drawer;
   }
 
@@ -440,7 +491,7 @@ export function createTodosFeature({
     addChip(projectIcon, t('todo.project'), getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color, editTarget: 'todo-project' });
     const sectionSelect = document.getElementById('todo-section');
     if (sectionSelect && !sectionSelect.disabled) {
-      addChip('layers', t('todo.section'), getSelectedOptionLabel('todo-section'), { tone: 'section', editTarget: 'todo-section' });
+      addChip('layers', t('common.section'), getSelectedOptionLabel('todo-section'), { tone: 'section', editTarget: 'todo-section' });
     }
     addChip('flag', t('todo.priority'), getSelectedOptionLabel('todo-priority'), { tone: priorityTone, editTarget: 'todo-priority' });
     addChip(statusIcon, t('todo.status'), getSelectedOptionLabel('todo-status'), { tone: statusTone, editTarget: 'todo-status' });
@@ -1014,6 +1065,32 @@ export function createTodosFeature({
     return state;
   }
 
+  function remapPendingTargetId(kind, from, to) {
+    if (!['project', 'section'].includes(kind) || from == null || to == null || String(from) === String(to)) return false;
+    const routingDefaultField = kind === 'project' ? 'projectId' : 'sectionId';
+    if (String(todoRoutingDefaults[routingDefaultField]) === String(from)) todoRoutingDefaults[routingDefaultField] = to;
+    let changed = false;
+    for (const id of [`todo-${kind}`, `todo-multi-${kind}`]) {
+      const select = document.getElementById(id);
+      const option = Array.from(select?.options || []).find(option => String(option.value) === String(from));
+      if (!option) continue;
+      const selected = String(select.value) === String(from);
+      option.value = String(to);
+      if (selected) select.value = String(to);
+      refreshSelect(select);
+      changed = true;
+    }
+    if (todoSaveSnapshot !== null) {
+      const snapshot = JSON.parse(todoSaveSnapshot);
+      const field = `${kind}_id`;
+      if (String(snapshot[field]) === String(from)) {
+        snapshot[field] = String(to);
+        todoSaveSnapshot = JSON.stringify(snapshot);
+      }
+    }
+    return changed;
+  }
+
   function hasPersistedTodoId() {
     const id = document.getElementById('todo-id')?.value || '';
     return Boolean(id) && !String(id).startsWith('temp-');
@@ -1094,27 +1171,28 @@ export function createTodosFeature({
       showToast(t('todo.subtasks.saveFirst'));
       return false;
     }
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return false;
-    const nowIso = new Date().toISOString();
-    const subtask = {
-      id: `temp-subtask-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      title,
-      is_done: Boolean(isDone),
-      sort_order: normalizeSubtasks(existing.subtasks).length,
-      created_at: nowIso,
-      updated_at: nowIso,
-      is_pending: true,
-    };
-    let persisted = false;
-    await commitQueuedMutation(async enqueue => {
+    const persisted = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const nowIso = new Date().toISOString();
+      const subtask = {
+        id: `temp-subtask-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        title,
+        is_done: Boolean(isDone),
+        sort_order: normalizeSubtasks(existing.subtasks).length,
+        created_at: nowIso,
+        updated_at: nowIso,
+        is_pending: true,
+      };
       await enqueue('CREATE_SUBTASK', {
         todo_id: existing.id,
         temp_id: subtask.id,
         subtask: { title: subtask.title, is_done: subtask.is_done, sort_order: subtask.sort_order },
         local_subtask: subtask,
       });
-      persisted = await persistTodoSubtasks(todoId, [...normalizeSubtasks(existing.subtasks), subtask]);
+      return persistTodoSubtasks(existing.id, [...normalizeSubtasks(existing.subtasks), subtask]);
+      },
     });
     if (!persisted) return false;
     await finishTodoSubtaskMutation(todoId);
@@ -1123,17 +1201,18 @@ export function createTodosFeature({
 
   async function updateTodoSubtask(todoId, subtaskId, changes) {
     if (!todoId || !subtaskId) return false;
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return false;
-    const subtasks = normalizeSubtasks(existing.subtasks).map(subtask => (
-      String(subtask.id) === String(subtaskId)
-        ? { ...subtask, ...changes, updated_at: new Date().toISOString() }
-        : subtask
-    ));
-    let persisted = false;
-    await commitQueuedMutation(async enqueue => {
+    const persisted = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const subtasks = normalizeSubtasks(existing.subtasks).map(subtask => (
+        String(subtask.id) === String(subtaskId)
+          ? { ...subtask, ...changes, updated_at: new Date().toISOString() }
+          : subtask
+      ));
       await enqueue('UPDATE_SUBTASK', { todo_id: existing.id, subtask_id: subtaskId, changes });
-      persisted = await persistTodoSubtasks(todoId, subtasks);
+      return persistTodoSubtasks(existing.id, subtasks);
+      },
     });
     if (!persisted) return false;
     await finishTodoSubtaskMutation(todoId);
@@ -1142,13 +1221,14 @@ export function createTodosFeature({
 
   async function deleteTodoSubtask(todoId, subtaskId) {
     if (!todoId || !subtaskId) return false;
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return false;
-    const subtasks = normalizeSubtasks(existing.subtasks).filter(subtask => String(subtask.id) !== String(subtaskId));
-    let persisted = false;
-    await commitQueuedMutation(async enqueue => {
+    const persisted = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const subtasks = normalizeSubtasks(existing.subtasks).filter(subtask => String(subtask.id) !== String(subtaskId));
       await enqueue('DELETE_SUBTASK', { todo_id: existing.id, subtask_id: subtaskId });
-      persisted = await persistTodoSubtasks(todoId, subtasks);
+      return persistTodoSubtasks(existing.id, subtasks);
+      },
     });
     if (!persisted) return false;
     await finishTodoSubtaskMutation(todoId);
@@ -1277,7 +1357,6 @@ export function createTodosFeature({
       .sort((a, b) => Number(a.sort_order) - Number(b.sort_order));
     normalized.forEach(subtask => addTodoSubtaskRow(subtask));
     updateSubtaskEditorCount();
-    setTodoCollapsibleOpen('todo-subtasks-panel', normalized.length > 0);
   }
 
   async function addTodoSubtaskFromInput() {
@@ -1344,7 +1423,6 @@ export function createTodosFeature({
     cleanupRichEditors(list);
     list.innerHTML = '';
     if (count) count.textContent = String(normalized.length);
-    setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
     if (empty) {
       empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.draftEmpty');
       empty.hidden = normalized.length > 0;
@@ -1461,14 +1539,34 @@ export function createTodosFeature({
     placeCaretAtEnd(editor);
   }
 
-  async function applyCommentTodoResponse(response) {
+  async function applyCommentTodoResponse(response, privacyGeneration) {
     const updatedTodo = response?.todo;
-    if (!updatedTodo) return;
-    await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
-    renderTodoComments(updatedTodo.comments || [], updatedTodo);
-    renderStats();
-    renderTodos();
+    if (!updatedTodo) return false;
+    let applied = false;
+    const committed = await runAccessFencedCommit({
+      syncInProgressRef,
+      acquireCommitLock: acquireSyncCommitLock,
+      privacyGeneration,
+      commit: async () => {
+        if (!getTodos().some(todo => String(todo.id) === String(updatedTodo.id))) return;
+        const queue = await dbGetAll('syncQueue');
+        const projectedTodo = projectPendingTodoChanges(updatedTodo, queue);
+        if (!projectedTodo) return;
+        if (projectedTodo.project_id != null
+          && !getProjects().some(project => String(project.id) === String(projectedTodo.project_id))) return;
+        if (projectedTodo.section_id != null) {
+          const section = getSections().find(candidate => String(candidate.id) === String(projectedTodo.section_id));
+          if (!section || String(section.project_id) !== String(projectedTodo.project_id)) return;
+        }
+        await dbPut('todos', projectedTodo);
+        setTodos(getTodos().map(todo => String(todo.id) === String(projectedTodo.id) ? projectedTodo : todo));
+        renderTodoComments(projectedTodo.comments || [], projectedTodo);
+        renderStats();
+        renderTodos();
+        applied = true;
+      },
+    });
+    return committed && applied;
   }
 
   async function persistLocalTodoComments(todoId, comments) {
@@ -1529,10 +1627,11 @@ export function createTodosFeature({
       refreshTodoSaveButtonState();
       return;
     }
-    const existing = getTodos().find(todo => String(todo.id) === String(id));
-    if (!existing) return;
-    const comment = pendingTodoComment(existing.id, body);
-    await commitQueuedMutation(async enqueue => {
+    const saved = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const comment = pendingTodoComment(existing.id, body);
       await enqueue('CREATE_COMMENT', {
         todo_id: existing.id,
         temp_id: comment.id,
@@ -1540,7 +1639,10 @@ export function createTodosFeature({
         local_comment: comment,
       });
       await persistLocalTodoComments(existing.id, [...(existing.comments || []), comment]);
+      return true;
+      },
     });
+    if (!saved) return;
     if (input) {
       clearTodoCommentEditor(input);
       input.focus();
@@ -1555,17 +1657,21 @@ export function createTodosFeature({
       return;
     }
     if (!todoId || !commentId) return;
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return;
-    const comments = (existing.comments || []).map(comment => (
-      String(comment.id) === String(commentId)
-        ? { ...comment, body: normalized, updated_at: new Date().toISOString(), is_pending: true }
-        : comment
-    ));
-    await commitQueuedMutation(async enqueue => {
+    const saved = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const comments = (existing.comments || []).map(comment => (
+        String(comment.id) === String(commentId)
+          ? { ...comment, body: normalized, updated_at: new Date().toISOString(), is_pending: true }
+          : comment
+      ));
       await enqueue('UPDATE_COMMENT', { todo_id: existing.id, comment_id: commentId, changes: { body: normalized } });
       await persistLocalTodoComments(existing.id, comments);
+      return true;
+      },
     });
+    if (!saved) return;
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -1577,13 +1683,17 @@ export function createTodosFeature({
       confirmText: t('todo.comments.deleteConfirm'),
     });
     if (!confirmed) return;
-    const existing = getTodos().find(todo => String(todo.id) === String(todoId));
-    if (!existing) return;
-    const comments = (existing.comments || []).filter(comment => String(comment.id) !== String(commentId));
-    await commitQueuedMutation(async enqueue => {
+    const saved = await runCurrentEntityMutation(todoId, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (existing, enqueue) => {
+      const comments = (existing.comments || []).filter(comment => String(comment.id) !== String(commentId));
       await enqueue('DELETE_COMMENT', { todo_id: existing.id, comment_id: commentId });
       await persistLocalTodoComments(existing.id, comments);
+      return true;
+      },
     });
+    if (!saved) return;
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -1962,32 +2072,44 @@ export function createTodosFeature({
 
   async function setTodoStatus(id, status) {
     if (!getAppInitialized() || !getDb()) return;
-    const todo = getTodos().find(x => String(x.id) === String(id));
-    if (!todo || todo.status === status) return;
-    const changes = { status };
-    const openSubtasks = getOpenSubtaskCount(todo);
+    const initialTodo = getTodos().find(x => String(x.id) === String(id));
+    if (!initialTodo || initialTodo.status === status) return;
+    const openSubtasks = getOpenSubtaskCount(initialTodo);
+    let confirmedOpenSubtasks = false;
     if (status === 'done' && openSubtasks > 0) {
-      const confirmed = await confirmDanger({
+      confirmedOpenSubtasks = await confirmDanger({
         title: t('todo.subtasks.completeWithOpenTitle'),
         message: t('todo.subtasks.completeWithOpenMessage', { count: openSubtasks }),
         confirmText: t('todo.subtasks.completeAnyway'),
       });
-      if (!confirmed) return;
-      changes.confirm_incomplete_subtasks_completion = true;
+      if (!confirmedOpenSubtasks) return;
     }
-    const nowIso = new Date().toISOString();
-    const completed_at = status === 'done' ? nowIso : null;
-    const updatedTodo = { ...todo, status, completed_at, updated_at: nowIso };
-    await commitQueuedMutation(async enqueue => {
-      await dbPut('todos', updatedTodo);
-      setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
-      await enqueue('UPDATE_TODO', { id: todo.id, changes });
+    const result = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (todo, enqueue) => {
+        if (todo.status === status) return null;
+        const changes = { status };
+        const currentOpenSubtasks = getOpenSubtaskCount(todo);
+        if (status === 'done' && currentOpenSubtasks > 0) {
+          if (!confirmedOpenSubtasks) return null;
+          changes.confirm_incomplete_subtasks_completion = true;
+        }
+        const nowIso = new Date().toISOString();
+        const completed_at = status === 'done' ? nowIso : null;
+        const updatedTodo = { ...todo, status, completed_at, updated_at: nowIso };
+        await dbPut('todos', updatedTodo);
+        setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+        await enqueue('UPDATE_TODO', { id: todo.id, changes });
+        return { previous: todo, updated: updatedTodo };
+      },
     });
+    if (!result) return;
     renderStats();
     renderTodos();
     runHapticFeedback(status === 'done' ? 18 : 10);
-    if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
-    else if (todo.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: todo.id, previousStatus: todo.status });
+    if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: result.updated.id, previousStatus: result.previous.status });
+    else if (result.previous.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: result.updated.id, previousStatus: result.previous.status });
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -2053,250 +2175,6 @@ export function createTodosFeature({
       event.preventDefault();
       editTodo(item.dataset.id);
     });
-  }
-
-  function bindTodoSwipeGestures() {
-    if (document.documentElement.dataset.todoSwipeBound === '1') return;
-    document.documentElement.dataset.todoSwipeBound = '1';
-
-    const thresholdPx = 80;
-    const thresholdRatio = 0.35;
-    const lockThreshold = 10;
-    const leftEdgeSwipeDeadzonePx = 72;
-    const actionZoneLockThreshold = 36;
-    let active = null;
-    let suppressClickUntil = 0;
-    let swipeVisualFrame = 0;
-    let swipeVisualFrameIsTimeout = false;
-    let pendingSwipeVisual = null;
-
-    document.addEventListener('click', (event) => {
-      if (Date.now() > suppressClickUntil) return;
-      if (!event.target?.closest?.('.todo-item')) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation?.();
-    }, true);
-
-    document.addEventListener('pointerdown', (event) => {
-      if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
-      const item = event.target?.closest?.('.todo-item');
-      if (!item) return;
-      const startedInActionZone = Boolean(event.target.closest('.todo-actions'));
-      const startedInStatusZone = Boolean(event.target.closest('.todo-status-control, .todo-check'));
-      if (isTodoInteractiveTarget(event.target) && !startedInActionZone && !startedInStatusZone) return;
-      active = {
-        item,
-        shell: item.closest('.todo-swipe-shell'),
-        id: item.dataset.id,
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        dx: 0,
-        dy: 0,
-        locked: null,
-        swiped: false,
-        startedInActionZone,
-        startedInStatusZone,
-        originalDraggable: item.getAttribute('draggable'),
-        capturedPointer: false,
-      };
-    }, { passive: true });
-
-    function elasticSwipeDistance(rawDx, width) {
-      const sign = rawDx < 0 ? -1 : 1;
-      const distance = Math.abs(rawDx);
-      const max = Math.max(0, width);
-      const direct = Math.min(120, max * 0.32);
-      if (!max || distance <= direct) return rawDx;
-      const inputRange = Math.max(1, max * 0.95 - direct);
-      const progress = Math.min(1, (distance - direct) / inputRange);
-      const eased = direct + (max - direct) * (1 - Math.pow(1 - progress, 0.65));
-      return sign * Math.min(max, eased);
-    }
-
-    function setSwipeVisual(item, visualDx, rawDx, actionThreshold) {
-      const progress = Math.min(1, Math.abs(rawDx) / Math.max(1, actionThreshold));
-      item.style.setProperty('--swipe-x', `${visualDx}px`);
-      item.style.setProperty('--swipe-progress', progress.toFixed(3));
-      item.classList.toggle('swipe-right', visualDx > 0);
-      item.classList.toggle('swipe-left', visualDx < 0);
-      item.classList.toggle('swipe-ready', progress >= 1);
-      const shell = item.closest('.todo-swipe-shell');
-      shell?.classList.toggle('swipe-right', visualDx > 0);
-      shell?.classList.toggle('swipe-left', visualDx < 0);
-      shell?.classList.toggle('swipe-ready', progress >= 1);
-    }
-
-    function cancelScheduledSwipeVisual() {
-      if (swipeVisualFrame) {
-        if (swipeVisualFrameIsTimeout) window.clearTimeout(swipeVisualFrame);
-        else window.cancelAnimationFrame?.(swipeVisualFrame);
-      }
-      swipeVisualFrame = 0;
-      swipeVisualFrameIsTimeout = false;
-      pendingSwipeVisual = null;
-    }
-
-    function flushScheduledSwipeVisual() {
-      swipeVisualFrame = 0;
-      swipeVisualFrameIsTimeout = false;
-      const pending = pendingSwipeVisual;
-      pendingSwipeVisual = null;
-      if (!pending?.item?.isConnected || !pending.item.classList.contains('swiping')) return;
-      setSwipeVisual(pending.item, pending.visualDx, pending.rawDx, pending.actionThreshold);
-    }
-
-    function scheduleSwipeVisual(item, visualDx, rawDx, actionThreshold) {
-      pendingSwipeVisual = { item, visualDx, rawDx, actionThreshold };
-      if (swipeVisualFrame) return;
-      if (window.requestAnimationFrame) {
-        swipeVisualFrame = window.requestAnimationFrame(flushScheduledSwipeVisual);
-        swipeVisualFrameIsTimeout = false;
-      } else {
-        swipeVisualFrame = window.setTimeout(flushScheduledSwipeVisual, 16);
-        swipeVisualFrameIsTimeout = true;
-      }
-    }
-
-    function cleanupSwipeVisual(item) {
-      cancelScheduledSwipeVisual();
-      const shell = item.closest('.todo-swipe-shell');
-      shell?.classList.remove('is-swiping', 'swipe-right', 'swipe-left', 'swipe-ready');
-      item.classList.remove('swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
-      item.style.removeProperty('--swipe-x');
-      item.style.removeProperty('--swipe-progress');
-      item.removeAttribute('data-swipe-right-label');
-      item.removeAttribute('data-swipe-left-label');
-    }
-
-    function restoreSwipeDraggable(state) {
-      if (!state?.item) return;
-      if (state.originalDraggable === null) state.item.removeAttribute('draggable');
-      else state.item.setAttribute('draggable', state.originalDraggable);
-    }
-
-    function captureSwipePointer(state) {
-      if (!state?.item || state.capturedPointer) return;
-      try {
-        state.item.setPointerCapture?.(state.pointerId);
-        state.capturedPointer = true;
-      } catch (_) {}
-    }
-
-    function releaseSwipePointer(state) {
-      if (!state?.capturedPointer) return;
-      try { state.item?.releasePointerCapture?.(state.pointerId); } catch (_) {}
-      state.capturedPointer = false;
-    }
-
-    function cancelActiveSwipe() {
-      if (!active) return;
-      const current = active;
-      active = null;
-      cleanupSwipeVisual(current.item);
-      restoreSwipeDraggable(current);
-      releaseSwipePointer(current);
-      suppressClickUntil = Date.now() + 450;
-    }
-
-    function wait(ms) {
-      return new Promise(resolve => window.setTimeout(resolve, ms));
-    }
-
-    document.addEventListener('pointermove', (event) => {
-      if (!active || event.pointerId !== active.pointerId) return;
-      const dragDropActive = document.body.classList.contains('native-pointer-dragging') || active.item.classList.contains('dragging');
-      if (dragDropActive) {
-        cancelActiveSwipe();
-        return;
-      }
-      active.dx = event.clientX - active.startX;
-      active.dy = event.clientY - active.startY;
-
-      if (!active.locked) {
-        const absX = Math.abs(active.dx);
-        const absY = Math.abs(active.dy);
-        const requiredLockThreshold = (active.startedInActionZone || active.startedInStatusZone) ? actionZoneLockThreshold : lockThreshold;
-        if (absX < requiredLockThreshold && absY < lockThreshold) return;
-        const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx && !active.startedInStatusZone;
-        active.locked = absX >= requiredLockThreshold && absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
-        if (active.locked === 'vertical') return;
-        captureSwipePointer(active);
-        active.item.setAttribute('draggable', 'false');
-        if (!active.shell) {
-          active.item.setAttribute('data-swipe-right-label', `↗ ${t('todo.status.inProgress')}`);
-          active.item.setAttribute('data-swipe-left-label', `✓ ${t('todo.status.done')}`);
-        }
-        active.item.classList.remove('touch-feedback');
-        if (active.item.__niaTouchFeedbackTimer) window.clearTimeout(active.item.__niaTouchFeedbackTimer);
-        if (active.shell) {
-          setTodoActionsExpanded(active.item, false);
-          active.item.classList.remove('has-open-menu');
-          closeTodoActionMenus();
-          active.shell.classList.add('is-swiping');
-        }
-        active.item.classList.add('swiping');
-      }
-
-      if (active.locked !== 'horizontal') return;
-      event.preventDefault();
-      const actionThreshold = Math.max(thresholdPx, active.item.clientWidth * thresholdRatio);
-      const dx = elasticSwipeDistance(active.dx, active.item.clientWidth);
-      scheduleSwipeVisual(active.item, dx, active.dx, actionThreshold);
-      active.swiped = true;
-    }, { passive: false });
-
-    const finish = async (event) => {
-      if (!active || event.pointerId !== active.pointerId) return;
-      const current = active;
-      active = null;
-      const item = current.item;
-      const actionThreshold = Math.max(thresholdPx, item.clientWidth * thresholdRatio);
-      const shouldAct = current.locked === 'horizontal' && Math.abs(current.dx) >= actionThreshold;
-      cancelScheduledSwipeVisual();
-      releaseSwipePointer(current);
-
-      if (current.swiped || shouldAct) suppressClickUntil = Date.now() + 450;
-      if (current.locked === 'horizontal') event.preventDefault();
-
-      if (!shouldAct) {
-        if (current.swiped) {
-          item.classList.add('swipe-settling');
-          window.requestAnimationFrame(() => setSwipeVisual(item, 0, 0, actionThreshold));
-          await wait(180);
-        }
-        cleanupSwipeVisual(item);
-        restoreSwipeDraggable(current);
-        return;
-      }
-
-      item.classList.add('swipe-committing');
-      setSwipeVisual(item, current.dx < 0 ? -item.clientWidth : item.clientWidth, current.dx, actionThreshold);
-      await wait(130);
-      cleanupSwipeVisual(item);
-      restoreSwipeDraggable(current);
-      if (current.dx < 0) await toggleTodoStatus(current.id, 'done');
-      else await toggleTodoStatus(current.id, 'in_progress');
-    };
-
-    const cancel = (event) => {
-      if (!active || event.pointerId !== active.pointerId) return;
-      cancelActiveSwipe();
-    };
-
-    document.addEventListener('pointerup', finish, { passive: false });
-    document.addEventListener('pointercancel', cancel, { passive: true });
-    document.addEventListener('lostpointercapture', (event) => {
-      if (active && event.pointerId === active.pointerId) {
-        active.capturedPointer = false;
-      }
-    }, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) cancelActiveSwipe();
-    }, { passive: true });
-    window.addEventListener('blur', cancelActiveSwipe, { passive: true });
-    window.addEventListener('pagehide', cancelActiveSwipe, { passive: true });
   }
 
   function isInteractiveTarget(element) {
@@ -2527,9 +2405,8 @@ export function createTodosFeature({
   function bindTodoHoverKeyboardShortcuts() {
     if (document.documentElement.dataset.todoHoverKeyboardBound === '1') return;
     document.documentElement.dataset.todoHoverKeyboardBound = '1';
-    let hoveredTodoId = null;
-
     document.addEventListener('pointerover', (event) => {
+      if (getActiveModule() !== 'tasks') return;
       const item = event.target?.closest?.('.todo-item[data-id]');
       if (item) hoveredTodoId = item.dataset.id;
     }, { passive: true });
@@ -2552,19 +2429,42 @@ export function createTodosFeature({
       const isSpace = event.key === ' ' || event.key === 'Spacebar';
       const isDelete = event.key === 'Delete';
       if (!isSpace && !isDelete) return;
+      if (getActiveModule() !== 'tasks') return;
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
       if (isInteractiveTarget(document.activeElement)) return;
       if (document.querySelector('.modal.active')) return;
       const todoId = getShortcutTodoId();
       if (!todoId) return;
       event.preventDefault();
-      if (isDelete) await deleteTodo(Number(todoId));
+      if (isDelete) await deleteTodo(todoId);
       else await toggleTodo(todoId);
     });
   }
 
+  function resetTodoShortcutTarget() {
+    hoveredTodoId = null;
+  }
+
   bindTodoItemClickBehavior();
-  bindTodoSwipeGestures();
+  registerItemSwipeAdapter({
+    id: 'todo-items',
+    cardSelector: '.todo-item.ui-swipe-card[data-id]',
+    keyFromCard: item => item.dataset.id,
+    directions: ['left', 'right'],
+    protectedStartSelector: '.todo-actions, .todo-status-control, .todo-check',
+    labelFor: direction => direction === 'left' ? `✓ ${t('todo.status.done')}` : `↗ ${t('todo.status.inProgress')}`,
+    onActivate: (item, shell) => {
+      item.classList.remove('touch-feedback');
+      if (item.__niaTouchFeedbackTimer) window.clearTimeout(item.__niaTouchFeedbackTimer);
+      if (!shell) return;
+      setTodoActionsExpanded(item, false);
+      item.classList.remove('has-open-menu');
+      closeTodoActionMenus();
+    },
+    onCommit: async ({ key, direction }) => {
+      await toggleTodoStatus(key, direction === 'left' ? 'done' : 'in_progress');
+    },
+  });
   bindTodoActionsReveal();
   bindTodoStatusMenuBehavior();
   bindTodoHoverKeyboardShortcuts();
@@ -2602,7 +2502,6 @@ export function createTodosFeature({
     renderTodoSubtaskEditor([]);
     renderTodoComments([], null);
     renderTodoAttachments([], null);
-    updateTodoMetaPanelsOpenState(null);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
       modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
@@ -2668,7 +2567,6 @@ export function createTodosFeature({
       renderTodoSubtaskEditor(todo.subtasks || []);
       renderTodoComments(todo.comments || [], todo);
       renderTodoAttachments(todo.attachments || [], todo);
-      updateTodoMetaPanelsOpenState(todo);
       renderTodoMetaSummary(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
@@ -2683,7 +2581,6 @@ export function createTodosFeature({
       resizeTodoTitleField();
       document.getElementById('todo-project').value = getCurrentProjectId() || inboxProject?.id || '';
       await onProjectChange(null);
-      updateTodoMetaPanelsOpenState(null);
     }
 
     multiAddFeature.reset({ editing: Boolean(todo) });
@@ -2692,6 +2589,8 @@ export function createTodosFeature({
     updateRecurringControls();
     setupDescPreview();
     syncDateTimePickers?.();
+    todoRoutingDefaults = { projectId: document.getElementById('todo-project')?.value || null, sectionId: document.getElementById('todo-section')?.value || null };
+    resetRoutingPreview();
     bindQuickAddPreview();
     renderQuickAddPreview(null);
     if (!todo) {
@@ -2706,7 +2605,7 @@ export function createTodosFeature({
     openUiLayer('todo-modal');
     resizeTodoTitleField();
     window.requestAnimationFrame?.(resizeTodoTitleField);
-    if (!todo) focusTodoTitle();
+    if (shouldAutoFocusEntityEditorTitle(todo ? 'edit' : 'create')) focusTodoTitle();
   }
 
   async function onProjectChange(selectedSectionId = null) {
@@ -2727,15 +2626,31 @@ export function createTodosFeature({
       let projectSections;
       if (isOnlineForSync()) {
         try {
+          const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
           const data = await sectionsApi.listByProject(projectId);
-          projectSections = data.sections || [];
-          const serverIds = new Set(projectSections.map(s => String(s.id)));
-          const allLocal = await dbGetAll('sections');
-          const localProjectSections = allLocal.filter(s => String(s.project_id) === String(projectId));
-          for (const local of localProjectSections) {
-            if (!serverIds.has(String(local.id))) await deleteFromDB('sections', local.id);
-          }
-          for (const s of projectSections) await dbPut('sections', s);
+          const serverSections = data.sections || [];
+          let applied = false;
+          const committed = await runAccessFencedCommit({
+            syncInProgressRef,
+            acquireCommitLock: acquireSyncCommitLock,
+            privacyGeneration,
+            commit: async () => {
+              if (document.getElementById('todo-project')?.value !== projectId) return;
+              if (!getProjects().some(project => String(project.id) === String(projectId))) return;
+              const allLocal = await dbGetAll('sections');
+              const localProjectSections = allLocal.filter(s => String(s.project_id) === String(projectId));
+              const queue = await dbGetAll('syncQueue');
+              projectSections = projectPendingSectionsSnapshot(serverSections, localProjectSections, queue, projectId);
+              if (projectSections.some(section => String(section.project_id) !== String(projectId))) return;
+              const projectedIds = new Set(projectSections.map(section => String(section.id)));
+              for (const local of localProjectSections) {
+                if (!projectedIds.has(String(local.id))) await deleteFromDB('sections', local.id);
+              }
+              for (const section of projectSections) await dbPut('sections', section);
+              applied = true;
+            },
+          });
+          if (!committed || !applied) return;
         } catch (serverError) {
           console.warn('Failed to load sections from server, using local cache', serverError);
           projectSections = await loadLocalSections();
@@ -2743,15 +2658,7 @@ export function createTodosFeature({
       } else {
         projectSections = await loadLocalSections();
       }
-      translatePage(sectionSelect);
-      for (const s of projectSections) {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = s.name;
-        sectionSelect.appendChild(opt);
-      }
-      sectionSelect.disabled = false;
-      if (selectedSectionId !== null) sectionSelect.value = selectedSectionId;
+      renderTodoSectionOptions(projectId, projectSections, typeof selectedSectionId === 'object' ? null : selectedSectionId);
     } catch (e) {
       console.error('Failed to load sections for project', e);
     } finally {
@@ -2770,16 +2677,19 @@ export function createTodosFeature({
       return;
     }
     if (!getAppInitialized() || !getDb()) return;
+    setRoutingPreviewBusy(true);
+    try {
+    const routingSnapshot = routingMemory?.capture?.() || routingMemory;
     if (!validateTodoDateTimes()) return;
     const id = document.getElementById('todo-id').value;
-    const parsedQuickAdd = id ? null : await parseQuickAddTitle(document.getElementById('todo-title').value, getCurrentProjectId(), document.getElementById('todo-project')?.value || null);
+    const parsedQuickAdd = id ? null : await parseQuickAddTitle(document.getElementById('todo-title').value, getCurrentProjectId(), document.getElementById('todo-project')?.value || null, { ...currentRoutingOptions(), routingSnapshot });
     const todoData = {
       title: parsedQuickAdd?.title || document.getElementById('todo-title').value,
       description: document.getElementById('todo-desc').value,
       priority: parseInt(document.getElementById('todo-priority').value),
       is_pinned: document.getElementById('todo-pinned')?.checked || false,
-      project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
-      section_id: document.getElementById('todo-section').value ? parseInt(document.getElementById('todo-section').value) : null,
+      project_id: document.getElementById('todo-project').value || null,
+      section_id: document.getElementById('todo-section').value || null,
       status: document.getElementById('todo-status').value,
       subtasks: collectTodoSubtasksFromEditor(),
       due_date: toIsoOrNull('todo-due'),
@@ -2793,8 +2703,8 @@ export function createTodosFeature({
     }
     if (parsedQuickAdd) {
       if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
-      if (parsedQuickAdd.changes.project_id) todoData.project_id = parsedQuickAdd.changes.project_id;
-      if (parsedQuickAdd.changes.section_id && !todoData.section_id) todoData.section_id = parsedQuickAdd.changes.section_id;
+      if (Object.hasOwn(parsedQuickAdd.changes, 'project_id')) todoData.project_id = parsedQuickAdd.changes.project_id;
+      if (Object.hasOwn(parsedQuickAdd.changes, 'section_id')) todoData.section_id = parsedQuickAdd.changes.section_id;
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
       if (parsedQuickAdd.changes.recurring_rule && !todoData.recurring_rule) todoData.recurring_rule = parsedQuickAdd.changes.recurring_rule;
@@ -2818,11 +2728,21 @@ export function createTodosFeature({
       dueInput?.focus();
       return;
     }
-    if (todoData.section_id && todoData.project_id) {
-      const allSections = await loadSectionsForQuickAdd();
-      const selectedSection = allSections.find(section => String(section.id) === String(todoData.section_id));
-      if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
-    }
+    const targetSections = todoData.section_id == null ? [] : await loadSectionsForQuickAdd();
+    const targets = resolveKnownTodoTargets({ projectId: todoData.project_id, sectionId: todoData.section_id,
+      projects: getProjects(), sections: targetSections,
+      inheritedSectionProjectId: parsedQuickAdd?.changes.project_id && !parsedQuickAdd.changes.section_id
+        ? document.getElementById('todo-project').value || null : undefined });
+    if (!targets) return;
+    Object.assign(todoData, targets);
+    const explicitRouting = currentRoutingOptions();
+    const chosenRoutingFields = new Set(parsedQuickAdd?.routing_fields || []);
+    if (explicitRouting.projectExplicit) chosenRoutingFields.add('list');
+    if (explicitRouting.sectionExplicit) chosenRoutingFields.add('section');
+    if (!id && !(parsedQuickAdd?.memory_fields || []).includes('list') && getCurrentProjectId() != null
+      && String(todoData.project_id) === String(getCurrentProjectId())) chosenRoutingFields.add('list');
+    const routingFeedback = routingSnapshot?.feedback([...chosenRoutingFields]);
+    const withRoutingFeedback = data => routingFeedback ? { ...data, routing_feedback: routingFeedback } : data;
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
     const locationReminderIntent = Boolean(todoData.location_reminder) && (
       !id || document.getElementById('todo-form')?.dataset.locationReminderDirty === '1'
@@ -2834,37 +2754,88 @@ export function createTodosFeature({
       showToast(t('todo.drafts.onlineOnly'));
       return;
     }
+    const hasPendingTarget = () => [todoData.project_id, todoData.section_id]
+      .some(value => typeof value === 'string' && value.startsWith('temp-'));
+    if (draftAttachmentFiles.length > 0 && hasPendingTarget()) {
+      await syncWithServer();
+      const latestTargets = resolveKnownTodoTargets({
+        projectId: document.getElementById('todo-project').value || null,
+        sectionId: document.getElementById('todo-section').value || null,
+        projects: getProjects(), sections: await loadSectionsForQuickAdd(),
+      });
+      if (!latestTargets) return;
+      Object.assign(todoData, latestTargets);
+      if (hasPendingTarget()) return;
+    }
     if (id) delete todoData.subtasks;
     if (id) {
-      const existing = getTodos().find(t => t.id === parseInt(id));
-      if (existing) {
-        const nowIso = new Date().toISOString();
-        const updated = { ...existing, ...todoData, completed_at: todoData.status === 'done' ? (existing.completed_at || nowIso) : null, updated_at: nowIso };
-        await commitQueuedMutation(async enqueue => {
-          await dbPut('todos', updated);
-          setTodos(getTodos().map(t => t.id === parseInt(id) ? updated : t));
-          await enqueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
-        });
-        if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
-        if (isOnlineForSync()) await syncWithServer();
-      }
-    } else if (hasPostCreateDrafts && isOnlineForSync()) {
-      let createdTodo = await todosApi.create(todoData);
-      await dbPut('todos', createdTodo);
+      const updated = await runCurrentEntityMutation(id, {
+        getEntities: getTodos,
+        commit: commitQueuedMutation,
+        mutate: async (existing, enqueue) => {
+          const targetProject = todoData.project_id == null
+            ? null
+            : getProjects().find(project => String(project.id) === String(todoData.project_id));
+          if (todoData.project_id != null && !targetProject) return null;
+          if (todoData.section_id != null) {
+            const targetSection = (await loadSectionsForQuickAdd()).find(section => String(section.id) === String(todoData.section_id));
+            if (!targetSection || String(targetSection.project_id) !== String(todoData.project_id)) return null;
+          }
+          const nowIso = new Date().toISOString();
+          const nextTodo = { ...existing, ...todoData, completed_at: todoData.status === 'done' ? (existing.completed_at || nowIso) : null, updated_at: nowIso };
+          await dbPut('todos', nextTodo);
+          setTodos(getTodos().map(todo => String(todo.id) === String(id) ? nextTodo : todo));
+          const pendingCreate = String(id).startsWith('temp-')
+            ? (await dbGetAll('syncQueue')).find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(id)
+              && !item.attempted && !item.data?.create_attempted && !item.data?.create_receipt)
+            : null;
+          if (pendingCreate) {
+            const feedback = mergeRoutingFeedback(pendingCreate.data.routing_feedback, routingFeedback);
+            const data = { ...pendingCreate.data, ...todoData };
+            delete data.routing_feedback;
+            if (feedback) data.routing_feedback = feedback;
+            await dbPut('syncQueue', { ...pendingCreate, data });
+          } else await enqueue('UPDATE_TODO', { id: existing.id, changes: withRoutingFeedback(todoData) });
+          return nextTodo;
+        },
+      });
+      if (!updated) return;
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
-      setTodos([...getTodos(), createdTodo]);
+      if (isOnlineForSync()) await syncWithServer();
+    } else if (hasPostCreateDrafts && isOnlineForSync() && !hasPendingTarget()) {
+      const createPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
+      let createdTodo = await todosApi.create(withRoutingFeedback(todoData));
+      let createApplied = false;
+      const createCommitted = await runAccessFencedCommit({
+        syncInProgressRef,
+        acquireCommitLock: acquireSyncCommitLock,
+        privacyGeneration: createPrivacyGeneration,
+        commit: async () => {
+          const targetProject = createdTodo.project_id == null
+            ? null
+            : getProjects().find(project => String(project.id) === String(createdTodo.project_id));
+          if (createdTodo.project_id != null && !targetProject) return;
+          if (createdTodo.section_id != null) {
+            const targetSection = getSections().find(section => String(section.id) === String(createdTodo.section_id));
+            if (!targetSection || String(targetSection.project_id) !== String(createdTodo.project_id)) return;
+          }
+          await dbPut('todos', createdTodo);
+          setTodos([...getTodos(), createdTodo]);
+          createApplied = true;
+        },
+      });
+      if (!createCommitted || !createApplied) return;
+      if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       document.getElementById('todo-id').value = String(createdTodo.id);
       for (const body of draftComments) {
+        const commentPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
         const response = await todosApi.createComment(createdTodo.id, { body });
         createdTodo = response?.todo || createdTodo;
-        await applyCommentTodoResponse(response);
+        if (!await applyCommentTodoResponse(response, commentPrivacyGeneration)) return;
       }
       if (draftAttachmentFiles.length > 0) {
         const uploaded = await uploadTodoAttachmentFromInput();
         if (!uploaded) return;
-      } else {
-        await dbPut('todos', createdTodo);
-        setTodos(getTodos().map(todo => String(todo.id) === String(createdTodo.id) ? createdTodo : todo));
       }
       renderProjects();
       renderStats();
@@ -2885,10 +2856,18 @@ export function createTodosFeature({
         comments: pendingComments,
         comments_count: pendingComments.length,
       };
-      await commitQueuedMutation(async enqueue => {
+      const created = await commitQueuedMutation(async enqueue => {
+        const targetProject = todoData.project_id == null
+          ? null
+          : getProjects().find(project => String(project.id) === String(todoData.project_id));
+        if (todoData.project_id != null && !targetProject) return null;
+        if (todoData.section_id != null) {
+          const targetSection = (await loadSectionsForQuickAdd()).find(section => String(section.id) === String(todoData.section_id));
+          if (!targetSection || String(targetSection.project_id) !== String(todoData.project_id)) return null;
+        }
         await dbPut('todos', newTodo);
         setTodos([...getTodos(), newTodo]);
-        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+        await enqueue('CREATE_TODO', { ...withRoutingFeedback(todoData), _tempId: tempId });
         for (const comment of pendingComments) {
           await enqueue('CREATE_COMMENT', {
             todo_id: tempId,
@@ -2897,7 +2876,9 @@ export function createTodosFeature({
             local_comment: comment,
           });
         }
+        return newTodo;
       });
+      if (!created) return;
       if (locationReminderIntent) await resetLocationPermissionGuidanceForUserIntent();
       renderProjects();
       renderStats();
@@ -2916,32 +2897,40 @@ export function createTodosFeature({
       renderTodos();
       closeModal('todo-modal');
     }
+    } finally { setRoutingPreviewBusy(false); }
   }
 
   async function updateTodoFields(id, changes, toastMessage = null, { sync = true } = {}) {
     if (!getAppInitialized() || !getDb()) return;
-    const todo = getTodos().find(x => String(x.id) === String(id));
-    if (!todo) return;
-    const nowIso = new Date().toISOString();
-    const statusChanged = Object.prototype.hasOwnProperty.call(changes, 'status');
-    const completed_at = statusChanged ? (changes.status === 'done' ? (todo.completed_at || nowIso) : null) : todo.completed_at;
-    const updatedTodo = { ...todo, ...changes, completed_at, updated_at: nowIso };
-    await commitQueuedMutation(async enqueue => {
-      await dbPut('todos', updatedTodo);
-      setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
-      await enqueue('UPDATE_TODO', { id: todo.id, changes });
+    const routeFields = ['project_id', 'section_id'].filter(field => Object.hasOwn(changes, field))
+      .map(field => field === 'project_id' ? 'list' : 'section');
+    const routingFeedback = routeFields.length ? routingMemory?.feedback(routeFields) : null;
+    const result = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (todo, enqueue) => {
+        const nowIso = new Date().toISOString();
+        const statusChanged = Object.prototype.hasOwnProperty.call(changes, 'status');
+        const completed_at = statusChanged ? (changes.status === 'done' ? (todo.completed_at || nowIso) : null) : todo.completed_at;
+        const updatedTodo = { ...todo, ...changes, completed_at, updated_at: nowIso };
+        await dbPut('todos', updatedTodo);
+        setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+        await enqueue('UPDATE_TODO', { id: todo.id, changes: routingFeedback ? { ...changes, routing_feedback: routingFeedback } : changes });
+        return { previous: todo, updated: updatedTodo };
+      },
     });
+    if (!result) return;
     renderStats();
     renderTodos();
     if (toastMessage) {
       const previousChanges = Object.fromEntries(Object.keys(changes).map((key) => {
-        if (key === 'remind_at') return [key, getTodoReminderTime(todo)?.toISOString() || null];
-        return [key, todo[key] ?? null];
+        if (key === 'remind_at') return [key, getTodoReminderTime(result.previous)?.toISOString() || null];
+        return [key, result.previous[key] ?? null];
       }));
-      showToast(toastMessage, { type: 'fields', id: todo.id, changes: previousChanges });
+      showToast(toastMessage, { type: 'fields', id: result.updated.id, changes: previousChanges });
     }
     if (sync && isOnlineForSync()) await syncWithServer();
-    return updatedTodo;
+    return result.updated;
   }
 
   async function removeAllLocationReminders() {
@@ -3020,36 +3009,40 @@ export function createTodosFeature({
 
   async function duplicateTodo(id) {
     if (!getAppInitialized() || !getDb()) return;
-    const todo = getTodos().find(x => String(x.id) === String(id));
-    if (!todo) return;
-    const reminder = getTodoReminderTime(todo);
-    const todoData = {
-      title: todo.title,
-      description: todo.description || '',
-      priority: Number(todo.priority) || 3,
-      is_pinned: Boolean(todo.is_pinned),
-      project_id: todo.project_id ?? null,
-      section_id: todo.section_id ?? null,
-      status: 'pending',
-      due_date: todo.due_date || null,
-      remind_at: reminder ? reminder.toISOString() : null,
-      recurring_rule: todo.recurring_rule || null,
-      subtasks: normalizeSubtasks(todo.subtasks || []).map((subtask, index) => ({ title: subtask.title, is_done: false, sort_order: index })),
-      location_reminder: cloneLocationReminderPayload(todo),
-    };
-    todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
-    const tempId = 'temp-' + Date.now();
-    const nowIso = new Date().toISOString();
-    const duplicated = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: todoData.remind_at ? [{ remind_at: todoData.remind_at }] : [] };
-    await commitQueuedMutation(async enqueue => {
-      await dbPut('todos', duplicated);
-      setTodos([...getTodos(), duplicated]);
-      await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
+    const duplicated = await runCurrentEntityMutation(id, {
+      getEntities: getTodos,
+      commit: commitQueuedMutation,
+      mutate: async (todo, enqueue) => {
+        const reminder = getTodoReminderTime(todo);
+        const todoData = {
+          title: todo.title,
+          description: todo.description || '',
+          priority: Number(todo.priority) || 3,
+          is_pinned: Boolean(todo.is_pinned),
+          project_id: todo.project_id ?? null,
+          section_id: todo.section_id ?? null,
+          status: 'pending',
+          due_date: todo.due_date || null,
+          remind_at: reminder ? reminder.toISOString() : null,
+          recurring_rule: todo.recurring_rule || null,
+          subtasks: normalizeSubtasks(todo.subtasks || []).map((subtask, index) => ({ title: subtask.title, is_done: false, sort_order: index })),
+          location_reminder: cloneLocationReminderPayload(todo),
+        };
+        todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
+        const tempId = 'temp-' + Date.now();
+        const nowIso = new Date().toISOString();
+        const nextTodo = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: todoData.remind_at ? [{ remind_at: todoData.remind_at }] : [] };
+        await dbPut('todos', nextTodo);
+        setTodos([...getTodos(), nextTodo]);
+        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
+        return nextTodo;
+      },
     });
-    if (todoData.location_reminder) await resetLocationPermissionGuidanceForUserIntent();
+    if (!duplicated) return;
+    if (duplicated.location_reminder) await resetLocationPermissionGuidanceForUserIntent();
     renderStats();
     renderTodos();
-    showToast(t('todo.toast.duplicated'), { type: 'duplicate', id: tempId });
+    showToast(t('todo.toast.duplicated'), { type: 'duplicate', id: duplicated.id });
 
     if (isOnlineForSync()) await syncWithServer();
     setTimeout(() => {
@@ -3064,32 +3057,65 @@ export function createTodosFeature({
 
   function deleteTodoFromModal() {
     const id = document.getElementById('todo-id').value;
-    if (id) deleteTodo(parseInt(id));
+    if (id) return deleteTodo(id);
+  }
+
+  function remapTodoId(from, to) {
+    const same = id => String(id) === String(from);
+    for (const target of pendingDeleteTargets) {
+      if (target.isCurrent() && same(target.id)) target.id = to;
+    }
+    if (same(hoveredTodoId)) hoveredTodoId = to;
+    const field = document.getElementById('todo-id');
+    if (field?.value && same(field.value)) field.value = String(to);
   }
 
   async function deleteTodo(id) {
-    const confirmed = await confirmDanger({
-      title: t('todo.deleteTitle'),
-      message: t('todo.deleteMessage'),
-      confirmText: t('todo.deleteConfirm'),
-    });
-    if (!confirmed) return;
-    const todo = getTodos().find(t => t.id === id);
-    if (!todo) return;
-    await commitQueuedMutation(async enqueue => {
-      await deleteFromDB('todos', id);
-      setTodos(getTodos().filter(t => t.id !== id));
-      await enqueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 });
-    });
-    renderStats();
-    renderTodos();
-    closeModal('todo-modal');
-    showToast(t('todo.toast.deleted'), { type: 'delete', id, data: { ...todo } });
+    const original = getTodos().find(todo => String(todo.id) === String(id));
+    const actorId = getCurrentUser?.()?.id;
+    if (!original || actorId == null) return;
+    const privacyGeneration = Number(syncInProgressRef.privacyGeneration || 0);
+    const sessionIdentity = getSessionIdentity();
+    const target = { id: original.id, isCurrent: () => getCurrentUser?.()?.id != null
+      && String(getCurrentUser().id) === String(actorId)
+      && getSessionIdentity() === sessionIdentity
+      && Number(syncInProgressRef.privacyGeneration || 0) === privacyGeneration };
+    pendingDeleteTargets.add(target);
+    try {
+      const confirmed = await confirmDanger({
+        title: t('todo.deleteTitle'),
+        message: t('todo.deleteMessage'),
+        confirmText: t('todo.deleteConfirm'),
+      });
+      if (!confirmed || !target.isCurrent()) return;
+      const todo = await runCurrentEntityMutation(() => target.isCurrent() ? target.id : null, {
+        getEntities: getTodos,
+        commit: commitQueuedMutation,
+        mutate: async (current, enqueue) => {
+          if (!target.isCurrent()) return null;
+          const data = { id: current.id, project_id: current.project_id ?? null,
+            undo_grace_until: Date.now() + 5000,
+            local_todo: structuredClone(withoutPrivateRoutingMetadata(current)) };
+          await deleteFromDB('todos', current.id);
+          if (!target.isCurrent()) return null;
+          setTodos(getTodos().filter(candidate => String(candidate.id) !== String(current.id)));
+          await enqueue('DELETE_TODO', data);
+          return current;
+        },
+      });
+      if (!todo || !target.isCurrent()) return;
+      renderStats();
+      renderTodos();
+      closeModal('todo-modal');
+      showToast(t('todo.toast.deleted'), { type: 'delete', id: todo.id, data: withoutPrivateRoutingMetadata(todo) });
 
-    if (isOnlineForSync()) await syncWithServer();
-    setTimeout(() => {
-      if (isOnlineForSync()) syncWithServer();
-    }, 5200);
+      if (isOnlineForSync()) await syncWithServer();
+      setTimeout(() => {
+        if (target.isCurrent() && isOnlineForSync()) syncWithServer();
+      }, 5200);
+    } finally {
+      pendingDeleteTargets.delete(target);
+    }
   }
 
   function resolveTodoActionId(target) {
@@ -3166,5 +3192,5 @@ export function createTodosFeature({
     document.getElementById('todo-project')?.addEventListener('change', onProjectChange);
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, updateTodoFields, removeAllLocationReminders, resetTodoShortcutTarget, remapTodoId, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, remapPendingTargetId, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

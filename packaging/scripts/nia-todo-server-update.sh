@@ -44,7 +44,7 @@ if [ -f "${SOURCE_CONFIG}" ]; then
 fi
 
 SERVICE_NAME="${SERVICE_NAME:-${NIA_TODO_SERVICE_NAME:-nia-todo}}"
-UPDATE_PRIMARY_URL="${NIA_TODO_UPDATE_PRIMARY_URL:-${UPDATE_PRIMARY_URL:-https://nia-todo.homelabdiary.dev/update/stable.json}}"
+UPDATE_PRIMARY_URL="${NIA_TODO_UPDATE_PRIMARY_URL:-${UPDATE_PRIMARY_URL:-https://nia.homelabdiary.dev/update/stable.json}}"
 UPDATE_RELEASE_API_URL="${NIA_TODO_UPDATE_RELEASE_API_URL:-${UPDATE_RELEASE_API_URL:-${RELEASE_API_LATEST:-https://api.github.com/repos/weedpump/nia-todo/releases/latest}}}"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -181,7 +181,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
-primary_url = os.environ.get("UPDATE_PRIMARY_URL", "https://nia-todo.homelabdiary.dev/update/stable.json")
+primary_url = os.environ.get("UPDATE_PRIMARY_URL", "https://nia.homelabdiary.dev/update/stable.json")
 github_api_url = os.environ.get("UPDATE_RELEASE_API_URL", "https://api.github.com/repos/weedpump/nia-todo/releases/latest")
 cache_dir = Path("/var/cache/nia-todo/updates")
 semver_re = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")

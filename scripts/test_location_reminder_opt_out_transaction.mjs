@@ -29,11 +29,11 @@ function createFakeDatabase() {
 const database = createFakeDatabase();
 const updates = [
   {
-    todo: { id: 1, title: 'One', location_reminder: null, location_reminders: [] },
+    todo: { id: 1, project_id: 7, title: 'One', location_reminder: null, location_reminders: [] },
     changes: { location_reminder: null },
   },
   {
-    todo: { id: 2, title: 'Two', location_reminder: null, location_reminders: [] },
+    todo: { id: 2, project_id: 9, title: 'Two', location_reminder: null, location_reminders: [] },
     changes: { location_reminder: null },
   },
 ];
@@ -50,13 +50,13 @@ assert.deepEqual(database.calls.todos, updates.map(update => update.todo));
 assert.deepEqual(database.calls.syncQueue, [
   {
     action: 'UPDATE_TODO',
-    data: { id: 1, changes: { location_reminder: null } },
+    data: { id: 1, project_id: 7, project_boundary_ids: [7], changes: { location_reminder: null } },
     timestamp: 123,
     localUpdatedAt: '2026-10-24T12:00:00.000Z',
   },
   {
     action: 'UPDATE_TODO',
-    data: { id: 2, changes: { location_reminder: null } },
+    data: { id: 2, project_id: 9, project_boundary_ids: [9], changes: { location_reminder: null } },
     timestamp: 123,
     localUpdatedAt: '2026-10-24T12:00:00.000Z',
   },

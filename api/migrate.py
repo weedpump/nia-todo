@@ -6,6 +6,7 @@ Beim Server-Start wird automatisch geprüft welche fehlen und ausgeführt.
 
 import sqlite3
 import re
+import unicodedata
 from pathlib import Path
 
 from paths import DB_PATH
@@ -464,13 +465,255 @@ def repair_todo_child_idempotency_migration(conn):
     conn.commit()
 
 
+def repair_user_module_preferences_migration(conn):
+    """Make migration 057 idempotent for partially-added account module state."""
+    add_column_if_missing(conn, "users", "disabled_modules_json", "TEXT NOT NULL DEFAULT '[]'")
+    conn.commit()
+
+
+def execute_transactional_schema_script(conn, script: str):
+    """Execute a DDL script without sqlite3.executescript's implicit commit."""
+    statement = ""
+    for line in script.splitlines():
+        statement += f"{line}\n"
+        if sqlite3.complete_statement(statement):
+            sql = statement.strip()
+            if sql:
+                conn.execute(sql)
+            statement = ""
+    if statement.strip():
+        raise sqlite3.OperationalError("Incomplete schema statement")
+
+
+def migrate_household_entity_access(conn):
+    """Transform the published v55 project-sharing schema into final migration 58."""
+    if not conn.in_transaction:
+        raise sqlite3.OperationalError("Migration 58 requires an active transaction")
+
+    execute_transactional_schema_script(conn, """
+    ALTER TABLE project_members RENAME TO project_members__migration_058;
+    CREATE TABLE project_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        invited_by INTEGER,
+        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'declined', 'left', 'removed')),
+        user_color TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        workspace_id INTEGER,
+        invite_identifier_type TEXT CHECK(invite_identifier_type IN ('username', 'email')),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE(project_id, user_id)
+    );
+    INSERT INTO project_members (
+        id, project_id, user_id, invited_by, status, user_color,
+        created_at, updated_at, workspace_id, invite_identifier_type
+    )
+    SELECT id, project_id, user_id, invited_by, status, user_color,
+           created_at, updated_at, workspace_id, invite_identifier_type
+    FROM project_members__migration_058;
+    DROP TABLE project_members__migration_058;
+    CREATE INDEX idx_project_members_project ON project_members(project_id);
+    CREATE INDEX idx_project_members_user ON project_members(user_id);
+    CREATE INDEX idx_project_members_status ON project_members(status);
+    CREATE INDEX idx_project_members_workspace ON project_members(workspace_id);
+    CREATE INDEX idx_project_members_invite_identifier_type ON project_members(invite_identifier_type);
+
+    ALTER TABLE todo_comments RENAME TO todo_comments__migration_058;
+    CREATE TABLE todo_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        todo_id INTEGER NOT NULL,
+        user_id INTEGER,
+        body TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        client_mutation_id TEXT,
+        FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+    INSERT INTO todo_comments (id, todo_id, user_id, body, created_at, updated_at, client_mutation_id)
+    SELECT id, todo_id, user_id, body, created_at, updated_at, client_mutation_id
+    FROM todo_comments__migration_058;
+    DROP TABLE todo_comments__migration_058;
+    CREATE INDEX idx_todo_comments_todo ON todo_comments(todo_id, created_at, id);
+    CREATE UNIQUE INDEX idx_todo_comments_client_mutation
+        ON todo_comments(todo_id, user_id, client_mutation_id)
+        WHERE client_mutation_id IS NOT NULL;
+
+    ALTER TABLE todo_attachments RENAME TO todo_attachments__migration_058;
+    CREATE TABLE todo_attachments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        todo_id INTEGER NOT NULL,
+        user_id INTEGER,
+        original_filename TEXT NOT NULL,
+        stored_filename TEXT NOT NULL,
+        content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+        size_bytes INTEGER NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+    INSERT INTO todo_attachments (
+        id, todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at
+    )
+    SELECT id, todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at
+    FROM todo_attachments__migration_058;
+    DROP TABLE todo_attachments__migration_058;
+    CREATE INDEX idx_todo_attachments_todo ON todo_attachments(todo_id, created_at, id);
+    CREATE INDEX idx_todo_attachments_user ON todo_attachments(user_id);
+
+    DROP TRIGGER entity_access_grants_require_manager_insert;
+    DROP TRIGGER entity_access_grants_require_manager_update;
+    INSERT INTO entity_access_grants (
+        entity_access_id, user_id, invited_by_user_id, granted_by_user_id,
+        invite_identifier_type, status, created_at, updated_at
+    )
+    SELECT access.id, member.user_id, member.invited_by, member.invited_by,
+           member.invite_identifier_type, member.status, member.created_at, member.updated_at
+    FROM project_members member
+    JOIN entity_access access
+      ON access.entity_type = 'project' AND access.entity_id = member.project_id;
+
+    CREATE TRIGGER entity_access_grants_require_manager_insert
+    BEFORE INSERT ON entity_access_grants
+    WHEN NOT EXISTS (
+        SELECT 1 FROM entity_access access
+        WHERE access.id = NEW.entity_access_id
+          AND access.owner_household_id IS NULL
+          AND access.owner_user_id = NEW.invited_by_user_id
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'only the entity manager can grant access');
+    END;
+
+    CREATE TRIGGER entity_access_grants_require_manager_update
+    BEFORE UPDATE OF entity_access_id, invited_by_user_id ON entity_access_grants
+    WHEN (NEW.invited_by_user_id IS NULL AND NEW.entity_access_id != OLD.entity_access_id)
+       OR (
+           NEW.invited_by_user_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM entity_access access
+               WHERE access.id = NEW.entity_access_id
+                 AND access.owner_household_id IS NULL
+                 AND access.owner_user_id = NEW.invited_by_user_id
+           )
+       )
+    BEGIN
+        SELECT RAISE(ABORT, 'only the entity manager can grant access');
+    END;
+    """)
+
+    foreign_key_errors = conn.execute("PRAGMA foreign_key_check").fetchall()
+    if foreign_key_errors:
+        raise RuntimeError(
+            f"Migration 58 failed foreign-key validation ({len(foreign_key_errors)} row(s))"
+        )
+    conn.execute("DELETE FROM schema_version")
+    conn.execute(
+        "INSERT INTO schema_version (version, applied_at) VALUES (58, datetime('now'))"
+    )
+
+
+def apply_household_entity_access_migration(conn, sql: str):
+    """Apply the final migration-58 schema and v55 data transform atomically."""
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        execute_transactional_schema_script(conn, sql)
+        migrate_household_entity_access(conn)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
+def apply_cookbooks_migration(conn, sql: str):
+    """Expand the access CHECK without changing grant IDs or access semantics."""
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        indexes = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'entity_access' AND sql IS NOT NULL").fetchall()
+        triggers = conn.execute("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name IN ('entity_access', 'entity_access_grants')").fetchall()
+        sequence = conn.execute("SELECT seq FROM sqlite_sequence WHERE name = 'entity_access'").fetchone()
+        for name, _ in triggers:
+            conn.execute('DROP TRIGGER "' + name.replace('"', '""') + '"')
+        execute_transactional_schema_script(conn, sql)
+        for (index_sql,) in indexes:
+            conn.execute(index_sql)
+        for _, trigger_sql in triggers:
+            conn.execute(trigger_sql)
+        if sequence is not None:
+            updated = conn.execute("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = 'entity_access'", (sequence[0],))
+            if not updated.rowcount:
+                conn.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('entity_access', ?)", (sequence[0],))
+        if conn.execute("PRAGMA foreign_key_check").fetchall():
+            raise RuntimeError("Migration 61 failed foreign-key validation")
+        conn.execute("DELETE FROM schema_version")
+        conn.execute("INSERT INTO schema_version (version, applied_at) VALUES (61, datetime('now'))")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
+def apply_atomic_migration(conn, sql: str, version: int):
+    """Apply an unreleased migration and its version marker in one transaction."""
+    if version == 70:
+        # Freeze migration normalization here rather than importing mutable
+        # application matching policy or depending on a SQLite Unicode extension.
+        conn.create_function(
+            "nia_routing_name_key", 1,
+            lambda value: " ".join(unicodedata.normalize("NFKC", str(value or "")).casefold().split()),
+            deterministic=True,
+        )
+    conn.commit()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        execute_transactional_schema_script(conn, sql)
+        conn.execute("DELETE FROM schema_version")
+        conn.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (?, datetime('now'))",
+            (version,),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def repair_login_rate_limit_migration(conn):
+    """Restore migration 051 when it was added below an existing DB version."""
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS login_rate_limit_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bucket TEXT NOT NULL,
+        bucket_key TEXT NOT NULL,
+        attempted_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_login_rate_limit_attempts_lookup
+        ON login_rate_limit_attempts(bucket, bucket_key, attempted_at);
+    """)
+    conn.commit()
+
+
 POST_APPLY_REPAIRS = {
     48: repair_todo_subtasks_migration,
     49: repair_todo_comments_migration,
     50: repair_todo_attachments_migration,
     54: repair_dashboard_preferences_sync_migration,
     55: repair_todo_child_idempotency_migration,
+    57: repair_user_module_preferences_migration,
 }
+
 
 def get_migration_files():
     """Holt alle Migrations-Dateien sortiert nach Nummer."""
@@ -495,6 +738,7 @@ def init_migrations_table(conn):
     """)
     conn.commit()
 
+
 def run_migrations():
     """Führt alle ausstehenden Migrationen aus."""
     conn = sqlite3.connect(str(DB_PATH))
@@ -503,6 +747,9 @@ def run_migrations():
     
     init_migrations_table(conn)
     current_version = get_db_version(conn)
+    if current_version >= 51 and not table_exists(conn, "login_rate_limit_attempts"):
+        print("[MIGRATION] Repairing missing login rate-limit schema from version 51...")
+        repair_login_rate_limit_migration(conn)
     migrations = get_migration_files()
     
     if not migrations:
@@ -516,11 +763,18 @@ def run_migrations():
             sql = filepath.read_text()
             
             try:
-                conn.executescript(sql)
-                repair = POST_APPLY_REPAIRS.get(version)
-                if repair:
-                    repair(conn)
-                set_db_version(conn, version)
+                if version == 58:
+                    apply_household_entity_access_migration(conn, sql)
+                elif version == 61:
+                    apply_cookbooks_migration(conn, sql)
+                elif version in (56, 57, 59, 60, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74):
+                    apply_atomic_migration(conn, sql, version)
+                else:
+                    conn.executescript(sql)
+                    repair = POST_APPLY_REPAIRS.get(version)
+                    if repair:
+                        repair(conn)
+                    set_db_version(conn, version)
                 applied += 1
                 print(f"[MIGRATION] ✅ {filepath.name} applied successfully")
             except sqlite3.OperationalError as e:
@@ -587,6 +841,11 @@ def run_migrations():
                 elif version == 54 and ("duplicate column" in error_msg or "already exists" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - dashboard preference sync schema partially exists, repairing remaining schema")
                     repair_dashboard_preferences_sync_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 57 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - account module visibility schema partially exists, repairing remaining schema")
+                    repair_user_module_preferences_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif version in POST_APPLY_REPAIRS and ("duplicate column" in error_msg or "already exists" in error_msg):

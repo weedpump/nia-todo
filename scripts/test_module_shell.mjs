@@ -1,0 +1,222 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { TASK_DIALOGS_HTML } from '../web/static/js/modules/tasks-dialogs.js';
+import { existsSync, readFileSync } from 'node:fs';
+import {
+  LEGACY_MODULE_STORAGE_KEY,
+  MODULES,
+  REGISTERED_MODULE_IDS,
+  MODULE_STORAGE_KEY,
+  persistModule,
+  readStoredModule,
+} from '../web/static/js/modules/registry.js';
+import { createEmptyModule } from '../web/static/js/modules/module-factory.js';
+import { appBaseUrl, moduleIdFromNavigation } from '../web/static/js/features/module-shell.js';
+import { shouldAutoFocusEntityEditorTitle } from '../web/static/js/features/entity-editor-focus.js';
+import { shoppingListNavigationUrl } from '../web/static/js/features/shopping-navigation.js';
+import {
+  disabledModuleIdsForUser,
+  enabledModulesForUser,
+  normalizeDisabledModuleIds,
+  resolveEnabledModuleId,
+  storedDisabledModuleIdsForUser,
+} from '../web/static/js/modules/visibility.js';
+
+const root = new URL('../', import.meta.url);
+const read = path => readFileSync(new URL(path, root), 'utf8');
+
+assert.equal(shouldAutoFocusEntityEditorTitle('create'), true, 'entity create editors must focus their title');
+assert.equal(shouldAutoFocusEntityEditorTitle('edit'), false, 'entity edit surfaces must not automatically focus their title');
+
+assert.deepEqual(MODULES.map(module => module.id), ['tasks', 'shopping', 'recipes']);
+assert.deepEqual([...REGISTERED_MODULE_IDS], MODULES.map(module => module.id));
+const templateModule = createEmptyModule({
+  id: 'example',
+  labelKey: 'module.tasks.label',
+  descriptionKey: 'module.tasks.description',
+  icon: 'tasks',
+});
+assert.equal(templateModule.id, 'example');
+assert.equal(templateModule.searchEnabled, true);
+assert.equal(typeof templateModule.mount, 'function');
+for (const module of MODULES) {
+  assert.equal(typeof module.mount, 'function', `${module.id} must implement the shared mount contract`);
+  assert.equal(typeof module.searchPlaceholderKey, 'string', `${module.id} must define its search contract`);
+}
+assert.equal(appBaseUrl({ pathname: '/tasks', search: '' }), '/');
+assert.equal(appBaseUrl({ pathname: '/shopping', search: '?share=abc' }), '/?share=abc');
+assert.equal(shoppingListNavigationUrl({ pathname: '/', search: '?shoppingList=10', hash: '' }), '/');
+assert.equal(shoppingListNavigationUrl({ pathname: '/', search: '?share=abc&shoppingList=10', hash: '' }), '/?share=abc');
+assert.equal(moduleIdFromNavigation({
+  state: { niaModuleRoute: true, moduleId: 'shopping' },
+  storage: { getItem: () => 'tasks' },
+}), 'shopping', 'history state must select the module while the visible URL stays at the app root');
+assert.equal(moduleIdFromNavigation({
+  state: null,
+  storage: { getItem: () => 'shopping' },
+}), 'shopping', 'the clean root URL must restore the persisted module on startup');
+assert.equal(moduleIdFromNavigation({
+  state: { niaModuleRoute: true, moduleId: 'unknown' },
+  storage: { getItem: () => 'tasks' },
+}), 'tasks', 'invalid history state must fall back to the persisted module');
+
+const navigationStack = [
+  { state: { niaModuleRoute: true, moduleId: 'tasks' }, url: '/' },
+  { state: { niaModuleRoute: true, moduleId: 'shopping' }, url: '/' },
+  { state: { niaModuleRoute: true, moduleId: 'recipes' }, url: '/' },
+];
+assert.deepEqual(
+  navigationStack.map(entry => moduleIdFromNavigation({ state: entry.state })),
+  ['tasks', 'shopping', 'recipes'],
+  'Back and Forward must recover each module from history state without exposing module paths',
+);
+assert(navigationStack.every(entry => entry.url === '/'), 'every module history entry must keep the visible base URL');
+const shoppingListNavigationStack = [
+  { state: { niaShoppingList: true, shoppingListId: 10 }, url: '/' },
+  { state: { niaShoppingList: true, shoppingListId: 20 }, url: '/' },
+];
+assert.deepEqual(
+  shoppingListNavigationStack.map(entry => entry.state.shoppingListId),
+  [10, 20],
+  'Back and Forward must retain shopping-list identity in history state',
+);
+assert(shoppingListNavigationStack.every(entry => entry.url === '/'), 'shopping-list history must keep the visible app base URL');
+assert.deepEqual(normalizeDisabledModuleIds(['recipes', 'tasks', 'recipes', 'unknown']), ['tasks', 'recipes']);
+assert.deepEqual(normalizeDisabledModuleIds(['tasks', 'shopping', 'recipes']), ['shopping', 'recipes'], 'at least one module must remain enabled');
+assert.deepEqual(disabledModuleIdsForUser({ disabled_modules: '["tasks"]' }), ['tasks']);
+assert.deepEqual(storedDisabledModuleIdsForUser({ disabled_modules: ['future-module', 'tasks', 'future-module'] }), ['future-module', 'tasks']);
+assert.deepEqual(enabledModulesForUser({ disabled_modules: ['tasks'] }).map(module => module.id), ['shopping', 'recipes']);
+assert.equal(resolveEnabledModuleId('tasks', { disabled_modules: ['tasks'] }), 'shopping');
+assert.equal(resolveEnabledModuleId('recipes', { disabled_modules: ['tasks'] }), 'recipes');
+
+const values = new Map([[LEGACY_MODULE_STORAGE_KEY, 'shopping']]);
+const storage = {
+  getItem: key => values.get(key) ?? null,
+  setItem: (key, value) => values.set(key, value),
+  removeItem: key => values.delete(key),
+};
+assert.equal(readStoredModule(storage), 'shopping');
+persistModule('recipes', storage);
+assert.equal(values.get(MODULE_STORAGE_KEY), 'recipes');
+assert.equal(values.has(LEGACY_MODULE_STORAGE_KEY), false);
+assert.equal(readStoredModule(storage), 'recipes');
+persistModule('invalid', storage);
+assert.equal(values.get(MODULE_STORAGE_KEY), 'recipes');
+assert.equal(readStoredModule({ getItem: () => { throw new Error('blocked'); } }), 'tasks');
+
+const appSource = read('web/static/js/app.js');
+const shellSource = read('web/static/js/features/module-shell.js');
+const switcherSource = read('web/static/js/features/module-switcher.js');
+const registrySource = read('web/static/js/modules/registry.js');
+const tasksSource = read('web/static/js/modules/tasks.js');
+const taskDialogsSource = read('web/static/js/modules/tasks-dialogs.js');
+const taskSettingsSource = read('web/static/js/modules/tasks-settings.js');
+const taskShortcutsSource = read('web/static/js/modules/tasks-shortcuts.js');
+const workspacesSource = read('web/static/js/features/workspaces.js');
+const todosSource = read('web/static/js/features/todos.js');
+const shoppingSource = read('web/static/js/modules/shopping.js');
+const shoppingDialogsSource = read('web/static/js/modules/shopping-dialogs.js');
+const recipesSource = read('web/static/js/modules/recipes.js');
+const indexSource = read('web/index.html');
+const moduleCss = read('web/static/css/14-module-content.css');
+
+assert(appSource.includes("import { createModuleShell } from './features/module-shell.js';"), 'app must import the module shell');
+assert(appSource.indexOf('moduleShell.bind();') < appSource.indexOf('appLifecycle.bindDomReady();'), 'module DOM must mount before feature bindings and app initialization');
+assert(appSource.includes("moduleShell.registerController('tasks'"), 'tasks behavior must connect through the module controller contract');
+assert(appSource.includes('createShoppingViewPreferencesFeature({'), 'shopping view preferences must be wired through the production composition root');
+assert(appSource.includes('getStores: () => shoppingStores'), 'shopping navigation must consume the shared store projection');
+assert(!appSource.includes('onStoreFilterChange:'), 'the device-local current-list filter must not delegate into the synced preference controller');
+assert(!appSource.includes('shoppingViewPreferencesFeature?.selectStore'), 'store-filter changes must never enter the server-synced preference path');
+assert(appSource.includes('shoppingViewPreferencesFeature.bind();'), 'the production app must bind the shopping topbar preference control after module mounting');
+assert(appSource.includes("onSearch: value => shoppingNavigationFeature.setSearchQuery(value)"), 'the production shopping controller must route shared topbar search input into shopping rendering');
+assert(appSource.includes('moduleShell?.handleSearch?.(value)'), 'shared search must delegate to the active module');
+assert(switcherSource.includes("from '../modules/registry.js'"), 'module switcher must use the shared registry');
+assert(switcherSource.includes('onModuleChange?.(activeModuleId)'), 'module switcher must delegate navigation');
+assert(registrySource.includes("from './tasks.js'"), 'tasks must be registered as a module definition');
+assert(registrySource.includes("from './shopping.js'"), 'shopping must be registered as a module definition');
+assert(registrySource.includes("from './recipes.js'"), 'recipes must be registered as a module definition');
+assert(shellSource.includes('module.mount?.({ slots, shell: api })'), 'module shell must mount every module through the shared slot contract');
+assert(shellSource.includes('translatePage(panel)'), 'dynamically mounted module markup must enter the active i18n lifecycle');
+assert(shellSource.includes('active.activate?.()'), 'self-contained modules must be able to own activation behavior');
+assert(shellSource.includes('getModule(previousModuleId).deactivate?.()'), 'self-contained modules must be able to own deactivation behavior');
+assert(shellSource.includes('getModule(activeModuleId).onSearch?.(value)'), 'self-contained modules must receive shared search events');
+assert(shellSource.includes('controllers.get(activeModuleId)?.onSearch?.(value)'), 'module shell must route search to the active controller');
+assert(shellSource.includes("window.addEventListener('popstate'"), 'module shell must react to browser history');
+assert(shellSource.includes('if (normalize || previousModuleId !== activeModuleId) renderActiveModule();'), 'same-module UI history changes must not reactivate and rerender the active module');
+assert(shellSource.includes('history.pushState('), 'module navigation must create browser history entries');
+assert(shellSource.includes('history.replaceState('), 'startup must normalize the module URL without adding history');
+assert(shellSource.includes('appBaseUrl(location)'), 'module history must keep the visible URL at the app root');
+assert(shellSource.includes("const PERSISTENT_MODULE_SLOTS = new Set(['settingsNav', 'settings', 'desktopHotkeys'])"), 'registered module settings must remain available independently of the active module');
+assert(shellSource.includes('resolveEnabledModuleId('), 'module navigation must resolve disabled modules against account preferences');
+assert(switcherSource.includes('const modules = getModules()') && switcherSource.includes('modules.map('), 'module switcher must render only account-enabled modules');
+assert.match(indexSource, /class="module-switcher-chevron"[^>]*aria-hidden="true" hidden/, 'the module chevron must start hidden until multiple enabled modules are rendered');
+assert(tasksSource.includes('workspaces: true'), 'tasks must declare workspace capability');
+assert(!shoppingSource.includes('workspaces: true'), 'shopping must not declare workspace capability');
+assert(!recipesSource.includes('workspaces: true'), 'recipes must not declare workspace capability');
+assert(shellSource.includes("document.getElementById('workspace-switcher')"), 'the shell must control workspace switcher visibility');
+assert(tasksSource.includes('renderTopbarToggle('), 'tasks topbar controls must use the shared toggle primitive');
+assert(shoppingSource.includes('renderTopbarToggle('), 'shopping topbar controls must use the shared toggle primitive');
+
+for (const slotId of ['module-sidebar-slot', 'module-topbar-slot', 'module-main-slot', 'module-floating-slot', 'module-user-menu-slot', 'module-shortcuts-slot', 'module-settings-nav-slot', 'module-settings-slot', 'module-desktop-hotkeys-slot']) {
+  assert(indexSource.includes(`id="${slotId}"`), `shared shell must expose ${slotId}`);
+}
+assert(!indexSource.includes('id="project-list"'), 'task navigation must no longer be static app-shell markup');
+assert(!indexSource.includes('id="todo-list"'), 'task content must no longer be static app-shell markup');
+assert(tasksSource.includes('id="project-list"'), 'tasks module must own project navigation');
+assert(tasksSource.includes('id="todo-list"'), 'tasks module must own task content');
+for (const modalId of ['dashboard-preferences-modal', 'todo-modal', 'project-modal', 'attachment-preview-modal', 'android-location-permission-modal']) {
+  assert(!indexSource.includes(`id="${modalId}"`), `${modalId} must no longer be static app-shell markup`);
+  assert(TASK_DIALOGS_HTML.includes(`id="${modalId}"`), `tasks module must provide ${modalId} through the shared renderer`);
+}
+assert(tasksSource.includes('id="module-user-menu-slot"') === false, 'tasks must fill the provided user-menu slot rather than define the shell slot');
+const shortcutsModalSource = indexSource.slice(indexSource.indexOf('id="shortcuts-modal"'), indexSource.indexOf('id="app-downloads-modal"'));
+assert(shortcutsModalSource.includes('shortcuts.switchWorkspace'), 'workspace shortcuts must remain available in the shared shell');
+assert(!shortcutsModalSource.includes('shortcuts.newTodo'), 'task shortcuts must not remain static shell content');
+assert(taskShortcutsSource.includes('shortcuts.newTodo'), 'tasks module must own task-specific shortcuts');
+assert(workspacesSource.includes('workspaceIndexFromShortcut(event)'), 'workspace switching must remain a shared app shortcut');
+assert(!workspacesSource.includes('getActiveModule'), 'workspace shortcuts must not be restricted to the tasks module');
+for (const settingId of ['settings-section-default-reminder', 'settings-section-attachments', 'settings-section-places', 'desktop-hotkey-new-todo', 'desktop-hotkey-search']) {
+  assert(!indexSource.includes(`id="${settingId}"`), `${settingId} must not remain static shell content`);
+  assert(taskSettingsSource.includes(`id="${settingId}"`), `tasks module must own ${settingId}`);
+}
+assert(indexSource.includes('id="settings-section-braindump"'), 'shared BrainDump settings must remain available without Tasks');
+assert(indexSource.includes('id="settings-nav-braindump"'), 'shared BrainDump settings need a General navigation entry');
+assert(!taskSettingsSource.includes('id="settings-section-braindump"'), 'Tasks must not duplicate shared BrainDump settings');
+assert(moduleCss.includes('.module-slot-panel[hidden]'), 'inactive module panels must be hidden by the shared slot system');
+assert(!shoppingSource.includes('createEmptyModule'), 'shopping must mount its real module frame');
+assert(shoppingSource.includes('id="shopping-list-sidebar"'), 'shopping must own its sidebar navigation slot');
+assert(shoppingSource.includes('id="shopping-navigation-main"'), 'shopping must own its navigation main state');
+assert(recipesSource.includes('cookbook-sidebar') && recipesSource.includes('RECIPES_DIALOGS_HTML'), 'recipes must mount its cookbook navigation and shared editor');
+assert(recipesSource.includes("searchPlaceholderKey: 'recipe.search.placeholder'"), 'recipe search must use the module search contract');
+assert(!existsSync(new URL('web/static/js/modules/shopping-preview.js', root)), 'shopping feature implementation must not exist yet');
+assert(shoppingSource.includes('SHOPPING_DIALOGS_HTML'), 'shopping must mount its own dialogs through the module slot');
+assert(shoppingDialogsSource.includes("prefix: 'shopping-list'"), 'shopping must own the list-details dialog through the shared renderer');
+assert(shoppingDialogsSource.includes("deleteKey: 'shopping.list.delete.confirm'"), 'shopping details must expose deletion through the shared overflow menu');
+assert(!indexSource.includes('shopping-list-modal'), 'shopping-specific dialogs must not leak into the global shell');
+assert(moduleCss.includes('.shopping-item-card'), 'shopping item cards must have scoped component styling');
+assert(!moduleCss.includes('.shopping-item-card.todo-item'), 'shopping styling must not couple item cards to todo contracts');
+assert(!indexSource.includes('id="workspace-module-list"'), 'module visibility must not be configured in workspace settings');
+assert(!workspacesSource.includes('hidden_modules'), 'workspace payloads must not persist module visibility');
+assert(indexSource.includes('id="settings-section-modules"'), 'account module visibility must live in settings');
+assert(indexSource.includes('data-settings-section="settings-section-modules"><span data-icon="blocks"'), 'module settings navigation must use the bundled Lucide blocks icon');
+assert(!indexSource.includes('data-icon="layout-grid"'), 'module settings navigation must not use an icon missing from the bundled Lucide set');
+assert(registrySource.includes('REGISTERED_MODULE_IDS = Object.freeze(["tasks", "shopping", "recipes"])'), 'the central registry must expose server-readable authoritative module ids');
+assert(taskSettingsSource.includes('data-module-settings-group="tasks"'), 'task settings must be visibly grouped as module-specific settings');
+assert(shellSource.includes('const searchValues = new Map()'), 'the shell must preserve search state per module');
+assert(!shellSource.includes("if (search?.value) search.value = ''"), 'module navigation must not discard another module search state');
+assert(appSource.includes("moduleShell?.getActiveModule?.() !== 'tasks'"), 'native task hotkeys must be inactive outside the tasks module');
+assert(todosSource.includes("if (getActiveModule() !== 'tasks') return;"), 'todo list shortcuts must be inactive outside the tasks module');
+assert(appSource.includes('onDeactivate: () => todosFeature.resetTodoShortcutTarget()'), 'leaving tasks must clear the todo shortcut target');
+
+const requiredKeys = ['module.placeholder.body', 'module.placeholder.search', 'settings.modules.title', 'settings.modules.hint', 'settings.modules.oneRequired', 'shopping.item.add', 'shopping.preferences.hideEmpty.short', 'shopping.preferences.hideEmpty.on', 'shopping.preferences.hideEmpty.enable', 'shopping.preferences.hideEmpty.disable', 'shopping.filter.store.label', 'shopping.filter.store.all', 'shopping.filter.store.empty', 'shopping.store.edit', 'shopping.store.modal.editTitle', 'shopping.store.modal.subtitle', 'shopping.store.delete', 'shopping.store.delete.message', 'shopping.store.error.deleteFailed', 'shopping.search.placeholder', 'shopping.search.empty'];
+const forbiddenKeys = ['shopping.searchPlaceholder', 'recipes.searchPlaceholder', 'shopping.list.new', 'shopping.sample.weekly'];
+for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
+  const dictionary = JSON.parse(read(`web/static/i18n/${locale}.json`));
+  for (const key of requiredKeys) {
+    assert.equal(typeof dictionary[key], 'string', `${locale} must contain ${key}`);
+    assert(dictionary[key].trim(), `${locale} ${key} must not be empty`);
+  }
+  for (const key of forbiddenKeys) assert.equal(dictionary[key], undefined, `${locale} must not contain premature ${key}`);
+}
+
+console.log('✅ V4 module platform contract, task module migration, empty modules, routes, and i18n passed');

@@ -87,10 +87,22 @@
 }
 
 @media (min-width: 901px) {
+  #shortcuts-modal.ui-detail-modal.ui-detail-view .shortcuts-modal-content {
+    width: min(1080px, calc(100vw - 40px));
+    height: auto;
+    max-height: calc(100dvh - 32px);
+  }
+
+  /* The module slot is a composition boundary, not a narrow grid column. */
+  #shortcuts-modal #module-shortcuts-slot {
+    display: contents;
+  }
+
   #shortcuts-modal .shortcuts-shell {
+    height: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
     align-items: stretch;
   }
 
@@ -100,7 +112,8 @@
     min-height: 0;
   }
 
-  #shortcuts-modal .shortcuts-section:first-child {
+  #shortcuts-modal [aria-labelledby="shortcuts-general-title"],
+  #shortcuts-modal [aria-labelledby="shortcuts-tasks-title"] {
     grid-column: 1 / -1;
   }
 
@@ -110,22 +123,23 @@
     gap: 10px;
   }
 
-  #shortcuts-modal .shortcuts-section:first-child .shortcuts-list {
+  #shortcuts-modal [aria-labelledby="shortcuts-general-title"] .shortcuts-list,
+  #shortcuts-modal [aria-labelledby="shortcuts-tasks-title"] .shortcuts-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
   }
 
-  #shortcuts-modal .shortcuts-section:nth-child(2) .shortcuts-list {
+  #shortcuts-modal [aria-labelledby="shortcuts-todo-list-title"] .shortcuts-list {
     grid-template-columns: 1fr;
     grid-template-rows: repeat(2, minmax(0, 1fr));
   }
 
-  #shortcuts-modal .shortcuts-section:nth-child(3) .shortcuts-list {
+  #shortcuts-modal [aria-labelledby="shortcuts-editor-title"] .shortcuts-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: repeat(2, minmax(0, 1fr));
   }
 
   .shortcuts-row {
+    min-height: 124px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -144,9 +158,6 @@
     height: auto;
   }
 
-  #shortcuts-modal .shortcuts-section + .shortcuts-section {
-    margin-top: 24px;
-  }
 
   .shortcuts-list {
     display: grid;

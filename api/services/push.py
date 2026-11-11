@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives import serialization
 from db import get_db
 from paths import VAPID_KEYS_PATH
 from services.websocket import manager
+from services.sharing import can_access_todo, get_todo_reminder_recipient_user_id
 
 
 def _origin_from_url(value: str) -> str:
@@ -125,17 +126,22 @@ async def check_and_send_reminders():
     try:
         with get_db() as db:
             rows = db.execute("""
-                SELECT r.id, r.todo_id, r.remind_at, COALESCE(r.user_id, t.user_id) AS user_id, t.title, t.status
+                SELECT r.id, r.todo_id, r.remind_at, r.user_id, t.user_id AS todo_user_id,
+                       t.project_id, t.title, t.status
                 FROM reminders r
                 JOIN todos t ON r.todo_id = t.id
                 WHERE datetime(r.remind_at) <= datetime('now')
                   AND r.sent_at IS NULL
-                  AND COALESCE(r.user_id, t.user_id) IS NOT NULL
                   AND t.status IN ('pending', 'in_progress')
                 ORDER BY r.remind_at
             """).fetchall()
 
         for row in rows:
+            with get_db() as db:
+                todo = {"project_id": row["project_id"], "user_id": row["todo_user_id"]}
+                recipient_user_id = row["user_id"] if row["user_id"] is not None else get_todo_reminder_recipient_user_id(db, todo)
+                if recipient_user_id is None or not can_access_todo(db, todo, recipient_user_id):
+                    continue
             payload = {
                 "id": row["id"],
                 "todo_id": row["todo_id"],
@@ -146,11 +152,11 @@ async def check_and_send_reminders():
                 "remind_at": row["remind_at"],
             }
             desktop_success = await manager.broadcast_desktop_notification(
-                row["user_id"],
+                recipient_user_id,
                 {"type": "reminder_due", "payload": payload},
             )
             push_success = await send_push_notification(
-                user_id=row["user_id"],
+                user_id=recipient_user_id,
                 title=payload["title"],
                 body=payload["body"],
                 tag=payload["tag"],

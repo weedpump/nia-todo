@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+import { waitForPageCondition, withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
 const TODO_TITLE = `Frontend subtasks persistence ${process.pid}-${Date.now()}`;
 
@@ -13,11 +13,17 @@ await withFreshDb(async () => {
     const initialState = await page.evaluate(() => ({
       detailView: document.getElementById('todo-modal')?.classList.contains('todo-detail-view'),
       metaEditing: document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'),
-      subtasks: document.querySelector('#todo-subtasks-panel')?.open,
-      comments: document.querySelector('#todo-comments-panel')?.open,
+      panelTags: ['todo-subtasks-panel', 'todo-comments-panel', 'todo-attachments-panel']
+        .map(id => document.getElementById(id)?.tagName),
+      collapsibleHeadings: document.querySelectorAll('#todo-subtasks-panel summary, #todo-comments-panel summary, #todo-attachments-panel summary').length,
     }));
-    if (!initialState.detailView || !initialState.metaEditing || !initialState.subtasks || !initialState.comments) {
-      throw new Error(`Expected create todo modal with visible content sections and open desktop meta drawer: ${JSON.stringify(initialState)}`);
+    if (!initialState.detailView || !initialState.metaEditing || initialState.panelTags.some(tag => tag !== 'SECTION') || initialState.collapsibleHeadings !== 0) {
+      throw new Error(`Expected create todo modal with permanent content sections and open desktop meta drawer: ${JSON.stringify(initialState)}`);
+    }
+    for (const panelId of ['todo-subtasks-panel', 'todo-comments-panel', 'todo-attachments-panel']) {
+      const editor = page.locator(`#${panelId} > :last-child`);
+      await page.locator(`#${panelId} h4`).click();
+      if (!await editor.isVisible()) throw new Error(`Expected ${panelId} content to stay visible after clicking its heading`);
     }
     await page.fill('#todo-title', TODO_TITLE);
     await page.fill('#todo-subtask-new-title', 'First checklist item');
@@ -31,7 +37,7 @@ await withFreshDb(async () => {
     await page.click('#todo-modal button[type="submit"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 10000 });
 
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const token = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }).then(r => r.json());
       const todo = data.todos?.find?.(item => item.title === localStorage.getItem('__subtask_test_title'));
@@ -53,7 +59,7 @@ await withFreshDb(async () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const token = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }).then(r => r.json());
       const todo = data.todos?.find?.(item => item.title === localStorage.getItem('__subtask_test_title'));
@@ -71,28 +77,27 @@ await withFreshDb(async () => {
 
     await page.locator('.todo-item').filter({ hasText: TODO_TITLE }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('#todo-subtasks-panel').evaluate(panel => { panel.open = true; });
     const saveDisabledBeforeImmediateSubtask = await page.locator('#todo-save-btn').evaluate(button => button.disabled);
     if (!saveDisabledBeforeImmediateSubtask) {
       throw new Error('Expected save button to be disabled before subtask-only changes');
     }
     await page.fill('#todo-subtask-new-title', 'Immediate checklist item');
     await page.press('#todo-subtask-new-title', 'Enter');
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === localStorage.getItem('__subtask_test_title'));
       return Array.isArray(todo?.subtasks) && todo.subtasks.length === 3;
     }, null, { timeout: 10000 });
     const immediateSubtaskRow = page.locator('#todo-subtasks-list .todo-subtask-row').last();
     await immediateSubtaskRow.locator('.todo-subtask-check-label').click();
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const token = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${token}` }, credentials: 'include', cache: 'no-store' }).then(response => response.json());
       const todo = data.todos?.find?.(item => item.title === localStorage.getItem('__subtask_test_title'));
       return todo?.subtasks?.find?.(subtask => subtask.title === 'Immediate checklist item')?.is_done === true;
     }, null, { timeout: 10000 });
     await immediateSubtaskRow.locator('.todo-subtask-check-label').click();
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const token = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${token}` }, credentials: 'include', cache: 'no-store' }).then(response => response.json());
       const todo = data.todos?.find?.(item => item.title === localStorage.getItem('__subtask_test_title'));
@@ -114,7 +119,7 @@ await withFreshDb(async () => {
     await page.locator('#confirm-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.click('#confirm-confirm-btn');
     await page.locator('#confirm-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const rows = document.querySelectorAll('#todo-subtasks-list .todo-subtask-row').length;
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === localStorage.getItem('__subtask_test_title'));
@@ -149,9 +154,9 @@ await withFreshDb(async () => {
 
     await page.locator('.todo-item').filter({ hasText: TODO_TITLE }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
-    const subtaskPanelOpen = await page.locator('#todo-subtasks-panel').evaluate(panel => panel.open);
-    if (!subtaskPanelOpen) {
-      throw new Error('Expected subtasks panel to open automatically when subtasks exist');
+    await page.locator('#todo-subtasks-panel h4').click();
+    if (!await page.locator('#todo-subtasks-panel > .todo-subtasks-editor').isVisible()) {
+      throw new Error('Expected subtasks content to remain permanently visible after clicking its heading');
     }
     await page.evaluate(() => window.closeModal?.('todo-modal'));
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });

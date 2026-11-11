@@ -1,6 +1,6 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v3.6.3';
-const CACHE_REVISION = 'datetime-hour-focus-125';
+const SW_VERSION = 'v4.0.0';
+const CACHE_REVISION = 'nia-v4-module-platform-preview-363';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
 // Assets required for offline startup
@@ -10,8 +10,10 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/static/style.css',
   '/static/css/00-base.css',
+  '/static/css/09-module-switcher.css',
   '/static/css/10-navigation-sidebar.css',
   '/static/css/11-main-shell.css',
+  '/static/css/14-module-content.css',
   '/static/css/12-overview-dashboard.css',
   '/static/css/13-calendar-view.css',
   '/static/css/20-todos-list.css',
@@ -53,6 +55,10 @@ const PRECACHE_ASSETS = [
   '/static/css/95-todo-detail-mobile-viewport.css',
   '/static/css/96-todo-multi-add.css',
   '/static/css/97-date-time-picker.css',
+  '/static/css/97-image-picker.css',
+  '/static/css/98-recipes.css',
+  '/static/css/99-recipe-cooking.css',
+  '/static/css/99-ui-primitives.css',
   '/static/js/main.js',
   '/static/js/features/auto-scrollbars.js',
   '/static/js/app.js',
@@ -61,12 +67,18 @@ const PRECACHE_ASSETS = [
   '/static/js/api/sections.js',
   '/static/js/api/auth.js',
   '/static/js/api/index.js',
+  '/static/js/api/households.js',
   '/static/js/api/places.js',
   '/static/js/api/projects.js',
   '/static/js/api/workspaces.js',
   '/static/js/api/push.js',
   '/static/js/api/sharing.js',
   '/static/js/api/todos.js',
+  '/static/js/api/shopping.js',
+  '/static/js/api/routing-memory.js',
+  '/static/js/features/routing-memory.js',
+  '/static/js/features/routing-memory-matcher.js',
+  '/static/js/core/routing-memory-rule-data.js',
   '/static/js/api/server-updates.js',
   '/static/js/core/config.js',
   '/static/js/core/boot.js',
@@ -81,7 +93,9 @@ const PRECACHE_ASSETS = [
   '/static/vendor/tauri-api/image.js',
   '/static/vendor/tauri-api/external/tslib/tslib.es6.js',
   '/static/js/core/authenticated-image.js',
+  '/static/js/core/raster-image.js',
   '/static/js/core/utils.js',
+  '/static/js/core/entity-identity.js',
   '/static/js/core/state.js',
   '/static/js/core/device-labels.js',
   '/static/js/storage/app-storage.js',
@@ -89,9 +103,19 @@ const PRECACHE_ASSETS = [
   '/static/js/sync/queue.js',
   '/static/js/icons/lucide-icons.js',
   '/static/js/icons/lucide-generated.js',
+  '/static/js/icons/nia-product-icons.js',
   '/static/icons/brands/github-mark.svg',
+  '/static/icons/nia-app.svg',
+  '/static/icons/module-tasks.svg',
+  '/static/icons/module-shopping.svg',
+  '/static/icons/module-recipes.svg',
   '/static/js/i18n/index.js',
   '/static/js/ui/dropdowns.js',
+  '/static/js/ui/module-primary-action.js',
+  '/static/js/ui/detail-modal.js',
+  '/static/js/ui/image-picker.js',
+  '/static/js/ui/item-swipe.js',
+  '/static/js/ui/topbar-toggle.js',
   '/static/js/ui/color-picker.js',
   '/static/i18n/de.json',
   '/static/i18n/en.json',
@@ -110,11 +134,35 @@ const PRECACHE_ASSETS = [
   '/static/js/features/about.js',
   '/static/js/features/shortcut-help.js',
   '/static/js/features/app-rendering.js',
+  '/static/js/features/entity-appearance.js',
+  '/static/js/features/entity-detail-header.js',
+  '/static/js/features/entity-direct-sharing.js',
+  '/static/js/features/entity-editor-modal.js',
+  '/static/js/features/entity-editor-focus.js',
+  '/static/js/features/entity-access-privacy.js',
+  '/static/js/features/entity-invitations.js',
+  '/static/js/features/entity-ownership-field.js',
+  '/static/js/features/entity-sidebar.js',
+  '/static/js/features/form-save-state.js',
+  '/static/js/features/shopping-navigation.js',
+  '/static/js/features/shopping-items.js',
+  '/static/js/features/shopping-item-editor.js',
+  '/static/js/features/shopping-quick-add.js',
+  '/static/js/features/quick-add.js',
+  '/static/js/features/shopping-store-creator.js',
+  '/static/js/features/shopping-store-editor.js',
+  '/static/js/features/shopping-store-option-action.js',
+  '/static/js/features/shopping-stores.js',
+  '/static/js/features/shopping-sections.js',
+  '/static/js/features/shopping-list-details.js',
+  '/static/js/features/shopping-view-preferences.js',
   '/static/js/features/dashboard-preferences.js',
   '/static/js/features/dashboard-preferences-dialog.js',
   '/static/js/features/dashboard-preferences-sync.js',
   '/static/js/features/dashboard-drilldown.js',
   '/static/js/features/app-lifecycle.js',
+  '/static/js/features/module-shell.js',
+  '/static/js/features/module-switcher.js',
   '/static/js/features/calendar-view.js',
   '/static/js/features/desktop-integration.js',
   '/static/js/features/desktop-hotkey-descriptions.js',
@@ -128,6 +176,40 @@ const PRECACHE_ASSETS = [
   '/static/js/features/connection-status.js',
   '/static/js/features/confirm-dialog.js',
   '/static/js/features/mobile-search.js',
+  '/static/js/modules/module-factory.js',
+  '/static/js/modules/tasks-dialogs.js',
+  '/static/js/modules/tasks-settings.js',
+  '/static/js/modules/tasks-shortcuts.js',
+  '/static/js/modules/tasks.js',
+  '/static/js/modules/shopping.js',
+  '/static/js/modules/shopping-dialogs.js',
+  '/static/js/modules/recipes.js',
+  '/static/js/modules/recipes-dialogs.js',
+  '/static/js/api/recipes.js',
+  '/static/js/features/cookbook-navigation.js',
+  '/static/js/features/cookbook-details.js',
+  '/static/js/features/cookbooks.js',
+  '/static/js/features/recipe-view.js',
+  '/static/js/features/recipe-editor.js',
+  '/static/js/features/recipe-import.js',
+  '/static/js/features/recipe-images.js',
+  '/static/js/features/recipe-pending.js',
+  '/static/js/features/creation-tombstone.js',
+  '/static/js/features/recipe-mutations.js',
+  '/static/js/features/recipe-sync.js',
+  '/static/js/features/recipe-shopping-pending.js',
+  '/static/js/features/recipe-shopping-transfer.js',
+  '/static/js/features/recipe-shopping-preview.js',
+  '/static/js/features/recipe-step-ingredients.js',
+  '/static/js/core/recipe-quantities.js',
+  '/static/js/core/quantity-units.js',
+  '/static/js/core/quantity-unit-data.js',
+  '/static/js/ui/servings-control.js',
+  '/static/js/features/entity-metadata.js',
+  '/static/js/features/entity-metadata-sync.js',
+  '/static/js/storage/entity-metadata.js',
+  '/static/js/modules/registry.js',
+  '/static/js/modules/visibility.js',
   '/static/js/features/focus-filters.js',
   '/static/js/features/drag-drop.js',
   '/static/js/features/runtime-globals.js',
@@ -139,6 +221,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/date-time-picker.js',
   '/static/js/features/user-menu.js',
   '/static/js/features/user-settings.js',
+  '/static/js/features/households.js',
   '/static/js/features/projects.js',
   '/static/js/features/workspaces.js',
   '/static/js/features/navigation.js',
@@ -146,7 +229,10 @@ const PRECACHE_ASSETS = [
   '/static/js/features/todo-attachments.js',
   '/static/js/features/todo-quick-add.js',
   '/static/js/features/todo-multi-add.js',
+  '/static/js/features/multi-add.js',
   '/static/js/features/todo-pending.js',
+  '/static/js/features/todo-targets.js',
+  '/static/js/features/shopping-pending.js',
   '/static/js/features/sync.js',
   '/static/js/features/sync-controller.js',
   '/static/js/features/todo-rendering.js',
@@ -158,12 +244,17 @@ const PRECACHE_ASSETS = [
   '/static/content/whats-new.json',
   '/static/js/features/service-worker-updates.js',
   '/static/js/features/section-actions.js',
+  '/static/js/features/section-ui.js',
   '/static/js/features/sections.js',
   '/static/js/features/braindump-live.js',
+  '/static/js/features/braindump-candidate-review.js',
   '/static/js/features/security-dialogs.js',
+  '/static/js/features/completed-visibility.js',
   '/static/vendor/qrcode-generator.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
+  '/static/icons/icon-badge.png',
+  '/favicon.ico',
   '/static/icons/platform/android.svg',
   '/static/icons/platform/windows.svg'
 ];
@@ -174,7 +265,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nia-todo - Offline</title>
+<title>Nia - Offline</title>
 <style>
 body { background:#0f172a; color:#e2e8f0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center; padding:20px; }
 .offline-state { max-width:400px; }
@@ -311,7 +402,7 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data.json();
   } catch (e) {
-    data = { title: 'nia-todo', body: 'New notification', tag: 'default' };
+    data = { title: 'Nia', body: 'New notification', tag: 'default' };
   }
 
   // Ignore silent health check pushes from server
@@ -319,7 +410,7 @@ self.addEventListener('push', (event) => {
     return;
   }
 
-  const title = data.title || 'nia-todo';
+  const title = data.title || 'Nia';
   const body = data.body || '';
   const tag = data.tag || ('push-' + Date.now());
   const url = data.url || '/';

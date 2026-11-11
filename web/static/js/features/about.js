@@ -1,6 +1,7 @@
 import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { createNativeBridge } from './native-bridge.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
@@ -170,6 +171,8 @@ export function createAboutFeature({ appVersion, serverUpdatesApi, openAppDownlo
   function bindAboutActions() {
     if (actionsBound) return;
     actionsBound = true;
+    const logo = document.querySelector('.about-logo-icon');
+    if (logo) logo.innerHTML = niaIconSvg('nia');
     document.addEventListener('click', (event) => {
       if (event.target?.closest?.('[data-close-modal="about-modal"]')) {
         closeAboutModal();

@@ -45,6 +45,7 @@ const requiredStaticAssets = [
   '/static/style.css',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
+  '/static/icons/nia-app.svg',
 ];
 
 const indexStaticRefs = [...indexSource.matchAll(/(?:src|href)="(\/static\/[^"]+)"/g)]

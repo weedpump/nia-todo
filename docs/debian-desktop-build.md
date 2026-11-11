@@ -23,11 +23,15 @@ rustup toolchain install stable
 rustup default stable
 ```
 
-## Check out the test branch
+## Check out the development branch
+
+Use `v4` for the modular app's development builds, or substitute the feature
+branch you intend to test. Released maintenance builds use `main` or the
+specific release tag.
 
 ```bash
 git fetch origin
-git switch fix/linux-wayland-global-hotkeys
+git switch v4
 npm ci
 ```
 
@@ -59,7 +63,7 @@ The repack step is required. It changes the Debian package name to `nia-todo-des
 sudo apt install "$FINAL_DEB"
 ```
 
-Quit every running nia-todo desktop process before starting the installed build. Launch it from a terminal during the first test so portal diagnostics remain visible:
+Quit every running Nia desktop process before starting the installed build. Launch it from a terminal during the first test so portal diagnostics remain visible:
 
 ```bash
 nia-todo-desktop 2>&1 | tee "$HOME/nia-todo-hotkeys.log"
@@ -67,10 +71,10 @@ nia-todo-desktop 2>&1 | tee "$HOME/nia-todo-hotkeys.log"
 
 Test all three actions:
 
-1. Put another application in front of nia-todo, then press the show/hide shortcut. nia-todo should move to the foreground.
-2. Press the same shortcut while nia-todo is focused. The window should hide.
-3. Press the new-todo shortcut while nia-todo is hidden and while it is already focused. The Todo dialog should open with the title field focused.
-4. Press the search shortcut while nia-todo is hidden and while it is already focused. Search should open and receive keyboard focus.
+1. Put another application in front of Nia, then press the show/hide shortcut. Nia should move to the foreground.
+2. Press the same shortcut while Nia is focused. The window should hide.
+3. Press the new-todo shortcut while Nia is hidden and while it is already focused. The Todo dialog should open with the title field focused.
+4. Press the search shortcut while Nia is hidden and while it is already focused. Search should open and receive keyboard focus.
 
 The terminal should include a line such as:
 
@@ -102,7 +106,7 @@ journalctl --user -f \
 When reporting a failed test, include:
 
 - whether the action fired at all;
-- whether nia-todo was hidden, behind another window, or focused;
+- whether Nia was hidden, behind another window, or focused;
 - the `[linux-hotkeys]` lines from the terminal;
 - the GlobalShortcuts portal version from `busctl`;
 - the relevant portal journal lines without unrelated private application output.

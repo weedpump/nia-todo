@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
@@ -15,6 +16,9 @@ TEST_DATA_DIR = tempfile.TemporaryDirectory(prefix="nia-todo-rate-limit-")
 os.environ["NIA_TODO_DATA_DIR"] = TEST_DATA_DIR.name
 
 import rate_limit as module  # noqa: E402
+import migrate as migrations  # noqa: E402
+from migrate import run_migrations  # noqa: E402
+from paths import DB_PATH  # noqa: E402
 from rate_limit import RateLimiter  # noqa: E402
 
 conn = sqlite3.connect(":memory:")
@@ -81,9 +85,31 @@ def test_prune_expired_removes_stale_memory_and_database_state():
     assert conn.execute("SELECT COUNT(*) FROM login_rate_limit_attempts").fetchone()[0] == 0
 
 
+def test_migrations_repair_missing_historical_rate_limit_table():
+    # Build the actual historical schema rather than relabeling a current DB;
+    # later feature tables must still be absent when their migrations run.
+    migration_files = migrations.get_migration_files()
+    with patch.object(migrations, "get_migration_files", return_value=[entry for entry in migration_files if entry[0] <= 58]):
+        run_migrations()
+    with sqlite3.connect(DB_PATH) as db:
+        assert db.execute("SELECT max(version) FROM schema_version").fetchone()[0] == 58
+        assert not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shopping_lists'").fetchone()
+        db.execute("DROP TABLE login_rate_limit_attempts")
+        db.commit()
+
+    run_migrations()
+
+    with sqlite3.connect(DB_PATH) as db:
+        assert db.execute("SELECT max(version) FROM schema_version").fetchone()[0] == max(version for version, _ in migration_files)
+        assert db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'login_rate_limit_attempts'"
+        ).fetchone()
+
+
 if __name__ == "__main__":
     test_success_cannot_clear_other_account()
     test_global_account_backstop()
     test_successes_do_not_consume_budget()
     test_prune_expired_removes_stale_memory_and_database_state()
+    test_migrations_repair_missing_historical_rate_limit_table()
     print("✅ Login rate-limit regression tests passed")

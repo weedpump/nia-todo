@@ -45,6 +45,35 @@ export function createAppStorage({ setDb }) {
     return indexedDb.commitTodoUpdatesWithQueue(updates);
   }
 
+  function commitTaskParentReplay(replay) {
+    return indexedDb.commitTaskParentReplay(replay);
+  }
+
+  function commitShoppingMutation(mutation) {
+    return indexedDb.commitShoppingMutation(mutation);
+  }
+
+  function commitShoppingReplay(replay) {
+    return indexedDb.commitShoppingReplay(replay);
+  }
+
+  function commitCreationTombstoneReplay(replay) {
+    return indexedDb.commitCreationTombstoneReplay(replay);
+  }
+
+  function evictPendingShoppingEntities(listIds, options) {
+    return indexedDb.evictPendingShoppingEntities(listIds, options);
+  }
+
+  function evictPendingProjectEntities(projectIds, options) {
+    return indexedDb.evictPendingProjectEntities(projectIds, options);
+  }
+
+  const commitCookbookMutation = mutation => indexedDb.commitCookbookMutation(mutation);
+  const commitCookbookReplay = replay => indexedDb.commitCookbookReplay(replay);
+  const markCookbookMutationAttempt = id => indexedDb.markCookbookMutationAttempt(id);
+  const evictPendingCookbookEntities = (ids, options) => indexedDb.evictPendingCookbookEntities(ids, options);
+
   return {
     openDB,
     clearIndexedDB,
@@ -56,5 +85,25 @@ export function createAppStorage({ setDb }) {
     clearSyncQueue,
     addToSyncQueue,
     commitTodoUpdatesWithQueue,
+    commitTaskParentReplay,
+    commitShoppingMutation,
+    commitShoppingReplay,
+    commitCreationTombstoneReplay,
+    evictPendingShoppingEntities,
+    evictPendingProjectEntities,
+    commitRecipeShoppingTransfer: indexedDb.commitRecipeShoppingTransfer,
+    markRecipeShoppingTransferAttempt: indexedDb.markRecipeShoppingTransferAttempt,
+    commitRecipeMutation: indexedDb.commitRecipeMutation,
+    commitRecipeReplay: indexedDb.commitRecipeReplay,
+    markRecipeMutationAttempt: indexedDb.markRecipeMutationAttempt,
+    getDatabaseGeneration: indexedDb.getDatabaseGeneration,
+    getEntityImageIfReady: indexedDb.getEntityImageIfReady,
+    getEntityImageWhenReady: indexedDb.getEntityImageWhenReady,
+    putEntityImageWhenReady: indexedDb.putEntityImageWhenReady,
+    removeEntityImageWhenReady: indexedDb.removeEntityImageWhenReady,
+    commitCookbookMutation,
+    commitCookbookReplay,
+    markCookbookMutationAttempt,
+    evictPendingCookbookEntities,
   };
 }

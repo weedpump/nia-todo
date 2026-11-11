@@ -1,8 +1,10 @@
 import { t } from '../i18n/index.js';
-import { renderIconPicker } from '../icons/lucide-icons.js';
-import { renderColorPicker } from '../ui/color-picker.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
-import { openUiLayer } from './ui-history.js';
+import { createEntityAppearanceController } from './entity-appearance.js';
+import { createEntityEditorModalController } from './entity-editor-modal.js';
+import { createEntityOwnershipField, isHouseholdOwnedEntity } from './entity-ownership-field.js';
+import { acquireSyncCommitLock, projectPendingProjectChanges } from './todo-pending.js';
+import { runAccessFencedCommit } from './entity-access-privacy.js';
 
 export function createProjectsFeature({
   getProjects,
@@ -13,74 +15,130 @@ export function createProjectsFeature({
   getWorkspaces,
   setProjects,
   dbPut,
+  dbGetAll = async () => [],
   addToSyncQueue,
+  runSyncQueueMutation,
   deleteFromDB,
   isOnlineForSync,
   syncWithServer,
   renderProjects,
   renderStats,
   renderTodos,
-  closeModal,
   confirmDanger,
   showToast,
   showBatchToast,
   projectsApi,
   sharingFeature,
   getCurrentUser,
+  getAccessSnapshot = () => window.niaAccessSnapshot || null,
+  syncInProgressRef = {},
 }) {
-  let projectFormBound = false;
-  let projectActionsBound = false;
-  let projectSaveSnapshot = null;
+  const commitQueuedMutation = runSyncQueueMutation || (operation => operation(addToSyncQueue));
+  let projectAppearance = null;
+  let projectModalController = null;
+  let projectOwnershipField = null;
+  let ownershipProject = null;
+
+  function ensureProjectAppearance() {
+    if (!projectAppearance) {
+      projectAppearance = createEntityAppearanceController({
+        prefix: 'project',
+        onChange: () => projectModalController?.refreshSaveState?.(),
+      });
+    }
+    return projectAppearance;
+  }
 
   function getProjectSaveRelevantState() {
+    const appearance = ensureProjectAppearance().readState();
     return {
       id: document.getElementById('project-id')?.value || '',
-      name: (document.getElementById('project-name')?.value || '').trim(),
-      color: document.getElementById('project-color')?.value || '#6366f1',
-      icon: document.getElementById('project-icon')?.value || '',
+      ...appearance,
       parent_id: document.getElementById('project-parent-id')?.value || '',
       display_workspace_id: document.getElementById('project-display-workspace-id')?.value || '',
+      household_id: document.getElementById('project-household-id')?.value || '',
     };
   }
 
   function canSaveProject() {
-    const state = getProjectSaveRelevantState();
-    const unchanged = projectSaveSnapshot !== null && JSON.stringify(state) === projectSaveSnapshot;
-    return !!state.name && !unchanged;
+    return projectModalController?.canSave?.() || false;
   }
 
   function refreshProjectSaveButtonState() {
-    const saveBtn = document.getElementById('project-save-btn');
-    if (!saveBtn) return;
-    const canSave = canSaveProject();
-    saveBtn.hidden = !canSave;
-    saveBtn.disabled = !canSave;
+    projectModalController?.refreshSaveState?.();
   }
 
-  function resetProjectSaveSnapshot() {
-    projectSaveSnapshot = JSON.stringify(getProjectSaveRelevantState());
-    refreshProjectSaveButtonState();
-  }
 
   function bindProjectForm() {
-    if (projectFormBound) return;
-    const form = document.getElementById('project-form');
-    if (!form) return;
-    projectFormBound = true;
-    form.addEventListener('submit', saveProject);
-    form.addEventListener('input', refreshProjectSaveButtonState);
-    form.addEventListener('change', refreshProjectSaveButtonState);
-    document.getElementById('project-icon-picker')?.addEventListener('click', (event) => {
-      if (!event.target?.closest?.('.icon-picker-option')) return;
-      window.setTimeout(refreshProjectSaveButtonState, 0);
-    });
+    ensureProjectModalController().bind();
   }
 
   function isOwner(project) {
     if (!project) return false;
-    if (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1') return true;
+    if (Object.prototype.hasOwnProperty.call(project, 'is_owner')) {
+      return project.is_owner === true || project.is_owner === 1 || project.is_owner === '1';
+    }
     const user = getCurrentUser?.();
     return !!(user && project.user_id === user.id);
+  }
+
+  function currentHousehold() {
+    return getAccessSnapshot?.()?.household || null;
+  }
+
+  function isHouseholdProject(project) {
+    return isHouseholdOwnedEntity(project);
+  }
+
+  function ensureProjectOwnershipField() {
+    if (!projectOwnershipField) {
+      projectOwnershipField = createEntityOwnershipField({
+        prefix: 'project',
+        getHousehold: currentHousehold,
+        onChange: () => {
+          const project = ownershipProject;
+          renderParentProjectSelect(project, null, project?.workspace_id || getCurrentWorkspaceId?.());
+          applyHouseholdTransferMode(project);
+          refreshProjectSaveButtonState();
+        },
+      });
+    }
+    return projectOwnershipField;
+  }
+
+  function applyHouseholdTransferMode(project) {
+    const selectedHouseholdId = document.getElementById('project-household-id')?.value || '';
+    const transferMode = Boolean(project && isOwner(project) && !isHouseholdProject(project) && selectedHouseholdId);
+    if (!project || isHouseholdProject(project)) return;
+
+    const nameInput = document.getElementById('project-name');
+    const colorInput = document.getElementById('project-color');
+    const iconInput = document.getElementById('project-icon');
+    const parentInput = document.getElementById('project-parent-id');
+    const workspaceInput = document.getElementById('project-display-workspace-id');
+    if (nameInput) nameInput.value = project.name || '';
+    if (colorInput) colorInput.value = project.color || '#6366f1';
+    if (iconInput) iconInput.value = project.icon || '';
+    if (parentInput) parentInput.value = transferMode ? '' : String(project.parent_id || '');
+    if (workspaceInput) {
+      if (transferMode) {
+        const defaultWorkspaceId = getWorkspaces?.().find(workspace => workspace.is_default)?.id;
+        if (defaultWorkspaceId != null) workspaceInput.value = String(defaultWorkspaceId);
+      } else {
+        workspaceInput.value = String(project.workspace_id || '');
+      }
+    }
+    [nameInput, colorInput, iconInput, workspaceInput].forEach(input => {
+      if (input) input.disabled = transferMode;
+    });
+    if (parentInput) parentInput.disabled = false;
+    ensureProjectAppearance().setValues({
+      name: nameInput?.value || '',
+      color: colorInput?.value || '#6366f1',
+      icon: iconInput?.value || '',
+    }, { editable: !transferMode });
+    if (parentInput) refreshSelect(parentInput);
+    if (workspaceInput) refreshSelect(workspaceInput);
   }
 
   function isProjectDescendant(candidate, ancestorId) {
@@ -100,9 +158,15 @@ export function createProjectsFeature({
     const parentSelect = document.getElementById('project-parent-id');
     if (!parentSelect) return;
     parentSelect.innerHTML = `<option value="" data-i18n-key="project.noParent">${t('project.noParent')}</option>`;
-    const targetWorkspaceId = workspaceId || getCurrentWorkspaceId?.();
+    const selectedHouseholdId = document.getElementById('project-household-id')?.value || (isHouseholdProject(project) ? String(project.owner_household_id || '') : '');
+    const defaultWorkspaceId = getWorkspaces?.().find(workspace => workspace.is_default)?.id;
+    const targetWorkspaceId = selectedHouseholdId
+      ? (defaultWorkspaceId || workspaceId || getCurrentWorkspaceId?.())
+      : (workspaceId || getCurrentWorkspaceId?.());
     const projects = getProjects().filter(p => {
-      if (p.is_shared) return false;
+      if (p.is_shared && !selectedHouseholdId) return false;
+      if (selectedHouseholdId && String(p.owner_household_id || '') !== String(selectedHouseholdId)) return false;
+      if (!selectedHouseholdId && isHouseholdProject(p)) return false;
       if (targetWorkspaceId && String(p.workspace_id || '') !== String(targetWorkspaceId)) return false;
       if (project && (String(p.id) === String(project.id) || isProjectDescendant(p, project.id))) return false;
       return true;
@@ -145,8 +209,9 @@ export function createProjectsFeature({
     const group = document.getElementById('project-display-workspace-group');
     const select = document.getElementById('project-display-workspace-id');
     if (!group || !select) return;
-    const sharedMemberProject = !!project?.is_shared && !isOwner(project);
-    const ownMovableProject = !!project && isOwner(project) && !project.is_inbox;
+    const householdProject = isHouseholdProject(project);
+    const sharedMemberProject = !!project?.is_shared && !isOwner(project) && !householdProject;
+    const ownMovableProject = !!project && isOwner(project) && !project.is_inbox && !householdProject;
     group.style.display = (sharedMemberProject || ownMovableProject) ? '' : 'none';
     select.disabled = !(sharedMemberProject || ownMovableProject);
     select.innerHTML = '';
@@ -169,108 +234,101 @@ export function createProjectsFeature({
     refreshSelect(select);
   }
 
-  function showProjectModal(project = null, parentId = null) {
-    bindProjectForm();
-    document.getElementById('project-form')?.reset();
-    document.getElementById('project-id').value = '';
-    const saveBtn = document.getElementById('project-save-btn');
-    if (saveBtn) {
-      saveBtn.hidden = false;
-      saveBtn.disabled = false;
+
+  function projectDetailButton(id) {
+    return Array.from(document.querySelectorAll('[data-entity-sidebar-action="detail"][data-entity-type="project"]'))
+      .find(button => String(button.dataset.entityId) === String(id)) || null;
+  }
+
+  function projectAddButton() {
+    return document.querySelector('[data-entity-sidebar-action="add"][data-entity-type="project"]');
+  }
+
+  function applyProjectModalPermissions(project, view) {
+    const canEditAppearance = view.appearanceEditable !== false;
+    const form = document.getElementById('project-form');
+    form?.classList.toggle('entity-editor-appearance-readonly', Boolean(project && !canEditAppearance));
+    for (const id of ['project-name', 'project-color', 'project-parent-id', 'project-icon']) {
+      const field = document.getElementById(id);
+      if (!field) continue;
+      field.disabled = !canEditAppearance;
+      field.setAttribute('aria-readonly', canEditAppearance ? 'false' : 'true');
+      if (field.tagName === 'SELECT') refreshSelect(field);
+    }
+    const workspace = document.getElementById('project-display-workspace-id');
+    if (workspace) {
+      workspace.disabled = !(view.canMoveSharedDisplay || view.canMoveOwnProject);
+      refreshSelect(workspace);
     }
     const iconPicker = document.getElementById('project-icon-picker');
     if (iconPicker) {
-      iconPicker.style.pointerEvents = '';
-      iconPicker.style.opacity = '';
-      iconPicker.setAttribute('aria-disabled', 'false');
+      iconPicker.style.pointerEvents = canEditAppearance ? '' : 'none';
+      iconPicker.style.opacity = canEditAppearance ? '' : '0.6';
+      iconPicker.setAttribute('aria-disabled', canEditAppearance ? 'false' : 'true');
     }
-    const modalTitle = document.getElementById('project-modal-title');
-    if (modalTitle) {
-      modalTitle.dataset.i18nKey = project ? 'project.edit' : (parentId ? 'project.newSubproject' : 'project.new');
-      modalTitle.textContent = t(modalTitle.dataset.i18nKey);
-    }
+    const save = document.getElementById('project-save-btn');
+    if (save) save.style.display = (canEditAppearance || view.canMoveSharedDisplay || view.canMoveOwnProject) ? '' : 'none';
+  }
 
-    renderParentProjectSelect(project, parentId || (project ? project.parent_id : '') || '', project?.workspace_id || getCurrentWorkspaceId?.());
-
-    const parentFormGroup = document.getElementById('project-parent-id')?.closest('.form-group');
-    if (parentFormGroup) parentFormGroup.style.display = (project && project.is_inbox) ? 'none' : '';
-    renderProjectWorkspaceSelect(project);
-
-    const sharingSection = document.getElementById('project-sharing-section');
-    const deleteBtn = document.getElementById('project-delete-btn');
-    const headerMenu = document.getElementById('project-detail-header-menu');
-
-    if (project) {
-      document.getElementById('project-id').value = project.id;
-      document.getElementById('project-name').value = project.name;
-      document.getElementById('project-color').value = project.color;
-      document.getElementById('project-icon').value = project.icon || '';
-      renderIconPicker({
-        container: document.getElementById('project-icon-picker'),
-        input: document.getElementById('project-icon'),
-        selected: project.icon || '',
-        color: project.color || '#6366f1',
-      });
-      const owner = isOwner(project);
-      const shared = !!project.is_shared;
-      const canDelete = owner && !project.is_inbox;
-      if (deleteBtn) deleteBtn.style.display = canDelete ? '' : 'none';
-      if (headerMenu) {
-        headerMenu.hidden = !canDelete;
-        headerMenu.removeAttribute('open');
-      }
-      if (sharingFeature?.applyProjectModalState) {
-        sharingFeature.applyProjectModalState(project, owner, shared);
-      }
-    } else {
-      if (sharingSection) sharingSection.style.display = 'none';
-      if (deleteBtn) deleteBtn.style.display = 'none';
-      if (headerMenu) {
-        headerMenu.hidden = true;
-        headerMenu.removeAttribute('open');
-      }
-      document.getElementById('project-form')?.classList.remove('readonly-project');
-      document.getElementById('project-icon').value = '';
-      renderIconPicker({
-        container: document.getElementById('project-icon-picker'),
-        input: document.getElementById('project-icon'),
-        selected: '',
-        color: document.getElementById('project-color')?.value || '#6366f1',
-      });
-      renderProjectWorkspaceSelect(null);
-      ['project-name', 'project-color', 'project-parent-id', 'project-icon'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.disabled = false;
-          el.setAttribute('aria-readonly', 'false');
-        }
-      });
-    }
-
-    const colorInput = document.getElementById('project-color');
-    if (colorInput) {
-      renderColorPicker({
-        container: document.getElementById('project-color-picker'),
-        input: colorInput,
-        selected: colorInput.value || '#6366f1',
-        onChange: (color) => {
-          renderIconPicker({
-            container: document.getElementById('project-icon-picker'),
-            input: document.getElementById('project-icon'),
-            selected: document.getElementById('project-icon')?.value || '',
-            color,
-          });
-          refreshProjectSaveButtonState();
+  function ensureProjectModalController() {
+    if (projectModalController) return projectModalController;
+    const appearance = ensureProjectAppearance();
+    projectModalController = createEntityEditorModalController({
+      prefix: 'project',
+      appearanceController: appearance,
+      ownershipController: {
+        render(project, options) {
+          ownershipProject = project;
+          ensureProjectOwnershipField().render(project, options);
         },
-      });
-    }
+      },
+      sharingController: {
+        setEntity(project) {
+          return sharingFeature?.setEntity?.(project);
+        },
+      },
+      readState: getProjectSaveRelevantState,
+      isValid: state => Boolean(state.name) && state.name.length <= 200,
+      resolveView({ entity: project, context }) {
+        const owner = !project || isOwner(project);
+        const householdProject = isHouseholdProject(project);
+        const canMoveSharedDisplay = Boolean(project && project.is_shared && !owner && !householdProject);
+        const canMoveOwnProject = Boolean(project && owner && !project.is_inbox && !householdProject);
+        return {
+          mode: project ? 'edit' : (context?.parentId ? 'create-child' : 'create'),
+          titleKey: project ? 'project.edit' : (context?.parentId ? 'project.newSubproject' : 'project.new'),
+          appearance: project || { name: '', color: '#6366f1', icon: '' },
+          appearanceEditable: owner,
+          ownershipCanManage: !project || (owner && !project.is_inbox),
+          canDelete: Boolean(project && owner && !project.is_inbox),
+          readOnly: Boolean(project && !owner && !canMoveSharedDisplay),
+          canMoveSharedDisplay,
+          canMoveOwnProject,
+          restoreFocus: project
+            ? () => projectDetailButton(document.getElementById('project-id')?.value || project.id)
+              || document.querySelector('[data-entity-sidebar-action="detail"][data-entity-type="project"][aria-current="true"]')
+              || projectAddButton()
+            : projectAddButton,
+        };
+      },
+      renderDomain({ entity: project, context }) {
+        renderParentProjectSelect(project, context?.parentId || project?.parent_id || '', project?.workspace_id || getCurrentWorkspaceId?.());
+        const parentFormGroup = document.getElementById('project-parent-id')?.closest('.form-group');
+        if (parentFormGroup) parentFormGroup.style.display = project?.is_inbox ? 'none' : '';
+        renderProjectWorkspaceSelect(project);
+      },
+      applyDomainPermissions({ entity: project, view }) {
+        applyProjectModalPermissions(project, view);
+      },
+      onSubmit: saveProject,
+      onDelete: deleteProjectFromModal,
+    });
+    return projectModalController;
+  }
 
-    document.getElementById('project-modal')?.classList.add('active');
-    openUiLayer('project-modal');
-    resetProjectSaveSnapshot();
-    if (!project) {
-      window.setTimeout(() => document.getElementById('project-name')?.focus(), 0);
-    }
+  function showProjectModal(project = null, parentId = null) {
+    bindProjectForm();
+    return ensureProjectModalController().open(project, { parentId });
   }
 
   function editProject(id) {
@@ -288,48 +346,151 @@ export function createProjectsFeature({
     const sharedMemberProject = !!existing?.is_shared && !isOwner(existing);
     const displayWorkspaceId = document.getElementById('project-display-workspace-id')?.value || getCurrentWorkspaceId?.() || null;
     const ownerProject = !!existing && isOwner(existing) && !existing.is_inbox;
+    const appearance = ensureProjectAppearance().readState();
+    const householdValue = document.getElementById('project-household-id')?.value || '';
+    const selectedHouseholdId = householdValue ? parseInt(householdValue) : null;
+    const defaultWorkspaceId = getWorkspaces?.().find(workspace => workspace.is_default)?.id || getCurrentWorkspaceId?.() || null;
+    if (existing && ownerProject && !isHouseholdProject(existing) && selectedHouseholdId) {
+      const household = currentHousehold();
+      const confirmed = await confirmDanger({
+        title: t('project.transferHousehold.title'),
+        message: t('project.transferHousehold.message', { project: existing.name, household: household?.name || '' }),
+        confirmText: t('project.transferHousehold.confirm'),
+        cancelText: t('project.transferHousehold.cancel'),
+      });
+      if (!confirmed) {
+        const householdSelect = document.getElementById('project-household-id');
+        if (householdSelect) {
+          householdSelect.value = '';
+          refreshSelect(householdSelect);
+        }
+        renderParentProjectSelect(existing, existing.parent_id || null, existing.workspace_id);
+        applyHouseholdTransferMode(existing);
+        refreshProjectSaveButtonState();
+        return;
+      }
+      const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
+      const transferred = await projectsApi.transferToHousehold(
+        existing.id,
+        selectedHouseholdId,
+        parentIdVal ? parseInt(parentIdVal) : null,
+      );
+      const transferredProjects = Array.isArray(transferred?.transferred_projects)
+        ? transferred.transferred_projects
+        : [transferred];
+      let applied = false;
+      const committed = await runAccessFencedCommit({
+        syncInProgressRef,
+        acquireCommitLock: acquireSyncCommitLock,
+        privacyGeneration,
+        commit: async () => {
+          const current = getProjects().find(project => String(project.id) === String(existing.id));
+          if (!current) return;
+          if (!isOwner(current) || isHouseholdProject(current)) return;
+          if (String(currentHousehold()?.id || '') !== String(selectedHouseholdId || '')) return;
+          if (parentIdVal && !getProjects().some(project => String(project.id) === String(parentIdVal))) return;
+          const queue = await dbGetAll('syncQueue');
+          const currentProjectIds = new Set(getProjects().map(project => String(project.id)));
+          const projectedProjects = transferredProjects
+            .filter(project => currentProjectIds.has(String(project.id)))
+            .map(project => projectPendingProjectChanges(project, queue))
+            .filter(Boolean);
+          if (!projectedProjects.some(project => String(project.id) === String(existing.id))) return;
+          const availableProjectIds = new Set([
+            ...getProjects().map(project => String(project.id)),
+            ...projectedProjects.map(project => String(project.id)),
+          ]);
+          if (projectedProjects.some(project => project.parent_id != null && !availableProjectIds.has(String(project.parent_id)))) return;
+          const persistenceResults = await Promise.allSettled(
+            projectedProjects.map(project => dbPut('projects', project)),
+          );
+          const persistedProjects = projectedProjects.filter((_project, index) => persistenceResults[index]?.status === 'fulfilled');
+          if (!persistedProjects.some(project => String(project.id) === String(existing.id))) return;
+          if (persistedProjects.length !== projectedProjects.length) {
+            console.warn('Some transferred projects could not be persisted locally');
+          }
+          const persistedById = new Map(persistedProjects.map(project => [String(project.id), project]));
+          setProjects(getProjects().map(project => persistedById.get(String(project.id)) || project));
+          applied = true;
+        },
+      });
+      if (!committed || !applied) return;
+      ensureProjectModalController().close();
+      renderProjects();
+      renderStats?.();
+      renderTodos?.();
+      return;
+    }
     const projectData = sharedMemberProject ? {
       workspace_id: displayWorkspaceId ? parseInt(displayWorkspaceId) : null,
     } : {
-      name: document.getElementById('project-name').value,
-      color: document.getElementById('project-color').value,
-      icon: document.getElementById('project-icon')?.value || null,
+      name: appearance.name,
+      color: appearance.color,
+      icon: appearance.icon,
       sort_order: getProjects().length,
       parent_id: parentIdVal ? parseInt(parentIdVal) : null,
-      workspace_id: ownerProject && displayWorkspaceId ? parseInt(displayWorkspaceId) : (getCurrentWorkspaceId?.() || null),
+      workspace_id: selectedHouseholdId
+        ? defaultWorkspaceId
+        : (ownerProject && displayWorkspaceId ? parseInt(displayWorkspaceId) : (getCurrentWorkspaceId?.() || null)),
+      ...(!existing ? { household_id: selectedHouseholdId } : {}),
     };
 
     if (id) {
-      if (existing) {
-        const updated = { ...existing, ...projectData, updated_at: new Date().toISOString() };
-        await dbPut('projects', updated);
-        setProjects(getProjects().map(p => String(p.id) === String(id) ? updated : p));
+      const updated = await commitQueuedMutation(async enqueue => {
+        const current = getProjects().find(project => String(project.id) === String(id));
+        if (!current) return null;
+        if (ownerProject && (!isOwner(current) || current.is_inbox)) return null;
+        if (sharedMemberProject && (!current.is_shared || isOwner(current))) return null;
+        const nextProject = { ...current, ...projectData, updated_at: new Date().toISOString() };
+        await dbPut('projects', nextProject);
+        setProjects(getProjects().map(project => String(project.id) === String(id) ? nextProject : project));
         if (!String(id).startsWith('temp-')) {
-          await addToSyncQueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
-          if (isOnlineForSync()) await syncWithServer();
+          await enqueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
         }
-        closeModal('project-modal');
+        ensureProjectModalController().close();
         renderProjects();
         renderStats?.();
         renderTodos?.();
-      }
+        return nextProject;
+      });
+      if (updated && !String(id).startsWith('temp-') && isOnlineForSync()) await syncWithServer();
     } else {
-      const tempId = 'temp-project-' + Date.now();
-      const newProject = { id: tempId, ...projectData, created_at: new Date().toISOString(), is_owner: true, is_shared: false };
-      await dbPut('projects', newProject);
-      setProjects([...getProjects(), newProject]);
-      await addToSyncQueue('CREATE_PROJECT', { ...projectData, _tempId: tempId });
-      if (isOnlineForSync()) await syncWithServer();
-      closeModal('project-modal');
-      renderProjects();
+      const newProject = await commitQueuedMutation(async enqueue => {
+        const parentProject = parentIdVal
+          ? getProjects().find(project => String(project.id) === String(parentIdVal))
+          : null;
+        if (parentIdVal && !parentProject) return null;
+        if (selectedHouseholdId && String(currentHousehold()?.id) !== String(selectedHouseholdId)) return null;
+        const tempId = 'temp-project-' + Date.now();
+        const household = selectedHouseholdId ? currentHousehold() : null;
+        const nextProject = {
+          id: tempId,
+          ...projectData,
+          parent_id: parentProject?.id ?? null,
+          created_at: new Date().toISOString(),
+          is_owner: true,
+          is_shared: false,
+          ownership_type: selectedHouseholdId ? 'household' : 'user',
+          owner_household_id: selectedHouseholdId,
+          household_name: household?.name || null,
+        };
+        await dbPut('projects', nextProject);
+        await enqueue('CREATE_PROJECT', { ...projectData, parent_id: nextProject.parent_id, _tempId: tempId });
+        setProjects([...getProjects(), nextProject]);
+        ensureProjectModalController().close();
+        renderProjects();
+        return nextProject;
+      });
+      if (newProject && isOnlineForSync()) await syncWithServer();
     }
   }
 
-  async function deleteProject(id) {
+  async function deleteProject(id, { returnFocus = null } = {}) {
     const confirmed = await confirmDanger({
       title: t('project.deleteTitle'),
       message: t('project.deleteMessage'),
       confirmText: t('project.delete'),
+      returnFocus,
     });
     if (!confirmed) return;
     function collectProjectTreeIds(rootId) {
@@ -347,53 +508,40 @@ export function createProjectsFeature({
       return ids;
     }
 
-    const rootProject = getProjects().find(project => project.id === id);
-    const deletedIds = collectProjectTreeIds(id);
-    const inboxProject = getProjects().find(project => project.is_inbox && String(project.workspace_id || '') === String(rootProject?.workspace_id || ''));
-    await Promise.all([...deletedIds].map(projectId => deleteFromDB('projects', projectId)));
-    if (inboxProject) {
-      const nextTodos = getTodos().map(todo => deletedIds.has(todo.project_id)
-        ? { ...todo, project_id: inboxProject.id, section_id: null, updated_at: new Date().toISOString() }
-        : todo);
-      await Promise.all(nextTodos
-        .filter((todo, index) => todo !== getTodos()[index])
-        .map(todo => dbPut('todos', todo)));
-      setTodos(nextTodos);
-    }
-    setProjects(getProjects().filter(p => !deletedIds.has(p.id)));
-    renderProjects();
-    renderStats();
-    renderTodos();
-    closeModal('project-modal');
-
-    await addToSyncQueue('DELETE_PROJECT', { id });
-    if (isOnlineForSync()) await syncWithServer();
+    const deleted = await commitQueuedMutation(async enqueue => {
+      const rootProject = getProjects().find(project => String(project.id) === String(id));
+      if (!rootProject) return false;
+      const deletedIds = collectProjectTreeIds(rootProject.id);
+      const inboxProject = getProjects().find(project => project.is_inbox && String(project.workspace_id || '') === String(rootProject.workspace_id || ''));
+      await Promise.all([...deletedIds].map(projectId => deleteFromDB('projects', projectId)));
+      if (inboxProject) {
+        const currentTodos = getTodos();
+        const nextTodos = currentTodos.map(todo => deletedIds.has(todo.project_id)
+          ? { ...todo, project_id: inboxProject.id, section_id: null, updated_at: new Date().toISOString() }
+          : todo);
+        await Promise.all(nextTodos
+          .filter((todo, index) => todo !== currentTodos[index])
+          .map(todo => dbPut('todos', todo)));
+        setTodos(nextTodos);
+      }
+      await enqueue('DELETE_PROJECT', { id: rootProject.id });
+      setProjects(getProjects().filter(project => !deletedIds.has(project.id)));
+      renderProjects();
+      renderStats();
+      renderTodos();
+      ensureProjectModalController().close();
+      return true;
+    });
+    if (deleted && isOnlineForSync()) await syncWithServer();
   }
 
   function deleteProjectFromModal() {
     const id = document.getElementById('project-id').value;
-    if (id) deleteProject(parseInt(id));
-  }
-
-  function bindProjectActions() {
-    if (projectActionsBound) return;
-    projectActionsBound = true;
-    document.addEventListener('click', (event) => {
-      const target = event.target?.closest?.('[data-project-action]');
-      if (!target) return;
-      const action = target.dataset.projectAction;
-      event.preventDefault();
-      if (action === 'edit') {
-        event.stopPropagation();
-        editProject(target.dataset.projectId);
-      } else if (action === 'delete-from-modal') {
-        document.getElementById('project-detail-header-menu')?.removeAttribute('open');
-        deleteProjectFromModal();
-      } else if (action === 'clear-done-current') {
-        clearDoneInProject();
-      }
+    if (id) deleteProject(parseInt(id), {
+      returnFocus: () => document.querySelector('#project-detail-header-menu > summary'),
     });
   }
+
 
   async function removeDeletedTodosFromLocalState(deletedIds) {
     const ids = new Set((deletedIds || []).map(id => Number(id)));
@@ -430,28 +578,18 @@ export function createProjectsFeature({
 
   async function clearDoneInProject() {
     const currentProjectId = getCurrentProjectId();
-    if (!currentProjectId) return;
+    if (!currentProjectId) return null;
     const project = getProjects().find(p => p.id === currentProjectId);
-    if (!project) return;
+    if (!project) return null;
     const doneTodos = getTodos().filter(t => t.project_id === currentProjectId && t.status === 'done');
-    if (doneTodos.length === 0) return showToast(t('project.done.empty'));
-    const confirmed = await confirmDanger({
-      title: t('project.done.deleteTitle'),
-      message: t('project.done.deleteMessage', { count: doneTodos.length, project: project.name }),
-      confirmText: t('project.done.deleteConfirm'),
-    });
-    if (!confirmed) return;
-    try {
-      const result = await projectsApi.clearDone(currentProjectId);
-      await removeDeletedTodosFromLocalState(result.deleted_ids);
-      renderStats();
-      renderTodos();
-      showToast(t('project.done.deleted', { count: result.deleted_count }));
-    } catch (err) {
-      console.error('Clear done error:', err);
-      showToast(t('project.done.deleteFailed'));
-    }
+    if (doneTodos.length === 0) return null;
+    const result = await projectsApi.clearDone(currentProjectId);
+    await removeDeletedTodosFromLocalState(result.deleted_ids);
+    renderStats();
+    renderTodos();
+    showToast(t('project.done.deleted', { count: result.deleted_count }));
+    return result;
   }
 
-  return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, bindProjectActions, clearDoneFromModal, clearDoneInProject };
+  return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject };
 }

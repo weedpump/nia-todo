@@ -149,7 +149,7 @@ assert.doesNotMatch(
 );
 assert.match(
   rustSource,
-  /fn resolved_hotkey_descriptions[\s\S]*hotkey_descriptions[\s\S]*nia-todo anzeigen\/verstecken[\s\S]*Neues nia-todo Todo[\s\S]*nia-todo Suche/,
+  /fn resolved_hotkey_descriptions[\s\S]*hotkey_descriptions[\s\S]*Nia anzeigen\/verstecken[\s\S]*Neues Nia Todo[\s\S]*Nia Suche/,
   'Portal registration must retain the previously working descriptions as a fail-safe fallback',
 );
 assert.doesNotMatch(

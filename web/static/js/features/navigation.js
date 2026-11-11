@@ -1,5 +1,10 @@
+import { bindEntitySidebarNavigation } from './entity-sidebar.js';
+import { acquireSyncCommitLock, projectPendingSectionsSnapshot } from './todo-pending.js';
+import { runAccessFencedCommit } from './entity-access-privacy.js';
+
 export function createNavigationFeature({
   sectionsApi,
+  getProjects = () => [],
   getCurrentProjectId,
   getCurrentFilter,
   setCurrentProjectId,
@@ -15,8 +20,11 @@ export function createNavigationFeature({
   renderStats,
   renderTodos,
   showProjectModal = null,
+  editProject = null,
+  syncInProgressRef = {},
 }) {
   const baseFilters = ['all','focus','calendar','pending','in_progress','done'];
+  const projectReceipts = new Map();
   let applyingHistory = false;
 
   function cleanRoute() {
@@ -44,13 +52,27 @@ export function createNavigationFeature({
   }
 
   function setFilter(filter, options = {}) {
+    const seen = new Set();
+    let identity = String(filter);
+    while (!baseFilters.includes(identity) && projectReceipts.has(identity) && !seen.has(identity)) {
+      seen.add(identity);
+      identity = String(projectReceipts.get(identity));
+    }
+    if (seen.size) {
+      // A click may still carry the temporary ID from a sidebar node that was
+      // rendered before its create receipt committed. Never revive lost access.
+      const confirmed = !seen.has(identity) && getProjects().find(project => String(project.id) === identity);
+      filter = confirmed ? String(confirmed.id) : 'all';
+    }
     if (!options.preserveDashboardDrilldown) clearDashboardDrilldown();
     setCurrentFilter(filter);
-    const nextProjectId = baseFilters.includes(filter) ? null : parseInt(filter, 10);
+    const project = getProjects().find(candidate => String(candidate.id) === String(filter));
+    const nextProjectId = baseFilters.includes(filter) ? null
+      : project?.id ?? (/^\d+$/.test(String(filter)) ? Number(filter) : null);
     setCurrentProjectId(nextProjectId);
 
     localStorage.setItem('nia-last-filter', filter);
-    const sidebarClosed = closeSidebar({ preserveHistory: true });
+    const sidebarClosed = options.skipSidebarClose ? false : closeSidebar({ preserveHistory: true });
     updateHistory(filter, Boolean(options.replaceHistory || sidebarClosed));
 
     document.querySelectorAll('.nav-btn').forEach((button) => {
@@ -73,21 +95,36 @@ export function createNavigationFeature({
     const currentProjectId = getCurrentProjectId();
     if (!currentProjectId) return;
 
-    if (isOnlineForSync()) {
+    const privacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
+    if (isOnlineForSync() && !String(currentProjectId).startsWith('temp-')) {
       try {
         const data = await sectionsApi.listByProject(currentProjectId);
         const serverSections = data.sections || [];
+        let applied = false;
+        const committed = await runAccessFencedCommit({
+          syncInProgressRef,
+          acquireCommitLock: acquireSyncCommitLock,
+          privacyGeneration,
+          commit: async () => {
+            if (String(getCurrentProjectId()) !== String(currentProjectId)) return;
+            if (!getProjects().some(project => String(project.id) === String(currentProjectId))) return;
+            const allLocal = await dbGetAll('sections');
+            const localProjectSections = allLocal.filter(s => String(s.project_id) === String(currentProjectId));
+            const queue = await dbGetAll('syncQueue');
+            const projectedSections = projectPendingSectionsSnapshot(serverSections, localProjectSections, queue, currentProjectId);
+            if (projectedSections.some(section => String(section.project_id) !== String(currentProjectId))) return;
+            for (const section of projectedSections) await dbPut('sections', section);
 
-        for (const section of serverSections) await dbPut('sections', section);
+            const projectedIds = new Set(projectedSections.map(section => String(section.id)));
+            for (const local of localProjectSections) {
+              if (!projectedIds.has(String(local.id))) await deleteFromDB('sections', local.id);
+            }
 
-        const serverIds = new Set(serverSections.map(s => s.id));
-        const allLocal = await dbGetAll('sections');
-        const localProjectSections = allLocal.filter(s => s.project_id === currentProjectId);
-        for (const local of localProjectSections) {
-          if (!serverIds.has(local.id)) await deleteFromDB('sections', local.id);
-        }
-
-        setSections(serverSections);
+            setSections(projectedSections);
+            applied = true;
+          },
+        });
+        if (committed && applied) return;
         return;
       } catch (e) {
         console.error('Failed to load sections from server', e);
@@ -96,26 +133,49 @@ export function createNavigationFeature({
 
     try {
       const allSections = await dbGetAll('sections');
-      setSections(allSections.filter(s => s.project_id === currentProjectId));
+      if (String(getCurrentProjectId()) !== String(currentProjectId)
+        || Number(syncInProgressRef?.privacyGeneration || 0) !== privacyGeneration
+        || !getProjects().some(project => String(project.id) === String(currentProjectId))) return;
+      setSections(allSections.filter(s => String(s.project_id) === String(currentProjectId)));
     } catch (e) {
       console.error('Failed to load sections from local DB', e);
     }
   }
 
+  function remapProjectId(from, to) {
+    if (from == null || to == null || String(from) === String(to)) return false;
+    projectReceipts.set(String(from), to);
+    if (String(getCurrentProjectId()) !== String(from) && String(getCurrentFilter()) !== String(from)) return false;
+    const confirmed = getProjects().find(project => String(project.id) === String(to));
+    if (!confirmed) return false;
+    setCurrentProjectId(confirmed.id);
+    if (String(getCurrentFilter()) === String(from)) {
+      setCurrentFilter(String(to));
+      localStorage.setItem('nia-last-filter', String(to));
+      updateHistory(String(to), true);
+    }
+    renderProjects();
+    renderStats();
+    renderTodos();
+    return true;
+  }
+
   function bindNavigationActions() {
     if (document.documentElement.dataset.navigationActionsBound === '1') return;
     document.documentElement.dataset.navigationActionsBound = '1';
+    bindEntitySidebarNavigation({
+      root: document,
+      entityType: 'project',
+      onSelect: (id, { sidebarClosed } = {}) => setFilter(id, { skipSidebarClose: true, replaceHistory: sidebarClosed }),
+      onDetail: id => editProject?.(id),
+      onAdd: () => showProjectModal?.(),
+      closeSidebar,
+    });
     document.addEventListener('click', (event) => {
-      const navButton = event.target?.closest?.('.nav-btn[data-filter], [data-nav-filter]');
+      const navButton = event.target?.closest?.('.nav-btn[data-filter]:not([data-entity-sidebar-action]), [data-nav-filter]');
       if (navButton) {
         event.preventDefault();
         setFilter(navButton.dataset.filter || navButton.dataset.navFilter);
-        return;
-      }
-      const action = event.target?.closest?.('[data-nav-action]')?.dataset.navAction;
-      if (action === 'new-project') {
-        event.preventDefault();
-        showProjectModal?.();
       }
     });
   }
@@ -134,5 +194,5 @@ export function createNavigationFeature({
     });
   }
 
-  return { setFilter, loadSectionsForCurrentProject, bindNavigationActions, bindNavigationHistory };
+  return { setFilter, remapProjectId, loadSectionsForCurrentProject, bindNavigationActions, bindNavigationHistory };
 }

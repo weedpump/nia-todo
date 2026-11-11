@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from PIL import Image, UnidentifiedImageError
 import bcrypt
 import io
@@ -24,11 +24,19 @@ HEIC_SUPPORTED = PILLOW_HEIC_SUPPORTED or bool(HEIF_CONVERT_BIN)
 from db import get_db, now_iso
 from routers.auth import require_auth
 from routers.two_factor import require_recent_mfa
+from services.images import load_raster_image, validate_image_dimensions
 from services.audit import log_audit
 from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
 from services.utils import normalize_email, password_within_bcrypt_limit, sanitize_text, validate_email, validate_password
 from services.websocket import broadcast_change
+from services.sharing import get_project_access_flags, get_project_ids_for_user
+from services.module_visibility import (
+    MAX_DISABLED_MODULE_IDS,
+    has_enabled_registered_module,
+    module_preferences_payload,
+    normalize_disabled_modules,
+)
 from errors import api_error, validation_api_error
 from paths import AVATAR_DIR
 
@@ -61,6 +69,10 @@ class DashboardPreferencesSyncRequest(BaseModel):
     preferences: dict[str, dict] | None = None
 
 
+class ModulePreferencesUpdate(BaseModel):
+    disabled_modules: list[str] = Field(default_factory=list, max_length=MAX_DISABLED_MODULE_IDS)
+
+
 _DASHBOARD_STATS = {"total", "pending", "in_progress", "overdue", "due_today", "done"}
 _DASHBOARD_FOCUS_ITEMS = {"overdue", "due_today", "due_week", "high_priority"}
 _PROJECT_SCOPE_MODES = {"all", "include", "exclude"}
@@ -90,24 +102,60 @@ def _dashboard_preferences_payload(db, user_id: int) -> dict:
     return {"enabled": True, "preferences": preferences}
 
 
+@router.get('/modules')
+def get_module_preferences(user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        user = db.execute(
+            "SELECT disabled_modules_json FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if not user:
+            raise api_error(404, "user.notFound", "User not found")
+        return module_preferences_payload(user)
+
+
+@router.patch('/modules')
+async def update_module_preferences(data: ModulePreferencesUpdate, user_id: int = Depends(require_auth)):
+    disabled_modules = normalize_disabled_modules(data.disabled_modules)
+    if not has_enabled_registered_module(disabled_modules):
+        raise api_error(422, "modules.oneRequired", "At least one registered module must remain enabled")
+    payload = {"disabled_modules": disabled_modules}
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise api_error(404, "user.notFound", "User not found")
+        db.execute(
+            "UPDATE users SET disabled_modules_json = ? WHERE id = ?",
+            (json.dumps(disabled_modules, separators=(",", ":")), user_id),
+        )
+        db.commit()
+    await broadcast_change("module_preferences_update", payload, user_id)
+    return payload
+
+
 def _visible_project_ids_for_workspace(db, user_id: int, workspace_id: int) -> set[int]:
     default = db.execute(
         "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
         (user_id,),
     ).fetchone()
     default_workspace_id = default["id"] if default else None
-    rows = db.execute(
-        """
-        SELECT id FROM projects WHERE user_id = ? AND workspace_id = ?
-        UNION
-        SELECT p.id
-        FROM projects p
-        JOIN project_members pm ON pm.project_id = p.id
-        WHERE pm.user_id = ? AND pm.status = 'accepted' AND COALESCE(pm.workspace_id, ?) = ?
-        """,
-        (user_id, workspace_id, user_id, default_workspace_id, workspace_id),
-    ).fetchall()
-    return {int(row["id"]) for row in rows}
+    visible = set()
+    for project_id in get_project_ids_for_user(db, user_id):
+        project = db.execute("SELECT workspace_id FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project:
+            continue
+        flags = get_project_access_flags(db, project_id, user_id)
+        ownership = flags["ownership"] or {}
+        direct_member = flags["direct_member"]
+        if flags["can_manage"] and ownership.get("owner_user_id") == user_id:
+            display_workspace_id = project["workspace_id"]
+        elif direct_member and direct_member["workspace_id"] is not None:
+            display_workspace_id = direct_member["workspace_id"]
+        else:
+            display_workspace_id = default_workspace_id
+        if display_workspace_id == workspace_id:
+            visible.add(int(project_id))
+    return visible
 
 
 def _validate_dashboard_preferences(db, user_id: int, workspace_id: int, value: dict) -> dict:
@@ -157,18 +205,12 @@ def _avatar_url(user_id: int) -> str:
 
 
 def _validate_avatar_dimensions(image: Image.Image) -> Image.Image:
-    width, height = image.size
-    if width * height > MAX_AVATAR_PIXELS:
-        raise Image.DecompressionBombError("Image dimensions exceed the avatar limit")
-    return image
+    return validate_image_dimensions(image, MAX_AVATAR_PIXELS)
 
 
 def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
     try:
-        image = Image.open(io.BytesIO(body))
-        image.verify()
-        image = Image.open(io.BytesIO(body))
-        return _validate_avatar_dimensions(image).convert("RGB")
+        return load_raster_image(body, max_pixels=MAX_AVATAR_PIXELS)
     except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError):
         if content_type not in {"image/heic", "image/heif"} or not HEIF_CONVERT_BIN:
             raise

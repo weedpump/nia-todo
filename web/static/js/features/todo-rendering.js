@@ -1,6 +1,7 @@
 import { escapeHtml, escapeHtmlAttr, formatDate, parseDateValue, renderMarkdown, truncateWords } from '../core/utils.js';
 import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { renderItemSwipeShell } from '../ui/item-swipe.js';
 
 function locationReminderLabel(todo) {
   const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
@@ -73,7 +74,7 @@ export function renderTodoItem(t) {
         </details>`;
 
   const cardMarkup = `
-    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" data-priority="${escapeHtmlAttr(String(t.priority || ''))}" draggable="true">
+    <div class="todo-item ui-item-card ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" data-priority="${escapeHtmlAttr(String(t.priority || ''))}" data-item-dnd="true" draggable="true">
       <div class="todo-status-control">
         <button type="button" class="todo-check" data-todo-action="toggle-status" data-todo-id="${todoIdAttr}" aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
           ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}
@@ -87,13 +88,13 @@ export function renderTodoItem(t) {
             <span class="todo-title">${escapeHtml(t.title)}</span>
             ${hasMeta ? `
             <div class="todo-meta-row">
-              ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone} ${isOverdue || isDueToday ? 'minimal-attention' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
-              ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
-              ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
-              ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
-              ${hasSubtasks ? `<span class="todo-meta-chip todo-subtasks-progress">${iconSvg('list-todo')} ${escapeHtml(subtaskProgress)}</span>` : ''}
-              ${hasComments ? `<span class="todo-meta-chip todo-comments-progress">${iconSvg('notebook-pen')} ${escapeHtml(i18nT('todo.comments.count', { count: commentsCount }))}</span>` : ''}
-              ${hasAttachments ? `<span class="todo-meta-chip todo-attachments-progress">${iconSvg('paperclip')} ${escapeHtml(i18nT('todo.attachments.count', { count: attachmentsCount }))}</span>` : ''}
+              ${dueStr ? `<span class="todo-meta-chip ui-badge todo-due ${isOverdue ? 'overdue' : dueTone} ${isOverdue || isDueToday ? 'minimal-attention' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
+              ${remindStr ? `<span class="todo-meta-chip ui-badge todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
+              ${recurrenceStr ? `<span class="todo-meta-chip ui-badge todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
+              ${locationStr ? `<span class="todo-meta-chip ui-badge todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
+              ${hasSubtasks ? `<span class="todo-meta-chip ui-badge todo-subtasks-progress">${iconSvg('list-todo')} ${escapeHtml(subtaskProgress)}</span>` : ''}
+              ${hasComments ? `<span class="todo-meta-chip ui-badge todo-comments-progress">${iconSvg('notebook-pen')} ${escapeHtml(i18nT('todo.comments.count', { count: commentsCount }))}</span>` : ''}
+              ${hasAttachments ? `<span class="todo-meta-chip ui-badge todo-attachments-progress">${iconSvg('paperclip')} ${escapeHtml(i18nT('todo.attachments.count', { count: attachmentsCount }))}</span>` : ''}
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
@@ -120,21 +121,12 @@ export function renderTodoItem(t) {
     </div>
   `;
 
-  if (!document.documentElement.classList.contains('mobile-swipe-ui')) return cardMarkup;
-
-  return `
-    <div class="todo-swipe-shell" data-todo-swipe-id="${todoIdAttr}">
-      <div class="todo-swipe-underlay" aria-hidden="true">
-        <div class="todo-swipe-action todo-swipe-action-in-progress">
-          ${iconSvg('flame', 'todo-swipe-action-icon', 'data-swipe-icon="in-progress"')}
-          <span>${escapeHtml(i18nT('todo.status.inProgress'))}</span>
-        </div>
-        <div class="todo-swipe-action todo-swipe-action-done">
-          ${iconSvg('check', 'todo-swipe-action-icon', 'data-swipe-icon="done"')}
-          <span>${escapeHtml(i18nT('todo.status.done'))}</span>
-        </div>
-      </div>
-      ${cardMarkup}
-    </div>
-  `;
+  return renderItemSwipeShell({
+    key: todoIdAttr,
+    cardMarkup: cardMarkup.replace('class="todo-item ', 'class="todo-item ui-swipe-card '),
+    actions: {
+      right: { icon: 'flame', label: i18nT('todo.status.inProgress'), tone: 'warning' },
+      left: { icon: 'check', label: i18nT('todo.status.done'), tone: 'success' },
+    },
+  });
 }

@@ -104,7 +104,7 @@ fn download_windows_update(
 pub(crate) async fn desktop_install_update(app: AppHandle) -> Result<bool, String> {
     let server_url = super::load_settings(&app)
         .server_url
-        .ok_or_else(|| "No nia-todo server is configured".to_string())?;
+        .ok_or_else(|| "No Nia server is configured".to_string())?;
     let endpoint = windows_updater_endpoint(&server_url)?;
     let updater = app
         .updater_builder()

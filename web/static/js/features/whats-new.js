@@ -1,5 +1,6 @@
 import { getCurrentLanguage, t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { niaIconSvg } from '../icons/nia-product-icons.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 
 const WHATS_NEW_CONTENT_URL = '/static/content/whats-new.json';
@@ -17,7 +18,21 @@ function normalizeVersion(value) {
   return String(value || '')
     .trim()
     .replace(/^v/i, '')
-    .split('-')[0];
+    .split(/[-+]/)[0];
+}
+
+function versionParts(value) {
+  const normalized = normalizeVersion(value);
+  if (!/^\d+\.\d+\.\d+$/.test(normalized)) return null;
+  const parts = normalized.split('.').map(Number);
+  return parts.every(Number.isSafeInteger) ? parts : null;
+}
+
+function compareVersions(left, right) {
+  for (let index = 0; index < left.length; index++) {
+    if (left[index] !== right[index]) return left[index] < right[index] ? -1 : 1;
+  }
+  return 0;
 }
 
 function releaseBadge(release) {
@@ -75,10 +90,18 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
 
   async function getCurrentRelease() {
     const allReleases = await loadReleases();
+    const currentVersion = versionParts(appVersion);
+    if (!currentVersion) return null;
     const currentLanguage = getCurrentLanguage();
-    const currentRelease = allReleases.find((release) => releaseMatchesAppVersion(release, appVersion));
+    const eligible = allReleases.filter(release => {
+      const version = versionParts(release.version);
+      return version && compareVersions(version, currentVersion) <= 0;
+    }).sort((left, right) => compareVersions(versionParts(right.version), versionParts(left.version)));
+    const currentRelease = eligible.find((release) => releaseMatchesAppVersion(release, appVersion));
     if (currentRelease) return localizedRelease(currentRelease, currentLanguage);
-    const carriedRelease = allReleases.find((release) => release.carryForward && !hasSeenRelease(release));
+    // Select the newest applicable tour independently of its completion state.
+    // Completing a newer tour must never reveal an older unseen tour afterward.
+    const carriedRelease = eligible.find((release) => release.carryForward);
     return carriedRelease ? localizedRelease(carriedRelease, currentLanguage) : null;
   }
 
@@ -117,6 +140,19 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
 
   function renderSlideMedia(slide) {
     const media = slide?.media || (slide?.image ? { type: 'image', src: slide.image, alt: slide.alt } : { type: 'icon', icon: slide?.icon });
+    if (media.type === 'brand-transition') {
+      return `<div class="whats-new-slide-media whats-new-brand-transition">
+        <span class="whats-new-brand">
+          ${niaIconSvg('tasks')}
+          <span>nia-todo</span>
+        </span>
+        <span class="whats-new-brand-arrow" aria-hidden="true">${iconSvg('arrow-right')}</span>
+        <span class="whats-new-brand">
+          ${niaIconSvg('nia')}
+          <span>Nia</span>
+        </span>
+      </div>`;
+    }
     if (media.type === 'image' && media.src) {
       return `<figure class="whats-new-slide-media whats-new-slide-media-image"><img src="${escapeHtml(media.src)}" alt="${escapeHtml(media.alt || '')}"></figure>`;
     }
@@ -206,7 +242,7 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     activeSlide = 0;
   }
 
-  function open(release) {
+  function openRelease(release) {
     if (!release) return false;
     activeRelease = release;
     activeSlide = 0;
@@ -237,8 +273,17 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
   async function maybeShowWhatsNew({ force = false } = {}) {
     const release = await getCurrentRelease();
     if (!release) return false;
-    if (!force && hasSeenRelease(release)) return false;
-    return open(release);
+    if (!force) {
+      if (hasSeenRelease(release)) return false;
+      const currentVersion = versionParts(appVersion);
+      const selectedVersion = versionParts(release.version);
+      if (releases.some(candidate => {
+        const version = versionParts(candidate.version);
+        return version && compareVersions(version, currentVersion) <= 0
+          && compareVersions(version, selectedVersion) > 0 && hasSeenRelease(candidate);
+      })) return false;
+    }
+    return openRelease(release);
   }
 
   function bindWhatsNewActions() {
@@ -365,5 +410,6 @@ export function createWhatsNewFeature({ appVersion, getCurrentUser = () => null 
     });
   }
 
-  return { bindWhatsNewActions, maybeShowWhatsNew, open, close };
+  return { bindWhatsNewActions, maybeShowWhatsNew,
+    open: () => maybeShowWhatsNew({ force: true }), close };
 }

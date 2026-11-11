@@ -9,6 +9,7 @@ export function createSyncController({
   renderProjects,
   renderStats,
   renderTodos,
+  onAuthoritativeRefreshCommitted = () => {},
 }) {
   function isOnlineForSync() {
     return syncFeature.isOnlineForSync(getWsState());
@@ -24,7 +25,7 @@ export function createSyncController({
 
   async function refreshFromServer() {
     await updateConnectionStatusView(getWsState());
-    await syncFeature.refreshFromServer({ wsState: getWsState(), syncInProgressRef });
+    const result = await syncFeature.refreshFromServer({ wsState: getWsState(), syncInProgressRef });
     setSyncInProgress(syncInProgressRef.value);
     await updateConnectionStatusView(getWsState());
     ensureCurrentWorkspace();
@@ -32,6 +33,8 @@ export function createSyncController({
     renderProjects();
     renderStats();
     renderTodos();
+    if (result?.refreshed) onAuthoritativeRefreshCommitted(result);
+    return result;
   }
 
   return {

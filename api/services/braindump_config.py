@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import Any, Optional
+from string import Template
 from urllib.parse import urlparse, urlunparse
 
 from fastapi import HTTPException
@@ -11,9 +12,11 @@ from fastapi import HTTPException
 from db import get_db
 from services.instance_config import _normalize_http_url
 
-DEFAULT_BRAINDUMP_SYSTEM_PROMPT = """You are BrainDump, a strict extractor for nia-todo.
-Turn messy speech into todo candidates. Return ONLY compact JSON, no Markdown/prose:
-{"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null}]}
+# Candidate protocol slots share one semantic rule body across legacy and module-aware clients.
+# Keeping these slots explicit prevents prose edits from silently changing negotiation.
+_BRAINDUMP_SYSTEM_PROMPT_TEMPLATE = Template("""You are BrainDump, a strict extractor for Nia.
+Turn messy speech into $candidate_description. Return ONLY compact JSON, no Markdown/prose:
+$candidate_shape
 If nothing useful/actionable was said, return {"candidates":[]}.
 
 Response discipline:
@@ -39,14 +42,14 @@ Rules:
 - Abstract pattern to follow in every language: if the transcript means "add A, B, C; later remove B; later add D", the final ledger is A, C, D. Never output B, the remove-B command, or leftover words from the remove-B clause.
 - Ignore filler, tests, thanks, meta talk, completed actions, and questions.
 - Never invent projects/sections. Use only exact names from Workspace context; otherwise null.
-- Treat existing project sections as the user's taxonomy. For every candidate, first choose the best fitting existing project, then compare the candidate title/intent against every section in that project before leaving section_name null.
+- Treat existing project sections as the user's taxonomy. $project_candidate_scope, first choose the best fitting existing project, then compare the candidate title/intent against every section in that project before leaving section_name null.
 - Actively choose a section when an existing section is semantically appropriate, even if its exact words were not spoken. Use broad category knowledge, product/task families, synonyms, hypernyms/hyponyms, and common real-world grouping. A candidate may belong to a section whose name describes a broader category, related family, or typical shelf/work area.
 - Prefer the most specific clearly fitting section over a broad project-only placement. Leave section_name null only when no existing section is a clear semantic fit or multiple sections are equally plausible.
 - If a transcript names a section under a project, use that exact project + section from Workspace.
 
 Shopping/list items:
 - Detect direct and indirect buying needs in any language (e.g. "need", "brauche", "ist leer", "no queda", "il manque").
-- Output each shopping item as a normal todo candidate. Do not output whole sentences.
+$shopping_rule
 - The title must be the final todo title/item only. For example, output "Honig", not "Honig kaufen", when the user only means the item.
 
 Time:
@@ -68,9 +71,14 @@ Location reminders:
 - If the user says "at/by/in/when I am at" a place without a clear leaving/departure intent, use trigger_type="arrival".
 - If the user explicitly says leaving/departure/when I go away from a place, use trigger_type="departure".
 - If no saved place clearly matches, keep location_reminder null. Do not output addresses or coordinates.
-
+$module_contract
 Examples:
-Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
+$examples""")
+_LEGACY_CANDIDATE_SHAPE = '{"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null}]}'
+_MODULE_CANDIDATE_SHAPE = '{"candidates":[{"module_id":"tasks","title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null,"explicit_route_fields":[]},{"module_id":"shopping","title":"...","shopping_list_id":null,"shopping_section_id":null,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null,"explicit_route_fields":[]}]}'
+_LEGACY_SHOPPING_RULE = '- Output each shopping item as a normal todo candidate. Do not output whole sentences.'
+_MODULE_SHOPPING_RULE = '- Output each buying/list item with module_id="shopping". Do not disguise it as a task. A general action such as planning a shopping trip may still be a task.'
+_LEGACY_EXAMPLES = """Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
 JSON: {"candidates":[{"title":"potatoes","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null},{"title":"strawberries","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null},{"title":"coconut milk","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null}]}
 Transcript: "Necesito huevos y papel higiénico. Mañana revisar los documentos de impuestos."
 JSON: {"candidates":[{"title":"huevos","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null},{"title":"papel higiénico","project_name":null,"section_name":null,"deadline":null,"reminder":null,"recurring_rule":null,"location_reminder":null},{"title":"revisar los documentos de impuestos","project_name":null,"section_name":null,"deadline":"2026-06-02T09:00:00+02:00","reminder":null,"recurring_rule":null,"location_reminder":null}]}
@@ -79,6 +87,53 @@ JSON: {"candidates":[{"title":"Rauchmelder prüfen","project_name":null,"section
 Transcript: "Ähm danke, ich teste nur kurz."
 JSON: {"candidates":[]}
 """
+_MODULE_CONTRACT = """
+
+Module routing contract:
+- Emit only module_id values listed in Workspace JSON supported_modules. Omit unavailable item types rather than changing their module.
+- Every candidate must include explicit_route_fields: an array containing only container, section and/or stores when the user explicitly selected those destinations. Use [] for semantic/inferred routing. Task projects and Shopping lists are containers. Explicitly requesting no section or no store is also an explicit selection: include section or stores and return null or [] for that destination.
+- An explicitly spoken target always takes priority over historical routing preferences. Do not label automatically inferred taxonomy matches explicit merely because you selected an existing target.
+- Tasks use existing project/section names and may use time, recurrence and saved-place reminders. Shopping never uses those task fields or a workspace.
+- Apply the same semantic taxonomy rules to Shopping: compare each item's meaning against the sections of every shopping_lists entry, using category knowledge, synonyms and product families, before leaving a Shopping destination null.
+- Shopping list names may be generic or opaque. A clearly fitting section is evidence for its containing list even when the transcript did not name the list or section. Return both shopping_list_id and shopping_section_id for a unique semantic fit; do not require literal word overlap between the item and section name.
+- Prefer the most specific clearly fitting existing Shopping section. Leave the section unresolved only when none fits or several are equally plausible; leave the list unresolved only when no list can be identified confidently. Do not choose a list merely because it exists or is the only available list.
+- Shopping targets use IDs exclusively from shopping_lists and their own nested sections/stores. Prefer explicit intended targets, then a clear semantic match; never choose arbitrarily between equally plausible or identically named lists.
+- If no shopping list clearly matches, retain the shopping candidate with shopping_list_id=null for correction. Do not automatically create a list or convert the item to a task.
+- Return shopping_section_id and shopping_store_ids only when they belong to the selected list. Use null and [] respectively when unresolved.
+- Extract an explicitly stated finite nonnegative quantity_value and quantity_unit separately from title; 0 is valid. Never invent a quantity or perform unit conversions.
+- Dedupe within the same module and target only. A task and shopping item with the same title remain separate candidates.
+"""
+_MODULE_EXAMPLES = """Examples (use only IDs from the actual request context, never these illustrative IDs):
+Example when both modules are available:
+Shopping context: {"shopping_lists":[{"id":10,"name":"Home","sections":[{"id":20,"name":"Dairy & chilled food"}],"stores":[]},{"id":11,"name":"Other","sections":[{"id":21,"name":"Tools & repairs"}],"stores":[]}]}
+Transcript: "We need 2 l milk and tomorrow call Alex."
+JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":10,"shopping_section_id":20,"shopping_store_ids":[],"quantity_value":2,"quantity_unit":"l","explicit_route_fields":[]},{"module_id":"tasks","title":"Call Alex","project_name":null,"section_name":null,"deadline":"2026-06-02T09:00:00+02:00","reminder":null,"recurring_rule":null,"location_reminder":null,"explicit_route_fields":[]}]}
+The list name was not spoken. Milk fits the meaning of the existing chilled-food section, which identifies its parent list.
+Ambiguous Shopping context: {"shopping_lists":[{"id":10,"name":"Home","sections":[{"id":20,"name":"Dairy"}],"stores":[]},{"id":11,"name":"Office","sections":[{"id":21,"name":"Dairy"}],"stores":[]}]}
+Transcript: "We need milk."
+JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":null,"shopping_section_id":null,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null,"explicit_route_fields":[]}]}
+Both lists have equally fitting sections and the transcript supplies no destination, so do not choose arbitrarily.
+Same Shopping context, explicit destination:
+Transcript: "Milk on the Office list, without a store."
+JSON: {"candidates":[{"module_id":"shopping","title":"Milk","shopping_list_id":11,"shopping_section_id":21,"shopping_store_ids":[],"quantity_value":null,"quantity_unit":null,"explicit_route_fields":["container","stores"]}]}
+Office and no store were explicit; the Dairy section was inferred.
+"""
+
+
+def _default_system_prompt(*, module_aware: bool = True) -> str:
+    return _BRAINDUMP_SYSTEM_PROMPT_TEMPLATE.substitute(
+        candidate_description="task and shopping candidates" if module_aware else "todo candidates",
+        project_candidate_scope="For every task candidate" if module_aware else "For every candidate",
+        candidate_shape=_MODULE_CANDIDATE_SHAPE if module_aware else _LEGACY_CANDIDATE_SHAPE,
+        shopping_rule=_MODULE_SHOPPING_RULE if module_aware else _LEGACY_SHOPPING_RULE,
+        module_contract=_MODULE_CONTRACT if module_aware else "",
+        examples=_MODULE_EXAMPLES if module_aware else _LEGACY_EXAMPLES,
+    )
+
+
+# The admin reference shows the current protocol. Legacy extraction requests
+# explicitly select the compatibility variant in build_effective_system_prompt.
+DEFAULT_BRAINDUMP_SYSTEM_PROMPT = _default_system_prompt()
 
 BRAINDUMP_CONFIG_KEYS = (
     "braindump_enabled",
@@ -198,15 +253,16 @@ openclaw_chat_url = llm_chat_url
 openclaw_models_url = llm_models_url
 
 
-def build_effective_system_prompt(config: dict[str, Any] | None = None) -> str:
+def build_effective_system_prompt(config: dict[str, Any] | None = None, *, supported_modules: list[str] | None = None) -> str:
     config = config or {}
     mode = str(config.get("system_prompt_mode") or "default").strip().lower()
     custom = str(config.get("system_prompt_custom") or "").strip()
     if mode == "replace" and custom:
         return custom
+    default_prompt = _default_system_prompt(module_aware=supported_modules is not None)
     if mode == "append" and custom:
-        return f"{DEFAULT_BRAINDUMP_SYSTEM_PROMPT.rstrip()}\n\nAdditional admin instructions:\n{custom}"
-    return DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+        return f"{default_prompt.rstrip()}\n\nAdditional admin instructions:\n{custom}"
+    return default_prompt
 
 
 def parse_extra_headers(value: str | None) -> dict[str, str]:

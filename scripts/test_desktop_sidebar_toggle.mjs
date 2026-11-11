@@ -39,6 +39,10 @@ try {
       await route.fulfill({ contentType: 'text/javascript', body: 'export function hideAutoScrollbars() {}' });
       return;
     }
+    if (path === '/static/js/ui/dropdowns.js') {
+      await route.fulfill({ contentType: 'text/javascript', body: 'export function isDropdownOpen() { return false; }' });
+      return;
+    }
     if (path === '/static/js/i18n/index.js') {
       await route.fulfill({ contentType: 'text/javascript', body: 'export function t(key) { return key; }' });
       return;

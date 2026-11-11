@@ -58,6 +58,7 @@ export async function apiErrorFromResponse(response, fallback = 'Request failed'
   const message = messageFromNormalizedError(normalized, fallback);
   const error = new Error(message);
   error.status = response.status;
+  error.data = data;
   error.code = normalized.code;
   error.params = normalized.params;
   error.detail = normalized.detail;

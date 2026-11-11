@@ -43,6 +43,7 @@ const testHtml = `<!doctype html>
         color: '#6366f1',
         icon: null,
         is_default: true,
+
       };
       let workspaces = [initialWorkspace];
       let currentWorkspaceId = 1;
@@ -157,6 +158,7 @@ try {
         });
         return;
       }
+
       if (pathname === '/static/js/ui/color-picker.js') {
         await route.fulfill({ contentType: 'text/javascript', body: 'export const renderColorPicker = () => {};' });
         return;
@@ -242,6 +244,11 @@ try {
       await page.locator('#workspace-modal').evaluate(element => element.classList.contains('active')),
       false,
       'editing a workspace must continue to close its modal',
+    );
+    assert.equal(
+      await page.evaluate(() => Object.hasOwn(window.workspaceTest.getWorkspaces()[0], 'hidden_modules')),
+      false,
+      'workspace payloads must not contain module visibility state',
     );
     await page.close();
   }

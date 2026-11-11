@@ -36,6 +36,7 @@ DB_WAL = Path(str(DB_PATH) + "-wal")
 DB_SHM = Path(str(DB_PATH) + "-shm")
 ATTACHMENT_DIR = DATA_DIR / "attachments"
 ATTACHMENT_BACKUP = DATA_DIR / "attachments.backend-test-backup"
+RECOVERY_STATE = DATA_DIR / ".backend-test-recovery.json"
 SUDO_FS = os.environ.get("NIA_TODO_TEST_SUDO_FS") == "1"
 SERVICE_USER = os.environ.get("NIA_TODO_TEST_SERVICE_USER", SERVICE)
 # sudo resets PATH to secure_path, so a bare "python3" would miss the app's
@@ -116,6 +117,35 @@ def fs_move(source: Path, target: Path) -> None:
     else:
         import shutil
         shutil.move(str(source), str(target))
+
+
+def fs_read_text(path: Path) -> str:
+    if SUDO_FS:
+        result = sudo_run(
+            ["python3", "-c", "import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text())", path],
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout
+    return path.read_text()
+
+
+def fs_write_text(path: Path, content: str) -> None:
+    if SUDO_FS:
+        sudo_run([
+            "python3",
+            "-c",
+            "import os,pathlib,sys,tempfile; p=pathlib.Path(sys.argv[1]); "
+            "fd,tmp=tempfile.mkstemp(dir=p.parent, prefix=p.name+'.'); "
+            "os.write(fd,sys.argv[2].encode()); os.close(fd); os.replace(tmp,p)",
+            path,
+            content,
+        ])
+        sudo_run(["chown", f"{SERVICE_USER}:{SERVICE_USER}", path])
+        return
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(content)
+    temporary.replace(path)
 
 
 def db_python(script: str, *, parse_json: bool = False):
@@ -217,6 +247,12 @@ def assert_restorable_dev_db(path=DB_PATH, context="backup"):
 
 def db_backup():
     """Backup existing database after stopping the service and checkpointing SQLite WAL."""
+    if fs_exists(RECOVERY_STATE) or fs_exists(DB_BACKUP) or fs_exists(ATTACHMENT_BACKUP):
+        raise RuntimeError("Interrupted backend test state exists; recover it before starting another run")
+    fs_write_text(RECOVERY_STATE, json.dumps({
+        "db_original_exists": fs_exists(DB_PATH),
+        "attachments_original_exist": fs_exists(ATTACHMENT_DIR),
+    }))
     service_stop()
     if fs_exists(DB_PATH):
         check = db_python(db_script("""
@@ -240,21 +276,61 @@ def db_backup():
 
 def db_restore():
     """Restore original database from backup."""
+    if fs_exists(RECOVERY_STATE):
+        recovery_state = json.loads(fs_read_text(RECOVERY_STATE))
+    else:
+        db_backup_exists = fs_exists(DB_BACKUP)
+        attachment_backup_exists = fs_exists(ATTACHMENT_BACKUP)
+        if db_backup_exists != attachment_backup_exists:
+            raise RuntimeError(
+                "Ambiguous markerless backend test recovery state; refusing to modify DB or attachments"
+            )
+        if not db_backup_exists:
+            print("  ℹ️  No backend test recovery state found")
+            service_start()
+            if not service_wait():
+                raise RuntimeError("Service did not become ready while checking backend test recovery")
+            return
+        recovery_state = {
+            "db_original_exists": True,
+            "attachments_original_exist": True,
+        }
     service_stop()
-    for path in (DB_PATH, DB_WAL, DB_SHM):
-        fs_unlink(path)
     if fs_exists(DB_BACKUP):
+        for path in (DB_PATH, DB_WAL, DB_SHM):
+            fs_unlink(path)
         fs_move(DB_BACKUP, DB_PATH)
         print(f"  🔄 DB restored: {DB_PATH}")
+    elif not recovery_state["db_original_exists"]:
+        for path in (DB_PATH, DB_WAL, DB_SHM):
+            fs_unlink(path)
     else:
-        print("  ⚠️  No backup to restore")
-    fs_rmtree(ATTACHMENT_DIR)
+        print("  ℹ️  Original DB is already in place")
     if fs_exists(ATTACHMENT_BACKUP):
+        fs_rmtree(ATTACHMENT_DIR)
         fs_move(ATTACHMENT_BACKUP, ATTACHMENT_DIR)
         print(f"  🔄 Attachments restored: {ATTACHMENT_DIR}")
-    assert_restorable_dev_db(DB_PATH, "Backend test DB restore")
+    elif not recovery_state["attachments_original_exist"]:
+        fs_rmtree(ATTACHMENT_DIR)
+    else:
+        print("  ℹ️  Original attachments are already in place")
+    if recovery_state["db_original_exists"]:
+        assert_restorable_dev_db(DB_PATH, "Backend test DB restore")
     service_start()
-    service_wait()
+    if not service_wait():
+        raise RuntimeError("Service did not become ready after backend test recovery")
+    fs_unlink(RECOVERY_STATE)
+
+
+def recover_interrupted_run() -> int:
+    """Restore state left behind when the backend test process was terminated."""
+    if not fs_exists(RECOVERY_STATE) and not fs_exists(DB_BACKUP) and not fs_exists(ATTACHMENT_BACKUP):
+        print("No interrupted backend test state found.")
+        return 0
+    print("Recovering interrupted backend test state...")
+    db_restore()
+    print("Interrupted backend test state recovered.")
+    return 0
 
 def db_reset():
     """Remove any existing DB for fresh start."""
@@ -1979,4 +2055,6 @@ def main():
         return 1
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--recover-interrupted"]:
+        exit(recover_interrupted_run())
     exit(main())

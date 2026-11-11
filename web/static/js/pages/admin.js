@@ -754,7 +754,7 @@ function adminSessionDeviceName(session) {
   const rawUa = String(session?.user_agent || '').trim();
   if (!rawUa) return t('settings.2fa.trustedDeviceUnknown');
   const client = sessionClientInfoFromUserAgent(rawUa);
-  if (client.app === 'nia-todo' && client.mode === 'native') return adminNativePlatformName(client.platform, 'nia-todo App');
+  if (client.app === 'nia-todo' && client.mode === 'native') return adminNativePlatformName(client.platform, 'Nia App');
   const ua = cleanAdminSessionUserAgent(rawUa);
   return `${adminBrowserName(ua, t('settings.2fa.trustedDeviceBrowser'))} · ${adminOsName(ua, t('settings.2fa.trustedDeviceDevice'), client.app === 'nia-todo' ? client.platform : '')}`;
 }
@@ -1367,7 +1367,7 @@ function renderEmailConfig(config) {
   document.getElementById('email-smtp-username').value = config.smtp_username || '';
   document.getElementById('email-smtp-password').value = '';
   document.getElementById('email-from-address').value = config.mail_from_address || '';
-  document.getElementById('email-from-name').value = config.mail_from_name || 'nia-todo';
+  document.getElementById('email-from-name').value = config.mail_from_name || 'Nia';
   document.getElementById('email-reply-to').value = config.mail_reply_to || '';
   document.getElementById('email-link-ttl').value = config.password_link_ttl_hours || 24;
   window.refreshAdminSelects?.();
@@ -1386,7 +1386,7 @@ function readEmailConfigForm() {
     smtp_auth_enabled: document.getElementById('email-smtp-auth-enabled').checked,
     smtp_username: document.getElementById('email-smtp-username').value.trim(),
     mail_from_address: document.getElementById('email-from-address').value.trim(),
-    mail_from_name: document.getElementById('email-from-name').value.trim() || 'nia-todo',
+    mail_from_name: document.getElementById('email-from-name').value.trim() || 'Nia',
     mail_reply_to: document.getElementById('email-reply-to').value.trim(),
     password_link_ttl_hours: Number(document.getElementById('email-link-ttl').value || 24),
   };

@@ -317,6 +317,16 @@ export const authApi = {
     return parseOrThrow(response, t('api.auth.languageSaveFailed'));
   },
 
+  async updateModules(disabledModules) {
+    const response = await fetch(API + '/api/me/modules', {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ disabled_modules: disabledModules }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, t('api.auth.modulesSaveFailed'));
+  },
+
   async updateDefaultReminder(offsetMinutes) {
     const response = await fetch(API + '/api/me/default-reminder', {
       method: 'PATCH',

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+import { waitForPageCondition, withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
 const TODO_TITLE = `Offline child mutations ${process.pid}-${Date.now()}`;
 
@@ -13,7 +13,7 @@ await withFreshDb(async () => {
     await page.fill('#todo-title', TODO_TITLE);
     await page.click('#todo-modal button[type="submit"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 10000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const todos = await window.dbGetAll('todos');
       return todos.some(todo => todo.title === localStorage.getItem('__offline_children_title') && typeof todo.id === 'number');
     }, null, { timeout: 10000 });
@@ -53,7 +53,7 @@ await withFreshDb(async () => {
     await commentEditor.fill('Delete offline comment');
     await page.waitForFunction(() => document.getElementById('todo-comment-add-btn')?.disabled === false);
     await page.click('#todo-comment-add-btn');
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const comments = document.querySelectorAll('#todo-comments-list .todo-comment-item').length;
       const queue = await window.dbGetAll('syncQueue');
       return comments === 2 && queue.filter(item => item.action === 'CREATE_COMMENT').length === 2;
@@ -90,8 +90,8 @@ await withFreshDb(async () => {
 
     await page.context().setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await page.waitForFunction(async () => (await window.dbGetAll('syncQueue')).length === 0, null, { timeout: 20000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => (await window.dbGetAll('syncQueue')).length === 0, null, { timeout: 20000 });
+    await waitForPageCondition(page, async () => {
       const token = localStorage.getItem('jwt_token');
       const response = await fetch('/api/todos', { headers: { Authorization: `Bearer ${token}` }, credentials: 'include', cache: 'no-store' });
       const data = await response.json();

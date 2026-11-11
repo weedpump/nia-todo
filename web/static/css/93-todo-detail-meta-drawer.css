@@ -85,7 +85,9 @@
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel,
+#todo-modal.todo-detail-view.todo-meta-editing #todo-recurring-panel,
+#todo-modal.todo-detail-view.todo-meta-editing #todo-location-reminder-panel {
   position: static;
   inset: auto;
   width: auto;
@@ -94,21 +96,9 @@
   z-index: auto;
   display: block;
   overflow: visible;
-  padding: 0;
-  border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .ui-section-heading {
-  margin-bottom: 18px;
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .ui-section-icon {
@@ -277,7 +267,9 @@
   }
 
   #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel,
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-recurring-panel,
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-location-reminder-panel {
     width: 100%;
     max-width: 720px;
     margin-left: auto;

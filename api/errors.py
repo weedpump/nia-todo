@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
 
@@ -66,3 +69,22 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     if exc.error_params:
         content["params"] = exc.error_params
     return JSONResponse(status_code=exc.status_code, content=content)
+
+
+def _validation_float(value: float):
+    if math.isfinite(value):
+        return value
+    return "NaN" if math.isnan(value) else "Infinity" if value > 0 else "-Infinity"
+
+
+async def request_validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Keep FastAPI's error contract while making invalid JSON floats printable.
+
+    Python's JSON parser accepts NaN and Infinity even in a field expecting text,
+    an integer, or a container. Validation errors retain those original inputs,
+    including nested values; JSONResponse itself cannot encode them as numbers.
+    Only their non-finite float representation changes, never the submitted data.
+    """
+    return JSONResponse(status_code=422, content={
+        "detail": jsonable_encoder(exc.errors(), custom_encoder={float: _validation_float}),
+    })

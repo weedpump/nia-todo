@@ -1,5 +1,18 @@
 import { getActiveLocale, t as i18nT } from '../i18n/index.js';
 
+/** Merge authenticated metadata only into the same account's optional offline cache. */
+export function updateCachedUserMetadata(userId, fields, storage) {
+  if (userId == null) return false;
+  try {
+    storage ??= globalThis.localStorage;
+    const cached = JSON.parse(storage?.getItem('cached_user') || 'null');
+    if (!cached || String(cached.id) !== String(userId)) return false;
+    const { id, token, ...metadata } = fields || {};
+    storage.setItem('cached_user', JSON.stringify({ ...cached, ...metadata }));
+    return true;
+  } catch { return false; }
+}
+
 export function escapeHtml(str) {
   if (str == null) return '';
   const div = document.createElement('div');
@@ -19,6 +32,16 @@ export function escapeHtmlAttr(str) {
 
 export function jsArg(value) {
   return JSON.stringify(value);
+}
+
+/** SQLite server timestamps without an offset are UTC, matching ISO queue timestamps. */
+export function parseServerUtcTimestamp(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const date = new Date(hasTimezone ? normalized : `${normalized}Z`);
+  return Number.isFinite(date.getTime()) ? date : null;
 }
 
 export function parseDateValue(value, { dateOnlyEndOfDay = false } = {}) {

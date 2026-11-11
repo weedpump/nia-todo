@@ -69,11 +69,15 @@
   display: none;
 }
 
+.ui-detail-modal .ui-detail-header-copy {
+  min-width: 0;
+}
+
 .ui-detail-modal.ui-detail-view .ui-detail-modal-body,
 .ui-detail-modal.todo-detail-view .ui-detail-modal-body {
   --ui-detail-modal-body-pad-y: clamp(22px, 2.5vw, 38px);
   --ui-detail-modal-body-pad-x: clamp(24px, 3vw, 44px);
-  padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x);
+  padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x) clamp(36px, 6vh, 72px);
   background: transparent;
 }
 
@@ -88,35 +92,41 @@
 
 .ui-detail-modal.ui-detail-view .ui-detail-section,
 .ui-detail-modal.todo-detail-view .ui-detail-section {
-  padding: 18px 0 0;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.ui-detail-modal.ui-detail-view .ui-detail-section:first-of-type,
 .ui-detail-modal.ui-detail-view .ui-detail-title-section,
-.ui-detail-modal.todo-detail-view .ui-detail-section:first-of-type,
 .ui-detail-modal.todo-detail-view .ui-detail-title-section {
   padding-top: 0;
   border-top: 0;
 }
 
-.ui-detail-modal.ui-detail-view .ui-detail-section:hover,
-.ui-detail-modal.todo-detail-view .ui-detail-section:hover {
+.ui-detail-modal.ui-detail-view .ui-detail-section:not(.ui-section-divider):hover,
+.ui-detail-modal.todo-detail-view .ui-detail-section:not(.ui-section-divider):hover {
   border-color: color-mix(in srgb, var(--border) 44%, transparent);
   background: transparent;
 }
 
-.ui-detail-modal.ui-detail-view .ui-detail-section-heading,
-.ui-detail-modal.todo-detail-view .ui-detail-section-heading {
-  align-items: flex-start;
-  margin-bottom: 18px;
+.ui-detail-modal.ui-detail-view .ui-detail-section-heading {
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
 }
 
-.ui-detail-modal.ui-detail-view .ui-detail-section-heading.is-title-only,
+.ui-detail-modal.todo-detail-view .ui-detail-section-heading {
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-section-heading.is-title-only {
+  align-items: center;
+}
+
 .ui-detail-modal.todo-detail-view .ui-detail-section-heading.is-title-only {
   align-items: center;
 }
@@ -170,6 +180,14 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* Section headings share the title's inline-edit states at a smaller scale. */
+.ui-detail-modal.ui-detail-view .ui-detail-title-field.ui-detail-section-title-field,
+.ui-detail-modal.todo-detail-view .ui-detail-title-field.ui-detail-section-title-field {
+  min-height: 44px;
+  font-size: 18px;
+  letter-spacing: normal;
 }
 
 .ui-detail-modal.ui-detail-view textarea.ui-detail-title-field,
@@ -430,15 +448,27 @@
     overflow: hidden;
   }
 
-  .ui-detail-modal.ui-detail-view .ui-detail-modal-header,
-  .ui-detail-modal.todo-detail-view .ui-detail-modal-header {
+  .ui-detail-modal.ui-detail-view .ui-detail-modal-header.ui-detail-entity-header,
+  .ui-detail-modal.todo-detail-view .ui-detail-modal-header.ui-detail-entity-header {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 12px;
     width: calc(100% - 32px);
-    padding: 12px 94px 12px 0;
+    padding: 12px 0;
   }
 
-  .ui-detail-modal .ui-detail-header-actions {
+  .ui-detail-modal .ui-detail-entity-header .ui-detail-header-actions {
+    position: static;
+    grid-column: 3;
     top: 13px;
     right: 12px;
+  }
+
+  .ui-detail-modal .ui-detail-entity-header .ui-detail-header-copy h3 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .ui-detail-modal .ui-detail-header-actions .btn {
@@ -460,12 +490,10 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x) clamp(14px, 3vw, 18px);
+    padding: var(--ui-detail-modal-body-pad-y) var(--ui-detail-modal-body-pad-x) clamp(36px, 6vh, 72px);
   }
 
-  .ui-detail-modal.ui-detail-view .ui-detail-section:first-of-type,
   .ui-detail-modal.ui-detail-view .ui-detail-title-section,
-  .ui-detail-modal.todo-detail-view .ui-detail-section:first-of-type,
   .ui-detail-modal.todo-detail-view .ui-detail-title-section {
     padding-top: 0;
   }
@@ -557,4 +585,31 @@
 .ui-detail-modal.ui-detail-view .ui-detail-header-actions .modal-close-x:focus-visible,
 .ui-detail-modal.todo-detail-view .ui-detail-header-actions .modal-close-x:focus-visible {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.28), 0 0 0 1px rgba(var(--accent-rgb), 0.45);
+}
+
+.shopping-store-creator {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.shopping-store-creator[hidden] {
+  display: none;
+}
+
+.shopping-store-creator-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 480px) {
+  .shopping-store-creator-row {
+    grid-template-columns: 1fr;
+  }
+
+  .shopping-store-creator-row .btn {
+    width: 100%;
+  }
 }

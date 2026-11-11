@@ -4,11 +4,42 @@
 
 - work in your local dev checkout; scripts read the path from `NIA_TODO_DEV_DIR` (defaults to the repo root)
 - do not expect or modify live data on this host; production runs on a separate LXC
-- create feature or fix branches from `main` and open pull requests directly against `main`
+- create feature, fix and dependency branches from `main` and target `main`
+- continue existing feature branches against their intended target
 
 ## Branches
 
-- `main` -> active development, releases, and tags
+- `main` -> current released product line, its maintenance updates, releases, and tags
+- `codex/<change>` -> short-lived feature or fix branch created from and targeting `main`; remove merged feature branches after integration when requested
+
+The V4 integration branch is merged into `main` for the 4.0.0 release and retired. Feature integration and releases still require an explicit request.
+
+Documentation and in-app release notes may be prepared on feature branches before
+a release. A prepared entry is not evidence that its release is available from
+`releases/latest` or an image's `latest` tag. Keep unreleased changes under
+`CHANGELOG.md`'s Unreleased section until the release is explicitly prepared;
+do not change runtime versions, tags or deployment state just to preview copy.
+
+## In-app What's new
+
+The startup tour is an application feature with its own localized data in
+`web/static/content/whats-new.json`; `CHANGELOG.md` remains the separate change
+history. Maintain each tour's title, introduction and slides in all supported
+locales. The client selects the active language, with English and then German as
+fallbacks.
+
+The client first selects a release matching the normalized app version through
+`version` or `appVersions`. Otherwise it selects the newest `carryForward` release
+whose version is no greater than the app version. Future releases are ineligible,
+and selection does not depend on whether a tour has been completed. Thus a
+prepared `4.0.0` tour does not appear automatically in the current 3.x app.
+
+Completion is stored locally per account and canonical tour version. The final
+`done` action remembers completion; dismissing or navigating back does not. An
+already completed applicable tour is not replaced by an older unseen one, and a
+newer completed eligible tour suppresses automatic fallback to older content.
+Programmatic calls to `open()` or `maybeShowWhatsNew({ force: true })` reopen the
+applicable tour; this does not add a separate menu action.
 
 ## Workflows
 
@@ -30,7 +61,9 @@ Releases are entirely manual to trigger, then fully automatic:
    - runs the full test suite against the built server `.deb`
    - publishes the GitHub release (assets + checksums), and pushes images to GHCR + Docker Hub
 
-Optional: re-run the workflow with `set_min_app_version: true` only when older native apps must be forced to update; without it, older native apps remain compatible.
+V4 sets the native compatibility floor to **4.0.0**. Publish matching Windows, Android and Debian clients before upgrading a server that enforces this floor. Ordinary releases preserve the existing minimum; an unchanged floor is not by itself proof of compatibility.
+
+For a later deliberate compatibility change, `scripts/release/prepare-release-version.sh VERSION --set-min-app-version` raises the source floor and fresh-install default together. The tag-triggered workflow does not pass that flag automatically.
 
 Required GitHub repo secrets before the release workflow can run: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASS`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
 

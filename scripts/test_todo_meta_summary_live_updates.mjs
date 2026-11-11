@@ -16,6 +16,23 @@ const {
   isAutoCloseTodoMetaSelection,
   isDirectTodoMetaToggle,
 } = await import('../web/static/js/features/todos.js');
+const { resolveKnownTodoTargets } = await import('../web/static/js/features/todo-targets.js');
+const targetCatalog = {
+  projects: [{ id: 7 }, { id: 'temp-project-known' }],
+  sections: [{ id: 70, project_id: 7 }, { id: 'temp-section-known', project_id: 'temp-project-known' }],
+};
+assert.deepEqual(resolveKnownTodoTargets({ ...targetCatalog, projectId: '7', sectionId: '70' }), { project_id: 7, section_id: 70 }, 'numeric form values resolve to known canonical IDs');
+assert.deepEqual(resolveKnownTodoTargets({ ...targetCatalog, projectId: 'temp-project-known', sectionId: 'temp-section-known' }),
+  { project_id: 'temp-project-known', section_id: 'temp-section-known' }, 'known pending targets remain opaque until sync remaps them');
+assert.deepEqual(resolveKnownTodoTargets(targetCatalog), { project_id: null, section_id: null });
+assert.deepEqual(resolveKnownTodoTargets({ ...targetCatalog, projectId: 'temp-project-known', sectionId: 70, inheritedSectionProjectId: 7 }),
+  { project_id: 'temp-project-known', section_id: null }, 'a valid project-only Quick Add override clears its inherited section');
+assert.equal(resolveKnownTodoTargets({ ...targetCatalog, projectId: 'temp-project-known', sectionId: 70, inheritedSectionProjectId: 'missing' }), null,
+  'unavailable inherited targets must not be silently reinterpreted');
+for (const targets of [
+  { projectId: '7suffix' }, { projectId: 'temp-project-unavailable' }, { projectId: 'unknown' },
+  { projectId: 7, sectionId: 'temp-section-known' }, { projectId: 7, sectionId: 'missing' }, { sectionId: 70 },
+]) assert.equal(resolveKnownTodoTargets({ ...targetCatalog, ...targets }), null, `unavailable/cross-project targets must not be accepted: ${JSON.stringify(targets)}`);
 
 assert.equal(
   isDirectTodoMetaToggle({ id: 'todo-pinned', type: 'checkbox' }),

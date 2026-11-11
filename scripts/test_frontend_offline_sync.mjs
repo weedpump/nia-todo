@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage, BASE_URL } from './frontend_test_lib.mjs';
+import { waitForPageCondition, withFreshDb, launchPage, BASE_URL } from './frontend_test_lib.mjs';
 
 const WS_HOST = BASE_URL.replace(/^https?:\/\//, '');
 const TODO_TITLE = `Offline Sync Todo ${process.pid}-${Date.now()}`;
@@ -25,7 +25,7 @@ async function run() {
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForText(TODO_TITLE);
 
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       if (typeof window.dbGetAll !== 'function') return false;
       const todos = await window.dbGetAll('todos');
       return todos.some(todo => todo.title === localStorage.getItem('__offline_sync_test_title') && typeof todo.id === 'number');
@@ -39,7 +39,7 @@ async function run() {
     await fillTodoDescription(page, 'Edited while offline');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const queue = await window.dbGetAll('syncQueue');
       return queue.some(item => item.action === 'UPDATE_TODO' && item.data?.changes?.description === 'Edited while offline');
     }, null, { timeout: 10000 });
@@ -58,7 +58,7 @@ async function run() {
     await page.waitForFunction(() => navigator.onLine === true, null, { timeout: 5000 });
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
 
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       if (typeof window.dbGetAll !== 'function') return false;
       const queue = await window.dbGetAll('syncQueue');
       const todos = await window.dbGetAll('todos');
@@ -66,7 +66,7 @@ async function run() {
       return queue.length === 0 && todo?.description === 'Edited while offline';
     }, null, { timeout: 15000 });
 
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       const token = localStorage.getItem('jwt_token') || localStorage.getItem('auth_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const response = await fetch('/api/todos', { cache: 'no-store', headers });
@@ -78,7 +78,7 @@ async function run() {
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
-    await page.waitForFunction(async () => {
+    await waitForPageCondition(page, async () => {
       if (typeof window.dbGetAll !== 'function') return false;
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === localStorage.getItem('__offline_sync_test_title'));

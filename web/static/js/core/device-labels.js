@@ -59,7 +59,7 @@ export function sessionDeviceName(device, t) {
   if (!rawUa) return t('settings.2fa.trustedDeviceUnknown');
   const client = clientInfoFromUserAgent(rawUa);
   if (client.app === 'nia-todo' && client.mode === 'native') {
-    return nativePlatformName(client.platform, 'nia-todo App');
+    return nativePlatformName(client.platform, 'Nia App');
   }
   const ua = cleanSessionUserAgent(rawUa);
   const browser = browserName(ua, t('settings.2fa.trustedDeviceBrowser'));

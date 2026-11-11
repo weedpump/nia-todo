@@ -11,6 +11,25 @@ export NIA_TODO_UPDATE_RELEASE_API_URL="http://127.0.0.1:9/releases/latest"
 export NIA_TODO_UPDATE_UMAMI_URL="http://127.0.0.1:9"
 export NIA_TODO_UPDATE_UMAMI_WEBSITE_ID=""
 
+TEST_STEP_TIMEOUT_SECONDS="${NIA_TODO_TEST_STEP_TIMEOUT_SECONDS:-300}"
+
+run_test_command() {
+  local code
+  if python3 scripts/run_with_timeout.py "${TEST_STEP_TIMEOUT_SECONDS}" "$@"; then
+    return 0
+  else
+    code=$?
+  fi
+  if [[ "$code" == "124" || "$code" == "137" ]]; then
+    echo "⏱️  Test step timed out or required forced termination; checking for interrupted backend test state..."
+    if ! python3 scripts/test_backend.py --recover-interrupted; then
+      echo "❌ Failed to recover state after the timed-out test step."
+      return 125
+    fi
+  fi
+  return "$code"
+}
+
 step() {
   echo
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -22,7 +41,7 @@ run_step() {
   local label="$1"
   shift
   step "$label"
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK: $label"
   else
     local code=$?
@@ -38,17 +57,18 @@ run_step_retry() {
   local code
   shift
   step "$label"
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK: $label"
     return 0
+  else
+    code=$?
   fi
 
-  code=$?
   echo "⚠️  FAILED: $label"
   echo "   Exit code: $code"
   echo "   Retrying once to catch Playwright/realtime timing flakes..."
 
-  if "$@"; then
+  if run_test_command "$@"; then
     echo "✅ OK after retry: $label"
   else
     code=$?
@@ -57,6 +77,20 @@ run_step_retry() {
     echo "   Aborting — check the error above."
     exit "$code"
   fi
+}
+
+run_shared_item_drag_drop() {
+  local browser label
+  local -a requested_browsers
+  IFS=',' read -r -a requested_browsers <<< "${ITEM_DND_BROWSERS:-chromium,webkit}"
+  for browser in "${requested_browsers[@]}"; do
+    case "$browser" in
+      chromium) label="Chromium" ;;
+      webkit) label="WebKit" ;;
+      *) echo "Unsupported item drag-drop browser: $browser" >&2; return 2 ;;
+    esac
+    run_step "Shared Item Drag-Drop $label" env ITEM_DND_BROWSER="$browser" node scripts/test_shared_item_drag_drop.mjs
+  done
 }
 
 step "🧪 nia-todo Release Gate"
@@ -71,9 +105,59 @@ run_step "Security Request Body Limit" python3 scripts/test_request_body_limit.p
 run_step "Security Password Length" python3 scripts/test_password_length.py
 run_step "Security Trust Boundaries" python3 scripts/test_security_boundaries.py
 run_step "Security Tauri Vendor Sync" node scripts/test_tauri_vendor_sync.mjs
+run_step "Nia Product Branding" node scripts/test_product_branding.mjs
+run_step "What's New Releases" node scripts/test_frontend_whats_new_release.mjs
 run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py
+run_step "Section Writer Transactions" python3 scripts/test_section_transactions.py
+run_step "Durable Creation Receipts" python3 scripts/test_creation_receipts.py
+run_step "Generic Entity Sharing Lifecycle" python3 scripts/test_entity_sharing_lifecycle.py
+run_step "Generic Entity Sharing Adapters" python3 scripts/test_entity_sharing_adapters.py
+run_step "Generic Entity Sharing Router" python3 scripts/test_entity_sharing_router.py
+run_step "Generic Entity Sharing Notifications" python3 scripts/test_entity_sharing_notifications.py
+run_step "Entity Sharing Boundaries" python3 scripts/test_entity_sharing_boundaries.py
+run_step "Household Entity Access" python3 scripts/test_household_entity_access.py
+run_step "Frontend Households" node scripts/test_frontend_households.mjs
+run_step "Shopping Lists" python3 scripts/test_shopping_lists.py
+run_step "Shopping Identity Boundaries" node scripts/test_shopping_identity.mjs
+run_step "Shopping Mutation Session Boundaries" node scripts/test_shopping_mutation_session.mjs
+run_step "Deleted Creation Replay" node scripts/test_creation_tombstone_sync.mjs
+run_step "Cookbooks API and Ownership" python3 scripts/test_cookbooks.py
+run_step "Cookbooks Shared UI" node scripts/test_frontend_cookbooks.mjs
+run_step "Cookbooks Offline Metadata Sync" node scripts/test_offline_cookbooks_sync.mjs
+run_step "Cookbooks Real-Service E2E" node scripts/test_frontend_cookbooks_e2e.mjs
+run_step "HTTP Request Cancellation" node scripts/test_http_cancellation.mjs
+run_step "Recipe Public URL Downloads" python3 scripts/test_public_fetch.py
+run_step "Shared LLM Client" python3 scripts/test_llm_client.py
+run_step "Recipe BrainDump AI" python3 scripts/test_recipe_ai.py
+run_step "Recipe BrainDump Diagnostics" python3 scripts/test_recipe_ai_diagnostics.py
+run_step "Recipe BrainDump UI" node scripts/test_frontend_recipe_ai.mjs
+run_step "Recipe BrainDump Real-App E2E" node scripts/test_recipe_ai_e2e.mjs
+run_step "Recipe Import Parsing" python3 scripts/test_recipe_import.py
+run_step "Recipe Import Preview UI" node scripts/test_frontend_recipe_import.mjs
+run_step "Recipe Import Real-App E2E" node scripts/test_recipe_import_e2e.mjs
+run_step "Recipe Aggregate API" python3 scripts/test_recipes.py
+run_step "Recipe Quantity Rounding" node scripts/test_recipe_quantities.mjs
+run_step "Recipe Shopping Preview" node scripts/test_recipe_shopping_preview.mjs
+run_step "Recipe Step Ingredients" node scripts/test_recipe_step_ingredients.mjs
+run_step "Recipe Step Ingredient Editor" node scripts/test_frontend_recipe_step_editor.mjs
+run_step "Recipe Cooking View" node scripts/test_frontend_recipe_cooking.mjs
+run_step "Recipe Shopping Transfer API" python3 scripts/test_recipe_shopping_transfer.py
+run_step "Recipe Private Images" python3 scripts/test_recipe_images.py
+run_step "Recipe Shared UI" node scripts/test_frontend_recipes.mjs
+run_step "Recipe Offline Sync" node scripts/test_offline_recipes_sync.mjs
+run_step "Recipe Shopping Transfer UI" node scripts/test_frontend_recipe_shopping_transfer.mjs
+run_step "Recipe Shopping Transfer Offline Sync" node scripts/test_offline_recipe_shopping_transfer.mjs
+run_step "Recipe Shopping Transfer Real-App E2E" node scripts/test_recipe_shopping_transfer_e2e.mjs
+run_step "Shared Routing Memory Real-App E2E" node scripts/test_shared_routing_memory_e2e.mjs
+run_step "Recipe Image Cache" node scripts/test_recipe_image_cache.mjs
+run_step "Recipe Real-Service E2E" node scripts/test_frontend_recipes_e2e.mjs
+run_step "Household API" python3 scripts/test_household_api.py
+run_step "Project Household Access" python3 scripts/test_project_household_access.py
+run_step "Household Access Regressions" python3 scripts/test_household_access_regressions.py
+run_step "Account Module Visibility" python3 scripts/test_account_module_visibility.py
+run_step "Dashboard Preferences Sync" python3 scripts/test_dashboard_preferences_sync.py
 run_step "Security Github Action Pins" python3 scripts/test_github_action_pins.py
 run_step "Android CLI Workflow Contract" python3 scripts/test_android_cli_workflow.py
 run_step "Playwright Workflow Contract" python3 scripts/test_playwright_workflow.py
@@ -82,14 +166,30 @@ run_step "Security Avatar Pixel Limit" python3 scripts/test_avatar_pixel_limit.p
 run_step "Avatar Profile Updates" python3 scripts/test_avatar_profile_update.py
 run_step "BrainDump Services" python3 scripts/test_braindump_v2_services.py
 run_step "BrainDump Extractor Normalization" python3 scripts/test_braindump_v2_extractor_normalization.py
+run_step "Quantity Unit Spellings" python3 scripts/test_quantity_units.py
+run_step "Quantity Registry Refresh" python3 scripts/test_quantity_registry_update.py
+run_step "BrainDump Shopping Extraction" python3 scripts/test_braindump_shopping_extraction.py
+run_step "BrainDump Shopping Learning and Retry" python3 scripts/test_braindump_shopping_learning.py
+run_step "Shared Routing Memory API" python3 scripts/test_routing_memory.py
+run_step "Routing Base Rules" python3 scripts/test_routing_memory_base.py
+run_step "Shared Routing Memory Cache" node scripts/test_routing_memory.mjs
+run_step "Shared Routing Memory Lifecycle" node scripts/test_routing_memory_lifecycle.mjs
+run_step "Shared Routing Memory Prepared Models" node scripts/test_routing_memory_prepared.mjs
+run_step "Shared Routing Memory Matching" node scripts/test_routing_memory_matching.mjs
+run_step "Routing Base Recognition" node scripts/test_routing_memory_base_recognition.mjs
+run_step "Tasks Routing Memory Matching" node scripts/test_task_routing_memory.mjs
+run_step "Tasks Routing Memory UI" node scripts/test_frontend_todo_routing_memory.mjs
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
 run_step "Recurring Todos" python3 scripts/test_recurring_todos.py
 run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.py
 run_step "Subtasks API" python3 scripts/test_subtasks.py
 run_step "Todo Comments API" python3 scripts/test_todo_comments.py
 run_step "Todo Attachments API" python3 scripts/test_todo_attachments.py
+run_step "Todo Attachment Access Quota" python3 scripts/test_attachment_quota_access.py
+run_step "Todo Attachment Quota Preflight" node scripts/test_todo_attachment_quota.mjs
 run_step "Location Reminder Backend" python3 scripts/test_location_reminders.py
 run_step "Location Reminder WebSocket" python3 scripts/test_websocket_location_reminders.py
+run_step "Location Reminder Opt-Out Transaction" node scripts/test_location_reminder_opt_out_transaction.mjs
 run_step "WebSocket Auth Registration" python3 scripts/test_websocket_auth_registration.py
 run_step "Email Services" python3 scripts/test_email_services.py
 run_step "2FA Service/Security" python3 scripts/test_two_factor_services.py
@@ -108,26 +208,78 @@ run_step "Update Analytics Admin Static" python3 scripts/test_update_analytics_a
 run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
+run_step "Product Branding" node scripts/test_product_branding.mjs
+run_step "Shared Detail Modal Frame" node scripts/test_detail_modal_frame.mjs
+run_step "Awaited Browser Conditions" node scripts/test_browser_page_condition.mjs
+run_step "BrainDump Module UI" node scripts/test_frontend_braindump_modules.mjs
+run_step "BrainDump Shopping Offline Queue" node scripts/test_braindump_shopping_queue.mjs
+run_step "Module Shell" node scripts/test_module_shell.mjs
+run_step "Module Switcher Background Refresh" node scripts/test_module_switcher_refresh.mjs
+run_step "Shared Topbar Toggle" node scripts/test_topbar_toggle.mjs
+run_step "Shared Completed Visibility" node scripts/test_shared_completed_visibility.mjs
+run_step "Module Topbar Browser" node scripts/test_module_topbar_browser.mjs
+run_step "Shared Entity Sidebar" node scripts/test_frontend_entity_sidebar.mjs
+run_step "Shared Module Primary Action" node scripts/test_module_primary_action.mjs
+run_step "Shared Select Actions" node scripts/test_ui_select_actions.mjs
+run_step "Shared Entity Ownership" node scripts/test_entity_ownership_field.mjs
+run_step "Shared Entity Direct Sharing" node scripts/test_entity_direct_sharing.mjs
+run_step "Shared Entity Invitations" node scripts/test_entity_invitations.mjs
+run_step "Entity Access Privacy" node scripts/test_entity_access_privacy.mjs
+run_step "Todo Delete Identity" node scripts/test_todo_delete_identity.mjs
+run_step "Entity Invitation i18n" node scripts/test_entity_invitation_i18n.mjs
+run_step "Shopping List Access Browser" node scripts/test_frontend_shopping_access.mjs
+run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
+run_step "Shopping Sections" node scripts/test_shopping_sections.mjs
+run_step "Shopping View Preferences" node scripts/test_shopping_view_preferences.mjs
+run_step "Shopping Stores" node scripts/test_shopping_stores.mjs
+run_step "Shopping Items" node scripts/test_shopping_items.mjs
+run_step "Shopping Item Editor Browser" node scripts/test_frontend_shopping_item_create.mjs
+run_step "Shopping List Content Browser" node scripts/test_frontend_shopping_content.mjs
+run_step "Shopping Shared Routing Memory" node scripts/test_frontend_shopping_routing_memory.mjs
+run_step "Shared Entity Editor Modal" node scripts/test_entity_editor_modal.mjs
+run_step "Shared Entity Appearance" node scripts/test_frontend_entity_appearance.mjs
+run_step "Shared Entity Appearance Browser" node scripts/test_frontend_entity_appearance_browser.mjs
+run_step "Shopping List Delete Browser" node scripts/test_frontend_shopping_delete.mjs
+run_step "Auth Module Hydration" node scripts/test_frontend_auth_module_hydration.mjs
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
 run_step "Service Worker Avatar Privacy" node scripts/test_sw_avatar_privacy.mjs
 run_step "Workspace Modal Lifecycle" node scripts/test_frontend_workspace_modal_lifecycle.mjs
+run_step "Account Module Settings" node scripts/test_frontend_module_settings.mjs
+run_step "Settings Navigation Lifecycle" node scripts/test_frontend_settings_navigation_lifecycle.mjs
 run_step "Avatar IndexedDB" node scripts/test_avatar_indexeddb.mjs
 run_step "Avatar Offline Cache" node scripts/test_avatar_cache.mjs
 run_step "Avatar Realtime Updates" node scripts/test_avatar_realtime.mjs
 run_step "Todo Attachment Thumbnails" node scripts/test_todo_attachment_thumbnails.mjs
+run_step "Shared Quick Add" node scripts/test_quick_add.mjs
+run_step "Shopping Quick Add Parser" node scripts/test_shopping_quick_add.mjs
+run_step "Shopping Quick Add Editor State" node scripts/test_shopping_quick_add_editor.mjs
+run_step "Shopping Quick Add i18n" node scripts/test_shopping_quick_add_i18n.mjs
 run_step "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
+run_step "Shared Multi Capture" node scripts/test_multi_add.mjs
+run_step "Multi Capture i18n" node scripts/test_multi_add_i18n.mjs
 run_step "Frontend Multi Todo Add" node scripts/test_frontend_multi_todo_add.mjs
+run_step "Shopping Bulk Capture Browser" node scripts/test_frontend_shopping_bulk_add.mjs
 run_step "Frontend Project Counters" node scripts/test_frontend_project_counters.mjs
 run_step "Frontend Security" node scripts/test_frontend_security.mjs
 run_step "Frontend Rich Text Editor" node scripts/test_frontend_rich_text_editor.mjs
+run_step "Unified Date-Time Picker" node scripts/test_unified_datetime_picker.mjs
 run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.mjs
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
+run_step "Shared Item Swipe" node scripts/test_shared_item_swipe.mjs
+run_shared_item_drag_drop
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs
 run_step "Todo Metadata Summary Live Updates" node scripts/test_todo_meta_summary_live_updates.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
+run_step "Pending Project Navigation and Replay" node scripts/test_pending_project_navigation.mjs
+run_step "Atomic Task Parent Receipts" node scripts/test_task_parent_replay.mjs
+run_step "WebSocket Access Snapshot" node scripts/test_frontend_access_snapshot.mjs
 run_step "Offline Todo Child Sync Contracts" node scripts/test_offline_todo_child_sync.mjs
+run_step "Offline Todo Delete Sync Contracts" node scripts/test_offline_todo_delete_sync.mjs
+run_step "Offline Shopping Sync Contracts" node scripts/test_offline_shopping_sync.mjs
+run_step "Frontend Shopping Realtime" node scripts/test_frontend_shopping_realtime.mjs
+run_step "Shopping Store Snapshot" node scripts/test_shopping_store_snapshot.mjs
 
 frontend_suite_active=0
 restore_frontend_suite() {
@@ -151,13 +303,39 @@ run_frontend_step_retry() {
 }
 
 run_frontend_shared_step_retry() {
-  NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_step_retry "$@"
+  local label="$1"
+  local code
+  shift
+  step "$label"
+
+  node scripts/frontend_db_suite.mjs prepare-shared
+  if NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_test_command "$@"; then
+    echo "✅ OK: $label"
+    return 0
+  else
+    code=$?
+  fi
+
+  echo "⚠️  FAILED: $label"
+  echo "   Exit code: $code"
+  echo "   Resetting the shared frontend DB before one retry..."
+
+  node scripts/frontend_db_suite.mjs prepare-shared
+  if NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_test_command "$@"; then
+    echo "✅ OK after isolated retry: $label"
+  else
+    code=$?
+    echo "❌ FAILED: $label"
+    echo "   Exit code: $code"
+    echo "   Aborting — check the error above."
+    exit "$code"
+  fi
 }
 
 step "Frontend Shared DB"
-node scripts/frontend_db_suite.mjs prepare-shared
 run_frontend_shared_step_retry "Frontend Smoke" node scripts/test_frontend_smoke.mjs
 run_frontend_shared_step_retry "Frontend App Core" node scripts/test_frontend_app.mjs
+run_frontend_shared_step_retry "Shared Entity Sidebar Browser" node scripts/test_frontend_entity_sidebar_browser.mjs
 run_frontend_shared_step_retry "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
 run_frontend_shared_step_retry "Frontend Offline Todo Children" node scripts/test_frontend_offline_todo_children.mjs
 run_frontend_shared_step_retry "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
@@ -170,6 +348,7 @@ run_frontend_step_retry "Frontend Admin CSP" node scripts/test_frontend_admin_cs
 run_frontend_step_retry "Frontend Password Reset" node scripts/test_frontend_password_reset.mjs
 run_frontend_step_retry "Frontend MFA Login" node scripts/test_frontend_mfa_login.mjs
 run_frontend_step_retry "Frontend Sharing" node scripts/test_frontend_sharing.mjs
+run_frontend_step_retry "Frontend Shopping End-to-End" node scripts/test_frontend_shopping_e2e.mjs
 run_frontend_step_retry "Frontend Session" node scripts/test_frontend_session.mjs
 run_frontend_step_retry "Frontend Offline Sync" node scripts/test_frontend_offline_sync.mjs
 run_frontend_step_retry "Frontend Realtime Sync" node scripts/test_frontend_realtime_sync.mjs

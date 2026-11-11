@@ -7,4 +7,6 @@ export { pushApi } from './push.js';
 export { sectionsApi } from './sections.js';
 export { todosApi } from './todos.js';
 export { placesApi } from './places.js';
+export { householdsApi } from './households.js';
 export { serverUpdatesApi } from './server-updates.js';
+export { shoppingApi } from './shopping.js';

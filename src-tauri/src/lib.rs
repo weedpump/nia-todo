@@ -189,9 +189,9 @@ fn resolved_hotkey_descriptions(settings: &DesktopSettings) -> DesktopHotkeyDesc
     .clone()
     .filter(DesktopHotkeyDescriptions::is_complete)
     .unwrap_or_else(|| DesktopHotkeyDescriptions {
-      toggle_app: "nia-todo anzeigen/verstecken".to_string(),
-      new_todo: "Neues nia-todo Todo".to_string(),
-      search: "nia-todo Suche".to_string(),
+      toggle_app: "Nia anzeigen/verstecken".to_string(),
+      new_todo: "Neues Nia Todo".to_string(),
+      search: "Nia Suche".to_string(),
     })
 }
 
@@ -353,7 +353,7 @@ fn set_autostart(enabled: bool, start_minimized_to_tray: bool) -> Result<(), Str
   }
 
   let contents = format!(
-    "[Desktop Entry]\nType=Application\nName=nia-todo\nComment=Start nia-todo\nExec={exec}\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"
+    "[Desktop Entry]\nType=Application\nName=Nia\nComment=Start Nia\nExec={exec}\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"
   );
   fs::write(entry_path, contents).map_err(|err| err.to_string())
 }
@@ -1356,7 +1356,7 @@ fn desktop_request_notification_permission(_app: AppHandle) -> Result<String, St
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 fn show_native_notification(app: &AppHandle, title: String, body: String) -> Result<(), String> {
   match Command::new("notify-send")
-    .args(["--app-name", "nia-todo Desktop", "--icon", "nia-todo-desktop", title.as_str(), body.as_str()])
+    .args(["--app-name", "Nia", "--icon", "nia-todo-desktop", title.as_str(), body.as_str()])
     .status()
   {
     Ok(status) if status.success() => Ok(()),
@@ -1509,7 +1509,7 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   let icon = app.default_window_icon().cloned().ok_or("missing default window icon")?;
 
   TrayIconBuilder::new()
-    .tooltip("nia-todo")
+    .tooltip("Nia")
     .icon(icon)
     .menu(&menu)
     .show_menu_on_left_click(false)
@@ -1700,7 +1700,7 @@ fn windows_webauthn_register(hwnd: windows::Win32::Foundation::HWND, origin: &st
   use windows::{core::{HSTRING, PCWSTR}, Win32::Networking::WindowsWebServices::*};
 
   let rp_id = json_string(&options, "/rp/id")?;
-  let rp_name = options.pointer("/rp/name").and_then(|v| v.as_str()).unwrap_or("nia-todo");
+  let rp_name = options.pointer("/rp/name").and_then(|v| v.as_str()).unwrap_or("Nia");
   let user_id = b64url_decode(json_string(&options, "/user/id")?)?;
   let user_name = json_string(&options, "/user/name")?;
   let user_display_name = options.pointer("/user/displayName").and_then(|v| v.as_str()).unwrap_or(user_name);

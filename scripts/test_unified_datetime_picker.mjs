@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 const pickerSource = readFileSync(new URL('../web/static/js/features/date-time-picker.js', import.meta.url), 'utf8');
 const uiHistorySource = readFileSync(new URL('../web/static/js/features/ui-history.js', import.meta.url), 'utf8');
 const indexSource = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+const taskDialogsSource = readFileSync(new URL('../web/static/js/modules/tasks-dialogs.js', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 const todosSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 const uiShellSource = readFileSync(new URL('../web/static/js/features/ui-shell.js', import.meta.url), 'utf8');
@@ -389,13 +390,20 @@ try {
       const modal = document.getElementById('date-time-picker-modal');
       const content = modal.querySelector('.date-time-picker-content');
       const body = modal.querySelector('.date-time-picker-body');
+      const heading = modal.querySelector('.date-time-picker-heading');
       const rect = content.getBoundingClientRect();
       return {
         fillsViewport: rect.left === 0 && rect.top === 0 && Math.round(rect.width) === window.innerWidth && Math.round(rect.height) === window.innerHeight,
         bodyFits: body.scrollHeight <= body.clientHeight,
         timeBorderTopStyle: getComputedStyle(document.querySelector('.date-time-picker-time')).borderTopStyle,
+        headingUsesAvailableWidth: heading.getBoundingClientRect().width > 100,
       };
-    }), { fillsViewport: true, bodyFits: true, timeBorderTopStyle: 'none' }, `mobile ${viewport.width}px must stay fullscreen without an inner scrollbar or desktop date/time separator`);
+    }), {
+      fillsViewport: true,
+      bodyFits: true,
+      timeBorderTopStyle: 'none',
+      headingUsesAvailableWidth: true,
+    }, `mobile ${viewport.width}px must preserve the datetime heading geometry and stay fullscreen without an inner scrollbar or desktop date/time separator`);
     await page.click('button[data-datetime-picker-action="cancel"]:not(.modal-close-x)');
   }
 } finally {
@@ -403,12 +411,12 @@ try {
   await browser.close();
 }
 
-assert.match(indexSource, /data-datetime-picker-for="todo-due"/, 'deadline must use the shared datetime picker trigger');
-assert.match(indexSource, /data-datetime-picker-for="todo-remind"/, 'reminder must use the shared datetime picker trigger');
-assert.match(indexSource, /<label for="todo-due-picker"[^>]*data-i18n-key="todo\.deadline"/, 'the deadline label must target the visible picker trigger');
-assert.match(indexSource, /<label for="todo-remind-picker"[^>]*data-i18n-key="todo\.reminder"/, 'the reminder label must target the visible picker trigger');
-assert.match(indexSource, /id="todo-due-picker"[^>]*data-datetime-picker-for="todo-due"/, 'the deadline picker trigger must expose the label target id');
-assert.match(indexSource, /id="todo-remind-picker"[^>]*data-datetime-picker-for="todo-remind"/, 'the reminder picker trigger must expose the label target id');
+assert.match(taskDialogsSource, /data-datetime-picker-for="todo-due"/, 'deadline must use the shared datetime picker trigger');
+assert.match(taskDialogsSource, /data-datetime-picker-for="todo-remind"/, 'reminder must use the shared datetime picker trigger');
+assert.match(taskDialogsSource, /<label for="todo-due-picker"[^>]*data-i18n-key="todo\.deadline"/, 'the deadline label must target the visible picker trigger');
+assert.match(taskDialogsSource, /<label for="todo-remind-picker"[^>]*data-i18n-key="todo\.reminder"/, 'the reminder label must target the visible picker trigger');
+assert.match(taskDialogsSource, /id="todo-due-picker"[^>]*data-datetime-picker-for="todo-due"/, 'the deadline picker trigger must expose the label target id');
+assert.match(taskDialogsSource, /id="todo-remind-picker"[^>]*data-datetime-picker-for="todo-remind"/, 'the reminder picker trigger must expose the label target id');
 assert.match(indexSource, /id="date-time-picker-modal"/, 'the shared datetime picker dialog must be shipped in the app shell');
 assert.match(appSource, /createDateTimePickerFeature/, 'the app entrypoint must create the shared datetime picker');
 assert.match(appSource, /dateTimePickerFeature\.bind\(\)/, 'the app entrypoint must bind the shared datetime picker');

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Einkauf</title>
+  <defs>
+    <linearGradient id="nia-shopping-gradient" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7c4dff"/>
+      <stop offset="0.52" stop-color="#5368ff"/>
+      <stop offset="1" stop-color="#0797f6"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#nia-shopping-gradient)"/>
+  <path d="M18 25.5h28l-2.6 22.2A4 4 0 0 1 39.4 51H24.6a4 4 0 0 1-4-3.3L18 25.5Z" fill="#fff"/>
+  <path d="M24.5 27v-3.5a7.5 7.5 0 0 1 15 0V27" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="m26.5 38 3.6 3.6 7.4-8" fill="none" stroke="url(#nia-shopping-gradient)" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

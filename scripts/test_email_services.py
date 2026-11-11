@@ -5,22 +5,22 @@ import contextlib
 import io
 import os
 import sys
-import uuid
+import tempfile
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[1]
 API_DIR = BASE / "api"
-TEST_DB_NAME = f"nia-todo-email-test-{uuid.uuid4().hex}.db"
-TEST_DB_PATH = API_DIR / "data" / TEST_DB_NAME
+TEST_DATA_CONTEXT = tempfile.TemporaryDirectory()
+TEST_DATA_DIR = Path(TEST_DATA_CONTEXT.name)
 
-os.environ["NIA_TODO_DATA_DIR"] = str(API_DIR / "data")
-os.environ["NIA_TODO_DB"] = TEST_DB_NAME
+os.environ["NIA_TODO_DATA_DIR"] = str(TEST_DATA_DIR)
+os.environ["NIA_TODO_DB"] = "nia-todo.db"
 sys.path.insert(0, str(API_DIR))
 
 from migrate import run_migrations  # noqa: E402
 from services.email_config import get_email_config, update_email_config  # noqa: E402
 from services.email import send_email, send_test_email  # noqa: E402
-from services.email_templates import email_verification_email, password_setup_email, project_share_invite_email, test_email, two_factor_code_email  # noqa: E402
+from services.email_templates import EMAIL_COPY, entity_share_invite_email, email_verification_email, household_invite_email, password_setup_email, project_share_invite_email, test_email, two_factor_code_email  # noqa: E402
 import services.email as email_service  # noqa: E402
 
 
@@ -125,10 +125,10 @@ def test_branded_email_templates():
         purpose="reset",
         expires_hours=24,
     )
-    assert_true(subject == "nia-todo Passwort zurücksetzen", "password reset subject mismatch")
-    assert_true("Passwort zurücksetzen" in html and "nia-todo" in html, "branded password HTML missing content")
+    assert_true(subject == "Nia Passwort zurücksetzen", "password reset subject mismatch")
+    assert_true("Passwort zurücksetzen" in html and "Nia" in html, "branded password HTML missing content")
     assert_true("https://todo.example.invalid/set-password?token=abc" in text, "plain text reset link missing")
-    assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
+    assert_true("Alltag. Einfach organisiert." in html, "brand tagline missing")
     assert_true("Falls der Link nicht funktioniert" in html, "Outlook fallback link hint missing")
     assert_true("Falls der Button nicht funktioniert" in html, "modern fallback link hint missing")
 
@@ -176,18 +176,107 @@ def test_all_system_email_templates_use_split_layout():
         password_setup_email(display_name="Tobi", username="tobi", link="https://todo.example.invalid/set-password?token=abc", purpose="invite", expires_hours=24),
         email_verification_email(display_name="Tobi", username="tobi", link="https://todo.example.invalid/verify?token=abc", expires_hours=24),
         project_share_invite_email(display_name="", username="moni", project_name="Urlaub", inviter_name="Tobi", link="https://todo.example.invalid/project"),
+        household_invite_email(display_name="", username="moni", household_name="Zuhause", inviter_name="Tobi", link="https://todo.example.invalid/"),
         two_factor_code_email(display_name="", username="tobi", code="123456", purpose="login"),
         test_email(),
     ]
     for subject, text, html in templates:
         assert_true(subject, "template subject missing")
         assert_true(text, "plain text template missing")
-        assert_true('src="cid:nia-todo-logo"' in html, "template logo does not use CID")
+        assert_true('src="data:image/png;base64,' in html, "template logo is not embedded directly")
+        assert_true('src="cid:' not in html, "template logo still triggers CID loading")
         assert_true("<!--[if mso]>" in html, "Outlook/MSO layout missing")
         assert_true("<!--[if !mso]><!-->" in html, "modern layout missing")
         assert_true("modern-hero" in html and "hero-shell" in html, "modern hero layout missing")
         assert_true("v:roundrect" in html and "mso-style-textfill-fill-color:#ffffff" in html, "Outlook hero fallback missing")
-        assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
+        assert_true("Alltag. Einfach organisiert." in html, "brand tagline missing")
+
+
+def test_household_invite_email_is_localized_for_every_supported_language():
+    for language in EMAIL_COPY:
+        subject, text, html = household_invite_email(
+            display_name="Moni",
+            username="moni",
+            household_name="Home",
+            inviter_name="Tobi",
+            link="https://todo.example.invalid/",
+            language=language,
+        )
+        copy = EMAIL_COPY[language]
+        assert_true(copy["household_invite_title"] in html, f"{language}: household title missing")
+        assert_true(copy["household_invite_action"] in text, f"{language}: household action missing")
+        assert_true("Home" in subject and "Tobi" in text, f"{language}: household invite context missing")
+
+
+def test_entity_share_invite_email_is_safe_and_localized_for_every_supported_language():
+    for language, copy in EMAIL_COPY.items():
+        project = entity_share_invite_email(
+            display_name="Moni",
+            username="moni",
+            entity_type="project",
+            entity_name="Roadmap",
+            inviter_name="Tobi",
+            link="https://todo.example.invalid/project",
+            language=language,
+        )
+        shopping = entity_share_invite_email(
+            display_name="Moni",
+            username="moni",
+            entity_type="shopping_list",
+            entity_name="Groceries",
+            inviter_name="Tobi",
+            link="https://todo.example.invalid/shopping",
+            language=language,
+        )
+        project_subject, project_text, project_html = project
+        shopping_subject, shopping_text, shopping_html = shopping
+        project_type = copy["entity_type_project"]
+        shopping_type = copy["entity_type_shopping_list"]
+
+        assert_true("Roadmap" in project_subject and "Roadmap" in project_text and "Roadmap" in project_html, f"{language}: project name missing")
+        assert_true("Groceries" in shopping_subject and "Groceries" in shopping_text and "Groceries" in shopping_html, f"{language}: shopping-list name missing")
+        assert_true(project_type in project_subject and project_type in project_text and project_type in project_html, f"{language}: localized project type missing")
+        assert_true(shopping_type in shopping_subject and shopping_type in shopping_text and shopping_type in shopping_html, f"{language}: localized shopping-list type missing")
+        assert_true(copy["entity_share_action"] in project_text and copy["entity_share_action"] in shopping_text, f"{language}: invitation action missing")
+        assert_true(copy["entity_share_detail"] in project_text and copy["entity_share_detail"] in shopping_text, f"{language}: accept/decline hint missing")
+        assert_true(project_type != shopping_type and project_subject != shopping_subject, f"{language}: entity types are not distinguishable")
+        assert_true("shopping_list" not in shopping_text and "shopping_list" not in shopping_html, f"{language}: raw entity type leaked")
+        for rendered in (*project, *shopping):
+            assert_true("{entity_type}" not in rendered and "{entity_name}" not in rendered, f"{language}: unresolved entity placeholder")
+
+    malicious_name = 'Bad\r\nBcc: attacker@example.invalid <script>alert(1)</script>' + ("x" * 200)
+    subject, text, html = entity_share_invite_email(
+        display_name='<img src=x onerror=alert(1)>',
+        username="user",
+        entity_type="shopping_list",
+        entity_name=malicious_name,
+        inviter_name='<script>alert(2)</script>',
+        link='https://todo.example.invalid/?q=<script>alert(3)</script>',
+        language="en",
+    )
+    assert_true("\r" not in subject and "\n" not in subject and len(subject) <= 140, "generic share subject is unsafe")
+    assert_true("<script>" not in html and "&lt;script&gt;" in html, "generic share HTML payload was not escaped")
+    assert_true("&lt;img src=x onerror=alert(1)&gt;" in html, "generic share display name was not escaped")
+    assert_true("shopping_list" not in subject and "shopping_list" not in text and "shopping_list" not in html, "raw generic entity type leaked")
+
+    generic_project = entity_share_invite_email(
+        display_name="Moni",
+        username="moni",
+        entity_type="project",
+        entity_name="Roadmap",
+        inviter_name="Tobi",
+        link="https://todo.example.invalid/project",
+        language="de",
+    )
+    legacy_project = project_share_invite_email(
+        display_name="Moni",
+        username="moni",
+        project_name="Roadmap",
+        inviter_name="Tobi",
+        link="https://todo.example.invalid/project",
+        language="de",
+    )
+    assert_true(legacy_project == generic_project, "project compatibility adapter has separate copy")
 
 
 def test_render_system_email_handles_empty_paragraphs():
@@ -214,11 +303,10 @@ def test_send_test_email_uses_branded_template():
     rendered = "\n".join(html_parts)
     image_parts = [part for part in smtp.message.walk() if part.get_content_maintype() == "image"]
     assert_true("SMTP funktioniert" in rendered, "test email did not use branded template")
-    assert_true("Deine Aufgaben. Klar sortiert." in rendered, "test email brand tagline missing")
-    assert_true('src="cid:nia-todo-logo"' in rendered, "test email logo does not use CID source")
-    assert_true(len(image_parts) == 1, "test email did not attach exactly one inline image")
-    assert_true(image_parts[0]["Content-ID"] == "<nia-todo-logo>", "inline logo Content-ID mismatch")
-    assert_true(image_parts[0].get_content_disposition() == "inline", "inline logo should not be a regular attachment")
+    assert_true("Alltag. Einfach organisiert." in rendered, "test email brand tagline missing")
+    assert_true('src="data:image/png;base64,' in rendered, "test email logo is not embedded directly")
+    assert_true('src="cid:' not in rendered, "test email logo still triggers CID loading")
+    assert_true(len(image_parts) == 0, "test email should not attach a second logo image")
 
 
 def test_tls_ssl_send_without_starttls():
@@ -242,15 +330,14 @@ def main():
         test_starttls_auth_send()
         test_branded_email_templates()
         test_all_system_email_templates_use_split_layout()
+        test_household_invite_email_is_localized_for_every_supported_language()
+        test_entity_share_invite_email_is_safe_and_localized_for_every_supported_language()
         test_render_system_email_handles_empty_paragraphs()
         test_send_test_email_uses_branded_template()
         test_tls_ssl_send_without_starttls()
         print("✅ Email service tests passed")
     finally:
-        try:
-            TEST_DB_PATH.unlink()
-        except FileNotFoundError:
-            pass
+        TEST_DATA_CONTEXT.cleanup()
 
 
 if __name__ == "__main__":

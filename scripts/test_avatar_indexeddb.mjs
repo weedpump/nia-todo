@@ -115,9 +115,12 @@ upgradeInProgress = false;
 openRequest.onsuccess?.({ target: { result: database } });
 await opening;
 assert.equal(await offlineLoad, true, 'offline avatar renders after IndexedDB becomes ready without a lifecycle rerender');
-assert.equal(DB_VERSION, 5, 'avatar storage requires the next database schema version');
+assert.equal(DB_VERSION, 10, 'recipe image cache requires IndexedDB schema version 10');
 assert.equal(openedVersion, DB_VERSION);
-assert.ok(createdStores.includes('avatars'), 'migration creates the avatars object store');
+assert.ok(createdStores.includes('avatars'), 'migration preserves the avatars object store');
+assert.ok(createdStores.includes('shoppingStores'), 'migration creates the stable shopping-store object store');
+assert.ok(createdStores.includes('shoppingLists'), 'migration creates the shopping-lists object store');
+assert.ok(createdStores.includes('cookbooks'), 'migration adds cookbooks alongside existing avatar and Shopping stores');
 assert.equal(avatarRecords.size, 3, 'avatars fetched before DB readiness persist after open');
 
 await closeAndDeleteDatabase();

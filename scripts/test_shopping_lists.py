@@ -1,0 +1,806 @@
+#!/usr/bin/env python3
+"""Shopping lists form one household-aware vertical slice."""
+
+import asyncio
+import os
+import sqlite3
+import sys
+import tempfile
+from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from unittest.mock import patch
+
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
+
+ROOT = Path(__file__).resolve().parents[1]
+
+with tempfile.TemporaryDirectory() as tmp:
+    os.environ["NIA_TODO_DATA_DIR"] = tmp
+    sys.path.insert(0, str(ROOT / "api"))
+
+    from db import get_db
+    from migrate import run_migrations
+    from routers.admin import delete_user
+    from routers.households import dissolve_household_endpoint
+    import routers.shopping as shopping_router
+    from routers.shopping import (
+        ShoppingItemCreate,
+        ShoppingItemUpdate,
+        ShoppingListCreate,
+        ShoppingListHouseholdTransfer,
+        ShoppingListInviteResponse,
+        ShoppingListShareCreate,
+        ShoppingListUpdate,
+        ShoppingPreferencesUpdate,
+        ShoppingSectionCreate,
+        ShoppingSectionUpdate,
+        ShoppingStoreCreate,
+        ShoppingStoreUpdate,
+        create_shopping_item,
+        create_shopping_list,
+        create_shopping_section,
+        create_shopping_store,
+        delete_shopping_store,
+        delete_shopping_list,
+        delete_shopping_item,
+        delete_completed_shopping_items,
+        delete_shopping_section,
+        get_shopping_list,
+        list_shopping_stores,
+        list_shopping_lists,
+        list_shopping_list_members,
+        leave_shopping_list,
+        revoke_shopping_list_member,
+        respond_to_shopping_list_invite,
+        share_shopping_list,
+        transfer_shopping_list_to_household,
+        update_shopping_item,
+        update_shopping_list,
+        update_shopping_preferences,
+        update_shopping_section,
+        update_shopping_store,
+    )
+    from services.entity_access import (
+        create_household,
+
+        invite_household_member,
+        respond_to_household_invite,
+    )
+    from routers.websocket import get_sync_payload
+
+    # All ordering updates share one explicit-null contract. Omission is a
+    # partial update, while quantity/section null still deliberately clears.
+    for update_model in (ShoppingListUpdate, ShoppingSectionUpdate, ShoppingStoreUpdate, ShoppingItemUpdate):
+        assert "sort_order" not in update_model().model_fields_set
+        assert update_model(sort_order=0).sort_order == 0
+        try:
+            update_model(sort_order=None)
+        except ValidationError as exc:
+            assert any(error["loc"] == ("sort_order",) for error in exc.errors()), exc
+        else:
+            raise AssertionError(f"{update_model.__name__} must reject explicit null ordering")
+    cleared_item = ShoppingItemUpdate(section_id=None, quantity_value=None, quantity_unit=None)
+    assert cleared_item.model_fields_set == {"section_id", "quantity_value", "quantity_unit"}
+    validation_app = FastAPI()
+    validation_app.include_router(shopping_router.router)
+    validation_app.dependency_overrides[shopping_router.require_auth] = lambda: 1
+    with patch.object(shopping_router, "get_db", side_effect=AssertionError("Invalid ordering must not reach the database")), TestClient(validation_app) as client:
+        for endpoint in ("/lists/1", "/sections/1", "/stores/1", "/items/1"):
+            response = client.patch(f"/api/shopping{endpoint}", json={"sort_order": None})
+            assert response.status_code == 422, (endpoint, response.text)
+
+    run_migrations()
+
+    with get_db() as db:
+        owner_id = db.execute("INSERT INTO users (username) VALUES ('owner')").lastrowid
+        member_id = db.execute("INSERT INTO users (username) VALUES ('member')").lastrowid
+        shared_id = db.execute("INSERT INTO users (username) VALUES ('shared')").lastrowid
+        outsider_id = db.execute("INSERT INTO users (username) VALUES ('outsider')").lastrowid
+        household_id = create_household(db, "Home", owner_id)
+        invite_id = invite_household_member(db, household_id, owner_id, member_id)
+        respond_to_household_invite(db, invite_id, member_id, accept=True)
+        db.commit()
+
+    def share_and_accept(shopping_list_id: int, identifier: str, recipient_id: int):
+        invite = asyncio.run(
+            share_shopping_list(
+                shopping_list_id,
+                ShoppingListShareCreate(identifier=identifier),
+                None,
+                owner_id,
+            )
+        )
+        assert invite["status"] == "pending", invite
+        asyncio.run(
+            respond_to_shopping_list_invite(
+                shopping_list_id,
+                invite["id"],
+                ShoppingListInviteResponse(accept=True),
+                recipient_id,
+            )
+        )
+        return invite
+
+    personal = asyncio.run(
+        create_shopping_list(
+            ShoppingListCreate(
+                name="Weekly shopping",
+                color="#6366f1",
+                icon="shopping-cart",
+                client_mutation_id="personal-list-1",
+            ),
+            owner_id,
+        )
+    )
+    personal_id = personal["id"]
+    assert personal["ownership_type"] == "user", personal
+    assert personal["is_owner"] is True, personal
+    assert personal["household_name"] is None, personal
+    renamed_personal = asyncio.run(
+        update_shopping_list(
+            personal_id,
+            ShoppingListUpdate(name="Weekly groceries", color="#10b981", icon="package", sort_order=4),
+            owner_id,
+        )
+    )
+    assert renamed_personal["name"] == "Weekly groceries", renamed_personal
+    assert renamed_personal["color"] == "#10b981", renamed_personal
+    assert renamed_personal["icon"] == "package", renamed_personal
+    assert renamed_personal["sort_order"] == 4, renamed_personal
+
+    no_icon = asyncio.run(
+        create_shopping_list(
+            ShoppingListCreate(name="No icon", icon=None, client_mutation_id="no-icon-list"),
+            owner_id,
+        )
+    )
+    assert no_icon["icon"] is None, no_icon
+    with_icon = asyncio.run(update_shopping_list(no_icon["id"], ShoppingListUpdate(icon="package"), owner_id))
+    assert with_icon["icon"] == "package", with_icon
+    cleared_icon = asyncio.run(update_shopping_list(no_icon["id"], ShoppingListUpdate(icon=None), owner_id))
+    assert cleared_icon["icon"] is None, cleared_icon
+    assert get_shopping_list(no_icon["id"], owner_id)["icon"] is None
+
+    disposable = asyncio.run(create_shopping_list(ShoppingListCreate(name="Disposable"), owner_id))
+    disposable_section = asyncio.run(
+        create_shopping_section(disposable["id"], ShoppingSectionCreate(name="Disposable section"), owner_id)
+    )
+    disposable_item = asyncio.run(
+        create_shopping_item(
+            disposable["id"],
+            ShoppingItemCreate(name="Disposable item", section_id=disposable_section["id"]),
+            owner_id,
+        )
+    )
+    asyncio.run(delete_shopping_list(disposable["id"], owner_id))
+    assert disposable["id"] not in {row["id"] for row in list_shopping_lists(owner_id)["shopping_lists"]}
+    with get_db() as db:
+        assert not db.execute(
+            "SELECT 1 FROM entity_access WHERE entity_type = 'shopping_list' AND entity_id = ?",
+            (disposable["id"],),
+        ).fetchone()
+        assert not db.execute("SELECT 1 FROM shopping_sections WHERE id = ?", (disposable_section["id"],)).fetchone()
+        assert not db.execute("SELECT 1 FROM shopping_items WHERE id = ?", (disposable_item["id"],)).fetchone()
+
+
+    duplicate = asyncio.run(
+        create_shopping_list(
+            ShoppingListCreate(
+                name="Ignored duplicate title",
+                client_mutation_id="personal-list-1",
+            ),
+            owner_id,
+        )
+    )
+    assert duplicate["id"] == personal_id, duplicate
+
+    notifications = []
+    original_notify = getattr(shopping_router, "notify_entity_share_invite", None)
+
+    async def capture_share_notification(**payload):
+        notifications.append(payload)
+        return "email"
+
+    shopping_router.notify_entity_share_invite = capture_share_notification
+    try:
+        shared_member = asyncio.run(
+            share_shopping_list(personal_id, ShoppingListShareCreate(identifier="shared"), None, owner_id)
+        )
+    finally:
+        if original_notify is None:
+            delattr(shopping_router, "notify_entity_share_invite")
+        else:
+            shopping_router.notify_entity_share_invite = original_notify
+    assert shared_member["user_id"] == shared_id, shared_member
+    assert shared_member["status"] == "pending", shared_member
+    assert shared_member["notification_delivery"] == "email", shared_member
+    assert len(notifications) == 1, notifications
+    assert notifications[0]["entity_type"] == "shopping_list", notifications
+    assert notifications[0]["entity_id"] == personal_id, notifications
+    assert notifications[0]["entity_name"] == "Weekly groceries", notifications
+    with get_db() as db:
+        pending_sync = get_sync_payload(db, shared_id)
+    assert [row["id"] for row in pending_sync["shopping_invites"]] == [shared_member["id"]], pending_sync
+    assert pending_sync["shopping_invites"][0]["shopping_list_id"] == personal_id, pending_sync
+    assert pending_sync["shopping_invites"][0]["shopping_list_name"] == "Weekly groceries", pending_sync
+    assert personal_id not in {row["id"] for row in pending_sync["shopping_lists"]}, pending_sync
+    asyncio.run(
+        respond_to_shopping_list_invite(
+            personal_id,
+            shared_member["id"],
+            ShoppingListInviteResponse(accept=True),
+            shared_id,
+        )
+    )
+    assert [row["user_id"] for row in list_shopping_list_members(personal_id, owner_id)["members"]] == [shared_id]
+
+    shared_lists = list_shopping_lists(shared_id)["shopping_lists"]
+    assert [row["id"] for row in shared_lists] == [personal_id]
+    assert shared_lists[0]["owner_username"] == "owner", shared_lists[0]
+    assert shared_lists[0]["is_shared"] is True, shared_lists[0]
+    assert shared_lists[0]["can_edit"] is True, shared_lists[0]
+    assert shared_lists[0]["can_manage"] is False, shared_lists[0]
+    try:
+        asyncio.run(update_shopping_list(personal_id, ShoppingListUpdate(name="Recipient rename"), shared_id))
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Direct recipient changed shopping-list metadata")
+    with get_db() as db:
+        persisted = db.execute("SELECT name FROM shopping_lists WHERE id = ?", (personal_id,)).fetchone()
+        assert persisted["name"] == "Weekly groceries", persisted
+    try:
+        asyncio.run(delete_shopping_list(personal_id, shared_id))
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Direct recipient deleted shopping list")
+    with get_db() as db:
+        assert db.execute("SELECT 1 FROM shopping_lists WHERE id = ?", (personal_id,)).fetchone()
+    assert list_shopping_lists(outsider_id)["shopping_lists"] == []
+    asyncio.run(revoke_shopping_list_member(personal_id, shared_id, owner_id))
+    assert list_shopping_list_members(personal_id, owner_id)["members"] == []
+    assert list_shopping_lists(shared_id)["shopping_lists"] == []
+    share_and_accept(personal_id, "shared", shared_id)
+
+    leave_list = asyncio.run(create_shopping_list(ShoppingListCreate(name="Leave me"), owner_id))
+    share_and_accept(leave_list["id"], "shared", shared_id)
+    left = asyncio.run(leave_shopping_list(leave_list["id"], shared_id))
+    assert left == {"id": leave_list["id"], "left": True}, left
+    assert [row["id"] for row in list_shopping_lists(shared_id)["shopping_lists"]] == [personal_id]
+    assert list_shopping_list_members(leave_list["id"], owner_id)["members"] == []
+    try:
+        asyncio.run(leave_shopping_list(leave_list["id"], owner_id))
+    except HTTPException as error:
+        assert error.status_code == 400, error
+    else:
+        raise AssertionError("Personal shopping-list owner left their own list")
+
+    transfer_list = asyncio.run(create_shopping_list(ShoppingListCreate(name="Transfer me"), owner_id))
+    share_and_accept(transfer_list["id"], "shared", shared_id)
+    try:
+        asyncio.run(
+            transfer_shopping_list_to_household(
+                transfer_list["id"], ShoppingListHouseholdTransfer(household_id=household_id), shared_id
+            )
+        )
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Direct recipient transferred a personal shopping list")
+    transfer_syncs = []
+    original_sync = shopping_router.broadcast_sync_to_users
+
+    async def capture_transfer_sync(user_ids):
+        transfer_syncs.append(set(user_ids))
+
+    shopping_router.broadcast_sync_to_users = capture_transfer_sync
+    try:
+        transferred = asyncio.run(
+            transfer_shopping_list_to_household(
+                transfer_list["id"],
+                ShoppingListHouseholdTransfer(household_id=household_id),
+                owner_id,
+            )
+        )
+    finally:
+        shopping_router.broadcast_sync_to_users = original_sync
+    assert transferred["ownership_type"] == "household", transferred
+    assert transferred["owner_household_id"] == household_id, transferred
+    assert transferred["can_manage"] is True, transferred
+    household_member_view = get_shopping_list(transfer_list["id"], member_id)
+    assert household_member_view["can_edit"] is True, household_member_view
+    assert household_member_view["can_manage"] is False, household_member_view
+    try:
+        asyncio.run(update_shopping_list(transfer_list["id"], ShoppingListUpdate(name="Member rename"), member_id))
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Household member changed shopping-list metadata")
+    with get_db() as db:
+        persisted = db.execute("SELECT name FROM shopping_lists WHERE id = ?", (transfer_list["id"],)).fetchone()
+        assert persisted["name"] == "Transfer me", persisted
+    try:
+        asyncio.run(delete_shopping_list(transfer_list["id"], member_id))
+    except HTTPException as error:
+        assert error.status_code in {403, 404}, error
+    else:
+        raise AssertionError("Household member deleted shopping list")
+    with get_db() as db:
+        assert db.execute("SELECT 1 FROM shopping_lists WHERE id = ?", (transfer_list["id"],)).fetchone()
+    assert [row["id"] for row in list_shopping_lists(shared_id)["shopping_lists"]] == [personal_id]
+    assert transfer_syncs == [{owner_id, member_id, shared_id}], transfer_syncs
+    with get_db() as db:
+        access = db.execute(
+            "SELECT id FROM entity_access WHERE entity_type = 'shopping_list' AND entity_id = ?",
+            (transfer_list["id"],),
+        ).fetchone()
+        assert access
+        assert not db.execute(
+            "SELECT 1 FROM entity_access_grants WHERE entity_access_id = ?",
+            (access["id"],),
+        ).fetchone()
+
+    list_broadcasts = []
+    original_broadcast_change = shopping_router.broadcast_change
+
+    async def capture_list_broadcast(event_type, payload, user_id, **kwargs):
+        list_broadcasts.append((event_type, payload, user_id, kwargs))
+
+    shopping_router.broadcast_change = capture_list_broadcast
+    try:
+        asyncio.run(update_shopping_list(personal_id, ShoppingListUpdate(name="Shared weekly"), owner_id))
+    finally:
+        shopping_router.broadcast_change = original_broadcast_change
+    shared_list_broadcast = next(
+        payload for event_type, payload, recipient_id, _ in list_broadcasts
+        if event_type == "shopping_list_update" and recipient_id == shared_id
+    )
+    assert shared_list_broadcast["can_manage"] is False, shared_list_broadcast
+    assert shared_list_broadcast["is_owner"] is False, shared_list_broadcast
+
+    owner_store = asyncio.run(create_shopping_store(ShoppingStoreCreate(shopping_list_id=personal_id, name="Owner store"), owner_id))
+    other_owner_store = asyncio.run(create_shopping_store(ShoppingStoreCreate(shopping_list_id=personal_id, name="Other owner store"), owner_id))
+    item_broadcasts = []
+    original_broadcast_change = shopping_router.broadcast_change
+
+    async def capture_item_broadcast(event_type, payload, user_id, **kwargs):
+        item_broadcasts.append((event_type, payload, user_id, kwargs))
+
+    shopping_router.broadcast_change = capture_item_broadcast
+    try:
+        shared_item = asyncio.run(
+            create_shopping_item(
+                personal_id,
+                ShoppingItemCreate(name="Shared item", store_ids=[owner_store["id"]]),
+                owner_id,
+            )
+        )
+    finally:
+        shopping_router.broadcast_change = original_broadcast_change
+    shared_broadcast = next(
+        payload for event_type, payload, recipient_id, _ in item_broadcasts
+        if event_type == "shopping_item_create" and recipient_id == shared_id
+    )
+    assert shared_broadcast["store_ids"] == [owner_store["id"]], shared_broadcast
+    assert [store["name"] for store in shared_broadcast["stores"]] == ["Owner store"], shared_broadcast
+    shared_item_view = next(item for item in get_shopping_list(personal_id, shared_id)["items"] if item["id"] == shared_item["id"])
+    assert shared_item_view["store_ids"] == [owner_store["id"]], shared_item_view
+    assert [store["name"] for store in shared_item_view["stores"]] == ["Owner store"], shared_item_view
+    shared_list_view = get_shopping_list(personal_id, shared_id)
+    assert shared_list_view["can_edit"] is True, shared_list_view
+    assert shared_list_view["can_manage"] is False, shared_list_view
+    recipient_created_section = asyncio.run(
+        create_shopping_section(personal_id, ShoppingSectionCreate(name="Recipient section"), shared_id)
+    )
+    assert recipient_created_section["name"] == "Recipient section", recipient_created_section
+    recipient_renamed_section = asyncio.run(
+        update_shopping_section(
+            recipient_created_section["id"],
+            ShoppingSectionUpdate(name="Recipient renamed section"),
+            shared_id,
+        )
+    )
+    assert recipient_renamed_section["name"] == "Recipient renamed section", recipient_renamed_section
+    assert asyncio.run(delete_shopping_section(recipient_created_section["id"], shared_id))["deleted"] == recipient_created_section["id"]
+    recipient_completed_item = asyncio.run(
+        create_shopping_item(personal_id, ShoppingItemCreate(name="Recipient purchased"), shared_id)
+    )
+    asyncio.run(
+        update_shopping_item(
+            recipient_completed_item["id"],
+            ShoppingItemUpdate(completed=True),
+            shared_id,
+        )
+    )
+    recipient_cleanup = asyncio.run(delete_completed_shopping_items(personal_id, shared_id))
+    assert recipient_completed_item["id"] in recipient_cleanup["deleted_ids"], recipient_cleanup
+    with get_db() as db:
+        assert not db.execute("SELECT 1 FROM shopping_items WHERE id = ?", (recipient_completed_item["id"],)).fetchone()
+    personal_section = asyncio.run(
+        create_shopping_section(personal_id, ShoppingSectionCreate(name="Personal section"), owner_id)
+    )
+    shared_item_edit = asyncio.run(
+        update_shopping_item(
+            shared_item["id"],
+            ShoppingItemUpdate(
+                name="Shared item edited",
+                quantity_value=3,
+                quantity_unit="pcs",
+            ),
+            shared_id,
+        )
+    )
+    assert shared_item_edit["name"] == "Shared item edited", shared_item_edit
+    assert shared_item_edit["quantity_value"] == 3, shared_item_edit
+    assert shared_item_edit["quantity_unit"] == "piece", shared_item_edit
+    assert shared_item_edit["section_id"] is None, shared_item_edit
+    recipient_section_move = asyncio.run(
+        update_shopping_item(
+            shared_item["id"],
+            ShoppingItemUpdate(section_id=personal_section["id"]),
+            shared_id,
+        )
+    )
+    assert recipient_section_move["section_id"] == personal_section["id"], recipient_section_move
+    assert shared_item_edit["store_ids"] == [owner_store["id"]], shared_item_edit
+    shared_store_update = asyncio.run(
+        update_shopping_item(
+            shared_item["id"],
+            ShoppingItemUpdate(store_ids=[owner_store["id"], other_owner_store["id"]]),
+            shared_id,
+        )
+    )
+    assert shared_store_update["store_ids"] == [owner_store["id"], other_owner_store["id"]], shared_store_update
+
+    household = asyncio.run(
+        create_shopping_list(
+            ShoppingListCreate(
+                name="Household shopping",
+                household_id=household_id,
+                client_mutation_id="household-list-1",
+            ),
+            member_id,
+        )
+    )
+    household_id_value = household["id"]
+    assert household["ownership_type"] == "household", household
+    assert household["owner_household_id"] == household_id, household
+    assert household["is_owner"] is False, household
+    assert household["can_edit"] is True, household
+    assert household["can_manage"] is False, household
+    try:
+        asyncio.run(leave_shopping_list(household_id_value, member_id))
+    except HTTPException as error:
+        assert error.status_code == 409, error
+    else:
+        raise AssertionError("Household shopping list was left through direct-recipient semantics")
+
+    member_lists = list_shopping_lists(member_id)["shopping_lists"]
+    assert {row["id"] for row in member_lists} == {transfer_list["id"], household_id_value}, member_lists
+    owner_lists = list_shopping_lists(owner_id)["shopping_lists"]
+    assert {personal_id, transfer_list["id"], household_id_value}.issubset({row["id"] for row in owner_lists}), owner_lists
+    owner_household_list = next(row for row in owner_lists if row["id"] == household_id_value)
+    assert owner_household_list["can_edit"] is True, owner_household_list
+    assert owner_household_list["can_manage"] is True, owner_household_list
+
+    member_created_section = asyncio.run(
+        create_shopping_section(
+            household_id_value,
+            ShoppingSectionCreate(name="Member section"),
+            member_id,
+        )
+    )
+    assert member_created_section["name"] == "Member section", member_created_section
+    member_completed_item = asyncio.run(
+        create_shopping_item(household_id_value, ShoppingItemCreate(name="Member purchased"), member_id)
+    )
+    asyncio.run(
+        update_shopping_item(
+            member_completed_item["id"],
+            ShoppingItemUpdate(completed=True),
+            member_id,
+        )
+    )
+    member_cleanup = asyncio.run(delete_completed_shopping_items(household_id_value, member_id))
+    assert member_completed_item["id"] in member_cleanup["deleted_ids"], member_cleanup
+
+    produce = asyncio.run(
+        create_shopping_section(
+            household_id_value,
+            ShoppingSectionCreate(name="Produce", sort_order=10, client_mutation_id="section-1"),
+            owner_id,
+        )
+    )
+    section_id = produce["id"]
+    member_renamed_section = asyncio.run(
+        update_shopping_section(section_id, ShoppingSectionUpdate(name="Member renamed produce"), member_id)
+    )
+    assert member_renamed_section["name"] == "Member renamed produce", member_renamed_section
+    renamed_section = asyncio.run(
+        update_shopping_section(section_id, ShoppingSectionUpdate(name="Fresh produce"), owner_id)
+    )
+    assert renamed_section["name"] == "Fresh produce", renamed_section
+
+    rewe = asyncio.run(
+        create_shopping_store(
+            ShoppingStoreCreate(shopping_list_id=household_id_value, name="REWE", client_mutation_id="store-rewe"),
+            member_id,
+        )
+    )
+    lidl = asyncio.run(
+        create_shopping_store(
+            ShoppingStoreCreate(shopping_list_id=household_id_value, name="Lidl", client_mutation_id="store-lidl"),
+            member_id,
+        )
+    )
+    assert {store["id"] for store in list_shopping_stores(member_id)["shopping_stores"]} == {rewe["id"], lidl["id"]}
+    assert list_shopping_stores(outsider_id)["shopping_stores"] == []
+    member_renamed_lidl = asyncio.run(
+        update_shopping_store(
+            lidl["id"],
+            ShoppingStoreUpdate(name="Lidl gemeinsam"),
+            member_id,
+        )
+    )
+    assert member_renamed_lidl["name"] == "Lidl gemeinsam", member_renamed_lidl
+    renamed_lidl = asyncio.run(
+        update_shopping_store(
+            lidl["id"],
+            ShoppingStoreUpdate(name="Lidl City", sort_order=20),
+            owner_id,
+        )
+    )
+    assert renamed_lidl["name"] == "Lidl City", renamed_lidl
+    assert renamed_lidl["sort_order"] == 20, renamed_lidl
+    try:
+        asyncio.run(
+            create_shopping_item(
+                household_id_value,
+                ShoppingItemCreate(name="Cross-list store", store_ids=[owner_store["id"]]),
+                member_id,
+            )
+        )
+    except HTTPException as error:
+        assert error.status_code == 400, error
+    else:
+        raise AssertionError("Shopping item accepted a store from another list")
+
+    milk = asyncio.run(
+        create_shopping_item(
+            household_id_value,
+            ShoppingItemCreate(
+                name="Milk",
+                section_id=section_id,
+                quantity_value=2,
+                quantity_unit="Liter",
+                store_ids=[rewe["id"], lidl["id"]],
+                client_mutation_id="item-1",
+            ),
+            member_id,
+        )
+    )
+    milk_retry = asyncio.run(
+        create_shopping_item(
+            household_id_value,
+            ShoppingItemCreate(
+                name="Ignored retry body",
+                section_id=999999,
+                store_ids=[999999],
+                client_mutation_id="item-1",
+            ),
+            member_id,
+        )
+    )
+    assert milk_retry["id"] == milk["id"], milk_retry
+    assert milk["quantity_value"] == 2 and milk["quantity_unit"] == "l", milk
+    milk_unit_edit = asyncio.run(update_shopping_item(
+        milk["id"], ShoppingItemUpdate(quantity_unit="литра"), member_id,
+    ))
+    assert milk_unit_edit["quantity_value"] == 2 and milk_unit_edit["quantity_unit"] == "l", milk_unit_edit
+
+    unrestricted = asyncio.run(
+        create_shopping_item(
+            household_id_value,
+            ShoppingItemCreate(
+                name="Bread",
+                quantity_value=1,
+                quantity_unit="loaf",
+                store_ids=[],
+                client_mutation_id="item-2",
+            ),
+            owner_id,
+        )
+    )
+    assert milk["store_ids"] == [rewe["id"], lidl["id"]], milk
+    assert [(store["id"], store["name"]) for store in milk["stores"]] == [(rewe["id"], "REWE"), (lidl["id"], "Lidl City")], milk
+    assert unrestricted["store_ids"] == [], unrestricted
+    assert unrestricted["stores"] == [], unrestricted
+    owner_section_move = asyncio.run(
+        update_shopping_item(
+            unrestricted["id"],
+            ShoppingItemUpdate(section_id=section_id),
+            owner_id,
+        )
+    )
+    assert owner_section_move["section_id"] == section_id, owner_section_move
+    owner_unsorted_move = asyncio.run(
+        update_shopping_item(
+            unrestricted["id"],
+            ShoppingItemUpdate(section_id=None),
+            owner_id,
+        )
+    )
+    assert owner_unsorted_move["section_id"] is None, owner_unsorted_move
+    with get_db() as db:
+        assert db.execute(
+            "SELECT section_id FROM shopping_items WHERE id = ?",
+            (unrestricted["id"],),
+        ).fetchone()["section_id"] is None
+    member_section_move = asyncio.run(
+        update_shopping_item(
+            unrestricted["id"],
+            ShoppingItemUpdate(section_id=section_id),
+            member_id,
+        )
+    )
+    assert member_section_move["section_id"] == section_id, member_section_move
+
+    owner_item_view = next(
+        item for item in get_shopping_list(household_id_value, owner_id)["items"]
+        if item["id"] == milk["id"]
+    )
+    assert owner_item_view["store_ids"] == [rewe["id"], lidl["id"]], owner_item_view
+    assert [store["id"] for store in owner_item_view["stores"]] == [rewe["id"], lidl["id"]], owner_item_view
+
+    completed = asyncio.run(
+        update_shopping_item(
+            milk["id"],
+            ShoppingItemUpdate(completed=True),
+            member_id,
+        )
+    )
+    assert completed["completed"] is True, completed
+    assert completed["completed_by_user_id"] == member_id, completed
+    assert completed["completed_at"], completed
+    reordered_by_member = asyncio.run(
+        update_shopping_item(milk["id"], ShoppingItemUpdate(sort_order=99), member_id)
+    )
+    assert reordered_by_member["sort_order"] == 99, reordered_by_member
+
+    owner_preferences = asyncio.run(
+        update_shopping_preferences(
+            household_id_value,
+            ShoppingPreferencesUpdate(hide_empty_sections=True),
+            owner_id,
+        )
+    )
+    assert owner_preferences == {
+        "shopping_list_id": household_id_value,
+        "user_id": owner_id,
+        "hide_empty_sections": True,
+    }, owner_preferences
+
+    member_view = get_shopping_list(household_id_value, member_id)
+    assert member_view["preferences"]["hide_empty_sections"] is False, member_view
+    assert "hide_completed" not in member_view["preferences"], member_view
+    assert {section["id"] for section in member_view["sections"]} == {member_created_section["id"], section_id}, member_view
+    assert {item["id"] for item in member_view["items"]} == {milk["id"], unrestricted["id"]}, member_view
+
+    with get_db() as db:
+        owner_sync = get_sync_payload(db, owner_id)
+    owner_sync_list = next(row for row in owner_sync["shopping_lists"] if row["id"] == household_id_value)
+    assert "selected_store_id" not in owner_sync_list["preferences"], owner_sync_list
+    assert {item["id"] for item in owner_sync_list["items"]} == {milk["id"], unrestricted["id"]}, owner_sync_list
+    assert {store["id"] for store in owner_sync["shopping_stores"]} == {
+        owner_store["id"], other_owner_store["id"], rewe["id"], lidl["id"]
+    }, owner_sync
+    assert "Lidl City" in repr(owner_sync["shopping_stores"]), owner_sync
+
+    with get_db() as db:
+        member_sync = get_sync_payload(db, member_id)
+    member_sync_list = next(row for row in member_sync["shopping_lists"] if row["id"] == household_id_value)
+    assert "selected_store_id" not in member_sync_list["preferences"], member_sync_list
+    assert {store["id"] for store in member_sync["shopping_stores"]} == {rewe["id"], lidl["id"]}, member_sync
+
+    asyncio.run(delete_shopping_store(lidl["id"], member_id))
+    inactive_lidl = next(store for store in list_shopping_stores(member_id)["shopping_stores"] if store["id"] == lidl["id"])
+    assert inactive_lidl["active"] is False, inactive_lidl
+    after_store_delete = get_shopping_list(household_id_value, member_id)
+    milk_after_store_delete = next(item for item in after_store_delete["items"] if item["id"] == milk["id"])
+    assert [store["id"] for store in milk_after_store_delete["stores"]] == [rewe["id"], lidl["id"]], milk_after_store_delete
+
+    asyncio.run(delete_shopping_section(section_id, member_id))
+    after_section_delete = get_shopping_list(household_id_value, owner_id)
+    moved_milk = next(item for item in after_section_delete["items"] if item["id"] == milk["id"])
+    assert moved_milk["section_id"] is None, moved_milk
+
+    deleted_completed = asyncio.run(delete_completed_shopping_items(household_id_value, member_id))
+    assert deleted_completed["deleted_ids"] == [milk["id"]], deleted_completed
+    assert asyncio.run(delete_completed_shopping_items(household_id_value, owner_id))["deleted_ids"] == []
+    after_completed_delete = get_shopping_list(household_id_value, member_id)
+    assert [item["id"] for item in after_completed_delete["items"]] == [unrestricted["id"]], after_completed_delete
+    asyncio.run(delete_shopping_item(unrestricted["id"], owner_id))
+    assert get_shopping_list(household_id_value, owner_id)["items"] == []
+
+    with get_db() as db:
+        lifecycle_user_id = db.execute("INSERT INTO users (username) VALUES ('lifecycle-user')").lastrowid
+        db.commit()
+    share_and_accept(personal_id, "lifecycle-user", lifecycle_user_id)
+    lifecycle_store = asyncio.run(
+        create_shopping_store(
+            ShoppingStoreCreate(shopping_list_id=personal_id, name="Lifecycle store"),
+            lifecycle_user_id,
+        )
+    )
+    lifecycle_item = asyncio.run(
+        create_shopping_item(
+            personal_id,
+            ShoppingItemCreate(name="Survives user deletion", store_ids=[lifecycle_store["id"]]),
+            lifecycle_user_id,
+        )
+    )
+    asyncio.run(delete_user(lifecycle_user_id, True))
+    lifecycle_item_after_user_delete = next(
+        item for item in get_shopping_list(personal_id, owner_id)["items"]
+        if item["id"] == lifecycle_item["id"]
+    )
+    assert lifecycle_item_after_user_delete["store_ids"] == [lifecycle_store["id"]], lifecycle_item_after_user_delete
+    assert lifecycle_item_after_user_delete["stores"][0]["created_by_user_id"] is None, lifecycle_item_after_user_delete
+
+    dissolution_item = asyncio.run(
+        create_shopping_item(
+            household_id_value,
+            ShoppingItemCreate(name="Survives household dissolution", store_ids=[rewe["id"]]),
+            owner_id,
+        )
+    )
+    asyncio.run(dissolve_household_endpoint(household_id, owner_id))
+    dissolution_item_after = next(
+        item for item in get_shopping_list(household_id_value, owner_id)["items"]
+        if item["id"] == dissolution_item["id"]
+    )
+    assert dissolution_item_after["store_ids"] == [rewe["id"]], dissolution_item_after
+    assert [store["id"] for store in dissolution_item_after["stores"]] == [rewe["id"]], dissolution_item_after
+
+    with get_db() as db:
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(shopping_lists)").fetchall()}
+        assert "archived_at" not in columns, columns
+        preference_columns = {row["name"] for row in db.execute("PRAGMA table_info(shopping_list_preferences)").fetchall()}
+        assert "hide_completed" not in preference_columns, preference_columns
+        assert not db.execute(
+            "SELECT 1 FROM entity_access_grants ea_g "
+            "JOIN entity_access ea ON ea.id = ea_g.entity_access_id "
+            "WHERE ea.entity_type = 'shopping_list' AND ea.entity_id = ?",
+            (household_id_value,),
+        ).fetchone()
+
+    # Actual writer transactions serialize competing requests before their
+    # receipt lookup; no fabricated post-lock UNIQUE race is required.
+    def concurrent_section_create(_):
+        return asyncio.run(
+            create_shopping_section(
+                personal_id,
+                ShoppingSectionCreate(name="Race", client_mutation_id="section-race"),
+                owner_id,
+            )
+        )
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        recovered_sections = list(pool.map(concurrent_section_create, range(4)))
+    assert len({section["id"] for section in recovered_sections}) == 1, recovered_sections
+    with get_db() as db:
+        assert db.execute(
+            "SELECT COUNT(*) FROM shopping_sections WHERE shopping_list_id=? AND client_mutation_id='section-race'",
+            (personal_id,),
+        ).fetchone()[0] == 1
+        receipt = db.execute(
+            "SELECT entity_id FROM creation_receipts WHERE entity_type='shopping_section' AND scope_id=? AND client_mutation_id='section-race'",
+            (personal_id,),
+        ).fetchall()
+        assert len(receipt) == 1 and receipt[0]["entity_id"] == recovered_sections[0]["id"], receipt
+
+print("✅ Shopping lists support stable stores, structured quantities, preferences, and household access")

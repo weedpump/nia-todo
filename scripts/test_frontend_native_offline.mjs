@@ -82,6 +82,18 @@ async function waitForStaticServer(timeoutMs = 10_000) {
   throw new Error(`Native local asset server not ready: ${LOCAL_URL}`);
 }
 
+async function installNativeSpaFallback(context) {
+  await context.route(`${LOCAL_URL}/**`, async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.isNavigationRequest() && path !== '/' && !path.includes('.')) {
+      await route.fulfill({ path: `${DEV_DIR}/web/index.html`, contentType: 'text/html' });
+      return;
+    }
+    await route.continue();
+  });
+}
+
 async function installTauriStub(context, serverUrl) {
   await context.addInitScript((configuredServerUrl) => {
     window.__TAURI__ = {
@@ -144,6 +156,7 @@ async function run() {
 
   try {
     await waitForStaticServer();
+    await installNativeSpaFallback(page.context());
     await installTauriStub(page.context(), BASE_URL);
 
     // Seed native auth/session and IndexedDB from bundled local assets while backend is online.

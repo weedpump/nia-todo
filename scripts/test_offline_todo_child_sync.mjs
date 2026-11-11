@@ -4,12 +4,12 @@ import { createSyncFeature } from '../web/static/js/features/sync.js';
 import { createWebSocketClient } from '../web/static/js/features/websocket-client.js';
 import { acquireSyncCommitLock, beginSyncQueueWrite, projectPendingTodoChanges, queueItemReferencesTodo } from '../web/static/js/features/todo-pending.js';
 
-function createHarness({ queue, todos, api, projectApi = {} }) {
+function createHarness({ queue, todos, api, projectApi = {}, sectionApi = {}, projects = [], sections = [] }) {
   const stores = {
     syncQueue: structuredClone(queue),
     todos: structuredClone(todos),
-    projects: [],
-    sections: [],
+    projects: structuredClone(projects),
+    sections: structuredClone(sections),
     workspaces: [],
   };
   const feature = createSyncFeature({
@@ -33,7 +33,7 @@ function createHarness({ queue, todos, api, projectApi = {} }) {
     setWorkspaces: next => { stores.workspaces = structuredClone(next); },
     todosApi: { list: async () => ({ todos: structuredClone(stores.todos) }), ...api },
     projectsApi: { list: async () => ({ projects: [] }), ...projectApi },
-    sectionsApi: { listAll: async () => ({ sections: [] }) },
+    sectionsApi: { listAll: async () => ({ sections: [] }), ...sectionApi },
     workspacesApi: { list: async () => ({ workspaces: [] }) },
     renderStats: () => {},
     renderTodos: () => {},
@@ -111,7 +111,7 @@ const result = await feature.syncWithServer({ wsState: 'connected', syncInProgre
 assert.equal(result.failCount, 0);
 assert.equal(result.successCount, 3);
 assert.deepEqual(calls.map(call => call.slice(0, 3)), [
-  ['createTodo', { title: 'Offline parent', _tempId: 'temp-todo-1' }],
+  ['createTodo', { title: 'Offline parent', _tempId: 'temp-todo-1', client_mutation_id: 'temp-todo-1' }],
   ['createComment', 101, { body: 'Offline draft', client_mutation_id: 'temp-comment-1' }],
   ['updateComment', 101, 201],
 ]);
@@ -415,6 +415,26 @@ assert.deepEqual(permanentFailureHarness.stores.syncQueue.map(item => item.actio
 assert.equal(permanentFailureHarness.stores.todos[0].comments[0].body, 'Original', 'a permanent child 4xx must restore authoritative server state even when another replay fails transiently');
 assert.equal(permanentFailureHarness.stores.todos[0].subtasks[0].is_done, true, 'authoritative recovery must project remaining retryable work');
 
+let skippedRefreshFetches = 0;
+const skippedRefreshHarness = createHarness({
+  queue: [{ id: 420, action: 'UPDATE_SUBTASK', data: { todo_id: 702, subtask_id: 89, changes: { is_done: true } } }],
+  todos: [{ id: 702, title: 'Queued', subtasks: [{ id: 89, title: 'Still pending', is_done: true }] }],
+  api: {
+    updateSubtask: async () => {
+      const error = new Error('still offline');
+      error.status = 503;
+      throw error;
+    },
+    list: async () => { skippedRefreshFetches += 1; return { todos: [] }; },
+  },
+});
+const skippedRefresh = await skippedRefreshHarness.feature.refreshFromServer({
+  wsState: 'connected',
+  syncInProgressRef: { value: false },
+});
+assert.equal(skippedRefresh.refreshed, false, 'a refresh skipped for pending queue work must report non-authoritative state');
+assert.equal(skippedRefreshFetches, 0);
+
 const missingParentRecoveryHarness = createHarness({
   queue: [
     { id: 44, action: 'UPDATE_COMMENT', data: { todo_id: 703, comment_id: 90, changes: { body: 'Rejected' } } },
@@ -463,6 +483,36 @@ await refreshRace;
 assert.equal(refreshRaceHarness.stores.todos.length, 0, 'a full refresh must not restore a todo deleted while its REST snapshot was loading');
 assert.deepEqual(refreshRaceHarness.stores.syncQueue.map(item => item.action), ['DELETE_TODO']);
 
+let releasePrivacyRefresh;
+let signalPrivacyRefresh;
+const privacyRefreshGate = new Promise(resolve => { releasePrivacyRefresh = resolve; });
+const privacyRefreshStarted = new Promise(resolve => { signalPrivacyRefresh = resolve; });
+const privacyRefreshHarness = createHarness({
+  queue: [],
+  todos: [],
+  api: {
+    list: async () => {
+      signalPrivacyRefresh();
+      await privacyRefreshGate;
+      return { todos: [{ id: 802, project_id: 82, title: 'Stale private refresh' }] };
+    },
+  },
+  projects: [{ id: 82, name: 'Private project' }],
+  sections: [],
+  projectApi: { list: async () => ({ projects: [{ id: 82, name: 'Private project' }] }) },
+});
+const privacyRefreshRef = { value: false, privacyGeneration: 0 };
+const stalePrivacyRefresh = privacyRefreshHarness.feature.refreshFromServer({ wsState: 'connected', syncInProgressRef: privacyRefreshRef });
+await privacyRefreshStarted;
+privacyRefreshHarness.stores.todos = [];
+privacyRefreshHarness.stores.projects = [];
+privacyRefreshRef.privacyGeneration += 1;
+releasePrivacyRefresh();
+const stalePrivacyRefreshResult = await stalePrivacyRefresh;
+assert.equal(stalePrivacyRefreshResult.refreshed, false, 'a REST full refresh started before privacy eviction must report a discarded response');
+assert.deepEqual(privacyRefreshHarness.stores.todos, [], 'a stale REST full refresh must not restore evicted todos');
+assert.deepEqual(privacyRefreshHarness.stores.projects, [], 'a stale REST full refresh must not restore evicted projects');
+
 const commitLockRef = {};
 const releaseCommitLock = await acquireSyncCommitLock(commitLockRef);
 let queueWriteStarted = false;
@@ -476,6 +526,28 @@ releaseCommitLock();
 await blockedQueueWrite;
 assert.equal(queueWriteStarted, true);
 
+const originalWebSocket = globalThis.WebSocket;
+const websocketMessages = [];
+class FakeWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSED = 3;
+
+  constructor() {
+    this.readyState = FakeWebSocket.CONNECTING;
+    FakeWebSocket.instance = this;
+  }
+
+  send(payload) {
+    websocketMessages.push(JSON.parse(payload));
+  }
+
+  close() {
+    this.readyState = FakeWebSocket.CLOSED;
+  }
+}
+globalThis.WebSocket = FakeWebSocket;
+
 const websocketStores = {
   syncQueue: [],
   todos: [{ id: 901, title: 'Committed server todo', comments: [{ id: 99, body: 'Saved' }], subtasks: [], updated_at: '2026-10-18T00:00:01Z' }],
@@ -484,13 +556,11 @@ const websocketStores = {
   workspaces: [],
 };
 const websocketSyncRef = { value: true };
-let authoritativeRefreshes = 0;
 const websocketClient = createWebSocketClient({
   wsUrl: 'ws://unused.invalid',
-  getAuthToken: () => null,
+  getAuthToken: () => 'test-token',
   syncWithServer: async () => {},
   syncInProgressRef: websocketSyncRef,
-  refreshFromServer: async () => { authoritativeRefreshes++; },
   renderConnectionStatus: () => {},
   dbGetAll: async store => structuredClone(websocketStores[store] || []),
   dbPut: async (store, item) => {
@@ -511,6 +581,8 @@ const websocketClient = createWebSocketClient({
   renderStats: () => {},
   renderTodos: () => {},
 });
+websocketClient.connectWebSocket();
+FakeWebSocket.instance.readyState = FakeWebSocket.OPEN;
 const staleSyncResponse = websocketClient.handleWsMessage({
   type: 'sync_response',
   todos: [{ id: 901, title: 'Stale server todo', comments: [{ id: 'temp-c', body: 'Saved', is_pending: true }], subtasks: [], updated_at: '2026-10-18T00:00:00Z' }],
@@ -519,10 +591,10 @@ const staleSyncResponse = websocketClient.handleWsMessage({
   workspaces: [],
 });
 await new Promise(resolve => setTimeout(resolve, 20));
-assert.equal(authoritativeRefreshes, 0, 'a full-sync payload received during replay must wait for the queue drain');
+assert.equal(websocketMessages.length, 0, 'a full-sync payload received during replay must wait for the queue drain');
 websocketSyncRef.value = false;
 await staleSyncResponse;
-assert.equal(authoritativeRefreshes, 1, 'a stale full-sync payload must be replaced with a fresh authoritative fetch');
+assert.deepEqual(websocketMessages, [{ type: 'sync_request' }], 'a stale full-sync payload must request a fresh WebSocket snapshot');
 assert.equal(websocketStores.todos[0].comments[0].id, 99, 'the stale payload must not restore a temporary child ID');
 
 websocketSyncRef.value = true;
@@ -535,11 +607,15 @@ const staleDuringRefresh = websocketClient.handleWsMessage({
   workspaces: [],
 });
 await new Promise(resolve => setTimeout(resolve, 20));
-assert.equal(authoritativeRefreshes, 1, 'a full-sync payload received during REST refresh must wait');
+assert.equal(websocketMessages.length, 1, 'a full-sync payload received during REST refresh must wait');
 websocketSyncRef.value = false;
 websocketSyncRef.refreshing = false;
 await staleDuringRefresh;
-assert.equal(authoritativeRefreshes, 2, 'a stale payload received during REST refresh must trigger a newer authoritative fetch');
+assert.deepEqual(
+  websocketMessages,
+  [{ type: 'sync_request' }, { type: 'sync_request' }],
+  'a stale payload received during REST refresh must request a newer WebSocket snapshot',
+);
 assert.equal(websocketStores.todos[0].comments[0].id, 99);
 
 websocketStores.syncQueue = [{ id: 60, action: 'CREATE_TODO', data: { title: 'Local create', _tempId: 'temp-own-create' } }];
@@ -560,5 +636,171 @@ websocketStores.todos = [{ id: 902, title: 'Local create', comments: [], subtask
 websocketSyncRef.value = false;
 await realtimeOwnCreate;
 assert.deepEqual(websocketStores.todos.map(todo => todo.id), [902]);
+
+websocketStores.todos = [];
+websocketStores.syncQueue = [{ id: 61, action: 'DELETE_TODO', data: { id: 902, undo_grace_until: Date.now() + 5000 } }];
+await websocketClient.handleWsMessage({
+  type: 'todo_create', payload: { id: 902, title: 'Create echo after optimistic deletion', comments: [], subtasks: [] },
+});
+assert.deepEqual(websocketStores.todos, [], 'a create echo must keep a pending-deleted Todo out of cache and UI');
+assert.equal(websocketStores.syncQueue[0].action, 'DELETE_TODO', 'the create echo must retain the server deletion intent');
+websocketStores.syncQueue = [];
+
+websocketSyncRef.value = false;
+websocketSyncRef.privacyGeneration = 0;
+websocketStores.projects = [{ id: 980, name: 'Private project' }];
+websocketStores.sections = [{ id: 981, project_id: 980, name: 'Private section' }];
+websocketStores.todos = [{ id: 982, project_id: 980, section_id: 981, title: 'Private todo', attachments: [] }];
+const releaseRealtimeEvictionLock = await acquireSyncCommitLock(websocketSyncRef);
+const staleProjectDelta = websocketClient.handleWsMessage({
+  type: 'project_update',
+  payload: { id: 980, name: 'Stale private project' },
+});
+const staleSectionDelta = websocketClient.handleWsMessage({
+  type: 'section_update',
+  payload: { id: 981, project_id: 980, name: 'Stale private section', updated_at: '2026-10-18T00:00:00Z' },
+});
+const staleAttachmentDelta = websocketClient.handleWsMessage({
+  type: 'todo_attachment_create',
+  payload: { todo_id: 982, attachment: { id: 983, filename: 'private.txt' }, attachments_count: 1 },
+});
+await new Promise(resolve => setTimeout(resolve, 10));
+websocketStores.projects = [];
+websocketStores.sections = [];
+websocketStores.todos = [];
+websocketSyncRef.privacyGeneration += 1;
+releaseRealtimeEvictionLock();
+await Promise.all([staleProjectDelta, staleSectionDelta, staleAttachmentDelta]);
+assert.deepEqual(websocketStores.projects, [], 'a stale project delta must not reinsert data after privacy eviction');
+assert.deepEqual(websocketStores.sections, [], 'a stale section delta must not reinsert data after privacy eviction');
+assert.deepEqual(websocketStores.todos, [], 'a stale attachment delta must not reinsert todo data after privacy eviction');
+
+await websocketClient.handleWsMessage({ type: 'project_update', payload: { id: 980, name: 'Post-eviction delta' } });
+await websocketClient.handleWsMessage({ type: 'project_update_many', payload: { projects: [{ id: 980, name: 'Post-eviction batch delta' }] } });
+await websocketClient.handleWsMessage({ type: 'project_create', payload: { id: 984, parent_id: 980, name: 'Missing-parent child' } });
+await websocketClient.handleWsMessage({ type: 'project_create', payload: { id: 985, parent_id: null, name: 'Root access gain' } });
+assert.deepEqual(
+  websocketStores.projects,
+  [],
+  'project deltas after completed eviction must require an existing local project/parent and root access gains must wait for a snapshot',
+);
+
+let releaseRevokedReplay;
+let signalRevokedReplay;
+const revokedReplayGate = new Promise(resolve => { releaseRevokedReplay = resolve; });
+const revokedReplayStarted = new Promise(resolve => { signalRevokedReplay = resolve; });
+const revokedReplayHarness = createHarness({
+  queue: [{ id: 70, action: 'UPDATE_TODO', data: { id: 970, changes: { title: 'Private edit' } } }],
+  todos: [{ id: 970, title: 'Private old', comments: [], subtasks: [] }],
+  api: {
+    update: async () => {
+      signalRevokedReplay();
+      await revokedReplayGate;
+      return { id: 970, title: 'Private edit', comments: [], subtasks: [] };
+    },
+  },
+});
+const revokedReplaySync = revokedReplayHarness.feature.syncWithServer({
+  wsState: 'connected',
+  syncInProgressRef: { value: false },
+});
+await revokedReplayStarted;
+revokedReplayHarness.stores.syncQueue = [];
+revokedReplayHarness.stores.todos = [];
+releaseRevokedReplay();
+await revokedReplaySync;
+assert.deepEqual(
+  revokedReplayHarness.stores.todos,
+  [],
+  'a replay response must not reinsert a todo after privacy eviction removed its queue entry',
+);
+
+let releaseRevokedProjectReplay;
+let signalRevokedProjectReplay;
+const revokedProjectReplayGate = new Promise(resolve => { releaseRevokedProjectReplay = resolve; });
+const revokedProjectReplayStarted = new Promise(resolve => { signalRevokedProjectReplay = resolve; });
+const revokedProjectReplayHarness = createHarness({
+  queue: [{ id: 71, action: 'UPDATE_PROJECT', data: { id: 971, changes: { name: 'Private project' } } }],
+  todos: [],
+  projects: [{ id: 971, name: 'Private old' }],
+  api: {},
+  projectApi: {
+    update: async () => {
+      signalRevokedProjectReplay();
+      await revokedProjectReplayGate;
+      return { id: 971, name: 'Private project' };
+    },
+  },
+});
+const revokedProjectReplaySync = revokedProjectReplayHarness.feature.syncWithServer({
+  wsState: 'connected',
+  syncInProgressRef: { value: false },
+});
+await revokedProjectReplayStarted;
+revokedProjectReplayHarness.stores.syncQueue = [];
+revokedProjectReplayHarness.stores.projects = [];
+releaseRevokedProjectReplay();
+await revokedProjectReplaySync;
+assert.deepEqual(
+  revokedProjectReplayHarness.stores.projects,
+  [],
+  'a project replay response must not reinsert a project after privacy eviction removed its queue entry',
+);
+
+await websocketClient.disconnectWebSocket();
+globalThis.WebSocket = originalWebSocket;
+
+// An in-flight create keeps its original target; the queued move follows its real ID.
+let signalMovedCreate,releaseMovedCreate;
+const movedCreateStarted=new Promise(resolve=>{signalMovedCreate=resolve;});
+const movedCreateGate=new Promise(resolve=>{releaseMovedCreate=resolve;});
+const movedWrites=[];
+const movedCreateHarness=createHarness({
+  projects:[{id:801},{id:802}],sections:[{id:811,project_id:801},{id:812,project_id:802}],
+  todos:[{id:'temp-moved-memory',title:'Wäsche waschen',project_id:801,section_id:811,comments:[],subtasks:[]}],
+  queue:[{id:810,action:'CREATE_TODO',data:{_tempId:'temp-moved-memory',title:'Wäsche waschen',project_id:801,section_id:811}}],
+  api:{
+    create:async data=>{movedWrites.push(structuredClone(data));signalMovedCreate();await movedCreateGate;return {id:820,title:data.title,project_id:801,section_id:811,comments:[],subtasks:[]};},
+    update:async(id,changes)=>{assert.equal(id,820);assert.equal(changes.project_id,802,'a post-create section assignment includes its new project');movedWrites.push(structuredClone(changes));return {id,title:'Wäsche waschen',project_id:changes.project_id,section_id:changes.section_id,comments:[],subtasks:[]};},
+  },
+});
+const movedCreateSync=movedCreateHarness.feature.syncWithServer({wsState:'connected',syncInProgressRef:{value:false}});
+await movedCreateStarted;
+assert.equal(movedCreateHarness.stores.syncQueue[0].attempted,true,'attempt is durable before transport');
+const attemptedCreate=structuredClone(movedCreateHarness.stores.syncQueue[0]);
+movedCreateHarness.stores.todos[0]={...movedCreateHarness.stores.todos[0],project_id:802,section_id:812};
+movedCreateHarness.stores.syncQueue.push({id:813,action:'UPDATE_TODO',data:{id:'temp-moved-memory',changes:{project_id:802,section_id:812,routing_feedback:{event_id:'move-after-send',generation:0,fields:['list','section']}}}});
+assert.deepEqual(movedCreateHarness.stores.syncQueue[0],attemptedCreate);
+releaseMovedCreate();
+const movedCreateResult=await movedCreateSync;
+assert.equal(movedCreateResult.failCount,0);
+assert.equal(movedCreateHarness.stores.syncQueue.length,0);
+assert.equal(movedWrites.length,2,'one create plus its durable move; no ad-hoc section-only PATCH');
+assert.equal(movedCreateHarness.stores.todos[0].project_id,802);
+assert.equal(movedCreateHarness.stores.todos[0].section_id,812);
+
+// Personal memory intent survives durable replay but never becomes shared content.
+const memoryFeedback = {event_id:'offline-memory-choice',generation:7,fields:['list','section']};
+const memoryWrites=[];
+const memoryHarness=createHarness({
+  projects:[{id:42}],sections:[{id:43,project_id:42}],
+  todos:[{id:'temp-memory',title:'Wäsche waschen',project_id:42,section_id:43,comments:[],subtasks:[]}],
+  queue:[
+    {id:901,action:'CREATE_TODO',data:{_tempId:'temp-memory',title:'Wäsche waschen',project_id:42,section_id:43,routing_feedback:memoryFeedback}},
+    {id:902,action:'UPDATE_TODO',data:{id:'temp-memory',changes:{section_id:null,routing_feedback:{...memoryFeedback,event_id:'offline-memory-move',fields:['section']}}}},
+  ],
+  api:{
+    create:async data=>{memoryWrites.push(structuredClone(data));return {id:903,title:data.title,project_id:42,section_id:43,comments:[],subtasks:[]};},
+    update:async(id,changes)=>{memoryWrites.push(structuredClone(changes));return {id,title:'Wäsche waschen',project_id:42,section_id:null,comments:[],subtasks:[]};},
+  },
+});
+await memoryHarness.feature.syncWithServer({wsState:'connected',syncInProgressRef:{value:false}});
+assert.deepEqual(memoryWrites[0].routing_feedback,memoryFeedback,'create sanitizer preserves stable versioned memory intent');
+assert.equal(memoryWrites[1].routing_feedback.event_id,'offline-memory-move','move receipt survives temporary todo ID remapping');
+assert.equal(memoryHarness.stores.syncQueue.length,0);
+assert.equal(Object.hasOwn(memoryHarness.stores.todos[0],'routing_feedback'),false,'authoritative todo content does not retain personal feedback');
+const projectedMemory=projectPendingTodoChanges({id:903,title:'Wäsche waschen'},[{action:'UPDATE_TODO',data:{id:903,changes:{section_id:43,routing_feedback:memoryFeedback}}}]);
+assert.equal(projectedMemory.section_id,43);
+assert.equal(Object.hasOwn(projectedMemory,'routing_feedback'),false,'pending projection excludes personal learning intent');
 
 console.log('✅ Offline todo child sync test passed');

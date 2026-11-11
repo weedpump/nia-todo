@@ -35,6 +35,21 @@ def test_empty_config_uses_source_floor():
     assert_true(_max_native_client_version("", "2.8.0") == "2.8.0", "empty config should use source floor")
 
 
+def test_v4_public_floor_overrides_legacy_config_and_preserves_higher_minimum():
+    assert_true(instance_config.SOURCE_MIN_NATIVE_CLIENT_VERSION == "4.0.0", "V4 requires native 4.0.0")
+    for stored, expected in [("3.1.0", "4.0.0"), ("3.6.3", "4.0.0"), ("", "4.0.0"), ("4.1.0", "4.1.0")]:
+        values = {
+            "public_base_url": "https://instance.example.invalid",
+            "instance_display_name": "Test instance",
+            "min_native_client_version": stored,
+        }
+        with patch.object(instance_config, "_read_config_keys", return_value=values), \
+                patch.object(instance_config, "_ensure_instance_id", return_value="test-instance"), \
+                patch.object(instance_config, "_read_web_app_version", return_value="4.0.0"):
+            info = instance_config.get_public_instance_info(None)
+        assert_true(info["min_native_client_version"] == expected, f"effective public minimum for {stored!r}")
+
+
 @contextmanager
 def temporary_config_db():
     with tempfile.TemporaryDirectory() as tmp:
@@ -126,6 +141,7 @@ def main():
         test_source_floor_wins_over_older_db_value,
         test_higher_configured_value_still_wins,
         test_empty_config_uses_source_floor,
+        test_v4_public_floor_overrides_legacy_config_and_preserves_higher_minimum,
         test_update_analytics_defaults_enabled_and_is_returned,
         test_update_analytics_update_is_persisted_and_audited,
         test_omitted_update_analytics_setting_preserves_existing_opt_out,

@@ -1,8 +1,7 @@
 /* Today focus, quick add, pins, snooze, and sync badges */
 
 /* Today focus, quick add, pins, snooze, and sync badge */
-.today-focus-btn,
-.minimal-todos-btn {
+.ui-topbar-toggle {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -22,22 +21,19 @@
 }
 
 @media (hover: hover) {
-  .today-focus-btn:hover,
-  .minimal-todos-btn:hover {
+  .ui-topbar-toggle:hover {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
   }
 }
 
-.today-focus-btn.active,
-.minimal-todos-btn.active {
+.ui-topbar-toggle.active {
   color: white;
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #111827));
   box-shadow: 0 8px 20px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.26));
 }
 
-.today-focus-btn .ui-icon,
-.minimal-todos-btn .ui-icon { display: block; width: 19px; height: 19px; margin: 0; }
+.ui-topbar-toggle .ui-icon { display: block; width: 19px; height: 19px; margin: 0; }
 
 .today-calendar-icon {
   position: relative;
@@ -60,7 +56,7 @@
 }
 
 .quick-add-hint {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.35;
@@ -70,7 +66,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .quick-add-preview[hidden] {
@@ -78,6 +74,9 @@
 }
 
 .quick-add-chip {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -93,6 +92,9 @@
 .quick-add-chip-label {
   color: var(--text-secondary);
 }
+.quick-add-chip>strong { min-width: 0; overflow-wrap: anywhere; }
+.quick-add-memory-icon { display: inline-flex; flex: none; }
+.quick-add-memory-icon .ui-icon { width: 14px; height: 14px; }
 
 .quick-add-chip.priority { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.13); }
 .quick-add-chip.due { border-color: rgba(99, 102, 241, 0.45); background: rgba(99, 102, 241, 0.14); }
@@ -298,8 +300,7 @@
 }
 
 @media (max-width: 640px) {
-  .today-focus-btn,
-  .minimal-todos-btn {
+  .ui-topbar-toggle {
     min-width: 36px;
     width: 36px;
     height: 36px;
@@ -307,22 +308,20 @@
     justify-content: center;
     gap: 0;
   }
-  .today-focus-btn .today-calendar-icon,
-  .today-focus-btn .ui-icon,
-  .minimal-todos-btn .ui-icon {
+  .ui-topbar-toggle .today-calendar-icon,
+  .ui-topbar-toggle .ui-icon {
     width: 19px;
     height: 19px;
   }
-  .today-focus-btn .today-calendar-icon {
+  .ui-topbar-toggle .today-calendar-icon {
     flex-basis: 19px;
   }
-  .today-focus-btn .today-calendar-day {
+  .ui-topbar-toggle .today-calendar-day {
     top: 12.25px;
     font-size: 7.5px;
     letter-spacing: -0.35px;
   }
-  .today-focus-btn span[data-i18n-key="todayFocus.short"],
-  .minimal-todos-btn span[data-i18n-key="minimalTodos.short"] { display: none; }
+  .ui-topbar-toggle [data-topbar-toggle-label] { display: none; }
 
   .status-syncing,
   .status-pending-sync {

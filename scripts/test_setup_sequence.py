@@ -25,6 +25,21 @@ with tempfile.TemporaryDirectory() as tmp:
         raise AssertionError('first user was created before the admin password')
     with get_db() as db:
         assert db.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0
+        db.execute(
+            "INSERT INTO admin_config (id, setup_complete, admin_token_hash) VALUES (1, 0, 'configured') "
+            "ON CONFLICT(id) DO UPDATE SET setup_complete = 0, admin_token_hash = excluded.admin_token_hash"
+        )
+        db.commit()
     assert validate_setup_token(token)
+
+    created = setup_first_user(request, None, None, None)
+    user_id = created['user']['id']
+    with get_db() as db:
+        projects = db.execute('SELECT id FROM projects WHERE user_id = ?', (user_id,)).fetchall()
+        registered = db.execute(
+            "SELECT entity_id FROM entity_access WHERE entity_type = 'project' AND owner_user_id = ?",
+            (user_id,),
+        ).fetchall()
+        assert {row['id'] for row in projects} == {row['entity_id'] for row in registered}
 
 print('✅ First-run setup sequence is enforced')

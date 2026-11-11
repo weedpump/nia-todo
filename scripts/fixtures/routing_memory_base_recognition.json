@@ -1,0 +1,2337 @@
+{
+  "version": 2,
+  "description": "Complete learned phrase recognition across input languages; vocabulary examples are test data only.",
+  "locales": [
+    "de",
+    "en",
+    "es",
+    "fr",
+    "it",
+    "nl",
+    "pl",
+    "pt-BR",
+    "ru",
+    "sv",
+    "cs",
+    "zh"
+  ],
+  "catalogs": {
+    "de-shopping": [
+      {
+        "name_key": "Margerine",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "de-tasks": [
+      {
+        "name_key": "Wäsche waschen",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "en-shopping": [
+      {
+        "name_key": "oat drink",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "en-tasks": [
+      {
+        "name_key": "wash laundry",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "es-shopping": [
+      {
+        "name_key": "harina integral",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "es-tasks": [
+      {
+        "name_key": "lavar la ropa",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "fr-shopping": [
+      {
+        "name_key": "farine complète",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "fr-tasks": [
+      {
+        "name_key": "laver le linge",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "it-shopping": [
+      {
+        "name_key": "olio di oliva",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "it-tasks": [
+      {
+        "name_key": "lavare il bucato",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "nl-shopping": [
+      {
+        "name_key": "verse melk",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "nl-tasks": [
+      {
+        "name_key": "de was doen",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "pl-shopping": [
+      {
+        "name_key": "mąka pszenna",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "pl-tasks": [
+      {
+        "name_key": "zrobić pranie",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "pt-BR-shopping": [
+      {
+        "name_key": "farinha de trigo",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "pt-BR-tasks": [
+      {
+        "name_key": "lavar a roupa",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "ru-shopping": [
+      {
+        "name_key": "сливочное масло",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "ru-tasks": [
+      {
+        "name_key": "стирать бельё",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "sv-shopping": [
+      {
+        "name_key": "röda äpplen",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "sv-tasks": [
+      {
+        "name_key": "tvätta kläder",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "cs-shopping": [
+      {
+        "name_key": "hladká mouka",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "cs-tasks": [
+      {
+        "name_key": "vyprat prádlo",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "zh-shopping": [
+      {
+        "name_key": "人造黄油",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "zh-tasks": [
+      {
+        "name_key": "洗衣服",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "de-shopping-typo": [
+      {
+        "name_key": "Margarine",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "de-tasks-typo": [
+      {
+        "name_key": "Margarine",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "en-shopping-typo": [
+      {
+        "name_key": "chocolate",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "en-tasks-typo": [
+      {
+        "name_key": "chocolate",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "es-shopping-typo": [
+      {
+        "name_key": "chocolate",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "es-tasks-typo": [
+      {
+        "name_key": "chocolate",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "fr-shopping-typo": [
+      {
+        "name_key": "chocolat",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "fr-tasks-typo": [
+      {
+        "name_key": "chocolat",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "it-shopping-typo": [
+      {
+        "name_key": "cioccolato",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "it-tasks-typo": [
+      {
+        "name_key": "cioccolato",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "nl-shopping-typo": [
+      {
+        "name_key": "chocolade",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "nl-tasks-typo": [
+      {
+        "name_key": "chocolade",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "pl-shopping-typo": [
+      {
+        "name_key": "czekolada",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "pl-tasks-typo": [
+      {
+        "name_key": "czekolada",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "pt-BR-shopping-typo": [
+      {
+        "name_key": "chocolate",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "pt-BR-tasks-typo": [
+      {
+        "name_key": "chocolate",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "ru-shopping-typo": [
+      {
+        "name_key": "шоколад",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "ru-tasks-typo": [
+      {
+        "name_key": "шоколад",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "sv-shopping-typo": [
+      {
+        "name_key": "choklad",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "sv-tasks-typo": [
+      {
+        "name_key": "choklad",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "cs-shopping-typo": [
+      {
+        "name_key": "čokoláda",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "cs-tasks-typo": [
+      {
+        "name_key": "čokoláda",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ],
+    "zh-shopping-typo": [
+      {
+        "name_key": "有机全麦面粉袋",
+        "key_kind": "exact",
+        "shopping_list_id": 10,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "history_fields": [
+          "list",
+          "section",
+          "stores"
+        ]
+      }
+    ],
+    "zh-tasks-typo": [
+      {
+        "name_key": "有机全麦面粉袋",
+        "key_kind": "exact",
+        "module_id": "tasks",
+        "project_id": 10,
+        "workspace_id": 9,
+        "project_known": true,
+        "list_known": true,
+        "preferred": true,
+        "section_known": true,
+        "section_id": 20,
+        "history_fields": [
+          "list",
+          "section"
+        ]
+      }
+    ]
+  },
+  "vectors": [
+    {
+      "id": "de-shopping-literal-expanded",
+      "name": "pflanzliche Margerine",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "de",
+      "module": "shopping",
+      "catalog": "de-shopping"
+    },
+    {
+      "id": "de-shopping-exact",
+      "name": "Margerine",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "de",
+      "module": "shopping",
+      "catalog": "de-shopping"
+    },
+    {
+      "id": "de-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "de",
+      "module": "shopping",
+      "catalog": "de-shopping"
+    },
+    {
+      "id": "de-tasks-literal-expanded",
+      "name": "morgen Wäsche waschen",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "de",
+      "module": "tasks",
+      "catalog": "de-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "de-tasks-exact",
+      "name": "Wäsche waschen",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "de",
+      "module": "tasks",
+      "catalog": "de-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "de-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "de",
+      "module": "tasks",
+      "catalog": "de-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "en-shopping-literal-expanded",
+      "name": "unsweetened oat drink",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "en",
+      "module": "shopping",
+      "catalog": "en-shopping"
+    },
+    {
+      "id": "en-shopping-exact",
+      "name": "oat drink",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "en",
+      "module": "shopping",
+      "catalog": "en-shopping"
+    },
+    {
+      "id": "en-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "en",
+      "module": "shopping",
+      "catalog": "en-shopping"
+    },
+    {
+      "id": "en-tasks-literal-expanded",
+      "name": "please wash laundry",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "en",
+      "module": "tasks",
+      "catalog": "en-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "en-tasks-exact",
+      "name": "wash laundry",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "en",
+      "module": "tasks",
+      "catalog": "en-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "en-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "en",
+      "module": "tasks",
+      "catalog": "en-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "es-shopping-literal-expanded",
+      "name": "harina integral ecológica",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "es",
+      "module": "shopping",
+      "catalog": "es-shopping"
+    },
+    {
+      "id": "es-shopping-exact",
+      "name": "harina integral",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "es",
+      "module": "shopping",
+      "catalog": "es-shopping"
+    },
+    {
+      "id": "es-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "es",
+      "module": "shopping",
+      "catalog": "es-shopping"
+    },
+    {
+      "id": "es-tasks-literal-expanded",
+      "name": "mañana lavar la ropa",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "es",
+      "module": "tasks",
+      "catalog": "es-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "es-tasks-exact",
+      "name": "lavar la ropa",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "es",
+      "module": "tasks",
+      "catalog": "es-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "es-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "es",
+      "module": "tasks",
+      "catalog": "es-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "fr-shopping-literal-expanded",
+      "name": "farine complète locale",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "fr",
+      "module": "shopping",
+      "catalog": "fr-shopping"
+    },
+    {
+      "id": "fr-shopping-exact",
+      "name": "farine complète",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "fr",
+      "module": "shopping",
+      "catalog": "fr-shopping"
+    },
+    {
+      "id": "fr-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "fr",
+      "module": "shopping",
+      "catalog": "fr-shopping"
+    },
+    {
+      "id": "fr-tasks-literal-expanded",
+      "name": "demain laver le linge",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "fr",
+      "module": "tasks",
+      "catalog": "fr-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "fr-tasks-exact",
+      "name": "laver le linge",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "fr",
+      "module": "tasks",
+      "catalog": "fr-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "fr-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "fr",
+      "module": "tasks",
+      "catalog": "fr-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "it-shopping-literal-expanded",
+      "name": "olio di oliva biologico",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "it",
+      "module": "shopping",
+      "catalog": "it-shopping"
+    },
+    {
+      "id": "it-shopping-exact",
+      "name": "olio di oliva",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "it",
+      "module": "shopping",
+      "catalog": "it-shopping"
+    },
+    {
+      "id": "it-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "it",
+      "module": "shopping",
+      "catalog": "it-shopping"
+    },
+    {
+      "id": "it-tasks-literal-expanded",
+      "name": "domani lavare il bucato",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "it",
+      "module": "tasks",
+      "catalog": "it-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "it-tasks-exact",
+      "name": "lavare il bucato",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "it",
+      "module": "tasks",
+      "catalog": "it-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "it-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "it",
+      "module": "tasks",
+      "catalog": "it-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "nl-shopping-literal-expanded",
+      "name": "lokale verse melk",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "nl",
+      "module": "shopping",
+      "catalog": "nl-shopping"
+    },
+    {
+      "id": "nl-shopping-exact",
+      "name": "verse melk",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "nl",
+      "module": "shopping",
+      "catalog": "nl-shopping"
+    },
+    {
+      "id": "nl-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "nl",
+      "module": "shopping",
+      "catalog": "nl-shopping"
+    },
+    {
+      "id": "nl-tasks-literal-expanded",
+      "name": "morgen de was doen",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "nl",
+      "module": "tasks",
+      "catalog": "nl-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "nl-tasks-exact",
+      "name": "de was doen",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "nl",
+      "module": "tasks",
+      "catalog": "nl-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "nl-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "nl",
+      "module": "tasks",
+      "catalog": "nl-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "pl-shopping-literal-expanded",
+      "name": "mąka pszenna ekologiczna",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "pl",
+      "module": "shopping",
+      "catalog": "pl-shopping"
+    },
+    {
+      "id": "pl-shopping-exact",
+      "name": "mąka pszenna",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "pl",
+      "module": "shopping",
+      "catalog": "pl-shopping"
+    },
+    {
+      "id": "pl-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "pl",
+      "module": "shopping",
+      "catalog": "pl-shopping"
+    },
+    {
+      "id": "pl-tasks-literal-expanded",
+      "name": "jutro zrobić pranie",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "pl",
+      "module": "tasks",
+      "catalog": "pl-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "pl-tasks-exact",
+      "name": "zrobić pranie",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "pl",
+      "module": "tasks",
+      "catalog": "pl-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "pl-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "pl",
+      "module": "tasks",
+      "catalog": "pl-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "pt-BR-shopping-literal-expanded",
+      "name": "farinha de trigo orgânica",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "pt-BR",
+      "module": "shopping",
+      "catalog": "pt-BR-shopping"
+    },
+    {
+      "id": "pt-BR-shopping-exact",
+      "name": "farinha de trigo",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "pt-BR",
+      "module": "shopping",
+      "catalog": "pt-BR-shopping"
+    },
+    {
+      "id": "pt-BR-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "pt-BR",
+      "module": "shopping",
+      "catalog": "pt-BR-shopping"
+    },
+    {
+      "id": "pt-BR-tasks-literal-expanded",
+      "name": "amanhã lavar a roupa",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "pt-BR",
+      "module": "tasks",
+      "catalog": "pt-BR-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "pt-BR-tasks-exact",
+      "name": "lavar a roupa",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "pt-BR",
+      "module": "tasks",
+      "catalog": "pt-BR-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "pt-BR-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "pt-BR",
+      "module": "tasks",
+      "catalog": "pt-BR-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "ru-shopping-literal-expanded",
+      "name": "местное сливочное масло",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "ru",
+      "module": "shopping",
+      "catalog": "ru-shopping"
+    },
+    {
+      "id": "ru-shopping-exact",
+      "name": "сливочное масло",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "ru",
+      "module": "shopping",
+      "catalog": "ru-shopping"
+    },
+    {
+      "id": "ru-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "ru",
+      "module": "shopping",
+      "catalog": "ru-shopping"
+    },
+    {
+      "id": "ru-tasks-literal-expanded",
+      "name": "завтра стирать бельё",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "ru",
+      "module": "tasks",
+      "catalog": "ru-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "ru-tasks-exact",
+      "name": "стирать бельё",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "ru",
+      "module": "tasks",
+      "catalog": "ru-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "ru-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "ru",
+      "module": "tasks",
+      "catalog": "ru-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "sv-shopping-literal-expanded",
+      "name": "lokala röda äpplen",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "sv",
+      "module": "shopping",
+      "catalog": "sv-shopping"
+    },
+    {
+      "id": "sv-shopping-exact",
+      "name": "röda äpplen",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "sv",
+      "module": "shopping",
+      "catalog": "sv-shopping"
+    },
+    {
+      "id": "sv-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "sv",
+      "module": "shopping",
+      "catalog": "sv-shopping"
+    },
+    {
+      "id": "sv-tasks-literal-expanded",
+      "name": "imorgon tvätta kläder",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "sv",
+      "module": "tasks",
+      "catalog": "sv-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "sv-tasks-exact",
+      "name": "tvätta kläder",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "sv",
+      "module": "tasks",
+      "catalog": "sv-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "sv-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "sv",
+      "module": "tasks",
+      "catalog": "sv-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "cs-shopping-literal-expanded",
+      "name": "místní hladká mouka",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "cs",
+      "module": "shopping",
+      "catalog": "cs-shopping"
+    },
+    {
+      "id": "cs-shopping-exact",
+      "name": "hladká mouka",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "cs",
+      "module": "shopping",
+      "catalog": "cs-shopping"
+    },
+    {
+      "id": "cs-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "cs",
+      "module": "shopping",
+      "catalog": "cs-shopping"
+    },
+    {
+      "id": "cs-tasks-literal-expanded",
+      "name": "zítra vyprat prádlo",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "cs",
+      "module": "tasks",
+      "catalog": "cs-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "cs-tasks-exact",
+      "name": "vyprat prádlo",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "cs",
+      "module": "tasks",
+      "catalog": "cs-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "cs-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "cs",
+      "module": "tasks",
+      "catalog": "cs-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "zh-shopping-literal-expanded",
+      "name": "植物性人造黄油",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "zh",
+      "module": "shopping",
+      "catalog": "zh-shopping"
+    },
+    {
+      "id": "zh-shopping-exact",
+      "name": "人造黄油",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "zh",
+      "module": "shopping",
+      "catalog": "zh-shopping"
+    },
+    {
+      "id": "zh-shopping-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "zh",
+      "module": "shopping",
+      "catalog": "zh-shopping"
+    },
+    {
+      "id": "zh-tasks-literal-expanded",
+      "name": "请洗衣服",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "locale": "zh",
+      "module": "tasks",
+      "catalog": "zh-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "zh-tasks-exact",
+      "name": "洗衣服",
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "locale": "zh",
+      "module": "tasks",
+      "catalog": "zh-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "zh-tasks-unrelated",
+      "name": "Qzxv Jkpt",
+      "expected": null,
+      "locale": "zh",
+      "module": "tasks",
+      "catalog": "zh-tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "arbitrary-prefix-Bio",
+      "name": "Bio Margerine",
+      "catalog": "de-shopping",
+      "module": "shopping",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      }
+    },
+    {
+      "id": "arbitrary-prefix-organic",
+      "name": "organic Margerine",
+      "catalog": "de-shopping",
+      "module": "shopping",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      }
+    },
+    {
+      "id": "arbitrary-prefix-regional",
+      "name": "regional Margerine",
+      "catalog": "de-shopping",
+      "module": "shopping",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      }
+    },
+    {
+      "id": "arbitrary-prefix-Hansdampf",
+      "name": "Hansdampf Margerine",
+      "catalog": "de-shopping",
+      "module": "shopping",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      }
+    },
+    {
+      "id": "arbitrary-prefix-extra-kontext",
+      "name": "extra-kontext Margerine",
+      "catalog": "de-shopping",
+      "module": "shopping",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      }
+    },
+    {
+      "id": "arbitrary-prefix-2026",
+      "name": "2026 Margerine",
+      "catalog": "de-shopping",
+      "module": "shopping",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      }
+    },
+    {
+      "id": "de-shopping-typo-one-edit-long-word",
+      "name": "Margerine",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "de",
+      "module": "shopping",
+      "catalog": "de-shopping-typo"
+    },
+    {
+      "id": "de-shopping-typo-more-than-one-edit",
+      "name": "ZZrgeriZZ",
+      "expected": null,
+      "locale": "de",
+      "module": "shopping",
+      "catalog": "de-shopping-typo"
+    },
+    {
+      "id": "de-tasks-typo-one-edit-long-word",
+      "name": "Margerine",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "de",
+      "module": "tasks",
+      "catalog": "de-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "de-tasks-typo-more-than-one-edit",
+      "name": "ZZrgeriZZ",
+      "expected": null,
+      "locale": "de",
+      "module": "tasks",
+      "catalog": "de-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "en-shopping-typo-one-edit-long-word",
+      "name": "chocloate",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "en",
+      "module": "shopping",
+      "catalog": "en-shopping-typo"
+    },
+    {
+      "id": "en-shopping-typo-more-than-one-edit",
+      "name": "ZZocloaZZ",
+      "expected": null,
+      "locale": "en",
+      "module": "shopping",
+      "catalog": "en-shopping-typo"
+    },
+    {
+      "id": "en-tasks-typo-one-edit-long-word",
+      "name": "chocloate",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "en",
+      "module": "tasks",
+      "catalog": "en-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "en-tasks-typo-more-than-one-edit",
+      "name": "ZZocloaZZ",
+      "expected": null,
+      "locale": "en",
+      "module": "tasks",
+      "catalog": "en-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "es-shopping-typo-one-edit-long-word",
+      "name": "chocolote",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "es",
+      "module": "shopping",
+      "catalog": "es-shopping-typo"
+    },
+    {
+      "id": "es-shopping-typo-more-than-one-edit",
+      "name": "ZZocoloZZ",
+      "expected": null,
+      "locale": "es",
+      "module": "shopping",
+      "catalog": "es-shopping-typo"
+    },
+    {
+      "id": "es-tasks-typo-one-edit-long-word",
+      "name": "chocolote",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "es",
+      "module": "tasks",
+      "catalog": "es-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "es-tasks-typo-more-than-one-edit",
+      "name": "ZZocoloZZ",
+      "expected": null,
+      "locale": "es",
+      "module": "tasks",
+      "catalog": "es-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "fr-shopping-typo-one-edit-long-word",
+      "name": "choccolat",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "fr",
+      "module": "shopping",
+      "catalog": "fr-shopping-typo"
+    },
+    {
+      "id": "fr-shopping-typo-more-than-one-edit",
+      "name": "ZZoccolZZ",
+      "expected": null,
+      "locale": "fr",
+      "module": "shopping",
+      "catalog": "fr-shopping-typo"
+    },
+    {
+      "id": "fr-tasks-typo-one-edit-long-word",
+      "name": "choccolat",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "fr",
+      "module": "tasks",
+      "catalog": "fr-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "fr-tasks-typo-more-than-one-edit",
+      "name": "ZZoccolZZ",
+      "expected": null,
+      "locale": "fr",
+      "module": "tasks",
+      "catalog": "fr-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "it-shopping-typo-one-edit-long-word",
+      "name": "cioccolto",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "it",
+      "module": "shopping",
+      "catalog": "it-shopping-typo"
+    },
+    {
+      "id": "it-shopping-typo-more-than-one-edit",
+      "name": "ZZoccolZZ",
+      "expected": null,
+      "locale": "it",
+      "module": "shopping",
+      "catalog": "it-shopping-typo"
+    },
+    {
+      "id": "it-tasks-typo-one-edit-long-word",
+      "name": "cioccolto",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "it",
+      "module": "tasks",
+      "catalog": "it-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "it-tasks-typo-more-than-one-edit",
+      "name": "ZZoccolZZ",
+      "expected": null,
+      "locale": "it",
+      "module": "tasks",
+      "catalog": "it-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "nl-shopping-typo-one-edit-long-word",
+      "name": "chocloade",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "nl",
+      "module": "shopping",
+      "catalog": "nl-shopping-typo"
+    },
+    {
+      "id": "nl-shopping-typo-more-than-one-edit",
+      "name": "ZZocloaZZ",
+      "expected": null,
+      "locale": "nl",
+      "module": "shopping",
+      "catalog": "nl-shopping-typo"
+    },
+    {
+      "id": "nl-tasks-typo-one-edit-long-word",
+      "name": "chocloade",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "nl",
+      "module": "tasks",
+      "catalog": "nl-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "nl-tasks-typo-more-than-one-edit",
+      "name": "ZZocloaZZ",
+      "expected": null,
+      "locale": "nl",
+      "module": "tasks",
+      "catalog": "nl-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "pl-shopping-typo-one-edit-long-word",
+      "name": "czekalada",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "pl",
+      "module": "shopping",
+      "catalog": "pl-shopping-typo"
+    },
+    {
+      "id": "pl-shopping-typo-more-than-one-edit",
+      "name": "ZZekalaZZ",
+      "expected": null,
+      "locale": "pl",
+      "module": "shopping",
+      "catalog": "pl-shopping-typo"
+    },
+    {
+      "id": "pl-tasks-typo-one-edit-long-word",
+      "name": "czekalada",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "pl",
+      "module": "tasks",
+      "catalog": "pl-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "pl-tasks-typo-more-than-one-edit",
+      "name": "ZZekalaZZ",
+      "expected": null,
+      "locale": "pl",
+      "module": "tasks",
+      "catalog": "pl-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "pt-BR-shopping-typo-one-edit-long-word",
+      "name": "chocollate",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "pt-BR",
+      "module": "shopping",
+      "catalog": "pt-BR-shopping-typo"
+    },
+    {
+      "id": "pt-BR-shopping-typo-more-than-one-edit",
+      "name": "ZZocollaZZ",
+      "expected": null,
+      "locale": "pt-BR",
+      "module": "shopping",
+      "catalog": "pt-BR-shopping-typo"
+    },
+    {
+      "id": "pt-BR-tasks-typo-one-edit-long-word",
+      "name": "chocollate",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "pt-BR",
+      "module": "tasks",
+      "catalog": "pt-BR-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "pt-BR-tasks-typo-more-than-one-edit",
+      "name": "ZZocollaZZ",
+      "expected": null,
+      "locale": "pt-BR",
+      "module": "tasks",
+      "catalog": "pt-BR-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "ru-shopping-typo-one-edit-long-word",
+      "name": "шокалад",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "ru",
+      "module": "shopping",
+      "catalog": "ru-shopping-typo"
+    },
+    {
+      "id": "ru-shopping-typo-more-than-one-edit",
+      "name": "ZZкалZZ",
+      "expected": null,
+      "locale": "ru",
+      "module": "shopping",
+      "catalog": "ru-shopping-typo"
+    },
+    {
+      "id": "ru-tasks-typo-one-edit-long-word",
+      "name": "шокалад",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "ru",
+      "module": "tasks",
+      "catalog": "ru-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "ru-tasks-typo-more-than-one-edit",
+      "name": "ZZкалZZ",
+      "expected": null,
+      "locale": "ru",
+      "module": "tasks",
+      "catalog": "ru-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "sv-shopping-typo-one-edit-long-word",
+      "name": "chokladd",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "sv",
+      "module": "shopping",
+      "catalog": "sv-shopping-typo"
+    },
+    {
+      "id": "sv-shopping-typo-more-than-one-edit",
+      "name": "ZZoklaZZ",
+      "expected": null,
+      "locale": "sv",
+      "module": "shopping",
+      "catalog": "sv-shopping-typo"
+    },
+    {
+      "id": "sv-tasks-typo-one-edit-long-word",
+      "name": "chokladd",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "sv",
+      "module": "tasks",
+      "catalog": "sv-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "sv-tasks-typo-more-than-one-edit",
+      "name": "ZZoklaZZ",
+      "expected": null,
+      "locale": "sv",
+      "module": "tasks",
+      "catalog": "sv-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "cs-shopping-typo-one-edit-long-word",
+      "name": "čokláda",
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "cs",
+      "module": "shopping",
+      "catalog": "cs-shopping-typo"
+    },
+    {
+      "id": "cs-shopping-typo-more-than-one-edit",
+      "name": "ZZkláZZ",
+      "expected": null,
+      "locale": "cs",
+      "module": "shopping",
+      "catalog": "cs-shopping-typo"
+    },
+    {
+      "id": "cs-tasks-typo-one-edit-long-word",
+      "name": "čokláda",
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "locale": "cs",
+      "module": "tasks",
+      "catalog": "cs-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "cs-tasks-typo-more-than-one-edit",
+      "name": "ZZkláZZ",
+      "expected": null,
+      "locale": "cs",
+      "module": "tasks",
+      "catalog": "cs-tasks-typo",
+      "workspace_id": 9
+    },
+    {
+      "id": "zh-shopping-typo-characters-not-long-words",
+      "name": "有机全麦米粉袋",
+      "expected": null,
+      "locale": "zh",
+      "module": "shopping",
+      "catalog": "zh-shopping-typo"
+    },
+    {
+      "id": "zh-tasks-typo-characters-not-long-words",
+      "name": "有机全麦米粉袋",
+      "expected": null,
+      "locale": "zh",
+      "module": "tasks",
+      "catalog": "zh-tasks-typo",
+      "workspace_id": 9
+    }
+  ]
+}

@@ -29,8 +29,8 @@ try {
       ${focusCss}
       ${mobileCss}
     </style>
-    <button type="button" class="today-focus-btn" id="today-focus-btn"><span>Fokus</span></button>
-    <button type="button" class="minimal-todos-btn" id="minimal-todos-btn"><span>Minimal</span></button>
+    <button type="button" class="ui-topbar-toggle" id="today-focus-btn"><span data-topbar-toggle-label>Fokus</span></button>
+    <button type="button" class="ui-topbar-toggle" id="minimal-todos-btn"><span data-topbar-toggle-label>Minimal</span></button>
     <div class="search-box" id="search-box">
       <button type="button" class="btn btn-secondary btn-icon search-toggle-btn" id="search-toggle-btn">Suche</button>
       <input id="search-input">

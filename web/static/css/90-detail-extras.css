@@ -6,42 +6,6 @@ body.is-minimal-todos .todo-actions {
   align-self: center;
 }
 
-.todo-recurring-subsection {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-
-.todo-recurring-heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 12px;
-  color: var(--text-primary);
-}
-
-.todo-recurring-heading > span {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  flex: 0 0 auto;
-}
-
-.todo-recurring-heading svg {
-  width: 16px;
-  height: 16px;
-}
-
-.todo-recurring-heading p {
-  margin: 2px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-}
 
 #todo-recurring-interval-group.is-disabled {
   opacity: 0.55;
@@ -103,6 +67,16 @@ body.is-minimal-todos .todo-actions {
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+.ui-checkbox-label.ui-checkbox-round {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.ui-checkbox-round .ui-checkbox-box {
+  border-radius: 50%;
+  pointer-events: none;
+}
+
 .ui-checkbox-box .ui-icon {
   width: 14px;
   height: 14px;
@@ -116,7 +90,7 @@ body.is-minimal-todos .todo-actions {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
 }
 
-.ui-checkbox-label:has(input:checked) .ui-checkbox-box {
+.ui-checkbox-label:has(input:checked,input:indeterminate) .ui-checkbox-box {
   border-color: var(--accent);
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #22c55e));
   box-shadow: 0 6px 16px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.24));
@@ -126,6 +100,15 @@ body.is-minimal-todos .todo-actions {
   opacity: 1;
   transform: scale(1) rotate(0deg);
 }
+
+.ui-checkbox-label:has(input:indeterminate) .ui-checkbox-box::after {
+  content: "";
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+.ui-checkbox-label:has(input:indeterminate) .ui-checkbox-box .ui-icon { display: none; }
 
 .todo-subtasks-editor {
   display: grid;
@@ -318,60 +301,27 @@ body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
   outline: none;
 }
 
-.todo-collapsible-card {
-  display: block;
-}
-
-.todo-collapsible-summary {
-  cursor: pointer;
-  list-style: none;
-  margin-bottom: 0;
-  user-select: none;
-}
-
-.todo-collapsible-summary::-webkit-details-marker {
-  display: none;
-}
-
-.todo-collapsible-summary:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
-  outline-offset: 4px;
-  border-radius: 14px;
-}
-
-.todo-collapsible-card[open] > .todo-collapsible-summary {
-  margin-bottom: 16px;
-}
-
-.todo-collapsible-spacer {
+.todo-section-heading-spacer {
   flex: 1 1 auto;
 }
 
-.todo-collapsible-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  transform: rotate(-90deg);
-  transition: transform 0.16s ease, color 0.16s ease;
-}
-
-.todo-collapsible-card[open] .todo-collapsible-chevron {
-  color: var(--accent);
-  transform: rotate(0deg);
-}
-
-.todo-collapsible-summary .todo-meta-chip {
+.todo-subtasks-card > .ui-section-heading .todo-meta-chip,
+.todo-comments-card > .ui-section-heading .todo-meta-chip,
+.todo-attachments-card > .ui-section-heading .todo-meta-chip {
   flex: 0 0 auto;
   align-self: center;
 }
 
 @media (max-width: 640px) {
-  .todo-collapsible-summary {
+  .todo-subtasks-card > .ui-section-heading,
+  .todo-comments-card > .ui-section-heading,
+  .todo-attachments-card > .ui-section-heading {
     gap: 10px;
   }
 
-  .todo-collapsible-summary .todo-meta-chip {
+  .todo-subtasks-card > .ui-section-heading .todo-meta-chip,
+  .todo-comments-card > .ui-section-heading .todo-meta-chip,
+  .todo-attachments-card > .ui-section-heading .todo-meta-chip {
     margin-left: auto;
   }
 }

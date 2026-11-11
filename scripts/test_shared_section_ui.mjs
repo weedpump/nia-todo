@@ -1,0 +1,452 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+globalThis.location = { origin: 'http://localhost' };
+globalThis.document = {
+  createElement() {
+    return {
+      _text: '',
+      set textContent(value) {
+        this._text = String(value ?? '');
+        this.innerHTML = this._text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+      },
+      get textContent() { return this._text; },
+      innerHTML: '',
+    };
+  },
+};
+globalThis.CSS = { escape: value => String(value).replaceAll('"', '\\"') };
+const {
+  createCompletedCleanupController,
+  createSectionController,
+  createSectionRootRegistry,
+  renderSectionManagementRow,
+  renderSectionCollection,
+  resolveSectionDragSourceAdapter,
+  resolveSectionDropAdapter,
+} = await import('../web/static/js/features/section-ui.js');
+const { sectionDragSourceMatches } = await import('../web/static/js/features/drag-drop.js');
+
+const sections = [
+  { id: 'same-id', name: '<Produce>', sort_order: 0 },
+  { id: 'empty-id', name: 'Empty', sort_order: 1 },
+];
+const items = [
+  { id: 'a', section_id: 'same-id', name: '<Milk>' },
+  { id: 'b', section_id: 'missing-id', name: 'Bread' },
+  { id: 'c', section_id: null, name: 'Eggs' },
+];
+const html = renderSectionCollection({
+  sections,
+  items,
+  canManage: true,
+  unsortedLabel: 'Ohne Abschnitt',
+  deleteLabel: 'Delete',
+  newLabel: 'Add section',
+  clearCompletedLabel: 'Delete completed',
+  renderItem: item => `<div class="section-item-name">${item.name.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</div>`,
+});
+assert.match(html, /class="section-dropzone" data-drop-index="0"/);
+assert.match(html, /class="section-header" data-section-id="same-id" draggable="true"/);
+assert.match(html, /class="section-name" data-section-action="edit" data-section-id="same-id"/);
+assert.match(html, /&lt;Produce&gt;/);
+assert.match(html, /class="section-count">1</);
+assert.match(html, /data-section-id="empty-id"[\s\S]*class="section-count">0</, 'empty sections remain visible');
+assert.match(html, /class="section-header section-unsorted" data-section-id="null"[\s\S]*Ohne Abschnitt[\s\S]*class="section-count">2</, 'null, missing and unknown section IDs share the final unsorted group');
+assert.match(html, /&lt;Milk&gt;/);
+assert.match(html, /data-section-action="show-add"/);
+assert.match(html, /data-section-collection-action="clear-completed"/);
+assert.equal(renderSectionManagementRow({ newLabel: 'Add section', clearCompletedLabel: 'Delete completed' }).match(/class="add-section-row"/g)?.length, 1);
+
+const stableTieHtml = renderSectionCollection({
+  sections: [
+    { id: 'z-last-by-id', name: 'First from Tasks', sort_order: 0 },
+    { id: 'a-first-by-id', name: 'Second from Tasks', sort_order: 0 },
+  ],
+  items: [],
+  canManage: true,
+  unsortedLabel: 'Ohne Abschnitt',
+});
+assert(stableTieHtml.indexOf('First from Tasks') < stableTieHtml.indexOf('Second from Tasks'), 'equal sort orders preserve the existing Tasks-visible section order');
+
+const readonlyHtml = renderSectionCollection({
+  sections,
+  items,
+  canManage: false,
+  unsortedLabel: 'Ohne Abschnitt',
+  deleteLabel: 'Delete',
+  newLabel: 'Add section',
+  renderItem: item => `<div>${item.name}</div>`,
+});
+assert.doesNotMatch(readonlyHtml, /data-section-action=/, 'read-only sections expose no mutation controls');
+assert.doesNotMatch(readonlyHtml, /draggable="true"/, 'read-only sections cannot be reordered');
+assert.doesNotMatch(readonlyHtml, /section-dropzone/, 'read-only sections expose no reorder targets');
+
+const filteredEditorHtml = renderSectionCollection({
+  sections,
+  items,
+  canManage: true,
+  canReorder: false,
+  unsortedLabel: 'Ohne Abschnitt',
+  deleteLabel: 'Delete',
+  newLabel: 'Add section',
+  renderItem: item => `<div>${item.name}</div>`,
+});
+assert.match(filteredEditorHtml, /data-section-action="edit"/, 'filtered views keep ordinary section editing available');
+assert.match(filteredEditorHtml, /data-section-action="delete"/, 'filtered views keep ordinary section deletion available');
+assert.doesNotMatch(filteredEditorHtml, /draggable="true"/, 'filtered views must not offer a partial section reorder');
+assert.doesNotMatch(filteredEditorHtml, /section-dropzone/, 'filtered views must not expose invalid partial reorder targets');
+
+const contentEditorHtml = renderSectionCollection({
+  sections,
+  items,
+  canManage: false,
+  canCreate: true,
+  canCleanup: true,
+  unsortedLabel: 'Ohne Abschnitt',
+  deleteLabel: 'Delete',
+  newLabel: 'Add section',
+  clearCompletedLabel: 'Delete completed',
+  renderItem: item => `<div>${item.name}</div>`,
+});
+assert.match(contentEditorHtml, /data-section-action="show-add"/, 'content editors can add Shopping sections without list-management authority');
+assert.match(contentEditorHtml, /data-section-collection-action="clear-completed"/, 'content editors can bulk-delete purchased items');
+assert.doesNotMatch(contentEditorHtml, /data-section-action="edit"|data-section-action="delete"/, 'content editing does not grant section metadata management');
+
+function root(scope) {
+  return {
+    dataset: { sectionRoot: scope },
+    closest(selector) { return selector === '[data-section-root]' ? this : null; },
+  };
+}
+const tasksRoot = root('tasks');
+const shoppingRoot = root('shopping');
+const tasksAdapter = { name: 'tasks', canManage: () => true, resolveSectionId: id => `task:${id}` };
+const shoppingAdapter = { name: 'shopping', canManage: () => true, resolveSectionId: id => `shop:${id}` };
+const readonlyShoppingAdapter = { name: 'shopping-readonly', canManage: () => false, resolveSectionId: id => `readonly:${id}` };
+const filteredShoppingAdapter = { name: 'shopping-filtered', canManage: () => true, canReorder: () => false, resolveSectionId: id => `filtered:${id}` };
+const registry = createSectionRootRegistry();
+registry.register(tasksRoot, tasksAdapter);
+registry.register(shoppingRoot, shoppingAdapter);
+assert.equal(registry.resolve(tasksRoot), tasksAdapter);
+assert.equal(registry.resolve(shoppingRoot), shoppingAdapter);
+assert.equal(registry.resolveSectionId(tasksRoot, 'same-id'), 'task:same-id');
+assert.equal(registry.resolveSectionId(shoppingRoot, 'same-id'), 'shop:same-id');
+assert.equal(resolveSectionDragSourceAdapter({ registry, taskAdapter: tasksAdapter, target: shoppingRoot }), shoppingAdapter);
+registry.register(shoppingRoot, readonlyShoppingAdapter);
+assert.equal(resolveSectionDragSourceAdapter({ registry, taskAdapter: tasksAdapter, target: shoppingRoot }), null, 'read-only roots cannot start desktop or long-press section DnD');
+registry.register(shoppingRoot, filteredShoppingAdapter);
+assert.equal(resolveSectionDragSourceAdapter({ registry, taskAdapter: tasksAdapter, target: shoppingRoot }), null, 'filtered roots cannot start a partial section reorder');
+registry.register(shoppingRoot, shoppingAdapter);
+assert.equal(resolveSectionDropAdapter({ registry, taskAdapter: tasksAdapter, sourceAdapter: tasksAdapter, target: tasksRoot }), tasksAdapter);
+assert.equal(resolveSectionDropAdapter({ registry, taskAdapter: tasksAdapter, sourceAdapter: shoppingAdapter, target: shoppingRoot }), shoppingAdapter);
+assert.equal(resolveSectionDropAdapter({ registry, taskAdapter: tasksAdapter, sourceAdapter: shoppingAdapter, target: tasksRoot }), null, 'section DnD must reject a target owned by another mounted root even when IDs collide');
+assert.equal(sectionDragSourceMatches({ currentId: 'second', currentAdapter: shoppingAdapter, completedId: 'first', completedAdapter: shoppingAdapter }), false, 'a completed pointer drag cannot clear a newer drag from the same root');
+assert.equal(sectionDragSourceMatches({ currentId: 'first', currentAdapter: shoppingAdapter, completedId: 'first', completedAdapter: shoppingAdapter }), true);
+registry.unregister(tasksRoot);
+assert.equal(registry.resolve(tasksRoot), null);
+
+const controllerListeners = {};
+const controllerEvents = {
+  addEventListener(type, listener) { controllerListeners[type] = listener; },
+};
+let focusedControl = null;
+const focusable = name => ({ name, focus() { focusedControl = this; } });
+let liveControllerRoot = null;
+let confirmOptions = null;
+const controllerAdapter = {
+  getRoot: () => liveControllerRoot,
+  getSections: () => [{ id: 'opaque-controller', name: 'Before' }],
+  canManage: () => true,
+  resolveSectionId: id => id,
+  render: () => {},
+  createSection: async () => ({ id: 'created-controller' }),
+  renameSection: async () => ({ id: 'opaque-controller', name: 'After' }),
+  deleteSection: async () => ({ id: 'opaque-controller' }),
+  labels: { deleteMessage: 'Shopping items move to Without section' },
+};
+const controllerRoot = root('controller');
+registry.register(controllerRoot, controllerAdapter);
+const controller = createSectionController({
+  registry,
+  root: controllerEvents,
+  confirmDanger: async options => { confirmOptions = options; return false; },
+  labels: { deleteTitle: 'Delete', deleteMessage: 'Confirm', deleteConfirm: 'Delete' },
+});
+controller.bind();
+const originalCreate = controllerAdapter.createSection;
+const originalRename = controllerAdapter.renameSection;
+let keyboardSectionCreates = 0;
+let keyboardSectionRenames = 0;
+controllerAdapter.createSection = async () => { keyboardSectionCreates++; return { id: 'keyboard-created' }; };
+controllerAdapter.renameSection = async () => { keyboardSectionRenames++; return { id: 'opaque-controller' }; };
+for (const mode of ['new', 'edit']) {
+  const input = {
+    value: 'Confirmed composition', dataset: { sectionInput: mode, sectionId: 'opaque-controller' },
+    closest(selector) {
+      if (selector === '[data-section-input]') return this;
+      if (selector === '[data-section-root]') return controllerRoot;
+      return null;
+    },
+  };
+  const createsBefore = keyboardSectionCreates;
+  const renamesBefore = keyboardSectionRenames;
+  for (const blocked of [{ isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }]) {
+    let prevented = 0;
+    await controllerListeners.keydown({ key: 'Enter', target: input, ...blocked, preventDefault() { prevented++; } });
+    assert.equal(keyboardSectionCreates, createsBefore, 'IME/handled Enter must not create a section');
+    assert.equal(keyboardSectionRenames, renamesBefore, 'IME/handled Enter must not rename a section');
+    assert.equal(prevented, 0, 'the section controller must not steal a composition event');
+  }
+  await controllerListeners.keydown({ key: 'Enter', target: input, preventDefault() {} });
+  assert.equal(keyboardSectionCreates, createsBefore + Number(mode === 'new'), 'ordinary Enter preserves section creation');
+  assert.equal(keyboardSectionRenames, renamesBefore + Number(mode === 'edit'), 'ordinary Enter preserves section renaming');
+}
+controllerAdapter.createSection = originalCreate;
+controllerAdapter.renameSection = originalRename;
+function actionTarget(action, sectionId) {
+  return {
+    dataset: { sectionAction: action, sectionId },
+    closest(selector) {
+      if (selector === '[data-section-action]') return this;
+      if (selector === '[data-section-root]') return controllerRoot;
+      return null;
+    },
+  };
+}
+async function clickController(action, sectionId) {
+  await controllerListeners.click({
+    target: actionTarget(action, sectionId),
+    preventDefault() {},
+    stopPropagation() {},
+  });
+  await Promise.resolve();
+}
+
+const createdFocus = focusable('created');
+liveControllerRoot = { querySelector: selector => selector === '[data-section-input="new"]' ? { value: 'Created' } : null };
+controllerAdapter.render = () => { liveControllerRoot = { querySelector: selector => selector.includes('created-controller') ? createdFocus : null }; };
+await clickController('save-new');
+assert.equal(focusedControl, createdFocus, 'create resolves focus against the live rerendered root');
+
+const renamedFocus = focusable('renamed');
+liveControllerRoot = { querySelector: selector => selector.includes('[data-section-input="edit"]') ? { value: 'Renamed' } : null };
+controllerAdapter.render = () => { liveControllerRoot = { querySelector: selector => selector.includes('opaque-controller') ? renamedFocus : null }; };
+await clickController('save-edit', 'opaque-controller');
+assert.equal(focusedControl, renamedFocus, 'rename restores focus to the live section name');
+
+const failedCreateFocus = focusable('failed-create');
+liveControllerRoot = { querySelector: selector => selector === '[data-section-input="new"]' ? { value: 'Fails' } : null };
+controllerAdapter.createSection = async () => { throw new Error('storage failed'); };
+controllerAdapter.onError = () => {};
+controllerAdapter.render = () => { liveControllerRoot = { querySelector: selector => selector === '[data-section-action="show-add"]' ? failedCreateFocus : null }; };
+await clickController('save-new');
+assert.equal(focusedControl, failedCreateFocus, 'storage failure restores focus to a live retry control');
+
+const replacementDelete = focusable('replacement-delete');
+liveControllerRoot = { querySelectorAll: () => [] };
+await clickController('delete', 'opaque-controller');
+assert.equal(confirmOptions.message, 'Shopping items move to Without section', 'domain adapters override only the delete copy that is not semantically shared');
+liveControllerRoot = { querySelectorAll: () => [{ dataset: { sectionId: 'opaque-controller' }, ...replacementDelete }] };
+assert.equal(confirmOptions.returnFocus().name, 'replacement-delete', 'delete confirmation resolves its return focus lazily after rerender');
+
+controllerAdapter.createSection = async () => ({ id: 'created-controller' });
+controllerAdapter.deleteSection = async () => ({ id: 'opaque-controller' });
+const deleteFocus = focusable('delete-complete');
+controllerAdapter.render = () => { liveControllerRoot = { querySelector: selector => selector === '[data-section-action="show-add"]' ? deleteFocus : null }; };
+confirmOptions = null;
+const confirmingController = createSectionController({
+  registry,
+  root: { addEventListener(type, listener) { controllerListeners[`confirm-${type}`] = listener; } },
+  confirmDanger: async options => { confirmOptions = options; return true; },
+});
+confirmingController.bind();
+await controllerListeners['confirm-click']({ target: actionTarget('delete', 'opaque-controller'), preventDefault() {}, stopPropagation() {} });
+await Promise.resolve();
+assert.equal(focusedControl, deleteFocus, 'delete completion restores focus inside the live section root');
+
+let cleanupCount = 2;
+let cleanupCalls = 0;
+let cleanupEmptyCalls = 0;
+let cleanupSuccessCount = 0;
+let releaseCleanup;
+let cleanupConfirmOptions = null;
+const cleanupButton = {
+  ...focusable('cleanup-button'),
+  disabled: false,
+  attributes: new Map(),
+  setAttribute(name, value) { this.attributes.set(name, String(value)); },
+  removeAttribute(name) { this.attributes.delete(name); },
+};
+const cleanupRoot = root('cleanup');
+const cleanupLiveRoot = { querySelector: selector => selector === '[data-section-collection-action="clear-completed"]' ? cleanupButton : null };
+const cleanupAdapter = {
+  getRoot: () => cleanupLiveRoot,
+  canManage: () => true,
+  completedCount: () => cleanupCount,
+  clearCompleted: async () => {
+    cleanupCalls += 1;
+    await new Promise(resolve => { releaseCleanup = resolve; });
+    cleanupCount = 0;
+    return { deleted_count: 2 };
+  },
+  onCompletedEmpty: () => { cleanupEmptyCalls += 1; },
+  onCompletedSuccess: result => { cleanupSuccessCount = result.deleted_count; },
+  labels: {
+    clearCompletedTitle: 'Delete completed?',
+    clearCompletedMessage: ({ count }) => `Delete ${count}`,
+    clearCompletedConfirm: 'Delete',
+  },
+};
+registry.register(cleanupRoot, cleanupAdapter);
+const cleanupListeners = {};
+const cleanupController = createCompletedCleanupController({
+  registry,
+  root: { addEventListener(type, listener) { cleanupListeners[type] = listener; } },
+  confirmDanger: async options => { cleanupConfirmOptions = options; return true; },
+});
+cleanupController.bind();
+const cleanupTarget = {
+  dataset: { sectionCollectionAction: 'clear-completed' },
+  closest(selector) {
+    if (selector === '[data-section-collection-action]') return this;
+    if (selector === '[data-section-root]') return cleanupRoot;
+    return null;
+  },
+};
+const firstCleanup = cleanupListeners.click({ target: cleanupTarget, preventDefault() {}, stopPropagation() {} });
+const duplicateCleanup = cleanupListeners.click({ target: cleanupTarget, preventDefault() {}, stopPropagation() {} });
+await Promise.resolve();
+assert.equal(cleanupButton.disabled, true, 'the shared cleanup action must expose a busy disabled state while confirmation or persistence is active');
+assert.equal(cleanupButton.attributes.get('aria-busy'), 'true');
+assert.equal(cleanupCalls, 1, 'the shared cleanup controller must single-flight duplicate activation');
+assert.equal(cleanupConfirmOptions.message, 'Delete 2');
+releaseCleanup();
+await Promise.all([firstCleanup, duplicateCleanup]);
+await Promise.resolve();
+assert.equal(cleanupButton.disabled, false, 'the shared cleanup action must leave busy state after settlement');
+assert.equal(cleanupButton.attributes.has('aria-busy'), false);
+assert.equal(focusedControl, cleanupButton, 'completed cleanup restores focus to the live shared action');
+assert.equal(cleanupSuccessCount, 2, 'the shared cleanup controller reports the domain result after success');
+await cleanupListeners.click({ target: cleanupTarget, preventDefault() {}, stopPropagation() {} });
+assert.equal(cleanupEmptyCalls, 1, 'an empty cleanup uses the domain adapter feedback without opening another confirmation');
+cleanupCount = 1;
+let permissionChecks = 0;
+cleanupAdapter.canManage = () => ++permissionChecks === 1;
+assert.equal(await cleanupController.clearCompleted(cleanupAdapter), false, 'permission loss after confirmation must abort the durable cleanup');
+assert.equal(cleanupCalls, 1, 'permission loss must not reach the domain mutation');
+cleanupAdapter.canManage = () => true;
+
+const { createSectionActionsFeature } = await import('../web/static/js/features/section-actions.js');
+let taskSections = [];
+let taskTodos = [{ id: 10, project_id: 1, section_id: null, title: 'Move me' }];
+const taskProjects = [{ id: 1 }, { id: 'temp-project-target' }];
+const taskQueue = [];
+let taskRenderCount = 0;
+let taskMutationReservations = 0;
+let releaseTaskSync;
+const taskSyncPending = new Promise(resolve => { releaseTaskSync = resolve; });
+const taskActions = createSectionActionsFeature({
+  getTodos: () => taskTodos,
+  setTodos: next => { taskTodos = next; },
+  getProjects: () => taskProjects,
+  getSections: () => taskSections,
+  setSections: next => { taskSections = next; },
+  getCurrentProjectId: () => 1,
+  dbPut: async () => {},
+  dbGetAll: async () => [],
+  deleteFromDB: async () => {},
+  addToSyncQueue: async (action, data) => { taskQueue.push({ action, data }); },
+  runSyncQueueMutation: operation => {
+    taskMutationReservations += 1;
+    return operation(async (action, data) => { taskQueue.push({ action, data }); });
+  },
+  isOnlineForSync: () => true,
+  syncWithServer: () => taskSyncPending,
+  renderTodos: () => { taskRenderCount += 1; },
+  renderProjects: () => {},
+  confirmDanger: async () => false,
+  completedCount: () => taskTodos.filter(todo => todo.status === 'done').length,
+  clearCompleted: async () => ({ deleted_count: 0 }),
+  onCompletedEmpty: () => {},
+  completedLabels: {
+    clearCompletedTitle: 'Delete completed?',
+    clearCompletedMessage: ({ count }) => `Delete ${count}`,
+    clearCompletedConfirm: 'Delete',
+  },
+  sectionsFeature: { renderSectionHeader: () => '' },
+  sectionRegistry: createSectionRootRegistry(),
+});
+assert.equal(taskActions.adapter.completedCount(), 0, 'the Tasks adapter exposes the shared cleanup count contract');
+assert.equal(typeof taskActions.adapter.clearCompleted, 'function');
+assert.equal(taskActions.adapter.labels.clearCompletedTitle, 'Delete completed?');
+const pendingTaskCreate = taskActions.adapter.createSection('Immediate');
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(taskSections.length, 1, 'Tasks publish the durable local projection before online sync completes');
+assert.equal(taskRenderCount, 1, 'Tasks rerender immediately while online sync is still pending');
+releaseTaskSync();
+await pendingTaskCreate;
+assert.equal(taskMutationReservations, 1, 'Tasks section create must reserve the complete entity and queue mutation');
+await taskActions.adapter.renameSection(taskSections[0].id, 'Renamed');
+assert.equal(taskMutationReservations, 2, 'Tasks section rename must reserve the complete entity and queue mutation');
+await taskActions.adapter.deleteSection(taskSections[0].id);
+assert.equal(taskMutationReservations, 3, 'Tasks section delete must reserve the complete entity and queue mutation');
+const recreatedSection = await taskActions.adapter.createSection('Drag target');
+const movedTask = await taskActions.adapter.itemDrag.moveToSection(10, taskSections[0].id);
+assert.equal(movedTask.section_id, recreatedSection.id, 'the Tasks domain adapter must retain section assignment through the shared item DnD controller');
+assert.equal(taskTodos[0].section_id, recreatedSection.id);
+assert.deepEqual(taskQueue.at(-1), {
+  action: 'UPDATE_TODO',
+  data: { id: 10, changes: { section_id: recreatedSection.id } },
+});
+await taskActions.adapter.itemDrag.moveToProject(10, 'temp-project-target');
+assert.equal(taskTodos[0].project_id, 'temp-project-target', 'moving to a known pending project must preserve its opaque ID');
+assert.equal(taskTodos[0].section_id, null);
+assert.deepEqual(taskQueue.at(-1), { action: 'UPDATE_TODO', data: { id: 10, changes: { project_id: 'temp-project-target', section_id: null } } });
+taskSections.push({ id: 'temp-section-target', project_id: 'temp-project-target', name: 'Pending target' });
+await taskActions.adapter.itemDrag.moveToSection(10, 'temp-section-target');
+assert.equal(taskTodos[0].section_id, 'temp-section-target');
+const knownTargetQueueLength = taskQueue.length;
+assert.equal(await taskActions.adapter.itemDrag.moveToProject(10, 'temp-project-unavailable'), null);
+assert.equal(await taskActions.adapter.itemDrag.moveToSection(10, recreatedSection.id), null, 'a section in another project must remain unavailable');
+assert.equal(await taskActions.adapter.itemDrag.moveToSection(10, 'temp-section-unavailable'), null);
+assert.equal(taskQueue.length, knownTargetQueueLength, 'invalid targets must not enqueue mutations');
+
+const sectionActionsSource = readFileSync(new URL('../web/static/js/features/section-actions.js', import.meta.url), 'utf8');
+const sectionsSource = readFileSync(new URL('../web/static/js/features/sections.js', import.meta.url), 'utf8');
+const dragDropSource = readFileSync(new URL('../web/static/js/features/drag-drop.js', import.meta.url), 'utf8');
+assert.match(dragDropSource, /classList\.toggle\('section-dragging', active\)/, 'shared DnD must expose section-drag state for enlarged drop targets');
+assert.match(dragDropSource, /setSectionDragActive\(true\)/, 'section drag start must enlarge shared drop targets');
+assert.match(dragDropSource, /setSectionDragActive\(false\)/, 'section drag cleanup must restore normal drop target spacing');
+const shoppingNavigationSource = readFileSync(new URL('../web/static/js/features/shopping-navigation.js', import.meta.url), 'utf8');
+const appRenderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
+const testAllSource = readFileSync(new URL('./test_all.sh', import.meta.url), 'utf8');
+const addSectionLabels = {
+  cs: 'Přidat sekci', de: 'Abschnitt hinzufügen', en: 'Add section', es: 'Añadir sección',
+  fr: 'Ajouter une section', it: 'Aggiungi sezione', nl: 'Sectie toevoegen', pl: 'Dodaj sekcję',
+  'pt-BR': 'Adicionar seção', ru: 'Добавить раздел', sv: 'Lägg till avsnitt', 'zh-CN': '添加分区',
+};
+for (const locale of Object.keys(addSectionLabels)) {
+  const messages = JSON.parse(readFileSync(new URL(`../web/static/i18n/${locale}.json`, import.meta.url), 'utf8'));
+  assert.equal(messages['section.new'], addSectionLabels[locale], `${locale} must use the action label for adding a section`);
+  assert(messages['shopping.section.unsorted'], `${locale} must localize the final Shopping unsorted group`);
+  assert(messages['shopping.section.deleteMessage'], `${locale} must localize the Shopping-specific delete consequence`);
+  for (const key of ['shopping.item.clearCompleted', 'shopping.done.empty', 'shopping.done.deleteTitle', 'shopping.done.deleteMessage', 'shopping.done.deleteConfirm', 'shopping.done.deleted', 'shopping.done.deleteFailed']) {
+    assert(messages[key], `${locale} must localize ${key}`);
+  }
+  assert.match(messages['shopping.done.deleteMessage'], /\{count\}/);
+  assert.match(messages['shopping.done.deleteMessage'], /\{list\}/);
+}
+assert.match(sectionActionsSource, /createSectionController/, 'Tasks CRUD must use the shared controller');
+assert.match(sectionsSource, /renderSectionHeader/, 'Tasks headers must use the shared renderer');
+assert.match(appRenderingSource, /renderSectionCollection/, 'Tasks and Shopping must use the same section collection renderer');
+assert.doesNotMatch(appRenderingSource, /renderAddRow|data-project-action="clear-done-current"/, 'Tasks must use the neutral section management row instead of a project-only cleanup button');
+assert.doesNotMatch(dragDropSource, /parseInt\(section\.dataset\.sectionId/, 'section IDs are opaque in desktop and pointer DnD');
+assert.match(shoppingNavigationSource, /renderSectionCollection/, 'Shopping must use the shared section renderer');
+assert.doesNotMatch(shoppingNavigationSource, /shopping-section-/, 'Shopping must not introduce parallel section UI classes');
+assert.match(testAllSource, /test_shared_section_ui\.mjs/, 'the shared section contract must run in the normal repository gate');
+assert.match(testAllSource, /test_shopping_sections\.mjs/, 'the Shopping section adapter contract must run in the normal repository gate');
+
+console.log('✅ Shared Tasks/Shopping section renderer and root registry contracts passed');

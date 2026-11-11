@@ -3,6 +3,7 @@ import { iconSvg } from '../icons/lucide-icons.js';
 const registry = new WeakMap();
 let openState = null;
 let nextId = 1;
+let lastPointerPosition = null;
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -113,6 +114,8 @@ function applySearchFilter(instance) {
   rows.forEach(row => {
     const matches = !term || normalizeSearch(row.dataset.label || '').includes(term);
     row.hidden = !matches;
+    const action = optionActionButton(instance, Number(row.dataset.index));
+    if (action) action.hidden = !matches;
     if (matches) visibleCount += 1;
   });
   const empty = instance.menu.querySelector('.ui-select-empty');
@@ -135,6 +138,7 @@ function renderSearch(instance) {
   input.value = instance.searchTerm || '';
   input.placeholder = instance.options.searchPlaceholder || 'Projekte suchen';
   input.setAttribute('aria-label', instance.options.searchLabel || input.placeholder);
+  input.addEventListener('focus', () => { instance.searchReceivedFocus = true; });
   input.addEventListener('input', () => {
     instance.searchTerm = input.value;
     applySearchFilter(instance);
@@ -142,7 +146,7 @@ function renderSearch(instance) {
   });
   input.addEventListener('keydown', (event) => {
     event.stopPropagation();
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'ArrowRight' || event.key === 'Enter' || event.key === 'Escape') {
       onMenuKeydown(event);
     }
   });
@@ -150,11 +154,77 @@ function renderSearch(instance) {
   instance.menu.appendChild(searchWrap);
 }
 
+function activateAction(instance) {
+  const action = instance?.options?.action;
+  if (!action || typeof action.onActivate !== 'function' || instance.select.disabled) return;
+  closeOpenDropdown('action');
+  instance.trigger.focus();
+  action.onActivate({
+    select: instance.select,
+    trigger: instance.trigger,
+  });
+}
+
+function renderAction(instance) {
+  const action = instance?.options?.action;
+  if (!action?.label || typeof action.onActivate !== 'function') return;
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'ui-select-action';
+  if (action.ariaLabel) row.setAttribute('aria-label', action.ariaLabel);
+  const marker = action.icon
+    ? `<span class="ui-select-action-icon" aria-hidden="true">${iconSvg(action.icon)}</span>`
+    : '';
+  row.innerHTML = `${marker}<span class="ui-select-action-label">${escapeHtml(action.label)}</span>`;
+  row.addEventListener('click', () => activateAction(instance));
+  instance.menu.appendChild(row);
+}
+
+function activateOptionAction(instance, action, option, index) {
+  if (!option || !action || typeof action.onActivate !== 'function' || instance.select.disabled || option.disabled) return;
+  closeOpenDropdown('option-action');
+  instance.trigger.focus();
+  action.onActivate({
+    option,
+    value: option.value,
+    index,
+    select: instance.select,
+    trigger: instance.trigger,
+  });
+}
+
 function renderMenu(instance) {
+  const options = visibleOptions(instance.select);
+  const optionActions = options.map((option, index) => typeof instance.options.optionAction === 'function'
+    ? instance.options.optionAction(option, index) : null);
+  const signature = JSON.stringify([
+    instance.select.value, instance.select.disabled, isSearchable(instance),
+    document.documentElement.lang,
+    instance.options.searchPlaceholder || 'Projekte suchen',
+    instance.options.searchLabel || instance.options.searchPlaceholder || 'Projekte suchen',
+    instance.options.emptyText || 'Keine Projekte gefunden',
+    instance.menu.dataset.labelledby,
+    options.map((option, index) => [option.value, optionLabel(option), option.disabled, optionDepth(option), optionMarker(option),
+      optionActions[index]?.icon, optionActions[index]?.ariaLabel, optionActions[index]?.label,
+      typeof optionActions[index]?.onActivate === 'function']),
+    instance.options.action?.label, instance.options.action?.ariaLabel, instance.options.action?.icon,
+    typeof instance.options.action?.onActivate === 'function',
+  ]);
+  if (instance.menuSignature === signature && instance.menu.childElementCount > 0) return;
+  instance.menuSignature = signature;
   instance.menu.innerHTML = '';
   renderSearch(instance);
-  const options = visibleOptions(instance.select);
+  const listbox = document.createElement('div');
+  listbox.id = `${instance.id}-ui-listbox`;
+  listbox.className = 'ui-select-options';
+  listbox.setAttribute('role', 'listbox');
+  const labelId = instance.menu.dataset.labelledby;
+  if (labelId) listbox.setAttribute('aria-labelledby', labelId);
+  instance.menu.appendChild(listbox);
+  const actionLayer = document.createElement('div');
+  actionLayer.className = 'ui-select-option-actions';
   options.forEach((option, index) => {
+    const optionAction = optionActions[index];
     const row = document.createElement('button');
     row.type = 'button';
     row.id = optionId(instance, index);
@@ -171,14 +241,40 @@ function renderMenu(instance) {
     const marker = optionMarker(option);
     row.classList.toggle('has-project-marker', Boolean(option.dataset?.projectColor || option.dataset?.projectIcon));
     row.classList.toggle('has-option-marker', Boolean(marker));
+    row.classList.toggle('has-option-action', Boolean(optionAction?.icon && typeof optionAction.onActivate === 'function' && !option.disabled));
     row.innerHTML = `<span class="ui-select-option-branch" aria-hidden="true"></span>${marker}<span class="ui-select-option-label">${escapeHtml(optionLabel(option))}</span><span class="ui-select-option-check" aria-hidden="true">${iconSvg('check')}</span>`;
     row.addEventListener('click', () => {
       if (option.disabled) return;
       chooseIndex(instance, index);
     });
-    row.addEventListener('mouseenter', () => highlightIndex(instance, index));
-    instance.menu.appendChild(row);
+    row.addEventListener('pointermove', event => {
+      if (event.pointerType === 'touch') return;
+      // Portals and scrolling can put a row under a stationary pointer. Only
+      // actual pointer movement may replace the keyboard's highlighted option.
+      if (lastPointerPosition?.id === event.pointerId
+        && lastPointerPosition.x === event.clientX && lastPointerPosition.y === event.clientY) return;
+      highlightIndex(instance, index);
+    });
+    listbox.appendChild(row);
+    if (optionAction?.icon && typeof optionAction.onActivate === 'function' && !option.disabled) {
+      const actionButton = document.createElement('button');
+      actionButton.type = 'button';
+      actionButton.className = 'ui-select-option-action';
+      actionButton.dataset.index = String(index);
+      actionButton.setAttribute('aria-label', optionAction.ariaLabel || optionAction.label || optionLabel(option));
+      actionButton.innerHTML = iconSvg(optionAction.icon);
+      actionButton.addEventListener('click', event => {
+        event.stopPropagation();
+        const currentOption = visibleOptions(instance.select)[index];
+        if (!currentOption) return;
+        const currentAction = typeof instance.options.optionAction === 'function'
+          ? instance.options.optionAction(currentOption, index) : null;
+        activateOptionAction(instance, currentAction, currentOption, index);
+      });
+      actionLayer.appendChild(actionButton);
+    }
   });
+  if (actionLayer.children.length) instance.menu.appendChild(actionLayer);
   if (isSearchable(instance)) {
     const empty = document.createElement('div');
     empty.className = 'ui-select-empty';
@@ -187,6 +283,19 @@ function renderMenu(instance) {
     instance.menu.appendChild(empty);
     applySearchFilter(instance);
   }
+  renderAction(instance);
+}
+
+function layoutOptionActions(instance) {
+  if (!instance) return;
+  const listbox = instance.menu.querySelector('.ui-select-options');
+  if (!listbox) return;
+  instance.menu.querySelectorAll('.ui-select-option-action').forEach(action => {
+    const option = instance.menu.querySelector(`.ui-select-option[data-index="${action.dataset.index}"]`);
+    action.hidden = !option || option.hidden;
+    if (action.hidden) return;
+    action.style.top = `${option.offsetTop + Math.max(0, (option.offsetHeight - action.offsetHeight) / 2)}px`;
+  });
 }
 
 function positionDropdown(trigger, menu) {
@@ -227,6 +336,7 @@ function positionDropdown(trigger, menu) {
   menu.style.top = `${Math.max(edge, top)}px`;
   menu.style.visibility = '';
   menu.classList.toggle('opens-above', openAbove);
+  layoutOptionActions(openState?.instance || registry.get(document.getElementById(menu.dataset.selectId)));
 }
 
 function highlightedOption(instance) {
@@ -237,10 +347,39 @@ function menuOptionRows(instance) {
   return Array.from(instance.menu.querySelectorAll('.ui-select-option')).filter(row => !row.hidden);
 }
 
+function optionActionButton(instance, index) {
+  return instance.menu.querySelector(`.ui-select-option-action[data-index="${index}"]`);
+}
+
+function actionRow(instance) {
+  return instance.menu.querySelector('.ui-select-action');
+}
+
+function focusAction(instance) {
+  const action = actionRow(instance);
+  if (!action) return false;
+  instance.menu.querySelectorAll('.ui-select-option').forEach(option => option.classList.remove('is-highlighted'));
+  instance.trigger.removeAttribute('aria-activedescendant');
+  action.focus();
+  return true;
+}
+
+function moveOptionHighlight(instance, currentIndex, direction) {
+  const rows = menuOptionRows(instance).filter(row => !row.disabled);
+  const position = rows.findIndex(row => Number(row.dataset.index) === Number(currentIndex));
+  if (direction > 0 && position === rows.length - 1 && focusAction(instance)) return;
+  const index = firstEnabledIndex(instance, currentIndex + direction, direction);
+  if (index >= 0) highlightIndex(instance, index);
+}
+
 function highlightIndex(instance, index) {
   const options = Array.from(instance.menu.querySelectorAll('.ui-select-option'));
   options.forEach(option => option.classList.remove('is-highlighted'));
-  const target = options.find(option => Number(option.dataset.index) === Number(index) && !option.hidden);
+  const target = options.find(option => (
+    Number(option.dataset.index) === Number(index)
+    && !option.hidden
+    && !option.closest('.ui-select-option-row')?.hidden
+  ));
   if (!target || target.disabled) return;
   target.classList.add('is-highlighted');
   instance.trigger.setAttribute('aria-activedescendant', target.id);
@@ -288,7 +427,11 @@ function openDropdown(instance) {
     return;
   }
   closeOpenDropdown('open-another');
+  instance.openSequence = Number(instance.openSequence || 0) + 1;
+  const openSequence = instance.openSequence;
+  instance.searchReceivedFocus = false;
   instance.searchTerm = '';
+  instance.menuSignature = null;
   renderMenu(instance);
   document.body.appendChild(instance.menu);
   instance.trigger.setAttribute('aria-expanded', 'true');
@@ -299,7 +442,14 @@ function openDropdown(instance) {
   if (index >= 0) highlightIndex(instance, index);
   openState = { instance };
   if (isSearchable(instance)) {
-    window.setTimeout(() => instance.menu.querySelector('.ui-select-search-input')?.focus(), 0);
+    window.setTimeout(() => {
+      if (openState?.instance !== instance || instance.openSequence !== openSequence) return;
+      if (instance.searchReceivedFocus) return;
+      const input = instance.menu.querySelector('.ui-select-search-input');
+      if (!input) return;
+      if (document.activeElement !== instance.trigger && document.activeElement !== document.body) return;
+      input.focus();
+    }, 0);
   }
 }
 
@@ -319,7 +469,18 @@ export function closeOpenDropdown(reason = 'programmatic') {
 }
 
 function onTriggerKeydown(instance, event) {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
   const isOpen = openState?.instance === instance;
+  if (event.key === 'ArrowRight' && isOpen) {
+    const current = highlightedOption(instance);
+    const index = current ? Number(current.dataset.index) : selectedIndex(instance);
+    const action = optionActionButton(instance, index);
+    if (action) {
+      event.preventDefault();
+      action.focus();
+    }
+    return;
+  }
   if ((event.key === 'Enter' || event.key === ' ') && isOpen) {
     event.preventDefault();
     const target = highlightedOption(instance);
@@ -337,14 +498,16 @@ function onTriggerKeydown(instance, event) {
     const direction = event.key === 'ArrowDown' ? 1 : -1;
     const current = highlightedOption(instance);
     const currentIndex = current ? Number(current.dataset.index) : selectedIndex(instance);
-    const index = firstEnabledIndex(instance, currentIndex + direction, direction);
-    if (index >= 0) highlightIndex(instance, index);
+    moveOptionHighlight(instance, currentIndex, direction);
   }
 }
 
 function onMenuKeydown(event) {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
   if (!openState) return;
   const instance = openState.instance;
+  const action = event.target.closest?.('.ui-select-action');
+  const optionAction = event.target.closest?.('.ui-select-option-action');
   if (event.key === 'Escape') {
     event.preventDefault();
     closeOpenDropdown('escape');
@@ -355,14 +518,50 @@ function onMenuKeydown(event) {
     closeOpenDropdown('tab');
     return;
   }
-  const options = Array.from(instance.menu.querySelectorAll('.ui-select-option'));
+  if (action && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault();
+    activateAction(instance);
+    return;
+  }
+  if (action && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+    event.preventDefault();
+    instance.trigger.focus();
+    const rows = menuOptionRows(instance).filter(row => !row.disabled);
+    const target = event.key === 'ArrowUp' ? rows[rows.length - 1] : rows[0];
+    if (target) highlightIndex(instance, Number(target.dataset.index));
+    return;
+  }
+  if (optionAction && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault();
+    const index = Number(optionAction.dataset.index);
+    const option = visibleOptions(instance.select)[index];
+    const descriptor = typeof instance.options.optionAction === 'function'
+      ? instance.options.optionAction(option, index)
+      : null;
+    activateOptionAction(instance, descriptor, option, index);
+    return;
+  }
+  if (optionAction && event.key === 'ArrowLeft') {
+    event.preventDefault();
+    const index = Number(optionAction.dataset.index);
+    instance.trigger.focus();
+    highlightIndex(instance, index);
+    return;
+  }
   const current = highlightedOption(instance);
   const currentIndex = current ? Number(current.dataset.index) : selectedIndex(instance);
+  if (event.key === 'ArrowRight') {
+    const action = optionActionButton(instance, currentIndex);
+    if (action && !action.hidden) {
+      event.preventDefault();
+      action.focus();
+    }
+    return;
+  }
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault();
     const direction = event.key === 'ArrowDown' ? 1 : -1;
-    const index = firstEnabledIndex(instance, currentIndex + direction, direction);
-    if (index >= 0) highlightIndex(instance, index);
+    moveOptionHighlight(instance, currentIndex, direction);
     return;
   }
   if (event.key === 'Enter' || event.key === ' ') {
@@ -375,6 +574,9 @@ function onMenuKeydown(event) {
 function bindGlobalListeners() {
   if (document.documentElement.dataset.uiDropdownsBound === '1') return;
   document.documentElement.dataset.uiDropdownsBound = '1';
+  document.addEventListener('pointermove', event => {
+    lastPointerPosition = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  });
   document.addEventListener('pointerdown', (event) => {
     if (!openState) return;
     const { instance } = openState;
@@ -382,7 +584,9 @@ function bindGlobalListeners() {
     closeOpenDropdown('outside');
   });
   document.addEventListener('keydown', (event) => {
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Escape' && openState) {
+      event.preventDefault();
       const trigger = openState.instance.trigger;
       closeOpenDropdown('escape');
       trigger.focus();
@@ -440,16 +644,16 @@ export function hydrateSelect(select, options = {}) {
   const menu = document.createElement('div');
   menu.id = `${select.id}-ui-menu`;
   menu.className = `ui-select-menu ${options.menuClassName || ''}`.trim();
-  menu.setAttribute('role', 'listbox');
+  menu.dataset.selectId = select.id;
   menu.hidden = true;
   menu.addEventListener('keydown', onMenuKeydown);
-  trigger.setAttribute('aria-controls', menu.id);
+  trigger.setAttribute('aria-controls', `${select.id}-ui-listbox`);
 
   const label = selectLabelElement(select);
   const labelId = ensureElementId(label, `${select.id}-label`);
   if (labelId) {
     trigger.setAttribute('aria-labelledby', `${labelId} ${value.id}`);
-    menu.setAttribute('aria-labelledby', labelId);
+    menu.dataset.labelledby = labelId;
   } else {
     trigger.setAttribute('aria-label', select.getAttribute('aria-label') || select.name || select.id);
   }
@@ -477,8 +681,11 @@ export function refreshSelect(select) {
   instance.trigger.disabled = select.disabled;
   instance.trigger.setAttribute('aria-disabled', select.disabled ? 'true' : 'false');
   if (openState?.instance === instance) {
-    renderMenu(instance);
-    positionDropdown(instance.trigger, instance.menu);
+    if (select.disabled) closeOpenDropdown('disabled');
+    else {
+      renderMenu(instance);
+      positionDropdown(instance.trigger, instance.menu);
+    }
   }
   return instance;
 }

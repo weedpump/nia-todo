@@ -1,12 +1,14 @@
-/* Multi todo quick capture preview */
+/* Shared multi-item capture geometry; Tasks-only shell rules stay scoped. */
 
-#todo-create-mode-switch[hidden],
-#todo-multi-add-panel[hidden] {
+.ui-multi-add-mode .ui-multi-add-single,
+.ui-segmented-control[hidden],
+.ui-multi-add-mode-switch[hidden],
+.ui-multi-add-panel[hidden] {
   display: none !important;
 }
 
-.todo-create-mode-switch {
-  grid-area: mode;
+.ui-segmented-control,
+.ui-multi-add-mode-switch {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -17,7 +19,10 @@
   background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
 }
 
-.todo-create-mode-btn {
+.ui-multi-add-mode-switch { margin-bottom: 24px; }
+
+.ui-segmented-option,
+.ui-multi-add-mode-btn {
   min-height: 36px;
   padding: 7px 15px;
   border: 0;
@@ -31,13 +36,22 @@
   transition: color .16s ease, background .16s ease, box-shadow .16s ease;
 }
 
-.todo-create-mode-btn.active {
+.ui-segmented-option[aria-pressed="true"],
+.ui-multi-add-mode-btn.active {
   color: var(--text-primary);
   background: var(--bg-secondary);
   box-shadow: 0 4px 14px rgba(0, 0, 0, .14);
 }
 
-#todo-modal.todo-create-view:not(.todo-multi-add-mode) .todo-editor-shell {
+.todo-editor-shell > .ui-multi-add-mode-switch {
+  grid-area: mode;
+}
+
+.todo-editor-shell > .ui-multi-add-panel {
+  grid-area: multi;
+}
+
+#todo-modal.todo-create-view:not(.ui-multi-add-mode) .todo-editor-shell {
   grid-template-areas:
     "mode"
     "content"
@@ -45,7 +59,9 @@
     "attachments"
     "comments"
     "organize"
-    "schedule";
+    "schedule"
+    "recurring"
+    "location";
 }
 
 #todo-modal.todo-multi-add-mode .todo-editor-shell {
@@ -63,29 +79,29 @@
   display: none !important;
 }
 
-.todo-multi-add-panel {
-  grid-area: multi;
+.ui-multi-add-panel {
   display: grid;
-  gap: 18px;
+  gap: 0;
 }
 
-.todo-multi-add-intro {
+.ui-multi-add-intro {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 18px;
 }
 
-.todo-multi-add-intro-heading {
+.ui-multi-add-intro-heading {
   min-width: 0;
   margin-bottom: 0;
 }
 
-#todo-modal.todo-detail-view .todo-multi-add-panel .ui-detail-section-heading p {
+#todo-modal.todo-detail-view .ui-multi-add-panel .ui-detail-section-heading p {
   display: block;
 }
 
-.todo-multi-add-counter {
+.ui-multi-add-counter {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -93,17 +109,17 @@
   gap: 3px;
 }
 
-.todo-multi-add-counter strong {
+.ui-multi-add-counter strong {
   color: var(--accent);
   font-size: 14px;
 }
 
-.todo-multi-add-counter span:last-child {
+.ui-multi-add-counter span:last-child {
   color: var(--text-muted);
   font-size: 11px;
 }
 
-.todo-multi-add-editor {
+.ui-multi-add-editor {
   overflow: hidden;
   border: 0;
   border-radius: 22px;
@@ -111,13 +127,13 @@
   box-shadow: none;
 }
 
-.todo-multi-add-rows {
+.ui-multi-add-rows {
   display: flex;
   flex-direction: column;
   padding: 8px 14px;
 }
 
-.todo-multi-add-row {
+.ui-multi-add-row {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr) 34px;
   align-items: start;
@@ -127,11 +143,11 @@
   border-bottom: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
 }
 
-.todo-multi-add-row:last-child {
+.ui-multi-add-row:last-child {
   border-bottom: 0;
 }
 
-.todo-multi-add-bullet {
+.ui-multi-add-bullet {
   width: 7px;
   height: 7px;
   margin-top: 16px;
@@ -140,38 +156,38 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.todo-multi-add-field {
+.ui-multi-add-field {
   min-width: 0;
 }
 
-.todo-multi-add-preview {
+.ui-multi-add-preview {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 10px;
 }
 
-.todo-multi-add-preview:empty,
-.todo-multi-add-row-message:empty {
+.ui-multi-add-preview:empty,
+.ui-multi-add-row-message:empty {
   display: none;
 }
 
-.todo-multi-add-row-message {
+.ui-multi-add-row-message {
   margin-top: 5px;
   color: var(--warning);
   font-size: 11px;
   font-weight: 700;
 }
 
-.todo-multi-add-row.is-invalid .todo-multi-add-input {
+.ui-multi-add-row.is-invalid .ui-multi-add-input {
   color: var(--danger);
 }
 
-.todo-multi-add-row.is-invalid .todo-multi-add-row-message {
+.ui-multi-add-row.is-invalid .ui-multi-add-row-message {
   color: var(--danger);
 }
 
-.todo-multi-add-remove {
+.ui-multi-add-remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -188,19 +204,19 @@
   transition: opacity .16s ease, color .16s ease, background .16s ease;
 }
 
-.todo-multi-add-row:hover .todo-multi-add-remove,
-.todo-multi-add-row:focus-within .todo-multi-add-remove {
+.ui-multi-add-row:hover .ui-multi-add-remove,
+.ui-multi-add-row:focus-within .ui-multi-add-remove {
   opacity: 1;
 }
 
-.todo-multi-add-remove:hover,
-.todo-multi-add-remove:focus-visible {
+.ui-multi-add-remove:hover,
+.ui-multi-add-remove:focus-visible {
   color: var(--text-primary);
   background: var(--bg-hover);
   outline: none;
 }
 
-.todo-multi-add-toolbar {
+.ui-multi-add-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -210,41 +226,23 @@
   background: transparent;
 }
 
-.todo-multi-add-toolbar-hint {
+.ui-multi-add-toolbar-hint {
   color: var(--text-muted);
   font-size: 12px;
 }
 
-.todo-multi-add-defaults {
-  position: relative;
-  margin-top: 20px;
-  padding: 0;
-  border: 0;
-  border-radius: 20px;
-  background: transparent;
-}
 
-.todo-multi-add-defaults::before {
-  content: "";
-  position: absolute;
-  top: -20px;
-  left: 0;
-  right: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
-  pointer-events: none;
-}
-
-.todo-multi-add-defaults-grid {
+.ui-multi-add-defaults-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--multi-add-default-columns, 3), minmax(0, 1fr));
   gap: 12px;
 }
 
-.todo-multi-add-defaults .form-group {
+.ui-multi-add-defaults .form-group {
   min-width: 0;
 }
 
-.todo-multi-add-defaults label {
+.ui-multi-add-defaults label {
   display: block;
   margin-bottom: 6px;
   color: var(--text-muted);
@@ -255,46 +253,46 @@
 }
 
 @media (max-width: 768px) {
-  .todo-create-mode-switch {
+  .ui-multi-add-mode-switch {
     width: 100%;
   }
 
-  .todo-create-mode-btn {
+  .ui-multi-add-mode-btn {
     flex: 1 1 0;
   }
 
-  .todo-multi-add-intro {
+  .ui-multi-add-intro {
     flex-direction: column;
     gap: 8px;
   }
 
-  .todo-multi-add-counter {
+  .ui-multi-add-counter {
     align-items: flex-start;
   }
 
-  .todo-multi-add-rows {
+  .ui-multi-add-rows {
     padding: 6px 12px;
   }
 
-  .todo-multi-add-row {
+  .ui-multi-add-row {
     grid-template-columns: 12px minmax(0, 1fr) 32px;
     gap: 8px;
   }
 
-  .todo-multi-add-remove {
+  .ui-multi-add-remove {
     opacity: 1;
   }
 
-  .todo-multi-add-toolbar {
+  .ui-multi-add-toolbar {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .todo-multi-add-toolbar .btn {
+  .ui-multi-add-toolbar .btn {
     width: 100%;
   }
 
-  .todo-multi-add-defaults-grid {
+  .ui-multi-add-defaults-grid {
     grid-template-columns: 1fr;
   }
 }

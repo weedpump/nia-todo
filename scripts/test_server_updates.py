@@ -230,6 +230,7 @@ def test_primary_failure_falls_back_to_stable_github_release():
     with patch.object(server_updates, "_http_json", side_effect=[ValueError("invalid primary"), github]) as request:
         release = server_updates.get_latest_release()
     assert_equal(release["version"], "2.5.6", "fallback version")
+    assert_equal(request.call_count, 2, "only primary and direct GitHub fallback are requested")
     assert_equal(request.call_args_list[0].args[0], server_updates.UPDATE_PRIMARY_URL, "primary requested first")
     assert_equal(request.call_args_list[1].args[0], server_updates.UPDATE_RELEASE_API_URL, "GitHub requested second")
 
@@ -368,7 +369,7 @@ def test_umami_event_contains_only_safe_fixed_metadata():
             "type": "event",
             "payload": {
                 "website": "website-id",
-                "hostname": "nia-todo.homelabdiary.dev",
+                "hostname": "nia.homelabdiary.dev",
                 "url": "/update/stable.json",
                 "name": "server-update-check",
             },
@@ -584,7 +585,7 @@ def test_update_helper_resolves_service_name_after_source_config():
     assert 'SERVICE_NAME="${SERVICE_NAME:-}"' in text
     source_index = text.index('source "${SOURCE_CONFIG}"')
     assert source_index < text.index('SERVICE_NAME="${SERVICE_NAME:-${NIA_TODO_SERVICE_NAME:-nia-todo}}"')
-    assert source_index < text.index('UPDATE_PRIMARY_URL="${NIA_TODO_UPDATE_PRIMARY_URL:-${UPDATE_PRIMARY_URL:-https://nia-todo.homelabdiary.dev/update/stable.json}}"')
+    assert source_index < text.index('UPDATE_PRIMARY_URL="${NIA_TODO_UPDATE_PRIMARY_URL:-${UPDATE_PRIMARY_URL:-https://nia.homelabdiary.dev/update/stable.json}}"')
     assert source_index < text.index('UPDATE_RELEASE_API_URL="${NIA_TODO_UPDATE_RELEASE_API_URL:-${UPDATE_RELEASE_API_URL:-${RELEASE_API_LATEST:-https://api.github.com/repos/weedpump/nia-todo/releases/latest}}}"')
 
 
@@ -594,6 +595,19 @@ def _load_update_helper_python() -> dict[str, Any]:
     namespace = {"__name__": "nia_todo_update_helper_test"}
     exec(compile(embedded, "nia-todo-server-update.sh", "exec"), namespace)
     return namespace
+
+
+def test_default_update_sources_follow_nia_domain_without_changing_github():
+    primary_url = "https://nia.homelabdiary.dev/update/stable.json"
+    github_url = "https://api.github.com/repos/weedpump/nia-todo/releases/latest"
+    assert_equal(server_updates.DEFAULT_PRIMARY_URL, primary_url, "new Nia primary URL")
+    assert_equal(server_updates.DEFAULT_RELEASE_API_LATEST, github_url, "unchanged GitHub fallback")
+    # The privileged installer resolves defaults separately from the API service.
+    env = {key: value for key, value in os.environ.items() if key not in {"UPDATE_PRIMARY_URL", "UPDATE_RELEASE_API_URL"}}
+    with patch.dict(os.environ, env, clear=True):
+        helper = _load_update_helper_python()
+    assert_equal(helper["primary_url"], primary_url, "root helper new Nia primary URL")
+    assert_equal(helper["github_api_url"], github_url, "root helper unchanged GitHub fallback")
 
 
 def test_update_helper_uses_website_primary_then_github_fallback_with_trusted_assets():
@@ -801,6 +815,7 @@ def main():
     test_primary_manifest_rejects_unstable_nested_channel()
     test_primary_manifest_rejects_untrusted_debian_asset_urls()
     test_primary_manifest_contract_matches_root_helper()
+    test_default_update_sources_follow_nia_domain_without_changing_github()
     test_primary_failure_falls_back_to_stable_github_release()
     test_unstable_releases_are_rejected_by_both_sources()
     test_failed_check_retains_last_successful_release_and_marks_stale()

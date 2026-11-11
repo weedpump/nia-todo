@@ -5,12 +5,44 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.0.0] - 2026-11-11
+
+With V4, nia-todo becomes Nia. Your familiar tasks, projects and workspaces stay
+with you, now joined by Shopping and Recipes in the same self-hosted app. Plan,
+shop and cook in one place, share with other people or your household, and let
+personal memory help with recurring choices.
+
+### Added
+- Added a shared application shell for Tasks, Shopping, and Recipes, with account-wide module settings that synchronize across devices and remain available after an offline restart.
+- Added Households for inviting members, managing membership, and owning shared projects, shopping lists, and cookbooks. Personal workspaces remain separate from household ownership.
+- Added shopping lists with sections, stores, quantities, units, multiple-item entry, purchased-item controls, and offline and realtime synchronization.
+- Added cookbooks and structured recipes with ingredient groups, tags, private images, separate step headings and descriptions, adjustable portions, and reading and cooking views.
+- Added optional ingredient assignments and partial quantities for individual recipe steps, with the same scaled amounts shown in reading and cooking views.
+- Added recipe-to-shopping transfer with ingredient selection, compatible quantity consolidation, editable destinations, and durable offline requests.
+- Added recipe link imports with editable previews, source information, supported ingredient groups, and private image imports. Users with BrainDump access can also import free text and refine drafts while preserving manual ingredient choices.
+- Added one personal destination memory for Tasks and Shopping across normal entry, moves, BrainDump, and recipe transfers. Remembered choices appear as editable AI-marked badges; corrections, opt-out, and reset apply to the same memory everywhere.
+- Added a V4 What's New tour in all twelve supported languages, with version-aware startup selection and per-account completion on each browser or installation.
 
 ### Changed
+- Required native clients 4.0.0 or newer for V4 servers, including installations with an older stored minimum, to keep offline synchronization and access-change handling compatible.
+- Renamed the visible product from nia-todo to Nia across the web app, native clients, setup, administration, notifications, and system emails while preserving existing technical application identities.
+- Extended BrainDump to recognize tasks and shopping items in the same recording, with editable module, container, section, and store destinations.
+- Moved known quantity units into a shared multilingual registry used by Quick Add, BrainDump, Shopping, and Recipes. Unknown units remain free text; portion scaling uses practical rounding and readable fractions.
+- Migrated earlier BrainDump destination learning into the shared personal memory. Matching uses the account's own history, including conservative typo recognition, without a predefined product or language dictionary or an additional AI model.
+- Reused common dialogs, navigation, image selection, portion controls, and entry patterns across modules, with responsive desktop and mobile layouts.
+- Kept recipe images separate from Todo attachment quotas. Attachments count toward the uploader's quota only while the uploader retains access; account deletion does not discard attachments still used by accessible shared content.
 - Updated application, build, packaging, and CI dependencies to their current compatible releases.
 
 ### Fixed
+- Resolved the Android build's Tauri Gradle compatibility patch from the app's locked dependency instead of a stale hardcoded version, while validating the expected source structure.
+- Preserved recipe step titles, quantities, manual assignments, and exclusions through offline edits and synchronization.
+- Retried recipe images after temporary loading failures without allowing older responses to replace a newer image request.
+- Prevented colliding mutation identities from redirecting Shopping input or snapshots to another shared list, section, store, or item.
+- Kept deleted Tasks and Shopping entries deleted when a lost creation response is retried. Structural cleanup preserves unsubmitted item content without teaching automatic fallbacks to personal memory.
+- Serialized section permissions and writes with access changes, and released writer locks before broadcasting empty updates.
+- Made recipe source migrations atomic and rejected invalid API values with usable validation responses.
+- Preserved pending Todo identity through deletion and Undo, including temporary-ID remapping and delayed responses.
+- Corrected the desktop keyboard-shortcut layout and made Shopping completion controls refer to purchased items in all supported languages.
 - Kept Android location-permission guidance active until background access is granted, and made opting out remove all affected location reminders after confirmation.
 
 ## [3.6.3] - 2026-10-21

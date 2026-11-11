@@ -131,6 +131,19 @@ function applyAccentPreset(resolvedTheme) {
   }
   root.style.setProperty('--accent-rgb', palette.rgb);
   root.style.setProperty('--accent-hover-rgb', palette.hoverRgb);
+  const iconPalette = preset.id === 'standard'
+    ? { head: '#7c4dff', mid: '#5368ff', tail: '#0797f6' }
+    : {
+        head: palette.hover,
+        mid: palette.accent,
+        tail: `color-mix(in srgb, ${palette.accent} 72%, var(--bg-primary))`,
+      };
+  const resolveIconColor = color => intensity >= 100
+    ? color
+    : `color-mix(in srgb, ${color} ${strength}, var(--text-secondary))`;
+  root.style.setProperty('--nia-icon-head', resolveIconColor(iconPalette.head));
+  root.style.setProperty('--nia-icon-mid', resolveIconColor(iconPalette.mid));
+  root.style.setProperty('--nia-icon-tail', resolveIconColor(iconPalette.tail));
   updateAccentMenuUi();
 }
 

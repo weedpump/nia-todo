@@ -1,6 +1,7 @@
-"""nia-todo: FastAPI backend - slim entry point"""
+"""Nia: FastAPI backend - slim entry point"""
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -15,16 +16,19 @@ from rate_limit import rate_limiter
 from middleware.security import CSRFProtectionMiddleware, RateLimitMiddleware, RequestBodyLimitMiddleware, SecurityHeadersMiddleware
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
+from services.attachments import cleanup_stale_attachment_quarantine
 from services.server_updates import update_check_background_task
 from services.instance_config import get_public_base_url
 from services.native_updates import build_windows_updater_response
 from routers.websocket import websocket_endpoint
-from errors import APIError, api_error_handler
+from errors import APIError, api_error_handler, request_validation_error_handler
 
 # Run migrations on import
 run_migrations()
+with get_db() as db:
+    cleanup_stale_attachment_quarantine(db)
 
-app = FastAPI(title="nia-todo", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Nia", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
 
 # ─── Middleware ──────────────────────────────────────────────────────────────
 
@@ -54,15 +58,22 @@ async def app_shell_cache_control_middleware(request, call_next):
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2, oidc, server_updates
+from routers import recipe_images
+from routers import recipe_import
+from routers import auth, todos, projects, sections, shopping, recipes, reminders, places, dashboard, push, admin, me, setup, sharing, entity_sharing, password_setup, workspaces, households, instance, two_factor, braindump_v2, oidc, server_updates, routing_memory
 
 app.include_router(auth.router)
 app.include_router(oidc.router)
 app.include_router(instance.router)
 app.include_router(todos.router)
 app.include_router(workspaces.router)
+app.include_router(households.router)
 app.include_router(projects.router)
 app.include_router(sections.router)
+app.include_router(shopping.router)
+app.include_router(recipes.router)
+app.include_router(recipe_import.router)
+app.include_router(recipe_images.router)
 app.include_router(reminders.router)
 app.include_router(places.router)
 app.include_router(dashboard.router)
@@ -71,14 +82,17 @@ app.include_router(admin.router)
 app.include_router(setup.router)
 app.include_router(me.router)
 app.include_router(sharing.router)
+app.include_router(entity_sharing.router)
 app.include_router(password_setup.router)
 app.include_router(two_factor.router)
 app.include_router(braindump_v2.router)
+app.include_router(routing_memory.router)
 app.include_router(server_updates.router)
 
 # ─── Exception Handlers ──────────────────────────────────────────────────────
 
 app.add_exception_handler(APIError, api_error_handler)
+app.add_exception_handler(RequestValidationError, request_validation_error_handler)
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 

@@ -113,9 +113,12 @@ async function run() {
       : [],
     dbPut: async () => {},
     dbClear: async () => {},
-    getFromDB: async () => null,
-    deleteFromDB: async store => {
-      if (store === 'projects') throw new Error('simulated cleanup IndexedDB outage');
+    getFromDB: async (store, id) => store === 'syncQueue' && id === 2
+      ? { id: 2, action: 'CREATE_PROJECT', data: { name: 'Queued project', _tempId: 'temp-project' } }
+      : null,
+    deleteFromDB: async () => {},
+    evictPendingProjectEntities: async () => {
+      throw new Error('simulated cleanup IndexedDB outage');
     },
     getTodos: () => [],
     setTodos: () => {},

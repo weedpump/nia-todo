@@ -248,7 +248,7 @@ pub(crate) async fn desktop_install_debian_update(
 ) -> Result<bool, String> {
     let server_url = super::load_settings(&app)
         .server_url
-        .ok_or_else(|| "No nia-todo server is configured".to_string())?;
+        .ok_or_else(|| "No Nia server is configured".to_string())?;
     let url = validate_request(&server_url, &update)?;
     let download_app = app.clone();
     let (token, stage) = tauri::async_runtime::spawn_blocking(move || {

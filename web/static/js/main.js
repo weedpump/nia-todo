@@ -21,7 +21,7 @@ function showNativeServerSetup(config) {
   overlay.classList.add('native-server-setup');
   overlay.innerHTML = `
     <form class="boot-card native-server-card" id="native-server-form">
-      <img src="/static/icons/icon-192.png" class="boot-logo" alt="nia-todo">
+      <img src="/static/icons/icon-192.png" class="boot-logo" alt="Nia">
       <div class="boot-title">${t('nativeSetup.title')}</div>
       <div class="boot-subtitle">${t('nativeSetup.subtitle')}</div>
       <div class="form-group native-server-field">

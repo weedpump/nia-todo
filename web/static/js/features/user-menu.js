@@ -5,12 +5,12 @@ import { openUiLayer, registerUiLayer, replaceUiLayer, requestCloseUiLayer } fro
 export function createUserMenuFeature({
   getCurrentUser,
   openSettingsModal = null,
+  openHouseholdSettings = null,
   openShortcutHelpModal = null,
   openAboutModal = null,
   cycleTheme = null,
   toggleAccentPresetMenu = null,
   cycleSort = null,
-  toggleHideDone = null,
   toggleProjectWidget = null,
   logout = null,
 }) {
@@ -118,6 +118,10 @@ export function createUserMenuFeature({
       openFromUserMenu('settings-modal', () => openSettingsModal?.());
       return;
     }
+    if (action === 'household') {
+      openFromUserMenu('settings-modal', () => openHouseholdSettings?.());
+      return;
+    }
     if (action === 'shortcuts') {
       openFromUserMenu('shortcuts-modal', () => openShortcutHelpModal?.({ returnFocusTo: document.getElementById('user-menu-button') }));
       return;
@@ -129,7 +133,6 @@ export function createUserMenuFeature({
     if (action === 'theme') cycleTheme?.();
     if (action === 'accent-preset') toggleAccentPresetMenu?.(event);
     if (action === 'sort') cycleSort?.();
-    if (action === 'toggle-done') toggleHideDone?.();
     if (action === 'project-widget') toggleProjectWidget?.();
     if (action === 'logout') logout?.();
   }

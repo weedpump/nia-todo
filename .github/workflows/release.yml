@@ -102,7 +102,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install backend dependencies
-        run: pip install -r packaging/requirements.txt httpx
+        run: pip install -r packaging/requirements.txt httpx2==2.16.0
 
       - name: Install frontend/native toolchain dependencies
         run: npm ci
@@ -120,6 +120,7 @@ jobs:
       - name: Install package and run test suite
         env:
           MOBILE_SWIPE_BROWSERS: chromium
+          ITEM_DND_BROWSERS: chromium
         run: scripts/release/install-and-test.sh "dist/release/build/nia-todo-server-v${{ needs.prepare-version.outputs.version }}-full.deb"
 
   webkit-swipe:
@@ -146,6 +147,11 @@ jobs:
         env:
           MOBILE_SWIPE_BROWSERS: webkit
         run: node scripts/test_mobile_swipe_underlay.mjs
+
+      - name: Run WebKit shared item drag-drop regression
+        env:
+          ITEM_DND_BROWSER: webkit
+        run: node scripts/test_shared_item_drag_drop.mjs
 
   push-docker:
     needs: [prepare-version, build, test, webkit-swipe]

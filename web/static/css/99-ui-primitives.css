@@ -1,0 +1,117 @@
+/* Shared visual primitives */
+
+:root {
+  --ui-item-card-min-height: 50px;
+  --ui-item-card-gap: 12px;
+  --ui-item-card-padding: 10px 14px;
+  --ui-item-card-radius: 999px;
+  --ui-item-card-border: transparent;
+  --ui-item-card-background: color-mix(in srgb, var(--bg-secondary) 66%, transparent);
+  --ui-item-card-shadow: none;
+}
+
+.ui-item-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--ui-item-card-min-height);
+  gap: var(--ui-item-card-gap);
+  padding: var(--ui-item-card-padding);
+  border: 1px solid var(--ui-item-card-border);
+  border-radius: var(--ui-item-card-radius);
+  background: var(--ui-item-card-background);
+  box-shadow: var(--ui-item-card-shadow);
+  box-sizing: border-box;
+}
+
+.ui-swipe-card {
+  touch-action: pan-y;
+}
+
+.ui-swipe-card.swiping {
+  transform: translate3d(var(--swipe-x, 0), 0, 0);
+  transition: none;
+  user-select: none;
+  z-index: 2;
+  --swipe-progress: 0;
+}
+
+.ui-swipe-card.swipe-settling,
+.ui-swipe-card.swipe-committing {
+  transition: transform 0.2s cubic-bezier(.2, .82, .22, 1);
+}
+
+.ui-swipe-card.swipe-committing {
+  transition-duration: 0.14s;
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.ui-badge .ui-icon {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+  .ui-item-card {
+    gap: 10px;
+    border-radius: 24px;
+  }
+}
+
+/* Shared full-width section primitives */
+
+.ui-section-divider {
+  margin-top: 22px;
+  padding: 22px 0 0;
+  border: 0;
+  border-top: 2px solid color-mix(in srgb, var(--border) 78%, var(--text-muted));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-shell,
+.ui-detail-modal.todo-detail-view .ui-detail-shell {
+  row-gap: 0;
+}
+
+#todo-modal.todo-detail-view .todo-editor-shell {
+  row-gap: 0;
+}
+
+.ui-detail-shell > .ui-section-divider:first-child,
+.ui-detail-shell > .ui-detail-title-section,
+#workspace-form > .ui-section-divider:first-of-type,
+.settings-page > .ui-section-divider:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.ui-detail-modal .ui-detail-action-row.ui-section-divider {
+  margin-top: 22px;
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-drawer .ui-section-divider:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}

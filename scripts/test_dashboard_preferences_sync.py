@@ -43,14 +43,43 @@ def make_db():
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY,
             user_id INTEGER NOT NULL,
-            workspace_id INTEGER
+            workspace_id INTEGER,
+            parent_id INTEGER
         );
         CREATE TABLE project_members (
             id INTEGER PRIMARY KEY,
             project_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             workspace_id INTEGER,
-            status TEXT NOT NULL DEFAULT 'accepted'
+            status TEXT NOT NULL DEFAULT 'accepted',
+            user_color TEXT
+        );
+        CREATE TABLE households (
+            id INTEGER PRIMARY KEY,
+            owner_user_id INTEGER NOT NULL
+        );
+        CREATE TABLE household_members (
+            household_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            status TEXT NOT NULL
+        );
+        CREATE TABLE entity_access (
+            id INTEGER PRIMARY KEY,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            owner_user_id INTEGER,
+            owner_household_id INTEGER
+        );
+        CREATE TABLE entity_access_grants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_access_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            invited_by_user_id INTEGER,
+            granted_by_user_id INTEGER,
+            invite_identifier_type TEXT,
+            status TEXT NOT NULL DEFAULT 'accepted',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE dashboard_preferences (
             user_id INTEGER NOT NULL,
@@ -64,8 +93,14 @@ def make_db():
         INSERT INTO users (id, username) VALUES (1, 'tobi'), (2, 'other');
         INSERT INTO workspaces (id, user_id) VALUES (10, 1), (20, 1), (30, 2);
         INSERT INTO projects (id, user_id, workspace_id) VALUES (100, 1, 10), (200, 1, 20), (300, 2, 30), (400, 2, 30);
+        INSERT INTO entity_access (id, entity_type, entity_id, owner_user_id)
+        VALUES (1, 'project', 100, 1), (2, 'project', 200, 1), (3, 'project', 300, 2), (4, 'project', 400, 2);
         INSERT INTO project_members (id, project_id, user_id, workspace_id, status)
         VALUES (1, 400, 1, 10, 'accepted');
+        INSERT INTO entity_access_grants (entity_access_id, user_id, invited_by_user_id, granted_by_user_id, status)
+        SELECT access.id, member.user_id, access.owner_user_id, access.owner_user_id, member.status
+        FROM project_members member JOIN entity_access access
+          ON access.entity_type = 'project' AND access.entity_id = member.project_id;
         """
     )
     db.commit()
