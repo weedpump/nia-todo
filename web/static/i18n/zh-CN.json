@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "链接",
   "recipe.import.modeText": "文本",
   "recipe.step.title": "标题（可选）",
-  "recipe.step.text": "说明"
+  "recipe.step.text": "说明",
+  "recipe.ai.issue.additionalAmountMissing": "步骤 {step}：食谱未注明额外所需食材的用量，或列出的用量不足以涵盖此次添加。请检查。",
+  "recipe.ai.reviewDetails": "其他提示",
+  "recipe.ai.issue.evidence": "食谱原文",
+  "recipe.ai.issue.notListed": "{ingredient}：此步骤使用了该食材，但食材清单中未列出。",
+  "recipe.ai.issue.amountMissing": "{ingredient}：未注明所需用量。",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}：已在此前的步骤中使用，未注明此次额外添加的用量。"
 }

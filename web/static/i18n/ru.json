@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "Ссылка",
   "recipe.import.modeText": "Текст",
   "recipe.step.title": "Заголовок (необязательно)",
-  "recipe.step.text": "Описание"
+  "recipe.step.text": "Описание",
+  "recipe.ai.issue.additionalAmountMissing": "Шаг {step}: дополнительное количество ингредиента не указано в рецепте или не покрывается указанными количествами. Проверьте.",
+  "recipe.ai.reviewDetails": "Другие замечания",
+  "recipe.ai.issue.evidence": "Фрагмент рецепта",
+  "recipe.ai.issue.notListed": "{ingredient}: используется здесь, но отсутствует в списке ингредиентов.",
+  "recipe.ai.issue.amountMissing": "{ingredient}: нужное количество не указано.",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: уже использован. Дополнительное количество не указано."
 }

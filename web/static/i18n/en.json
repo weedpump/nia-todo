@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "Link",
   "recipe.import.modeText": "Text",
   "recipe.step.title": "Heading (optional)",
-  "recipe.step.text": "Description"
+  "recipe.step.text": "Description",
+  "recipe.ai.issue.additionalAmountMissing": "Step {step}: An additional ingredient amount is missing from the recipe or is not covered by the listed quantities. Please check.",
+  "recipe.ai.reviewDetails": "Other notes",
+  "recipe.ai.issue.evidence": "Passage in the recipe",
+  "recipe.ai.issue.notListed": "{ingredient}: Used here but missing from the ingredient list.",
+  "recipe.ai.issue.amountMissing": "{ingredient}: The required amount is not specified.",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: Already incorporated. The amount for the additional use is missing."
 }

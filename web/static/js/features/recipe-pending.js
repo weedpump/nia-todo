@@ -38,6 +38,11 @@ export function mergeRecipeStepIngredients(current, changes) {
   merged.steps = merged.steps.map(step => {
     const previous = current?.steps?.find(row => row.client_key === step.client_key);
     step = { ...step, title: Object.hasOwn(step, 'title') ? step.title : previous?.title ?? '' };
+    if ((!Object.hasOwn(changes || {}, 'steps') || !Object.hasOwn(step, 'excluded_ingredients')) && Object.hasOwn(previous || {}, 'excluded_ingredients')) {
+      const selectedManually = new Set(Object.hasOwn(changes || {}, 'steps') && Array.isArray(step.ingredients)
+        ? step.ingredients.filter(link => (link.origin ?? 'manual') === 'manual').map(link => link.ingredient_client_key) : []);
+      step.excluded_ingredients = previous.excluded_ingredients.filter(key => available.has(key) && !selectedManually.has(key));
+    }
     if (Object.hasOwn(changes || {}, 'steps') && Object.hasOwn(step, 'ingredients')) return { ...step, ingredients: step.ingredients.map(link => {
       if (Object.hasOwn(link, 'quantity_value') || Object.hasOwn(link, 'quantity_text')) return { ...link, quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text ?? null };
       if (link.show_quantity === false) return { ...link, quantity_value: null, quantity_text: null };
@@ -174,6 +179,11 @@ export function validateRecipeChanges(input, creating = false) {
     const available = Object.hasOwn(data, 'ingredient_groups')
       ? new Map(data.ingredient_groups.flatMap(group => group.ingredients.map(item => [item.client_key, item]))) : null;
     for (const step of data.steps) {
+      if (Object.hasOwn(step, 'excluded_ingredients')) {
+        const excluded = step.excluded_ingredients;
+        if (!Array.isArray(excluded) || excluded.length > 500 || new Set(excluded).size !== excluded.length
+          || excluded.some(key => typeof key !== 'string' || !key.trim() || key.length > 200 || available && !available.has(key))) return null;
+      }
       if (!Object.hasOwn(step, 'ingredients')) {
         if (!creating) continue;
         step.ingredients = [];
@@ -181,10 +191,12 @@ export function validateRecipeChanges(input, creating = false) {
       if (!Array.isArray(step.ingredients) || step.ingredients.length > 500) return null;
       const seen = new Set();
       for (const link of step.ingredients) {
-        if (!link || Object.keys(link).some(key => !['ingredient_client_key', 'show_quantity', 'quantity_value', 'quantity_text'].includes(key)) || typeof link.ingredient_client_key !== 'string' || !link.ingredient_client_key.trim()
+        if (!link || Object.keys(link).some(key => !['ingredient_client_key', 'show_quantity', 'quantity_value', 'quantity_text', 'origin'].includes(key)) || typeof link.ingredient_client_key !== 'string' || !link.ingredient_client_key.trim()
           || link.ingredient_client_key.length > 200 || seen.has(link.ingredient_client_key)
           || available && !available.has(link.ingredient_client_key)
-          || Object.hasOwn(link, 'show_quantity') && typeof link.show_quantity !== 'boolean') return null;
+          || Object.hasOwn(link, 'show_quantity') && typeof link.show_quantity !== 'boolean'
+          || Object.hasOwn(link, 'origin') && !['manual', 'braindump'].includes(link.origin)
+          || step.excluded_ingredients?.includes(link.ingredient_client_key)) return null;
         seen.add(link.ingredient_client_key);
         if (!Object.hasOwn(link, 'show_quantity')) link.show_quantity = true;
         const amount = link.quantity_value, free = link.quantity_text;

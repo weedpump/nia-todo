@@ -60,11 +60,13 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 72, latest
+        assert latest == 73, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
             assert version == latest, (version, latest)
+            assert "origin" in {row[1] for row in db.execute("PRAGMA table_info(recipe_step_ingredients)")}
+            assert "excluded_ingredients_json" in {row[1] for row in db.execute("PRAGMA table_info(recipe_steps)")}
 
             project_columns = {row[1] for row in db.execute("PRAGMA table_info(projects)")}
             assert "is_inbox" in project_columns, project_columns
@@ -519,7 +521,12 @@ def main():
         with sqlite3.connect(v55_db_path) as db:
             assert database_snapshot(db) == before_title_migration
             assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 71
-        run_migrations(v55_env)
+        v72_migrations = tmp_path / "migrations-v72"
+        v72_migrations.mkdir()
+        for migration in MIGRATIONS_DIR.glob("*.sql"):
+            if int(migration.name.split("_", 1)[0]) <= 72:
+                shutil.copy2(migration, v72_migrations / migration.name)
+        run_migrations(v55_env, v72_migrations)
         with sqlite3.connect(v55_db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = sqlite3.Row
@@ -569,6 +576,66 @@ def main():
                 (user_id, owner_id, owner_id, status, identifier_type, created_at, updated_at)
                 for user_id, status, _color, created_at, updated_at, identifier_type in legacy_members
             ], migrated_grants
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+        # Provenance migration adds only conservative metadata to existing
+        # author content; both ALTERs and the version marker must roll back.
+        with sqlite3.connect(v55_db_path) as db:
+            db.execute("PRAGMA foreign_keys = ON")
+            before_provenance = database_snapshot(db)
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 72
+            migration_73 = (MIGRATIONS_DIR / "073_add_recipe_assignment_provenance.sql").read_text()
+            try:
+                migrate_module.apply_atomic_migration(db, migration_73 + "\nSELECT * FROM migration_73_forced_failure;\n", 73)
+            except sqlite3.OperationalError as error:
+                assert "migration_73_forced_failure" in str(error), error
+            else:
+                raise AssertionError("fault-injected migration 73 unexpectedly succeeded")
+            assert database_snapshot(db) == before_provenance
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 72
+        failing_v73_migrations = tmp_path / "migrations-v73-failure"
+        failing_v73_migrations.mkdir()
+        (failing_v73_migrations / "073_add_recipe_assignment_provenance.sql").write_text(
+            migration_73 + "\nSELECT * FROM migration_73_dispatch_failure;\n"
+        )
+        try:
+            run_migrations(v55_env, failing_v73_migrations)
+        except subprocess.CalledProcessError as error:
+            assert error.returncode != 0
+        else:
+            raise AssertionError("fault-injected startup migration 73 unexpectedly succeeded")
+        with sqlite3.connect(v55_db_path) as db:
+            assert database_snapshot(db) == before_provenance
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 72
+        run_migrations(v55_env)
+        with sqlite3.connect(v55_db_path) as db:
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 73
+            assert all(row[0] == "manual" for row in db.execute("SELECT origin FROM recipe_step_ingredients"))
+            assert all(row[0] == "[]" for row in db.execute("SELECT excluded_ingredients_json FROM recipe_steps"))
+            for table, rows in before_provenance[1].items():
+                if table == "schema_version":
+                    continue
+                current = db.execute(f'SELECT * FROM "{table}" ORDER BY rowid').fetchall()
+                if table in {"recipe_steps", "recipe_step_ingredients"}:
+                    current = [row[:-1] for row in current]
+                assert current == rows, table
+            for statement, value in (
+                ("UPDATE recipe_step_ingredients SET origin=?", "llm"),
+                ("UPDATE recipe_step_ingredients SET origin=?", None),
+                ("UPDATE recipe_steps SET excluded_ingredients_json=?", "{}"),
+                ("UPDATE recipe_steps SET excluded_ingredients_json=?", "null"),
+                ("UPDATE recipe_steps SET excluded_ingredients_json=?", "[" + ",".join('"x"' for _ in range(501)) + "]"),
+            ):
+                db.execute("SAVEPOINT invalid_assignment_metadata")
+                try:
+                    db.execute(statement, (value,))
+                except sqlite3.IntegrityError:
+                    pass
+                else:
+                    raise AssertionError("Assignment metadata schema accepted invalid content")
+                finally:
+                    db.execute("ROLLBACK TO invalid_assignment_metadata")
+                    db.execute("RELEASE invalid_assignment_metadata")
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
     print("✅ Fresh migration test passed")

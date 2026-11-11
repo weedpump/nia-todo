@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "Länk",
   "recipe.import.modeText": "Text",
   "recipe.step.title": "Rubrik (valfri)",
-  "recipe.step.text": "Beskrivning"
+  "recipe.step.text": "Beskrivning",
+  "recipe.ai.issue.additionalAmountMissing": "Steg {step}: en extra mängd av en ingrediens saknas i receptet eller täcks inte av de angivna mängderna. Kontrollera detta.",
+  "recipe.ai.reviewDetails": "Övriga anmärkningar",
+  "recipe.ai.issue.evidence": "Textställe i receptet",
+  "recipe.ai.issue.notListed": "{ingredient}: används här men saknas i ingredienslistan.",
+  "recipe.ai.issue.amountMissing": "{ingredient}: den mängd som behövs anges inte.",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: redan inarbetad. Mängden för ytterligare tillsats saknas."
 }

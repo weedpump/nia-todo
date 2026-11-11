@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "Link",
   "recipe.import.modeText": "Tekst",
   "recipe.step.title": "Nagłówek (opcjonalny)",
-  "recipe.step.text": "Opis"
+  "recipe.step.text": "Opis",
+  "recipe.ai.issue.additionalAmountMissing": "Krok {step}: w przepisie brakuje dodatkowej ilości składnika lub podane ilości jej nie obejmują. Sprawdź to.",
+  "recipe.ai.reviewDetails": "Inne uwagi",
+  "recipe.ai.issue.evidence": "Fragment przepisu",
+  "recipe.ai.issue.notListed": "{ingredient}: używany w tym kroku, ale nie ma go na liście składników.",
+  "recipe.ai.issue.amountMissing": "{ingredient}: nie podano potrzebnej ilości.",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: został już wykorzystany. Nie podano dodatkowej ilości."
 }

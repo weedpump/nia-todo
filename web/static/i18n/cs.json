@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "Odkaz",
   "recipe.import.modeText": "Text",
   "recipe.step.title": "Nadpis (volitelný)",
-  "recipe.step.text": "Popis"
+  "recipe.step.text": "Popis",
+  "recipe.ai.issue.additionalAmountMissing": "Krok {step}: Množství další potřebné suroviny v receptu chybí nebo není pokryto uvedeným množstvím. Zkontrolujte ho prosím.",
+  "recipe.ai.reviewDetails": "Další poznámky",
+  "recipe.ai.issue.evidence": "Místo v receptu",
+  "recipe.ai.issue.notListed": "{ingredient}: Zde se používá, ale chybí v seznamu surovin.",
+  "recipe.ai.issue.amountMissing": "{ingredient}: Potřebné množství není uvedeno.",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: Již zpracováno. Množství pro další použití chybí."
 }

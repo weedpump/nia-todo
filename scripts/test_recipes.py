@@ -144,8 +144,8 @@ def test_step_ingredient_order_legacy_preserve_clear_and_prune():
         first = create(f)
         path = f"/api/recipes/recipes/{first['id']}"
         assert first["steps"][0]["ingredients"] == [
-            {"ingredient_client_key": "flour", "show_quantity": True, "quantity_value": None, "quantity_text": None},
-            {"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None}]
+            {"ingredient_client_key": "flour", "show_quantity": True, "quantity_value": None, "quantity_text": None, "origin": "manual"},
+            {"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None, "origin": "manual"}]
         old_ids = {step["client_key"]: step["id"] for step in first["steps"]}
         legacy_steps = [{"client_key": step["client_key"], "text": step["text"] + " Updated"} for step in reversed(first["steps"])]
         legacy = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "legacy-steps", "steps": legacy_steps})
@@ -159,7 +159,7 @@ def test_step_ingredient_order_legacy_preserve_clear_and_prune():
         groups[0]["ingredients"] = []
         pruned = f.call("patch", path, json={"expected_revision": 3, "client_mutation_id": "remove-ingredient", "ingredient_groups": groups})
         mix = next(step for step in pruned["steps"] if step["client_key"] == "mix")
-        assert mix["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None}]
+        assert mix["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None, "origin": "manual"}]
         # Missing field preserves the existing cook link; explicit [] clears
         # mix; a new legacy step starts with no ingredient references.
         cleared = f.call("patch", path, json={"expected_revision": 4, "client_mutation_id": "clear-step-links", "steps": [
@@ -228,7 +228,7 @@ def test_step_ingredient_permissions_bounded_projection_and_database_boundaries(
         f.actor["id"] = f.users[1]
         shared = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "shared-step-link", "steps": [
             {"client_key": "mix", "text": "Shared step", "ingredients": [{"ingredient_client_key": "salt", "show_quantity": False}]}]})
-        assert shared["steps"][0]["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None}]
+        assert shared["steps"][0]["ingredients"] == [{"ingredient_client_key": "salt", "show_quantity": False, "quantity_value": None, "quantity_text": None, "origin": "manual"}]
         assert f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "shared-step-link", "steps": []})["applied_revision"] == 2
         f.call("patch", path, expected=409, json={"expected_revision": 1, "client_mutation_id": "stale-step-link", "steps": []})
         for user in (f.users[2], f.users[3]):
@@ -326,7 +326,7 @@ def test_step_quantities_preserve_legacy_patch_reset_and_source_totals():
         reset = copy.deepcopy(changed["steps"])
         reset[0]["ingredients"][0].update(quantity_value=None, quantity_text=None)
         full = f.call("patch", path, json={"expected_revision": 3, "client_mutation_id": "step-full-quantity", "steps": reset})
-        assert full["steps"][0]["ingredients"][0] == {"ingredient_client_key": "flour", "show_quantity": True, "quantity_value": None, "quantity_text": None}
+        assert full["steps"][0]["ingredients"][0] == {"ingredient_client_key": "flour", "show_quantity": True, "quantity_value": None, "quantity_text": None, "origin": "manual"}
         assert full["steps"][1]["ingredients"][0]["quantity_value"] == 100
         # Existing authorization, revision and receipt contracts still cover
         # the complete step amount as part of the aggregate.
@@ -342,7 +342,7 @@ def test_step_quantities_preserve_legacy_patch_reset_and_source_totals():
         hidden_steps = [{**step, "ingredients": [{"ingredient_client_key": link["ingredient_client_key"], "show_quantity": False}
                                                 for link in step["ingredients"]]} for step in full["steps"]]
         hidden = f.call("patch", path, json={"expected_revision": 4, "client_mutation_id": "legacy-explicit-hide", "steps": hidden_steps})
-        assert all(link == {"ingredient_client_key": link["ingredient_client_key"], "show_quantity": False, "quantity_value": None, "quantity_text": None}
+        assert all(link == {"ingredient_client_key": link["ingredient_client_key"], "show_quantity": False, "quantity_value": None, "quantity_text": None, "origin": "manual"}
                    for step in hidden["steps"] for link in step["ingredients"])
 
 
@@ -569,6 +569,104 @@ def test_explicit_step_titles_body_legacy_patch_and_shared_access():
             db.execute("DELETE FROM entity_access_grants WHERE user_id = ?", (f.users[1],))
         f.call("get", path, expected=404)
         f.call("patch", path, expected=404, json={"expected_revision": 1, "client_mutation_id": "legacy-step-titles", "steps": legacy_steps})
+
+
+def test_step_assignment_provenance_exclusions_legacy_patch_and_pruning():
+    with fixture() as f:
+        data = payload("assignment-provenance")
+        data["steps"][0]["ingredients"] = [{"ingredient_client_key": "flour", "quantity_value": 100, "origin": "braindump"}]
+        data["steps"][0]["excluded_ingredients"] = ["salt"]
+        first = create(f, data)
+        path = f"/api/recipes/recipes/{first['id']}"
+        mix, cook = first["steps"]
+        assert mix["ingredients"][0]["origin"] == "braindump" and mix["excluded_ingredients"] == ["salt"]
+        assert cook["ingredients"][0]["origin"] == "manual" and cook["excluded_ingredients"] == []
+        with get_db() as db:
+            assert db.execute("SELECT origin FROM recipe_step_ingredients WHERE step_id=?", (mix["id"],)).fetchone()[0] == "braindump"
+            assert db.execute("SELECT excluded_ingredients_json FROM recipe_steps WHERE id=?", (mix["id"],)).fetchone()[0] == '["salt"]'
+        f.actor["id"] = f.users[1]
+        assert f.call("get", path)["steps"] == first["steps"]
+        legacy_steps = [{"client_key": step["client_key"], "text": "Legacy " + step["text"]} for step in reversed(first["steps"])]
+        inherited = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "legacy-assignment-fields", "steps": legacy_steps})
+        inherited_mix = next(step for step in inherited["steps"] if step["client_key"] == "mix")
+        assert inherited_mix["ingredients"] == mix["ingredients"] and inherited_mix["excluded_ingredients"] == ["salt"]
+        assert inherited_mix["id"] == mix["id"]
+        # An explicit old-client link lacking origin is conservative manual;
+        # omission of the whole links list above retained its prior provenance.
+        explicit = [{"client_key": "mix", "text": "Explicit legacy link", "ingredients": [{"ingredient_client_key": "flour"}]}]
+        manual = f.call("patch", path, json={"expected_revision": 2, "client_mutation_id": "old-client-manual", "steps": explicit})
+        assert manual["steps"][0]["ingredients"][0]["origin"] == "manual"
+        assert manual["steps"][0]["ingredients"][0]["quantity_value"] == 100
+        assert manual["steps"][0]["excluded_ingredients"] == ["salt"]
+        cleared = f.call("patch", path, json={"expected_revision": 3, "client_mutation_id": "clear-exclusions",
+            "steps": [{"client_key": "mix", "text": "Clear exclusion", "excluded_ingredients": []}]})
+        assert cleared["steps"][0]["excluded_ingredients"] == []
+        assert cleared["steps"][0]["ingredients"] == manual["steps"][0]["ingredients"]
+        restored = f.call("patch", path, json={"expected_revision": 4, "client_mutation_id": "restore-exclusion",
+            "steps": [{"client_key": "mix", "text": "Restore exclusion", "excluded_ingredients": ["salt"]}]})
+        groups = copy.deepcopy(restored["ingredient_groups"])
+        groups[1]["ingredients"] = []
+        pruned = f.call("patch", path, json={"expected_revision": 5, "client_mutation_id": "remove-excluded-ingredient", "ingredient_groups": groups})
+        assert pruned["steps"][0]["excluded_ingredients"] == []
+        assert pruned["steps"][0]["ingredients"] == restored["steps"][0]["ingredients"]
+        assert f.call("get", f"/api/recipes/cookbooks/{f.books[0]}")["recipes"][0]["steps"] == pruned["steps"]
+        with get_db() as db:
+            db.execute("DELETE FROM entity_access_grants WHERE user_id=?", (f.users[1],))
+        f.call("get", path, expected=404)
+        f.call("patch", path, expected=404, json={"expected_revision": 1, "client_mutation_id": "legacy-assignment-fields", "steps": legacy_steps})
+
+
+def test_explicit_legacy_manual_selection_overrides_only_inherited_exclusions():
+    with fixture() as f:
+        data = payload("legacy-manual-reselect")
+        data["ingredient_groups"][1]["ingredients"].append({"client_key": "oil", "name": "Oil", "quantity_value": 1, "quantity_unit": "tbsp"})
+        data["steps"][0].update(ingredients=[{"ingredient_client_key": "flour", "origin": "braindump"}], excluded_ingredients=["salt", "oil"])
+        first = create(f, data)
+        path = f"/api/recipes/recipes/{first['id']}"
+        # A proposed AI link cannot silently undo a user's negative choice.
+        for index, fields in enumerate([
+            {"ingredients": [{"ingredient_client_key": "salt", "origin": "braindump"}]},
+            {"ingredients": [{"ingredient_client_key": "salt"}], "excluded_ingredients": ["salt", "oil"]},
+        ]):
+            f.call("patch", path, expected=422, json={"expected_revision": 1, "client_mutation_id": f"invalid-reselect-{index}",
+                "steps": [{"client_key": "mix", "text": "Invalid reselect", **fields}]})
+        assert f.call("get", path)["steps"] == first["steps"]
+        # Old clients omit origin and exclusions: this explicit checkbox change
+        # is manual and removes only the matching inherited exclusion.
+        selected = f.call("patch", path, json={"expected_revision": 1, "client_mutation_id": "legacy-select-excluded", "steps": [
+            {"client_key": "mix", "text": "Use salt", "ingredients": [{"ingredient_client_key": "flour"}, {"ingredient_client_key": "salt"}]}]})
+        assert selected["steps"][0]["id"] == first["steps"][0]["id"]
+        assert selected["steps"][0]["excluded_ingredients"] == ["oil"]
+        assert all(link["origin"] == "manual" for link in selected["steps"][0]["ingredients"])
+        selected_again = f.call("patch", path, json={"expected_revision": 2, "client_mutation_id": "manual-select-last-excluded", "steps": [
+            {"client_key": "mix", "text": "Use oil", "ingredients": [{"ingredient_client_key": "oil", "origin": "manual"}]}]})
+        assert selected_again["steps"][0]["excluded_ingredients"] == []
+        assert selected_again["steps"][0]["ingredients"][0]["origin"] == "manual"
+
+
+def test_step_assignment_exclusions_and_origin_validate_effective_recipe_atomically():
+    with fixture() as f:
+        first = create(f)
+        path = f"/api/recipes/recipes/{first['id']}"
+        bad_steps = [
+            {"excluded_ingredients": ["foreign"]}, {"excluded_ingredients": ["salt", " salt "]},
+            {"excluded_ingredients": [""]}, {"excluded_ingredients": ["  "]},
+            {"excluded_ingredients": [1]}, {"excluded_ingredients": None},
+            {"excluded_ingredients": ["salt"] * 501},
+            {"ingredients": [{"ingredient_client_key": "flour"}], "excluded_ingredients": ["flour"]},
+            *[{"ingredients": [{"ingredient_client_key": "flour", "origin": origin}]} for origin in (None, "llm", 0, True)],
+        ]
+        for index, fields in enumerate(bad_steps):
+            f.call("patch", path, expected=422, json={"expected_revision": 1, "client_mutation_id": f"invalid-assignment-{index}",
+                "steps": [{"client_key": "mix", "text": "Invalid", **fields}]})
+        # Explicit references to an ingredient removed in this same PATCH fail;
+        # inherited references are the only ones that may be silently pruned.
+        f.call("patch", path, expected=422, json={"expected_revision": 1, "client_mutation_id": "explicit-removed-exclusion",
+            "ingredient_groups": [], "steps": [{"client_key": "mix", "text": "Invalid", "ingredients": [], "excluded_ingredients": ["salt"]}]})
+        assert f.call("get", path)["steps"] == first["steps"]
+        with get_db() as db:
+            assert db.execute("SELECT COUNT(*) FROM recipe_mutation_receipts WHERE recipe_id=?", (first["id"],)).fetchone()[0] == 1
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
 if __name__ == "__main__":

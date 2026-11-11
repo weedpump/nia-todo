@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { startPrivateApp } from './private_app_test_server.mjs';
 import { waitForPageCondition } from './browser_page_condition.mjs';
 
-const rawRecipe='Crêpes pour quatre personnes. 200 g de farine et 100 ml d’eau. Mélanger 100 g de farine avec l’eau, puis ajouter les 100 g restants.';
+const rawRecipe='Crêpes pour quatre personnes. 200 g de farine et 100 ml d’eau. Mélanger 100 g de farine avec l’eau, puis ajouter les 100 g restants. Ajouter encore de l’eau, sans quantité précisée.';
 const sourceUrl='https://public.example/family-crepes';
 const preamble=`
 import copy, pathlib, sqlite3
@@ -27,20 +27,23 @@ def _post(payload, headers, config):
     _events.write_text(json.dumps({'calls':count+1}))
     if data['mode']=='text':
         recipe={'title':'Crêpes familiales','description':'Recette pour quatre personnes.','base_servings':4,'prep_minutes':None,'cook_minutes':None,'tags':[],
-          'ingredient_groups':[{'client_key':'group-main','name':'Pâte','ingredients':[
+          'ingredient_groups':[{'client_key':'group-main','name':'','ingredients':[
             {'client_key':'flour','name':'Farine','quantity_value':200,'quantity_unit':'g','quantity_text':None,'note':''},
             {'client_key':'water','name':'Eau','quantity_value':100,'quantity_unit':'ml','quantity_text':None,'note':''}]}],
-          'steps':[{'client_key':'step-mix','text':'Mélanger 100 g de farine avec l’eau.','ingredients':[]},{'client_key':'step-rest','text':'Ajouter les 100 g de farine restants.','ingredients':[]}]}
+          'steps':[{'client_key':'step-mix','text':'Mélanger 100 g de farine avec l’eau.','ingredients':[]},{'client_key':'step-rest','text':'Ajouter les 100 g de farine restants. Ajouter encore de l’eau, sans quantité précisée.','ingredients':[]}]}
     elif data['mode']=='assign':
         source=data['recipe_data']
         keys=[ingredient['client_key'] for group in source['ingredient_groups'] for ingredient in group['ingredients']]
         recipe={'steps':[
           {'step_key':source['steps'][0]['client_key'],'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100},{'ingredient_key':keys[1],'show_quantity':True,'quantity_value':100}]},
-          {'step_key':source['steps'][1]['client_key'],'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100}]}]}
+          {'step_key':source['steps'][1]['client_key'],'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100},{'ingredient_key':keys[1],'show_quantity':True,'quantity_value':100}]}]}
     else:
         source=data['recipe_data']
         keys=[ingredient['client_key'] for group in source['ingredient_groups'] for ingredient in group['ingredients']]
-        recipe={'description':'Une pâte simple à partager.','steps':[
+        recipe={'description':'Une pâte simple à partager.',
+          'groups':[{'group_key':source['ingredient_groups'][0]['client_key'],'name':'Pâte'}] if not source['ingredient_groups'][0]['name'] else [],
+          'issues':[{'step_key':source['steps'][1]['client_key'],'code':'additional_amount_missing','ingredient_name':'eau','reason':'amount_missing','evidence':'Ajouter encore de l’eau, sans quantité précisée.'}],
+          'steps':[
           {'step_key':source['steps'][0]['client_key'],'title':'Préparer la pâte','text':source['steps'][0]['text']+' Mélanger soigneusement.',
            'ingredients':[{'ingredient_key':keys[0],'show_quantity':True,'quantity_value':100,'quantity_text':None},{'ingredient_key':keys[1],'show_quantity':True,'quantity_value':100,'quantity_text':None}]},
           {'step_key':source['steps'][1]['client_key'],'title':'Terminer la pâte',
@@ -70,7 +73,7 @@ try{
 root=pathlib.Path(sys.argv[1]).resolve();path=root/'e2e.db'
 assert str(root).startswith('/tmp/nia-recipe-ai-e2e-') and path.parent==root and path.is_file() and not path.is_symlink()
 with sqlite3.connect(path) as db:
- assert db.execute('SELECT MAX(version) FROM schema_version').fetchone()[0]==72
+ assert db.execute('SELECT MAX(version) FROM schema_version').fetchone()[0]==73
  assert db.execute('SELECT COUNT(*) FROM users WHERE username=?',(sys.argv[2],)).fetchone()[0]==1
  db.execute('UPDATE users SET braindump_enabled=? WHERE username=?',(int(sys.argv[3]),sys.argv[2]))
 `,app.privateDir,USERNAME,enabled?'1':'0'],{stdio:['ignore','ignore','pipe']});
@@ -119,17 +122,29 @@ with sqlite3.connect(path) as db:
   assert.equal(await page.locator('#recipe-image-preview-img').getAttribute('src'),originalImage);
   assert.equal(requests[1].draft.image_data,undefined,'actual provider request never contains the image');
   assert.equal(await page.locator('#recipe-import-review').isVisible(),true);
+  assert.match(await page.locator('.recipe-editor-step').nth(1).locator('[data-recipe-step-issues] .recipe-editor-step-issue p').textContent(), /eau/, 'quantity issue names its ingredient beside the preparation step');
+  assert.equal(await page.locator('.recipe-editor-step').nth(1).locator('.recipe-editor-issue-evidence').evaluate(node=>node.open),false,'source excerpt starts collapsed');
+  assert(!(await page.locator('#recipe-import-review').textContent()).includes('sans quantité précisée'), 'source detail does not clutter the top notice');
   const screenshots=process.env.NIA_RECIPE_AI_SCREENSHOTS_DIR;
   if(screenshots){await mkdir(screenshots,{recursive:true});await page.screenshot({path:join(screenshots,'nia-recipe-ai-editor-desktop.png')});}
   await page.locator('#recipe-save-btn').click();await page.locator('#recipe-modal').waitFor({state:'hidden'});await queueEmpty();
   let stored=(await serverRecipes())[0];assert.equal(stored.source_url,sourceUrl);assert.match(stored.image_url,/^\/api\/recipes\/recipes\/\d+\/image/);
   assert.deepEqual(stored.steps.map(step=>step.ingredients.map(link=>link.quantity_value)),[[100,100],[100]]);
+  assert.equal(stored.ingredient_groups[0].name,'Pâte');
+  assert(stored.steps.every(step=>step.ingredients.every(link=>link.origin==='braindump')),'generated assignment origins persist');
+  assert.equal(stored.steps[1].ingredients.some(link=>link.ingredient_client_key==='water'),false,'refinement removes its earlier wrong AI assignment');
   assert.deepEqual(stored.steps.map(step=>step.title),['Préparer la pâte','Terminer la pâte']);
   assert.equal(stored.description,'Une pâte simple à partager.');
   phase='reload and refine the existing recipe without duplication';
   await page.reload({waitUntil:'domcontentloaded'});await page.locator('.recipe-reading').waitFor();
   const id=stored.id,revision=stored.revision;
-  await page.locator('[data-recipe-action="edit"]').click();await page.locator('#recipe-ai-refine-btn').click();await poll(()=>!document.getElementById('recipe-ai-refine-btn').disabled);
+  await page.locator('[data-recipe-action="edit"]').click();
+  const firstStep=page.locator('.recipe-editor-step').first();
+  await firstStep.locator('[data-recipe-editor-action="step-ingredients-toggle"]').click();
+  await firstStep.locator('.recipe-editor-step-quantity').first().locator('summary').click();
+  await firstStep.locator('[data-step-quantity-value]').first().fill('80');
+  await firstStep.locator('[data-step-ingredient="water"]').uncheck();
+  await page.locator('#recipe-ai-refine-btn').click();await poll(()=>!document.getElementById('recipe-ai-refine-btn').disabled);
   assert.equal(await calls(),4);assert.equal(await page.locator('#recipe-id').inputValue(),String(id));
   assert(!('id'in requests[2].draft.ingredient_groups[0]));assert(!('id'in requests[2].draft.ingredient_groups[0].ingredients[0]));assert(!('id'in requests[2].draft.steps[0]));
   await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
@@ -143,7 +158,9 @@ with sqlite3.connect(path) as db:
   await poll(async()=>typeof window.dbGetAll==='function'&&(await window.dbGetAll('syncQueue')).some(item=>item.action==='UPDATE_RECIPE'));
   await page.context().setOffline(false);await queueEmpty();
   const all=await serverRecipes();assert.equal(all.length,1);stored=all[0];assert.equal(stored.id,id);assert.equal(stored.revision,revision+1);assert.equal(stored.source_url,sourceUrl);
-  assert.deepEqual(stored.steps.map(step=>step.ingredients.map(link=>link.quantity_value)),[[100,100],[100]]);
+  assert.deepEqual(stored.steps.map(step=>step.ingredients.map(link=>link.quantity_value)),[[80],[100]],'manual quantities and exclusions win over a conflicting model reply');
+  assert.equal(stored.steps[0].ingredients[0].origin,'manual');
+  assert.deepEqual(stored.steps[0].excluded_ingredients,['water'],'manual negative choices survive offline replay');
   assert.deepEqual(stored.steps.map(step=>step.title),['Préparer la pâte','Terminer la pâte'],'titles survive offline save, reload and replay');
   phase='revocation during provider inference wins';
   await writeFile(join(app.privateDir,'provider-control.json'),JSON.stringify({revoke:true}));

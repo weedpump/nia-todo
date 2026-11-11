@@ -67,7 +67,7 @@ try {
     await page.locator('#recipe-ai-refine-btn').click();
     return page.evaluate(()=>window.test.calls.length-1);
   }
-  const answer = structuredClone(draft);answer.description='Polished description';answer.steps[0].ingredients=[{ingredient_client_key:'i1',show_quantity:true,quantity_value:125,quantity_text:null}];
+  const answer = structuredClone(draft);answer.description='Polished description';answer.steps[0].ingredients=[{ingredient_client_key:'i1',show_quantity:true,quantity_value:125,quantity_text:null,origin:'braindump'}];
   answer.source_author='Injected author';answer.source_url='https://other.example/';answer.id=999;answer.cookbook_id=999;answer.revision=999;
   answer.ingredient_groups[0].id=999;answer.ingredient_groups[0].ingredients[0].id=999;answer.steps[0].id=999;
   let index=await begin();
@@ -76,16 +76,72 @@ try {
   assert.equal(await page.locator('#recipe-save-btn').isDisabled(),true);
   assert.equal(await page.locator('#recipe-name').isDisabled(),true,'editor fields are locked while the current draft is being read');
   assert.equal(await page.evaluate(()=>window.test.saves.length),0);
-  await page.evaluate(({index,answer})=>window.test.resolve(index,{draft:answer,warnings:['recipe.ai.reviewAssignments']}),{index,answer});
+  await page.evaluate(({index,answer})=>{
+    const issue={step_client_key:'s1',code:'additional_amount_missing',ingredient_name:'Flour <img src=x>',reason:'already_used',evidence:'Mix the flour.'};
+    window.test.resolve(index,{draft:answer,warnings:['recipe.ai.review','recipe.ai.reviewAssignments','recipe.ai.reviewAssignments'],issues:[
+      issue,issue,{...issue,step_client_key:'<img src=x>'},{...issue,code:'<script>invalid</script>'},
+      {...issue,ingredient_name:''},{...issue,evidence:'x'.repeat(301)},{...issue,reason:'model opinion'},
+      {step_client_key:'s1',code:'additional_amount_missing'}]});
+  },{index,answer});
   await page.waitForFunction(()=>!document.getElementById('recipe-name').disabled);
   const refined=await page.evaluate(()=>window.test.editor.getDraft());
   assert.equal(refined.description,answer.description);assert.equal(refined.source_author,draft.source_author);assert.equal(refined.source_url,draft.source_url);assert.equal(refined.image_data,image);
   assert.deepEqual(refined.steps[0].ingredients,answer.steps[0].ingredients);assert.equal(await page.locator('#recipe-id').inputValue(),'');
   assert.equal(await page.locator('#recipe-cookbook-id').inputValue(),'1');assert.equal(await page.evaluate(()=>window.test.saves.length),0,'refinement never saves automatically');
   assert.equal(await page.locator('#recipe-import-review').isVisible(),true);
+  assert.equal(await page.locator('#recipe-import-review>p').textContent(),await page.evaluate(()=>window.test.t('recipe.ai.review')),'AI introduction is one short review sentence');
+  assert.equal(await page.locator('#recipe-import-review li').count(),1,'general warnings are deduplicated without repeating the introduction');
+  assert.equal(await page.locator('.recipe-ai-review-details').evaluate(node=>node.open),false,'extra review details start collapsed');
+  assert.equal(await page.locator('#recipe-import-review li').isVisible(),false);
+  await page.locator('#recipe-import-review').scrollIntoViewIfNeeded();
+  await capture('review-desktop');
+  const inlineIssue=page.locator('.recipe-editor-step[data-key="s1"] [data-recipe-step-issues]');
+  assert.equal(await inlineIssue.isVisible(),true);
+  assert.equal(await inlineIssue.locator('.recipe-editor-step-issue').count(),1,'only complete known issues for a current step appear inline');
+  assert.ok((await inlineIssue.locator('p').textContent()).includes('Flour <img src=x>'),'the concrete ingredient is identified');
+  assert.equal(await inlineIssue.locator('img,script').count(),0,'model ingredient names and quotes remain escaped text');
+  assert.equal(await inlineIssue.locator('blockquote').isVisible(),false,'source evidence is optional to expand');
+  await inlineIssue.locator('summary').click();
+  assert.equal(await inlineIssue.locator('blockquote').textContent(),'Mix the flour.');
+  await inlineIssue.locator('summary').click();
+  assert.equal(await page.locator('#recipe-import-review img, #recipe-import-review script').count(),0);
   await capture('editor-desktop');
+  for(const width of [390,320]) {
+    await page.setViewportSize({width,height:844});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    const box=await page.locator('.recipe-editor-step').evaluate(node=>({background:getComputedStyle(node).backgroundColor,border:getComputedStyle(node).borderTopWidth,padding:parseFloat(getComputedStyle(node).paddingLeft)}));
+    assert.notEqual(box.background,'rgba(0, 0, 0, 0)','each step has its own subtle background');
+    assert.equal(box.border,'0px');assert.ok(box.padding>=12);
+    await inlineIssue.scrollIntoViewIfNeeded?.();
+    await capture(`step-issue-${width}`);
+    await page.locator('#recipe-import-review').scrollIntoViewIfNeeded();
+    await capture(`review-${width}`);
+  }
+  await page.setViewportSize({width:1280,height:900});
+
+  await page.locator('[data-recipe-editor-action="step-ingredients-toggle"]').click();
+  await page.locator('[data-recipe-editor-action="step-quantity-toggle"]').click();
+  await page.locator('[data-step-quantity-value]').fill('100');
+  assert.equal((await page.evaluate(()=>window.test.editor.getDraft())).steps[0].ingredients[0].origin,'manual','editing an inferred amount protects that link as manual');
+  await page.locator('[data-step-ingredient="i1"]').uncheck();
+  const rejected=await page.evaluate(()=>window.test.editor.getDraft());
+  assert.deepEqual(rejected.steps[0].excluded_ingredients,['i1'],'unchecking records deliberate negative intent');
+  assert.deepEqual(rejected.steps[0].ingredients,[]);
+  await page.locator('#recipe-ai-refine-btn').click();
+  index=await page.evaluate(()=>window.test.calls.length-1);
+  assert.deepEqual(await page.evaluate(index=>window.test.calls[index].body.draft.steps[0].excluded_ingredients,index),['i1'],'negative choices are included in the next refinement request');
+  await page.evaluate(({index,rejected})=>window.test.resolve(index,{draft:rejected,warnings:[],issues:[]}),{index,rejected});
+  await page.waitForFunction(()=>!document.getElementById('recipe-name').disabled);
+  assert.equal(await page.locator('#recipe-import-review li').count(),0,'issues reset on a new refinement result');
+  assert.equal(await page.locator('[data-recipe-step-issues]:not([hidden])').count(),0);
+  await page.locator('[data-recipe-editor-action="step-ingredients-toggle"]').click();
+  await page.locator('[data-step-ingredient="i1"]').check();
+  const restored=await page.evaluate(()=>window.test.editor.getDraft());
+  assert.deepEqual(restored.steps[0].excluded_ingredients,[]);
+  assert.equal(restored.steps[0].ingredients[0].origin,'manual','rechecking assigns a manual origin');
 
   index=await begin({edit:true});
+  assert.equal(await page.locator('#recipe-import-review li').count(),0,'a fresh editor session does not inherit issues');
   assert.equal(await page.locator('#recipe-delete-btn').isDisabled(),true);
   const existingRequest=await page.evaluate(index=>window.test.calls[index].body.draft,index);
   assert.equal('id' in existingRequest.ingredient_groups[0],false);

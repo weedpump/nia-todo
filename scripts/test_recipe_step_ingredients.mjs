@@ -97,3 +97,35 @@ for (const title of [null, 42, 'x'.repeat(201)]) {
  assert.equal(validateRecipeChanges({...validSource,steps:[{client_key:'s',title,text:'Body'}]},true),null,'invalid step title rejected');
 }
 assert.equal(validateRecipeChanges({...validSource,steps:[{client_key:'s',title:'  ',text:'\t\n'}]},true),null,'blank instructions rejected');
+
+const learned = {...validSource,steps:[{client_key:'s',text:'Prepare',excluded_ingredients:['lemon'],ingredients:[
+  {ingredient_client_key:'fat',show_quantity:true,origin:'braindump',quantity_value:20,quantity_text:null}]}]};
+assert.ok(validateRecipeChanges(learned,true),'AI origins and manual exclusions are valid recipe content');
+for (const origin of [null, 0, 'automatic']) {
+ assert.equal(validateRecipeChanges({...learned,steps:[{...learned.steps[0],ingredients:[{ingredient_client_key:'fat',origin}]}]},true),null,'unknown link origin is rejected');
+}
+for (const excluded_ingredients of [null, ['lemon','lemon'], ['unknown'], ['fat'], [''], Array(501).fill('lemon')]) {
+ assert.equal(validateRecipeChanges({...learned,steps:[{...learned.steps[0],excluded_ingredients}]},true),null,'invalid, duplicate, cross-recipe or assigned exclusions rejected');
+}
+const inheritedProvenance = mergeRecipeStepIngredients(learned,{steps:[{client_key:'s',text:'Older body edit'}]});
+assert.equal(inheritedProvenance.steps[0].ingredients[0].origin,'braindump');
+assert.deepEqual(inheritedProvenance.steps[0].excluded_ingredients,['lemon'],'legacy body-only PATCH preserves manual negative choices');
+const twoExclusions={...learned,steps:[{...learned.steps[0],excluded_ingredients:['lemon','apple']}]};
+const reinclude={steps:[{client_key:'s',text:'Choose lemon again',ingredients:[{ingredient_client_key:'lemon'}]}]};
+const beforeReinclude=JSON.stringify(reinclude);
+const legacyReinclude=mergeRecipeStepIngredients(twoExclusions,reinclude);
+assert.deepEqual(legacyReinclude.steps[0].excluded_ingredients,['apple'],'an explicit legacy manual selection supersedes only its inherited exclusion');
+assert.ok(validateRecipeChanges(legacyReinclude,true));
+assert.equal(JSON.stringify(reinclude),beforeReinclude,'legacy intent projection never rewrites the request');
+for (const changes of [
+ {steps:[{...reinclude.steps[0],excluded_ingredients:['lemon']}]},
+ {steps:[{...reinclude.steps[0],ingredients:[{ingredient_client_key:'lemon',origin:'braindump'}]}]},
+]) assert.equal(validateRecipeChanges(mergeRecipeStepIngredients(twoExclusions,changes),true),null,'explicit conflicts and generated selections cannot override exclusions');
+assert.deepEqual(mergeRecipeStepIngredients(learned,{steps:[{client_key:'s',text:'Explicit reset',excluded_ingredients:[]}]}).steps[0].excluded_ingredients,[]);
+const pruned = mergeRecipeStepIngredients(learned,{ingredient_groups:learned.ingredient_groups.map(group=>({...group,ingredients:group.ingredients.filter(item=>item.client_key!=='lemon')}))});
+assert.deepEqual(pruned.steps[0].excluded_ingredients,[],'deleting a source ingredient prunes only inherited exclusions');
+const provenanceEntry={id:7,actor_id:1,attempted:true,action:'UPDATE_RECIPE',data:{id:1,cookbook_id:1,client_mutation_id:'frozen',expected_revision:1,changes:{steps:learned.steps}}};
+const beforeProvenance=JSON.stringify(provenanceEntry);
+assert.deepEqual(sanitizeRecipeEntry(provenanceEntry).data.changes.steps,learned.steps,'origin and exclusions survive durable queue serialization');
+projectRecipeCookbook({id:1,can_edit:true,recipes:[{...learned,id:1}]},[provenanceEntry]);
+assert.equal(JSON.stringify(provenanceEntry),beforeProvenance,'projection leaves attempted provenance bodies immutable');

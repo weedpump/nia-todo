@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "Link",
   "recipe.import.modeText": "Tekst",
   "recipe.step.title": "Kop (optioneel)",
-  "recipe.step.text": "Beschrijving"
+  "recipe.step.text": "Beschrijving",
+  "recipe.ai.issue.additionalAmountMissing": "Stap {step}: een extra benodigde hoeveelheid ontbreekt in het recept of wordt niet gedekt door de opgegeven hoeveelheden. Controleer dit.",
+  "recipe.ai.reviewDetails": "Overige opmerkingen",
+  "recipe.ai.issue.evidence": "Tekst in het recept",
+  "recipe.ai.issue.notListed": "{ingredient}: wordt hier gebruikt, maar ontbreekt in de ingrediëntenlijst.",
+  "recipe.ai.issue.amountMissing": "{ingredient}: de benodigde hoeveelheid is niet vermeld.",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: al verwerkt. De extra benodigde hoeveelheid ontbreekt."
 }

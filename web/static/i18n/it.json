@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "Link",
   "recipe.import.modeText": "Testo",
   "recipe.step.title": "Titolo (facoltativo)",
-  "recipe.step.text": "Descrizione"
+  "recipe.step.text": "Descrizione",
+  "recipe.ai.issue.additionalAmountMissing": "Passaggio {step}: la quantità aggiuntiva di un ingrediente manca nella ricetta o non è coperta dalle quantità indicate. Verifica.",
+  "recipe.ai.reviewDetails": "Altre indicazioni",
+  "recipe.ai.issue.evidence": "Passaggio della ricetta",
+  "recipe.ai.issue.notListed": "{ingredient}: si usa qui, ma manca nell’elenco degli ingredienti.",
+  "recipe.ai.issue.amountMissing": "{ingredient}: la quantità necessaria non è indicata.",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: già incorporato. Manca la quantità da aggiungere in più."
 }

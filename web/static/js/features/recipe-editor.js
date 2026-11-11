@@ -56,7 +56,9 @@ const cloneContent = recipe => ({
   tags: [...(recipe?.tags || [])],
   ingredient_groups: (recipe?.ingredient_groups || []).map(group => ({ ...identity(group), name: group.name || '', ingredients: (group.ingredients || []).map(item => ({ ...identity(item), name: item.name || '', quantity_value: item.quantity_value ?? null, quantity_unit: item.quantity_unit || '', quantity_text: item.quantity_text || '', note: item.note || '' })) })),
   steps: (recipe?.steps || []).map(step => ({ ...identity(step), title: step.title || '', text: step.text || '',
+    ...(Object.hasOwn(step, 'excluded_ingredients') ? { excluded_ingredients: [...step.excluded_ingredients] } : {}),
     ingredients: (step.ingredients || []).map(link => ({ ingredient_client_key: link.ingredient_client_key, show_quantity: link.show_quantity !== false,
+      ...(Object.hasOwn(link, 'origin') ? { origin: link.origin } : {}),
       ...(Object.hasOwn(link, 'quantity_value') || Object.hasOwn(link, 'quantity_text') ? { quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text ?? null } : {}) })) })),
 });
 function orderButtons(kind, key, index, length, groupKey = '') {
@@ -72,7 +74,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
 } = {}) {
   let model = cloneContent(null), baseline = null, openedRecipe = null, openedBook = null, baselineRevision = null;
   let session, generation = 0, imageGeneration = 0, imageData, preparing = false, busy = null, bound = false, errorKey = '';
-  let importWarnings = null, reviewHintKey = 'recipe.import.reviewHint';
+  let importWarnings = null, importIssues = [], reviewHintKey = 'recipe.import.reviewHint';
   const el = suffix => root.getElementById(`recipe-${suffix}`);
   const books = () => getCookbooks();
   const book = () => books().find(candidate => sameEntityId(candidate.id, el('cookbook-id')?.value)
@@ -97,6 +99,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     const steps = Array.from(el('editor-steps')?.querySelectorAll('.recipe-editor-step') || []).map(node => {
       const step = model.steps.find(step => step.client_key === node.dataset.key) || { client_key: node.dataset.key };
       return { ...identity(step), title: value(node, 'step-title').trim(), text: node.querySelector('textarea').value.trim(),
+        ...(Object.hasOwn(step, 'excluded_ingredients') ? { excluded_ingredients: step.excluded_ingredients.filter(key => ingredientKeys.has(key)) } : {}),
         ingredients: (step.ingredients || []).filter(link => ingredientKeys.has(link.ingredient_client_key)).map(link => ({ ...link })) };
     });
     return { title: el('name')?.value.trim() || '', description: el('description')?.value.trim() || '',
@@ -110,7 +113,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
   const valid = data => Boolean(validateRecipeChanges(data, true));
   const comparable = data => ({ ...data,
     ingredient_groups: data.ingredient_groups.map(({ id, ingredients, ...group }) => ({ ...group, ingredients: ingredients.map(({ id, ...item }) => item) })),
-    steps: data.steps.map(({ id, ...step }) => ({ ...step, ingredients: (step.ingredients || []).map(link => ({ ...link, quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text || null })) })),
+    steps: data.steps.map(({ id, ...step }) => ({ ...step, excluded_ingredients: step.excluded_ingredients || [], ingredients: (step.ingredients || []).map(link => ({ ...link, origin: link.origin || 'manual', quantity_value: link.quantity_value ?? null, quantity_text: link.quantity_text || null })) })),
   });
   let ingredientEdit = null;
   let modal;
@@ -157,7 +160,38 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     const host = el('import-review');
     if (!host) return;
     host.hidden = importWarnings === null;
-    host.innerHTML = importWarnings === null ? '' : `<p>${text(reviewHintKey)}</p>${importWarnings.length ? `<ul>${importWarnings.map(key => `<li>${escapeHtml(t(key))}</li>`).join('')}</ul>` : ''}`;
+    const aiReview = reviewHintKey === 'recipe.ai.reviewHint';
+    const messages = [...new Set(importWarnings || [])].filter(key => !aiReview || key !== 'recipe.ai.review').map(key => t(key));
+    const list = messages.length ? `<ul>${messages.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>` : '';
+    const wasOpen = host.querySelector('.recipe-ai-review-details')?.open;
+    host.innerHTML = importWarnings === null ? '' : `<p>${text(aiReview ? 'recipe.ai.review' : reviewHintKey)}</p>${aiReview && list ? `<details class="recipe-ai-review-details" ${wasOpen ? 'open' : ''}><summary>${text('recipe.ai.reviewDetails')}</summary>${list}</details>` : list}`;
+    renderStepIssues();
+  }
+  function renderStepIssues(opened = null) {
+    const previous = opened || new Set(Array.from(el('editor-steps')?.querySelectorAll('[data-recipe-issue-evidence][open]') || []).map(node => node.dataset.recipeIssueEvidence));
+    for (const row of el('editor-steps')?.querySelectorAll('.recipe-editor-step') || []) {
+      const host = row.querySelector('[data-recipe-step-issues]');
+      const issues = importIssues.filter(issue => issue.step_client_key === row.dataset.key);
+      host.hidden = !issues.length;
+      host.innerHTML = issues.map(issue => {
+        const key = JSON.stringify([issue.step_client_key, issue.ingredient_name, issue.reason]);
+        const label = t({not_listed:'recipe.ai.issue.notListed',amount_missing:'recipe.ai.issue.amountMissing',already_used:'recipe.ai.issue.alreadyUsed'}[issue.reason], { ingredient: issue.ingredient_name });
+        return `<div class="recipe-editor-step-issue"><p>${iconSvg('triangle-alert')}<span>${escapeHtml(label)}</span></p><details class="recipe-editor-issue-evidence" data-recipe-issue-evidence="${escapeHtmlAttr(key)}" ${previous.has(key) ? 'open' : ''}><summary>${text('recipe.ai.issue.evidence')}</summary><blockquote>${escapeHtml(issue.evidence)}</blockquote></details></div>`;
+      }).join('');
+    }
+  }
+  function setImportIssues(issues) {
+    const keys = new Set(model.steps.map(step => step.client_key));
+    const seen = new Set();
+    importIssues = (Array.isArray(issues) ? issues.slice(0, 100) : []).filter(issue => {
+      if (issue?.code !== 'additional_amount_missing' || !keys.has(issue.step_client_key)
+        || typeof issue.ingredient_name !== 'string' || !issue.ingredient_name.trim() || issue.ingredient_name.length > 200
+        || !['not_listed','amount_missing','already_used'].includes(issue.reason)
+        || typeof issue.evidence !== 'string' || !issue.evidence.trim() || issue.evidence.length > 300) return false;
+      const key = JSON.stringify([issue.step_client_key, issue.ingredient_name.trim().replace(/\s+/gu, ' ').toLowerCase(), issue.reason]);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    }).map(issue => ({ step_client_key: issue.step_client_key, code: issue.code, ingredient_name: issue.ingredient_name.trim(), reason: issue.reason, evidence: issue.evidence.trim() }));
   }
   function renderContent(entity) {
       imagePicker.close();
@@ -169,7 +203,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       el('prep-minutes').value = entity?.prep_minutes ?? ''; el('cook-minutes').value = entity?.cook_minutes ?? '';
       for (const key of ['url', 'name', 'author', 'yield']) if (el(`source-${key}`)) el(`source-${key}`).value = entity?.[`source_${key}`] || '';
       el('form').querySelector('.recipe-editor-source')?.removeAttribute('open');
-      importWarnings = null; reviewHintKey = 'recipe.import.reviewHint'; renderImportReview();
+      importWarnings = null; importIssues = []; reviewHintKey = 'recipe.import.reviewHint'; renderImportReview();
       el('image-file').value = ''; renderRows(); el('editor-conflict').innerHTML = renderRecipeConflict(entity);
       renderImage();
   }
@@ -247,6 +281,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     const choice = input.closest('[data-step-choice]'), step = model.steps.find(step => step.client_key === input.closest('.recipe-editor-step').dataset.key);
     const link = step?.ingredients?.find(link => link.ingredient_client_key === choice.dataset.stepChoice);
     if (!link) return false;
+    link.origin = 'manual';
     link.show_quantity = true;
     link.quantity_value = input.hasAttribute('data-step-quantity-value') && input.value !== '' ? Number(input.value) : null;
     link.quantity_text = input.hasAttribute('data-step-quantity-text') ? input.value.trim() || null : null;
@@ -255,10 +290,14 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
   }
   function pruneStepIngredients() {
     const keys = new Set(model.ingredient_groups.flatMap(group => group.ingredients.map(item => item.client_key)));
-    for (const step of model.steps) step.ingredients = (step.ingredients || []).filter(link => keys.has(link.ingredient_client_key));
+    for (const step of model.steps) {
+      step.ingredients = (step.ingredients || []).filter(link => keys.has(link.ingredient_client_key));
+      if (Object.hasOwn(step, 'excluded_ingredients')) step.excluded_ingredients = step.excluded_ingredients.filter(key => keys.has(key));
+    }
   }
   function renderRows(focusKey = null, focusAction = null) {
     const openPickers = new Set(Array.from(el('editor-steps')?.querySelectorAll('.recipe-editor-step-ingredients[open]') || []).map(node => node.closest('.recipe-editor-step').dataset.key));
+    const openEvidence = new Set(Array.from(el('editor-steps')?.querySelectorAll('[data-recipe-issue-evidence][open]') || []).map(node => node.dataset.recipeIssueEvidence));
     const openGroups = new Set(Array.from(el('editor-steps')?.querySelectorAll('[data-step-group][open]') || []).map(node => JSON.stringify([node.closest('.recipe-editor-step').dataset.key, node.dataset.stepGroup])));
     pruneStepIngredients();
     const total = model.ingredient_groups.flatMap(group => group.ingredients).length;
@@ -282,13 +321,14 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
           </div></div>`;
       }).join('')}</div>
       <button type="button" class="btn btn-secondary" data-recipe-editor-action="ingredient-add" data-group-key="${escapeHtmlAttr(group.client_key)}" ${total >= 500 ? 'disabled data-bound-disabled="true"' : ''}>${iconSvg('plus')}${text('recipe.ingredient.add')}</button></section>`).join('');
-    el('editor-steps').innerHTML = model.steps.map((step, index) => `<div class="recipe-editor-step" data-key="${escapeHtmlAttr(step.client_key)}"><div class="recipe-editor-row-heading"><span data-recipe-step-label>${escapeHtml(t('recipe.step.number', { number: index + 1 }))}</span>${orderButtons('step', step.client_key, index, model.steps.length)}</div><div class="recipe-editor-step-fields"><label for="recipe-step-title-${escapeHtmlAttr(step.client_key)}">${text('recipe.step.title')}<input id="recipe-step-title-${escapeHtmlAttr(step.client_key)}" class="ui-field" data-field="step-title" maxlength="200" value="${escapeHtmlAttr(step.title)}" autocomplete="off"></label><label for="recipe-step-${escapeHtmlAttr(step.client_key)}">${text('recipe.step.text')}<textarea id="recipe-step-${escapeHtmlAttr(step.client_key)}" class="ui-field" rows="3" maxlength="8000" aria-describedby="recipe-step-hint">${escapeHtml(step.text)}</textarea></label></div><details class="recipe-editor-step-ingredients" ${openPickers.has(step.client_key) ? 'open' : ''}><summary data-recipe-editor-action="step-ingredients-toggle" data-key="${escapeHtmlAttr(step.client_key)}">${text('recipe.step.ingredients.assign')}<span data-step-selected-count></span></summary><p class="recipe-step-hint">${text('recipe.step.ingredients.hint')}</p><div data-step-picker-content role="group" aria-label="${escapeHtmlAttr(t('recipe.step.ingredients.label'))}" data-i18n-aria-label-key="recipe.step.ingredients.label"></div></details></div>`).join('');
+    el('editor-steps').innerHTML = model.steps.map((step, index) => `<div class="recipe-editor-step" data-key="${escapeHtmlAttr(step.client_key)}"><div class="recipe-editor-row-heading"><span data-recipe-step-label>${escapeHtml(t('recipe.step.number', { number: index + 1 }))}</span>${orderButtons('step', step.client_key, index, model.steps.length)}</div><div class="recipe-editor-step-fields"><label for="recipe-step-title-${escapeHtmlAttr(step.client_key)}">${text('recipe.step.title')}<input id="recipe-step-title-${escapeHtmlAttr(step.client_key)}" class="ui-field" data-field="step-title" maxlength="200" value="${escapeHtmlAttr(step.title)}" autocomplete="off"></label><label for="recipe-step-${escapeHtmlAttr(step.client_key)}">${text('recipe.step.text')}<textarea id="recipe-step-${escapeHtmlAttr(step.client_key)}" class="ui-field" rows="3" maxlength="8000" aria-describedby="recipe-step-hint">${escapeHtml(step.text)}</textarea></label></div><div class="recipe-editor-step-issues" data-recipe-step-issues hidden></div><details class="recipe-editor-step-ingredients" ${openPickers.has(step.client_key) ? 'open' : ''}><summary data-recipe-editor-action="step-ingredients-toggle" data-key="${escapeHtmlAttr(step.client_key)}">${text('recipe.step.ingredients.assign')}<span data-step-selected-count></span></summary><p class="recipe-step-hint">${text('recipe.step.ingredients.hint')}</p><div data-step-picker-content role="group" aria-label="${escapeHtmlAttr(t('recipe.step.ingredients.label'))}" data-i18n-aria-label-key="recipe.step.ingredients.label"></div></details></div>`).join('');
     el('editor-tags').innerHTML = model.tags.map((tag, index) => `<div class="recipe-editor-tag"><input class="ui-field" value="${escapeHtmlAttr(tag)}" required maxlength="80" aria-label="${escapeHtmlAttr(t('recipe.tag'))}" data-i18n-aria-label-key="recipe.tag"><button type="button" class="btn btn-secondary btn-icon" data-recipe-editor-action="tag-remove" data-index="${index}" aria-label="${escapeHtmlAttr(t('common.delete'))}" data-i18n-aria-label-key="common.delete">${iconSvg('trash-2')}</button></div>`).join('');
     for (const [action, count, max] of [['group-add', model.ingredient_groups.length, 50], ['step-add', model.steps.length, 100], ['tag-add', model.tags.length, 40]]) {
       const node = el('form').querySelector(`[data-recipe-editor-action="${action}"]`); node.disabled = count >= max; node.dataset.boundDisabled = String(count >= max);
     }
     refreshStepPickers();
     for (const group of el('editor-steps').querySelectorAll('[data-step-group]')) group.open = openGroups.has(JSON.stringify([group.closest('.recipe-editor-step').dataset.key, group.dataset.stepGroup]));
+    if (importIssues.length) renderStepIssues(openEvidence);
     permissions();
     if (focusKey != null) {
       const row = Array.from(el('form').querySelectorAll('[data-key]')).find(node => node.dataset.key === focusKey);
@@ -339,7 +379,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     renderImage();
     return ok;
   }
-  function showImport(draft, cookbookId, { warnings = [], reviewHint = 'recipe.import.reviewHint' } = {}) {
+  function showImport(draft, cookbookId, { warnings = [], issues = [], reviewHint = 'recipe.import.reviewHint' } = {}) {
     // Keep the original empty-create baseline: an imported draft is immediately
     // saveable, but it still has no persisted recipe identity or revision.
     const content = draft && validateRecipeChanges(draft, true);
@@ -353,6 +393,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     appearance.setValues({ name: content.title });
     imageData = content.image_data || undefined;
     importWarnings = [...new Set(warnings.filter(key => typeof key === 'string' && /^(?:recipe\.import\.|recipe\.ai\.)/u.test(key)))];
+    setImportIssues(issues);
     reviewHintKey = reviewHint === 'recipe.ai.reviewHint' ? reviewHint : 'recipe.import.reviewHint';
     renderImportReview(); renderImage(); permissions(); modal.refreshSaveState();
     return true;
@@ -411,6 +452,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       renderContent({ ...data, cookbook_id: capturedBook });
       appearance.setValues({ name: data.title }); imageData = retainedImage;
       importWarnings = [...new Set((Array.isArray(response.warnings) ? response.warnings : []).filter(key => typeof key === 'string' && key.startsWith('recipe.ai.')))];
+      setImportIssues(response.issues);
       reviewHintKey = 'recipe.ai.reviewHint';
       renderImportReview(); renderImage();
       return true;
@@ -422,6 +464,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
   }
   function deactivate() {
     abortAI();
+    importIssues = [];
     generation++; imageGeneration++; busy = null; preparing = false; imageData = undefined;
     imagePicker.close(); closeOpenDropdown('recipe-deactivate'); ingredientEdit = null;
     releaseRecipeImage(el('image-preview-img')); openedRecipe = null; openedBook = null;
@@ -527,7 +570,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
       const link = step?.ingredients?.find(link => link.ingredient_client_key === choice.dataset.stepChoice);
       if (!link) return;
       if (action === 'step-quantity-toggle') { const details = target.closest('details'); details.open = !details.open; }
-      else { link.show_quantity = true; link.quantity_value = link.quantity_text = null; choice.querySelector('[data-step-quantity-value]').value = ''; choice.querySelector('[data-step-quantity-text]').value = ''; refreshStepPickers(); modal.refreshSaveState(); }
+      else { link.origin = 'manual'; link.show_quantity = true; link.quantity_value = link.quantity_text = null; choice.querySelector('[data-step-quantity-value]').value = ''; choice.querySelector('[data-step-quantity-text]').value = ''; refreshStepPickers(); modal.refreshSaveState(); }
       return;
     }
     if (action === 'step-ingredients-toggle') {
@@ -583,6 +626,7 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
     win?.addEventListener('online', refreshAI);
     win?.addEventListener('offline', () => { if (busy?.kind === 'ai') { abortAI(); error('recipe.ai.offline'); permissions(); } else refreshAI(); });
     if (win?.MutationObserver && el('modal')) new win.MutationObserver(() => {
+      if (!active()) importIssues = [];
       if (!active() && busy?.kind === 'ai') { abortAI(); permissions(); }
     }).observe(el('modal'), { attributes: true, attributeFilter: ['class'] });
     globalThis.window?.addEventListener('nia-language-change', () => {
@@ -622,7 +666,9 @@ export function createRecipeEditorFeature({ getCookbooks = () => [], recipeContr
         if (!step) return;
         const key = event.target.dataset.stepIngredient;
         step.ingredients = (step.ingredients || []).filter(link => link.ingredient_client_key !== key);
-        if (event.target.checked) step.ingredients.push({ ingredient_client_key: key, show_quantity: true });
+        step.excluded_ingredients = (step.excluded_ingredients || []).filter(value => value !== key);
+        if (event.target.checked) step.ingredients.push({ ingredient_client_key: key, show_quantity: true, origin: 'manual' });
+        else step.excluded_ingredients.push(key);
         refreshStepPickers(); modal.refreshSaveState(); return;
       }
       if (event.target.dataset.field === 'quantity_unit' && editable() && !current()?.conflict && !busy) {

@@ -109,13 +109,16 @@ export function createRecipeImportFeature({ root = globalThis.document, api,
       const draft = response?.draft && validateRecipeChanges(response.draft, true);
       if (!draft) throw new Error('Invalid import response');
       const warnings = Array.isArray(response.warnings) ? response.warnings.filter(key => typeof key === 'string' && /^(?:recipe\.import\.|recipe\.ai\.)/u.test(key)) : [];
+      const issues = capturedMode === 'text' && Array.isArray(response.issues)
+        ? response.issues.slice(0, 100).map(issue => ({ step_client_key: issue?.step_client_key, code: issue?.code,
+          ingredient_name: issue?.ingredient_name, reason: issue?.reason, evidence: issue?.evidence })) : [];
       invalidate();
       const handoffGeneration = generation;
       modal.close({ afterClose: () => {
         if (generation !== handoffGeneration || active() || capturedSession !== getSessionIdentity() || ![true, 1].includes(currentBook()?.can_edit)
           || !sameEntityId(currentBook()?.id, target.id)
           || root.getElementById('recipe-modal')?.classList.contains('active') || (capturedMode === 'text' && !getBrainDumpAccess())) return;
-        editor.showImport(draft, target.id, { warnings, reviewHint: capturedMode === 'text' ? 'recipe.ai.reviewHint' : 'recipe.import.reviewHint' });
+        editor.showImport(draft, target.id, { warnings, issues, reviewHint: capturedMode === 'text' ? 'recipe.ai.reviewHint' : 'recipe.import.reviewHint' });
       } });
     } catch (error) {
       if (!isCurrent()) return;

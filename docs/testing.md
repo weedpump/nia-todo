@@ -294,6 +294,18 @@ unknown amounts with known ingredients, legitimate empty results, malformed opti
 responses, retained existing links and access/deadline fences. The private full-app
 test deliberately starts with an unlinked text result and verifies repaired links
 through normal saving and offline replay.
+Provenance coverage distinguishes replaceable BrainDump links from manual positives,
+amounts and negative choices. Migration 073 tests preserve old content and protect
+legacy links as manual, including startup rollback; API/pending tests cover old-client
+manual reselection without rewriting durable bodies. Full-app BrainDump coverage
+checks blank group naming, removal of earlier AI mistakes, manual amount/exclusion
+precedence, step-specific source warnings and offline replay. Model semantics are
+tested with simulated finished-component/extra-amount responses; these fixtures do
+not substitute for a separate configured-model probe.
+Detailed-finding tests verify original-source excerpts, optional malformed-detail
+omission, multiple ingredients per step, stable-key inline placement, collapsed
+generic notes/evidence, escaped text and distinct borderless step cards at desktop
+and mobile widths.
 The fresh-migration suite verifies the actual startup dispatch for migration 072,
 including complete rollback, stable IDs/links/amounts and the AUTOINCREMENT high-water
 mark. Editor/cooking fixtures check both reported spacing gaps at desktop/mobile

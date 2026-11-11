@@ -2319,5 +2319,11 @@
   "recipe.import.modeLink": "Enlace",
   "recipe.import.modeText": "Texto",
   "recipe.step.title": "Título (opcional)",
-  "recipe.step.text": "Descripción"
+  "recipe.step.text": "Descripción",
+  "recipe.ai.issue.additionalAmountMissing": "Paso {step}: Falta la cantidad de un ingrediente adicional o las cantidades indicadas no la cubren. Revísalo.",
+  "recipe.ai.reviewDetails": "Más indicaciones",
+  "recipe.ai.issue.evidence": "Fragmento de la receta",
+  "recipe.ai.issue.notListed": "{ingredient}: Se usa aquí, pero falta en la lista de ingredientes.",
+  "recipe.ai.issue.amountMissing": "{ingredient}: No se indica la cantidad necesaria.",
+  "recipe.ai.issue.alreadyUsed": "{ingredient}: Ya se ha incorporado. Falta la cantidad para añadir más."
 }
