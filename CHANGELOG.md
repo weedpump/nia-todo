@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.0.1] - 2026-11-12
 
 ### Fixed
 - Fixed V4 upgrades failing at migration 58 when deleted 3.x users left Inbox projects behind. Historical projects and content remain intact without assigning another owner or granting access to other accounts.
