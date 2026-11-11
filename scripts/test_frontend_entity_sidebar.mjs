@@ -36,7 +36,7 @@ const {
 const { createShoppingNavigationFeature, renderShoppingSidebar } = await import(shoppingNavigationUrl);
 
 const entities = [
-  { id: 1, name: 'Personal', color: '#123456', icon: 'star', ownership_type: 'user', is_shared: false },
+  { id: 1, name: 'Personal', color: '#123456', icon: 'star', ownership_type: 'user', is_shared: false, created_by_user_id: 1 },
   { id: 2, name: 'Household owner', color: '#654321', icon: null, ownership_type: 'household', owner_household_id: 7, is_shared: false },
   { id: 3, name: 'Household member', color: '#abcdef', icon: null, ownership_type: 'household', owner_household_id: 7, is_shared: true },
   { id: 4, name: 'Direct share', color: '#fedcba', icon: 'shopping-cart', ownership_type: 'user', is_shared: true },
@@ -224,6 +224,7 @@ const featureRoot = {
   },
 };
 const navigationFeature = createShoppingNavigationFeature({
+  getActorId: () => 1,
   getLists: () => [
     { ...entities[0], id: 10, can_edit: true, items: [] },
     { ...entities[1], id: 20, can_edit: false, items: [] },
@@ -337,6 +338,7 @@ const deepLinkHistory = {
   pushState(state, _title, url) { this.state = state; deepLinkHistoryCalls.push(['push', state, url]); },
 };
 const deepLinkFeature = createShoppingNavigationFeature({
+  getActorId: () => 1,
   getLists: () => [
     { ...entities[0], id: 10, items: [] },
     { ...entities[1], id: 20, items: [] },
