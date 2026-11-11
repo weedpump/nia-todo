@@ -72,9 +72,9 @@ export function renderRecipeOverview(cookbook, query = '', { tags = [], sort = '
       if (mode === 'time') { const left = completeTime(a), right = completeTime(b); if (left !== right) return left < right ? -1 : 1; }
       return byName(a, b);
     });
-  return `<section class="recipe-overview"><div class="recipe-page-heading"><div><h1>${escapeHtml(cookbook.name)}</h1>
+  return `<section class="recipe-overview"><div class="recipe-page-heading"><h1>${escapeHtml(cookbook.name)}</h1>
+    ${canEditRecipe(null, cookbook) ? button('import', t('recipe.import.title'), 'download') : ''}
     ${cookbook.description ? `<p class="recipe-description">${escapeHtml(cookbook.description)}</p>` : ''}</div>
-${canEditRecipe(null, cookbook) ? button('import', t('recipe.import.title'), 'download') : ''}</div>
     <div class="recipe-overview-tools"><p class="recipe-result-count" role="status">${escapeHtml(t('recipe.count', { count: recipes.length }))}</p>
       <div class="recipe-sort-field"><label for="recipe-overview-sort" id="recipe-sort-label">${escapeHtml(t('recipe.sort'))}</label><select id="recipe-overview-sort" class="ui-field" data-recipe-sort>${sortModes.map(value => `<option value="${value}"${value === mode ? ' selected' : ''}>${escapeHtml(t(`recipe.sort.${value}`))}</option>`).join('')}</select></div></div>
     ${availableTags.length ? `<div class="recipe-tag-filters" role="group" aria-label="${escapeHtmlAttr(t('recipe.filter.tags'))}">${availableTags.map(tag => `<button type="button" class="btn btn-secondary recipe-filter-tag" data-recipe-action="filter-tag" data-recipe-tag="${escapeHtmlAttr(tag)}" aria-pressed="${selected.includes(tag)}">${escapeHtml(tag)}</button>`).join('')}${selected.length ? button('clear-filters', t('recipe.filter.clear')) : ''}</div>` : ''}

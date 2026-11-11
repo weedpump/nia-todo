@@ -117,10 +117,14 @@ async function assertRecipeCardOverview(page) {
         const title=node.querySelector('h1'), action=node.querySelector('button');
         const a=title.getBoundingClientRect(),b=action.getBoundingClientRect();
         return {color:getComputedStyle(title).color,accent:getComputedStyle(document.querySelector('.recipe-tag')).color,
-          beside:a.right<=b.left&&b.top<a.bottom,touch:b.width>=44&&b.height>=44};
+          beside:a.right<=b.left&&b.top<a.bottom,touch:b.width>=44&&b.height>=44,
+          centerOffset:Math.abs(a.top+a.height/2-b.top-b.height/2),
+          descriptionBelow:!node.querySelector('.recipe-description')||node.querySelector('.recipe-description').getBoundingClientRect().top>=Math.max(a.bottom,b.bottom)};
       });
       assert.equal(headerLayout.color,headerLayout.accent,'cookbook title uses the existing accent color');
       assert.ok(headerLayout.beside&&headerLayout.touch,`import stays beside title with a touch target at ${width}px`);
+      assert.ok(headerLayout.centerOffset<1,`import is vertically centered on the title at ${width}px: ${headerLayout.centerOffset}`);
+      assert.ok(headerLayout.descriptionBelow,'a cookbook description sits below the centered title/action row');
       if (process.env.NIA_TODO_TEST_OUTPUT_DIR) {
         mkdirSync(process.env.NIA_TODO_TEST_OUTPUT_DIR,{recursive:true});
         await page.screenshot({path:`${process.env.NIA_TODO_TEST_OUTPUT_DIR}/cookbook-overview-${width}.png`,animations:'disabled'});
