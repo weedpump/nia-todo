@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Fixed
 - Fixed V4 upgrades failing at migration 58 when deleted 3.x users left Inbox projects behind. Historical projects and content remain intact without assigning another owner or granting access to other accounts.
 
+If a Debian server cannot start after upgrading to 4.0.0, run these commands as root to download and install the fix manually:
+
+```bash
+curl -fL https://github.com/weedpump/nia-todo/releases/download/v4.0.1/nia-todo-server-v4.0.1-full.deb -o /tmp/nia-todo-server-v4.0.1-full.deb
+apt install /tmp/nia-todo-server-v4.0.1-full.deb
+```
+
 ## [4.0.0] - 2026-11-11
 
 With V4, nia-todo becomes Nia. Your familiar tasks, projects and workspaces stay
