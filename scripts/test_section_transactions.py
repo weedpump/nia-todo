@@ -41,7 +41,7 @@ from services.entity_access import (
 from services.sharing import can_access_project
 
 
-def test_section_writer(action):
+def test_section_writer(action, empty_payload=None):
     with tempfile.TemporaryDirectory(dir=TEST_ROOT.name) as directory, \
          patch.object(database, "DB_PATH", Path(directory) / "sections.db"), \
          patch.object(migrate, "DB_PATH", Path(directory) / "sections.db"), \
@@ -59,6 +59,15 @@ def test_section_writer(action):
             section_ids = [db.execute("INSERT INTO sections(project_id,name,user_id) VALUES(?,'Original',?)",
                                      (project, owner)).lastrowid for _ in range(2)]
 
+        async def checked_broadcast(*args, **kwargs):
+            # Broadcasting may await slow sockets. Even a no-op PATCH must
+            # release its authorization writer lock before that network work.
+            with get_db() as other:
+                other.execute("PRAGMA busy_timeout = 0")
+                other.execute("BEGIN IMMEDIATE")
+                other.rollback()
+
+        sections.broadcast_change.side_effect = checked_broadcast
         attempted, resume = threading.Event(), threading.Event()
         blocked = []
 
@@ -86,6 +95,8 @@ def test_section_writer(action):
                 return sections.create_section(project, sections.SectionCreate(name="Created"), owner)
             if action == "update":
                 return sections.update_section(section_id, sections.SectionUpdate(name="Updated"), owner)
+            if action == "update_empty":
+                return sections.update_section(section_id, sections.SectionUpdate(**(empty_payload or {})), owner)
             return sections.delete_section(section_id, owner)
 
         permission_name = "can_edit_project" if action == "delete" else "can_manage_todos"
@@ -115,6 +126,8 @@ def test_section_writer(action):
                 assert len(names) == 3 and "Created" in names.values()
             elif action == "update":
                 assert names[section_ids[0]] == "Updated"
+            elif action == "update_empty":
+                assert names[section_ids[0]] == "Original"
             else:
                 assert section_ids[0] not in names
             original = tuple(db.iterdump())
@@ -129,6 +142,8 @@ def test_section_writer(action):
 
 
 if __name__ == "__main__":
-    for action in ("create", "update", "delete"):
+    for action in ("create", "update", "delete", "update_empty"):
         test_section_writer(action)
         print(f"✅ Section {action}: authorization/write atomic; later revocation blocks follow-up")
+    test_section_writer("update_empty", {"name": None, "sort_order": None})
+    print("✅ Section null-only update: writer lock released before broadcast; later revocation blocks follow-up")

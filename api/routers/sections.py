@@ -81,7 +81,7 @@ async def update_section(section_id: int, data: SectionUpdate, user_id: int = De
             updates['updated_at'] = now_iso()
             set_clause = ", ".join(f"{k}=:{k}" for k in updates)
             db.execute(f"UPDATE sections SET {set_clause} WHERE id = :id", {**updates, "id": section_id})
-            db.commit()
+        db.commit()
         row = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
         section = dict(row)
         await broadcast_change("section_update", section, user_id, section['project_id'])
