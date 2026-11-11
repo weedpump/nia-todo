@@ -255,6 +255,71 @@ def main():
         sys.path.insert(0, str(BASE / "api"))
         import migrate as migrate_module
 
+        # Published 3.x user deletion left Inbox projects behind: projects.user_id
+        # had no FK, so the old database still passed foreign_key_check.
+        orphan_db_path = tmp_path / "deleted-user-inbox-upgrade.db"
+        shutil.copy2(rollback_db_path, orphan_db_path)
+        with sqlite3.connect(orphan_db_path) as db:
+            db.execute("PRAGMA foreign_keys = ON")
+            orphan_ids = []
+            for index in range(8):
+                deleted_user = db.execute(
+                    "INSERT INTO users (username) VALUES (?)", (f"deleted-legacy-{index}",)
+                ).lastrowid
+                orphan_ids.append(db.execute(
+                    "INSERT INTO projects (name, user_id, is_inbox) VALUES ('Inbox', ?, 1)",
+                    (deleted_user,),
+                ).lastrowid)
+                db.execute("DELETE FROM users WHERE id = ?", (deleted_user,))
+            # Even unexpected retained content must survive without acquiring a
+            # replacement owner or becoming visible to another account.
+            retained_todo = db.execute(
+                "INSERT INTO todos (title, project_id) VALUES ('Retained legacy content', ?)",
+                (orphan_ids[0],),
+            ).lastrowid
+            db.commit()
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+            before_orphan_upgrade = database_snapshot(db)
+            migration_58 = (MIGRATIONS_DIR / "058_add_household_entity_access.sql").read_text()
+            try:
+                migrate_module.apply_household_entity_access_migration(
+                    db, migration_58 + f"\nUPDATE entity_access SET owner_user_id = 987654321 WHERE entity_id = {project_id};\n",
+                )
+            except RuntimeError as error:
+                assert "foreign-key validation" in str(error), error
+            else:
+                raise AssertionError("Migration 58 must still reject unrelated invalid ownership")
+            assert database_snapshot(db) == before_orphan_upgrade
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 57
+            assert db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+            migrate_module.apply_household_entity_access_migration(db, migration_58)
+            assert db.execute("SELECT * FROM projects ORDER BY rowid").fetchall() == before_orphan_upgrade[1]["projects"]
+            assert db.execute("SELECT * FROM todos ORDER BY rowid").fetchall() == before_orphan_upgrade[1]["todos"]
+            assert db.execute("SELECT COUNT(*) FROM entity_access").fetchone()[0] == 1
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+            db.row_factory = sqlite3.Row
+            from services.sharing import can_access_project
+            assert can_access_project(db, project_id, owner_id)
+            assert can_access_project(db, project_id, accepted_id)
+            for orphan_id in orphan_ids:
+                for actor_id in (owner_id, accepted_id, pending_id, declined_id):
+                    assert not can_access_project(db, orphan_id, actor_id)
+
+        orphan_env = env.copy()
+        orphan_env["NIA_TODO_DB"] = orphan_db_path.name
+        run_migrations(orphan_env)
+        with sqlite3.connect(orphan_db_path) as db:
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == latest
+            assert db.execute("SELECT project_id FROM todos WHERE id = ?", (retained_todo,)).fetchone()[0] == orphan_ids[0]
+            assert db.execute(
+                """SELECT p.id FROM projects p
+                   WHERE p.user_id IS NOT NULL
+                     AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = p.user_id)
+                   ORDER BY p.id"""
+            ).fetchall() == [(orphan_id,) for orphan_id in orphan_ids]
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
         with sqlite3.connect(rollback_db_path) as db:
             before_failure = database_snapshot(db)
             broken_migration = (

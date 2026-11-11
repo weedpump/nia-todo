@@ -85,6 +85,7 @@ Recipe step links and cooking are covered by the expanded disposable `test_recip
 - `test_frontend_module_settings.mjs` and `test_frontend_auth_module_hydration.mjs` cover account-wide module settings, local and WebSocket cache updates, offline hydration and stale session responses at private mocked browser origins. These checks never alter an installed service or its SQLite database.
 - `test_api_validation_errors.py` checks the shared FastAPI error handler with a minimal in-process app: non-finite invalid inputs, including nested values and fields expecting other types, return printable 422 errors; ordinary validation and successful responses retain their established shape. It imports no application service or database.
 - `test_fresh_migrations.py` exercises the real startup dispatcher and rollback/retry paths for migrations 071–074, including schema-version write failures. The receipt-specific suite separately checks existing creation identities survive upgrade without retaining content snapshots.
+- Its legacy-user upgrade regression also covers eight Inbox projects left by deleted 3.x users: migration 58 preserves their original rows and content without inventing ownership or exposing them to other accounts, retains valid project shares, and still rolls back unrelated foreign-key violations before upgrading through the current schema.
 
 ### Security / workflow contracts
 
