@@ -50,6 +50,7 @@ def list_sections(project_id: int, user_id: int = Depends(require_auth)):
 async def create_section(project_id: int, data: SectionCreate, user_id: int = Depends(require_auth)):
     data.name = sanitize_text(data.name)
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         if not can_manage_todos(db, project_id, user_id):
             raise HTTPException(403, "Not authorized")
         c = db.execute(
@@ -67,6 +68,7 @@ async def update_section(section_id: int, data: SectionUpdate, user_id: int = De
     if data.name is not None:
         data.name = sanitize_text(data.name)
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         existing = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
         if not existing or not can_manage_todos(db, existing["project_id"], user_id):
             raise HTTPException(404, "Section not found")
@@ -88,6 +90,7 @@ async def update_section(section_id: int, data: SectionUpdate, user_id: int = De
 @router.delete("/{section_id}")
 async def delete_section(section_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         existing = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
         if not existing or not can_edit_project(db, existing["project_id"], user_id):
             raise HTTPException(404, "Section not found")

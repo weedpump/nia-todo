@@ -7,6 +7,7 @@ import sqlite3
 import sys
 import tempfile
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -777,57 +778,29 @@ with tempfile.TemporaryDirectory() as tmp:
             (household_id_value,),
         ).fetchone()
 
-    class SectionRaceDb:
-        def __init__(self):
-            self.lookup_count = 0
-            self.rolled_back = False
-
-        def execute(self, sql, params=()):
-            if sql == "BEGIN IMMEDIATE":
-                return self
-            if "SELECT * FROM shopping_sections WHERE shopping_list_id" in sql:
-                self.lookup_count += 1
-                return self
-            if sql.startswith("INSERT INTO shopping_sections"):
-                raise sqlite3.IntegrityError("simulated unique race")
-            raise AssertionError((sql, params))
-
-        def fetchone(self):
-            if self.lookup_count == 1:
-                return None
-            return {
-                "id": 999,
-                "shopping_list_id": personal_id,
-                "name": "Recovered",
-                "sort_order": 0,
-                "client_mutation_id": "section-race",
-            }
-
-        def rollback(self):
-            self.rolled_back = True
-
-    race_db = SectionRaceDb()
-
-    @contextmanager
-    def race_get_db():
-        yield race_db
-
-    original_get_db = shopping_router.get_db
-    original_permissions = shopping_router._permissions_for_list
-    shopping_router.get_db = race_get_db
-    shopping_router._permissions_for_list = lambda *args, **kwargs: (None, None)
-    try:
-        recovered_section = asyncio.run(
+    # Actual writer transactions serialize competing requests before their
+    # receipt lookup; no fabricated post-lock UNIQUE race is required.
+    def concurrent_section_create(_):
+        return asyncio.run(
             create_shopping_section(
                 personal_id,
                 ShoppingSectionCreate(name="Race", client_mutation_id="section-race"),
                 owner_id,
             )
         )
-    finally:
-        shopping_router.get_db = original_get_db
-        shopping_router._permissions_for_list = original_permissions
-    assert race_db.rolled_back is True
-    assert recovered_section["id"] == 999, recovered_section
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        recovered_sections = list(pool.map(concurrent_section_create, range(4)))
+    assert len({section["id"] for section in recovered_sections}) == 1, recovered_sections
+    with get_db() as db:
+        assert db.execute(
+            "SELECT COUNT(*) FROM shopping_sections WHERE shopping_list_id=? AND client_mutation_id='section-race'",
+            (personal_id,),
+        ).fetchone()[0] == 1
+        receipt = db.execute(
+            "SELECT entity_id FROM creation_receipts WHERE entity_type='shopping_section' AND scope_id=? AND client_mutation_id='section-race'",
+            (personal_id,),
+        ).fetchall()
+        assert len(receipt) == 1 and receipt[0]["entity_id"] == recovered_sections[0]["id"], receipt
 
 print("✅ Shopping lists support stable stores, structured quantities, preferences, and household access")

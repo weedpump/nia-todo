@@ -73,7 +73,7 @@ try{
 root=pathlib.Path(sys.argv[1]).resolve();path=root/'e2e.db'
 assert str(root).startswith('/tmp/nia-recipe-ai-e2e-') and path.parent==root and path.is_file() and not path.is_symlink()
 with sqlite3.connect(path) as db:
- assert db.execute('SELECT MAX(version) FROM schema_version').fetchone()[0]==73
+ assert db.execute('SELECT MAX(version) FROM schema_version').fetchone()[0]==74
  assert db.execute('SELECT COUNT(*) FROM users WHERE username=?',(sys.argv[2],)).fetchone()[0]==1
  db.execute('UPDATE users SET braindump_enabled=? WHERE username=?',(int(sys.argv[3]),sys.argv[2]))
 `,app.privateDir,USERNAME,enabled?'1':'0'],{stdio:['ignore','ignore','pipe']});

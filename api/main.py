@@ -1,6 +1,7 @@
 """nia-todo: FastAPI backend - slim entry point"""
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -20,7 +21,7 @@ from services.server_updates import update_check_background_task
 from services.instance_config import get_public_base_url
 from services.native_updates import build_windows_updater_response
 from routers.websocket import websocket_endpoint
-from errors import APIError, api_error_handler
+from errors import APIError, api_error_handler, request_validation_error_handler
 
 # Run migrations on import
 run_migrations()
@@ -91,6 +92,7 @@ app.include_router(server_updates.router)
 # ─── Exception Handlers ──────────────────────────────────────────────────────
 
 app.add_exception_handler(APIError, api_error_handler)
+app.add_exception_handler(RequestValidationError, request_validation_error_handler)
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 

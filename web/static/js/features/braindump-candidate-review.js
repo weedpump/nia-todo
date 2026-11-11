@@ -1,3 +1,4 @@
+import { resolveEntityIdentity } from '../core/entity-identity.js';
 import { normalizeQuantityUnit } from '../core/quantity-units.js';
 // Candidate routing is independent of the recorder, modal and active navigation.
 const routeField = field => field === 'container' || field === 'project' ? 'list' : field;
@@ -40,27 +41,22 @@ export function brainDumpOriginalRoute(candidate = {}) {
   };
 }
 
-export function resolveBrainDumpShoppingTarget(candidate, lists = [], stores = []) {
-  const list = lists.find(value => sameId(value.id, candidate.shopping_list_id)
-    || sameId(value.client_mutation_id, candidate.shopping_list_id));
+export function resolveBrainDumpShoppingTarget(candidate, lists = [], stores = [], { actorId = null } = {}) {
+  const resolve = (rows, identity) => resolveEntityIdentity(rows, identity, { actorId });
+  const list = resolve(lists, candidate.shopping_list_id);
   if (!list || list.can_edit !== true) return null;
   const sectionId = candidate.shopping_section_id;
-  const section = sectionId == null ? null : (list.sections || []).find(value => (
-    sameId(value.id, sectionId) || sameId(value.client_mutation_id, sectionId)
-  ));
+  const section = sectionId == null ? null : resolve(list.sections || [], sectionId);
   if (sectionId != null && !section) return null;
   const ids = candidate.shopping_store_ids || [];
   if (!Array.isArray(ids) || ids.length > 50) return null;
-  const selectedStores = ids.map(id => stores.find(value => (
-    (sameId(value.id, id) || sameId(value.client_mutation_id, id))
-    && (sameId(value.shopping_list_id, list.id) || sameId(value.shopping_list_id, list.client_mutation_id))
-    && value.active !== false
-  )));
+  const selectedStores = ids.map(id => resolveEntityIdentity(stores.filter(value => value.active !== false), id,
+    { actorId, parentId: list.id, parentField: 'shopping_list_id' }));
   if (selectedStores.some(value => !value)) return null;
   return { list, section, stores: selectedStores };
 }
 
-export function brainDumpCandidateError(candidate, { modules = ['tasks'], lists = [], stores = [], projects, sections = [] } = {}) {
+export function brainDumpCandidateError(candidate, { modules = ['tasks'], lists = [], stores = [], projects, sections = [], actorId = null } = {}) {
   if (!modules.includes(brainDumpCandidateModule(candidate))) return 'capture.target.required';
   const title = String(candidate.title || '').trim();
   if (!title || title.length > 500) return 'capture.validation.title';
@@ -78,7 +74,7 @@ export function brainDumpCandidateError(candidate, { modules = ['tasks'], lists 
     }
     return null;
   }
-  if (!resolveBrainDumpShoppingTarget(candidate, lists, stores)) return 'capture.target.required';
+  if (!resolveBrainDumpShoppingTarget(candidate, lists, stores, { actorId })) return 'capture.target.required';
   const quantity = candidate.quantity_value;
   if (quantity != null && quantity !== '' && (!Number.isFinite(Number(quantity)) || Number(quantity) < 0)) return 'shopping.item.error.invalidQuantity';
   if (String(candidate.quantity_unit || '').trim().length > 40) return 'shopping.item.error.invalidUnit';

@@ -956,7 +956,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function candidateError(candidate) {
-    return brainDumpCandidateError(candidate, { modules: supportedModules(), lists: options.getShoppingLists?.() || [], stores: options.getShoppingStores?.() || [], projects: getProjectOptions(), sections: getTaskSections() });
+    return brainDumpCandidateError(candidate, { actorId: options.getActorId?.() ?? null, modules: supportedModules(), lists: options.getShoppingLists?.() || [], stores: options.getShoppingStores?.() || [], projects: getProjectOptions(), sections: getTaskSections() });
   }
 
   function toggleAllCandidates() {
@@ -1510,7 +1510,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function shoppingMeta(candidate) {
-    const target = resolveBrainDumpShoppingTarget(candidate, options.getShoppingLists?.() || [], options.getShoppingStores?.() || []);
+    const target = resolveBrainDumpShoppingTarget(candidate, options.getShoppingLists?.() || [], options.getShoppingStores?.() || [], { actorId: options.getActorId?.() ?? null });
     const remembered = new Set(brainDumpCandidateMemoryFields(candidate));
     const matches = [{ type: 'list', label: t('capture.target.list'), value: target?.list.name || t('capture.target.chooseList'), source: target && remembered.has('list') ? 'memory' : undefined }];
     if (target?.section || (target && remembered.has('section'))) matches.push({ type: 'section', label: t('common.section'), value: target.section?.name || t('shopping.section.unsorted'), source: remembered.has('section') ? 'memory' : undefined });

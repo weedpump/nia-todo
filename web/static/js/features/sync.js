@@ -6,6 +6,7 @@ import { createRecipeSyncAdapter } from './recipe-sync.js';
 import { mergeRecipeSnapshot, recipeActions, recipeBookId, recipeId, recipeReferences, sanitizeRecipeEntry } from './recipe-pending.js';
 import { cookbookMetadata } from './cookbooks.js';
 import { createMetadataSyncAdapter } from './entity-metadata-sync.js';
+import { creationTombstoneFor, planCreationTombstone } from './creation-tombstone.js';
 
 export function createSyncFeature({
   getDb,
@@ -32,6 +33,7 @@ export function createSyncFeature({
   workspacesApi,
   shoppingApi = { snapshot: async () => ({ shopping_lists: [] }) },
   commitShoppingReplay = async () => {},
+  commitCreationTombstoneReplay = null,
   renderStats,
   renderTodos,
   renderShopping = () => {},
@@ -64,6 +66,33 @@ export function createSyncFeature({
   const recipeSync = createRecipeSyncAdapter({ api: recipesApi, getCookbooks, setCookbooks,
     readQueue: () => dbGetAll('syncQueue'), markAttempt: markRecipeMutationAttempt, commitReplay: commitRecipeReplay,
     onIdRemap: onRecipeIdRemap, render: renderCookbooks });
+  async function commitDeletedCreation(item, detail, ref, generation, actorId) {
+    if (!commitCreationTombstoneReplay) throw new Error('Deleted creation storage is not configured');
+    const actorCurrent = () => actorId == null ? getActorId() == null : sameId(actorId, getActorId());
+    const release = await acquireSyncCommitLock(ref);
+    try {
+      if (Number(ref?.privacyGeneration || 0) !== generation || !actorCurrent()) return false;
+      const queue = await dbGetAll('syncQueue');
+      const current = queue.find(row => sameId(row.id, item.id) && row.action === item.action);
+      if (!current || current.actor_id != null && !sameId(current.actor_id, actorId)
+        || JSON.stringify(sanitizeQueueItem(current)?.data) !== JSON.stringify(item.data)) return false;
+      const [shoppingLists, shoppingStores] = detail.entity_type === 'todo' ? [[], []]
+        : await Promise.all([dbGetAll('shoppingLists'), dbGetAll('shoppingStores')]);
+      if (Number(ref?.privacyGeneration || 0) !== generation || !actorCurrent()) return false;
+      const plan = planCreationTombstone(current, detail, { queue, shoppingLists, shoppingStores, actorId });
+      if (!plan) return false;
+      if (await commitCreationTombstoneReplay(plan) === false) return false;
+      if (Number(ref?.privacyGeneration || 0) !== generation || !actorCurrent()) return false;
+      const apply = (rows, store) => {
+        const updates = new Map((plan.writes[store] || []).map(row => [String(row.id), row]));
+        return rows.filter(row => !(plan.remove[store] || []).some(id => sameId(id, row.id)))
+          .map(row => updates.get(String(row.id)) || row);
+      };
+      if (detail.entity_type === 'todo') { setTodos(apply(getTodos(), 'todos')); renderStats?.(); renderTodos?.(); }
+      else { setShoppingLists(apply(getShoppingLists(), 'shoppingLists')); setShoppingStores(apply(getShoppingStores(), 'shoppingStores')); renderShopping(); }
+      return true;
+    } finally { release(); }
+  }
   async function replayRecipeShoppingTransfer(queued, ref, generation) {
     const actor = getActorId();
     const locked = async work => {
@@ -589,6 +618,8 @@ export function createSyncFeature({
       const currentQueue = await dbGetAll('syncQueue');
       const currentQueuedItem = currentQueue.find(item => String(item.id) === String(queuedItem.id));
       if (!currentQueuedItem) continue;
+      if (!recipeActions.has(currentQueuedItem.action) && !cookbookMetadata.actions.has(currentQueuedItem.action)
+        && currentQueuedItem.actor_id != null && !sameId(currentQueuedItem.actor_id, getActorId())) continue;
       if (isRecipeShoppingTransfer(currentQueuedItem) && (currentQueuedItem.blocked || !sameId(currentQueuedItem.actor_id, getActorId()))) continue;
       if (cookbookMetadata.actions.has(currentQueuedItem.action)) {
         const id = cookbookMetadata.idFor(currentQueuedItem);
@@ -617,7 +648,7 @@ export function createSyncFeature({
       if (shoppingListIdentity !== null && (failedShoppingLists.has(shoppingListIdentity)
         || currentQueue.some(previous => String(previous.id) !== String(currentQueuedItem.id)
           && attemptedQueueIds.has(String(previous.id)) && !previous.blocked
-          && (!isRecipeShoppingTransfer(previous) || sameId(previous.actor_id, getActorId()))
+          && (previous.actor_id == null || sameId(previous.actor_id, getActorId()))
           && shoppingQueueListIdentity(previous) === shoppingListIdentity))) continue;
       let item = sanitizeQueueItem(currentQueuedItem);
       if (item && !item.action.includes('SHOPPING')) {
@@ -635,6 +666,7 @@ export function createSyncFeature({
           && currentQueue.some(parent => parent.action === `CREATE_${entity}` && sameId(parent.data?._tempId ?? parent.data?.temp_id, id)))) continue;
       }
       let requestPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
+      const requestActorId = getActorId();
       const failuresBeforeRequest = failCount;
       try {
         if (!item) {
@@ -653,13 +685,31 @@ export function createSyncFeature({
           if (await recipeSync.replay(item, syncInProgressRef, requestPrivacyGeneration)) successCount++;
           continue;
         }
+        if (item.action.includes('SHOPPING')) {
+          const releaseRequestLock = await acquireSyncCommitLock(syncInProgressRef);
+          try {
+            if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration
+              || (requestActorId == null ? getActorId() != null : !sameId(requestActorId, getActorId()))) continue;
+            const current = (await dbGetAll('syncQueue')).find(row => sameId(row.id, item.id));
+            const sanitized = sanitizeQueueItem(current);
+            if (!sanitized || sanitized.action !== item.action
+              || current.actor_id != null && !sameId(current.actor_id, requestActorId)) continue;
+            if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration
+              || (requestActorId == null ? getActorId() != null : !sameId(requestActorId, getActorId()))) continue;
+            if (!current.attempted) await dbPut('syncQueue', { ...current, attempted: true });
+            if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration
+              || (requestActorId == null ? getActorId() != null : !sameId(requestActorId, getActorId()))) continue;
+            item = { ...sanitized, attempted: true };
+          } finally { releaseRequestLock(); }
+        }
         if (item.action === 'CREATE_TODO') {
           const releaseRequestLock = await acquireSyncCommitLock(syncInProgressRef);
           try {
             if (Number(syncInProgressRef?.privacyGeneration || 0) !== requestPrivacyGeneration) continue;
             const currentQueueItem = await getFromDB('syncQueue', item.id);
             const currentItem = sanitizeQueueItem(currentQueueItem);
-            if (!currentItem || currentItem.action !== 'CREATE_TODO') continue;
+            if (!currentItem || currentItem.action !== 'CREATE_TODO'
+              || currentQueueItem.actor_id != null && !sameId(currentQueueItem.actor_id, requestActorId)) continue;
             if (currentItem.data.restore_after_delete_id != null
               && (await dbGetAll('syncQueue')).some(entry => entry.action === 'DELETE_TODO'
                 && sameId(entry.data?.id, currentItem.data.restore_after_delete_id))) continue;
@@ -998,7 +1048,18 @@ export function createSyncFeature({
       } catch (err) {
         console.error('Sync failed for action', item?.action || 'INVALID_QUEUE_ITEM', err);
         let handledPermanentAbsence = false;
-        if (item?.action === 'DELETE_TODO' && err?.status === 404) {
+        const tombstone = creationTombstoneFor(item, err);
+        if (tombstone) {
+          try {
+            if (await commitDeletedCreation(item, tombstone, syncInProgressRef, requestPrivacyGeneration, requestActorId)) successCount++;
+          } catch (recoveryError) { console.error('Deleted creation cleanup failed', recoveryError); failCount++; }
+          handledPermanentAbsence = true;
+        } else if (Number(err?.status) === 410 && err?.data?.detail?.code === 'sync.creationDeleted') {
+          // An inconsistent receipt must not fall through to broad permanent
+          // error recovery and evict a different entity or its whole list.
+          failCount++;
+          handledPermanentAbsence = true;
+        } else if (item?.action === 'DELETE_TODO' && err?.status === 404) {
           await commitQueueItem(item, async () => {
             await deleteFromDB('todos', item.data.id);
             setTodos(getTodos().filter(todo => String(todo.id) !== String(item.data.id)));

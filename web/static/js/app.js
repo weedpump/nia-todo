@@ -3,7 +3,7 @@ import { createRecipeShoppingTransferController } from './features/recipe-shoppi
 import { createRecipeShoppingTransferFeature } from './features/recipe-shopping-transfer.js';
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
 import { APP_VERSION, RUNTIME_CAPABILITIES, WS_URL, apiResourceUrl } from './core/config.js';
-import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
+import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords, updateCachedUserMetadata } from './core/utils.js';
 import { authApi, householdsApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, shoppingApi, todosApi, workspacesApi, serverUpdatesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
@@ -51,6 +51,7 @@ import { createRecipeEditorFeature } from './features/recipe-editor.js';
 import { createRecipeImagesFeature, prepareRecipeImage } from './features/recipe-images.js';
 import { createCookbooksController } from './features/cookbooks.js';
 import { createEntityMutationQueue } from './features/entity-metadata.js';
+import { entityIdentity, resolveEntityIdentity } from './core/entity-identity.js';
 import { createCookbookNavigationFeature } from './features/cookbook-navigation.js';
 import { createCookbookDetailsFeature } from './features/cookbook-details.js';
 import { createShoppingNavigationFeature } from './features/shopping-navigation.js';
@@ -148,7 +149,7 @@ function setCookbooksState(next) {
   recipeImportFeature?.reconcile();
   recipeShoppingTransferFeature?.reconcile();
 }
-function getCookbookSessionIdentity() {
+function getEntitySessionIdentity() {
   return currentUser ? `${currentUser.id}:${authenticatedRuntimeEpoch}` : null;
 }
 
@@ -215,7 +216,7 @@ function setTodosState(next, { nativeReminderSnapshotAuthoritative = true } = {}
 
 let currentUser = null;  // { id, username, display_name, token }
 routingMemory = createRoutingMemoryFeature({
-  getActorId: () => currentUser?.id ?? null, getSessionIdentity: getCookbookSessionIdentity,
+  getActorId: () => currentUser?.id ?? null, getSessionIdentity: getEntitySessionIdentity,
   getLists: () => shoppingLists, getStores: () => shoppingStores,
   getProjects: () => projects, getSections: () => sections,
   getEnabled: () => currentUser?.braindump_learning_enabled !== false && currentUser?.braindump_learning_enabled !== 0,
@@ -271,6 +272,7 @@ const whatsNewFeature = createWhatsNewFeature({
   getCurrentUser: () => currentUser,
 });
 const brainDumpLiveFeature = createBrainDumpLiveFeature({
+  getActorId: () => currentUser?.id ?? null,
   onAccessChange: () => { recipeEditorFeature?.reconcile(); recipeImportFeature?.reconcile(); },
   routingMemory,
   loadTaskSections: () => dbGetAll('sections'),
@@ -420,29 +422,22 @@ async function commitTodoUpdatesWithQueue(operation) {
   }
 }
 async function commitShoppingMutation(buildMutation) {
+  const session = getEntitySessionIdentity();
+  if (session == null) return null;
   const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
   try {
+    if (session !== getEntitySessionIdentity()) return null;
     const mutation = typeof buildMutation === 'function' ? buildMutation() : buildMutation;
     if (!mutation) return null;
     await appStorage.commitShoppingMutation(mutation);
-    return mutation;
+    return session === getEntitySessionIdentity() ? mutation : null;
   } finally {
     finishQueueWrite();
   }
 }
-const shoppingListMutationQueues = new Map();
-function enqueueShoppingListMutation(listIdentity, task) {
-  const key = String(listIdentity);
-  const previous = shoppingListMutationQueues.get(key);
-  const operation = (previous ? previous.catch(() => null) : Promise.resolve()).then(task);
-  shoppingListMutationQueues.set(key, operation);
-  operation.finally(() => {
-    if (shoppingListMutationQueues.get(key) === operation) shoppingListMutationQueues.delete(key);
-  }).catch(() => {});
-  return operation;
-}
+const enqueueShoppingListMutation = createEntityMutationQueue({ getSessionIdentity: getEntitySessionIdentity });
 const syncInProgressRef = { value: syncInProgress };
-const enqueueCookbookMutation = createEntityMutationQueue({ getSessionIdentity: getCookbookSessionIdentity });
+const enqueueCookbookMutation = createEntityMutationQueue({ getSessionIdentity: getEntitySessionIdentity });
 async function commitCookbookMutation(buildMutation) {
   const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
   try {
@@ -464,12 +459,12 @@ async function commitRecipeMutation(buildMutation) {
   } finally { finishQueueWrite(); }
 }
 async function commitRecipeShoppingTransfer(buildMutation) {
-  const session = getCookbookSessionIdentity();
+  const session = getEntitySessionIdentity();
   const finishQueueWrite = await beginSyncQueueWrite(syncInProgressRef);
   try {
-    if (session == null || session !== getCookbookSessionIdentity()) return null;
+    if (session == null || session !== getEntitySessionIdentity()) return null;
     const mutation = typeof buildMutation === 'function' ? await buildMutation() : buildMutation;
-    if (!mutation || session !== getCookbookSessionIdentity()) return null;
+    if (!mutation || session !== getEntitySessionIdentity()) return null;
     const result = await appStorage.commitRecipeShoppingTransfer(mutation);
     updateConnectionStatusView().catch(() => {});
     return result;
@@ -520,6 +515,7 @@ const syncFeature = createSyncFeature({
   onSectionIdRemap: (from, to) => todosFeature.remapPendingTargetId('section', from, to),
   evictPendingProjectEntities: appStorage.evictPendingProjectEntities,
   commitTaskParentReplay: appStorage.commitTaskParentReplay,
+  commitCreationTombstoneReplay: appStorage.commitCreationTombstoneReplay,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   getWorkspaces: () => workspaces,
@@ -851,6 +847,7 @@ const wsClient = createWebSocketClient({
   onModulePreferencesUpdate: payload => {
     if (!currentUser) return;
     currentUser = { ...currentUser, disabled_modules: payload.disabled_modules || [] };
+    updateCachedUserMetadata(currentUser.id, { disabled_modules: currentUser.disabled_modules });
     moduleShell?.applyModulePreferences();
     moduleSwitcher?.render();
     recipeShoppingTransferFeature?.reconcile();
@@ -1140,6 +1137,7 @@ moduleSwitcher = createModuleSwitcher({
   },
 });
 const shoppingSectionsAdapter = createShoppingSectionsAdapter({
+  getActorId: () => currentUser?.id ?? null,
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
@@ -1167,6 +1165,7 @@ const shoppingSectionsAdapter = createShoppingSectionsAdapter({
   },
 });
 const shoppingItemsController = createShoppingItemsController({
+  getActorId: () => currentUser?.id ?? null,
   routingMemory,
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
@@ -1182,26 +1181,19 @@ const shoppingItemsController = createShoppingItemsController({
 });
 shoppingSectionsAdapter.itemDrag = shoppingItemsController.dragAdapter;
 const shoppingStoresController = createShoppingStoresController({
+  getActorId: () => currentUser?.id ?? null,
   getStores: () => shoppingStores,
   setStores: setShoppingStoresState,
   commitMutation: commitShoppingMutation,
   enqueueListMutation: enqueueShoppingListMutation,
-  resolveListIdentity: listIdentity => {
-    const list = shoppingLists.find(candidate => (
-      String(candidate.id) === String(listIdentity)
-      || String(candidate.client_mutation_id) === String(listIdentity)
-    ));
-    return list?.client_mutation_id ?? list?.id ?? listIdentity;
-  },
-  resolveListId: listIdentity => shoppingLists.find(candidate => (
-    String(candidate.id) === String(listIdentity)
-    || String(candidate.client_mutation_id) === String(listIdentity)
-  ))?.id ?? null,
+  resolveListIdentity: listIdentity => entityIdentity(resolveEntityIdentity(shoppingLists, listIdentity, { actorId: currentUser?.id }), currentUser?.id),
+  resolveListId: listIdentity => resolveEntityIdentity(shoppingLists, listIdentity, { actorId: currentUser?.id })?.id ?? null,
   isOnlineForSync,
   syncWithServer,
   onError: error => console.error('Shopping store mutation failed', error),
 });
 shoppingStoreEditorFeature = createShoppingStoreEditorFeature({
+  getActorId: () => currentUser?.id ?? null,
   getLists: () => shoppingLists,
   getStores: () => shoppingStores,
   storeController: shoppingStoresController,
@@ -1210,6 +1202,7 @@ shoppingStoreEditorFeature = createShoppingStoreEditorFeature({
 });
 shoppingStoreEditorFeature.bind();
 shoppingNavigationFeature = createShoppingNavigationFeature({
+  getActorId: () => currentUser?.id ?? null,
   getLists: () => shoppingLists,
   getStores: () => shoppingStores,
   closeSidebar: options => uiShell.closeSidebar(options),
@@ -1259,6 +1252,7 @@ shoppingNavigationFeature = createShoppingNavigationFeature({
 });
 shoppingNavigationFeature.bind();
 shoppingViewPreferencesFeature = createShoppingViewPreferencesFeature({
+  getActorId: () => currentUser?.id ?? null,
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
@@ -1270,6 +1264,7 @@ shoppingViewPreferencesFeature = createShoppingViewPreferencesFeature({
   onError: error => console.error('Shopping view preference mutation failed', error),
 });
 shoppingListDetailsFeature = createShoppingListDetailsFeature({
+  getActorId: () => currentUser?.id ?? null,
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
   commitMutation: commitShoppingMutation,
@@ -1284,6 +1279,7 @@ shoppingListDetailsFeature = createShoppingListDetailsFeature({
   shoppingApi,
 });
 shoppingItemEditorFeature = createShoppingItemEditorFeature({
+  getActorId: () => currentUser?.id ?? null,
   routingMemory,
   getLists: () => shoppingLists,
   getActiveListId: () => shoppingNavigationFeature?.getActiveListId?.(),
@@ -1297,18 +1293,18 @@ shoppingItemEditorFeature = createShoppingItemEditorFeature({
 });
 shoppingItemEditorFeature.bind();
 async function removeCookbookAccess(ids, { signal, getAccessibleEntities, isCurrent = () => true } = {}) {
-  const session = getCookbookSessionIdentity();
+  const session = getEntitySessionIdentity();
   let blocked = new Set();
   return runEntityPrivacyEviction({
     syncInProgressRef, acquireCommitLock: acquireSyncCommitLock, signal,
     evict: async () => {
-      if (session == null || session !== getCookbookSessionIdentity() || !isCurrent()) return;
+      if (session == null || session !== getEntitySessionIdentity() || !isCurrent()) return;
       const accessible = new Set((getAccessibleEntities?.()?.accessibleCookbookIds || []).map(String));
       blocked = new Set(ids.map(String).filter(id => !accessible.has(id)));
       if (blocked.size) await appStorage.evictPendingCookbookEntities([...blocked], { signal });
     },
     publish: () => {
-      if (session === getCookbookSessionIdentity() && isCurrent() && blocked.size) {
+      if (session === getEntitySessionIdentity() && isCurrent() && blocked.size) {
         setCookbooksState(cookbooks.filter(book => !blocked.has(String(book.id))));
       }
     },
@@ -1321,7 +1317,7 @@ async function refreshCookbooks() {
 }
 const cookbooksController = createCookbooksController({
   getCookbooks: () => cookbooks, setCookbooks: setCookbooksState,
-  getCurrentUser: () => currentUser, getSessionIdentity: getCookbookSessionIdentity,
+  getCurrentUser: () => currentUser, getSessionIdentity: getEntitySessionIdentity,
   getAccessSnapshot: () => window.niaAccessSnapshot || null,
   commitMutation: commitCookbookMutation, enqueueCookbookMutation,
   isOnlineForSync, syncWithServer,
@@ -1345,7 +1341,7 @@ cookbookNavigationFeature = createCookbookNavigationFeature({
 cookbookNavigationFeature.bind();
 cookbookDetailsFeature = createCookbookDetailsFeature({
   getCookbooks: () => cookbooks, cookbookController: cookbooksController, cookbookApi: recipesApi,
-  getSessionIdentity: getCookbookSessionIdentity, getAccessSnapshot: () => window.niaAccessSnapshot || null,
+  getSessionIdentity: getEntitySessionIdentity, getAccessSnapshot: () => window.niaAccessSnapshot || null,
   getPendingMutations: () => dbGetAll('syncQueue'),
   isOnlineForSync, syncWithServer, confirmDanger, enqueueCookbookMutation, refreshCookbooks,
   removeCookbookAccess: (id, options) => removeCookbookAccess([id], options),
@@ -1355,25 +1351,25 @@ cookbookDetailsFeature = createCookbookDetailsFeature({
 });
 const recipeImagesFeature = createRecipeImagesFeature({
   getCookbooks: () => cookbooks, getCurrentUser: () => currentUser,
-  getSessionIdentity: getCookbookSessionIdentity, syncInProgressRef,
+  getSessionIdentity: getEntitySessionIdentity, syncInProgressRef,
 });
 const recipeController = createRecipeController({
   getCookbooks: () => cookbooks, setCookbooks: setCookbooksState,
-  getSessionIdentity: getCookbookSessionIdentity, getCurrentUser: () => currentUser,
+  getSessionIdentity: getEntitySessionIdentity, getCurrentUser: () => currentUser,
   commitMutation: commitRecipeMutation, enqueueCookbookMutation, recipesApi,
   isOnlineForSync, syncWithServer,
 });
 const canUseShoppingForTransfer = () => Boolean(currentUser && moduleShell?.getEnabledModules?.().some(module => module.id === 'shopping'));
 const recipeShoppingTransferController = createRecipeShoppingTransferController({
   getCookbooks: () => cookbooks, getLists: () => shoppingLists, getStores: () => shoppingStores,
-  getCurrentUser: () => currentUser, getSessionIdentity: getCookbookSessionIdentity,
+  getCurrentUser: () => currentUser, getSessionIdentity: getEntitySessionIdentity,
   readQueue: () => dbGetAll('syncQueue'), commit: commitRecipeShoppingTransfer,
   isOnlineForSync, syncWithServer,
 });
 recipeShoppingTransferFeature = createRecipeShoppingTransferFeature({
   routingMemory,
   getCookbooks: () => cookbooks, getLists: () => shoppingLists, getStores: () => shoppingStores,
-  getCurrentUser: () => currentUser, getSessionIdentity: getCookbookSessionIdentity,
+  getCurrentUser: () => currentUser, getSessionIdentity: getEntitySessionIdentity,
   canUseShopping: canUseShoppingForTransfer,
   transfer: recipeShoppingTransferController.transfer,
   readPendingTransfers: recipeShoppingTransferController.listPending,
@@ -1383,7 +1379,7 @@ recipeShoppingTransferFeature = createRecipeShoppingTransferFeature({
 recipeViewFeature = createRecipeViewFeature({
   getCookbooks: () => cookbooks,
   getActiveCookbookId: () => cookbookNavigationFeature.getActiveCookbookId(),
-  getActorId: () => currentUser?.id ?? null, getSessionIdentity: getCookbookSessionIdentity,
+  getActorId: () => currentUser?.id ?? null, getSessionIdentity: getEntitySessionIdentity,
   recipeController, confirmDanger,
   onCreate: book => recipeEditorFeature?.showCreate(book.id),
   onImport: book => recipeImportFeature?.show(book.id),
@@ -1395,7 +1391,7 @@ recipeViewFeature = createRecipeViewFeature({
 recipeEditorFeature = createRecipeEditorFeature({
   api: recipesApi,
   getBrainDumpAccess: () => Boolean(currentUser?.braindump_enabled && brainDumpLiveFeature.hasAccess?.()),
-  getCookbooks: () => cookbooks, recipeController, getSessionIdentity: getCookbookSessionIdentity,
+  getCookbooks: () => cookbooks, recipeController, getSessionIdentity: getEntitySessionIdentity,
   confirmDanger, prepareRecipeImage, loadRecipeImage: recipeImagesFeature.load,
   releaseRecipeImage: recipeImagesFeature.release,
   onSaved: recipe => recipeViewFeature.selectRecipe(recipe.id),
@@ -1405,7 +1401,7 @@ recipeImportFeature = createRecipeImportFeature({
   getBrainDumpAccess: () => Boolean(currentUser?.braindump_enabled && brainDumpLiveFeature.hasAccess?.()),
   api: recipesApi, editor: recipeEditorFeature, getCookbooks: () => cookbooks,
   getActiveCookbookId: () => cookbookNavigationFeature.getActiveCookbookId(),
-  getSessionIdentity: getCookbookSessionIdentity,
+  getSessionIdentity: getEntitySessionIdentity,
   isOnline: () => navigator.onLine !== false,
 });
 cookbookNavigationFeature.setRecipeView(recipeViewFeature);

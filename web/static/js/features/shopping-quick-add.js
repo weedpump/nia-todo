@@ -43,7 +43,7 @@ export function parseShoppingQuickAdd(raw, { list, stores = [], locale = 'en', t
   }
   const sameId = (left, right) => left != null && right != null && String(left) === String(right);
   const activeStores = stores.filter(store => store.active !== false && (
-    sameId(store.shopping_list_id, list?.id) || sameId(store.shopping_list_id, list?.client_mutation_id)
+    sameId(store.shopping_list_id, list?.id)
   ));
   const sectionPrefixes = getQuickAddAliases(t, 'quickAdd.syntax.sectionPrefixes');
   const storePrefixes = aliases('storePrefixes');

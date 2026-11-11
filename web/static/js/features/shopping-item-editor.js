@@ -1,3 +1,4 @@
+import { resolveEntityIdentity, entityIdentity } from '../core/entity-identity.js';
 import { normalizeQuantityUnit, formatQuantityUnit } from '../core/quantity-units.js';
 import { t, translatePage, getActiveLocale } from '../i18n/index.js';
 import { parseShoppingQuickAdd } from './shopping-quick-add.js';
@@ -42,6 +43,7 @@ export function createShoppingItemEditorFeature({
   document: doc = globalThis.document,
   eventTarget = globalThis.window,
   getLists = () => [],
+  getActorId = () => null,
   getActiveListId = () => null,
   getStores = () => [],
   storeController,
@@ -52,6 +54,7 @@ export function createShoppingItemEditorFeature({
   showToast = () => {},
   onError = console.error,
 } = {}) {
+  const resolve = (records, identity, parentId) => resolveEntityIdentity(records, identity, { actorId: getActorId(), ...(parentId === undefined ? {} : { parentId, parentField: 'shopping_list_id' }) });
   let bound = false;
   let saveState = null;
   let submitting = false;
@@ -80,22 +83,15 @@ export function createShoppingItemEditorFeature({
   }
 
   function canMutateList(context) {
-    return getLists().find(list => (
-      sameId(list.id, context?.id)
-      || sameId(list.client_mutation_id, context?.id)
-      || sameId(list.id, context?.client_mutation_id)
-      || sameId(list.client_mutation_id, context?.client_mutation_id)
-    ))?.can_edit === true;
+    return resolve(getLists(), context?.id)?.can_edit === true;
   }
 
   function resolveEditingItem() {
     const list = activeList();
     if (!list || editingListIdentity == null || editingItemIdentity == null) return null;
-    if (!sameId(list.id, editingListIdentity) && !sameId(list.client_mutation_id, editingListIdentity)) return null;
-    return (list.items || []).find(item => (
-      sameId(item.id, editingItemIdentity)
-      || sameId(item.client_mutation_id, editingItemIdentity)
-    )) || null;
+    if (!sameId(resolve(getLists(), editingListIdentity)?.id, list?.id)) return null;
+    return typeof itemController?.resolveItem === 'function'
+      ? itemController.resolveItem(list.id, editingItemIdentity) : resolve(list.items || [], editingItemIdentity);
   }
 
   function trigger() {
@@ -104,10 +100,7 @@ export function createShoppingItemEditorFeature({
 
   function editTrigger(identity = editingItemIdentity) {
     const list = activeList();
-    const item = (list?.items || []).find(candidate => (
-      sameId(candidate.id, identity)
-      || sameId(candidate.client_mutation_id, identity)
-    ));
+    const item = resolve(list?.items || [], identity);
     const currentIdentity = item?.id ?? identity;
     return Array.from(doc?.querySelectorAll?.('[data-shopping-item-action="open-edit"]') || [])
       .find(element => sameId(element.dataset.shoppingItemId, currentIdentity)) || null;
@@ -164,7 +157,7 @@ export function createShoppingItemEditorFeature({
     for (const section of [...(list?.sections || [])].sort((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0))) {
       appendOption(select, section.id, section.name || '');
     }
-    const match = (list?.sections || []).find(section => sameId(section.id, selected) || sameId(section.client_mutation_id, selected));
+    const match = resolve(list?.sections || [], selected);
     select.value = match == null ? '' : String(match.id);
     hydrateSelect(select);
     refreshSelect(select);
@@ -177,14 +170,14 @@ export function createShoppingItemEditorFeature({
     const list = activeList();
     const stores = getStores().filter(store => (
       store?.active !== false
-      && (sameId(store.shopping_list_id, list?.id) || sameId(store.shopping_list_id, list?.client_mutation_id))
+      && (sameId(store.shopping_list_id, list?.id))
     ));
     select.innerHTML = '';
     appendOption(select, '', t('shopping.item.store.none'));
     for (const store of [...stores].sort((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0))) {
       appendOption(select, store.id, store.name || '');
     }
-    const match = stores.find(store => sameId(store.id, selected) || sameId(store.client_mutation_id, selected));
+    const match = resolve(stores, selected);
     select.value = match == null ? '' : String(match.id);
     hydrateSelect(select, {
       searchable: true,
@@ -194,6 +187,7 @@ export function createShoppingItemEditorFeature({
       optionAction: option => shoppingStoreOptionAction({
         list,
         stores,
+        actorId: getActorId(),
         option,
         onEdit: onStoreEdit,
       }),
@@ -443,7 +437,7 @@ export function createShoppingItemEditorFeature({
     const currentForm = form();
     if (!target || !currentForm) return false;
     mode = 'create';
-    editingListIdentity = activeList()?.client_mutation_id ?? activeList()?.id;
+    editingListIdentity = entityIdentity(activeList(), getActorId());
     editingItemIdentity = null;
     currentForm.reset?.();
     const extras = currentForm.querySelector('.shopping-item-additional-details'); if (extras) extras.open = false;
@@ -460,14 +454,15 @@ export function createShoppingItemEditorFeature({
   function showEdit(listId, itemId, triggerElement = null) {
     const list = activeList();
     if (list?.can_edit !== true || submitting || modal()?.getAttribute?.('aria-busy') === 'true') return false;
-    if (!sameId(list.id, listId) && !sameId(list.client_mutation_id, listId)) return false;
-    const item = (list.items || []).find(candidate => sameId(candidate.id, itemId) || sameId(candidate.client_mutation_id, itemId));
+    if (!sameId(resolve(getLists(), listId)?.id, list?.id)) return false;
+    const item = typeof itemController?.resolveItem === 'function'
+      ? itemController.resolveItem(list.id, itemId) : resolve(list.items || [], itemId);
     const target = modal();
     const currentForm = form();
     if (!item || !target || !currentForm) return false;
     mode = 'edit';
-    editingListIdentity = list.client_mutation_id ?? list.id;
-    editingItemIdentity = item.client_mutation_id ?? item.id;
+    editingListIdentity = entityIdentity(list, getActorId());
+    editingItemIdentity = entityIdentity(item, getActorId());
     currentForm.reset?.();
     setError();
     storeCreator?.hide?.();
@@ -516,7 +511,7 @@ export function createShoppingItemEditorFeature({
     if (routingMemory && mode === 'create') await memoryReady;
     if (startingGeneration !== editorGeneration || submitting || !modal()?.classList.contains('active')) return;
     const list = activeList();
-    if (!canMutate() || (!sameId(list?.id, editingListIdentity) && !sameId(list?.client_mutation_id, editingListIdentity)) || (mode === 'edit' && !resolveEditingItem())) {
+    if (!canMutate() || (!sameId(resolve(getLists(), editingListIdentity)?.id, list?.id)) || (mode === 'edit' && !resolveEditingItem())) {
       closeModal();
       return;
     }
@@ -611,7 +606,7 @@ export function createShoppingItemEditorFeature({
     const allowed = canMutate();
     if (!modal()?.classList?.contains?.('active')) return;
     const list = activeList();
-    if (!allowed || (!sameId(list?.id, editingListIdentity) && !sameId(list?.client_mutation_id, editingListIdentity))) {
+    if (!allowed || (!sameId(resolve(getLists(), editingListIdentity)?.id, list?.id))) {
       closeModal();
       return;
     }
@@ -701,8 +696,8 @@ export function createShoppingItemEditorFeature({
     const section = (activeList()?.sections || []).find(candidate => sameId(candidate.id, sectionValue));
     const store = getStores().find(candidate => sameId(candidate.id, storeValue));
     return {
-      sectionId: section?.client_mutation_id ?? section?.id ?? null,
-      storeId: store?.client_mutation_id ?? store?.id ?? null,
+      sectionId: entityIdentity(section, getActorId()) ?? null,
+      storeId: entityIdentity(store, getActorId()) ?? null,
     };
   }
 
@@ -716,7 +711,7 @@ export function createShoppingItemEditorFeature({
       },
       getSingleFields: () => Array.from(form()?.querySelectorAll('.ui-multi-add-single input, .ui-multi-add-single select') || []),
       readDefaults: readBulkDefaults,
-      getContext: () => ({ identity: editingListIdentity, activeIdentity: activeList()?.client_mutation_id ?? activeList()?.id ?? null, generation: editorGeneration, locale: getActiveLocale(), canEdit: canMutate() }),
+      getContext: () => ({ identity: editingListIdentity, activeIdentity: entityIdentity(activeList(), getActorId()) ?? null, generation: editorGeneration, locale: getActiveLocale(), canEdit: canMutate() }),
       parse: async (raw, defaults) => {
         if (routingMemory) await memoryReady;
         const parsed = quickAddResult(raw);
@@ -751,11 +746,11 @@ export function createShoppingItemEditorFeature({
     return bindShoppingStoreCreator({
       document: doc, prefix, selectId, storeController,
       authorize: canMutateList,
-      getContext: () => ({ id: activeList()?.id, client_mutation_id: activeList()?.client_mutation_id, editorGeneration }),
+      getContext: () => ({ id: activeList()?.id, editorGeneration }),
       onCreated: (store, context) => {
         if (context.editorGeneration !== editorGeneration || !modal()?.classList.contains('active')) return;
         if (routingMemory) (selectId.includes('-multi-') ? bulkRoutingTouched : routingTouched).add('stores');
-        populateStores(store.client_mutation_id ?? store.id, selectId);
+        populateStores(entityIdentity(store, getActorId()), selectId);
         if (bulk?.isActive()) bulk.refresh();
         else {
           void quickAddController?.refresh();

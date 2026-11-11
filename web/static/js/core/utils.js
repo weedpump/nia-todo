@@ -1,5 +1,18 @@
 import { getActiveLocale, t as i18nT } from '../i18n/index.js';
 
+/** Merge authenticated metadata only into the same account's optional offline cache. */
+export function updateCachedUserMetadata(userId, fields, storage) {
+  if (userId == null) return false;
+  try {
+    storage ??= globalThis.localStorage;
+    const cached = JSON.parse(storage?.getItem('cached_user') || 'null');
+    if (!cached || String(cached.id) !== String(userId)) return false;
+    const { id, token, ...metadata } = fields || {};
+    storage.setItem('cached_user', JSON.stringify({ ...cached, ...metadata }));
+    return true;
+  } catch { return false; }
+}
+
 export function escapeHtml(str) {
   if (str == null) return '';
   const div = document.createElement('div');

@@ -271,6 +271,16 @@ export function commitShoppingMutation({
   });
 }
 
+/** Cache eviction and the acknowledged create's dependent queue settle together. */
+export function commitCreationTombstoneReplay({ writes = {}, remove = {}, queueRecords = [],
+  queueDeleteIds = [], requireQueueId, database = db } = {}) {
+  if (requireQueueId == null) return Promise.reject(new Error('Creation tombstone requires an acknowledged queue ID'));
+  const allowed = ['todos', 'shoppingLists', 'shoppingStores'];
+  const scoped = records => Object.fromEntries(allowed.filter(key => Array.isArray(records[key])).map(key => [key, records[key]]));
+  return commitEntityReplay({ writes: scoped(writes), remove: scoped(remove),
+    queueRecords, queueDeleteIds, requireQueueId, database });
+}
+
 export function commitShoppingReplay({
   list, removeListIds = [], store, stores = [], removeStoreIds = [],
   queueDeleteId, queueDeleteIds = [], queueRecords = [], requireQueueId, database = db,

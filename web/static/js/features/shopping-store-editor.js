@@ -1,3 +1,4 @@
+import { resolveEntityIdentity } from '../core/entity-identity.js';
 import { t } from '../i18n/index.js';
 import { isDropdownOpen } from '../ui/dropdowns.js';
 import { createFormSaveState } from './form-save-state.js';
@@ -11,11 +12,13 @@ function sameId(left, right) {
 export function createShoppingStoreEditorFeature({
   document: doc = globalThis.document,
   getLists = () => [],
+  getActorId = () => null,
   getStores = () => [],
   storeController,
   confirmDanger = async () => false,
   onError = console.error,
 } = {}) {
+  const resolve = (records, identity, parentId) => resolveEntityIdentity(records, identity, { actorId: getActorId(), ...(parentId === undefined ? {} : { parentId, parentField: 'shopping_list_id' }) });
   let bound = false;
   let submitting = false;
   let saveState = null;
@@ -24,16 +27,17 @@ export function createShoppingStoreEditorFeature({
   let editorGeneration = 0;
 
   function listById(id) {
-    return getLists().find(list => sameId(list.id, id) || sameId(list.client_mutation_id, id)) || null;
+    return resolve(getLists(), id);
   }
 
-  function storeById(id) {
-    return getStores().find(store => sameId(store.id, id) || sameId(store.client_mutation_id, id)) || null;
+  function storeById(id, listId = doc?.getElementById?.('shopping-store-list-id')?.value) {
+    const list = listById(listId);
+    return list ? resolve(getStores(), id, list.id) : null;
   }
 
   function canEditStore(listId, store = null) {
     const list = listById(listId);
-    return Boolean(list?.can_edit === true && (!store || sameId(store.shopping_list_id, list.id) || sameId(store.shopping_list_id, list.client_mutation_id)));
+    return Boolean(list?.can_edit === true && (!store || sameId(store.shopping_list_id, list.id)));
   }
 
   function readState() {
@@ -95,7 +99,7 @@ export function createShoppingStoreEditorFeature({
 
   function showEdit(listId, storeId, trigger = null) {
     const modal = doc?.getElementById?.('shopping-store-modal');
-    const store = storeById(storeId);
+    const store = storeById(storeId, listId);
     if (!modal || !store || store.active === false || !canEditStore(listId, store)) return false;
     const listInput = doc.getElementById('shopping-store-list-id');
     const storeInput = doc.getElementById('shopping-store-id');

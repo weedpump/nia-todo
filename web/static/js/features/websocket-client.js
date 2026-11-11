@@ -579,8 +579,8 @@ async function handleWsMessage(msg) {
         const localStores = await dbGetAll('shoppingStores');
         const queue = backfillShoppingStoreQueueListIds(storedQueue, localStores);
         await Promise.all(queue.map((entry, index) => entry === storedQueue[index] ? null : dbPut('syncQueue', entry)));
-        revokedShoppingListIds = collectRevokedShoppingListIds(msg.shopping_lists, localLists, queue, localStores);
-        shoppingLists = projectShoppingSnapshot(msg.shopping_lists, localLists, queue);
+        revokedShoppingListIds = collectRevokedShoppingListIds(msg.shopping_lists, localLists, queue, localStores, { actorId: getActorId() });
+        shoppingLists = projectShoppingSnapshot(msg.shopping_lists, localLists, queue, { actorId: getActorId() });
         const nextIds = new Set(shoppingLists.map(list => String(list.id)));
         for (const localList of localLists) {
           if (!nextIds.has(String(localList.id))) await deleteFromDB('shoppingLists', localList.id);

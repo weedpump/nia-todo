@@ -5,6 +5,12 @@ import { chromium } from 'playwright';
 
 const english = JSON.parse(readFileSync(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8'));
 const fixtureSource = `
+  // Production creator metadata is required for account-scoped receipt aliases.
+  const ownedFixtures = rows => rows.map(row => ({ ...row, created_by_user_id: row.created_by_user_id ?? 1,
+    ...(row.sections ? { sections: ownedFixtures(row.sections) } : {}),
+    ...(row.items ? { items: ownedFixtures(row.items) } : {}),
+  }));
+
   import { initI18n, translatePage, setLanguagePreference } from '/static/js/i18n/index.js';
   import { SHOPPING_DIALOGS_HTML } from '/static/js/modules/shopping-dialogs.js';
   import { shoppingModule } from '/static/js/modules/shopping.js';
@@ -87,27 +93,27 @@ const fixtureSource = `
     commits.push(structuredClone(mutation));
     return mutation;
   };
-  const storeController = createShoppingStoresController({
-    getStores: () => stores,
+  const storeController = createShoppingStoresController({ getActorId: () => 1,
+    getStores: () => ownedFixtures(stores),
     setStores: next => { stores = next; },
     resolveListId: identity => lists.find(list => String(list.id) === String(identity) || String(list.client_mutation_id) === String(identity))?.id,
     createTempId: () => 'temp-bulk-store-' + (++sequence),
     commitMutation: persist,
   });
-  const controller = createShoppingItemsController({
-    getLists: () => lists,
+  const controller = createShoppingItemsController({ getActorId: () => 1,
+    getLists: () => ownedFixtures(lists),
     setLists: next => { lists = next; editor?.reconcile(); },
     getActiveListId: () => active,
-    getStores: () => stores,
+    getStores: () => ownedFixtures(stores),
     createTempId: () => 'temp-bulk-item-' + (++sequence),
     commitMutation: persist,
     render,
     onError: error => errors.push(error.message),
   });
-  editor = createShoppingItemEditorFeature({
-    getLists: () => lists,
+  editor = createShoppingItemEditorFeature({ getActorId: () => 1,
+    getLists: () => ownedFixtures(lists),
     getActiveListId: () => active,
-    getStores: () => stores,
+    getStores: () => ownedFixtures(stores),
     itemController: controller,
     storeController,
     onError: error => errors.push(error.message),

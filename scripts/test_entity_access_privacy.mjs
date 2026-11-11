@@ -9,6 +9,48 @@ const { acquireSyncCommitLock, beginSyncQueueWrite, enrichTaskQueueBoundary, pro
 const { evictPendingProjectEntities } = await import('../web/static/js/storage/indexed-db.js');
 const { createSyncFeature } = await import('../web/static/js/features/sync.js');
 const { createNavigationFeature } = await import('../web/static/js/features/navigation.js');
+const { createMetadataCollection } = await import('../web/static/js/features/entity-metadata.js');
+
+// Snapshot receipts require an actual temporary create from the current actor.
+// A visible shared record's arbitrary CMI must never alias a canonical ID.
+{
+  const metadata = createMetadataCollection({ storeName:'testEntities', createAction:'CREATE_ENTITY', updateAction:'UPDATE_ENTITY', deleteAction:'DELETE_ENTITY' });
+  const privateEntity = {id:10,name:'Private',created_by_user_id:1};
+  const pendingEdit = {id:1,action:'UPDATE_ENTITY',data:{id:10,changes:{name:'Private pending edit'}}};
+  for (const created_by_user_id of [1,2]) {
+    const shadow = {id:99,name:'Other visible entity',created_by_user_id,client_mutation_id:'10'};
+    const projected = metadata.projectSnapshot([shadow,privateEntity],[privateEntity],[pendingEdit],{actorId:1});
+    assert.equal(projected.find(entity=>entity.id===99).name,'Other visible entity','numeric CMI cannot redirect another entity\'s pending content');
+    assert.equal(projected.find(entity=>entity.id===10).name,'Private pending edit');
+    assert.deepEqual(metadata.collectRevokedIds([shadow],[privateEntity],[pendingEdit],{actorId:1}),[10],'a numeric CMI cannot hide canonical access revocation');
+    const forgedCreate={id:2,action:'CREATE_ENTITY',data:{temp_id:10,client_mutation_id:'10'}};
+    assert.deepEqual(metadata.reconcileSnapshot([shadow],[privateEntity],[forgedCreate,pendingEdit],{actorId:1}).remaps,[],'a canonical create ID cannot authorize a receipt remap');
+  }
+  const local={id:'temp-local-entity',name:'Offline',client_mutation_id:'custom-receipt',created_by_user_id:1};
+  const create={id:3,action:'CREATE_ENTITY',actor_id:1,data:{temp_id:local.id,client_mutation_id:local.client_mutation_id,name:local.name}};
+  const update={id:4,action:'UPDATE_ENTITY',data:{id:local.id,changes:{name:'Keep local edit'}}};
+  const own={id:100,name:'Server',client_mutation_id:local.client_mutation_id,created_by_user_id:1};
+  const queue=[create,update],before=JSON.stringify(queue);
+  assert.deepEqual(metadata.projectSnapshot([own],[local],queue,{actorId:1}).map(entity=>[entity.id,entity.name]),[[100,'Keep local edit']],'a verified receipt remaps the real temporary ID even when CMI differs');
+  const reconciled=metadata.reconcileSnapshot([own],[local],queue,{actorId:1});
+  assert.deepEqual(reconciled.remaps,[[local.id,100]]);
+  assert.deepEqual(reconciled.queueDeleteIds,[create.id]);
+  assert.deepEqual(reconciled.revokedIds,[],'a verified temporary acknowledgement is not an access revocation');
+  assert.equal(reconciled.entities[0].name,'Keep local edit');
+  for (const options of [
+    {server:{...own,created_by_user_id:2},queue},
+    {server:own,queue,actorId:null},
+    {server:own,queue:[{...create,actor_id:2},update]},
+    {server:{...own,client_mutation_id:'different-receipt'},queue},
+    {server:own,queue,local:{...local,created_by_user_id:2}},
+  ]) {
+    const result=metadata.reconcileSnapshot([options.server],[options.local||local],options.queue,{actorId:Object.hasOwn(options,'actorId')?options.actorId:1});
+    assert.deepEqual(result.remaps,[],'foreign, unknown or mismatching receipts cannot retire a temporary create');
+    assert.equal(result.queueDeleteIds.includes(create.id),false);
+  }
+  assert.deepEqual(metadata.reconcileSnapshot([own],[],queue,{actorId:1}).remaps,[[local.id,100]],'a valid same-actor durable create can recover without a warm local entity');
+  assert.equal(JSON.stringify(queue),before,'snapshot projection never mutates durable request bodies');
+}
 
 let resolveEviction;
 let evictionSignal;

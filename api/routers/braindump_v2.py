@@ -38,6 +38,7 @@ from urllib.parse import urlparse
 
 from services import llm_client
 from services.ai_access import require_braindump_ai_access
+from services.creation_receipts import creation_replay
 from services.braindump_config import build_effective_system_prompt, get_braindump_config, llm_chat_url, parse_extra_headers
 from services.braindump_candidates import can_apply_learned_route, candidate_context_payload, enabled_candidate_modules, is_shopping_candidate, load_shopping_context, normalize_candidates
 from services.braindump_v2 import (
@@ -843,7 +844,7 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
     for candidate in candidates:
         mutation_id = (candidate.client_mutation_id or "").strip() or None
         if mutation_id:
-            existing = db.execute("SELECT id, project_id, section_id, user_id FROM todos WHERE client_mutation_user_id = ? AND client_mutation_id = ?", (user_id, mutation_id)).fetchone()
+            existing = creation_replay(db, "todo", user_id, mutation_id)
             if existing:
                 if existing["project_id"] is None and existing["user_id"] != user_id:
                     raise HTTPException(403, "Not authorized")

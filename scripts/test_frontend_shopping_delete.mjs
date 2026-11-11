@@ -128,7 +128,7 @@ const fixtureSource = `
   uiShell.bindKeyboardShortcuts();
   const confirmFeature = createConfirmDialogFeature();
   confirmFeature.bindConfirmDialog();
-  const feature = createShoppingListDetailsFeature({
+  const feature = createShoppingListDetailsFeature({ getActorId: () => 1,
     getLists: () => lists,
     setLists,
     enqueueListMutation: async (_identity, task) => {
@@ -200,7 +200,7 @@ const fixtureSource = `
 
   window.test = {
     startBindingRace: (action, wait) => {
-      const origin = { id: 'temp-binding-origin', client_mutation_id: 'temp-binding-origin', name: 'Origin', color: '#6366f1', icon: 'shopping-cart', can_manage: true, can_edit: true, items: [], sections: [] };
+      const origin = { id: 'temp-binding-origin', client_mutation_id: 'temp-binding-origin', created_by_user_id: 1, name: 'Origin', color: '#6366f1', icon: 'shopping-cart', can_manage: true, can_edit: true, items: [], sections: [] };
       setLists([origin, { ...origin, id: 802, client_mutation_id: 'other', name: 'Other' }]);
       feature.showListModal(origin);
       if (wait === 'queue') {
@@ -256,7 +256,7 @@ const fixtureSource = `
       renderRows();
     },
     addTemporaryList: () => {
-      const temp = { id: 'temp-shopping-list-delete', name: 'Temporary delete', color: '#6366f1', icon: 'shopping-cart', can_manage: true, can_edit: true, items: [], sections: [], preferences: {}, client_mutation_id: 'temp-shopping-list-delete' };
+      const temp = { id: 'temp-shopping-list-delete', name: 'Temporary delete', color: '#6366f1', icon: 'shopping-cart', can_manage: true, can_edit: true, items: [], sections: [], preferences: {}, client_mutation_id: 'temp-shopping-list-delete', created_by_user_id: 1 };
       lists = [...lists, temp];
       activeListId = temp.id;
       renderRows();

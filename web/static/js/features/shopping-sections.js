@@ -1,3 +1,4 @@
+import { resolveEntityIdentity, entityIdentity } from '../core/entity-identity.js';
 function sameId(left, right) {
   return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
 }
@@ -8,6 +9,7 @@ function clone(value) {
 
 export function createShoppingSectionsAdapter({
   getLists = () => [],
+  getActorId = () => null,
   setLists = () => {},
   getActiveListId = () => null,
   getRoot = () => null,
@@ -25,6 +27,7 @@ export function createShoppingSectionsAdapter({
   now = () => new Date().toISOString(),
   createTempId = () => `temp-shopping-section-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
+  const resolve = (records, identity, parentId) => resolveEntityIdentity(records, identity, { actorId: getActorId(), ...(parentId === undefined ? {} : { parentId, parentField: 'shopping_list_id' }) });
   const listQueues = new Map();
 
   function enqueueLocallyForList(identity, task) {
@@ -40,7 +43,7 @@ export function createShoppingSectionsAdapter({
   const runListMutation = enqueueListMutation || enqueueLocallyForList;
 
   function currentList(identity = getActiveListId()) {
-    return getLists().find(list => sameId(list.id, identity) || sameId(list.client_mutation_id, identity)) || null;
+    return resolve(getLists(), identity);
   }
 
   function visibleSections(list = currentList()) {
@@ -62,7 +65,7 @@ export function createShoppingSectionsAdapter({
   async function commit(build) {
     const initial = currentList();
     if (initial?.can_edit !== true) return null;
-    const stableIdentity = initial.client_mutation_id ?? initial.id;
+    const stableIdentity = entityIdentity(initial, getActorId());
     return runListMutation(stableIdentity, async () => {
       const mutation = await commitMutation(() => {
         const live = currentList(stableIdentity);
@@ -86,7 +89,7 @@ export function createShoppingSectionsAdapter({
     newInputId: () => 'shopping-new-section-name',
     editInputId: id => `shopping-edit-section-name-${id}`,
     resolveSectionId(id) {
-      return this.getSections().find(section => sameId(section.id, id))?.id ?? id;
+      return resolve(this.getSections(), id)?.id ?? id;
     },
     itemDrag,
     render,
@@ -105,6 +108,7 @@ export function createShoppingSectionsAdapter({
           name: cleanName,
           sort_order: (live.sections || []).length,
           client_mutation_id: tempId,
+          created_by_user_id: getActorId(),
           created_at: createdAt,
           updated_at: createdAt,
           is_pending: true,
@@ -127,7 +131,7 @@ export function createShoppingSectionsAdapter({
       const cleanName = name?.trim();
       if (!cleanName) return null;
       return commit((live) => {
-        const section = (live.sections || []).find(candidate => sameId(candidate.id, id));
+        const section = resolve(live.sections || [], id);
         if (!section) return null;
         const updated = { ...section, name: cleanName, updated_at: now(), is_pending: true };
         return {
@@ -140,7 +144,7 @@ export function createShoppingSectionsAdapter({
     },
     async deleteSection(id) {
       return commit((live) => {
-        const section = (live.sections || []).find(candidate => sameId(candidate.id, id));
+        const section = resolve(live.sections || [], id);
         if (!section) return null;
         const list = {
           ...clone(live),
@@ -173,14 +177,14 @@ export function createShoppingSectionsAdapter({
         const sections = live.sections || [];
         const visible = visibleSections(live);
         if (orderedIds.length !== visible.length) return null;
-        if (new Set(orderedIds.map(id => String(id))).size !== visible.length) return null;
+        const canonicalIds = orderedIds.map(id => resolve(visible, id)?.id);
+        if (canonicalIds.some(id => id == null) || new Set(canonicalIds.map(String)).size !== visible.length) return null;
         const byId = new Map(visible.map(section => [String(section.id), section]));
-        if (orderedIds.some(id => !byId.has(String(id)))) return null;
         let visibleIndex = 0;
         const visibleIds = new Set(visible.map(section => String(section.id)));
         const reordered = sections.map((section, index) => {
           const next = visibleIds.has(String(section.id))
-            ? byId.get(String(orderedIds[visibleIndex++]))
+            ? byId.get(String(canonicalIds[visibleIndex++]))
             : section;
           return { ...clone(next), sort_order: index };
         });

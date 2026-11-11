@@ -22,6 +22,7 @@ from routers.websocket import broadcast_sync_to_users
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
 from services.routing_memory import RoutingFeedback, record_task_route_choice, legacy_feedback
+from services.creation_receipts import creation_replay
 from services.entity_access import get_entity_ownership
 from services.sharing import can_access_project, can_access_todo, can_edit_project, can_manage_todos, get_project_ids_for_user, get_project_participant_user_ids, get_todo_reminder_recipient_user_id
 from services.attachments import AttachmentCleanupBatch, AttachmentFileCleanupBatch, AttachmentUploadStaging, AttachmentUploadTempLease, MAX_ATTACHMENT_BYTES, attachment_usage_payload, commit_with_attachment_recovery, enforce_attachment_upload_policy, sniff_attachment_content_type
@@ -907,7 +908,7 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
         db.execute("BEGIN IMMEDIATE")
         mutation_id = (data.client_mutation_id or "").strip() or None
         if mutation_id:
-            receipt = db.execute("SELECT * FROM todos WHERE client_mutation_user_id=? AND client_mutation_id=?",(user_id,mutation_id)).fetchone()
+            receipt = creation_replay(db, "todo", user_id, mutation_id)
             if receipt:
                 if not can_access_todo(db,receipt,user_id):
                     raise HTTPException(403,"Not authorized")

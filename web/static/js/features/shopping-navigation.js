@@ -1,3 +1,4 @@
+import { resolveEntityIdentity, entityIdentity, sameEntityIdentity } from '../core/entity-identity.js';
 import {
   bindEntitySidebarNavigation,
   classifyEntityOwnership,
@@ -97,6 +98,7 @@ export function renderShoppingSidebar({ lists = [], activeListId = null, labels 
 
 export function createShoppingNavigationFeature({
   getLists = () => [],
+  getActorId = () => null,
   getStores = () => [],
   setLists = null,
   root = document,
@@ -121,6 +123,7 @@ export function createShoppingNavigationFeature({
   loadAuthoritativeProjection = async () => null,
   removePendingEntities = async () => {},
 } = {}) {
+  const resolve = (records, identity, parentId) => resolveEntityIdentity(records, identity, { actorId: getActorId(), ...(parentId === undefined ? {} : { parentId, parentField: 'shopping_list_id' }) });
   let localLists = null;
   let activeListId = null;
   let bound = false;
@@ -199,14 +202,14 @@ export function createShoppingNavigationFeature({
   }
 
   function storeFilterKey(list) {
-    const identity = list?.client_mutation_id ?? list?.id;
+    const identity = entityIdentity(list, getActorId());
     return identity == null ? null : `${SHOPPING_STORE_FILTER_KEY_PREFIX}${identity}`;
   }
 
   function activeStores(list = lists().find(candidate => sameId(candidate.id, activeListId))) {
     return [...(getStores() || [])].filter(store => (
       store?.active !== false
-      && (sameId(store.shopping_list_id, list?.id) || sameId(store.shopping_list_id, list?.client_mutation_id))
+      && (sameId(store.shopping_list_id, list?.id))
     )).sort(compareStores);
   }
 
@@ -220,7 +223,7 @@ export function createShoppingNavigationFeature({
       return null;
     }
     if (storedId == null) return null;
-    const store = stores.find(candidate => sameId(candidate.id, storedId) || sameId(candidate.client_mutation_id, storedId));
+    const store = resolve(stores, storedId);
     if (!store) {
       if ((getStores() || []).length === 0) return storedId;
       try {
@@ -241,11 +244,7 @@ export function createShoppingNavigationFeature({
   }
 
   function sameList(left, right) {
-    if (!left || !right) return false;
-    return sameId(left.id, right.id)
-      || sameId(left.client_mutation_id, right.id)
-      || sameId(left.id, right.client_mutation_id)
-      || sameId(left.client_mutation_id, right.client_mutation_id);
+    return sameEntityIdentity(left, right, getActorId());
   }
 
   function setStoreFilterForList(list, value) {
@@ -253,7 +252,7 @@ export function createShoppingNavigationFeature({
     const stores = activeStores(list);
     const selected = value === undefined || value === null || String(value) === ''
       ? null
-      : stores.find(store => sameId(store.id, value) || sameId(store.client_mutation_id, value)) || null;
+      : resolve(stores, value) || null;
     if (value !== undefined && value !== null && String(value) !== '' && !selected) return storeFilterForList(list, stores);
     const key = storeFilterKey(list);
     try {
@@ -331,7 +330,7 @@ export function createShoppingNavigationFeature({
       ? items
       : items.filter(item => {
         const storeIds = Array.isArray(item.store_ids) ? item.store_ids : [];
-        return storeIds.some(storeId => sameId(storeId, selectedStoreId) || sameId(storeId, selectedStore?.client_mutation_id));
+        return storeIds.some(storeId => resolve(stores, storeId) === selectedStore);
       });
     const completionItems = getHideDone() !== false
       ? marketItems.filter(item => item.completed !== true)
@@ -439,8 +438,8 @@ export function createShoppingNavigationFeature({
         selectId: 'shopping-store-filter',
         storeController,
         authorize: context => lists().find(list => sameList(list, context))?.can_edit === true,
-        getContext: () => ({ id: selected.id, client_mutation_id: selected.client_mutation_id }),
-        onCreated: (store, list) => setStoreFilterForList(list, store.client_mutation_id ?? store.id),
+        getContext: () => ({ id: selected.id }),
+        onCreated: (store, list) => setStoreFilterForList(list, entityIdentity(store, getActorId())),
       });
       storeSelect.addEventListener('change', () => {
         setStoreFilter(storeSelect.value);
@@ -449,6 +448,7 @@ export function createShoppingNavigationFeature({
         optionAction: option => shoppingStoreOptionAction({
           list: selected,
           stores,
+          actorId: getActorId(),
           option,
           onEdit: onStoreEdit,
         }),
@@ -554,16 +554,16 @@ export function createShoppingNavigationFeature({
 
   function replaceLists(nextLists) {
     const previousActiveListId = activeListId;
-    const previousIds = new Set(lists().map(list => String(list.id)));
+    const previousLists = lists();
+    const previousIds = new Set(previousLists.map(list => String(list.id)));
     const focusedDetailId = root?.activeElement?.matches?.('[data-entity-sidebar-action="detail"][data-entity-type="shopping-list"]')
       ? root.activeElement.dataset.entityId
       : null;
     localLists = Array.isArray(nextLists) ? nextLists : [];
     setLists?.(localLists);
     const remappedLists = localLists.filter(list => (
-      list.client_mutation_id != null
-      && previousIds.has(String(list.client_mutation_id))
-      && !previousIds.has(String(list.id))
+      !previousIds.has(String(list.id)) && previousLists.some(previous =>
+        String(previous.id).startsWith('temp-') && sameEntityIdentity(previous, list, getActorId()))
     ));
     const focusedRemap = remappedLists.find(list => String(list.client_mutation_id) === String(focusedDetailId));
     for (const remapped of remappedLists) onListIdRemap(remapped.client_mutation_id, remapped.id);

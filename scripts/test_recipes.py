@@ -19,6 +19,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from PIL import Image
 from pydantic import ValidationError
@@ -30,6 +31,7 @@ sys.path.insert(0, str(ROOT / "api"))
 import db as database
 import migrate
 from db import get_db
+from errors import request_validation_error_handler
 from routers import recipes
 from routers.auth import require_auth
 from services.entity_access import invite_entity_access, register_personal_entity, respond_to_entity_invite
@@ -55,6 +57,7 @@ def fixture():
                 invite_entity_access(db, "cookbook", books[0], users[0], users[2])
             actor = {"id": users[0]}
             app = FastAPI()
+            app.add_exception_handler(RequestValidationError, request_validation_error_handler)
             app.include_router(recipes.router)
             app.dependency_overrides[require_auth] = lambda: actor["id"]
             with TestClient(app) as client:
@@ -130,8 +133,8 @@ def test_validation_bounds_duplicates_quantities_and_drafts():
         for value in (float("nan"), float("inf"), -float("inf")):
             try:
                 RecipeCreate.model_validate({**payload(), "base_servings": value})
-            except HTTPException as error:
-                assert error.status_code == 422
+            except ValidationError:
+                pass
             else:
                 raise AssertionError("Nonfinite servings must fail validation")
         draft = create(f, {"title": "Draft", "client_mutation_id": "draft"})

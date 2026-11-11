@@ -1,4 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
+import { updateCachedUserMetadata } from '../core/utils.js';
 import { loadAuthenticatedImage, releaseAuthenticatedImage, removeCachedAvatar } from '../core/authenticated-image.js';
 import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/index.js';
 import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
@@ -255,6 +256,12 @@ export function createUserSettingsFeature({ authApi, placesApi, routingMemory = 
       renderModuleSettings(getCurrentUser());
       return;
     }
+    const user = getCurrentUser();
+    if (user?.id == null) return;
+    const isCurrent = () => {
+      const current = getCurrentUser();
+      return current != null && String(current.id) === String(user.id) && current.token === user.token;
+    };
     const toggles = [...document.querySelectorAll('[data-user-settings-module-id]')];
     const errorEl = document.getElementById('settings-modules-error');
     const successEl = document.getElementById('settings-modules-success');
@@ -274,12 +281,15 @@ export function createUserSettingsFeature({ authApi, placesApi, routingMemory = 
     toggles.forEach(candidate => { candidate.disabled = true; });
     try {
       const payload = await authApi.updateModules([...preservedUnknown, ...disabledKnown]);
+      if (!isCurrent()) return;
       const nextUser = { ...getCurrentUser(), disabled_modules: payload.disabled_modules || [] };
       setCurrentUser(nextUser);
+      updateCachedUserMetadata(nextUser.id, { disabled_modules: nextUser.disabled_modules });
       onModulePreferencesChange?.(nextUser);
       renderModuleSettings(nextUser);
       if (successEl) successEl.textContent = t('settings.modules.saved');
     } catch (error) {
+      if (!isCurrent()) return;
       renderModuleSettings(getCurrentUser());
       if (errorEl) errorEl.textContent = error.message || t('settings.modules.saveFailed');
     } finally {

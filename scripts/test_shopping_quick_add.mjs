@@ -119,7 +119,7 @@ for(const filename of localeFiles) {
  assert.equal(parse(`1,5 ${unit} Product`,localOptions).changes.quantity_value,comma?1.5:undefined,locale);
  assert.equal(parse(`1.5 ${unit} Product`,localOptions).changes.quantity_value,1.5,locale);
 }
-const remapped={...options,list:{...list,id:'server-list',client_mutation_id:'list-a'}};
+const remapped={...options,list:{...list,id:'server-list',client_mutation_id:'list-a'},stores:options.stores.map(store=>({...store,shopping_list_id:'server-list'}))};
 assert.deepEqual(parse('Milk @REWE',remapped).changes.store_ids,['store-local']);
 assert.equal(parse('Milk /Kühlung',{...options,list:{id:'different',sections:[]}}).changes.section_id,undefined);
 for(const hostile of ['[a]+(x).*','a|b','a'.repeat(400)]) {

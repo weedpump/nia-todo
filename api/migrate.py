@@ -767,7 +767,7 @@ def run_migrations():
                     apply_household_entity_access_migration(conn, sql)
                 elif version == 61:
                     apply_cookbooks_migration(conn, sql)
-                elif version in (56, 57, 59, 60, 62, 63, 64, 65, 66, 67, 68, 69, 70, 72, 73):
+                elif version in (56, 57, 59, 60, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74):
                     apply_atomic_migration(conn, sql, version)
                 else:
                     conn.executescript(sql)

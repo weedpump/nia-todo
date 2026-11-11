@@ -44,8 +44,9 @@ function shoppingListIdForQueueItem(item, stores = []) {
   return data.shopping_list_id ?? null;
 }
 
-export function collectRevokedShoppingListIds(serverLists = [], localLists = [], queue = [], stores = []) {
+export function collectRevokedShoppingListIds(serverLists = [], localLists = [], queue = [], stores = [], { actorId = null } = {}) {
   return metadata.collectRevokedIds(serverLists, localLists, queue, {
+    actorId,
     resolveQueueId: item => shoppingListIdForQueueItem(item, stores),
   });
 }
@@ -86,8 +87,9 @@ export function reconcileShoppingStoreQueueSnapshot(queue = [], {
   return { queue: reconciledQueue, queueRecords, queueDeleteIds };
 }
 
-export function projectShoppingSnapshot(serverLists = [], localLists = [], queue = []) {
+export function projectShoppingSnapshot(serverLists = [], localLists = [], queue = [], { actorId = null } = {}) {
   return metadata.projectSnapshot(serverLists, localLists, queue, {
+    actorId,
     project: projectPendingShoppingChanges,
     rewrite: (records, from, to) => rewriteShoppingQueueReferences(records, { listIdFrom: from, listIdTo: to }),
   });

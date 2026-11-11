@@ -1,3 +1,4 @@
+import { resolveEntityIdentity, entityIdentity } from '../core/entity-identity.js';
 import { t } from '../i18n/index.js';
 import { updateTopbarToggle } from '../ui/topbar-toggle.js';
 
@@ -11,6 +12,7 @@ function clone(value) {
 
 export function createShoppingViewPreferencesFeature({
   getLists = () => [],
+  getActorId = () => null,
   setLists = () => {},
   getActiveListId = () => null,
   commitMutation,
@@ -20,11 +22,12 @@ export function createShoppingViewPreferencesFeature({
   onError = () => {},
   enqueueListMutation = null,
 } = {}) {
+  const resolve = (records, identity, parentId) => resolveEntityIdentity(records, identity, { actorId: getActorId(), ...(parentId === undefined ? {} : { parentId, parentField: 'shopping_list_id' }) });
   let bound = false;
   const listQueues = new Map();
 
   function currentList(identity = getActiveListId()) {
-    return getLists().find(list => sameId(list.id, identity) || sameId(list.client_mutation_id, identity)) || null;
+    return resolve(getLists(), identity);
   }
 
   function enqueueLocallyForList(identity, task) {
@@ -54,7 +57,7 @@ export function createShoppingViewPreferencesFeature({
   async function toggleHideEmptySections() {
     const initial = currentList();
     if (!initial) return null;
-    const stableIdentity = initial.client_mutation_id ?? initial.id;
+    const stableIdentity = entityIdentity(initial, getActorId());
     return runListMutation(stableIdentity, async () => {
       const mutation = await commitMutation(() => {
         const live = currentList(stableIdentity);
@@ -74,7 +77,7 @@ export function createShoppingViewPreferencesFeature({
       });
       if (!mutation?.list) return null;
       setLists(getLists().map(list => (
-        sameId(list.id, mutation.list.id) || sameId(list.client_mutation_id, mutation.list.client_mutation_id)
+        sameId(list.id, mutation.list.id)
           ? mutation.list
           : list
       )));

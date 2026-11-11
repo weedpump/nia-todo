@@ -57,6 +57,10 @@ export function createAppStorage({ setDb }) {
     return indexedDb.commitShoppingReplay(replay);
   }
 
+  function commitCreationTombstoneReplay(replay) {
+    return indexedDb.commitCreationTombstoneReplay(replay);
+  }
+
   function evictPendingShoppingEntities(listIds, options) {
     return indexedDb.evictPendingShoppingEntities(listIds, options);
   }
@@ -84,6 +88,7 @@ export function createAppStorage({ setDb }) {
     commitTaskParentReplay,
     commitShoppingMutation,
     commitShoppingReplay,
+    commitCreationTombstoneReplay,
     evictPendingShoppingEntities,
     evictPendingProjectEntities,
     commitRecipeShoppingTransfer: indexedDb.commitRecipeShoppingTransfer,

@@ -1,3 +1,4 @@
+import { resolveEntityIdentity, entityIdentity } from '../core/entity-identity.js';
 import { t } from '../i18n/index.js';
 import { createOptimisticMetadataEntity, updateMetadataProjection } from './entity-metadata.js';
 import { safeColor, safeIconName } from '../icons/lucide-icons.js';
@@ -53,6 +54,7 @@ export function createShoppingListDetailsFeature({
   document: doc = globalThis.document,
   eventTarget = globalThis.window,
   getLists = () => [],
+  getActorId = () => null,
   setLists = () => {},
   commitMutation = async () => {},
   enqueueListMutation = null,
@@ -67,6 +69,7 @@ export function createShoppingListDetailsFeature({
   createTempListId = () => `temp-shopping-list-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
   onError = console.error,
 } = {}) {
+  const resolve = (records, identity, parentId) => resolveEntityIdentity(records, identity, { actorId: getActorId(), ...(parentId === undefined ? {} : { parentId, parentField: 'shopping_list_id' }) });
   let bound = false;
   let appearance = null;
   let directSharing = null;
@@ -98,7 +101,7 @@ export function createShoppingListDetailsFeature({
   }
 
   function listByIdentity(identity) {
-    return getLists().find(list => String(list.client_mutation_id ?? list.id) === String(identity)) || null;
+    return resolve(getLists(), identity);
   }
 
   function currentHousehold() {
@@ -265,6 +268,7 @@ export function createShoppingListDetailsFeature({
       household,
       householdManager: isHouseholdManager(),
     });
+    created.created_by_user_id = getActorId();
     await commitMutation(() => ({
       list: created,
       action: 'CREATE_SHOPPING_LIST',
@@ -284,7 +288,7 @@ export function createShoppingListDetailsFeature({
   }
 
   async function persistUpdate(current, state) {
-    const stableIdentity = current.client_mutation_id ?? current.id;
+    const stableIdentity = entityIdentity(current, getActorId());
     return runListMutation(stableIdentity, async () => {
       const committed = await commitMutation(() => {
         const latest = listByIdentity(stableIdentity);
@@ -331,7 +335,7 @@ export function createShoppingListDetailsFeature({
       resetCancelledTransfer(current);
       return null;
     }
-    const stableIdentity = current.client_mutation_id ?? current.id;
+    const stableIdentity = entityIdentity(current, getActorId());
     return runListMutation(stableIdentity, async () => {
       const latest = listById(current.id);
       if (!latest || !canManageShoppingListMetadata(latest)) return null;
@@ -390,7 +394,7 @@ export function createShoppingListDetailsFeature({
       syncDeleteMenu(current);
       return;
     }
-    const stableIdentity = current.client_mutation_id ?? current.id;
+    const stableIdentity = entityIdentity(current, getActorId());
     const generation = modalGeneration;
     doc?.getElementById?.('shopping-list-detail-header-menu')?.removeAttribute?.('open');
     deleting = true;

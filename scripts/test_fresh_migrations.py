@@ -60,7 +60,7 @@ def main():
 
         db_path = tmp_path / "fresh-migration-test.db"
         latest = latest_migration_version()
-        assert latest == 73, latest
+        assert latest == 74, latest
         with sqlite3.connect(db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
             version = db.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").fetchone()[0]
@@ -476,6 +476,44 @@ def main():
         for migration in MIGRATIONS_DIR.glob("*.sql"):
             if int(migration.name.split("_", 1)[0]) <= 71:
                 shutil.copy2(migration, v71_migrations / migration.name)
+        # Exercise the startup dispatcher, including failure after the first
+        # ALTER and while recording the schema version. Neither may leave a
+        # partial source schema that prevents the next startup from retrying.
+        with sqlite3.connect(v55_db_path) as db:
+            before_source_migration = database_snapshot(db)
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 70
+        migration_71 = (MIGRATIONS_DIR / "071_add_recipe_sources.sql").read_text()
+        failing_v71_migrations = tmp_path / "migrations-v71-failure"
+        failing_v71_migrations.mkdir()
+        first_alter = "ALTER TABLE recipes ADD COLUMN source_url TEXT NOT NULL DEFAULT '';"
+        assert migration_71.count(first_alter) == 1
+        (failing_v71_migrations / "071_add_recipe_sources.sql").write_text(
+            migration_71.replace(first_alter, first_alter + "\nSELECT * FROM migration_71_dispatch_failure;")
+        )
+        try:
+            run_migrations(v55_env, failing_v71_migrations)
+        except subprocess.CalledProcessError as error:
+            assert error.returncode != 0
+        else:
+            raise AssertionError("fault-injected startup migration 71 unexpectedly succeeded")
+        with sqlite3.connect(v55_db_path) as db:
+            assert database_snapshot(db) == before_source_migration
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 70
+            db.execute("""CREATE TRIGGER migration71_reject_version
+                BEFORE INSERT ON schema_version WHEN NEW.version = 71
+                BEGIN SELECT RAISE(ABORT, 'migration_71_version_failure'); END""")
+            before_source_version_failure = database_snapshot(db)
+        try:
+            run_migrations(v55_env, v71_migrations)
+        except subprocess.CalledProcessError as error:
+            assert error.returncode != 0
+        else:
+            raise AssertionError("fault-injected migration 71 version write unexpectedly succeeded")
+        with sqlite3.connect(v55_db_path) as db:
+            assert database_snapshot(db) == before_source_version_failure
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 70
+            db.execute("DROP TRIGGER migration71_reject_version")
+            assert database_snapshot(db) == before_source_migration
         run_migrations(v55_env, v71_migrations)
         with sqlite3.connect(v55_db_path) as db:
             db.execute("PRAGMA foreign_keys = ON")
@@ -607,7 +645,12 @@ def main():
         with sqlite3.connect(v55_db_path) as db:
             assert database_snapshot(db) == before_provenance
             assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 72
-        run_migrations(v55_env)
+        v73_migrations = tmp_path / "migrations-v73"
+        v73_migrations.mkdir()
+        for migration in MIGRATIONS_DIR.glob("*.sql"):
+            if int(migration.name.split("_", 1)[0]) <= 73:
+                shutil.copy2(migration, v73_migrations / migration.name)
+        run_migrations(v55_env, v73_migrations)
         with sqlite3.connect(v55_db_path) as db:
             assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 73
             assert all(row[0] == "manual" for row in db.execute("SELECT origin FROM recipe_step_ingredients"))
@@ -636,6 +679,42 @@ def main():
                 finally:
                     db.execute("ROLLBACK TO invalid_assignment_metadata")
                     db.execute("RELEASE invalid_assignment_metadata")
+            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+        with sqlite3.connect(v55_db_path) as db:
+            before_creation_receipts = database_snapshot(db)
+        migration_74 = (MIGRATIONS_DIR / "074_add_creation_receipts.sql").read_text()
+        failing_v74 = tmp_path / "migrations-v74-failure"
+        failing_v74.mkdir()
+        (failing_v74 / "074_add_creation_receipts.sql").write_text(
+            migration_74 + "\nSELECT * FROM migration_74_dispatch_failure;\n"
+        )
+        for migrations_dir in (failing_v74, MIGRATIONS_DIR):
+            with sqlite3.connect(v55_db_path) as db:
+                if migrations_dir == MIGRATIONS_DIR:
+                    db.execute("""CREATE TRIGGER migration74_reject_version
+                        BEFORE INSERT ON schema_version WHEN NEW.version = 74
+                        BEGIN SELECT RAISE(ABORT, 'migration_74_version_failure'); END""")
+                before_failure = database_snapshot(db)
+            try:
+                run_migrations(v55_env, migrations_dir)
+            except subprocess.CalledProcessError:
+                pass
+            else:
+                raise AssertionError("fault-injected startup migration 74 unexpectedly succeeded")
+            with sqlite3.connect(v55_db_path) as db:
+                assert database_snapshot(db) == before_failure
+                assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 73
+                if migrations_dir == MIGRATIONS_DIR:
+                    db.execute("DROP TRIGGER migration74_reject_version")
+                assert database_snapshot(db) == before_creation_receipts
+        run_migrations(v55_env)
+        with sqlite3.connect(v55_db_path) as db:
+            assert db.execute("SELECT version FROM schema_version").fetchone()[0] == latest
+            assert db.execute("SELECT name FROM sqlite_master WHERE name='creation_receipts'").fetchone()
+            for table, rows in before_creation_receipts[1].items():
+                if table != "schema_version":
+                    assert db.execute(f'SELECT * FROM "{table}" ORDER BY rowid').fetchall() == rows, table
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
     print("✅ Fresh migration test passed")

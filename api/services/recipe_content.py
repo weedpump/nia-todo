@@ -1,30 +1,20 @@
 """Validated recipe aggregates; children inherit their cookbook's boundary."""
 
 import json
-import math
 from urllib.parse import urlsplit
 from typing import Annotated, Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from services.entity_access import resolve_entity_access
 from services.quantity_units import normalize_quantity_unit
 
 
-def _finite_number(value):
-    # FastAPI includes invalid inputs in validation errors. Non-finite floats
-    # cannot be JSON-encoded there, so reject them before ordinary validation.
-    if isinstance(value, float) and not math.isfinite(value):
-        raise HTTPException(422, "Recipe numbers must be finite")
-    return value
-
-
-FiniteNumber = Annotated[float, BeforeValidator(_finite_number)]
 ClientKey = Annotated[str, Field(min_length=1, max_length=200)]
-Servings = Annotated[FiniteNumber, Field(gt=0, le=100000, allow_inf_nan=False, strict=True)]
-Minutes = Annotated[int, BeforeValidator(_finite_number), Field(ge=0, le=100000, strict=True)]
-Revision = Annotated[int, BeforeValidator(_finite_number), Field(gt=0, le=9223372036854775807, strict=True)]
+Servings = Annotated[float, Field(gt=0, le=100000, allow_inf_nan=False, strict=True)]
+Minutes = Annotated[int, Field(ge=0, le=100000, strict=True)]
+Revision = Annotated[int, Field(gt=0, le=9223372036854775807, strict=True)]
 
 
 def _required(value: str) -> str:
@@ -37,7 +27,7 @@ def _required(value: str) -> str:
 class Ingredient(BaseModel):
     client_key: ClientKey
     name: str = Field(min_length=1, max_length=500)
-    quantity_value: FiniteNumber | None = Field(default=None, gt=0, allow_inf_nan=False, strict=True)
+    quantity_value: float | None = Field(default=None, gt=0, allow_inf_nan=False, strict=True)
     quantity_unit: str | None = Field(default=None, max_length=40)
     quantity_text: str | None = Field(default=None, max_length=500)
     note: str = Field(default="", max_length=2000)
@@ -85,7 +75,7 @@ class RecipeStepIngredient(BaseModel):
     model_config = ConfigDict(extra="forbid")
     ingredient_client_key: ClientKey
     show_quantity: bool = Field(default=True, strict=True)
-    quantity_value: FiniteNumber | None = Field(default=None, gt=0, allow_inf_nan=False, strict=True)
+    quantity_value: float | None = Field(default=None, gt=0, allow_inf_nan=False, strict=True)
     quantity_text: str | None = Field(default=None, max_length=500)
     origin: Literal["manual", "braindump"] = "manual"
 

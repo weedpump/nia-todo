@@ -12,12 +12,13 @@ const deferred = () => {
 function fixture() {
   let lists = [
     { id: 1, can_edit: true, items: [], sections: [] },
-    { id: 2, client_mutation_id: 'temp-list-2', can_edit: true, items: [], sections: [{ id: 21, client_mutation_id: 'temp-section-2' }] },
+    { id: 2, client_mutation_id: 'temp-list-2', created_by_user_id: 1, can_edit: true, items: [], sections: [{ id: 21, client_mutation_id: 'temp-section-2', created_by_user_id: 1 }] },
   ];
-  let stores = [{ id: 22, client_mutation_id: 'temp-store-2', shopping_list_id: 2, active: true }];
+  let stores = [{ id: 22, client_mutation_id: 'temp-store-2', created_by_user_id: 1, shopping_list_id: 2, active: true }];
   let gate = null;
   const queued = [];
   const controller = createShoppingItemsController({
+    getActorId: () => 1,
     getLists: () => lists,
     setLists: value => { lists = value; },
     getActiveListId: () => 1,
@@ -98,8 +99,8 @@ for (const loseAccess of [true, false]) {
   f.gate = gate;
   const operation = f.controller.createManyForList({ listId: 'temp-list-2', items: [{ ...input, section_id: 'temp-section-2', store_ids: ['temp-store-2'] }] });
   await Promise.resolve();
-  f.lists = f.lists.map(list => list.id === 2 ? { ...list, id: 20, sections: [{ id: 210, client_mutation_id: 'temp-section-2' }] } : list);
-  f.stores = [{ id: 220, client_mutation_id: 'temp-store-2', shopping_list_id: 20, active: true }];
+  f.lists = f.lists.map(list => list.id === 2 ? { ...list, id: 20, sections: [{ id: 210, client_mutation_id: 'temp-section-2', created_by_user_id: 1 }] } : list);
+  f.stores = [{ id: 220, client_mutation_id: 'temp-store-2', created_by_user_id: 1, shopping_list_id: 20, active: true }];
   gate.resolve();
   const [created] = await operation;
   assert.equal(created.shopping_list_id, 20);

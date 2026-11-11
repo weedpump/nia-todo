@@ -108,6 +108,8 @@ run_step "Security Tauri Vendor Sync" node scripts/test_tauri_vendor_sync.mjs
 run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py
+run_step "Section Writer Transactions" python3 scripts/test_section_transactions.py
+run_step "Durable Creation Receipts" python3 scripts/test_creation_receipts.py
 run_step "Generic Entity Sharing Lifecycle" python3 scripts/test_entity_sharing_lifecycle.py
 run_step "Generic Entity Sharing Adapters" python3 scripts/test_entity_sharing_adapters.py
 run_step "Generic Entity Sharing Router" python3 scripts/test_entity_sharing_router.py
@@ -116,6 +118,9 @@ run_step "Entity Sharing Boundaries" python3 scripts/test_entity_sharing_boundar
 run_step "Household Entity Access" python3 scripts/test_household_entity_access.py
 run_step "Frontend Households" node scripts/test_frontend_households.mjs
 run_step "Shopping Lists" python3 scripts/test_shopping_lists.py
+run_step "Shopping Identity Boundaries" node scripts/test_shopping_identity.mjs
+run_step "Shopping Mutation Session Boundaries" node scripts/test_shopping_mutation_session.mjs
+run_step "Deleted Creation Replay" node scripts/test_creation_tombstone_sync.mjs
 run_step "Cookbooks API and Ownership" python3 scripts/test_cookbooks.py
 run_step "Cookbooks Shared UI" node scripts/test_frontend_cookbooks.mjs
 run_step "Cookbooks Offline Metadata Sync" node scripts/test_offline_cookbooks_sync.mjs

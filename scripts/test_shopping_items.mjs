@@ -3,6 +3,12 @@ import { validateRecipeChanges, sanitizeRecipeEntry } from '../web/static/js/fea
 import { brainDumpCandidatePayload } from '../web/static/js/features/braindump-candidate-review.js';
 import { resolveShoppingQuickAddState } from '../web/static/js/features/shopping-item-editor.js';
 import assert from 'node:assert/strict';
+// Production snapshots identify each creator; receipt aliases are account-local.
+const ownedFixtures = rows => rows.map(row => ({ ...row,
+  ...(row.client_mutation_id ? { created_by_user_id: 1 } : {}),
+  ...(row.sections ? { sections: ownedFixtures(row.sections) } : {}),
+  ...(row.items ? { items: ownedFixtures(row.items) } : {}),
+}));
 import { readFileSync } from 'node:fs';
 import {
   createShoppingItemsController,
@@ -31,7 +37,7 @@ assert.doesNotMatch(recipeCaption, /<script>|<b>fein/);
 {
   let recipeLists = [{ id: 99, can_edit: true, sections: [], items: [] }], recipeSequence = 0;
   const recipeMutations = [];
-  const recipeItems = createShoppingItemsController({ getLists: () => recipeLists, setLists: next => { recipeLists = next; }, getActiveListId: () => 99,
+  const recipeItems = createShoppingItemsController({ getActorId: () => 1, getLists: () => ownedFixtures(recipeLists), setLists: next => { recipeLists = next; }, getActiveListId: () => 99,
     createTempId: () => `temp-recipe-shopping-fields-${++recipeSequence}`, commitMutation: async build => { const mutation = build(); if (mutation) recipeMutations.push(mutation); return mutation; } });
   const salt = await recipeItems.create({ name: 'Salz', quantity_text: 'nach Geschmack', note: 'fein' });
   assert.equal(salt.quantity_text, 'nach Geschmack'); assert.equal(salt.note, 'fein');
@@ -110,8 +116,8 @@ let rendered = 0;
 let synced = 0;
 let commitCalls = 0;
 const durable = deferred();
-const controller = createShoppingItemsController({
-  getLists: () => lists,
+const controller = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(lists),
   setLists: next => { lists = next; published += 1; },
   getActiveListId: () => activeListId,
   commitMutation: async build => {
@@ -149,8 +155,8 @@ let concurrentLists = [{
 const concurrentGates = [deferred(), deferred()];
 const concurrentMutations = [];
 let concurrentCommitCalls = 0;
-const concurrent = createShoppingItemsController({
-  getLists: () => concurrentLists,
+const concurrent = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(concurrentLists),
   setLists: next => { concurrentLists = next; },
   getActiveListId: () => 10,
   commitMutation: async build => {
@@ -177,7 +183,7 @@ await toggleB;
 assert.deepEqual(concurrentLists[0].items.map(item => item.completed), [true, true], 'different item toggles must not overwrite each other');
 
 let failedPublishes = 0;
-const failure = createShoppingItemsController({
+const failure = createShoppingItemsController({ getActorId: () => 1,
   getLists: () => [{ id: 2, can_edit: true, items: [{ id: 3, completed: false }] }],
   setLists: () => { failedPublishes += 1; },
   getActiveListId: () => 2,
@@ -192,8 +198,8 @@ for (const race of ['permission', 'list', 'item']) {
   let raceActive = 4;
   let buildMutation;
   let racePublishes = 0;
-  const racing = createShoppingItemsController({
-    getLists: () => raceLists,
+  const racing = createShoppingItemsController({ getActorId: () => 1,
+    getLists: () => ownedFixtures(raceLists),
     setLists: () => { racePublishes += 1; },
     getActiveListId: () => raceActive,
     commitMutation: async build => { buildMutation = build; await Promise.resolve(); return build(); },
@@ -211,8 +217,8 @@ for (const race of ['permission', 'list', 'item']) {
 
 let capturedMutation = null;
 const identityLists = [{ id: 'temp-shopping-list-1', can_edit: true, items: [{ id: 'temp-shopping-item-9', completed: true }] }];
-const identity = createShoppingItemsController({
-  getLists: () => identityLists,
+const identity = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(identityLists),
   setLists: () => {},
   getActiveListId: () => 'temp-shopping-list-1',
   commitMutation: async build => { capturedMutation = build(); return capturedMutation; },
@@ -234,8 +240,8 @@ let remappedLists = [{
 let releaseRemap;
 const remapGate = new Promise(resolve => { releaseRemap = resolve; });
 let remappedMutation = null;
-const remapped = createShoppingItemsController({
-  getLists: () => remappedLists,
+const remapped = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(remappedLists),
   setLists: next => { remappedLists = next; },
   getActiveListId: () => 6,
   commitMutation: async build => { await remapGate; remappedMutation = build(); return remappedMutation; },
@@ -267,8 +273,8 @@ let movedLists = [{
 const moveDurable = deferred();
 let movedMutation = null;
 let movedPublishes = 0;
-const mover = createShoppingItemsController({
-  getLists: () => movedLists,
+const mover = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(movedLists),
   setLists: next => { movedLists = next; movedPublishes += 1; },
   getActiveListId: () => 70,
   commitMutation: async build => {
@@ -310,8 +316,8 @@ let deniedMoveLists = [{
 }];
 const deniedMoveGate = deferred();
 let deniedMovePublishes = 0;
-const deniedMover = createShoppingItemsController({
-  getLists: () => deniedMoveLists,
+const deniedMover = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(deniedMoveLists),
   setLists: () => { deniedMovePublishes += 1; },
   getActiveListId: () => 73,
   commitMutation: async build => { await deniedMoveGate.promise; return build(); },
@@ -337,11 +343,11 @@ let createMutation = null;
 let createPublishes = 0;
 let createRenders = 0;
 let createTempCalls = 0;
-const creator = createShoppingItemsController({
-  getLists: () => createLists,
+const creator = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(createLists),
   setLists: next => { createLists = next; createPublishes += 1; },
   getActiveListId: () => 'list-create',
-  getStores: () => createStores,
+  getStores: () => ownedFixtures(createStores),
   createTempId: () => { createTempCalls += 1; return 'temp-shopping-item-created'; },
   commitMutation: async build => {
     createMutation = build();
@@ -396,8 +402,8 @@ assert.equal(createRenders, 1);
 assert.equal(createLists[0].items.at(-1).quantity_value, 0, 'zero quantity must survive creation');
 
 let rejectedSyncLists = [{ id: 'sync-reject-list', can_edit: true, sections: [], items: [] }];
-const rejectedSyncCreator = createShoppingItemsController({
-  getLists: () => rejectedSyncLists,
+const rejectedSyncCreator = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(rejectedSyncLists),
   setLists: next => { rejectedSyncLists = next; },
   getActiveListId: () => 'sync-reject-list',
   createTempId: () => 'temp-shopping-item-sync-reject',
@@ -427,7 +433,7 @@ const invalidCreateInputs = [
 for (const [input, label] of invalidCreateInputs) {
   let invalidCommits = 0;
   let invalidTempIds = 0;
-  const invalid = createShoppingItemsController({
+  const invalid = createShoppingItemsController({ getActorId: () => 1,
     getLists: () => [{ id: 'validation-list', can_edit: true, sections: [], items: [] }],
     getActiveListId: () => 'validation-list',
     commitMutation: async build => { invalidCommits += 1; return build(); },
@@ -443,7 +449,7 @@ for (const [input, label] of [
 ]) {
   let invalidReferenceCommits = 0;
   let invalidReferenceTempIds = 0;
-  const invalidReference = createShoppingItemsController({
+  const invalidReference = createShoppingItemsController({ getActorId: () => 1,
     getLists: () => [{ id: 'reference-list', can_edit: true, sections: [], items: [] }],
     getActiveListId: () => 'reference-list',
     getStores: () => [],
@@ -456,7 +462,7 @@ for (const [input, label] of [
 }
 for (const canEdit of [false, undefined, null, 'true', 1]) {
   let deniedCommits = 0;
-  const denied = createShoppingItemsController({
+  const denied = createShoppingItemsController({ getActorId: () => 1,
     getLists: () => [{ id: 'denied-list', can_edit: canEdit, sections: [], items: [] }],
     getActiveListId: () => 'denied-list',
     commitMutation: async build => { deniedCommits += 1; return build(); },
@@ -466,7 +472,7 @@ for (const canEdit of [false, undefined, null, 'true', 1]) {
 }
 
 let blankQuantityMutation = null;
-const blankQuantity = createShoppingItemsController({
+const blankQuantity = createShoppingItemsController({ getActorId: () => 1,
   getLists: () => [{ id: 'blank-quantity-list', can_edit: true, sections: [], items: [] }],
   setLists: () => {},
   getActiveListId: () => 'blank-quantity-list',
@@ -486,8 +492,8 @@ let mixedLists = [{
 const mixedGates = [deferred(), deferred()];
 const mixedMutations = [];
 let mixedCommitCalls = 0;
-const mixed = createShoppingItemsController({
-  getLists: () => mixedLists,
+const mixed = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(mixedLists),
   setLists: next => { mixedLists = next; },
   getActiveListId: () => 'mixed-list',
   createTempId: () => 'temp-shopping-item-mixed',
@@ -515,16 +521,16 @@ assert.equal(mixedLists[0].items.find(item => item.id === 'mixed-existing').comp
 assert(mixedLists[0].items.some(item => item.id === 'temp-shopping-item-mixed'));
 
 let remappedCreateMutation = null;
-const remappedCreate = createShoppingItemsController({
+const remappedCreate = createShoppingItemsController({ getActorId: () => 1,
   getLists: () => [{
     id: 'remapped-create-list',
     can_edit: true,
-    sections: [{ id: 91, client_mutation_id: 'temp-shopping-section-remapped' }],
+    sections: [{ id: 91, client_mutation_id: 'temp-shopping-section-remapped', created_by_user_id: 1 }],
     items: [],
   }],
   setLists: () => {},
   getActiveListId: () => 'remapped-create-list',
-  getStores: () => [{ id: 81, shopping_list_id: 'remapped-create-list', client_mutation_id: 'temp-shopping-store-remapped', active: true }],
+  getStores: () => [{ id: 81, shopping_list_id: 'remapped-create-list', client_mutation_id: 'temp-shopping-store-remapped', created_by_user_id: 1, active: true }],
   createTempId: () => 'temp-shopping-item-remapped-reference',
   commitMutation: async build => {
     remappedCreateMutation = build();
@@ -546,11 +552,11 @@ const batchGate = deferred();
 const batchMutations = [];
 let batchPublishes = 0;
 let batchIdentity = 0;
-const batchCreator = createShoppingItemsController({
-  getLists: () => batchLists,
+const batchCreator = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(batchLists),
   setLists: next => { batchLists = next; batchPublishes += 1; },
   getActiveListId: () => 'batch-list',
-  getStores: () => batchStores,
+  getStores: () => ownedFixtures(batchStores),
   createTempId: () => `temp-batch-item-${++batchIdentity}`,
   commitMutation: async build => { const mutation = build(); batchMutations.push(mutation); await batchGate.promise; return mutation; },
 });
@@ -580,8 +586,8 @@ let sessionLists = [{ id: 'session-list', can_edit: true, sections: [], items: [
 const sessionGate = deferred();
 let oldSessionCurrent = true;
 let sessionIdentity = 0;
-const sessionCreator = createShoppingItemsController({
-  getLists: () => sessionLists,
+const sessionCreator = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(sessionLists),
   setLists: next => { sessionLists = next; },
   getActiveListId: () => 'session-list',
   createTempId: () => `session-item-${++sessionIdentity}`,
@@ -606,7 +612,7 @@ assert.equal(sessionLists[0].items.length, 2, 'only the valid fresh batch persis
 
 for (const method of ['create', 'createMany']) {
   let crossListCommits = 0;
-  const crossList = createShoppingItemsController({
+  const crossList = createShoppingItemsController({ getActorId: () => 1,
     getLists: () => [{ id: 'local-list', can_edit: true, sections: [], items: [] }],
     getActiveListId: () => 'local-list',
     getStores: () => [{ id: 'foreign-store', shopping_list_id: 'other-list', active: true }],
@@ -620,7 +626,7 @@ for (const method of ['create', 'createMany']) {
 for (const invalidRows of [null, [], Array.from({ length: 51 }, () => ({ name: 'Milk' })), [{ name: 'Bread' }, { name: '' }], [{ name: 'Milk', quantity: -1 }], [{ name: 'Milk', sectionId: 'foreign-section' }]]) {
   let invalidBatchCommits = 0;
   let invalidBatchIds = 0;
-  const invalidBatch = createShoppingItemsController({
+  const invalidBatch = createShoppingItemsController({ getActorId: () => 1,
     getLists: () => [{ id: 'invalid-batch', can_edit: true, sections: [], items: [] }],
     getActiveListId: () => 'invalid-batch',
     createTempId: () => { invalidBatchIds += 1; return 'invalid'; },
@@ -632,7 +638,7 @@ for (const invalidRows of [null, [], Array.from({ length: 51 }, () => ({ name: '
 }
 for (const canEdit of [false, undefined, null, 'true', 1]) {
   let deniedBatchCommits = 0;
-  const deniedBatch = createShoppingItemsController({
+  const deniedBatch = createShoppingItemsController({ getActorId: () => 1,
     getLists: () => [{ id: 'denied-batch', can_edit: canEdit, sections: [], items: [] }],
     getActiveListId: () => 'denied-batch',
     commitMutation: async build => { deniedBatchCommits += 1; return build(); },
@@ -642,7 +648,7 @@ for (const canEdit of [false, undefined, null, 'true', 1]) {
 }
 let failedBatchPublishes = 0;
 let failedBatchRecords = 0;
-const failedBatch = createShoppingItemsController({
+const failedBatch = createShoppingItemsController({ getActorId: () => 1,
   getLists: () => [{ id: 'failed-batch', can_edit: true, sections: [], items: [] }],
   getActiveListId: () => 'failed-batch',
   setLists: () => { failedBatchPublishes += 1; },
@@ -669,11 +675,11 @@ for (const boundary of ['queue', 'commit']) {
     const mutations = [];
     const keys = [];
     let identity = 0;
-    const creator = createShoppingItemsController({
-      getLists: () => raceBatchLists,
+    const creator = createShoppingItemsController({ getActorId: () => 1,
+      getLists: () => ownedFixtures(raceBatchLists),
       setLists: next => { raceBatchLists = next; },
       getActiveListId: () => raceBatchActive,
-      getStores: () => raceBatchStores,
+      getStores: () => ownedFixtures(raceBatchStores),
       createTempId: () => `race-batch-item-${++identity}`,
       enqueueListMutation: async (key, task) => { keys.push(key); if (boundary === 'queue') await gate.promise; return task(); },
       commitMutation: async build => { if (boundary === 'commit') await gate.promise; const mutation = build(); if (mutation) mutations.push(mutation); return mutation; },
@@ -715,8 +721,8 @@ for (const boundary of ['queue', 'commit']) {
 let onlineBatchLists = [{ id: 'online-batch', can_edit: true, sections: [], items: [] }];
 const onlineBatchSync = deferred();
 let onlineBatchSettled = false;
-const onlineBatch = createShoppingItemsController({
-  getLists: () => onlineBatchLists,
+const onlineBatch = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(onlineBatchLists),
   setLists: next => { onlineBatchLists = next; },
   getActiveListId: () => 'online-batch',
   commitMutation: async build => build(),
@@ -752,11 +758,11 @@ const updateGate = deferred();
 let updateMutation = null;
 let updatePublishes = 0;
 let activeUpdateListId = 'update-list';
-const updater = createShoppingItemsController({
-  getLists: () => updateLists,
+const updater = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(updateLists),
   setLists: next => { updateLists = next; updatePublishes += 1; },
   getActiveListId: () => activeUpdateListId,
-  getStores: () => updateStores,
+  getStores: () => ownedFixtures(updateStores),
   commitMutation: async build => {
     await updateGate.promise;
     updateMutation = build();
@@ -819,11 +825,11 @@ let inactiveStoreLists = [{
 }];
 let inactiveStores = [{ id: 88, shopping_list_id: 'inactive-store-list', name: 'Market', active: true }];
 const inactiveStoreGate = deferred();
-const inactiveStoreEditor = createShoppingItemsController({
-  getLists: () => inactiveStoreLists,
+const inactiveStoreEditor = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(inactiveStoreLists),
   setLists: next => { inactiveStoreLists = next; },
   getActiveListId: () => 'inactive-store-list',
-  getStores: () => inactiveStores,
+  getStores: () => ownedFixtures(inactiveStores),
   commitMutation: async build => {
     await inactiveStoreGate.promise;
     return build();
@@ -838,7 +844,7 @@ assert.equal(await staleStoreUpdate, null, 'an item mutation must not reattach a
 assert.deepEqual(inactiveStoreLists[0].items[0].store_ids, []);
 
 let hiddenStoreMutation = null;
-const hiddenStoreEditor = createShoppingItemsController({
+const hiddenStoreEditor = createShoppingItemsController({ getActorId: () => 1,
   getLists: () => [{
     id: 'hidden-store-list',
     can_edit: true,
@@ -885,8 +891,8 @@ const deleteGate = deferred();
 let deleteMutation = null;
 let deletePublishes = 0;
 let activeDeleteListId = 'delete-list';
-const remover = createShoppingItemsController({
-  getLists: () => deleteLists,
+const remover = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(deleteLists),
   setLists: next => { deleteLists = next; deletePublishes += 1; },
   getActiveListId: () => activeDeleteListId,
   commitMutation: async build => {
@@ -911,7 +917,7 @@ assert.equal(deleteLists[0].items.length, 0);
 assert.equal(deletePublishes, 1);
 
 let createFailurePublishes = 0;
-const createFailure = createShoppingItemsController({
+const createFailure = createShoppingItemsController({ getActorId: () => 1,
   getLists: () => [{ id: 'create-failure-list', can_edit: true, sections: [], items: [] }],
   setLists: () => { createFailurePublishes += 1; },
   getActiveListId: () => 'create-failure-list',
@@ -934,11 +940,11 @@ for (const race of ['permission', 'list', 'section', 'store']) {
   let raceCreatePublishes = 0;
   let releaseCreateBuild;
   const createBuildGate = new Promise(resolve => { releaseCreateBuild = resolve; });
-  const racingCreate = createShoppingItemsController({
-    getLists: () => raceCreateLists,
+  const racingCreate = createShoppingItemsController({ getActorId: () => 1,
+    getLists: () => ownedFixtures(raceCreateLists),
     setLists: () => { raceCreatePublishes += 1; },
     getActiveListId: () => raceCreateActive,
-    getStores: () => raceCreateStores,
+    getStores: () => ownedFixtures(raceCreateStores),
     createTempId: () => `temp-shopping-item-${race}`,
     commitMutation: async build => { await createBuildGate; return build(); },
     render: () => { raceCreatePublishes += 1; },
@@ -963,15 +969,15 @@ for (const race of ['permission', 'list', 'section', 'store']) {
 for (const action of ['create', 'update', 'remove', 'toggleCompleted', 'moveToSection']) {
   for (const wait of ['queue', 'commit']) {
     for (const outcome of ['allowed', 'denied', 'missing']) {
-      const origin = { id: 'temp-origin', client_mutation_id: 'temp-origin', can_edit: true, sections: [{ id: 9 }], items: [{ id: 5, name: 'Original', completed: false, section_id: null }] };
+      const origin = { id: 'temp-origin', client_mutation_id: 'temp-origin', created_by_user_id: 1, can_edit: true, sections: [{ id: 9 }], items: [{ id: 5, name: 'Original', completed: false, section_id: null }] };
       const other = { ...structuredClone(origin), id: 2, client_mutation_id: 'other' };
       let targetLists = [origin, other];
       let active = origin.id;
       const gate = deferred();
       const mutations = [];
       const queueKeys = [];
-      const target = createShoppingItemsController({
-        getLists: () => targetLists,
+      const target = createShoppingItemsController({ getActorId: () => 1,
+        getLists: () => ownedFixtures(targetLists),
         setLists: next => { targetLists = next; },
         getActiveListId: () => active,
         enqueueListMutation: async (identity, task) => {
@@ -1122,7 +1128,7 @@ console.log('✅ Shopping item renderer and durable create/completion controller
   let lists = [{ id: 301, can_edit: true, sections: [], items: [{ id: 302, name: 'Milk',
     quantity_value: 250 / 3, quantity_unit: 'ml', quantity_text: null, quantity_display_mode: 'kitchen', store_ids: [] }] }];
   const mutations = [];
-  const items = createShoppingItemsController({ getLists: () => lists, setLists: value => { lists = value; },
+  const items = createShoppingItemsController({ getActorId: () => 1, getLists: () => ownedFixtures(lists), setLists: value => { lists = value; },
     getActiveListId: () => 301, commitMutation: async build => { const mutation = build(); mutations.push(mutation); return mutation; },
     createTempId: () => 'temp-unit-input' });
   const renamed = await items.update(301, 302, { name: 'Milk renamed', quantity: 250 / 3, unit: 'milliliters', quantity_text: '', sectionId: null, storeId: null });

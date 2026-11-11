@@ -66,7 +66,18 @@ export function createMetadataCollection({ storeName, createAction, updateAction
       } };
     });
   }
-  const ownReceipt = (entity, actorId) => actorId == null || sameEntityId(entity.created_by_user_id, actorId);
+  const ownReceipt = (entity, actorId) => actorId != null && sameEntityId(entity.created_by_user_id, actorId);
+  function receiptCreates(entity, local, queue, actorId) {
+    if (entity.client_mutation_id == null || !ownReceipt(entity, actorId)) return [];
+    return queue.filter(entry => {
+      if (entry.action !== createAction || entry.actor_id != null && !sameEntityId(entry.actor_id, actorId)) return false;
+      const from = entry.data?.temp_id ?? entry.data?.id;
+      if (typeof from !== 'string' || !from.startsWith('temp-')) return false;
+      if (!sameEntityId(entry.data.client_mutation_id ?? from, entity.client_mutation_id)) return false;
+      const pending = local.find(record => sameEntityId(record.id, from));
+      return pending?.created_by_user_id == null || sameEntityId(pending.created_by_user_id, actorId);
+    });
+  }
   function collectRevokedIds(server, local, queue, { resolveQueueId = idFor, actorId = null } = {}) {
     const accessible = new Set(server.map(entity => String(entity.id)));
     const candidates = new Map(local.filter(entity => entity.id != null).map(entity => [String(entity.id), entity.id]));
@@ -74,21 +85,24 @@ export function createMetadataCollection({ storeName, createAction, updateAction
       const id = resolveQueueId(entry);
       if (id != null) candidates.set(String(id), id);
     }
-    const confirmed = new Set(server.filter(entity => ownReceipt(entity, actorId)).map(entity => entity.client_mutation_id).filter(id => id != null).map(String));
+    const confirmed = new Set(server.flatMap(entity => receiptCreates(entity, local, queue, actorId)
+      .map(entry => String(entry.data.temp_id ?? entry.data.id))));
     return [...candidates.values()].filter(id => !accessible.has(String(id)) && !confirmed.has(String(id)) && !hasPendingCreate(queue, id));
   }
   function projectSnapshot(server, local, queue, { project = projectPending, rewrite = (records, from, to) => rewriteQueue(records, { from, to }), actorId = null } = {}) {
     let projectedQueue = queue;
     const confirmed = new Set();
     for (const entity of server) {
-      if (entity.client_mutation_id == null || !ownReceipt(entity, actorId)) continue;
-      confirmed.add(String(entity.client_mutation_id));
-      projectedQueue = rewrite(projectedQueue, entity.client_mutation_id, entity.id);
+      for (const entry of receiptCreates(entity, local, queue, actorId)) {
+        const from = entry.data.temp_id ?? entry.data.id;
+        confirmed.add(String(from));
+        projectedQueue = rewrite(projectedQueue, from, entity.id);
+      }
     }
     const ids = new Set(server.map(entity => String(entity.id)));
     const result = server.map(entity => project(entity, projectedQueue)).filter(Boolean);
     for (const entity of local) {
-      if (ids.has(String(entity.id)) || confirmed.has(String(entity.id)) || confirmed.has(String(entity.client_mutation_id)) || !hasPendingCreate(queue, entity.id)) continue;
+      if (ids.has(String(entity.id)) || confirmed.has(String(entity.id)) || !hasPendingCreate(queue, entity.id)) continue;
       const projected = project(entity, projectedQueue);
       if (projected) result.push(projected);
     }
@@ -100,9 +114,7 @@ export function createMetadataCollection({ storeName, createAction, updateAction
     const removeIds = [];
     const remaps = [];
     for (const entity of server) {
-      const cmi = entity.client_mutation_id;
-      if (cmi == null || !ownReceipt(entity, actorId)) continue;
-      const pending = nextQueue.filter(entry => entry.action === createAction && sameEntityId(entry.data?.client_mutation_id, cmi));
+      const pending = receiptCreates(entity, local, nextQueue, actorId);
       for (const entry of pending) {
         const from = entry.data.temp_id ?? entry.data.id;
         queueDeleteIds.push(entry.id);
@@ -121,7 +133,8 @@ export function createMetadataCollection({ storeName, createAction, updateAction
         return true;
       });
     }
-    const revokedIds = collectRevokedIds(server, local, nextQueue, { actorId });
+    const revokedIds = collectRevokedIds(server, local, nextQueue, { actorId })
+      .filter(id => !removeIds.some(confirmed => sameEntityId(confirmed, id)));
     nextQueue = nextQueue.filter(entry => {
       if (!revokedIds.some(id => references(entry, id))) return true;
       queueDeleteIds.push(entry.id);

@@ -14,6 +14,7 @@ from services.braindump_routes import BrainDumpRouteFeedback, record_confirmed_r
 from services.routing_memory import RoutingFeedback, record_route_choice, legacy_feedback
 from services.appearance import normalize_color, normalize_icon
 from services.quantity_units import normalize_quantity_unit
+from services.creation_receipts import creation_replay
 from services.shopping_items import (
     insert_shopping_item, item_recipe_sources, item_recipe_sources_for_items,
     require_list_access, validate_item_amount, plain_item_text,
@@ -348,10 +349,7 @@ async def create_shopping_store(data: ShoppingStoreCreate, user_id: int = Depend
         db.execute("BEGIN IMMEDIATE")
         _permissions_for_list(db, data.shopping_list_id, user_id, write=True)
         if data.client_mutation_id:
-            existing = db.execute(
-                "SELECT * FROM shopping_stores WHERE shopping_list_id = ? AND client_mutation_id = ?",
-                (data.shopping_list_id, data.client_mutation_id),
-            ).fetchone()
+            existing = creation_replay(db, "shopping_store", data.shopping_list_id, data.client_mutation_id)
             if existing:
                 return _store_view(existing)
         try:
@@ -439,14 +437,12 @@ async def create_shopping_list(data: ShoppingListCreate, user_id: int = Depends(
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
         if data.client_mutation_id:
-            existing = db.execute(
-                "SELECT * FROM shopping_lists WHERE created_by_user_id = ? AND client_mutation_id = ?",
-                (user_id, data.client_mutation_id),
-            ).fetchone()
+            existing = creation_replay(db, "shopping_list", user_id, data.client_mutation_id)
             if existing:
                 view = _shopping_list_view(db, existing, user_id)
-                if view is not None:
-                    return view
+                if view is None:
+                    raise HTTPException(404, "Shopping list not found")
+                return view
         if data.household_id is not None and not is_household_participant(db, data.household_id, user_id):
             raise HTTPException(403, "Not a member of this household")
         try:
@@ -464,15 +460,6 @@ async def create_shopping_list(data: ShoppingListCreate, user_id: int = Depends(
             db.commit()
         except (sqlite3.IntegrityError, ValueError) as exc:
             db.rollback()
-            if data.client_mutation_id:
-                existing = db.execute(
-                    "SELECT * FROM shopping_lists WHERE created_by_user_id = ? AND client_mutation_id = ?",
-                    (user_id, data.client_mutation_id),
-                ).fetchone()
-                if existing:
-                    view = _shopping_list_view(db, existing, user_id)
-                    if view is not None:
-                        return view
             raise HTTPException(409, "Shopping list could not be saved") from exc
         row = db.execute("SELECT * FROM shopping_lists WHERE id = ?", (shopping_list_id,)).fetchone()
         result = _shopping_list_view(db, row, user_id)
@@ -745,10 +732,7 @@ async def create_shopping_section(shopping_list_id: int, data: ShoppingSectionCr
         db.execute("BEGIN IMMEDIATE")
         _permissions_for_list(db, shopping_list_id, user_id, write=True)
         if data.client_mutation_id:
-            existing = db.execute(
-                "SELECT * FROM shopping_sections WHERE shopping_list_id = ? AND client_mutation_id = ?",
-                (shopping_list_id, data.client_mutation_id),
-            ).fetchone()
+            existing = creation_replay(db, "shopping_section", shopping_list_id, data.client_mutation_id)
             if existing:
                 return _section_view(existing)
         try:
@@ -762,13 +746,6 @@ async def create_shopping_section(shopping_list_id: int, data: ShoppingSectionCr
             db.commit()
         except sqlite3.IntegrityError as exc:
             db.rollback()
-            if data.client_mutation_id:
-                existing = db.execute(
-                    "SELECT * FROM shopping_sections WHERE shopping_list_id = ? AND client_mutation_id = ?",
-                    (shopping_list_id, data.client_mutation_id),
-                ).fetchone()
-                if existing:
-                    return _section_view(existing)
             raise HTTPException(409, "Shopping section could not be saved") from exc
         row = db.execute("SELECT * FROM shopping_sections WHERE id = ?", (section_id,)).fetchone()
         result = _section_view(row)
@@ -830,10 +807,7 @@ async def create_shopping_item(shopping_list_id: int, data: ShoppingItemCreate, 
         db.execute("BEGIN IMMEDIATE")
         _permissions_for_list(db, shopping_list_id, user_id, write=True)
         if data.client_mutation_id:
-            existing = db.execute(
-                "SELECT * FROM shopping_items WHERE shopping_list_id = ? AND client_mutation_id = ?",
-                (shopping_list_id, data.client_mutation_id),
-            ).fetchone()
+            existing = creation_replay(db, "shopping_item", shopping_list_id, data.client_mutation_id)
             if existing:
                 return _item_view(db, existing, user_id)
         store_ids = _normalize_store_ids(db, user_id, shopping_list_id, data.store_ids)

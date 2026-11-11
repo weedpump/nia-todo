@@ -1,5 +1,12 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { resolveEntityIdentity, entityIdentity } from '../web/static/js/core/entity-identity.js';
+// Production snapshots identify each creator; receipt aliases are account-local.
+const ownedFixtures = rows => rows.map(row => ({ ...row,
+  ...(row.client_mutation_id ? { created_by_user_id: 1 } : {}),
+  ...(row.sections ? { sections: ownedFixtures(row.sections) } : {}),
+  ...(row.items ? { items: ownedFixtures(row.items) } : {}),
+}));
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { createShoppingStoresController } from '../web/static/js/features/shopping-stores.js';
@@ -17,8 +24,8 @@ let stores = [{ id: 'existing', shopping_list_id: 7, name: 'REWE', active: true,
 const commits = [];
 const queuedListIds = [];
 let syncCalls = 0;
-const controller = createShoppingStoresController({
-  getStores: () => stores,
+const controller = createShoppingStoresController({ getActorId: () => 1,
+  getStores: () => ownedFixtures(stores),
   setStores: next => { stores = structuredClone(next); },
   commitMutation: async build => {
     const mutation = build();
@@ -102,8 +109,8 @@ assert.equal(commits.length, missingDeleteCount);
 stores = stores.map(store => store.id === 'existing' ? { ...store, active: true, is_pending: false } : store);
 let deleteAllowed = true;
 const delayedDeleteGate = deferred();
-const delayedDelete = createShoppingStoresController({
-  getStores: () => stores,
+const delayedDelete = createShoppingStoresController({ getActorId: () => 1,
+  getStores: () => ownedFixtures(stores),
   setStores: next => { stores = structuredClone(next); },
   commitMutation: async build => {
     await delayedDeleteGate.promise;
@@ -122,8 +129,8 @@ assert.equal(commits.length, duplicateUpdateCount);
 
 let updateAllowed = true;
 const delayedUpdateGate = deferred();
-const delayedUpdate = createShoppingStoresController({
-  getStores: () => stores,
+const delayedUpdate = createShoppingStoresController({ getActorId: () => 1,
+  getStores: () => ownedFixtures(stores),
   setStores: next => { stores = structuredClone(next); },
   commitMutation: async build => {
     await delayedUpdateGate.promise;
@@ -160,8 +167,8 @@ let remappedLists = [{
 let remappedStores = [{ id: 9, shopping_list_id: 42, name: 'Market', active: true }];
 const remappedDeleteGate = deferred();
 let remappedCommitCalls = 0;
-const remappedStoreController = createShoppingStoresController({
-  getStores: () => remappedStores,
+const remappedStoreController = createShoppingStoresController({ getActorId: () => 1,
+  getStores: () => ownedFixtures(remappedStores),
   setStores: next => { remappedStores = structuredClone(next); },
   commitMutation: async build => {
     remappedCommitCalls += 1;
@@ -171,12 +178,13 @@ const remappedStoreController = createShoppingStoresController({
   },
   enqueueListMutation: enqueueRemappedListMutation,
   resolveListIdentity: listId => remappedLists.find(list => String(list.id) === String(listId))?.client_mutation_id ?? listId,
+  resolveListId: identity => remappedLists.find(list => String(list.id) === String(identity) || list.client_mutation_id === identity)?.id ?? null,
 });
-const remappedItemController = createShoppingItemsController({
-  getLists: () => remappedLists,
+const remappedItemController = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(remappedLists),
   setLists: next => { remappedLists = structuredClone(next); },
   getActiveListId: () => 42,
-  getStores: () => remappedStores,
+  getStores: () => ownedFixtures(remappedStores),
   commitMutation: async build => {
     remappedCommitCalls += 1;
     return build();
@@ -197,8 +205,8 @@ assert.deepEqual(remappedLists[0].items[0].store_ids, []);
 
 const gate = deferred();
 let delayedStores = [];
-const delayed = createShoppingStoresController({
-  getStores: () => delayedStores,
+const delayed = createShoppingStoresController({ getActorId: () => 1,
+  getStores: () => ownedFixtures(delayedStores),
   setStores: next => { delayedStores = structuredClone(next); },
   commitMutation: async build => {
     await gate.promise;
@@ -221,8 +229,8 @@ for (const wait of ['queue', 'commit']) {
     const queueKeys = [];
     const mutations = [];
     const resolveList = identity => originLists.find(list => String(list.id) === String(identity) || list.client_mutation_id === identity);
-    const creating = createShoppingStoresController({
-      getStores: () => scopedStores,
+    const creating = createShoppingStoresController({ getActorId: () => 1,
+      getStores: () => ownedFixtures(scopedStores),
       setStores: next => { scopedStores = next; },
       resolveListIdentity: identity => resolveList(identity)?.client_mutation_id ?? identity,
       resolveListId: identity => resolveList(identity)?.id ?? null,
@@ -265,10 +273,10 @@ for (const wait of ['queue', 'commit']) {
 const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 const composition = appSource.match(/const shoppingStoresController = createShoppingStoresController\(\{[\s\S]*?\n\}\);/)?.[0];
 assert(composition, 'production store controller composition must exist');
-const compositionLists = [{ id: 'temp-composition', client_mutation_id: 'temp-composition' }];
+const compositionLists = [{ id: 'temp-composition', client_mutation_id: 'temp-composition', created_by_user_id: 1 }];
 const options = runInNewContext(composition + '\nshoppingStoresController;', {
   createShoppingStoresController: options => options,
-  shoppingLists: compositionLists, shoppingStores: [],
+  shoppingLists: compositionLists, shoppingStores: [], currentUser: { id: 1 }, resolveEntityIdentity, entityIdentity,
   setShoppingStoresState() {}, commitShoppingMutation() {}, enqueueShoppingListMutation() {},
   isOnlineForSync() {}, syncWithServer() {}, console,
 });

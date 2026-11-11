@@ -20,6 +20,12 @@ assert.match(shoppingItemEditorSource, /shoppingStoreOptionAction/);
 assert.match(shoppingNavigationSource, /shoppingStoreOptionAction/);
 
 const fixtureSource = `
+  // Production creator metadata is required for account-scoped receipt aliases.
+  const ownedFixtures = rows => rows.map(row => ({ ...row, created_by_user_id: row.created_by_user_id ?? 1,
+    ...(row.sections ? { sections: ownedFixtures(row.sections) } : {}),
+    ...(row.items ? { items: ownedFixtures(row.items) } : {}),
+  }));
+
   import { initI18n, translatePage, setLanguagePreference } from '/static/js/i18n/index.js';
   import { SHOPPING_DIALOGS_HTML } from '/static/js/modules/shopping-dialogs.js';
   import { createShoppingItemsController } from '/static/js/features/shopping-items.js';
@@ -32,7 +38,7 @@ const fixtureSource = `
   await initI18n();
   let activeListId = 2;
   let lists = [
-    { id: 1, name: 'Einkauf', can_edit: true, can_manage: false, sections: [{ id: 'produce', name: 'Obst & Gemüse', sort_order: 0 }], items: [] },
+    { id: 1, client_mutation_id: '2', created_by_user_id: 2, name: 'Einkauf', can_edit: true, can_manage: false, sections: [{ id: 'produce', name: 'Obst & Gemüse', sort_order: 0 }], items: [] },
     { id: 2, name: 'Nur lesen', can_edit: 'true', can_manage: true, sections: [], items: [] },
   ];
   let stores = [{ id: 'other-list-store', shopping_list_id: 2, name: 'Other list market', active: true, sort_order: 0 }];
@@ -55,18 +61,18 @@ const fixtureSource = `
     <div id="shopping-list-sidebar"></div>
     <div id="shopping-navigation-main"></div>
   \`;
-  const itemController = createShoppingItemsController({
-    getLists: () => lists,
+  const itemController = createShoppingItemsController({ getActorId: () => 1,
+    getLists: () => ownedFixtures(lists),
     setLists: next => { lists = next; navigation?.replaceLists(next); },
     getActiveListId: () => activeListId,
-    getStores: () => stores,
+    getStores: () => ownedFixtures(stores),
     commitMutation,
     render: () => navigation?.render(),
     createTempId: () => itemSequence++ === 0 ? 'temp-shopping-item-browser' : 'temp-shopping-item-browser-' + itemSequence,
     onEdit: (listId, itemId, triggerElement) => editor?.showEdit?.(listId, itemId, triggerElement),
   });
-  navigation = createShoppingNavigationFeature({
-    getLists: () => lists,
+  navigation = createShoppingNavigationFeature({ getActorId: () => 1,
+    getLists: () => ownedFixtures(lists),
     itemController,
     closeSidebar: () => {},
     onAdd: () => {},
@@ -75,26 +81,26 @@ const fixtureSource = `
   navigation.bind();
   navigation.replaceLists(lists);
   navigation.selectList(activeListId, { updateNavigation: false });
-  const storeController = createShoppingStoresController({
-    getStores: () => stores,
+  const storeController = createShoppingStoresController({ getActorId: () => 1,
+    getStores: () => ownedFixtures(stores),
     setStores: next => { stores = next; editor?.reconcile?.(); },
     commitMutation,
     createTempId: () => 'temp-shopping-store-browser',
   });
-  storeEditor = createShoppingStoreEditorFeature({
+  storeEditor = createShoppingStoreEditorFeature({ getActorId: () => 1,
     document,
-    getLists: () => lists,
-    getStores: () => stores,
+    getLists: () => ownedFixtures(lists),
+    getStores: () => ownedFixtures(stores),
     storeController,
     confirmDanger: async () => { confirmations += 1; return true; },
   });
   storeEditor.bind();
-  editor = createShoppingItemEditorFeature({
+  editor = createShoppingItemEditorFeature({ getActorId: () => 1,
     document,
     eventTarget: window,
-    getLists: () => lists,
+    getLists: () => ownedFixtures(lists),
     getActiveListId: () => activeListId,
-    getStores: () => stores,
+    getStores: () => ownedFixtures(stores),
     storeController,
     itemController,
     confirmDanger: async () => { confirmations += 1; return true; },

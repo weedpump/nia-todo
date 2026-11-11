@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+// Production snapshots identify each creator; receipt aliases are account-local.
+const ownedFixtures = rows => rows.map(row => ({ ...row,
+  ...(row.client_mutation_id ? { created_by_user_id: 1 } : {}),
+  ...(row.sections ? { sections: ownedFixtures(row.sections) } : {}),
+  ...(row.items ? { items: ownedFixtures(row.items) } : {}),
+}));
 import { createShoppingViewPreferencesFeature } from '../web/static/js/features/shopping-view-preferences.js';
 import { createShoppingItemsController } from '../web/static/js/features/shopping-items.js';
 
@@ -8,8 +14,8 @@ function createHarness(initialLists) {
   const commits = [];
   const events = [];
   let renderCount = 0;
-  const feature = createShoppingViewPreferencesFeature({
-    getLists: () => lists,
+  const feature = createShoppingViewPreferencesFeature({ getActorId: () => 1,
+    getLists: () => ownedFixtures(lists),
     setLists: next => { events.push('publish'); lists = structuredClone(next); },
     getActiveListId: () => lists[0]?.client_mutation_id ?? lists[0]?.id ?? null,
     commitMutation: async build => {
@@ -22,7 +28,7 @@ function createHarness(initialLists) {
     render: () => { renderCount += 1; },
     isOnlineForSync: () => false,
   });
-  return { feature, getLists: () => lists, setLists: next => { lists = structuredClone(next); }, commits, events, getRenderCount: () => renderCount };
+  return { feature, getLists: () => ownedFixtures(lists), setLists: next => { lists = structuredClone(next); }, commits, events, getRenderCount: () => renderCount };
 }
 
 const viewer = createHarness([{
@@ -66,8 +72,8 @@ let releaseFirstQueuedCommit;
 let reachFirstQueuedCommit;
 const firstQueuedCommitReached = new Promise(resolve => { reachFirstQueuedCommit = resolve; });
 const queuedMutations = [];
-const queuedFeature = createShoppingViewPreferencesFeature({
-  getLists: () => queuedLists,
+const queuedFeature = createShoppingViewPreferencesFeature({ getActorId: () => 1,
+  getLists: () => ownedFixtures(queuedLists),
   setLists: next => { queuedLists = structuredClone(next); },
   getActiveListId: () => 'list-queued',
   commitMutation: async build => {
@@ -100,8 +106,8 @@ let releaseCommit;
 let reachCommit;
 const commitReached = new Promise(resolve => { reachCommit = resolve; });
 let raceMutation = null;
-const raceFeature = createShoppingViewPreferencesFeature({
-  getLists: () => delayedLists,
+const raceFeature = createShoppingViewPreferencesFeature({ getActorId: () => 1,
+  getLists: () => ownedFixtures(delayedLists),
   setLists: next => { delayedLists = structuredClone(next); },
   getActiveListId: () => 'list-race',
   commitMutation: async build => {
@@ -149,15 +155,15 @@ const commitSharedMutation = async build => {
   }
   return mutation;
 };
-const sharedItems = createShoppingItemsController({
-  getLists: () => sharedLists,
+const sharedItems = createShoppingItemsController({ getActorId: () => 1,
+  getLists: () => ownedFixtures(sharedLists),
   setLists: next => { sharedLists = structuredClone(next); },
   getActiveListId: () => 'list-shared-queue',
   commitMutation: commitSharedMutation,
   enqueueListMutation,
 });
-const sharedPreferences = createShoppingViewPreferencesFeature({
-  getLists: () => sharedLists,
+const sharedPreferences = createShoppingViewPreferencesFeature({ getActorId: () => 1,
+  getLists: () => ownedFixtures(sharedLists),
   setLists: next => { sharedLists = structuredClone(next); },
   getActiveListId: () => 'list-shared-queue',
   commitMutation: commitSharedMutation,
@@ -201,8 +207,8 @@ let failedLists = [{
   items: [],
 }];
 const failureSnapshot = structuredClone(failedLists);
-const failureFeature = createShoppingViewPreferencesFeature({
-  getLists: () => failedLists,
+const failureFeature = createShoppingViewPreferencesFeature({ getActorId: () => 1,
+  getLists: () => ownedFixtures(failedLists),
   setLists: next => { failedLists = structuredClone(next); },
   getActiveListId: () => 'list-failure',
   commitMutation: async () => { throw new Error('simulated IndexedDB failure'); },

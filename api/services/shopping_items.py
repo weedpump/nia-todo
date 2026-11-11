@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from db import now_iso
 from services.entity_access import resolve_entity_access
+from services.creation_receipts import creation_replay
 from services.quantity_units import normalize_quantity_unit
 from services.utils import sanitize_text
 
@@ -81,6 +82,9 @@ def insert_shopping_item(db, shopping_list_id, user_id, *, name, section_id=None
         raise RuntimeError("Shopping item inserts require a writer transaction")
     if quantity_display_mode not in ("exact", "kitchen"):
         raise ValueError("Invalid quantity display mode")
+    existing = creation_replay(db, "shopping_item", shopping_list_id, client_mutation_id)
+    if existing is not None:
+        return existing["id"]
     cursor = db.execute(
         """INSERT INTO shopping_items
            (shopping_list_id, section_id, name, quantity_value, quantity_unit,
