@@ -11,7 +11,7 @@ const fixtureSource = `
   import { createUiShell } from '/static/js/features/ui-shell.js';
 
   let lists = [
-    { id: 101, name: 'Personal', color: '#2563eb', icon: 'shopping-cart', can_manage: true, can_edit: true, items: [], sections: [], preferences: {} },
+    { id: 101, name: 'Personal', color: '#2563eb', icon: 'shopping-cart', can_manage: true, can_edit: true, created_by_user_id: 1, items: [], sections: [], preferences: {} },
     { id: 102, name: 'Household manager', color: '#16a34a', icon: 'house-heart', can_manage: true, can_edit: true, owner_household_id: 7, items: [], sections: [], preferences: {} },
     { id: 103, name: 'Household member', color: '#ca8a04', icon: 'users', can_manage: false, can_edit: true, owner_household_id: 7, items: [], sections: [], preferences: {} },
     { id: 104, name: 'Direct recipient', color: '#9333ea', icon: 'share-2', can_manage: false, can_edit: true, is_shared: true, items: [], sections: [], preferences: {} },
@@ -36,6 +36,7 @@ const fixtureSource = `
   const uiShell = createUiShell({ renderMarkdown: value => value, showTodoModal: () => {} });
   uiShell.bindKeyboardShortcuts();
   const feature = createShoppingListDetailsFeature({
+    getActorId: () => 1,
     getLists: () => lists,
     setLists: next => { lists = next; renderRows(); },
     commitMutation: async buildMutation => {
