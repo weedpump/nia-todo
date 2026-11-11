@@ -232,7 +232,9 @@ try {
   assert.equal(Object.hasOwn(old.data.changes.steps[0],'ingredients'),false,'attempted legacy request is never rewritten');
   const followup = restoredQueue.filter(row=>row.action==='UPDATE_RECIPE'&&row.data.id===102).at(-1);
   assert.notEqual(followup.id,old.id);
-  assert.deepEqual(followup.data.changes.steps[0].ingredients,inheritedLinks,'next offline step edit persists retained links rather than clearing them');
+  assert.deepEqual(followup.data.changes.steps[0].ingredients,[inheritedLinks[0],{
+    ...inheritedLinks[1],quantity_value:null,quantity_text:null,
+  }],'next offline step edit persists retained links and explicitly clears hidden quantities');
   await page.evaluate(() => {
     const source=window.stepTest.books()[0].recipes[0];
     window.stepTest.editor.showImport(source,2,{warnings:['recipe.ai.reviewQuantities']});
