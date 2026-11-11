@@ -20,14 +20,15 @@ export function roundRecipeQuantity(value, unit = null) {
   return { value: amount, unit: resultUnit };
 }
 
-const fractionGlyphs = { '1/4': '¼', '1/3': '⅓', '1/2': '½', '2/3': '⅔', '3/4': '¾' };
 function formatAmount(amount, locale, fractions) {
   if (!Number.isFinite(amount)) return '—';
   if (fractions && amount > 0 && amount < policy.fraction_limit) {
     const whole = Math.floor(amount), remainder = amount - whole;
     for (const [numerator, denominator] of policy.fractions) {
       if (Math.abs(remainder - numerator / denominator) <= 1e-9) {
-        return `${whole ? new Intl.NumberFormat(locale).format(whole) : ''}${fractionGlyphs[`${numerator}/${denominator}`]}`;
+        const number = new Intl.NumberFormat(locale);
+        // Full-size digits stay legible in compact badges; separate mixed numbers.
+        return `${whole ? `${number.format(whole)} ` : ''}${number.format(numerator)}/${number.format(denominator)}`;
       }
     }
   }

@@ -19,11 +19,16 @@ assert.equal(ingredientAmount({ quantity_value: 250, quantity_unit: 'ml' }, 2, 6
 assert.equal(ingredientAmount({ quantity_value: 1, quantity_unit: 'l' }, 1, 3, 'de'), '333 ml');
 assert.equal(ingredientAmount({ quantity_value: 1.5, quantity_unit: 'g' }, 1, 3, 'de'), '0,5 g');
 assert.equal(ingredientAmount({ quantity_value: 250, quantity_unit: 'ml' }, 2, 6, 'en'), '83 ml');
-assert.equal(ingredientAmount({ quantity_value: 1, quantity_unit: 'Packung' }, 1, 4, 'de'), '¼ Pack.');
-assert.equal(ingredientAmount({ quantity_value: 1, quantity_unit: 'TL' }, 1, 3, 'de'), '⅓ TL');
-assert.equal(formatQuantity(1.5, 'pack', 'de'), '1½ Pack.');
-assert.equal(formatQuantity(.25, 'pack', 'zh-CN'), '¼ 包');
-assert.equal(formatQuantity(.25, 'Hansdampf', 'de', { kitchen: true }), '¼ Hansdampf');
+assert.equal(ingredientAmount({ quantity_value: 1, quantity_unit: 'Packung' }, 1, 4, 'de'), '1/4 Pack.');
+assert.equal(ingredientAmount({ quantity_value: 1, quantity_unit: 'TL' }, 1, 3, 'de'), '1/3 TL');
+assert.equal(formatQuantity(1.5, 'pack', 'de'), '1 1/2 Pack.');
+assert.equal(formatQuantity(.25, 'pack', 'zh-CN'), '1/4 包');
+assert.equal(formatQuantity(.25, 'Hansdampf', 'de', { kitchen: true }), '1/4 Hansdampf');
+for (const locale of ['de','en','cs','fr','it','nl','pl','pt-BR','ru','sv','es','zh-CN']) {
+  for (const [value, expected] of [[.5,'1/2'], [.75,'3/4'], [2/3,'2/3'], [1.25,'1 1/4']]) {
+    assert.equal(formatQuantity(value, null, locale), expected, `${locale}: readable full-size fraction digits`);
+  }
+}
 assert.equal(formatQuantity(.1, 'g', 'de', { kitchen: true }), '0,1 g');
 assert.equal(formatQuantity(.25, 'kg', 'de'), '0,25 kg', 'manual Shopping quantities stay exact');
 assert.equal(formatQuantity(.25, 'kg', 'de', { kitchen: true }), '250 g');

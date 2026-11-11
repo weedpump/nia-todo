@@ -65,7 +65,7 @@ assert.match(openHtml, /aria-label="Milch als gekauft markieren"/);
 assert(!openHtml.includes('<img src=x'), 'item title must be escaped');
 assert(!openHtml.includes('<b>kg</b>'), 'free quantity unit must be escaped');
 assert.match(openHtml, /&lt;img src=x onerror=alert\(1\)&gt; Milch/);
-assert.match(openHtml, /2½ &lt;b&gt;kg&lt;\/b&gt;/);
+assert.match(openHtml, /2 1\/2 &lt;b&gt;kg&lt;\/b&gt;/);
 for (const forbidden of ['todo-item', 'todo-check', 'todo-title', 'data-todo-action', ' data-id=', 'data-touch-dnd']) {
   assert(!openHtml.includes(forbidden), `shopping item markup must not expose ${forbidden}`);
 }
@@ -1161,5 +1161,5 @@ console.log('✅ Shopping item renderer and durable create/completion controller
   assert.equal(brainDumpCandidatePayload({ ...candidate, quantity_unit: 'Hansdampf' }).quantity_unit, 'Hansdampf');
 }
 assert.equal(formatShoppingQuantity({ quantity_value: 250 / 3, quantity_unit: 'ml', quantity_display_mode: 'kitchen' }, 'de'), '83 ml');
-assert.equal(formatShoppingQuantity({ quantity_value: .25, quantity_unit: 'pack', quantity_display_mode: 'kitchen' }, 'de'), '¼ Pack.');
+assert.equal(formatShoppingQuantity({ quantity_value: .25, quantity_unit: 'pack', quantity_display_mode: 'kitchen' }, 'de'), '1/4 Pack.');
 assert.equal(formatShoppingQuantity({ quantity_value: .3, quantity_unit: 'Hansdampf', quantity_display_mode: 'kitchen' }, 'de'), '0,3 Hansdampf');

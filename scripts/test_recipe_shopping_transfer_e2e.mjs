@@ -190,7 +190,8 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
   await recipeModal.waitFor({ state: 'visible' });
   const editorStep = recipeModal.locator('.recipe-editor-step[data-key="mix"]');
   await editorStep.locator('[data-recipe-editor-action="step-ingredients-toggle"]').click();
-  await editorStep.locator('[data-step-group="main"] > summary').click();
+  assert.equal(await editorStep.locator('[data-step-group]').count(), 0, 'one populated group exposes its ingredients directly');
+  assert.equal(await editorStep.locator('[data-step-ingredient="custom"]').isVisible(), true);
   await editorStep.locator('[data-step-ingredient="custom"]').check();
   const customChoice = editorStep.locator('[data-step-choice="custom"]');
   await customChoice.locator('.recipe-editor-step-quantity > summary').click();
@@ -199,16 +200,16 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
   await recipeModal.waitFor({ state: 'hidden' });
   await poll(async id => (await window.dbGetAll('cookbooks')).flatMap(book => book.recipes || []).some(recipe => recipe.id === id && recipe.revision === 2 && !recipe.pending), seeded.recipe);
   const savedLinks = await page.evaluate(async id => (await (await import('/static/js/api/recipes.js')).recipesApi.getRecipe(id)).steps[0].ingredients, seeded.recipe);
-  assert.deepEqual(savedLinks.at(-1), { ingredient_client_key: 'custom', show_quantity: true, quantity_value: .125, quantity_text: null });
+  assert.deepEqual(savedLinks.at(-1), { ingredient_client_key: 'custom', show_quantity: true, quantity_value: .125, quantity_text: null, origin: 'manual' });
   phase = 'reading step ingredients and entering actual cooking mode';
   assert.equal(await page.locator('.recipe-steps>li[data-recipe-step-key="mix"] .recipe-step-ingredient').count(), 4);
   assert.deepEqual(await page.locator('[data-step-ingredient-amount="milk"]').allTextContents(), ['250 ml', '100 ml'], 'full and custom step amounts remain visible for repeated ingredients');
   assert.equal(await page.locator('[data-step-ingredient-amount="custom"]').textContent(), `${new Intl.NumberFormat(locale).format(.125)} Hansdampf`);
-  assert.equal(await page.locator('[data-step-ingredient-amount="powder"]').textContent(), `¼ ${packLabel}`);
+  assert.equal(await page.locator('[data-step-ingredient-amount="powder"]').textContent(), `1/4 ${packLabel}`);
   await page.locator('[data-recipe-action="cook"]').click();
   await page.locator('.recipe-cooking-step[data-recipe-step-key="mix"]').waitFor({ state: 'visible' });
   await page.fill('#recipe-view-servings', '4');
-  assert.equal(await page.locator('[data-step-ingredient-amount="powder"]').textContent(), `½ ${packLabel}`);
+  assert.equal(await page.locator('[data-step-ingredient-amount="powder"]').textContent(), `1/2 ${packLabel}`);
   await page.locator('[data-recipe-action="next-step"]').click();
   await page.locator('.recipe-cooking-step[data-recipe-step-key="finish"]').waitFor({ state: 'visible' });
   phase = 'restoring current cooking step and portions after reload';
@@ -233,8 +234,8 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
     await page.locator('#recipe-transfer-store').selectOption(String(seeded.store), { force: true });
     assert.equal(await page.locator('[data-transfer-ingredient]:checked').count(), 5);
     assert.equal(await page.locator('[data-transfer-amount="salt"]').textContent(), 'to taste');
-    assert.equal(await page.locator('[data-transfer-amount="powder"]').textContent(), `${servings === 4 ? '½' : '¼'} ${packLabel}`);
-    assert.equal(await page.locator('[data-transfer-amount="custom"]').textContent(), servings === 4 ? '½ Hansdampf' : '¼ Hansdampf');
+    assert.equal(await page.locator('[data-transfer-amount="powder"]').textContent(), `${servings === 4 ? '1/2' : '1/4'} ${packLabel}`);
+    assert.equal(await page.locator('[data-transfer-amount="custom"]').textContent(), servings === 4 ? '1/2 Hansdampf' : '1/4 Hansdampf');
     await page.click('#recipe-transfer-save-btn');
     await modal.waitFor({ state: 'hidden' });
   }
@@ -306,7 +307,7 @@ asyncio.run(uvicorn.Server(config).serve(sockets=[sock]))
   await page.click('#module-switcher-button');
   await page.click('[data-module-action="select"][data-module-id="shopping"]');
   await page.locator(`[data-entity-sidebar-action="select"][data-entity-type="shopping-list"][data-entity-id="${seeded.list}"]`).first().click();
-  for (const [id, label] of [[seeded.milk, `${new Intl.NumberFormat(locale).format(1250)} ml`], [powder.id, `¾ ${packLabel}`], [custom.id, '¾ Hansdampf'], [tiny.id, `${new Intl.NumberFormat(locale).format(.3)} g`]]) {
+  for (const [id, label] of [[seeded.milk, `${new Intl.NumberFormat(locale).format(1250)} ml`], [powder.id, `3/4 ${packLabel}`], [custom.id, '3/4 Hansdampf'], [tiny.id, `${new Intl.NumberFormat(locale).format(.3)} g`]]) {
     const quantity = page.locator(`[data-shopping-item-key="${id}"] .shopping-item-quantity`);
     await quantity.waitFor({ state: 'visible' });
     assert.equal(await quantity.textContent(), label);
