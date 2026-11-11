@@ -11,9 +11,10 @@ const releases = JSON.parse(readFileSync(new URL('../web/static/content/whats-ne
 const rendererSource = readFileSync(new URL('../web/static/js/features/whats-new.js', import.meta.url), 'utf8');
 const tourCss = readFileSync(new URL('../web/static/css/74-whats-new.css', import.meta.url), 'utf8');
 assert.ok(ICONS['arrow-right'], 'the brand transition needs the registered Lucide arrow rather than a fallback icon');
+const v4Version = '4.0.0';
 const expectedLanguages = ['de', 'en', 'cs', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'es', 'zh-CN'];
 
-assert.deepEqual(releases.map(release => release.version).sort(), ['3.3.0', '4.0.0'], 'ship the V4 tour and preserve the historical 3.3.0 tour');
+assert.deepEqual(releases.map(release => release.version).sort(), ['3.3.0', v4Version], 'ship the V4 tour and preserve the historical 3.3.0 tour');
 const release = releases.find(release => release.version === '3.3.0');
 assert.equal(release.version, '3.3.0');
 assert.equal(release.appVersions, undefined, 'the release tour must use only the canonical release version');
@@ -51,7 +52,7 @@ assert.deepEqual(
 assert.match(rendererSource, /media\.type === 'icons'/, 'the tour renderer must support paired local icons');
 assert.match(tourCss, /\.whats-new-slide-media-icons/, 'paired Today and Calm icons need a dedicated layout');
 
-const v4 = releases.find(release => release.version === '4.0.0');
+const v4 = releases.find(release => release.version === v4Version);
 assert.equal(v4.carryForward, true);
 assert.equal(v4.appVersions, undefined, 'V4 content uses the canonical release identity');
 assert.deepEqual(Object.keys(v4.content).sort(), [...expectedLanguages].sort());
@@ -59,6 +60,7 @@ const v4Icons = ['users', 'shopping-cart', 'book-open', 'download', 'sparkles'];
 for (const language of expectedLanguages) {
   const content = v4.content[language];
   assert.ok(content.title?.trim() && content.intro?.trim(), `${language} V4 introduction must be complete`);
+  assert.match(content.title, /4\.0/, `${language} V4 title must match the 4.0 release`);
   assert.equal(content.slides.length, 6, `${language} covers all six V4 topics`);
   assert.equal(content.slides[0].media.type, 'brand-transition');
   assert.match(content.slides[0].title, /nia-todo.*Nia/, `${language} explains the product rename`);
@@ -141,7 +143,7 @@ try {
   await page.close();
 
   for (const language of expectedLanguages) {
-    await withTour({ appVersion: 'v4.0.0', language }, async page => {
+    await withTour({ appVersion: `v${v4Version}`, language }, async page => {
       assert.deepEqual(await shownVersion(page), { shown: true, title: v4.content[language].title });
       for (const [index, slide] of v4.content[language].slides.entries()) {
         assert.equal(await page.locator('.whats-new-slide-copy h4').textContent(), slide.title);
@@ -157,14 +159,14 @@ try {
       }
       await page.locator('[data-whats-new-action="done"]').click();
       await page.locator('#whats-new-modal').waitFor({ state: 'hidden' });
-      assert.equal(await page.evaluate(() => localStorage.getItem('nia-whats-new:1:4.0.0')), '1');
+      assert.equal(await page.evaluate(version => localStorage.getItem(`nia-whats-new:1:${version}`), v4Version), '1');
       assert.deepEqual(await shownVersion(page), { shown: false, title: null }, `${language} completed V4 cannot fall back to 3.3.0`);
       assert.deepEqual(await shownVersion(page, true), { shown: true, title: v4.content[language].title }, `${language} manual reopen keeps the newest eligible tour`);
     });
   }
 
   for (const width of [320, 1440]) {
-    await withTour({ appVersion: 'v4.0.0', language: 'de' }, async page => {
+    await withTour({ appVersion: `v${v4Version}`, language: 'de' }, async page => {
       await page.setViewportSize({ width, height: 900 });
       assert.equal((await shownVersion(page)).shown, true);
       const layout = await page.locator('.whats-new-brand-transition').evaluate(container => {
@@ -221,12 +223,12 @@ try {
     });
   }
 
-  for (const appVersion of ['v3.6.3', '3.6.3+build.1']) {
+  for (const appVersion of ['v3.6.3', '3.6.3+build.1', '3.9.9', '3.99.99']) {
     await withTour({ appVersion }, async page => {
-      assert.deepEqual(await shownVersion(page), { shown: true, title: release.content.en.title }, 'shipping V4 content cannot expose it to a 3.x app');
+      assert.deepEqual(await shownVersion(page), { shown: true, title: release.content.en.title }, 'shipping V4 content cannot expose it to an app below 4.0.0');
     });
     await withTour({ appVersion, seen: [[1, '3.3.0']] }, async page => {
-      assert.deepEqual(await shownVersion(page), { shown: false, title: null }, 'an older app with its old tour completed must not see the future V4 tour');
+      assert.deepEqual(await shownVersion(page), { shown: false, title: null }, 'an older app with its old tour completed must not see the future 4.0 tour');
     });
   }
   await withTour({ appVersion: '3.0.0' }, async page => {
@@ -243,7 +245,7 @@ try {
   await withTour({ appVersion: '3.11.0', content: unordered }, async page => {
     assert.deepEqual(await shownVersion(page), { shown: true, title: '3.10.0' }, 'carry-forward uses numeric version ordering, not file or lexical ordering');
   });
-  await withTour({ appVersion: '4.1.0', content: [...releases].reverse(), seen: [[1, '4.0.0']] }, async page => {
+  await withTour({ appVersion: '4.1.0', content: [...releases].reverse(), seen: [[1, v4Version]] }, async page => {
     assert.deepEqual(await shownVersion(page), { shown: false, title: null }, 'a completed carried tour never exposes an older unseen tour');
     assert.equal(await page.evaluate(() => window.tour.open()), true, 'manual open can reopen a completed carried release');
     assert.equal(await page.locator('#whats-new-title').textContent(), v4.content.en.title);

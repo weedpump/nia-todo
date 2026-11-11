@@ -4,19 +4,18 @@
 
 - work in your local dev checkout; scripts read the path from `NIA_TODO_DEV_DIR` (defaults to the repo root)
 - do not expect or modify live data on this host; production runs on a separate LXC
-- create V4 feature branches from `v4` and target their pull requests at `v4`; continue existing feature branches against their intended target
-- create fixes and dependency updates for the released product line from `main` and target `main`
+- create feature, fix and dependency branches from `main` and target `main`
+- continue existing feature branches against their intended target
 
 ## Branches
 
 - `main` -> current released product line, its maintenance updates, releases, and tags
-- `v4` -> integration branch for the modular application shell and V4 modules
-- `codex/<change>` -> short-lived V4 feature or fix branch created from and targeting `v4`; remove merged feature branches after integration when requested
+- `codex/<change>` -> short-lived feature or fix branch created from and targeting `main`; remove merged feature branches after integration when requested
 
-Dependency updates may be merged into `main` independently and then integrated into V4 branches with validation. This does not authorize merging V4 features into `main` or triggering a release; feature integration and releases require an explicit request.
+The V4 integration branch is merged into `main` for the 4.0.0 release and retired. Feature integration and releases still require an explicit request.
 
-V4 documentation and in-app release notes may be prepared on `v4` before the
-release. A future `4.0.0` entry is not evidence that V4 is available from
+Documentation and in-app release notes may be prepared on feature branches before
+a release. A prepared entry is not evidence that its release is available from
 `releases/latest` or an image's `latest` tag. Keep unreleased changes under
 `CHANGELOG.md`'s Unreleased section until the release is explicitly prepared;
 do not change runtime versions, tags or deployment state just to preview copy.

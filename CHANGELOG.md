@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.0.0] - 2026-11-11
 
 With V4, nia-todo becomes Nia. Your familiar tasks, projects and workspaces stay
 with you, now joined by Shopping and Recipes in the same self-hosted app. Plan,

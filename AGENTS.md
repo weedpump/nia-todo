@@ -186,10 +186,10 @@ before relying on older todo-only descriptions.
 
 ## Branches, releases, and completion
 
-- Respect the checked-out branch and its intended merge target. V4 is an
-  active modularization effort; feature branches may target `v4` before
-  changes eventually reach `main`. Never assume the current branch is
-  release-ready merely because `main` is the default branch.
+- Respect the checked-out branch and its intended merge target. The V4
+  integration branch is merged into `main` for 4.0.0 and retired. Create new
+  feature and fix branches from `main` unless a different target is explicit.
+  Never assume a branch is release-ready merely because it is `main`.
 - Do not merge branches, force-push, push release tags, trigger a release,
   publish artifacts/images, deploy, restart production services, or modify
   live data unless explicitly requested. Release tags can initiate
