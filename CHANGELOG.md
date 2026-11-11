@@ -26,6 +26,7 @@ V4 is still in development; these changes are not included in the published 3.x 
 - Added a V4 What's New tour in all twelve supported languages, with version-aware startup selection and per-account completion on each browser or installation.
 
 ### Changed
+- Required native clients 4.0.0 or newer for V4 servers, including installations with an older stored minimum, to keep offline synchronization and access-change handling compatible.
 - Renamed the visible product from nia-todo to Nia across the web app, native clients, setup, administration, notifications, and system emails while preserving existing technical application identities.
 - Extended BrainDump to recognize tasks and shopping items in the same recording, with editable module, container, section, and store destinations.
 - Moved known quantity units into a shared multilingual registry used by Quick Add, BrainDump, Shopping, and Recipes. Unknown units remain free text; portion scaling uses practical rounding and readable fractions.

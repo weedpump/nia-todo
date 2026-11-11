@@ -14,7 +14,7 @@ A modern, self-hosted app for organizing everyday life, with offline support, co
 [![Docker pulls](https://img.shields.io/docker/pulls/weedpump/nia-todo)](https://hub.docker.com/r/weedpump/nia-todo)
 ![Platforms](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20Android%20%7C%20Debian-lightgrey)
 
-**[Website](https://nia-todo.homelabdiary.dev) · [Documentation](https://nia-todo.homelabdiary.dev/docs) · [Install](https://nia-todo.homelabdiary.dev/docs/get-started) · [Releases](https://github.com/weedpump/nia-todo/releases/latest)**
+**[Website](https://nia.homelabdiary.dev) · [Documentation](https://nia.homelabdiary.dev/docs) · [Install](https://nia.homelabdiary.dev/docs/get-started) · [Releases](https://github.com/weedpump/nia-todo/releases/latest)**
 
 </div>
 
@@ -100,7 +100,7 @@ Read the one-time setup token from `docker logs nia-todo` (or `journalctl -u nia
 
 A full **Debian/Ubuntu package** with systemd integration and built-in updates is available from [Releases](https://github.com/weedpump/nia-todo/releases/latest). Detailed guides cover both installation methods:
 
-**[Docker guide](https://nia-todo.homelabdiary.dev/docs/install/docker) · [Debian/Ubuntu guide](https://nia-todo.homelabdiary.dev/docs/install/debian)**
+**[Docker guide](https://nia.homelabdiary.dev/docs/install/docker) · [Debian/Ubuntu guide](https://nia.homelabdiary.dev/docs/install/debian)**
 
 The product name is **Nia**. Existing repository, image, package, service, and database names such as `nia-todo`, and configuration variables beginning with `NIA_TODO_`, remain unchanged for compatibility.
 
@@ -108,9 +108,9 @@ The product name is **Nia**. Existing repository, image, package, service, and d
 
 Installation, configuration, native apps, backups, updates, security, and troubleshooting are covered in the documentation:
 
-**[nia-todo.homelabdiary.dev/docs](https://nia-todo.homelabdiary.dev/docs)**
+**[nia.homelabdiary.dev/docs](https://nia.homelabdiary.dev/docs)**
 
-- [API documentation](https://nia-todo.homelabdiary.dev/docs/api/)
+- [API documentation](https://nia.homelabdiary.dev/docs/api/)
 
 Developer references stay with the source:
 

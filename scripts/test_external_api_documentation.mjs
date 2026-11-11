@@ -5,8 +5,8 @@ import { chromium } from 'playwright';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
-const docsUrl = 'https://nia-todo.homelabdiary.dev/docs/';
-const apiDocsUrl = 'https://nia-todo.homelabdiary.dev/docs/api/';
+const docsUrl = 'https://nia.homelabdiary.dev/docs/';
+const apiDocsUrl = 'https://nia.homelabdiary.dev/docs/api/';
 const githubUrl = 'https://github.com/weedpump/nia-todo';
 const issueUrl = 'https://github.com/weedpump/nia-todo/issues/new';
 

@@ -62,7 +62,9 @@ Releases are entirely manual to trigger, then fully automatic:
    - runs the full test suite against the built server `.deb`
    - publishes the GitHub release (assets + checksums), and pushes images to GHCR + Docker Hub
 
-Optional: re-run the workflow with `set_min_app_version: true` only when older native apps must be forced to update; without it, older native apps remain compatible.
+V4 sets the native compatibility floor to **4.0.0**. Publish matching Windows, Android and Debian clients before upgrading a server that enforces this floor. Ordinary releases preserve the existing minimum; an unchanged floor is not by itself proof of compatibility.
+
+For a later deliberate compatibility change, `scripts/release/prepare-release-version.sh VERSION --set-min-app-version` raises the source floor and fresh-install default together. The tag-triggered workflow does not pass that flag automatically.
 
 Required GitHub repo secrets before the release workflow can run: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASS`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
 

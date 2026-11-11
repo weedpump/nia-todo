@@ -34,7 +34,7 @@
 - Household-owned projects always project into each viewer's personal default workspace. They cannot be moved into another personal workspace; Shopping and Recipes do not use workspaces
 - Account module preferences are included in `/api/me`, direct preference update events, and recipient-specific reconnect snapshots so every device converges on the same enabled module set. Both local preference responses and WebSocket updates persist `disabled_modules` into the same account's optional `cached_user` record for offline startup. Metadata updates never overwrite the cached account ID or token; delayed local saves are fenced to the submitting account and token
 - Existing task-project shares remain stored in `project_members`, but project authorization now resolves both that legacy source and the common household/entity contract. Shopping lists and cookbooks use the common contract directly
-- A household owner may dissolve the household explicitly. Household-owned entities transfer to that human owner's personal ownership in the same transaction; former household access is revoked while independent direct grants and project memberships remain additive
+- A household owner may dissolve the household explicitly. Household-owned entities transfer to that human owner's personal ownership in the same transaction. This dissolution also removes direct entity grants and legacy project memberships for those entities; former participants must be invited again if the owner wants to share them afterward. Other access checks continue to use the additive sources described above
 - Attachment uploads and deletions use persistent quarantine records across the database commit boundary. A raised `commit()` is treated as an ambiguous outcome: staged data is preserved for database-driven startup reconciliation rather than being guessed as committed or rolled back
 - Attachment deletion acquires the SQLite writer lock before deriving or staging the deletion set; concurrent uploads wait, then revalidate the still-existing todo after obtaining that same lock
 - Startup attachment reconciliation acquires the same SQLite writer lock before inspecting manifests, so it cannot restore or finalize a batch whose database transaction is still in flight in another process
@@ -203,7 +203,7 @@ Current state:
 Operational constraints:
 
 - Android is pinned to app ID `de.tobiaskneidl.nia_todo` and the permanent release key. Re-sign/custom package builds need an explicit migration strategy before they can be passkey-compatible.
-- Native app compatibility is controlled by `min_native_client_version` from `/api/instance`; normal releases do not raise it unless the release workflow is run with `set_min_app_version: true`.
+- Native app compatibility is controlled by `min_native_client_version` from `/api/instance`. V4 requires native clients 4.0.0 or newer; its source floor overrides older persisted values. Normal releases preserve this boundary; raising it again requires an explicit compatibility decision, supported by `scripts/release/prepare-release-version.sh --set-min-app-version`.
 
 ## API validation
 

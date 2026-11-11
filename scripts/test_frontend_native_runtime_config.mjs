@@ -126,14 +126,14 @@ async function testNativeAboutChangelogBadgeOpensWebsiteOnce() {
     const badge = page.locator('.about-changelog-badge');
     await badge.waitFor({ state: 'visible', timeout: 10_000 });
     const href = await badge.getAttribute('href');
-    if (href !== 'https://nia-todo.homelabdiary.dev/changelog/') {
+    if (href !== 'https://nia.homelabdiary.dev/changelog/') {
       throw new Error(`Expected public website changelog URL, got ${href}`);
     }
     const pathBeforeClick = await page.evaluate(() => location.pathname);
     await badge.dispatchEvent('click');
     await page.waitForFunction(() => {
       const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
-      return opened.length === 1 && opened[0] === 'https://nia-todo.homelabdiary.dev/changelog/';
+      return opened.length === 1 && opened[0] === 'https://nia.homelabdiary.dev/changelog/';
     }, null, { timeout: 10_000 });
     const opened = await page.evaluate(() => window.__nativeOpenedUrls || []);
     if (opened.length !== 1) throw new Error(`Expected exactly one native openExternal call, got ${opened.length}`);
@@ -171,7 +171,7 @@ async function testNativeDocumentationOpensExternally() {
     await page.locator('#settings-modal [data-external-resource]').dispatchEvent('click');
     await page.waitForFunction(() => {
       const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
-      return opened.length === 1 && opened[0] === 'https://nia-todo.homelabdiary.dev/docs/api/';
+      return opened.length === 1 && opened[0] === 'https://nia.homelabdiary.dev/docs/api/';
     }, null, { timeout: 10_000 });
     const pathAfterClick = await page.evaluate(() => location.pathname);
     if (pathAfterClick !== pathBeforeClick) {
