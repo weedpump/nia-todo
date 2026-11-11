@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Server verifiëren en opslaan",
   "nativeSetup.hint": "De app-gebruikersinterface is lokaal gebundeld. De server biedt alleen API, synchronisatie en login.",
   "nativeSetup.notNiaTodoServer": "Dit is geen Nia-server.",
-  "auth.subtitle": "Jouw persoonlijke takensysteem",
+  "auth.subtitle": "Je dagelijks leven, eenvoudig georganiseerd.",
   "auth.oidc.signIn": "Log in met OIDC",
   "auth.oidc.signInWithProvider": "Inloggen met {provider}",
   "auth.oidc.errorTitle": "OIDC-aanmelding mislukt",

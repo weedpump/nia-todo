@@ -11,9 +11,36 @@
 
 - `main` -> current released product line, its maintenance updates, releases, and tags
 - `v4` -> integration branch for the modular application shell and V4 modules
-- `feat/v4-shopping-lists` -> Shopping development, targeting `v4`
+- `codex/<change>` -> short-lived V4 feature or fix branch created from and targeting `v4`; remove merged feature branches after integration when requested
 
 Dependency updates may be merged into `main` independently and then integrated into V4 branches with validation. This does not authorize merging V4 features into `main` or triggering a release; feature integration and releases require an explicit request.
+
+V4 documentation and in-app release notes may be prepared on `v4` before the
+release. A future `4.0.0` entry is not evidence that V4 is available from
+`releases/latest` or an image's `latest` tag. Keep unreleased changes under
+`CHANGELOG.md`'s Unreleased section until the release is explicitly prepared;
+do not change runtime versions, tags or deployment state just to preview copy.
+
+## In-app What's new
+
+The startup tour is an application feature with its own localized data in
+`web/static/content/whats-new.json`; `CHANGELOG.md` remains the separate change
+history. Maintain each tour's title, introduction and slides in all supported
+locales. The client selects the active language, with English and then German as
+fallbacks.
+
+The client first selects a release matching the normalized app version through
+`version` or `appVersions`. Otherwise it selects the newest `carryForward` release
+whose version is no greater than the app version. Future releases are ineligible,
+and selection does not depend on whether a tour has been completed. Thus a
+prepared `4.0.0` tour does not appear automatically in the current 3.x app.
+
+Completion is stored locally per account and canonical tour version. The final
+`done` action remembers completion; dismissing or navigating back does not. An
+already completed applicable tour is not replaced by an older unseen one, and a
+newer completed eligible tour suppresses automatic fallback to older content.
+Programmatic calls to `open()` or `maybeShowWhatsNew({ force: true })` reopen the
+applicable tour; this does not add a separate menu action.
 
 ## Workflows
 

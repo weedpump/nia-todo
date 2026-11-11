@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Server prüfen & speichern",
   "nativeSetup.hint": "Die App-Oberfläche ist lokal gebündelt. Der Server liefert nur API, Sync und Login.",
   "nativeSetup.notNiaTodoServer": "Das ist kein Nia Server.",
-  "auth.subtitle": "Dein persönliches Todo-System",
+  "auth.subtitle": "Dein Alltag. Einfach organisiert.",
   "auth.oidc.signIn": "Mit OIDC anmelden",
   "auth.oidc.signInWithProvider": "Mit {provider} anmelden",
   "auth.oidc.errorTitle": "OIDC-Anmeldung fehlgeschlagen",

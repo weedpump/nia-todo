@@ -1,4 +1,4 @@
-"""nia-todo: FastAPI backend - slim entry point"""
+"""Nia: FastAPI backend - slim entry point"""
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -28,7 +28,7 @@ run_migrations()
 with get_db() as db:
     cleanup_stale_attachment_quarantine(db)
 
-app = FastAPI(title="nia-todo", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Nia", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
 
 # ─── Middleware ──────────────────────────────────────────────────────────────
 

@@ -17,8 +17,8 @@
 ## Data Model
 
 - Each user has their own inbox (`projects.is_inbox = 1`), regardless of the project name
-- Project names are unique per user, not globally
-- Shared projects are managed via `project_members` (`pending`, `accepted`, `removed`, `left`, `declined`)
+- Projects are identified by IDs; display names need not be unique
+- Compatible legacy project memberships remain in `project_members` (`pending`, `accepted`, `removed`, `left`, `declined`); V4 authorization also uses the generic ownership and grant contract below
 - V4 households are separate from personal workspaces: each household has exactly one human owner plus zero or more accepted members; there is no household admin role
 - A user can have at most one pending or accepted household relationship. Joining happens through an invitation that the recipient accepts or declines
 - Shareable top-level entities are registered in `entity_access` with exactly one owner type: either `owner_user_id` for personal ownership or `owner_household_id` for household ownership
@@ -31,8 +31,8 @@
 - Workspaces remain personal organization views and are not household-owned entities
 - Module activation is stored once per user account in `users.disabled_modules_json`; workspace records and workspace APIs carry no module visibility state. Disabling a module hides its shell navigation and settings contribution without deleting domain data, and at least one registered module must remain enabled
 - Registered modules declare only the shell capabilities they actually support. `capabilities.workspaces` controls whether the personal workspace switcher is visible for the active module; tasks enable it, while shopping and recipes initially do not
-- Household-owned entities always project into each viewer's personal default workspace. They cannot be moved into another personal workspace, so household ownership does not require a generic per-user entity/workspace assignment layer
-- Account module preferences are included in `/api/me`, direct preference update events, and recipient-specific reconnect snapshots so every device converges on the same enabled module set
+- Household-owned projects always project into each viewer's personal default workspace. They cannot be moved into another personal workspace; Shopping and Recipes do not use workspaces
+- Account module preferences are included in `/api/me`, direct preference update events, and recipient-specific reconnect snapshots so every device converges on the same enabled module set. Both local preference responses and WebSocket updates persist `disabled_modules` into the same account's optional `cached_user` record for offline startup. Metadata updates never overwrite the cached account ID or token; delayed local saves are fenced to the submitting account and token
 - Existing task-project shares remain stored in `project_members`, but project authorization now resolves both that legacy source and the common household/entity contract. Shopping lists and cookbooks use the common contract directly
 - A household owner may dissolve the household explicitly. Household-owned entities transfer to that human owner's personal ownership in the same transaction; former household access is revoked while independent direct grants and project memberships remain additive
 - Attachment uploads and deletions use persistent quarantine records across the database commit boundary. A raised `commit()` is treated as an ambiguous outcome: staged data is preserved for database-driven startup reconciliation rather than being guessed as committed or rolled back
@@ -60,6 +60,15 @@
 - Complete Shopping list/store snapshots reconcile old store-only queue records before replacing caches: authorized store metadata backfills the list identity, while unassignable orphan records are removed atomically. Partial snapshots do not infer revocation from missing store metadata.
 - Background refreshes preserve unchanged module menus and Shopping filter/editor controls, including focus and drafts. Shopping reconciles filter/header inputs separately from item/section content; changing targets, permissions or module activation closes obsolete controls. Late inline-store completions stay scoped to their original list and cannot clear a newer draft.
 
+### Identity, create replay and deletion receipts
+
+- Canonical entity IDs and client mutation identities are separate namespaces. `web/static/js/core/entity-identity.js` resolves exact IDs first; a missing numeric server ID is never reinterpreted as a CMI. Mutation aliases require the current creation actor and an unambiguous match; child lookups also retain the parent's boundary. Freely chosen numeric CMIs remain valid in the explicitly captured creation-receipt namespace, with a separate temporary local ID. Own pending references survive acknowledgement and offline reload without allowing foreign records to shadow an ID.
+- Shared metadata snapshots acknowledge only actual temporary CREATE records whose mutation identity and server creator match the current actor. They remap the recorded temporary ID, never an arbitrary CMI-shaped server ID. Foreign actors' queued records are not evidence for a remap. App mutation queues and commit reservations capture the authenticated runtime, so work waiting across an account/session transition cannot construct or publish a new account's mutation.
+- Migration 074 adds minimal `creation_receipts` for Todos and Shopping lists, sections, stores and items. Backfill retains existing live creation identities; insert triggers register subsequent writes atomically, including BrainDump and recipe-transfer service paths. Receipts store identities, not content or historical permission snapshots, and survive deletion of the content. Todo/list scopes are the creation actor; Shopping child scopes are their list. Existing recipe/cookbook receipts keep their own richer contracts.
+- Repeating a CREATE whose recorded entity has been deleted returns HTTP 410 with `detail.code = "sync.creationDeleted"`, its `entity_type`, and the old `id`; Shopping child receipts also include `shopping_list_id`. Access is rechecked before returning live content, and missing/inaccessible Shopping parents return 404 rather than child receipt details. A new logical creation requires a new CMI. Store deactivation is a soft delete: replay returns the existing inactive store without reactivating it; only a physically absent store produces this tombstone.
+- `features/creation-tombstone.js` validates the receipt against the dispatched CREATE type and parent. Under actor, privacy-generation, current-request and queue-presence fences, one IndexedDB transaction removes typed cache ghosts and dependent intents. Unrelated entities, lists and explicitly foreign queue actors remain untouched. Deleted sections/stores leave unsent new item content intact, removing only the obsolete association; already-attempted bodies remain immutable. Automatic fallbacks remove the affected routing-feedback field or supply an explicit empty field mask, including for legacy updates, so cleanup cannot teach a user preference.
+- Each of migrations 071–074 commits its changes and version marker atomically through the startup dispatcher. A failed statement or marker write rolls back the schema/content changes and permits a subsequent retry. Task-section authorization and writes acquire the writer lock before their first reads; even empty/null-only updates release it before awaiting broadcasts.
+
 ## Cookbooks and Recipes
 
 - Recipes implements cookbook containers, recipe aggregates and ingredient transfer to Shopping. Cookbooks use the shared entity sidebar/editor. Recipes have a title, description, base servings, preparation/cooking times, manual tags, ordered ingredient groups and ordered plain-text steps. Public discovery/copying and archiving are deferred.
@@ -74,13 +83,72 @@
 - Aggregate mutations validate and write inside one SQLite writer transaction. PATCH and DELETE compare `expected_revision`; actor-scoped mutation receipts make uncertain retries idempotent. Responses distinguish the current `revision` from the exact receipt's `applied_revision`, so later queued edits cannot silently rebase over an intervening foreign update. A conflict retains the local draft and requires an explicit local/server choice.
 - Recipe snapshots, children and image versions are read from one SQLite snapshot. Complete client snapshots confirm creates only from actual server evidence, preserve higher acknowledged revisions of still-authorized present recipes, and always apply authoritative access and absence. Pending local cookbooks/recipes are never their own acknowledgement.
 - Migration 065 adds ordered, optional step-to-ingredient links. Composite foreign keys enforce one recipe boundary and cascade deleted children; API/offline payloads use ingredient `client_key` references, never name matching. Migration 066 adds optional `quantity_value` and `quantity_text` to those links: omitted/null amounts inherit the ingredient total; numeric overrides use the ingredient unit and the recipe base servings; free-text overrides describe cases such as zest and half the juice. Legacy `show_quantity: false` remains explicitly unresolved rather than guessing a quantity. Same-key legacy PATCH links that omit both new fields preserve their authored amounts; explicit nulls reset to the full source amount. An explicit legacy `show_quantity: false` clears its obsolete override and marks the amount unresolved. An omitted legacy field preserves same-key links; explicit `[]` clears them. Deleting an ingredient prunes inherited references, while explicitly invalid references fail validation atomically. Optimistic projection and editor drafts preserve this distinction without rewriting attempted requests.
-- Reading and cooking share one step-ingredient renderer and the existing portions formatter/control. Every resolved step link displays its full ingredient amount or authored step override, scaled through the same portions/unit formatter. Repeating an ingredient in preparation and later use never hides its amount or increases the purchasing total. Unresolved legacy links show that the step amount is unspecified and include the source total as context. Numeric overrides must be positive, finite and no larger than the source numeric amount; repeated step displays are not summed as consumption. Cooking shows one current step, retains its stable key across reorder, and uses actor-scoped browser history for step/portion restoration. Step navigation replaces history; Back exits cooking before leaving the recipe. Module/access/session changes fence or clear the view; content editing remains within the shared recipe editor.
+- Reading and cooking share one step-ingredient renderer and the existing portions formatter/control. Every resolved step link displays its full ingredient amount or authored step override, scaled through the same portions/unit formatter. Repeating an ingredient in preparation and later use never hides its amount or increases the purchasing total. Unresolved links show the ingredient name and, when available, a compact localized parenthetical source total; they do not claim that total is the amount consumed by this step. Numeric overrides must be positive, finite and no larger than the source numeric amount; repeated step displays are not summed as consumption. Cooking shows one current step, retains its stable key across reorder, and uses actor-scoped browser history for step/portion restoration. Step navigation replaces history; Back exits cooking before leaving the recipe. Module/access/session changes fence or clear the view; content editing remains within the shared recipe editor.
 - Migration 073 records step-link `origin` (`manual` or `braindump`) and recipe-local `excluded_ingredients` for deliberate negative choices. Existing links conservatively become manual because their earlier origin cannot be reconstructed. Generated links are stamped on the server; explicit model lists may replace only earlier BrainDump links. Manual selection/amount edits promote the affected link to manual, and unchecking stores an exclusion. These fields survive storage, snapshots and offline replay. Legacy PATCH omissions inherit exclusions and links; an explicit legacy manual selection clears only its inherited exclusion, while explicit conflicts still fail. Ingredient deletion prunes inherited exclusions and links through stable keys.
 - Recipe quantities use the shared typed unit registry in `api/resources/quantity_units.json`. It defines canonical IDs, reviewed aliases across all supported locales, physical conversion factors, fixed localized display labels and kitchen display precision. Quick Add, BrainDump extraction/review, Shopping and recipe editors use the same registry. Unknown units remain literal; there is no fuzzy/STT typo correction. The generated offline frontend module is checked for freshness and backend parity; CLDR refresh preserves application definitions and aliases.
-- Recipe portions are calculated from original values. Transfers and provenance store unrounded quantities; merged values add original amounts before display. Migration 064 adds server-owned `quantity_display_mode`: recipe transfers set `kitchen`, while explicit manual quantity edits restore `exact`; metadata-only edits retain the mode, including offline projection. Kitchen display rounds metric amounts at least 10 to whole units and amounts from 0.5 to under 10 to half units; smaller positive quantities remain exact. Fractional large metric units may display in g/ml. Counts, spoons and unknown units retain exact values; common small fractions display as ¼, ⅓, ½, ⅔ and ¾. Manual Shopping quantities and free-text amounts are never kitchen-rounded.
+- Recipe portions are calculated from original values. Transfers and provenance store unrounded quantities; merged values add original amounts before display. Migration 064 adds server-owned `quantity_display_mode`: recipe transfers set `kitchen`, while explicit manual quantity edits restore `exact`; metadata-only edits retain the mode, including offline projection. Kitchen display rounds metric amounts at least 10 to whole units and amounts from 0.5 to under 10 to half units; smaller positive quantities remain exact. Fractional large metric units may display in g/ml. Counts, spoons and unknown units retain exact values; common small fractions use full-size digits such as `1/4`, `1/3`, `1/2`, `2/3` and `3/4`, with mixed numbers separated as `1 1/2`. Numerals follow the locale formatter. Manual Shopping quantities and free-text amounts are never kitchen-rounded.
 - Migration 063 adds generic Shopping free quantities/notes and immutable recipe-origin records. A transfer requires source read access and destination content-edit access, validates list-scoped sections/active stores, and writes the whole selection in one writer transaction. Numeric quantities merge into open items with the same normalized name, note, section and store set, converting metric mass/volume units only. The transfer checklist consolidates selected numeric source rows across recipe groups with compatible units and identical target routes. Compatible rows with different notes combine by default through a request-local `merge_group`; users may explicitly separate them. The server validates normalized names, compatible quantities and identical section/store targets. Unique source notes are combined for the new Shopping item and retained completely in immutable provenance. Truncated combined notes never match existing items. Free/unmeasured amounts remain separate; completed items are untouched. Purchasing always counts each selected source ingredient once, independently of step references or overrides. Copied content belongs to the Shopping access boundary; a live recipe ID is exposed only with current source access.
 - `TRANSFER_RECIPE_TO_SHOPPING` is one durable queue intent, without optimistic Shopping merges. Actor-scoped mutation receipts prevent duplicates after lost responses. A transfer captures either the acknowledged source revision or its pending recipe mutation receipt; referenced pending writes cannot collapse into later edits. Typed temporary IDs remap before dispatch; attempted payloads are immutable. Access revocation evicts the private intent. Source conflicts/validation errors remain blocked for explicit removal and review; subsequent source writes wait for an earlier unblocked transfer. A cookbook with such a dependent transfer cannot be deleted until it settles or is canceled. Canceling an attempted, uncertain transfer is not an undo.
-- Title images are bounded, verified raster inputs normalized to metadata-free WebP using the shared raster decoder. Their bytes commit with the aggregate in SQLite. Authenticated image reads recheck current cookbook access and version and use `private, no-store`; no arbitrary image URL is fetched server-side. The existing authenticated image loader supports entity-scoped cache keys and access predicates. IDB image writes share the privacy commit lock, and typed revocation removes cached blobs alongside recipe/queue records.
+- Title images are bounded, verified raster inputs normalized to metadata-free WebP using the shared raster decoder. Their bytes commit with the aggregate in SQLite. Authenticated image reads recheck current cookbook access and version and use `private, no-store`; those image endpoints do not fetch arbitrary URLs. URL import has its own bounded, public-address-only fetch path for an optional source image, described below. The existing authenticated image loader supports entity-scoped cache keys and access predicates. IDB image writes share the privacy commit lock, and typed revocation removes cached blobs alongside recipe/queue records. Failed image loads may retry on an unchanged view; per-request identity prevents late responses from an older load, including an A→B→A version sequence, from replacing a newer result.
+
+### URL import and source metadata
+
+Recipe URL import uses `recipe-scrapers` on bounded, DNS-pinned public HTTP(S) downloads.
+The authenticated preview endpoint returns an unsaved aggregate and optional normalized
+image; it never creates a recipe. The ordinary recipe editor, authorization, mutation
+receipts and offline queue handle saving. Source URL, site, author and original yield
+are recipe fields and inherit cookbook access. URL parsing calls no LLM; uncertain ingredient lines and yields are preserved
+for review, and step quantities are not inferred by that parser.
+For the pinned library's Chefkoch grouping gap, a small source adapter supplies the
+visible HTML heading/row selectors to the existing library helper. Recovered groups
+are accepted only when the complete canonical ingredient sequence is unchanged;
+drift falls back to the flat list with a review hint. No groups are inferred by an LLM.
+
+### Text import and BrainDump refinement
+
+Recipe BrainDump uses the shared LLM transport and the existing global and per-user
+BrainDump permission. Its text/refine endpoint returns only an unsaved preview and
+rechecks access around every provider request. One recipe-domain prompt structures
+text or assigns recipe-local ingredient keys to steps; it does not alter BrainDump's
+Tasks/Shopping extraction prompt. Refinement preserves recipe identity on the client
+and sources, established quantities and stable child keys on the server. The ordinary
+editor/save and offline queue remain the only persistence path. Images are not sent
+to the model. The UI reuses the existing BrainDump access check, without a separate
+permission or connection setting.
+
+Recipe BrainDump refinement requests compact, optional patches using short request-local
+references. The server maps those references to stable ingredient/step keys, retains
+untouched records and protected facts, and validates the final recipe aggregate. The
+model does not need to reproduce original UUIDs or the complete recipe in its reply.
+Refinement may add concise optional step headings, clean promotional material from
+the description, and derive step amounts from explicit instructions and ingredient
+totals. The prompt instructs the model to leave ambiguous splits unresolved;
+authored amount overrides remain protected by server-side checks.
+Blank group names may be filled from their ingredients, preparation and sibling
+headings; already named groups and membership are protected. The prompt also
+instructs the model not to expand finished components back into their incorporated
+raw ingredients when used later. These generated assignments still require review;
+the server does not calculate a complete ingredient-consumption balance.
+Additional amounts missing from the source produce bounded, localized preview
+issues tied to stable step keys, rather than borrowing already used quantities.
+Concrete findings include an ingredient label, a fixed reason and a short excerpt
+grounded in the original submitted step (or source text in text mode). Incomplete,
+malformed optional details and ungrounded findings are omitted without discarding
+the valid draft. The editor shows these beside the step with optional source text;
+generic review notes remain collapsed. These findings are transient review guidance,
+not independently verified facts or additional stored recipe ingredients.
+Ingredient identity is evaluated independently of amount certainty: a supported
+assignment remains visible even when its amount is unknown. If a valid reply leaves
+all assignments empty despite ingredients and steps, one focused assignment pass
+checks every step. If most populated groups are named but some names were skipped,
+a focused naming pass may fill only the remaining blank names. A combined assignment
+pass can address both gaps. These completions share the same two-request and
+absolute-time budget as retries; they never cause a third request.
+A failed optional pass retains the formatted draft with a review warning; access
+revocation and the total deadline still take precedence. Existing omitted ingredient
+links are retained during refinement, including manually unresolved amounts.
+Nonempty truncated replies share the same one-retry/deadline/access fences as empty
+reasoning-only replies. Rejections log only fixed reason categories, mode and duration.
 
 ## Shared destination memory
 
@@ -128,7 +196,7 @@ Current state:
 - The Debian desktop app uses Linux WebKitGTK/Tauri custom-scheme origins such as `tauri://localhost`; the backend allows those origins for native runtime requests after instance verification.
 - The Debian desktop app clears volatile WebView cache directories when the app version or executable path changes so stale bundled frontend assets do not survive desktop app updates.
 - Debian desktop notifications prefer `notify-send` when available, falling back to the Tauri notification API.
-- Debian desktop hotkeys use exactly one platform backend: GNOME/Wayland uses the XDG Desktop Portal GlobalShortcuts API exclusively, while X11 uses the legacy Tauri global-shortcut path. The installed desktop filename and registered host application ID are both `de.tobiaskneidl.nia-todo`; version 1 portals can deliver actions, while version 2 activation tokens are applied to the GDK Wayland display on the GTK main thread for compositor-approved foreground activation. Portal action descriptions are serialized from nia-todo's active i18n dictionary during early native boot—even before the optional server-setup screen—and retried after transient persistence failures. Description-only changes update the settings snapshot without tearing down or recreating any active hotkey backend; an actual hotkey change synchronizes the current descriptions immediately before portal registration. If localized descriptions are temporarily unavailable, Wayland falls back to the previously working built-in labels instead of reporting success without creating a portal session. Closing or toggling the app hides the window completely for tray-only behavior; GNOME/Wayland therefore chooses the monitor again when the hidden surface is remapped. Absolute positioning remains unused because Wayland does not provide reliable application-controlled placement. Portal recovery never enables the X11 backend in parallel.
+- Debian desktop hotkeys use exactly one platform backend: GNOME/Wayland uses the XDG Desktop Portal GlobalShortcuts API exclusively, while X11 uses the legacy Tauri global-shortcut path. The installed desktop filename and registered host application ID are both `de.tobiaskneidl.nia-todo`; version 1 portals can deliver actions, while version 2 activation tokens are applied to the GDK Wayland display on the GTK main thread for compositor-approved foreground activation. Portal action descriptions are serialized from Nia's active i18n dictionary during early native boot—even before the optional server-setup screen—and retried after transient persistence failures. Description-only changes update the settings snapshot without tearing down or recreating any active hotkey backend; an actual hotkey change synchronizes the current descriptions immediately before portal registration. If localized descriptions are temporarily unavailable, Wayland falls back to the previously working built-in labels instead of reporting success without creating a portal session. Closing or toggling the app hides the window completely for tray-only behavior; GNOME/Wayland therefore chooses the monitor again when the hidden surface is remapped. Absolute positioning remains unused because Wayland does not provide reliable application-controlled placement. Portal recovery never enables the X11 backend in parallel.
 - Native passkeys are supported: Windows uses the native WebAuthn bridge; Android uses AndroidX Credential Manager and the bundled app ID/signing-key binding exposed through `/.well-known/assetlinks.json`. Debian desktop passkeys are intentionally deferred.
 - Browser/PWA push remains browser/PWA-only; native reminders must not depend on browser push.
 
@@ -137,19 +205,28 @@ Operational constraints:
 - Android is pinned to app ID `de.tobiaskneidl.nia_todo` and the permanent release key. Re-sign/custom package builds need an explicit migration strategy before they can be passkey-compatible.
 - Native app compatibility is controlled by `min_native_client_version` from `/api/instance`; normal releases do not raise it unless the release workflow is run with `set_min_app_version: true`.
 
+## API validation
+
+`api/errors.py` provides the shared `RequestValidationError` handler registered in
+`api/main.py`. Schema-validation failures retain the existing HTTP 422 `detail`
+error list. Rejected non-finite float inputs, including nested values in fields
+expecting another type, are represented as printable text in that error response;
+the handler does not transform submitted content into a valid value. Ordinary
+validation responses keep the standard FastAPI shape.
+
 ## Auth
 
 - JWT / Session-Token
 - User sessions last 30 days and are rolling-extended via `/api/me` when they are about to expire
 - Admin sessions are shorter-lived and versioned separately
-- CSRF-Schutz für Browser-Sessions
+- CSRF protection for browser sessions
 - API keys for external use only via `Authorization: ApiKey ...`
-- Users see their own data plus accepted shared projects
-- shared project access is checked in projects, todos, sections, reminders, and WebSocket payloads
+- Users see their own data and the entities allowed by current ownership, accepted household membership, accepted direct grants and compatible legacy project membership
+- Access checks cover project, Shopping and cookbook APIs and their children, private images, transfers and recipient-specific WebSocket payloads
 - **Email verification**: login, password reset, and project sharing require verified emails
 - **OIDC/SSO**: users and admins can sign in through a configured OIDC provider. Admin configuration stores issuer/client/scopes and write-only client secret data; account links live as OIDC identities and native apps complete sign-in through a short-lived native exchange handoff.
 - **Neutral API responses** for email-based actions prevent user enumeration
-- **Pending invites** are visible only to the invitee for privacy reasons (not to owners/members)
+- **Pending invites** in the personal invitation inbox are visible only to that recipient. Authorized entity managers may inspect pending/accepted grants in the management roster; a pending invitation never exposes entity content to its recipient
 - **2FA/MFA** is integrated into the normal password login: if an account requires 2FA and no valid trusted-device cookie exists, `/api/login` returns a challenge instead of an access token. After a successful login challenge, a JWT with `mfa_login_at` is issued; sensitive actions use separate one-time MFA action grants.
 - **2FA methods**: TOTP and passkeys are the primary self-managed factors. Recovery codes are stored hashed/table-backed, single-use, and only backup factors to TOTP/passkey; when the last primary factor is removed, they are automatically revoked and cannot be regenerated without an active primary factor. Email code is a valid fallback factor when no stronger factor is present, a verified email exists, and sending succeeded. Passkeys use WebAuthn challenge/verify endpoints with ES256/P-256 assertions, user-verification required, explicit HTTPS `public_base_url` RP/origin binding (`http` only locally), `none` attestation parsing, signature verification, and sign-counter rollback checks; credentials live revocably in `passkeys`/`passkey_challenges`. Native passkeys run on Windows through the native WebAuthn bridge and on Android through AndroidX Credential Manager; Android is deliberately pinned to the bundled app ID `de.tobiaskneidl.nia_todo` and the release key via Digital Asset Links. Debian desktop passkeys are intentionally deferred until a dedicated Linux credential-manager integration exists.
 - **Device sessions and trusted devices**: interactive JWTs can be backed by `user_sessions` so individual signed-in devices can be revoked without invalidating the whole account. Trusted 2FA-remember devices are stored separately as an HttpOnly cookie plus hashed server token, expire after 30 days, and are invalidated via `two_factor_remember_version` on reset/disable. A device revoke ends the corresponding JWT session; if it was also a trusted 2FA device, the trusted-device record is revoked too. Trusted devices allow app login without repeat MFA, but do not count for sensitive actions: password changes or API key management must still trigger a real one-time MFA reauth.
@@ -175,55 +252,3 @@ Operational constraints:
 - Todos can carry location reminder metadata for Android-native arrival/departure triggers.
 - Address data is stored server-side for the owning user and synchronized to linked location reminders when a saved place address changes.
 - Android handles local geofence-style reminder behavior; browser/PWA push remains separate.
-
-Recipe URL import uses `recipe-scrapers` on bounded, DNS-pinned public HTTP(S) downloads.
-The authenticated preview endpoint returns an unsaved aggregate and optional normalized
-image; it never creates a recipe. The ordinary recipe editor, authorization, mutation
-receipts and offline queue handle saving. Source URL, site, author and original yield
-are recipe fields and inherit cookbook access. URL parsing calls no LLM; uncertain ingredient lines and yields are preserved
-for review, and step quantities are not inferred by that parser.
-For the pinned library's Chefkoch grouping gap, a small source adapter supplies the
-visible HTML heading/row selectors to the existing library helper. Recovered groups
-are accepted only when the complete canonical ingredient sequence is unchanged;
-drift falls back to the flat list with a review hint. No groups are inferred by an LLM.
-
-Recipe BrainDump uses the shared LLM transport and the existing global and per-user
-BrainDump permission. Its text/refine endpoint returns only an unsaved preview and
-rechecks access around every provider request. One recipe-domain prompt structures
-text or assigns recipe-local ingredient keys to steps; it does not alter BrainDump's
-Tasks/Shopping extraction prompt. Refinement preserves recipe identity on the client
-and sources, established quantities and stable child keys on the server. The ordinary
-editor/save and offline queue remain the only persistence path. Images are not sent
-to the model. The UI reuses the existing BrainDump access check, without a separate
-permission or connection setting.
-
-Recipe BrainDump refinement requests compact, optional patches using short request-local
-references. The server maps those references to stable ingredient/step keys, retains
-untouched records and protected facts, and validates the final recipe aggregate. The
-model does not need to reproduce original UUIDs or the complete recipe in its reply.
-Refinement may add concise optional step headings, clean promotional material from
-the description, and derive step amounts from explicit instructions and ingredient
-totals. Ambiguous splits stay unresolved; authored amount overrides remain protected.
-Blank group names may be filled from their ingredients, preparation and sibling
-headings; already named groups and membership are protected. Finished components
-are not expanded back into their incorporated raw ingredients when used later.
-Additional amounts missing from the source produce bounded, localized preview
-issues tied to stable step keys, rather than borrowing already used quantities.
-Concrete findings include an ingredient label, a fixed reason and a short excerpt
-grounded in the original submitted step (or source text in text mode). Incomplete,
-malformed optional details and ungrounded findings are omitted without discarding
-the valid draft. The editor shows these beside the step with optional source text;
-generic review notes remain collapsed. These findings are transient review guidance,
-not independently verified facts or additional stored recipe ingredients.
-Ingredient identity is evaluated independently of amount certainty: a supported
-assignment remains visible even when its amount is unknown. If a valid reply leaves
-all assignments empty despite ingredients and steps, one focused assignment pass
-checks every step. If most populated groups are named but some names were skipped,
-a focused naming pass may fill only the remaining blank names. A combined assignment
-pass can address both gaps. These completions share the same two-request and
-absolute-time budget as retries; they never cause a third request.
-A failed optional pass retains the formatted draft with a review warning; access
-revocation and the total deadline still take precedence. Existing omitted ingredient
-links are retained during refinement, including manually unresolved amounts.
-Nonempty truncated replies share the same one-retry/deadline/access fences as empty
-reasoning-only replies. Rejections log only fixed reason categories, mode and duration.

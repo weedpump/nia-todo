@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Zweryfikuj serwer i zapisz",
   "nativeSetup.hint": "Interfejs aplikacji jest dostarczany lokalnie. Serwer udostępnia jedynie interfejs API, synchronizację i logowanie.",
   "nativeSetup.notNiaTodoServer": "To nie jest serwer Nia.",
-  "auth.subtitle": "Twój osobisty system rzeczy do zrobienia",
+  "auth.subtitle": "Codzienność po prostu uporządkowana.",
   "auth.oidc.signIn": "Zaloguj się w OIDC",
   "auth.oidc.signInWithProvider": "Zaloguj się przez {provider}",
   "auth.oidc.errorTitle": "Logowanie do OIDC nie powiodło się",

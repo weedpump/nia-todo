@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Ověřte server a uložte",
   "nativeSetup.hint": "Uživatelské rozhraní aplikace je dodáváno lokálně. Server poskytuje pouze API, synchronizaci a přihlášení.",
   "nativeSetup.notNiaTodoServer": "Toto není server Nia.",
-  "auth.subtitle": "Váš osobní systém úkolů",
+  "auth.subtitle": "Každodenní život přehledně.",
   "auth.oidc.signIn": "Přihlaste se pomocí OIDC",
   "auth.oidc.signInWithProvider": "Přihlásit se pomocí {provider}",
   "auth.oidc.errorTitle": "Přihlášení OIDC se nezdařilo",

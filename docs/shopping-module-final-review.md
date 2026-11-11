@@ -1,5 +1,12 @@
 # Shopping module completion review
 
+> Historical record: this report describes the Shopping-only review on
+> 7 November 2026, before its V4 integration and subsequent Recipes work.
+> The branch names, test totals, scope limits and local evidence below belong to
+> that snapshot; they are not the current V4 completion status. For maintained
+> contracts and verification guidance, see [Architecture](architecture.md) and
+> [Testing](testing.md).
+
 The Shopping feature branch is ready for integration into `v4` within the scope below. No merge, release, deployment or development-service restart was performed as part of this review.
 
 ## Reviewed state

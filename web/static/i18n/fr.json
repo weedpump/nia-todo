@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Vérifier le serveur et enregistrer",
   "nativeSetup.hint": "L'interface utilisateur de l'application est regroupée localement. Le serveur fournit uniquement l'API, la synchronisation et la connexion.",
   "nativeSetup.notNiaTodoServer": "Ce n'est pas un serveur Nia.",
-  "auth.subtitle": "Votre système de tâches personnel",
+  "auth.subtitle": "Le quotidien, simplement organisé.",
   "auth.oidc.signIn": "Connectez-vous avec OIDC",
   "auth.oidc.signInWithProvider": "Connectez-vous avec {provider}",
   "auth.oidc.errorTitle": "Échec de la connexion à l'OIDC",

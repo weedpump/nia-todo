@@ -1,6 +1,6 @@
 # Test Strategy
 
-nia-todo has many regression scripts. The default gate is intentionally release-focused: it should catch domain/API/security/sync/native regressions without preserving every historical UI/layout micro-test forever.
+Nia has many regression scripts. The default gate is intentionally release-focused: it should catch domain/API/security/sync/native regressions without preserving every historical UI/layout micro-test forever.
 
 ## Policy
 
@@ -37,6 +37,12 @@ Both CI workflows build and install a real Debian package before invoking the ga
 
 The current command inventory is in `scripts/test_all.sh`; the lists below summarize its coverage. Focused checks passing do not replace the complete gate before a module is approved for integration.
 
+`test_product_branding.mjs` checks visible Nia branding while preserving technical
+application identities. `test_frontend_whats_new_release.mjs` renders the historical
+and V4 tours at a private browser origin, checks all twelve locales and mobile
+overflow, and verifies version selection, future-release protection and account-local
+completion. Both run in the serial gate and need no installed service or database.
+
 ### V4 modules and shared capture
 
 The gate covers generic entity ownership, invitations and access privacy alongside Shopping list/section/item/store lifecycle, shared editors and navigation, view preferences, offline queue/remapping and realtime snapshots. Shared Quick Add and multi-item capture checks cover both Tasks and Shopping, including localization and browser interaction. Representative entry points are `scripts/test_shopping_lists.py`, `scripts/test_entity_sharing_boundaries.py`, `scripts/test_shopping_items.mjs`, `scripts/test_frontend_shopping_bulk_add.mjs`, `scripts/test_multi_add.mjs`, `scripts/test_frontend_multi_todo_add.mjs`, `scripts/test_offline_shopping_sync.mjs`, and `scripts/test_frontend_shopping_realtime.mjs`.
@@ -68,6 +74,17 @@ Recipe step links and cooking are covered by the expanded disposable `test_recip
 - `node scripts/test_routing_memory_lifecycle.mjs` checks trailing refreshes, immutable cached results, in-place authorization changes and captured save/reset/session boundaries. `node scripts/test_routing_memory_prepared.mjs` checks raw/prepared and JS/Python parity, snapshot ownership, policy invalidation and bounded model analysis for large recipe catalogs without timing assertions.
 - `node scripts/test_task_routing_memory.mjs` checks Tasks exact/token matching with JS/Python parity, workspace isolation, access revocation and pending-feedback reset fences, without a database. `test_frontend_todo_routing_memory.mjs` uses a private mocked browser origin for normal Tasks single/bulk entry, automatic AI badges, explicit choices, live cache changes and attempted versus unsent create edits.
 - Existing BrainDump/recipe UI and offline suites verify feedback provenance, durable serialization, temporary-ID remapping and immutable attempted bodies. `test_shared_routing_memory_e2e.mjs` starts a private temporary service/database and checks actual Shopping-to-Recipe and Recipe-to-Shopping learning, proposal-only non-learning, AI-source chips without acceptance buttons, repeated confidence after corrections, personal phrase variants, multiple stores, the shared BrainDump adapter without an LLM, non-BrainDump memory settings, normal Tasks-to-BrainDump round trips, unfamiliar qualifiers in Shopping/recipe transfer and statistically discriminating Task entry, unchanged-prediction non-learning, and stale-generation rejection. Its normal and typo scenarios run serially against separate temporary services, retaining production rate limits. Run it serially with other database-mutating checks; it never uses the development database.
+
+### Identity, deletion receipts and account transitions
+
+- `python3 scripts/test_creation_receipts.py` uses disposable, fully migrated databases for Tasks and Shopping creation scopes, live retries, deletion followed by a lost-response retry, concurrent creates, access revocation and missing parents. It also checks migration 074 backfill, insert triggers and atomic rollback. Store deactivation must remain a replay of the existing inactive store, without reactivation; a physically missing entity produces the typed 410 receipt.
+- `node scripts/test_creation_tombstone_sync.mjs` uses a private browser origin, real temporary IndexedDB and controlled API responses. It checks all five supported entity types, typed cache/queue cleanup, preservation of unrelated and explicitly foreign-actor intents, unsent section/store fallback without teaching memory, unchanged attempted bodies, account/privacy/request-presence fences and transaction rollback.
+- `node scripts/test_shopping_identity.mjs` checks exact IDs before aliases, revoked/numeric server IDs, actor and parent boundaries, numeric CMIs in the separate creation-receipt namespace, temporary-ID acknowledgement and offline restoration. `test_entity_access_privacy.mjs` checks that snapshots require matching actor-bound temporary CREATE evidence before remapping references.
+- `node scripts/test_shopping_mutation_session.mjs` exercises the actual app queue/commit wiring with held local operations. Queued tasks, lock waits and late storage completions must not construct or publish mutations after an account or authenticated-runtime change.
+- `python3 scripts/test_section_transactions.py` uses real competing SQLite connections for create, update and delete authorization. It also verifies that empty and null-only updates release the writer lock before broadcasts and that a completed access revocation prevents subsequent writes.
+- `test_frontend_module_settings.mjs` and `test_frontend_auth_module_hydration.mjs` cover account-wide module settings, local and WebSocket cache updates, offline hydration and stale session responses at private mocked browser origins. These checks never alter an installed service or its SQLite database.
+- `test_api_validation_errors.py` checks the shared FastAPI error handler with a minimal in-process app: non-finite invalid inputs, including nested values and fields expecting other types, return printable 422 errors; ordinary validation and successful responses retain their established shape. It imports no application service or database.
+- `test_fresh_migrations.py` exercises the real startup dispatcher and rollback/retry paths for migrations 071–074, including schema-version write failures. The receipt-specific suite separately checks existing creation identities survive upgrade without retaining content snapshots.
 
 ### Security / workflow contracts
 
@@ -226,8 +243,8 @@ The native suite includes static/package checks that protect platform-specific r
 
 - Debian desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
 - Debian desktop packages must install `de.tobiaskneidl.nia-todo.desktop`, matching the host application ID registered before GlobalShortcuts portal access.
-- Portal action descriptions must come from the active nia-todo language, serialize rapid language changes, retry transient persistence failures, and remain available in desktop settings. Description-only changes must not re-register any hotkey backend. Configured Wayland hotkeys must still register with safe fallback labels when localized descriptions are temporarily unavailable.
-- Wayland toggle/close-to-tray handling must fully hide the window so nia-todo remains tray-only. Because the surface is unmapped, GNOME may choose a different monitor when reopening it; the app must not attempt unsupported absolute positioning.
+- Portal action descriptions must come from Nia's active language, serialize rapid language changes, retry transient persistence failures, and remain available in desktop settings. Description-only changes must not re-register any hotkey backend. Configured Wayland hotkeys must still register with safe fallback labels when localized descriptions are temporarily unavailable.
+- Wayland toggle/close-to-tray handling must fully hide the window so Nia remains tray-only. Because the surface is unmapped, GNOME may choose a different monitor when reopening it; the app must not attempt unsupported absolute positioning.
 - Debian desktop WebView cache migration must only clear volatile cache directories when the app version or executable marker changes.
 - Native desktop settings must keep desktop-only options scoped correctly and avoid leaking Windows-only wording onto Debian desktop.
 
@@ -272,6 +289,8 @@ address pinning, redirects and download bounds; `test_recipe_import.py` parses l
 HTML fixtures with network access prohibited. `test_frontend_recipe_import.mjs` uses
 a private mocked browser origin and never the development database. Existing recipe
 API, image, migration and offline suites cover source-field persistence and upgrade.
+`test_recipe_import_e2e.mjs` runs its own temporary application/database, controls the
+external recipe download and verifies the ordinary preview/editor/save path.
 Grouping fixtures verify Chefkoch's HTML sections against the unchanged structured
 ingredient sequence, including similar names with different amounts and safe fallback
 when the page structure no longer matches. Step-editor fixtures cover direct access

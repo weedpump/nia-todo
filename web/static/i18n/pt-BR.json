@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Verifique o servidor e salve",
   "nativeSetup.hint": "A IU do aplicativo é agrupada localmente. O servidor fornece apenas API, sincronização e login.",
   "nativeSetup.notNiaTodoServer": "Este não é um servidor Nia.",
-  "auth.subtitle": "Seu sistema de tarefas pessoal",
+  "auth.subtitle": "Seu dia a dia, organizado com simplicidade.",
   "auth.oidc.signIn": "Faça login com OIDC",
   "auth.oidc.signInWithProvider": "Faça login com {provider}",
   "auth.oidc.errorTitle": "Falha no login do OIDC",

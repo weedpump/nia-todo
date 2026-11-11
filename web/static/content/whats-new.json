@@ -1,6 +1,1008 @@
 {
   "releases": [
     {
+      "version": "4.0.0",
+      "carryForward": true,
+      "content": {
+        "de": {
+          "title": "Neu in Nia 4.0",
+          "intro": "Nia bringt Aufgaben, Einkäufe und Rezepte zusammen. Wähle deine Module und teile nur das, was du gemeinsam organisieren möchtest.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo wird zu Nia",
+              "body": "Zu deinen vertrauten Aufgaben kommen Einkäufe und Rezepte in derselben App hinzu.",
+              "bullets": [
+                "Wechsle zwischen Aufgaben, Einkäufen und Rezepten.",
+                "Wähle in deinen Kontoeinstellungen, welche Module angezeigt werden.",
+                "Deine bisherigen Aufgaben, Projekte und Arbeitsbereiche bleiben erhalten."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Gemeinsam im Haushalt",
+              "body": "Organisiere den Alltag gemeinsam und behalte Persönliches für dich.",
+              "bullets": [
+                "Erstelle einen Haushalt und lade Mitglieder ein.",
+                "Teile Projekte, Einkaufslisten und Kochbücher gezielt mit anderen.",
+                "Behalte Sammlungen persönlich oder übertrage sie an einen Haushalt."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Einkaufen mit Übersicht",
+              "body": "Halte auf gemeinsamen Einkaufslisten fest, was ihr braucht.",
+              "bullets": [
+                "Ordne Artikel in Abschnitte ein und weise Supermärkte zu.",
+                "Erfasse Mengen und Einheiten oder mehrere Artikel auf einmal.",
+                "Hake Einkäufe auch offline ab; Änderungen werden beim Wiederverbinden synchronisiert."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Dein Kochbuch zum Mitkochen",
+              "body": "Sammle Rezepte und behalte Zutaten und Zubereitung im Blick.",
+              "bullets": [
+                "Ergänze Bilder, Zutatengruppen und Zubereitungsschritte.",
+                "Passe Portionen an und sieh die zugeordneten Zutaten direkt am jeweiligen Schritt.",
+                "Übernimm Zutaten in eine Einkaufsliste und fasse passende Mengen zusammen."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Rezepte nach Nia holen",
+              "body": "Importiere Rezepte von unterstützten Webseiten samt Quellenlink in dein Kochbuch.",
+              "bullets": [
+                "Prüfe und bearbeite jeden importierten Entwurf vor dem Speichern.",
+                "Mit freigeschaltetem BrainDump kannst du Rezepttext einfügen oder Entwürfe überarbeiten lassen.",
+                "Import und BrainDump brauchen eine Serververbindung. Prüfe Mengen und Schrittzuordnungen."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia merkt sich deine Zuordnungen",
+              "body": "Das persönliche Gedächtnis lernt aus deinen Entscheidungen bei Aufgaben, Einkäufen, BrainDump und Rezeptübernahmen. Dafür braucht es kein KI-Modell.",
+              "bullets": [
+                "Gelernte Ziele werden automatisch ausgefüllt und mit dem vertrauten KI-Symbol markiert.",
+                "Du kannst die vorgeschlagene Zuordnung jederzeit korrigieren.",
+                "Verwalte das Gedächtnis in den Einstellungen oder setze es dort zurück."
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "New in Nia 4.0",
+          "intro": "Nia brings tasks, shopping and recipes together. Choose your modules and share only what you want to organize together.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo becomes Nia",
+              "body": "Your familiar tasks now sit alongside Shopping and Recipes in one app.",
+              "bullets": [
+                "Switch between Tasks, Shopping and Recipes.",
+                "Choose which modules to show in your account settings.",
+                "Your existing tasks, projects and workspaces remain available."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Organize your household together",
+              "body": "Share everyday organization while keeping personal content private.",
+              "bullets": [
+                "Create a household and invite its members.",
+                "Share projects, shopping lists and cookbooks with selected people.",
+                "Keep collections personal or transfer them to a household."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Shopping, sorted your way",
+              "body": "Keep everything you need on shared shopping lists.",
+              "bullets": [
+                "Group items into sections and assign supermarkets.",
+                "Add quantities and units, or enter several items at once.",
+                "Check off purchases offline; changes sync when you reconnect."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Your cookbook, ready for cooking",
+              "body": "Collect recipes and keep ingredients and preparation close at hand.",
+              "bullets": [
+                "Add images, ingredient groups and preparation steps.",
+                "Adjust servings and see assigned ingredients beside each step.",
+                "Send ingredients to a shopping list and combine compatible quantities."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Bring your recipes into Nia",
+              "body": "Import recipes from supported websites into your cookbook, with their source link.",
+              "bullets": [
+                "Review and edit every imported draft before saving.",
+                "With BrainDump enabled, paste recipe text or ask it to refine a draft.",
+                "Import and BrainDump need a server connection. Check amounts and step assignments."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia remembers your choices",
+              "body": "Your personal memory learns from choices in Tasks, Shopping, BrainDump and recipe transfers. It works without an AI model.",
+              "bullets": [
+                "Learned destinations are filled in automatically and marked with the familiar AI icon.",
+                "Correct the suggested destination whenever needed.",
+                "Manage or reset this personal memory in settings."
+              ]
+            }
+          ]
+        },
+        "cs": {
+          "title": "Novinky v Nia 4.0",
+          "intro": "Nia spojuje úkoly, nákupy a recepty. Vyberte si své moduly a sdílejte jen to, co chcete organizovat společně.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo se mění na Nia",
+              "body": "K vašim známým úkolům přibývají nákupy a recepty v jedné aplikaci.",
+              "bullets": [
+                "Přepínejte mezi Úkoly, Nákupy a Recepty.",
+                "V nastavení účtu si vyberte, které moduly se mají zobrazovat.",
+                "Vaše dosavadní úkoly, projekty a pracovní prostory zůstávají zachovány."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Společná organizace domácnosti",
+              "body": "Plánujte každodenní záležitosti společně a osobní obsah si nechte pro sebe.",
+              "bullets": [
+                "Vytvořte domácnost a pozvěte její členy.",
+                "Sdílejte projekty, nákupní seznamy a kuchařky s vybranými lidmi.",
+                "Ponechte sbírky osobní nebo je převeďte na domácnost."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Přehledné nakupování",
+              "body": "Mějte vše potřebné ve společných nákupních seznamech.",
+              "bullets": [
+                "Řaďte položky do sekcí a přiřazujte jim supermarkety.",
+                "Zadávejte množství a jednotky nebo více položek najednou.",
+                "Označujte nákupy i offline; změny se synchronizují po obnovení připojení."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Vaše kuchařka při vaření",
+              "body": "Sbírejte recepty a mějte suroviny i přípravu po ruce.",
+              "bullets": [
+                "Přidávejte obrázky, skupiny surovin a kroky přípravy.",
+                "Upravte počet porcí a sledujte přiřazené suroviny přímo u každého kroku.",
+                "Přeneste suroviny do nákupního seznamu a slučte slučitelná množství."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Přeneste recepty do Nia",
+              "body": "Importujte recepty z podporovaných webů do kuchařky i s odkazem na zdroj.",
+              "bullets": [
+                "Každý importovaný návrh před uložením zkontrolujte a upravte.",
+                "S povoleným BrainDump můžete vložit text receptu nebo nechat návrh přepracovat.",
+                "Import a BrainDump vyžadují spojení se serverem. Zkontrolujte množství a přiřazení ke krokům."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia si pamatuje vaše volby",
+              "body": "Osobní paměť se učí z vašich voleb v úkolech, nákupech, BrainDump i při převodu receptů. Funguje bez modelu AI.",
+              "bullets": [
+                "Naučené cíle se vyplňují automaticky a označují známou ikonou AI.",
+                "Navržené přiřazení můžete kdykoli opravit.",
+                "Paměť můžete spravovat nebo vymazat v nastavení."
+              ]
+            }
+          ]
+        },
+        "fr": {
+          "title": "Nouveautés de Nia 4.0",
+          "intro": "Nia réunit tâches, courses et recettes. Choisissez vos modules et partagez uniquement ce que vous souhaitez organiser ensemble.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo devient Nia",
+              "body": "Vos tâches habituelles côtoient désormais les courses et les recettes dans une seule application.",
+              "bullets": [
+                "Passez entre Tâches, Courses et Recettes.",
+                "Choisissez les modules à afficher dans les paramètres de votre compte.",
+                "Vos tâches, projets et espaces de travail existants restent disponibles."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Organisez votre foyer ensemble",
+              "body": "Partagez l’organisation du quotidien tout en gardant vos contenus personnels privés.",
+              "bullets": [
+                "Créez un foyer et invitez ses membres.",
+                "Partagez projets, listes de courses et livres de recettes avec les personnes choisies.",
+                "Gardez vos collections personnelles ou transférez-les à un foyer."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Des courses bien organisées",
+              "body": "Retrouvez tout ce dont vous avez besoin dans des listes de courses partagées.",
+              "bullets": [
+                "Classez les articles par section et attribuez des supermarchés.",
+                "Ajoutez quantités et unités, ou saisissez plusieurs articles à la fois.",
+                "Cochez vos achats hors ligne ; les changements se synchronisent à la reconnexion."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Votre livre de recettes en cuisine",
+              "body": "Rassemblez vos recettes et gardez ingrédients et préparation à portée de main.",
+              "bullets": [
+                "Ajoutez des images, des groupes d’ingrédients et des étapes de préparation.",
+                "Ajustez les portions et retrouvez les ingrédients attribués près de chaque étape.",
+                "Transférez les ingrédients dans une liste de courses et regroupez les quantités compatibles."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Importez vos recettes dans Nia",
+              "body": "Importez dans votre livre les recettes de sites compatibles, avec leur lien source.",
+              "bullets": [
+                "Vérifiez et modifiez chaque brouillon importé avant de l’enregistrer.",
+                "Si BrainDump est activé, collez un texte de recette ou faites retravailler un brouillon.",
+                "L’import et BrainDump nécessitent une connexion au serveur. Vérifiez quantités et associations aux étapes."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia retient vos choix",
+              "body": "Votre mémoire personnelle apprend de vos choix dans les tâches, les courses, BrainDump et les transferts de recettes. Aucun modèle d’IA n’est nécessaire.",
+              "bullets": [
+                "Les destinations apprises sont renseignées automatiquement et signalées par l’icône IA habituelle.",
+                "Corrigez l’association proposée à tout moment.",
+                "Gérez ou réinitialisez cette mémoire dans les paramètres."
+              ]
+            }
+          ]
+        },
+        "it": {
+          "title": "Novità di Nia 4.0",
+          "intro": "Nia riunisce attività, spesa e ricette. Scegli i tuoi moduli e condividi solo ciò che vuoi organizzare insieme agli altri.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo diventa Nia",
+              "body": "Alle tue attività abituali si affiancano spesa e ricette in un’unica app.",
+              "bullets": [
+                "Passa da Attività a Spesa e Ricette.",
+                "Scegli quali moduli mostrare nelle impostazioni del tuo account.",
+                "Le attività, i progetti e gli spazi di lavoro esistenti restano disponibili."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Organizzate insieme la casa",
+              "body": "Condividi l’organizzazione quotidiana mantenendo privati i tuoi contenuti personali.",
+              "bullets": [
+                "Crea un nucleo domestico e invita i suoi membri.",
+                "Condividi progetti, liste della spesa e ricettari con le persone che scegli.",
+                "Mantieni le raccolte personali oppure trasferiscile a un nucleo domestico."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "La spesa, ben organizzata",
+              "body": "Tieni tutto ciò che serve nelle liste della spesa condivise.",
+              "bullets": [
+                "Raggruppa gli articoli in sezioni e assegna i supermercati.",
+                "Aggiungi quantità e unità oppure inserisci più articoli insieme.",
+                "Spunta gli acquisti anche offline; le modifiche si sincronizzano alla riconnessione."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Il tuo ricettario in cucina",
+              "body": "Raccogli ricette e tieni a portata di mano ingredienti e preparazione.",
+              "bullets": [
+                "Aggiungi immagini, gruppi di ingredienti e passaggi di preparazione.",
+                "Modifica le porzioni e visualizza gli ingredienti assegnati accanto a ogni passaggio.",
+                "Trasferisci gli ingredienti nella lista della spesa e unisci le quantità compatibili."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Porta le tue ricette in Nia",
+              "body": "Importa nel ricettario ricette da siti supportati, con il collegamento alla fonte.",
+              "bullets": [
+                "Controlla e modifica ogni bozza importata prima di salvarla.",
+                "Con BrainDump abilitato, incolla il testo di una ricetta o fai rielaborare una bozza.",
+                "Importazione e BrainDump richiedono una connessione al server. Controlla quantità e assegnazioni ai passaggi."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia ricorda le tue scelte",
+              "body": "La memoria personale impara dalle tue scelte in attività, spesa, BrainDump e trasferimenti di ricette. Funziona senza un modello di IA.",
+              "bullets": [
+                "Le destinazioni apprese vengono compilate automaticamente e indicate con la consueta icona IA.",
+                "Puoi correggere la destinazione proposta in qualsiasi momento.",
+                "Gestisci o azzera questa memoria nelle impostazioni."
+              ]
+            }
+          ]
+        },
+        "nl": {
+          "title": "Nieuw in Nia 4.0",
+          "intro": "Nia brengt taken, boodschappen en recepten samen. Kies je modules en deel alleen wat je samen wilt organiseren.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo wordt Nia",
+              "body": "Naast je vertrouwde taken vind je nu boodschappen en recepten in dezelfde app.",
+              "bullets": [
+                "Wissel tussen Taken, Boodschappen en Recepten.",
+                "Kies in je accountinstellingen welke modules je wilt zien.",
+                "Je bestaande taken, projecten en werkruimtes blijven beschikbaar."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Samen je huishouden organiseren",
+              "body": "Organiseer het dagelijks leven samen en houd persoonlijke inhoud privé.",
+              "bullets": [
+                "Maak een huishouden aan en nodig leden uit.",
+                "Deel projecten, boodschappenlijsten en kookboeken met gekozen personen.",
+                "Houd verzamelingen persoonlijk of draag ze over aan een huishouden."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Overzichtelijk boodschappen doen",
+              "body": "Houd alles wat je nodig hebt bij op gedeelde boodschappenlijsten.",
+              "bullets": [
+                "Groepeer artikelen in secties en wijs supermarkten toe.",
+                "Voeg hoeveelheden en eenheden toe of voer meerdere artikelen tegelijk in.",
+                "Vink aankopen ook offline af; wijzigingen synchroniseren zodra je weer verbinding hebt."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Je kookboek tijdens het koken",
+              "body": "Verzamel recepten en houd ingrediënten en bereiding bij de hand.",
+              "bullets": [
+                "Voeg afbeeldingen, ingrediëntgroepen en bereidingsstappen toe.",
+                "Pas porties aan en bekijk de toegewezen ingrediënten bij elke stap.",
+                "Zet ingrediënten op een boodschappenlijst en voeg geschikte hoeveelheden samen."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Breng je recepten naar Nia",
+              "body": "Importeer recepten van ondersteunde websites in je kookboek, inclusief bronlink.",
+              "bullets": [
+                "Controleer en bewerk iedere geïmporteerde versie voordat je die opslaat.",
+                "Met BrainDump ingeschakeld kun je recepttekst plakken of een concept laten verbeteren.",
+                "Importeren en BrainDump vereisen een serververbinding. Controleer hoeveelheden en staptoewijzingen."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia onthoudt je keuzes",
+              "body": "Je persoonlijke geheugen leert van je keuzes in taken, boodschappen, BrainDump en receptoverdrachten. Daarvoor is geen AI-model nodig.",
+              "bullets": [
+                "Geleerde bestemmingen worden automatisch ingevuld en gemarkeerd met het vertrouwde AI-pictogram.",
+                "Je kunt de voorgestelde toewijzing altijd aanpassen.",
+                "Beheer of wis dit geheugen in de instellingen."
+              ]
+            }
+          ]
+        },
+        "pl": {
+          "title": "Nowości w Nia 4.0",
+          "intro": "Nia łączy zadania, zakupy i przepisy. Wybierz moduły i udostępniaj tylko to, co chcesz organizować wspólnie.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo staje się Nia",
+              "body": "Obok znanych zadań masz teraz zakupy i przepisy w jednej aplikacji.",
+              "bullets": [
+                "Przełączaj się między Zadaniami, Zakupami i Przepisami.",
+                "W ustawieniach konta wybierz widoczne moduły.",
+                "Dotychczasowe zadania, projekty i obszary robocze pozostają dostępne."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Wspólna organizacja domu",
+              "body": "Organizujcie codzienne sprawy razem, zachowując prywatność osobistych treści.",
+              "bullets": [
+                "Utwórz gospodarstwo domowe i zaproś jego członków.",
+                "Udostępniaj projekty, listy zakupów i książki kucharskie wybranym osobom.",
+                "Zachowaj zbiory jako osobiste lub przekaż je gospodarstwu domowemu."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Zakupy pod kontrolą",
+              "body": "Zapisuj wszystko, czego potrzebujecie, na wspólnych listach zakupów.",
+              "bullets": [
+                "Grupuj artykuły w sekcje i przypisuj supermarkety.",
+                "Dodawaj ilości i jednostki lub wpisuj wiele artykułów naraz.",
+                "Odhaczaj zakupy również offline; zmiany zsynchronizują się po ponownym połączeniu."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Twoja książka kucharska podczas gotowania",
+              "body": "Zbieraj przepisy i miej składniki oraz przygotowanie pod ręką.",
+              "bullets": [
+                "Dodawaj zdjęcia, grupy składników i kroki przygotowania.",
+                "Dostosuj porcje i zobacz przypisane składniki przy każdym kroku.",
+                "Przenieś składniki na listę zakupów i połącz zgodne ilości."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Przenieś przepisy do Nia",
+              "body": "Importuj przepisy z obsługiwanych stron do książki kucharskiej wraz z linkiem do źródła.",
+              "bullets": [
+                "Przed zapisaniem sprawdź i edytuj każdy zaimportowany szkic.",
+                "Po włączeniu BrainDump możesz wkleić tekst przepisu lub zlecić dopracowanie szkicu.",
+                "Import i BrainDump wymagają połączenia z serwerem. Sprawdź ilości i przypisania do kroków."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia zapamiętuje twoje wybory",
+              "body": "Osobista pamięć uczy się z twoich wyborów w zadaniach, zakupach, BrainDump i przenoszeniu przepisów. Nie wymaga modelu AI.",
+              "bullets": [
+                "Zapamiętane miejsca docelowe są uzupełniane automatycznie i oznaczane znaną ikoną AI.",
+                "Proponowane przypisanie możesz w każdej chwili poprawić.",
+                "Zarządzaj pamięcią lub wyczyść ją w ustawieniach."
+              ]
+            }
+          ]
+        },
+        "pt-BR": {
+          "title": "Novidades do Nia 4.0",
+          "intro": "O Nia reúne tarefas, compras e receitas. Escolha seus módulos e compartilhe apenas o que deseja organizar em conjunto.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo passa a se chamar Nia",
+              "body": "Suas tarefas de sempre agora estão ao lado de compras e receitas em um só aplicativo.",
+              "bullets": [
+                "Alterne entre Tarefas, Compras e Receitas.",
+                "Escolha os módulos visíveis nas configurações da sua conta.",
+                "Suas tarefas, projetos e espaços de trabalho existentes continuam disponíveis."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Organize a casa em conjunto",
+              "body": "Compartilhe a organização do dia a dia sem abrir mão da privacidade do conteúdo pessoal.",
+              "bullets": [
+                "Crie um grupo doméstico e convide seus membros.",
+                "Compartilhe projetos, listas de compras e livros de receitas com pessoas escolhidas.",
+                "Mantenha coleções pessoais ou transfira-as para um grupo doméstico."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Compras bem organizadas",
+              "body": "Anote tudo o que vocês precisam em listas de compras compartilhadas.",
+              "bullets": [
+                "Agrupe os itens em seções e atribua supermercados.",
+                "Adicione quantidades e unidades ou insira vários itens de uma vez.",
+                "Marque as compras mesmo offline; as alterações sincronizam quando a conexão voltar."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Seu livro de receitas na cozinha",
+              "body": "Reúna receitas e tenha ingredientes e preparo sempre à mão.",
+              "bullets": [
+                "Adicione imagens, grupos de ingredientes e etapas de preparo.",
+                "Ajuste as porções e veja os ingredientes atribuídos em cada etapa.",
+                "Envie ingredientes para uma lista de compras e some quantidades compatíveis."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Traga suas receitas para o Nia",
+              "body": "Importe receitas de sites compatíveis para seu livro, com o link da fonte.",
+              "bullets": [
+                "Revise e edite cada rascunho importado antes de salvar.",
+                "Com o BrainDump habilitado, cole o texto de uma receita ou peça para melhorar um rascunho.",
+                "Importação e BrainDump precisam de conexão com o servidor. Confira quantidades e atribuições às etapas."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "O Nia lembra das suas escolhas",
+              "body": "Sua memória pessoal aprende com escolhas em tarefas, compras, BrainDump e transferências de receitas. Ela funciona sem um modelo de IA.",
+              "bullets": [
+                "Os destinos aprendidos são preenchidos automaticamente e marcados com o ícone de IA habitual.",
+                "Você pode corrigir a atribuição sugerida a qualquer momento.",
+                "Gerencie ou redefina essa memória nas configurações."
+              ]
+            }
+          ]
+        },
+        "ru": {
+          "title": "Новое в Nia 4.0",
+          "intro": "Nia объединяет задачи, покупки и рецепты. Выбирайте нужные модули и делитесь только тем, что хотите организовывать вместе.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo становится Nia",
+              "body": "К привычным задачам добавились покупки и рецепты в одном приложении.",
+              "bullets": [
+                "Переключайтесь между задачами, покупками и рецептами.",
+                "Выбирайте видимые модули в настройках своей учётной записи.",
+                "Ваши прежние задачи, проекты и рабочие пространства остаются доступны."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Организуйте домашние дела вместе",
+              "body": "Занимайтесь повседневными делами сообща, сохраняя личные данные приватными.",
+              "bullets": [
+                "Создайте домохозяйство и пригласите его участников.",
+                "Делитесь проектами, списками покупок и кулинарными книгами с выбранными людьми.",
+                "Оставляйте коллекции личными или передавайте их домохозяйству."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Покупки по порядку",
+              "body": "Собирайте всё необходимое в общих списках покупок.",
+              "bullets": [
+                "Группируйте товары по разделам и назначайте супермаркеты.",
+                "Добавляйте количество и единицы измерения или вводите несколько товаров сразу.",
+                "Отмечайте покупки даже без сети; изменения синхронизируются при подключении."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Ваша кулинарная книга на кухне",
+              "body": "Собирайте рецепты и держите ингредиенты и описание приготовления под рукой.",
+              "bullets": [
+                "Добавляйте изображения, группы ингредиентов и шаги приготовления.",
+                "Меняйте число порций и просматривайте назначенные ингредиенты у каждого шага.",
+                "Переносите ингредиенты в список покупок и объединяйте совместимые количества."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Перенесите рецепты в Nia",
+              "body": "Импортируйте рецепты с поддерживаемых сайтов в кулинарную книгу вместе со ссылкой на источник.",
+              "bullets": [
+                "Проверяйте и редактируйте каждый импортированный черновик перед сохранением.",
+                "Если BrainDump включён, вставьте текст рецепта или попросите доработать черновик.",
+                "Для импорта и BrainDump нужно подключение к серверу. Проверьте количества и привязки к шагам."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia запоминает ваш выбор",
+              "body": "Личная память учится на вашем выборе в задачах, покупках, BrainDump и переносе рецептов. Модель ИИ для этого не нужна.",
+              "bullets": [
+                "Изученные назначения подставляются автоматически и отмечаются знакомым значком ИИ.",
+                "Предложенное назначение можно исправить в любой момент.",
+                "Управляйте памятью или сбрасывайте её в настройках."
+              ]
+            }
+          ]
+        },
+        "sv": {
+          "title": "Nytt i Nia 4.0",
+          "intro": "Nia samlar uppgifter, inköp och recept. Välj dina moduler och dela bara det du vill organisera tillsammans.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo blir Nia",
+              "body": "Dina välbekanta uppgifter får nu sällskap av inköp och recept i samma app.",
+              "bullets": [
+                "Växla mellan Uppgifter, Inköp och Recept.",
+                "Välj vilka moduler som ska visas i kontoinställningarna.",
+                "Dina befintliga uppgifter, projekt och arbetsytor finns kvar."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Organisera hushållet tillsammans",
+              "body": "Dela vardagens planering och behåll personligt innehåll privat.",
+              "bullets": [
+                "Skapa ett hushåll och bjud in medlemmar.",
+                "Dela projekt, inköpslistor och kokböcker med utvalda personer.",
+                "Behåll samlingar personliga eller överför dem till ett hushåll."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "Inköp med överblick",
+              "body": "Samla allt ni behöver i delade inköpslistor.",
+              "bullets": [
+                "Gruppera varor i avsnitt och ange butiker.",
+                "Lägg till mängder och enheter eller mata in flera varor samtidigt.",
+                "Bocka av inköp även offline; ändringarna synkas när anslutningen är tillbaka."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Din kokbok vid spisen",
+              "body": "Samla recept och ha ingredienser och tillagning nära till hands.",
+              "bullets": [
+                "Lägg till bilder, ingrediensgrupper och tillagningssteg.",
+                "Justera portionerna och se tilldelade ingredienser vid varje steg.",
+                "För över ingredienser till en inköpslista och slå ihop kompatibla mängder."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Ta in dina recept i Nia",
+              "body": "Importera recept från webbplatser som stöds till kokboken, med länk till källan.",
+              "bullets": [
+                "Granska och redigera varje importerat utkast innan du sparar.",
+                "Med BrainDump aktiverat kan du klistra in recepttext eller låta ett utkast bearbetas.",
+                "Import och BrainDump kräver serveranslutning. Kontrollera mängder och kopplingar till steg."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia kommer ihåg dina val",
+              "body": "Ditt personliga minne lär sig av val i uppgifter, inköp, BrainDump och receptöverföringar. Det fungerar utan en AI-modell.",
+              "bullets": [
+                "Inlärda mål fylls i automatiskt och markeras med den välbekanta AI-ikonen.",
+                "Du kan korrigera det föreslagna målet när som helst.",
+                "Hantera eller återställ minnet i inställningarna."
+              ]
+            }
+          ]
+        },
+        "es": {
+          "title": "Novedades de Nia 4.0",
+          "intro": "Nia reúne tareas, compras y recetas. Elige tus módulos y comparte solo lo que quieras organizar en común.",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo pasa a llamarse Nia",
+              "body": "A tus tareas habituales se suman las compras y las recetas en una misma aplicación.",
+              "bullets": [
+                "Cambia entre Tareas, Compras y Recetas.",
+                "Elige qué módulos mostrar en los ajustes de tu cuenta.",
+                "Tus tareas, proyectos y espacios de trabajo existentes siguen disponibles."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "Organizad el hogar en común",
+              "body": "Compartid la organización cotidiana manteniendo privado el contenido personal.",
+              "bullets": [
+                "Crea un hogar e invita a sus miembros.",
+                "Comparte proyectos, listas de la compra y recetarios con personas concretas.",
+                "Mantén las colecciones personales o transfiérelas a un hogar."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "La compra, bien organizada",
+              "body": "Anota todo lo que necesitáis en listas de la compra compartidas.",
+              "bullets": [
+                "Agrupa los artículos en secciones y asígnales supermercados.",
+                "Añade cantidades y unidades o introduce varios artículos a la vez.",
+                "Marca las compras incluso sin conexión; los cambios se sincronizan al reconectar."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "Tu recetario en la cocina",
+              "body": "Reúne recetas y ten a mano los ingredientes y la preparación.",
+              "bullets": [
+                "Añade imágenes, grupos de ingredientes y pasos de preparación.",
+                "Ajusta las raciones y consulta los ingredientes asignados junto a cada paso.",
+                "Pasa los ingredientes a una lista de la compra y suma cantidades compatibles."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "Trae tus recetas a Nia",
+              "body": "Importa recetas de sitios compatibles a tu recetario, con su enlace de origen.",
+              "bullets": [
+                "Revisa y edita cada borrador importado antes de guardarlo.",
+                "Con BrainDump habilitado, pega el texto de una receta o pide que mejore un borrador.",
+                "La importación y BrainDump necesitan conexión con el servidor. Revisa cantidades y asignaciones a pasos."
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia recuerda tus elecciones",
+              "body": "Tu memoria personal aprende de tus elecciones en tareas, compras, BrainDump y transferencias de recetas. Funciona sin un modelo de IA.",
+              "bullets": [
+                "Los destinos aprendidos se rellenan automáticamente y se marcan con el icono de IA habitual.",
+                "Puedes corregir el destino propuesto en cualquier momento.",
+                "Gestiona o reinicia esta memoria en los ajustes."
+              ]
+            }
+          ]
+        },
+        "zh-CN": {
+          "title": "Nia 4.0 新功能",
+          "intro": "Nia 将任务、购物和食谱汇集在一起。选择所需模块，只分享你希望共同管理的内容。",
+          "slides": [
+            {
+              "media": {
+                "type": "brand-transition"
+              },
+              "title": "nia-todo 更名为 Nia",
+              "body": "熟悉的任务功能，现在与购物和食谱同在一个应用中。",
+              "bullets": [
+                "在任务、购物和食谱模块之间切换。",
+                "在账户设置中选择要显示的模块。",
+                "已有的任务、项目和工作区仍然保留。"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "users"
+              },
+              "title": "一起管理家庭事务",
+              "body": "共同安排日常事务，同时保护个人内容的隐私。",
+              "bullets": [
+                "创建家庭并邀请成员加入。",
+                "与指定的人分享项目、购物清单和食谱集。",
+                "让内容保持个人所有，或将其转交给家庭。"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "shopping-cart"
+              },
+              "title": "井然有序地购物",
+              "body": "在共享购物清单中记录所需物品。",
+              "bullets": [
+                "将商品分组到不同分区，并指定超市。",
+                "添加数量和单位，或一次输入多件商品。",
+                "离线时也能勾选已购商品，重新连接后会同步更改。"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "book-open"
+              },
+              "title": "下厨时随手可用的食谱集",
+              "body": "收藏食谱，随时查看食材和制作步骤。",
+              "bullets": [
+                "添加图片、食材分组和制作步骤。",
+                "调整份数，在每个步骤旁查看分配的食材。",
+                "将食材加入购物清单，并合并兼容的用量。"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "download"
+              },
+              "title": "将食谱导入 Nia",
+              "body": "从支持的网站导入食谱，来源链接也会保留在食谱集中。",
+              "bullets": [
+                "保存前请检查和编辑每一份导入草稿。",
+                "启用 BrainDump 后，可粘贴食谱文本或让它完善草稿。",
+                "导入和 BrainDump 需要连接服务器。请检查用量与步骤的食材分配。"
+              ]
+            },
+            {
+              "media": {
+                "type": "icon",
+                "icon": "sparkles"
+              },
+              "title": "Nia 会记住你的选择",
+              "body": "个人记忆会学习你在任务、购物、BrainDump 和食谱转入购物清单时作出的选择，无需 AI 模型。",
+              "bullets": [
+                "学到的目标会自动填写，并显示熟悉的 AI 图标。",
+                "你可以随时修改建议的分配目标。",
+                "在设置中管理或重置个人记忆。"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
       "version": "3.3.0",
       "carryForward": true,
       "content": {

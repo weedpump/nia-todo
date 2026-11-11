@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Verify server & save",
   "nativeSetup.hint": "The app UI is bundled locally. The server only provides API, sync, and login.",
   "nativeSetup.notNiaTodoServer": "This is not a Nia server.",
-  "auth.subtitle": "Your personal todo system",
+  "auth.subtitle": "Everyday life. Simply organized.",
   "auth.oidc.signIn": "Sign in with OIDC",
   "auth.oidc.signInWithProvider": "Sign in with {provider}",
   "auth.oidc.errorTitle": "OIDC sign-in failed",

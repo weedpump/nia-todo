@@ -20,24 +20,56 @@ A modern, self-hosted app for organizing everyday life, with offline support, co
 
 ---
 
+> **V4 development:** This README describes the work on the `v4` branch. V4 has not been released yet; the release links and `latest` Docker image currently provide the published 3.x line.
+
 Nia keeps personal and shared everyday organization in one place while leaving you in control of the infrastructure. The FastAPI server stores its data in SQLite and serves the responsive web app, offline-capable PWA, and downloads for the bundled native clients from your own instance.
 
 ## A quick look
 
 <p align="center">
-  <img src="packaging/docs/screenshots/desktop-light.png" alt="nia-todo desktop app in light mode" width="49%">
-  <img src="packaging/docs/screenshots/desktop-dark.png" alt="nia-todo desktop app in dark mode" width="49%">
+  <img src="packaging/docs/screenshots/desktop-light.png" alt="Nia desktop app in light mode" width="49%">
+  <img src="packaging/docs/screenshots/desktop-dark.png" alt="Nia desktop app in dark mode" width="49%">
 </p>
+
+## Three modules, one app
+
+| Module | What you can organize |
+| --- | --- |
+| **Tasks** | Todos in projects, subprojects, sections, and personal workspaces, with priorities, deadlines, reminders, recurring schedules, subtasks, comments, and attachments. |
+| **Shopping** | Shared shopping lists with sections, quantities, units, and stores. Add several items at once, mark purchases, and keep your list available offline. |
+| **Recipes** | Cookbooks with recipe cards, tags, images, structured ingredients, and preparation steps. Adjust portions, use the cooking view, and transfer selected ingredients to a shopping list with compatible quantities combined. |
+
+Choose which modules to show in your account settings. This choice follows your account across devices; it does not delete your data.
+
+<p align="center">
+  <img src="packaging/docs/screenshots/shopping-desktop.png" alt="Nia shopping list with sections, quantities, and a store filter" width="49%">
+  <img src="packaging/docs/screenshots/recipes-desktop.png" alt="Nia recipe reading view with portions and ingredients assigned to steps" width="49%">
+</p>
+
+<details>
+<summary>Mobile Tasks and cooking views</summary>
+
+<p align="center">
+  <img src="packaging/docs/screenshots/mobile-light.png" alt="Nia Tasks project in light mode on mobile" width="30%">
+  <img src="packaging/docs/screenshots/mobile-dark.png" alt="Nia Tasks project in dark mode on mobile" width="30%">
+  <img src="packaging/docs/screenshots/cooking-mobile.png" alt="Nia mobile cooking view with step quantities and fixed navigation" width="30%">
+</p>
+
+</details>
 
 ## Highlights
 
-- **Plan without friction.** Organize todos in projects, subprojects, sections, and workspaces; add priorities, deadlines, reminders, recurring schedules, subtasks, comments, and attachments.
 - **Keep working offline.** The installable PWA caches the app shell and queues changes locally until the server is available again.
-- **Share selectively.** Invite other users to individual projects while protected inboxes and per-user access controls keep private work private.
-- **Use the app everywhere.** Run nia-todo in the browser or through the native Windows, Android, and Debian clients, with platform-aware notifications and reminders.
+- **Share selectively.** Keep projects, shopping lists, and cookbooks personal, share them with individual users, or transfer them to your household. Households share content; workspaces remain personal organizational views.
+- **Remember everyday choices.** Personal routing memory fills remembered projects or lists, sections, and stores as editable badges. Choices from manual entry, BrainDump, and recipe ingredient transfers contribute to the same memory, which you can correct or reset.
+- **Cook with the quantities at hand.** Assign ingredients and partial quantities to individual steps, scale portions, and follow the cooking view without repeatedly scrolling back to the ingredient list.
+- **Import recipes for review.** Import a supported recipe link into an editable draft, optionally including its image. With BrainDump access, also import free text or refine a draft, including ingredient assignments to steps.
+- **Use the app everywhere.** Run Nia in the browser or through the native Windows, Android, and Debian clients, with platform-aware notifications and reminders.
 - **Sign in securely.** Built-in authentication supports TOTP, passkeys, recovery codes, trusted devices, email verification, and optional OIDC/SSO.
-- **Capture ideas by voice.** The optional BrainDump workflow turns spoken notes into todo candidates using configurable local or remote STT and LLM providers.
+- **Capture mixed thoughts.** BrainDump turns spoken notes into Tasks and Shopping suggestions in one review, with editable destinations before saving.
 - **Make it yours.** Choose a light or dark theme and use the interface in any of 12 supported languages.
+
+The core app and personal routing memory do not require an AI service. An administrator must enable BrainDump for your account, and an LLM provider must be configured; voice capture also needs a speech-to-text provider. Providers can run locally or remotely. Recipe link imports need an online connection but do not require BrainDump; free-text import and AI refinement use the account's BrainDump permission. Review imported and AI-generated drafts before saving.
 
 ## Languages
 
@@ -47,7 +79,7 @@ Nia is available in:
 
 ## Install
 
-The recommended way to run nia-todo is with **Docker**:
+The recommended way to run Nia is with **Docker**:
 
 ```bash
 docker run -d \
@@ -70,6 +102,8 @@ A full **Debian/Ubuntu package** with systemd integration and built-in updates i
 
 **[Docker guide](https://nia-todo.homelabdiary.dev/docs/install/docker) · [Debian/Ubuntu guide](https://nia-todo.homelabdiary.dev/docs/install/debian)**
 
+The product name is **Nia**. Existing repository, image, package, service, and database names such as `nia-todo`, and configuration variables beginning with `NIA_TODO_`, remain unchanged for compatibility.
+
 ## Documentation
 
 Installation, configuration, native apps, backups, updates, security, and troubleshooting are covered in the documentation:
@@ -91,6 +125,6 @@ Bug reports, feature ideas, translations, and pull requests are welcome. See [CO
 
 ## License
 
-nia-todo is free software licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). See [NOTICE](NOTICE) for additional attribution and legal notices.
+Nia is free software licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). See [NOTICE](NOTICE) for additional attribution and legal notices.
 
 Copyright (C) 2026 Tobias Kneidl

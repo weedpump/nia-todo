@@ -2,13 +2,16 @@
 
 ## Supported Versions
 
-Only the latest released version of nia-todo receives security updates.
-Older versions are not patched — please upgrade to the latest release.
+Only the latest published stable release of Nia receives security updates.
+Older releases are not patched; please upgrade to the [latest stable release](https://github.com/weedpump/nia-todo/releases/latest).
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 3.x     | :white_check_mark: |
-| < 3.0   | :x:                |
+| Version | Security maintenance |
+| ------- | -------------------- |
+| Latest published stable release | Supported |
+| Older releases, including earlier versions in the same major line | Not patched |
+| Unreleased V4 and development snapshots | Not supported as stable releases |
+
+V4 is currently developed on the `v4` branch. The published stable line is still 3.x; a development branch is not a substitute for a released security update.
 
 ## Reporting a Vulnerability
 

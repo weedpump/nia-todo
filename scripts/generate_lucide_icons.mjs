@@ -13,6 +13,7 @@ const ICON_NAMES = [
   'apple',
   'archive',
   'arrow-left',
+  'arrow-right',
   'award',
   'axe',
   'baby',

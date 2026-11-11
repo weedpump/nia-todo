@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Подтвердите сервер и сохраните",
   "nativeSetup.hint": "Пользовательский интерфейс приложения поставляется локально. Сервер предоставляет только API, синхронизацию и вход в систему.",
   "nativeSetup.notNiaTodoServer": "Это не сервер Nia.",
-  "auth.subtitle": "Ваша личная система задач",
+  "auth.subtitle": "Повседневные дела — просто и удобно.",
   "auth.oidc.signIn": "Войти через OIDC",
   "auth.oidc.signInWithProvider": "Войдите через {provider}",
   "auth.oidc.errorTitle": "Не удалось войти в систему OIDC",

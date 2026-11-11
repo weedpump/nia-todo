@@ -105,6 +105,8 @@ run_step "Security Request Body Limit" python3 scripts/test_request_body_limit.p
 run_step "Security Password Length" python3 scripts/test_password_length.py
 run_step "Security Trust Boundaries" python3 scripts/test_security_boundaries.py
 run_step "Security Tauri Vendor Sync" node scripts/test_tauri_vendor_sync.mjs
+run_step "Nia Product Branding" node scripts/test_product_branding.mjs
+run_step "What's New Releases" node scripts/test_frontend_whats_new_release.mjs
 run_step "Security First-Run Setup Token" python3 scripts/test_setup_token.py
 run_step "Security First-Run Setup Sequence" python3 scripts/test_setup_sequence.py
 run_step "Project Sharing Semantics" python3 scripts/test_project_sharing_semantics.py

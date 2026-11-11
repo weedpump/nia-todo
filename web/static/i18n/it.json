@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Verifica il server e salva",
   "nativeSetup.hint": "L'interfaccia utente dell'app è in bundle localmente. Il server fornisce solo API, sincronizzazione e accesso.",
   "nativeSetup.notNiaTodoServer": "Questo non è un server Nia.",
-  "auth.subtitle": "Il tuo sistema di cose da fare personale",
+  "auth.subtitle": "La vita quotidiana, organizzata con semplicità.",
   "auth.oidc.signIn": "Accedi con OIDC",
   "auth.oidc.signInWithProvider": "Accedi con {provider}",
   "auth.oidc.errorTitle": "Accesso OIDC non riuscito",

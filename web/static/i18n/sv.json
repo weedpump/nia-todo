@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Verifiera servern och spara",
   "nativeSetup.hint": "Appens användargränssnitt är paketerat lokalt. Servern tillhandahåller endast API, synkronisering och inloggning.",
   "nativeSetup.notNiaTodoServer": "Detta är inte en Nia-server.",
-  "auth.subtitle": "Ditt personliga att göra-system",
+  "auth.subtitle": "Vardagen, enkelt organiserad.",
   "auth.oidc.signIn": "Logga in med OIDC",
   "auth.oidc.signInWithProvider": "Logga in med {provider}",
   "auth.oidc.errorTitle": "OIDC-inloggning misslyckades",

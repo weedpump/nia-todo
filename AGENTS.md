@@ -3,11 +3,13 @@
 ## Product and current direction
 
 Nia is a self-hosted, modular app for organizing everyday life, not just a todo app.
-V4 is transitioning the existing nia-todo codebase into a shared application shell
-with independent modules and reusable identity, sharing, and UI infrastructure.
+V4 builds on the existing nia-todo codebase with a shared application shell,
+independent modules, and reusable identity, sharing, capture, and UI infrastructure.
 
-- Registered modules: `tasks`, `shopping`, and `recipes`. Tasks and Shopping are established; Recipes implements cookbook and recipe core
-  behavior and ingredient transfer to Shopping. Public discovery and archiving are deferred.
+- Registered modules: `tasks`, `shopping`, and `recipes`. Recipes includes
+  cookbooks, structured recipes, reading/cooking views, URL/text import,
+  BrainDump refinement, and ingredient transfer to Shopping.
+  Public recipe discovery/copying and recipe archiving are deferred.
   Do not assume all modules have equivalent features or lifecycle requirements.
 - Preserve existing `nia-todo` package names, URLs, API contracts, database paths,
   native app IDs, and compatibility identifiers unless a change explicitly requires
@@ -122,13 +124,32 @@ before relying on older todo-only descriptions.
 - For Shopping changes, test list/section/item/store lifecycle, household and
   direct sharing, per-user preferences, offline/realtime behavior, temporary
   IDs, reconnects, and permission revocation as applicable.
-- Recipes now has cookbook and structured recipe storage/APIs, ordered child
+
+## Recipes module specifics
+
+- Recipes has cookbook and structured recipe storage/APIs, ordered child
   records, manual tags, private title images and offline/realtime synchronization.
   Steps may reference recipe-local ingredients by stable client key; reading and
   actor-scoped cooking views share the same ingredient and portions rendering.
   Ingredient transfer uses an atomic, idempotent server operation and a durable
   offline intent. Public discovery/copies and archiving are deferred; do not
   infer those contracts from the core editor.
+- Recipe entry points include `api/routers/recipes.py`,
+  `api/routers/recipe_import.py`, and `web/static/js/features/recipe-*.js`.
+  URL import creates an unsaved preview; optional text import and refinement use
+  the existing BrainDump permissions and shared LLM connection. The ordinary
+  editor and mutation queue remain the persistence path.
+
+## Shared service references
+
+- Shared destination memory lives in `api/services/routing_memory.py` and
+  `web/static/js/features/routing-memory.js`; Tasks, Shopping, BrainDump, and
+  recipe transfers use the same account-private learning system.
+- Shared identity and replay contracts are documented in
+  `docs/architecture.md`: `web/static/js/core/entity-identity.js` resolves
+  canonical IDs and actor-bound creation identities, while
+  `api/services/creation_receipts.py` and the shared sync controller retain
+  deletion receipts for Tasks and Shopping.
 
 ## Database, security, and migration rules
 

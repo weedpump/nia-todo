@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "验证服务器并保存",
   "nativeSetup.hint": "应用程序 UI 捆绑在本地。服务器仅提供API、同步和登录。",
   "nativeSetup.notNiaTodoServer": "这不是 Nia 服务器。",
-  "auth.subtitle": "您的个人待办事项系统",
+  "auth.subtitle": "日常生活，轻松安排。",
   "auth.oidc.signIn": "使用 OIDC 登录",
   "auth.oidc.signInWithProvider": "使用 {provider} 登录",
   "auth.oidc.errorTitle": "OIDC 登录失败",

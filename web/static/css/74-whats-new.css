@@ -93,6 +93,41 @@
   color: var(--accent);
 }
 
+.whats-new-brand-transition {
+  --whats-new-brand-size: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 6vw, 40px);
+  padding: 18px 16px;
+}
+
+.whats-new-brand {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.whats-new-brand .nia-product-icon {
+  display: block;
+  width: var(--whats-new-brand-size);
+  height: var(--whats-new-brand-size);
+}
+
+.whats-new-brand-arrow {
+  display: flex;
+  color: var(--accent);
+}
+
+.whats-new-brand-arrow .ui-icon {
+  width: 28px;
+  height: 28px;
+}
+
 .whats-new-slide-media-icon .ui-icon {
   width: 46px;
   height: 46px;
@@ -267,6 +302,10 @@
   .whats-new-slide-media-icon .ui-icon {
     width: 42px;
     height: 42px;
+  }
+
+  .whats-new-brand-transition {
+    --whats-new-brand-size: 60px;
   }
 
   .whats-new-slide h4 {

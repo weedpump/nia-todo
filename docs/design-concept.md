@@ -1,11 +1,11 @@
 # Design Concept
 
-This document is the UI design reference for nia-todo. New UI work should follow these primitives before adding new patterns.
+This document is the UI design reference for Nia. New UI work should follow these primitives before adding new patterns.
 
 ## Goals
 
-- calm, focused, task-first interface
-- consistent controls across web, PWA, Windows, and Android wrappers
+- calm, focused interface across the registered modules
+- consistent controls across web, PWA, Windows, Android, and Debian desktop wrappers
 - mobile-first behavior without making desktop feel sparse
 - accessible sizing, clear hierarchy, and predictable actions
 - fewer one-off visuals: shared primitives first, component CSS only for real layout/content behavior
@@ -428,7 +428,7 @@ Mobile:
 
 ## BrainDump UX
 
-BrainDump is voice-first and immediate:
+Tasks and Shopping share a voice-first BrainDump capture flow:
 
 - Tapping the microphone FAB opens the modal and starts recording immediately.
 - There is no separate start-recording step.
@@ -436,6 +436,12 @@ BrainDump is voice-first and immediate:
 - Closing during recording cancels recording and must not silently process.
 - After results/errors, show retry as “speak again” and an accept action for selected candidates.
 - Candidate edit controls use the same shared field/dropdown/menu/button language.
+
+Recipes also uses the BrainDump connection and permissions for text import and
+optional refinement of an unsaved recipe draft. Those actions do not start voice
+recording. Keep the draft editable for review; show concrete issues beside their
+step and keep general review guidance collapsed. Manual ingredient choices,
+amounts and exclusions remain authoritative. URL import itself needs no LLM.
 
 ## Notifications and Native App Settings
 
@@ -449,7 +455,9 @@ BrainDump is voice-first and immediate:
 - **Todo detail modal:** shared detail shell, header rhythm, large title field, flat sections, header actions, mobile fullscreen.
 - **Project/Workspace modals:** permanent detail-modal family; entity-specific CSS only for organization/sharing/member/picker behavior.
 - **Recipe overview:** image-first cards in a responsive grid, up to two visible tags, and the existing authenticated image placeholder/loading behavior. Combine available cookbook tags with AND and the shell search; sort through the shared select. Keep filters while opening and returning from a recipe, and reset them when the cookbook, account session, or active module changes.
-- **Recipe steps:** optional links are selected from existing ingredients inside the shared recipe editor. The collapsed chooser uses grouped round checkboxes with source quantities and an optional step-amount editor. Ingredient groups start collapsed, open independently and display their selected-ingredient count without changing draft quantities. Full recipe quantities are the default; a step may override the amount in the inherited unit or supply a free-text quantity, and reset returns to the full source amount. Reading places compact wrapping ingredient badges between step heading and text. Cooking reuses those badges, text and the portions control in a viewport-constrained view: a compact header returns to reading, step content scrolls within its fixed region, and previous/next controls remain in a two-column footer. Shopping/edit/mode-switch actions and the create FAB stay outside cooking. Empty assignments add no empty panel; repeated uses keep their explicit amount visible without adding purchasing demand. Automatically applied destinations reuse Quick Add chips, with the shared AI icon (`sparkles`, also used by the memory settings and BrainDump) and a localized memory-source title/accessible label per field. Explicit choices and syntax retain their own provenance; no extra accept control is introduced. Weak evidence leaves fields unfilled. Reviewed product attributes and polite task forms may reuse a complete remembered base; exact personal variants take precedence per field. These use the same existing memory chips and never introduce a separate acceptance step. The same chip renderer serves Tasks and Shopping single/bulk entry, recipe transfer and both modules in BrainDump review. Automatically applied task project/section destinations carry the same source icon; deliberate module corrections are remembered independently from inferred default containers. The transfer dialog uses one product checklist with consolidated quantities across source groups. Compatible duplicate ingredients combine by default, including differing notes; all source notes remain visible. A per-product disclosure exposes original ingredient selections and one shared destination editor for the combined product. Expanded destination editors use the same background as other detail containers, with space before the separate action. Differing-note ingredients can be separated for independent destinations.
+- **Recipe steps:** optional links are selected from existing ingredients inside the shared recipe editor. The collapsed chooser uses grouped round checkboxes with source quantities and an optional step-amount editor. When several populated ingredient groups exist, they start collapsed, open independently and display their selected-ingredient count without changing draft quantities; a single populated group exposes its ingredients directly. Full recipe quantities are the default; a step may override the amount in the inherited unit or supply a free-text quantity, and reset returns to the full source amount. Reading places compact wrapping ingredient badges between step heading and text. Cooking reuses those badges, text and the portions control in a viewport-constrained view: a compact header returns to reading, step content scrolls within its fixed region, and previous/next controls remain in a two-column footer. Shopping/edit/mode-switch actions and the create FAB stay outside cooking. Empty assignments add no empty panel; repeated uses keep their explicit amount visible without adding purchasing demand. Unresolved step amounts use the ingredient name with a compact localized parenthetical recipe total when known; avoid multi-line missing-amount explanations inside badges. Render fractions with full-size digits such as `1/2`.
+- **Destination memory:** Automatically applied destinations reuse Quick Add chips, with the shared AI icon (`sparkles`, also used by the memory settings and BrainDump) and a localized memory-source title/accessible label per field. Explicit choices and syntax retain their own provenance; no extra accept control is introduced. Weak evidence leaves fields unfilled. Conservative phrase and personal-corpus evidence may reuse a remembered destination for unfamiliar wording; exact personal variants take precedence per field. Matching uses personal history rather than predefined product, modifier or synonym word lists. These use the same existing memory chips and never introduce a separate acceptance step. The same chip renderer serves Tasks and Shopping single/bulk entry, recipe transfer and both modules in BrainDump review. Automatically applied task project/section destinations carry the same source icon; deliberate module corrections are remembered independently from inferred default containers.
+- **Recipe-to-Shopping transfer:** The transfer dialog uses one product checklist with consolidated quantities across source groups. Compatible duplicate ingredients combine by default, including differing notes; all source notes remain visible. A per-product disclosure exposes original ingredient selections and one shared destination editor for the combined product. Expanded destination editors use the same background as other detail containers, with space before the separate action. Differing-note ingredients can be separated for independent destinations.
 - **Settings modal:** wide settings shell, section nav, section cards, consistent button groups, no special profile-only visual system.
 - **BrainDump modal:** voice-first detail-like shell with shared controls and candidate cards.
 - **Workspace dropdown:** `.ui-menu` surface with pill-shaped active, hover, edit, and add actions.

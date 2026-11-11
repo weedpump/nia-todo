@@ -146,7 +146,7 @@
   "nativeSetup.verifyAndSave": "Verificar servidor y guardar",
   "nativeSetup.hint": "La interfaz de usuario de la aplicación está incluida localmente. El servidor solo proporciona API, sincronización e inicio de sesión.",
   "nativeSetup.notNiaTodoServer": "Este no es un servidor Nia.",
-  "auth.subtitle": "Tu sistema personal de tareas pendientes",
+  "auth.subtitle": "Tu día a día, bien organizado.",
   "auth.oidc.signIn": "Iniciar sesión con OIDC",
   "auth.oidc.signInWithProvider": "Iniciar sesión con {provider}",
   "auth.oidc.errorTitle": "Error al iniciar sesión en OIDC",

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sessionDeviceName } from '../web/static/js/core/device-labels.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(__filename), '..');
@@ -18,6 +19,7 @@ const manifest = readJson('web/manifest.json');
 assert.equal(manifest.name, 'Nia', 'The installed PWA name must use the visible product name');
 assert.equal(manifest.short_name, 'Nia', 'The compact PWA name must use the visible product name');
 assert.equal(manifest.start_url, '/', 'The existing PWA identity boundary must remain stable');
+assert.doesNotMatch(manifest.description, /nia-todo|todo-system/i, 'The PWA description must describe the modular product');
 
 const indexHtml = read('web/index.html');
 assert.match(indexHtml, /<title>Nia<\/title>/, 'The main document title must use Nia');
@@ -32,6 +34,7 @@ for (const page of ['web/setup.html', 'web/admin.html', 'web/set-password.html']
 
 for (const language of supportedLanguages) {
   const dictionary = readJson(`web/static/i18n/${language}.json`);
+  assert(dictionary['auth.subtitle']?.trim(), `${language} must include a localized login subtitle`);
   for (const [key, value] of Object.entries(dictionary)) {
     if (typeof value !== 'string' || !/nia-todo/i.test(value)) continue;
     assert(
@@ -40,6 +43,14 @@ for (const language of supportedLanguages) {
     );
   }
 }
+
+assert.match(read('api/main.py'), /FastAPI\(title="Nia"/, 'The API documentation must use the visible product name');
+assert.match(read('src-tauri/Cargo.toml'), /description = "Native desktop client for Nia"/);
+assert.equal(
+  sessionDeviceName({ user_agent: 'nia-todo-client(app=nia-todo;mode=native;platform=unknown)' }, key => key),
+  'Nia App',
+  'Legacy native client markers must produce the visible Nia fallback label',
+);
 
 const serviceWorker = read('web/sw.js');
 assert.match(serviceWorker, /<title>Nia - Offline<\/title>/, 'The offline fallback title must use Nia');
