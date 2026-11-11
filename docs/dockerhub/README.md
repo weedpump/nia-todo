@@ -12,9 +12,7 @@ Nia is a self-hosted app for organizing everyday life, with SQLite, FastAPI, an 
 
 This repository is the official Docker Hub mirror for Nia. Other Docker Hub images may be community-maintained forks and are not published or supported by the project maintainer.
 
-> **V4 development:** The `v4` source branch adds the modular app described below. V4 has not been released yet. The published stable images, including `latest`, currently provide the 3.x line; these installation commands do not install the unreleased V4 branch.
-
-## Coming in V4
+## Features
 
 - **Tasks:** projects, sections, personal workspaces, reminders, recurring todos, subtasks, comments, and attachments.
 - **Shopping:** personal or shared lists, sections, quantities, units, stores, bulk entry, and offline synchronization.

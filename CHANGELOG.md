@@ -12,8 +12,6 @@ with you, now joined by Shopping and Recipes in the same self-hosted app. Plan,
 shop and cook in one place, share with other people or your household, and let
 personal memory help with recurring choices.
 
-V4 is still in development; these changes are not included in the published 3.x releases.
-
 ### Added
 - Added a shared application shell for Tasks, Shopping, and Recipes, with account-wide module settings that synchronize across devices and remain available after an offline restart.
 - Added Households for inviting members, managing membership, and owning shared projects, shopping lists, and cookbooks. Personal workspaces remain separate from household ownership.

@@ -20,8 +20,6 @@ A modern, self-hosted app for organizing everyday life, with offline support, co
 
 ---
 
-> **V4 development:** This README describes the work on the `v4` branch. V4 has not been released yet; the release links and `latest` Docker image currently provide the published 3.x line.
-
 Nia keeps personal and shared everyday organization in one place while leaving you in control of the infrastructure. The FastAPI server stores its data in SQLite and serves the responsive web app, offline-capable PWA, and downloads for the bundled native clients from your own instance.
 
 ## A quick look
