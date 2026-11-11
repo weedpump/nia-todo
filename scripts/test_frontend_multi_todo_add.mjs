@@ -133,14 +133,22 @@ try {
       const sections = []; // Dashboard has no selected-project section projection.
       for (const section of catalogSections) await put('sections', section);
       const events = { submits: 0, invalid: [], puts: 0, enqueues: 0, closes: [], toasts: [] };
-      let queueId = 0;
+      let queueId = 0, rememberedTarget = null;
+      const routingMemory = {
+        suggestTask: (title, workspaceId, projectId) => {
+          if (title !== 'single project override' || !rememberedTarget
+            || projectId != null && String(projectId) !== String(rememberedTarget.project_id)) return null;
+          return {...rememberedTarget, list_known: true, section_known: true, memory_fields: ['list', 'section']};
+        },
+        feedback: () => null, refresh: async () => {},
+      };
       const enqueue = async (action, data) => { events.enqueues++; await put('syncQueue', {id: ++queueId, action, data}); };
       const feature = createTodosFeature({
         getTodos: () => todos, setTodos: next => { todos = next; },
         getProjects: () => projects, getSections: () => sections,
         getCurrentProjectId: () => null, getCurrentWorkspaceId: () => null,
         getCurrentUser: () => null, setCurrentUser: () => {},
-        getAppInitialized: () => true, getDb: () => db,
+        getAppInitialized: () => true, getDb: () => db, routingMemory,
         dbPut: async (store, value) => { events.puts++; await put(store, value); }, dbGetAll: all,
         deleteFromDB: async () => {}, addToSyncQueue: enqueue,
         runSyncQueueMutation: async operation => {
@@ -159,13 +167,18 @@ try {
       feature.bindTodoActions();
       document.getElementById('todo-form').addEventListener('submit', () => events.submits++);
       document.getElementById('todo-form').addEventListener('invalid', e => events.invalid.push(e.target.id), true);
-      window.production = {events, all, put, feature, todos: () => todos, setProjects: next => { projects = next; }, revokeProjects: () => {projects = [];} };
+      window.production = {events, all, put, feature, todos: () => todos, setProjects: next => { projects = next; }, setRememberedTarget: next => { rememberedTarget = next; }, revokeProjects: () => {projects = [];} };
       </script></body></html>` });
   });
   await productionPage.goto('http://multi-todo-production.test/');
   await productionPage.waitForFunction(() => window.production);
-  await productionPage.click('#new-todo');
-  await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  const openProductionTodo = async () => {
+    await productionPage.click('#new-todo');
+    // Opening initializes the form asynchronously; forced selects must not
+    // race its reset and accidentally lose the explicit-choice provenance.
+    await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  };
+  await openProductionTodo();
   await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
   const productionInputs = productionPage.locator('#todo-multi-add-rows .ui-multi-add-input');
   await productionInputs.first().fill('First production task');
@@ -217,8 +230,7 @@ try {
 
   // Reopen the same production editor: native field states must restore, then
   // project/section defaults and Ctrl+Enter must reach the same real save path.
-  await productionPage.click('#new-todo');
-  await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  await openProductionTodo();
   assert.equal(await productionPage.locator('#todo-title').evaluate(field => field.required && !field.disabled), true);
   await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
   await productionPage.selectOption('#todo-multi-project', '2');
@@ -244,8 +256,7 @@ try {
 
   let persistedTasks = defaultResult.todos.length;
   for (const titles of [['Test', 'Test', 'Jdjdjd'], ['First unique', 'Second unique', 'Third unique']]) {
-    await productionPage.click('#new-todo');
-    await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+    await openProductionTodo();
     await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
     await productionPage.selectOption('#todo-multi-project', '2');
     await productionPage.waitForFunction(() => document.querySelector('#todo-multi-section option[value="21"]'));
@@ -267,8 +278,7 @@ try {
   }
   console.log('✅ Dashboard → Work/J2jw: native button persists duplicate and unique batches; empty lines omitted');
 
-  await productionPage.click('#new-todo');
-  await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  await openProductionTodo();
   await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
   await productionInputs.first().fill('Meta shortcut task');
   const submitsBeforeMeta = await productionPage.evaluate(() => window.production.events.submits);
@@ -285,8 +295,7 @@ try {
   assert.equal(metaResult.queue.at(-1).data.title, 'Meta shortcut task');
 
   // Revocation at the actual commit boundary must still reject the whole batch.
-  await productionPage.click('#new-todo');
-  await productionPage.waitForFunction(() => document.getElementById('todo-modal').classList.contains('active'));
+  await openProductionTodo();
   await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
   await productionInputs.first().fill('Revoked task');
   await productionPage.evaluate(() => {
@@ -309,7 +318,7 @@ try {
     window.production.setProjects([{ id: 1, name: 'Inbox', is_inbox: true }, { id: 'temp-project-child-target', name: 'Pending project' }]);
     await window.production.put('sections', { id: 'temp-section-child-target', project_id: 'temp-project-child-target', name: 'Pending section' });
   });
-  await productionPage.click('#new-todo');
+  await openProductionTodo();
   await productionPage.selectOption('#todo-project', 'temp-project-child-target', { force: true });
   await productionPage.waitForFunction(() => document.querySelector('#todo-section option[value="temp-section-child-target"]'));
   await productionPage.selectOption('#todo-section', 'temp-section-child-target', { force: true });
@@ -318,7 +327,7 @@ try {
   const pendingSingle = await waitForPageCondition(productionPage, async () => (await window.production.all('syncQueue'))
     .find(entry => entry.data?.title === 'Single pending-parent task'));
   assert.deepEqual([pendingSingle.data.project_id, pendingSingle.data.section_id], ['temp-project-child-target', 'temp-section-child-target'], 'single creation must queue exact known pending target IDs');
-  await productionPage.click('#new-todo');
+  await openProductionTodo();
   await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
   await productionPage.selectOption('#todo-multi-project', 'temp-project-child-target', { force: true });
   await productionPage.waitForFunction(() => document.querySelector('#todo-multi-section option[value="temp-section-child-target"]'));
@@ -328,7 +337,7 @@ try {
   const pendingBulk = await waitForPageCondition(productionPage, async () => (await window.production.all('syncQueue'))
     .find(entry => entry.data?.title === 'Bulk pending-parent task'));
   assert.deepEqual([pendingBulk.data.project_id, pendingBulk.data.section_id], ['temp-project-child-target', 'temp-section-child-target'], 'bulk creation must queue exact known pending target IDs');
-  await productionPage.click('#new-todo');
+  await openProductionTodo();
   await productionPage.selectOption('#todo-project', 'temp-project-child-target', { force: true });
   await productionPage.waitForFunction(() => document.querySelector('#todo-section option[value="temp-section-child-target"]'));
   await productionPage.selectOption('#todo-section', 'temp-section-child-target', { force: true });
@@ -346,18 +355,39 @@ try {
   assert.equal(await productionPage.locator('#todo-attachment-file').evaluate(input => input.files[0]?.name), 'pending-target.txt', 'canonical target receipts must preserve the selected attachment draft');
   await productionPage.evaluate(() => document.getElementById('todo-modal').classList.remove('active'));
   for (const mode of ['single', 'multi']) {
-    await productionPage.click('#new-todo');
+    await openProductionTodo();
     if (mode === 'multi') await productionPage.click('#todo-create-mode-switch [data-multi-add-mode="multi"]');
-    const prefix = mode === 'multi' ? 'todo-multi' : 'todo';
-    await productionPage.selectOption(`#${prefix}-project`, '42', { force: true });
-    await productionPage.waitForFunction(prefix => document.querySelector(`#${prefix}-section option[value="420"]`), prefix);
-    await productionPage.selectOption(`#${prefix}-section`, '420', { force: true });
+    if (mode === 'single') {
+      // Inherited fields come from an automatic route, not a deliberate dropdown
+      // choice. Single-entry explicit dropdowns intentionally beat title syntax.
+      await productionPage.evaluate(() => window.production.setRememberedTarget({project_id: 42, section_id: 420}));
+      await productionPage.locator('#todo-title').fill('single project override');
+      await productionPage.waitForFunction(() => document.getElementById('todo-project').value === '42'
+        && document.getElementById('todo-section').value === '420');
+      assert.equal(await productionPage.locator('#quick-add-preview [data-source="memory"]').count(), 2);
+    } else {
+      // A row's syntax overrides common batch defaults, including selected ones.
+      await productionPage.selectOption('#todo-multi-project', '42', { force: true });
+      await productionPage.waitForFunction(() => document.querySelector('#todo-multi-section option[value="420"]'));
+      await productionPage.selectOption('#todo-multi-section', '420', { force: true });
+    }
     await (mode === 'multi' ? productionInputs.first() : productionPage.locator('#todo-title')).fill(`${mode} project override #Inbox`);
     await productionPage.click('#todo-save-btn');
     const overridden = await waitForPageCondition(productionPage, async mode => (await window.production.all('syncQueue'))
       .find(entry => entry.data?.title === `${mode} project override`), mode);
     assert.deepEqual([overridden.data.project_id, overridden.data.section_id], [1, null], `${mode} project-only shortcut must clear the inherited section`);
   }
+  // A real single-entry selection remains authoritative even when the title
+  // contains a different project shortcut; do not conflate it with inheritance.
+  await openProductionTodo();
+  await productionPage.selectOption('#todo-project', '42', { force: true });
+  await productionPage.waitForFunction(() => document.querySelector('#todo-section option[value="420"]'));
+  await productionPage.selectOption('#todo-section', '420', { force: true });
+  await productionPage.locator('#todo-title').fill('Explicit single selection #Inbox');
+  await productionPage.click('#todo-save-btn');
+  const explicit = await waitForPageCondition(productionPage, async () => (await window.production.all('syncQueue'))
+    .find(entry => entry.data?.title === 'Explicit single selection'));
+  assert.deepEqual([explicit.data.project_id, explicit.data.section_id], [42, 420], 'single explicit dropdown choices must beat conflicting title shortcuts');
   assert.deepEqual(productionErrors, []);
   assert.deepEqual(productionConsole, []);
   await productionPage.close();

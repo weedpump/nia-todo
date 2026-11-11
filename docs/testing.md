@@ -241,6 +241,7 @@ Use for native runtime, desktop settings, Android wrapper, passkey, reminder, mi
 
 The native suite includes static/package checks that protect platform-specific release contracts:
 
+- The Android build-warning guard runs `scripts/test_patch_tauri_android_gradle.py` against disposable Cargo-metadata and Gradle fixtures. The compatibility patch resolves the app's direct locked Tauri dependency instead of pinning a second Rust version in Python; unrelated dependency versions, unknown source layouts and repeated patching are covered independently of npm API/CLI version pins.
 - Debian desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
 - Debian desktop packages must install `de.tobiaskneidl.nia-todo.desktop`, matching the host application ID registered before GlobalShortcuts portal access.
 - Portal action descriptions must come from Nia's active language, serialize rapid language changes, retry transient persistence failures, and remain available in desktop settings. Description-only changes must not re-register any hotkey backend. Configured Wayland hotkeys must still register with safe fallback labels when localized descriptions are temporarily unavailable.

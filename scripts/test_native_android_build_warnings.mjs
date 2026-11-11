@@ -89,21 +89,22 @@ const gradleWrapper = read('src-tauri/gen/android/gradle/wrapper/gradle-wrapper.
 assert.match(gradleWrapper, /gradle-9\.6\.1-bin\.zip/);
 
 const packageJson = JSON.parse(read('package.json'));
-assert.equal(packageJson.dependencies['@tauri-apps/api'], '2.12.3');
-assert.equal(packageJson.devDependencies['@tauri-apps/cli'], '2.12.2');
+const packageLock = JSON.parse(read('package-lock.json'));
+for (const [section, dependency] of [['dependencies', '@tauri-apps/api'], ['devDependencies', '@tauri-apps/cli']]) {
+  const version = packageJson[section][dependency];
+  assert.match(version, /^2\.\d+\.\d+$/, `${dependency} must have an exact supported-version pin`);
+  assert.equal(packageLock.packages[''][section][dependency], version, `${dependency} root lock pin must match`);
+  assert.equal(packageLock.packages[`node_modules/${dependency}`].version, version, `${dependency} resolved package must match`);
+}
 
 const cargoToml = read('src-tauri/Cargo.toml');
-assert.match(cargoToml, /tauri-build = \{ version = "2\.7\.1"/);
-assert.match(cargoToml, /tauri = \{ version = "2\.12\.1"/);
+assert.match(cargoToml, /tauri-build = \{ version = "2\.\d+\.\d+"/);
+assert.match(cargoToml, /tauri = \{ version = "2\.\d+\.\d+"/);
 
 const cargoLock = read('src-tauri/Cargo.lock');
 const lockedTauriVersion = cargoLock.match(/\[\[package\]\]\nname = "tauri"\nversion = "([^"]+)"/)?.[1];
 assert.ok(lockedTauriVersion, 'Cargo.lock must contain the resolved Tauri package');
-const gradlePatch = read('scripts/patch_tauri_android_gradle.py');
-assert.ok(
-  gradlePatch.includes(`EXPECTED_TAURI_VERSION = "${lockedTauriVersion}"`),
-  'Android Gradle patch must target the Tauri version resolved in Cargo.lock',
-);
+assert.match(lockedTauriVersion, /^2\.\d+\.\d+$/, 'Android Gradle patch supports the Tauri 2 series');
 
 const buildWorkflow = read('.github/workflows/build.yml');
 const androidJob = buildWorkflow.match(/  build-android:\n([\s\S]*?)\n  build-debian-desktop:/)?.[1];
@@ -130,7 +131,7 @@ try {
   const tauriRoot = join(patchFixture, `tauri-${lockedTauriVersion}`);
   const androidGradle = join(tauriRoot, 'mobile/android/build.gradle.kts');
   mkdirSync(join(tauriRoot, 'mobile/android'), { recursive: true });
-  writeFileSync(androidGradle, 'plugins {\n    id("com.android.library")\n}\n');
+  writeFileSync(androidGradle, 'plugins {\n    id("com.android.library")\n}\nandroid {\n    namespace = "app.tauri"\n}\n');
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const patched = spawnSync('python3', [join(ROOT, 'scripts/patch_tauri_android_gradle.py'), '--tauri-root', tauriRoot], { encoding: 'utf8' });
     assert.equal(patched.status, 0, patched.stderr);
@@ -141,5 +142,8 @@ try {
 } finally {
   rmSync(patchFixture, { recursive: true, force: true });
 }
+
+const resolverChecks = spawnSync('python3', [join(ROOT, 'scripts/test_patch_tauri_android_gradle.py')], { encoding: 'utf8' });
+assert.equal(resolverChecks.status, 0, resolverChecks.stderr || resolverChecks.stdout);
 
 console.log('✅ Android native build warning guards passed');

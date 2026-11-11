@@ -36,6 +36,7 @@ V4 is still in development; these changes are not included in the published 3.x 
 - Updated application, build, packaging, and CI dependencies to their current compatible releases.
 
 ### Fixed
+- Resolved the Android build's Tauri Gradle compatibility patch from the app's locked dependency instead of a stale hardcoded version, while validating the expected source structure.
 - Preserved recipe step titles, quantities, manual assignments, and exclusions through offline edits and synchronization.
 - Retried recipe images after temporary loading failures without allowing older responses to replace a newer image request.
 - Prevented colliding mutation identities from redirecting Shopping input or snapshots to another shared list, section, store, or item.
