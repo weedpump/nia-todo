@@ -6,8 +6,8 @@ Nia is a self-hosted, modular app for organizing everyday life, not just a todo 
 V4 is transitioning the existing nia-todo codebase into a shared application shell
 with independent modules and reusable identity, sharing, and UI infrastructure.
 
-- Registered modules: `tasks`, `shopping`, and `recipes`. Tasks is established,
-  Shopping is under active development, and Recipes currently has a placeholder shell.
+- Registered modules: `tasks`, `shopping`, and `recipes`. Tasks and Shopping are established; Recipes implements cookbook and recipe core
+  behavior and ingredient transfer to Shopping. Public discovery and archiving are deferred.
   Do not assume all modules have equivalent features or lifecycle requirements.
 - Preserve existing `nia-todo` package names, URLs, API contracts, database paths,
   native app IDs, and compatibility identifiers unless a change explicitly requires
@@ -122,8 +122,13 @@ before relying on older todo-only descriptions.
 - For Shopping changes, test list/section/item/store lifecycle, household and
   direct sharing, per-user preferences, offline/realtime behavior, temporary
   IDs, reconnects, and permission revocation as applicable.
-- Recipes is not yet a completed domain module; do not treat its placeholder
-  as evidence that recipes storage or APIs already exist.
+- Recipes now has cookbook and structured recipe storage/APIs, ordered child
+  records, manual tags, private title images and offline/realtime synchronization.
+  Steps may reference recipe-local ingredients by stable client key; reading and
+  actor-scoped cooking views share the same ingredient and portions rendering.
+  Ingredient transfer uses an atomic, idempotent server operation and a durable
+  offline intent. Public discovery/copies and archiving are deferred; do not
+  infer those contracts from the core editor.
 
 ## Database, security, and migration rules
 

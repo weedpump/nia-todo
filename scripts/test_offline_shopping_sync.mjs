@@ -37,6 +37,27 @@ const queue = [
 ];
 
 const projected = projectPendingShoppingChanges(serverList, queue);
+const privateFeedback = {event_id:'private-learning-event',generation:4,fields:['section']};
+const privateRoute = {original_module_id:'shopping',original_shopping_list_id:7};
+const privateQueue = [
+  {action:'CREATE_SHOPPING_ITEM',data:{shopping_list_id:7,temp_id:'temp-private',item:{name:'Offline item',routing_feedback:privateFeedback,braindump_route:privateRoute}}},
+  {action:'UPDATE_SHOPPING_ITEM',data:{shopping_list_id:7,item_id:20,changes:{section_id:10,routing_feedback:privateFeedback,braindump_route:privateRoute}}},
+];
+const privateQueueBefore=structuredClone(privateQueue);
+const privateProjection=projectPendingShoppingChanges({...serverList,items:serverList.items.map(item=>({...item,routing_feedback:privateFeedback,braindump_route:privateRoute}))},privateQueue);
+for(const item of privateProjection.items){
+  assert.equal(Object.hasOwn(item,'routing_feedback'),false,'pending content never contains private learning feedback');
+  assert.equal(Object.hasOwn(item,'braindump_route'),false,'pending content never contains private legacy routing provenance');
+}
+assert.deepEqual(privateQueue,privateQueueBefore,'private request intent survives projection and remains replayable');
+const kitchenList = { ...serverList, items: [{ ...serverList.items[0], quantity_value: 250 / 3, quantity_unit: 'ml', quantity_display_mode: 'kitchen' }] };
+const renameOnly = projectPendingShoppingChanges(kitchenList, [{ action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 7, item_id: 20, changes: { name: 'Renamed' } } }]);
+assert.equal(renameOnly.items[0].quantity_display_mode, 'kitchen');
+assert.equal(renameOnly.items[0].quantity_value, 250 / 3);
+for (const changes of [{ quantity_value: .25 }, { quantity_unit: 'pack' }, { quantity_text: 'nach Geschmack', quantity_value: null }]) {
+  const manual = projectPendingShoppingChanges(kitchenList, [{ action: 'UPDATE_SHOPPING_ITEM', data: { shopping_list_id: 7, item_id: 20, changes } }]);
+  assert.equal(manual.items[0].quantity_display_mode, 'exact', 'pending snapshots preserve manual exact quantities');
+}
 assert.equal(projected.items.find(item => item.id === 20).completed, true);
 assert.equal(projected.sections.find(section => section.id === 'temp-section-1').name, 'Bread');
 assert.equal(projected.items.find(item => item.id === 'temp-item-1').section_id, 'temp-section-1');
@@ -312,7 +333,7 @@ evictionController.abort();
 await assert.rejects(abortedEviction, error => error?.name === 'AbortError');
 assert.equal(abortedEvictionTransaction, true, 'accept projection must abort the durable eviction transaction');
 
-assert.equal(DB_VERSION, 8, 'list-scoped shopping stores require IndexedDB schema version 8');
+assert.equal(DB_VERSION, 10, 'private entity images add a store while preserving the list-scoped Shopping schema');
 
 const { createSyncFeature } = await import('../web/static/js/features/sync.js');
 let queueState = [

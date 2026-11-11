@@ -1,8 +1,10 @@
 import { createCompletedCleanupController, createSectionController } from './section-ui.js';
 import { t } from '../i18n/index.js';
 import { resolveKnownTodoTargets } from './todo-targets.js';
+import { mergeRoutingFeedback } from './routing-memory-matcher.js';
 
 export function createSectionActionsFeature({
+  routingMemory = null,
   getTodos,
   setTodos,
   getProjects,
@@ -52,9 +54,16 @@ export function createSectionActionsFeature({
       if (tempTodo && dbGetAll && dbPut) {
         const queue = await dbGetAll('syncQueue');
         const createItem = queue.find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(todo.id));
-        if (createItem) await dbPut('syncQueue', { ...createItem, data: { ...createItem.data, section_id: sectionId } });
+        if (createItem && !createItem.attempted) {
+          const feedback = mergeRoutingFeedback(createItem.data.routing_feedback, routingMemory?.feedback(['section']));
+          await dbPut('syncQueue', { ...createItem, data: { ...createItem.data, section_id: sectionId, ...(feedback ? { routing_feedback: feedback } : {}) } });
+        } else {
+          const feedback = routingMemory?.feedback(['section']);
+          await enqueue('UPDATE_TODO', { id: todo.id, changes: { section_id: sectionId, ...(feedback ? { routing_feedback: feedback } : {}) } });
+        }
       } else {
-        await enqueue('UPDATE_TODO', { id: todo.id, changes: { section_id: sectionId } });
+        const feedback = routingMemory?.feedback(['section']);
+        await enqueue('UPDATE_TODO', { id: todo.id, changes: { section_id: sectionId, ...(feedback ? { routing_feedback: feedback } : {}) } });
       }
       return { item: updatedTodo, temporary: tempTodo };
     });
@@ -78,14 +87,20 @@ export function createSectionActionsFeature({
       const nextTodos = todos.map(candidate => String(candidate.id) === String(todoId) ? updatedTodo : candidate);
       const temporary = String(todo.id).startsWith('temp-');
       const changes = { project_id: newProjectId, section_id: null };
+      const feedback = routingMemory?.feedback(['list', 'section']);
       setTodos(nextTodos);
       if (dbPut) await dbPut('todos', updatedTodo);
       if (temporary && dbGetAll && dbPut) {
         const queue = await dbGetAll('syncQueue');
         const createItem = queue.find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(todo.id));
-        if (createItem) await dbPut('syncQueue', { ...createItem, data: { ...createItem.data, ...changes } });
+        if (createItem && !createItem.attempted) {
+          const merged = mergeRoutingFeedback(createItem.data.routing_feedback, feedback);
+          await dbPut('syncQueue', { ...createItem, data: { ...createItem.data, ...changes, ...(merged ? { routing_feedback: merged } : {}) } });
+        } else {
+          await enqueue('UPDATE_TODO', { id: todo.id, changes: { ...changes, ...(feedback ? { routing_feedback: feedback } : {}) } });
+        }
       } else {
-        await enqueue('UPDATE_TODO', { id: todo.id, changes });
+        await enqueue('UPDATE_TODO', { id: todo.id, changes: { ...changes, ...(feedback ? { routing_feedback: feedback } : {}) } });
       }
       return { item: updatedTodo, temporary };
     });

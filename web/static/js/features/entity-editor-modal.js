@@ -5,6 +5,7 @@ import { renderEntityAppearanceFields } from './entity-appearance.js';
 import { renderEntityDetailHeader } from './entity-detail-header.js';
 import { createFormSaveState } from './form-save-state.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
+import { isDropdownOpen, closeOpenDropdown } from '../ui/dropdowns.js';
 
 function keyText(key) {
   return escapeHtmlAttr(t(key));
@@ -38,7 +39,7 @@ export function renderEntityEditorModal({
         subtitle: { key: subtitleKey },
         actionsHtml: `
           <button type="submit" form="${escapeHtmlAttr(formId)}" class="btn btn-primary" id="${escapeHtmlAttr(prefix)}-save-btn" data-i18n-key="common.save">${keyText('common.save')}</button>
-          <details class="ui-detail-header-menu-toggle" id="${escapeHtmlAttr(menuId)}" hidden>
+          <details class="ui-detail-header-menu-toggle" id="${escapeHtmlAttr(menuId)}" data-ui-editor-menu hidden>
             <summary id="${escapeHtmlAttr(menuId)}-trigger" aria-label="${keyText('common.more')}" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
             <div class="ui-detail-header-menu ui-menu" role="menu">
               <button type="button" class="ui-menu-item danger" id="${escapeHtmlAttr(prefix)}-delete-btn" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="${escapeHtmlAttr(deleteKey)}">${keyText(deleteKey)}</span></button>
@@ -61,12 +62,13 @@ export function renderEntityEditorModal({
 export function createEntityEditorModalController({
   prefix,
   document: doc = globalThis.document,
-  appearanceController,
+  appearanceController = null,
   ownershipController = null,
   sharingController = null,
   readState,
   isValid = state => Boolean(state?.name) && String(state.name).length <= 200,
   canSubmit = () => true,
+  requireChanges = true,
   resolveView,
   renderDomain = () => {},
   applyDomainPermissions = () => {},
@@ -75,8 +77,8 @@ export function createEntityEditorModalController({
   onDelete = () => {},
   onError = console.error,
 } = {}) {
-  if (!prefix || !appearanceController || typeof readState !== 'function' || typeof resolveView !== 'function') {
-    throw new TypeError('prefix, appearanceController, readState and resolveView are required');
+  if (!prefix || typeof readState !== 'function' || typeof resolveView !== 'function') {
+    throw new TypeError('prefix, readState and resolveView are required');
   }
 
   const ids = {
@@ -108,7 +110,7 @@ export function createEntityEditorModalController({
     if (!form || !button) return null;
     if (!saveState || saveState.form !== form) {
       saveState?.destroy?.();
-      saveState = createFormSaveState({ form, button, readState, isValid, canSubmit });
+      saveState = createFormSaveState({ form, button, readState, isValid, canSubmit, requireChanges });
       saveState.form = form;
     }
     return saveState;
@@ -128,6 +130,8 @@ export function createEntityEditorModalController({
     focusGeneration += 1;
     const modal = element(ids.modal);
     element(ids.menu)?.removeAttribute?.('open');
+    if (modal?.querySelector?.('.ui-select.is-open')) closeOpenDropdown('entity-editor-close');
+    modal?.querySelectorAll?.('details[data-ui-editor-menu][open]').forEach(menu => { menu.open = false; });
     modal?.classList?.remove?.('active');
     modal?.setAttribute?.('aria-hidden', 'true');
     const target = restoreFocus?.();
@@ -147,6 +151,7 @@ export function createEntityEditorModalController({
     const modal = element(ids.modal);
     const form = element(ids.form);
     if (!modal || !form) return false;
+    const focusAtOpen = doc.activeElement;
 
     currentEntity = entity;
     currentContext = context;
@@ -157,7 +162,7 @@ export function createEntityEditorModalController({
     const entityId = element(ids.entityId);
     if (entityId) entityId.value = entity?.id ?? '';
     renderDomain({ entity, context, view });
-    appearanceController.setValues(view.appearance || {}, { editable: view.appearanceEditable !== false });
+    appearanceController?.setValues?.(view.appearance || {}, { editable: view.appearanceEditable !== false });
     const name = element(ids.name);
     if (name) {
       name.disabled = view.appearanceEditable === false;
@@ -183,8 +188,9 @@ export function createEntityEditorModalController({
 
     globalThis.setTimeout?.(() => {
       if (requestedFocusGeneration !== focusGeneration || !modal.classList.contains('active')) return;
+      if (doc.activeElement !== focusAtOpen && doc.activeElement !== doc.body && doc.activeElement?.isConnected) return;
       if (view.readOnly) modal.querySelector?.('.modal-close-x')?.focus?.();
-      else if (view.mode === 'create' || view.mode === 'create-child') appearanceController.focusName?.();
+      else if (view.mode === 'create' || view.mode === 'create-child') appearanceController?.focusName?.();
     }, 0);
     return true;
   }
@@ -206,6 +212,8 @@ export function createEntityEditorModalController({
   function bind() {
     if (bound) return;
     bound = true;
+    const modal = element(ids.modal);
+    if (modal) modal.dataset.entityEditorBound = 'true';
     ensureSaveState();
     element(ids.form)?.addEventListener?.('submit', onSubmit);
     element(ids.delete)?.addEventListener?.('click', event => {
@@ -214,6 +222,29 @@ export function createEntityEditorModalController({
       onDelete(event);
     });
     registerUiLayer(ids.modal, () => hide());
+    doc.addEventListener('keydown', event => {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !modal?.classList.contains('active')) return;
+      if (doc.getElementById('confirm-modal')?.classList.contains('active')) return;
+      const focusedModal = doc.activeElement?.closest?.('.modal.active');
+      if (focusedModal && focusedModal !== modal) return;
+      if (event.key === 'Escape') {
+        if (isDropdownOpen()) return;
+        event.preventDefault();
+        const menu = modal.querySelector('details[data-ui-editor-menu][open]') || element(ids.menu);
+        if (menu?.open) { menu.removeAttribute('open'); menu.querySelector('summary')?.focus(); }
+        else close();
+        return;
+      }
+      if (event.key !== 'Tab' || isDropdownOpen()) return;
+      const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])'))
+        .filter(control => control.tabIndex >= 0 && !control.closest('[hidden], [inert]') && control.getClientRects().length > 0);
+      const first = focusable[0], last = focusable.at(-1);
+      if (!first) return;
+      if (!modal.contains(doc.activeElement) || (event.shiftKey ? doc.activeElement === first : doc.activeElement === last)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      }
+    });
   }
 
   return {

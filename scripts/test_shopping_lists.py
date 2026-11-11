@@ -435,7 +435,7 @@ with tempfile.TemporaryDirectory() as tmp:
     )
     assert shared_item_edit["name"] == "Shared item edited", shared_item_edit
     assert shared_item_edit["quantity_value"] == 3, shared_item_edit
-    assert shared_item_edit["quantity_unit"] == "pcs", shared_item_edit
+    assert shared_item_edit["quantity_unit"] == "piece", shared_item_edit
     assert shared_item_edit["section_id"] is None, shared_item_edit
     recipient_section_move = asyncio.run(
         update_shopping_item(

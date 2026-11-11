@@ -1,3 +1,4 @@
+import { normalizeQuantityUnit, formatQuantityUnit } from '../core/quantity-units.js';
 import { t, translatePage, getActiveLocale } from '../i18n/index.js';
 import { parseShoppingQuickAdd } from './shopping-quick-add.js';
 import { createMultiAddFeature } from './multi-add.js';
@@ -14,13 +15,13 @@ function sameId(left, right) {
 }
 
 export function resolveShoppingQuickAddState(state, parsed) {
-  if (!parsed) return { ...state };
+  if (!parsed) return { ...state, unit: normalizeQuantityUnit(state.unit) || '' };
   const changes = parsed.changes || {};
   return {
     ...state,
     name: parsed.title,
     quantity: state.quantity !== '' && state.quantity != null ? state.quantity : (changes.quantity_value ?? ''),
-    unit: state.unit || changes.quantity_unit || '',
+    unit: normalizeQuantityUnit(state.unit || changes.quantity_unit) || '',
     sectionId: state.sectionId ?? changes.section_id ?? null,
     storeId: state.storeId ?? changes.store_ids?.[0] ?? null,
   };
@@ -45,6 +46,7 @@ export function createShoppingItemEditorFeature({
   getStores = () => [],
   storeController,
   itemController,
+  routingMemory = null,
   confirmDanger = async () => false,
   onStoreEdit = () => {},
   showToast = () => {},
@@ -64,6 +66,9 @@ export function createShoppingItemEditorFeature({
   let bulkSubmissionScope = null;
   let quickAddController = null;
   let quickAddInput = null;
+  let memoryReady = Promise.resolve();
+  let memoryRenderPending = false;
+  const routingTouched = new Set(), bulkRoutingTouched = new Set();
 
   function activeList() {
     const id = getActiveListId();
@@ -207,6 +212,8 @@ export function createShoppingItemEditorFeature({
       name: doc?.getElementById?.('shopping-item-name')?.value?.trim?.() || '',
       quantity: doc?.getElementById?.('shopping-item-quantity')?.value ?? '',
       unit: doc?.getElementById?.('shopping-item-unit')?.value?.trim?.() || '',
+      quantity_text: doc?.getElementById?.('shopping-item-quantity-text')?.value?.trim?.() || '',
+      note: doc?.getElementById?.('shopping-item-note')?.value?.trim?.() || '',
       sectionId: doc?.getElementById?.('shopping-item-section')?.value || null,
       storeId: doc?.getElementById?.('shopping-item-store')?.value || null,
     };
@@ -217,24 +224,77 @@ export function createShoppingItemEditorFeature({
     return parseShoppingQuickAdd(raw, { list: activeList(), stores: getStores(), locale: getActiveLocale(), t });
   }
 
+  function effectiveState(raw, parsed, defaults = null) {
+    const state = defaults ? resolveShoppingBulkQuickAddState(parsed, defaults) : resolveShoppingQuickAddState(raw, parsed);
+    if (!routingMemory) return state;
+    if (mode === 'edit') {
+      state.store_ids = routingTouched.has('stores') ? (raw.storeId == null ? [] : [raw.storeId]) : [...(resolveEditingItem()?.store_ids || [])];
+      return state;
+    }
+    const changes = parsed?.changes || {}, touched = defaults ? bulkRoutingTouched : routingTouched;
+    const remembered = routingMemory.suggest(state.name, activeList()?.id);
+    const sectionExplicit = touched.has('section') || Object.hasOwn(changes, 'section_id');
+    const storesExplicit = touched.has('stores') || Object.hasOwn(changes, 'store_ids');
+    if (!defaults && touched.has('section')) state.sectionId = raw.sectionId;
+    else if (Object.hasOwn(changes, 'section_id')) state.sectionId = changes.section_id;
+    else if (defaults && touched.has('section')) state.sectionId = defaults.sectionId;
+    else state.sectionId = remembered?.section_known ? remembered.section_id : null;
+    if (!defaults && touched.has('stores')) state.store_ids = raw.storeId == null ? [] : [raw.storeId];
+    else if (Object.hasOwn(changes, 'store_ids')) state.store_ids = [...changes.store_ids];
+    else if (defaults && touched.has('stores')) state.store_ids = defaults.storeId == null ? [] : [defaults.storeId];
+    else state.store_ids = remembered?.stores_known ? [...remembered.store_ids] : [];
+    state.storeId = state.store_ids[0] ?? null;
+    state.routing_fields = ['list', ...(sectionExplicit ? ['section'] : []), ...(storesExplicit ? ['stores'] : [])];
+    return state;
+  }
+
   function readState() {
     const raw = readFormState();
-    return resolveShoppingQuickAddState(raw, quickAddResult(raw.name));
+    return effectiveState(raw, quickAddResult(raw.name));
+  }
+
+  function withRoutingFeedback(state, source = routingMemory) {
+    if (!source) return state;
+    const { routing_fields = [], ...fields } = state;
+    const feedback = source.feedback(routing_fields);
+    return { ...fields, ...(feedback ? { routing_feedback: feedback } : {}) };
+  }
+
+  function routingPreview(result, state) {
+    if (!routingMemory || !result) return result;
+    const fields = new Set(state.routing_fields || []), matches = [...(result.matches || [])];
+    const route = routingMemory.suggest(state.name, activeList()?.id);
+    const storeNames = (state.store_ids || []).map(id => getStores().find(store => sameId(store.id, id))?.name).filter(Boolean);
+    if (!fields.has('section') && route?.section_known) matches.push({ type: 'section', label: t('common.section'), value: (activeList()?.sections || []).find(section => sameId(section.id, state.sectionId))?.name || t('shopping.section.unsorted'), source: (route.memory_fields?.includes('section') ?? true) ? 'memory' : undefined });
+    if (!fields.has('stores') && route?.stores_known) matches.push({ type: 'store', label: t('shopping.item.store'), value: storeNames.join(', ') || t('shopping.item.store.none'), source: (route.memory_fields?.includes('stores') ?? true) ? 'memory' : undefined });
+    return { ...result, matches };
   }
 
   function renderEffectiveQuickAdd(result) {
     const target = doc?.getElementById?.('shopping-item-quick-add-preview');
     if (!result || !readFormState().name) {
+      if (routingMemory && mode === 'create') for (const [field, id] of [['section', 'shopping-item-section'], ['stores', 'shopping-item-store']]) {
+        const select = doc.getElementById(id);
+        if (!routingTouched.has(field) && select?.value) { select.value = ''; refreshSelect(select); }
+      }
       renderQuickAddPreview(target, null, t);
       return;
     }
-    const state = resolveShoppingQuickAddState(readFormState(), result);
+    const state = effectiveState(readFormState(), result);
+    if (routingMemory) {
+      for (const [id, value] of [['shopping-item-section', state.sectionId], ['shopping-item-store', state.storeId]]) {
+        const select = doc.getElementById(id), next = value == null ? '' : String(value);
+        if (select && select.value !== next) { select.value = next; refreshSelect(select); }
+      }
+      result = routingPreview(result, state);
+      ensureSaveState()?.refresh?.();
+    }
     const list = activeList();
     const values = {
       quantity: state.quantity === '' ? '' : new Intl.NumberFormat(getActiveLocale(), { maximumFractionDigits: 20 }).format(Number(state.quantity)),
-      unit: state.unit,
-      section: (list?.sections || []).find(section => sameId(section.id, state.sectionId))?.name,
-      store: getStores().find(store => sameId(store.id, state.storeId))?.name,
+      unit: formatQuantityUnit(state.unit, getActiveLocale()),
+      section: (list?.sections || []).find(section => sameId(section.id, state.sectionId))?.name || (routingMemory ? t('shopping.section.unsorted') : undefined),
+      store: (state.store_ids || [state.storeId]).map(id => getStores().find(store => sameId(store.id, id))?.name).filter(Boolean).join(', ') || (routingMemory ? t('shopping.item.store.none') : undefined),
     };
     renderQuickAddPreview(target, {
       ...result,
@@ -267,12 +327,19 @@ export function createShoppingItemEditorFeature({
 
   function handleFormChange(event) {
     if (event.target?.closest?.('#shopping-item-form') == null || !modal()?.classList.contains('active')) return;
+    const routeField = event.target.id === 'shopping-item-section' || event.target.id === 'shopping-item-multi-section' ? 'section'
+      : event.target.id === 'shopping-item-store' || event.target.id === 'shopping-item-multi-store' ? 'stores' : null;
+    if (routingMemory && routeField) (event.target.id.includes('-multi-') ? bulkRoutingTouched : routingTouched).add(routeField);
+    if (event.type === 'change' && event.target.id === 'shopping-item-unit') {
+      event.target.value = formatQuantityUnit(event.target.value, getActiveLocale());
+    }
     if (event.target !== quickAddInput) void quickAddController?.refresh();
     setError();
   }
 
   function validState(state) {
-    if (!state.name || state.name.length > 500 || state.unit.length > 40) return false;
+    if (!state.name || state.name.length > 500 || state.unit.length > 40 || (state.quantity_text || '').length > 500 || (state.note || '').length > 2000) return false;
+    if (state.quantity_text && state.quantity !== '') return false;
     if (state.quantity === '') return true;
     const quantity = Number(state.quantity);
     return Number.isFinite(quantity) && quantity >= 0;
@@ -302,6 +369,14 @@ export function createShoppingItemEditorFeature({
     quickAddController?.invalidate();
   }
 
+  function handleRoutingMemoryChange() {
+    if (!routingMemory || mode !== 'create' || !modal()?.classList.contains('active') || !canMutate()) return;
+    if (submitting || modal().getAttribute('aria-busy') === 'true') { memoryRenderPending = true; return; }
+    memoryRenderPending = false;
+    if (bulk?.isActive()) bulk.refresh();
+    else { void quickAddController?.refresh(); ensureSaveState()?.refresh?.(); }
+  }
+
   function handleCloseRequest(event) {
     // Observe shell-owned controls before their asynchronous History close.
     // Only invalidate pending work here; do not run a second close lifecycle.
@@ -311,6 +386,7 @@ export function createShoppingItemEditorFeature({
 
   function hideModal() {
     invalidateEditor();
+    memoryRenderPending = false;
     bulk?.reset({ editing: true });
     renderEffectiveQuickAdd(null);
     const target = modal();
@@ -336,6 +412,9 @@ export function createShoppingItemEditorFeature({
 
   function openModal(target, currentForm) {
     const generation = ++editorGeneration;
+    memoryRenderPending = false;
+    routingTouched.clear(); bulkRoutingTouched.clear();
+    memoryReady = routingMemory ? Promise.resolve(routingMemory.refresh()).catch(onError) : Promise.resolve();
     bulkSubmissionScope = {};
     translatePage(target);
     setMode(mode);
@@ -345,6 +424,11 @@ export function createShoppingItemEditorFeature({
     bulk?.reset({ editing: mode === 'edit' });
     ensureSaveState()?.reset();
     ensureQuickAdd();
+    if (routingMemory) void memoryReady.then(() => {
+      if (generation !== editorGeneration || !target.classList.contains('active') || !canMutate()) return;
+      if (bulk?.isActive()) bulk.refresh();
+      else if (mode === 'create') void quickAddController?.refresh();
+    });
     if (shouldAutoFocusEntityEditorTitle(mode)) {
       globalThis.setTimeout?.(() => {
         if (generation === editorGeneration && mode === 'create' && target.classList.contains('active')) doc?.getElementById?.('shopping-item-name')?.focus?.();
@@ -362,6 +446,7 @@ export function createShoppingItemEditorFeature({
     editingListIdentity = activeList()?.client_mutation_id ?? activeList()?.id;
     editingItemIdentity = null;
     currentForm.reset?.();
+    const extras = currentForm.querySelector('.shopping-item-additional-details'); if (extras) extras.open = false;
     setError();
     storeCreator?.hide?.();
     populateSections();
@@ -391,7 +476,11 @@ export function createShoppingItemEditorFeature({
     populateStores(storeId ?? '');
     doc.getElementById('shopping-item-name').value = item.name || '';
     doc.getElementById('shopping-item-quantity').value = item.quantity_value ?? '';
-    doc.getElementById('shopping-item-unit').value = item.quantity_unit || '';
+    doc.getElementById('shopping-item-unit').value = formatQuantityUnit(item.quantity_unit, getActiveLocale());
+    if (doc.getElementById('shopping-item-quantity-text')) doc.getElementById('shopping-item-quantity-text').value = item.quantity_text || '';
+    if (doc.getElementById('shopping-item-note')) doc.getElementById('shopping-item-note').value = item.note || '';
+    const extras = currentForm.querySelector('.shopping-item-additional-details');
+    if (extras) extras.open = Boolean(item.quantity_text || item.note);
     restoreFocus = () => editTrigger(editingItemIdentity) || (triggerElement?.isConnected ? triggerElement : null) || trigger();
     return openModal(target, currentForm);
   }
@@ -402,7 +491,7 @@ export function createShoppingItemEditorFeature({
     const unitInput = doc?.getElementById?.('shopping-item-unit');
     const invalidName = !state.name || state.name.length > 500;
     const quantity = state.quantity === '' ? null : Number(state.quantity);
-    const invalidQuantity = quantity !== null && (!Number.isFinite(quantity) || quantity < 0);
+    const invalidQuantity = (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) || Boolean(state.quantity_text && quantity !== null) || (state.quantity_text || '').length > 500;
     const invalidUnit = state.unit.length > 40;
     setInvalid(nameInput, invalidName);
     setInvalid(quantityInput, invalidQuantity);
@@ -418,9 +507,14 @@ export function createShoppingItemEditorFeature({
     event?.preventDefault?.();
     if (submitting || !modal()?.classList.contains('active')) return;
     if (bulk?.isActive()) {
-      await bulk.save();
+      try { await bulk.save(); }
+      finally { if (memoryRenderPending) handleRoutingMemoryChange(); }
       return;
     }
+    const feedbackSource = routingMemory?.capture?.() || routingMemory;
+    const startingGeneration = editorGeneration;
+    if (routingMemory && mode === 'create') await memoryReady;
+    if (startingGeneration !== editorGeneration || submitting || !modal()?.classList.contains('active')) return;
     const list = activeList();
     if (!canMutate() || (!sameId(list?.id, editingListIdentity) && !sameId(list?.client_mutation_id, editingListIdentity)) || (mode === 'edit' && !resolveEditingItem())) {
       closeModal();
@@ -428,7 +522,14 @@ export function createShoppingItemEditorFeature({
     }
     const raw = readFormState();
     const parsed = quickAddResult(raw.name);
-    const state = resolveShoppingQuickAddState(raw, parsed);
+    const state = effectiveState(raw, parsed);
+    if (mode === 'edit' && routingMemory) {
+      const item = resolveEditingItem();
+      state.routing_fields = [
+        ...(routingTouched.has('section') && !sameId(item?.section_id, state.sectionId) && !(item?.section_id == null && state.sectionId == null) ? ['section'] : []),
+        ...(routingTouched.has('stores') && JSON.stringify([...(item?.store_ids || [])].map(String).sort()) !== JSON.stringify([...state.store_ids].map(String).sort()) ? ['stores'] : []),
+      ];
+    }
     if (parsed?.errors.length) {
       renderEffectiveQuickAdd(parsed);
       setError(parsed.errors[0]);
@@ -446,8 +547,8 @@ export function createShoppingItemEditorFeature({
     controller.button.disabled = true;
     try {
       const saved = mode === 'edit'
-        ? await itemController?.update?.(activeList()?.id, editingItemIdentity, state)
-        : await itemController?.create?.(state);
+        ? await itemController?.update?.(activeList()?.id, editingItemIdentity, withRoutingFeedback(state, feedbackSource))
+        : await itemController?.create?.(withRoutingFeedback(state, feedbackSource));
       if (!saved) {
         if (!canMutate()) closeModal();
         return;
@@ -464,6 +565,7 @@ export function createShoppingItemEditorFeature({
       form()?.removeAttribute('inert');
       modal()?.removeAttribute('aria-busy');
       controller?.refresh?.();
+      if (memoryRenderPending) handleRoutingMemoryChange();
     }
   }
 
@@ -615,9 +717,11 @@ export function createShoppingItemEditorFeature({
       getSingleFields: () => Array.from(form()?.querySelectorAll('.ui-multi-add-single input, .ui-multi-add-single select') || []),
       readDefaults: readBulkDefaults,
       getContext: () => ({ identity: editingListIdentity, activeIdentity: activeList()?.client_mutation_id ?? activeList()?.id ?? null, generation: editorGeneration, locale: getActiveLocale(), canEdit: canMutate() }),
-      parse: (raw, defaults) => {
+      parse: async (raw, defaults) => {
+        if (routingMemory) await memoryReady;
         const parsed = quickAddResult(raw);
-        return { ...parsed, fields: resolveShoppingBulkQuickAddState(parsed, defaults) };
+        const fields = effectiveState({ name: '', quantity: '', unit: '', sectionId: null, storeId: null }, parsed, defaults);
+        return { ...routingPreview(parsed, fields), fields };
       },
       validate: parsed => parsed.errors?.[0] || (!validState(parsed.fields) ? 'shopping.item.error.invalidName' : null),
       onModeChange: nextMode => {
@@ -630,7 +734,7 @@ export function createShoppingItemEditorFeature({
           if (mode === 'create') void quickAddController?.refresh();
         }
       },
-      onSave: (results, { isCurrent, context }) => itemController?.createMany?.(results.map(result => result.fields), { listId: context.identity, isCurrent, submissionScope: bulkSubmissionScope }),
+      onSave: (results, { isCurrent, context }) => itemController?.createMany?.(results.map(result => withRoutingFeedback(result.fields)), { listId: context.identity, isCurrent, submissionScope: bulkSubmissionScope }),
       onSaved: created => {
         closeModal();
         showToast(t(`shopping.multiAdd.created.${created.length === 1 ? 'one' : 'many'}`, { count: created.length }));
@@ -650,6 +754,7 @@ export function createShoppingItemEditorFeature({
       getContext: () => ({ id: activeList()?.id, client_mutation_id: activeList()?.client_mutation_id, editorGeneration }),
       onCreated: (store, context) => {
         if (context.editorGeneration !== editorGeneration || !modal()?.classList.contains('active')) return;
+        if (routingMemory) (selectId.includes('-multi-') ? bulkRoutingTouched : routingTouched).add('stores');
         populateStores(store.client_mutation_id ?? store.id, selectId);
         if (bulk?.isActive()) bulk.refresh();
         else {
@@ -661,9 +766,19 @@ export function createShoppingItemEditorFeature({
     });
   }
 
+  function handleQuantityModeInput(event) {
+      if (!modal()?.classList.contains('active') || !canMutate()) return;
+      if (event.target.id === 'shopping-item-quantity-text' && event.target.value.trim()) {
+        doc.getElementById('shopping-item-quantity').value = ''; doc.getElementById('shopping-item-unit').value = '';
+      } else if (['shopping-item-quantity', 'shopping-item-unit'].includes(event.target.id) && event.target.value.trim()) {
+        const free = doc.getElementById('shopping-item-quantity-text'); if (free) free.value = '';
+      }
+  }
+
   function bind() {
     if (bound) return;
     bound = true;
+    doc?.addEventListener?.('input', handleQuantityModeInput, true);
     storeCreator = bindStoreCreator('shopping-item', 'shopping-item-store');
     bulkStoreCreator = bindStoreCreator('shopping-item-multi', 'shopping-item-multi-store');
     bindBulk();
@@ -674,6 +789,7 @@ export function createShoppingItemEditorFeature({
     doc?.addEventListener?.('click', handleClick);
     doc?.addEventListener?.('keydown', handleKeydown);
     eventTarget?.addEventListener?.('nia-language-change', handleLanguageChange);
+    eventTarget?.addEventListener?.('nia-routing-memory-changed', handleRoutingMemoryChange);
     registerUiLayer('shopping-item-modal', hideModal);
     reconcile();
   }
@@ -689,6 +805,7 @@ export function createShoppingItemEditorFeature({
     destroy() {
       if (!bound) return;
       bound = false;
+      doc?.removeEventListener?.('input', handleQuantityModeInput, true);
       bulk?.destroy();
       bulk = null;
       bulkStoreCreator?.destroy?.();
@@ -703,6 +820,7 @@ export function createShoppingItemEditorFeature({
       doc?.removeEventListener?.('click', handleClick);
       doc?.removeEventListener?.('keydown', handleKeydown);
       eventTarget?.removeEventListener?.('nia-language-change', handleLanguageChange);
+      eventTarget?.removeEventListener?.('nia-routing-memory-changed', handleRoutingMemoryChange);
       storeCreator?.destroy?.();
       storeCreator = null;
       saveState?.destroy?.();

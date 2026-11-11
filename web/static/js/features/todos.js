@@ -12,6 +12,8 @@ import { createTodoMultiAddFeature } from './todo-multi-add.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { acquireSyncCommitLock, projectPendingSectionsSnapshot, projectPendingTodoChanges, runCurrentEntityMutation } from './todo-pending.js';
 import { runAccessFencedCommit } from './entity-access-privacy.js';
+import { mergeRoutingFeedback } from './routing-memory-matcher.js';
+import { withoutPrivateRoutingMetadata } from './entity-metadata.js';
 
 const TODO_META_SUMMARY_CONTROL_IDS = new Set([
   'todo-project',
@@ -89,6 +91,7 @@ export function createTodosFeature({
   syncDateTimePickers,
   openDateTimePicker,
   getActiveModule = () => 'tasks',
+  routingMemory = null,
   getSessionIdentity = () => null,
   syncInProgressRef = {},
 }) {
@@ -101,6 +104,7 @@ export function createTodosFeature({
   const pendingDeleteTargets = new Set();
   let badgeOpenedSingleChoiceTarget = null;
   let pendingMetaReturnFocusTarget = null;
+  let todoRoutingDefaults = { projectId: null, sectionId: null };
   const deletingSubtaskIds = new Set();
   const TODO_MODAL_CLASSES = Object.freeze({
     detail: 'todo-detail-view',
@@ -150,13 +154,20 @@ export function createTodosFeature({
     parseQuickAddTitle,
     renderQuickAddPreview,
     bindQuickAddPreview,
+    currentRoutingOptions,
+    resetRoutingPreview,
+    setRoutingPreviewBusy,
   } = createTodoQuickAddFeature({
     getActiveLanguage,
     t,
     getProjects,
     getCurrentProjectId,
+    getCurrentWorkspaceId,
     getSavedPlaces: () => savedPlaces,
+    getRoutingProjectId: () => todoRoutingDefaults.projectId,
     dbGetAll,
+    routingMemory,
+    onRoutingPreview: applyTodoRoutingPreview,
   });
 
   const multiAddFeature = createTodoMultiAddFeature({
@@ -166,6 +177,8 @@ export function createTodosFeature({
     getProjects,
     getSections,
     getCurrentProjectId,
+    getCurrentWorkspaceId,
+    routingMemory,
     getAppInitialized,
     getDb,
     dbPut,
@@ -183,6 +196,43 @@ export function createTodosFeature({
     closeModal,
     showToast,
   });
+
+  function renderTodoSectionOptions(projectId, sections, selectedSectionId = null) {
+    const select = document.getElementById('todo-section');
+    if (!select) return;
+    select.replaceChildren();
+    const none = document.createElement('option');
+    none.value = ''; none.dataset.i18nKey = 'todo.section.none'; none.textContent = t('todo.section.none'); select.appendChild(none);
+    for (const section of sections.filter(value => String(value.project_id) === String(projectId))) {
+      const option = document.createElement('option'); option.value = section.id; option.textContent = section.name; select.appendChild(option);
+    }
+    select.disabled = !projectId;
+    select.value = selectedSectionId || '';
+    refreshTodoSelect('todo-section');
+  }
+
+  function applyTodoRoutingPreview(parsed) {
+    if (document.getElementById('todo-id')?.value) return;
+    const project = document.getElementById('todo-project');
+    const section = document.getElementById('todo-section');
+    if (!project || !section) return;
+    const options = currentRoutingOptions();
+    if (options.projectExplicit) todoRoutingDefaults = { projectId: project.value || null, sectionId: null };
+    if (options.sectionExplicit) todoRoutingDefaults = { projectId: project.value || null, sectionId: section.value || null };
+    const changes = parsed?.changes || {};
+    const projectId = Object.hasOwn(changes, 'project_id') ? changes.project_id : todoRoutingDefaults.projectId;
+    const sectionId = Object.hasOwn(changes, 'section_id') ? changes.section_id
+      : String(projectId ?? '') === String(todoRoutingDefaults.projectId ?? '') ? todoRoutingDefaults.sectionId : null;
+    const projectChanged = String(project.value || '') !== String(projectId || '');
+    if (projectChanged) project.value = projectId || '';
+    const sections = parsed?.routing_sections || getSections();
+    if (projectChanged || (sectionId != null && !Array.from(section.options).some(option => String(option.value) === String(sectionId)))) {
+      renderTodoSectionOptions(projectId, sections, sectionId);
+    }
+    section.value = sectionId || '';
+    refreshTodoSelect('todo-project'); refreshTodoSelect('todo-section');
+    renderTodoMetaSummary(null);
+  }
 
   function escapeHtmlAttr(value) {
     return String(value ?? '')
@@ -1017,6 +1067,8 @@ export function createTodosFeature({
 
   function remapPendingTargetId(kind, from, to) {
     if (!['project', 'section'].includes(kind) || from == null || to == null || String(from) === String(to)) return false;
+    const routingDefaultField = kind === 'project' ? 'projectId' : 'sectionId';
+    if (String(todoRoutingDefaults[routingDefaultField]) === String(from)) todoRoutingDefaults[routingDefaultField] = to;
     let changed = false;
     for (const id of [`todo-${kind}`, `todo-multi-${kind}`]) {
       const select = document.getElementById(id);
@@ -2537,6 +2589,8 @@ export function createTodosFeature({
     updateRecurringControls();
     setupDescPreview();
     syncDateTimePickers?.();
+    todoRoutingDefaults = { projectId: document.getElementById('todo-project')?.value || null, sectionId: document.getElementById('todo-section')?.value || null };
+    resetRoutingPreview();
     bindQuickAddPreview();
     renderQuickAddPreview(null);
     if (!todo) {
@@ -2604,15 +2658,7 @@ export function createTodosFeature({
       } else {
         projectSections = await loadLocalSections();
       }
-      translatePage(sectionSelect);
-      for (const s of projectSections) {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = s.name;
-        sectionSelect.appendChild(opt);
-      }
-      sectionSelect.disabled = false;
-      if (selectedSectionId !== null) sectionSelect.value = selectedSectionId;
+      renderTodoSectionOptions(projectId, projectSections, typeof selectedSectionId === 'object' ? null : selectedSectionId);
     } catch (e) {
       console.error('Failed to load sections for project', e);
     } finally {
@@ -2631,9 +2677,12 @@ export function createTodosFeature({
       return;
     }
     if (!getAppInitialized() || !getDb()) return;
+    setRoutingPreviewBusy(true);
+    try {
+    const routingSnapshot = routingMemory?.capture?.() || routingMemory;
     if (!validateTodoDateTimes()) return;
     const id = document.getElementById('todo-id').value;
-    const parsedQuickAdd = id ? null : await parseQuickAddTitle(document.getElementById('todo-title').value, getCurrentProjectId(), document.getElementById('todo-project')?.value || null);
+    const parsedQuickAdd = id ? null : await parseQuickAddTitle(document.getElementById('todo-title').value, getCurrentProjectId(), document.getElementById('todo-project')?.value || null, { ...currentRoutingOptions(), routingSnapshot });
     const todoData = {
       title: parsedQuickAdd?.title || document.getElementById('todo-title').value,
       description: document.getElementById('todo-desc').value,
@@ -2654,8 +2703,8 @@ export function createTodosFeature({
     }
     if (parsedQuickAdd) {
       if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
-      if (parsedQuickAdd.changes.project_id) todoData.project_id = parsedQuickAdd.changes.project_id;
-      if (parsedQuickAdd.changes.section_id && !todoData.section_id) todoData.section_id = parsedQuickAdd.changes.section_id;
+      if (Object.hasOwn(parsedQuickAdd.changes, 'project_id')) todoData.project_id = parsedQuickAdd.changes.project_id;
+      if (Object.hasOwn(parsedQuickAdd.changes, 'section_id')) todoData.section_id = parsedQuickAdd.changes.section_id;
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
       if (parsedQuickAdd.changes.recurring_rule && !todoData.recurring_rule) todoData.recurring_rule = parsedQuickAdd.changes.recurring_rule;
@@ -2686,6 +2735,14 @@ export function createTodosFeature({
         ? document.getElementById('todo-project').value || null : undefined });
     if (!targets) return;
     Object.assign(todoData, targets);
+    const explicitRouting = currentRoutingOptions();
+    const chosenRoutingFields = new Set(parsedQuickAdd?.routing_fields || []);
+    if (explicitRouting.projectExplicit) chosenRoutingFields.add('list');
+    if (explicitRouting.sectionExplicit) chosenRoutingFields.add('section');
+    if (!id && !(parsedQuickAdd?.memory_fields || []).includes('list') && getCurrentProjectId() != null
+      && String(todoData.project_id) === String(getCurrentProjectId())) chosenRoutingFields.add('list');
+    const routingFeedback = routingSnapshot?.feedback([...chosenRoutingFields]);
+    const withRoutingFeedback = data => routingFeedback ? { ...data, routing_feedback: routingFeedback } : data;
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
     const locationReminderIntent = Boolean(todoData.location_reminder) && (
       !id || document.getElementById('todo-form')?.dataset.locationReminderDirty === '1'
@@ -2712,7 +2769,7 @@ export function createTodosFeature({
     }
     if (id) delete todoData.subtasks;
     if (id) {
-      const updated = await runCurrentEntityMutation(parseInt(id), {
+      const updated = await runCurrentEntityMutation(id, {
         getEntities: getTodos,
         commit: commitQueuedMutation,
         mutate: async (existing, enqueue) => {
@@ -2727,8 +2784,18 @@ export function createTodosFeature({
           const nowIso = new Date().toISOString();
           const nextTodo = { ...existing, ...todoData, completed_at: todoData.status === 'done' ? (existing.completed_at || nowIso) : null, updated_at: nowIso };
           await dbPut('todos', nextTodo);
-          setTodos(getTodos().map(todo => todo.id === parseInt(id) ? nextTodo : todo));
-          await enqueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
+          setTodos(getTodos().map(todo => String(todo.id) === String(id) ? nextTodo : todo));
+          const pendingCreate = String(id).startsWith('temp-')
+            ? (await dbGetAll('syncQueue')).find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(id)
+              && !item.attempted && !item.data?.create_attempted && !item.data?.create_receipt)
+            : null;
+          if (pendingCreate) {
+            const feedback = mergeRoutingFeedback(pendingCreate.data.routing_feedback, routingFeedback);
+            const data = { ...pendingCreate.data, ...todoData };
+            delete data.routing_feedback;
+            if (feedback) data.routing_feedback = feedback;
+            await dbPut('syncQueue', { ...pendingCreate, data });
+          } else await enqueue('UPDATE_TODO', { id: existing.id, changes: withRoutingFeedback(todoData) });
           return nextTodo;
         },
       });
@@ -2737,7 +2804,7 @@ export function createTodosFeature({
       if (isOnlineForSync()) await syncWithServer();
     } else if (hasPostCreateDrafts && isOnlineForSync() && !hasPendingTarget()) {
       const createPrivacyGeneration = Number(syncInProgressRef?.privacyGeneration || 0);
-      let createdTodo = await todosApi.create(todoData);
+      let createdTodo = await todosApi.create(withRoutingFeedback(todoData));
       let createApplied = false;
       const createCommitted = await runAccessFencedCommit({
         syncInProgressRef,
@@ -2800,7 +2867,7 @@ export function createTodosFeature({
         }
         await dbPut('todos', newTodo);
         setTodos([...getTodos(), newTodo]);
-        await enqueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+        await enqueue('CREATE_TODO', { ...withRoutingFeedback(todoData), _tempId: tempId });
         for (const comment of pendingComments) {
           await enqueue('CREATE_COMMENT', {
             todo_id: tempId,
@@ -2830,10 +2897,14 @@ export function createTodosFeature({
       renderTodos();
       closeModal('todo-modal');
     }
+    } finally { setRoutingPreviewBusy(false); }
   }
 
   async function updateTodoFields(id, changes, toastMessage = null, { sync = true } = {}) {
     if (!getAppInitialized() || !getDb()) return;
+    const routeFields = ['project_id', 'section_id'].filter(field => Object.hasOwn(changes, field))
+      .map(field => field === 'project_id' ? 'list' : 'section');
+    const routingFeedback = routeFields.length ? routingMemory?.feedback(routeFields) : null;
     const result = await runCurrentEntityMutation(id, {
       getEntities: getTodos,
       commit: commitQueuedMutation,
@@ -2844,7 +2915,7 @@ export function createTodosFeature({
         const updatedTodo = { ...todo, ...changes, completed_at, updated_at: nowIso };
         await dbPut('todos', updatedTodo);
         setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
-        await enqueue('UPDATE_TODO', { id: todo.id, changes });
+        await enqueue('UPDATE_TODO', { id: todo.id, changes: routingFeedback ? { ...changes, routing_feedback: routingFeedback } : changes });
         return { previous: todo, updated: updatedTodo };
       },
     });
@@ -3024,7 +3095,7 @@ export function createTodosFeature({
           if (!target.isCurrent()) return null;
           const data = { id: current.id, project_id: current.project_id ?? null,
             undo_grace_until: Date.now() + 5000,
-            local_todo: structuredClone(current) };
+            local_todo: structuredClone(withoutPrivateRoutingMetadata(current)) };
           await deleteFromDB('todos', current.id);
           if (!target.isCurrent()) return null;
           setTodos(getTodos().filter(candidate => String(candidate.id) !== String(current.id)));
@@ -3036,7 +3107,7 @@ export function createTodosFeature({
       renderStats();
       renderTodos();
       closeModal('todo-modal');
-      showToast(t('todo.toast.deleted'), { type: 'delete', id: todo.id, data: { ...todo } });
+      showToast(t('todo.toast.deleted'), { type: 'delete', id: todo.id, data: withoutPrivateRoutingMetadata(todo) });
 
       if (isOnlineForSync()) await syncWithServer();
       setTimeout(() => {

@@ -1,20 +1,24 @@
+import { TRANSFER_RECIPE_TO_SHOPPING, isRecipeShoppingTransfer, sanitizeRecipeShoppingTransfer, transferReferencesCookbook } from '../features/recipe-shopping-pending.js';
 import { DB_NAME, DB_VERSION } from '../core/config.js';
 import { queueItemReferencesShoppingList } from '../features/shopping-pending.js';
 import { queueItemReferencesTodo } from '../features/todo-pending.js';
+import { mergeRecipeStepIngredients, recipeActions, recipeBookId, recipeReferences, sanitizeRecipeEntry } from '../features/recipe-pending.js';
+import { cookbookMetadata } from '../features/cookbooks.js';
+import { commitEntityReplay, commitMetadataMutation, evictEntityMetadata, markMetadataMutationAttempt } from './entity-metadata.js';
 
 let db = null;
 let dbReady = false;
 let dbGeneration = 0;
-const pendingAvatarOperations = [];
+const pendingCacheOperations = [];
 
-function cancelPendingAvatarOperations() {
-  const operations = pendingAvatarOperations.splice(0);
+function cancelPendingCacheOperations() {
+  const operations = pendingCacheOperations.splice(0);
   for (const operation of operations) operation.cancel();
 }
 
-async function flushPendingAvatarOperations(generation) {
-  while (dbReady && generation === dbGeneration && pendingAvatarOperations.length) {
-    const operation = pendingAvatarOperations.shift();
+async function flushPendingCacheOperations(generation) {
+  while (dbReady && generation === dbGeneration && pendingCacheOperations.length) {
+    const operation = pendingCacheOperations.shift();
     if (operation.generation !== dbGeneration) {
       operation.cancel();
       continue;
@@ -35,7 +39,7 @@ export async function closeAndDeleteDatabase() {
   return new Promise((resolve) => {
     dbGeneration += 1;
     dbReady = false;
-    cancelPendingAvatarOperations();
+    cancelPendingCacheOperations();
     if (db) {
       db.close();
       db = null;
@@ -78,6 +82,10 @@ export function openDatabase() {
       if (!db.objectStoreNames.contains('shoppingStores')) {
         db.createObjectStore('shoppingStores', { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains('entityImages')) db.createObjectStore('entityImages', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('cookbooks')) {
+        db.createObjectStore('cookbooks', { keyPath: 'id' });
+      }
       if (Number(event.oldVersion || 0) > 0 && Number(event.oldVersion || 0) < 8) {
         const upgradeTransaction = event.target.transaction;
         upgradeTransaction?.objectStore?.('shoppingLists')?.clear?.();
@@ -103,7 +111,7 @@ export function openDatabase() {
       db = event.target.result;
       dbReady = true;
       console.log('IndexedDB opened');
-      await flushPendingAvatarOperations(generation);
+      await flushPendingCacheOperations(generation);
       resolve(db);
     };
     request.onerror = () => reject(request.error);
@@ -264,92 +272,65 @@ export function commitShoppingMutation({
 }
 
 export function commitShoppingReplay({
-  list,
-  removeListIds = [],
-  store,
-  stores = [],
-  removeStoreIds = [],
-  queueDeleteId,
-  queueDeleteIds = [],
-  queueRecords = [],
-  database = db,
+  list, removeListIds = [], store, stores = [], removeStoreIds = [],
+  queueDeleteId, queueDeleteIds = [], queueRecords = [], requireQueueId, database = db,
 } = {}) {
-  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
-  return new Promise((resolve, reject) => {
-    let tx;
-    try {
-      tx = database.transaction(['shoppingLists', 'shoppingStores', 'syncQueue'], 'readwrite');
-      const listStore = tx.objectStore('shoppingLists');
-      const storeStore = tx.objectStore('shoppingStores');
-      const queueStore = tx.objectStore('syncQueue');
-      for (const listId of removeListIds) listStore.delete(listId);
-      if (list) listStore.put(list);
-      for (const storeId of removeStoreIds) storeStore.delete(storeId);
-      if (store) storeStore.put(store);
-      for (const shoppingStore of stores) storeStore.put(shoppingStore);
-      for (const record of queueRecords) queueStore.put(record);
-      for (const recordId of queueDeleteIds) queueStore.delete(recordId);
-      if (queueDeleteId !== undefined && queueDeleteId !== null) queueStore.delete(queueDeleteId);
-    } catch (error) {
-      tx?.abort?.();
-      reject(error);
-      return;
-    }
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('Failed to commit shopping replay'));
-    tx.onabort = () => reject(tx.error || new Error('Shopping replay transaction was aborted'));
+  return commitEntityReplay({
+    writes: { shoppingLists: list ? [list] : [], shoppingStores: [...(store ? [store] : []), ...stores] },
+    remove: { shoppingLists: removeListIds, shoppingStores: removeStoreIds },
+    queueDeleteId, queueDeleteIds, queueRecords, requireQueueId, database,
   });
 }
 
 export function evictPendingShoppingEntities(listIds, { database = db, signal } = {}) {
-  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
   const ids = [...new Set((listIds || []).filter(id => id != null))];
   if (!ids.length) return Promise.resolve();
-  if (signal?.aborted) return Promise.reject(new DOMException('Pending shopping eviction was aborted', 'AbortError'));
-  const blocked = new Set(ids.map(id => String(id)));
-  return new Promise((resolve, reject) => {
-    let tx;
-    try {
-      tx = database.transaction(['shoppingLists', 'shoppingStores', 'syncQueue'], 'readwrite');
-      signal?.addEventListener?.('abort', () => {
-        try { tx.abort(); } catch {}
-      }, { once: true });
-      const listsStore = tx.objectStore('shoppingLists');
-      const storesStore = tx.objectStore('shoppingStores');
-      const queueStore = tx.objectStore('syncQueue');
-      for (const id of ids) {
-        listsStore.delete(id);
-        if (typeof id === 'number' && Number.isInteger(id)) listsStore.delete(String(id));
-        if (typeof id === 'string' && /^\d+$/.test(id)) listsStore.delete(Number(id));
-      }
-
-      const storesRequest = storesStore.getAll();
-      storesRequest.onsuccess = () => {
-        for (const store of storesRequest.result || []) {
-          if (blocked.has(String(store.shopping_list_id))) storesStore.delete(store.id);
-        }
-      };
-      storesRequest.onerror = () => tx.abort();
-
-      const queueRequest = queueStore.getAll();
-      queueRequest.onsuccess = () => {
-        const stores = storesRequest.result || [];
-        for (const entry of queueRequest.result || []) {
-          if (ids.some(id => queueItemReferencesShoppingList(entry, id, stores))) queueStore.delete(entry.id);
-        }
-      };
-      queueRequest.onerror = () => tx.abort();
-    } catch (error) {
-      tx?.abort?.();
-      reject(error);
-      return;
-    }
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('Failed to evict pending shopping entities'));
-    tx.onabort = () => reject(signal?.aborted
-      ? new DOMException('Pending shopping eviction was aborted', 'AbortError')
-      : (tx.error || new Error('Pending shopping eviction was aborted')));
+  const blocked = new Set(ids.map(String));
+  return evictEntityMetadata({ database, signal,
+    remove: { shoppingLists: ids }, scan: { shoppingStores: store => blocked.has(String(store.shopping_list_id)) },
+    references: (entry, records) => ids.some(id => queueItemReferencesShoppingList(entry, id, records.shoppingStores)),
   });
+}
+
+export function commitCookbookMutation({ cookbook, deleteCookbookId, action, data,
+  database = db, timestamp, localUpdatedAt } = {}) {
+  return commitMetadataMutation({ contract: cookbookMetadata, entity: cookbook, deleteId: deleteCookbookId,
+    action, data, database, timestamp, localUpdatedAt, extraStores: ['entityImages'],
+    onMutation: deleteCookbookId == null ? null : (tx, queue) => {
+      if (queue.some(entry => transferReferencesCookbook(entry, deleteCookbookId) && !entry.blocked)) {
+        const error = new Error('Recipe Shopping transfer must settle before its cookbook can be deleted');
+        error.code = 'recipe.transfer.pendingSource';
+        throw error;
+      }
+      queue.filter(entry => String(recipeBookId(entry)) === String(deleteCookbookId)).forEach(entry => tx.objectStore('syncQueue').delete(entry.id));
+      const request = tx.objectStore('entityImages').openCursor();
+      request.onsuccess = () => { const cursor = request.result; if (!cursor) return;
+        if (String(cursor.value.cookbook_id) === String(deleteCookbookId)) cursor.delete(); cursor.continue(); };
+    } });
+}
+
+export function commitCookbookReplay({ entity, entities = [], removeIds = [], queueRecords = [],
+  queueDeleteId, queueDeleteIds = [], requireQueueId, removeRecipeIds = [], authoritativeCookbookIds = null, database = db } = {}) {
+  return commitEntityReplay({ writes: { cookbooks: [...entities, ...(entity ? [entity] : [])] },
+    remove: { cookbooks: removeIds }, scanRemove: { entityImages: row => (Array.isArray(authoritativeCookbookIds) && !authoritativeCookbookIds.some(id => String(id) === String(row.cookbook_id)))
+      || removeIds.some(id => String(row.cookbook_id) === String(id))
+      || removeRecipeIds.some(id => String(row.recipe_id) === String(id))
+      || [...entities, ...(entity ? [entity] : [])].some(book => String(book.id) === String(row.cookbook_id)
+        && !(book.recipes || []).some(recipe => String(recipe.id) === String(row.recipe_id))) },
+    queueRecords, queueDeleteId, queueDeleteIds, requireQueueId, database });
+}
+
+export function markCookbookMutationAttempt(queueId, { database = db } = {}) {
+  return markMetadataMutationAttempt({ contract: cookbookMetadata, queueId, database });
+}
+
+export function evictPendingCookbookEntities(entityIds, { database = db, signal, accessibleCookbookIds = [] } = {}) {
+  const accessible = new Set(accessibleCookbookIds.map(String));
+  const ids = [...new Set((entityIds || []).filter(id => id != null && !accessible.has(String(id))))];
+  if (!ids.length) return Promise.resolve();
+  return evictEntityMetadata({ database, signal, remove: { cookbooks: ids },
+    scan: { entityImages: row => ids.some(id => String(row.cookbook_id) === String(id)) },
+    references: entry => ids.some(id => cookbookMetadata.references(entry, id) || String(recipeBookId(entry)) === String(id) || transferReferencesCookbook(entry, id)) });
 }
 
 export function evictPendingProjectEntities(projectIds, {
@@ -593,40 +574,146 @@ export function remove(storeName, id) {
   });
 }
 
-export function putAvatarWhenReady(item, isCurrent = () => true, expectedGeneration = dbGeneration) {
-  const operation = () => (
-    expectedGeneration === dbGeneration && isCurrent()
-      ? put('avatars', item)
-      : Promise.resolve()
-  );
-  if (expectedGeneration !== dbGeneration) return Promise.resolve();
-  if (dbReady) return operation();
-  pendingAvatarOperations.push({ generation: expectedGeneration, run: operation, cancel() {} });
-  return Promise.resolve();
-}
-
-export function removeAvatarWhenReady(id) {
-  const operation = () => remove('avatars', id);
-  if (dbReady) return operation();
-  pendingAvatarOperations.push({ generation: dbGeneration, run: operation, cancel() {} });
-  return Promise.resolve();
-}
-
-export function getAvatarIfReady(id) {
-  return dbReady ? get('avatars', id) : Promise.resolve(null);
-}
-
-export function getAvatarWhenReady(id) {
-  if (dbReady) return get('avatars', id);
-  return new Promise((resolve) => {
-    pendingAvatarOperations.push({
-      generation: dbGeneration,
-      run: async () => resolve(await get('avatars', id)),
-      cancel: () => resolve(null),
-    });
+/** One generation-fenced readiness queue for private binary caches. */
+function createReadyCache(storeName) {
+  const putWhenReady = (item, isCurrent = () => true, generation = dbGeneration) => {
+    const operation = () => generation === dbGeneration && isCurrent() ? put(storeName, item) : Promise.resolve();
+    if (generation !== dbGeneration) return Promise.resolve();
+    if (dbReady) return operation();
+    pendingCacheOperations.push({ generation, run: operation, cancel() {} });
+    return Promise.resolve();
+  };
+  const removeWhenReady = id => {
+    const generation = dbGeneration;
+    const operation = () => generation === dbGeneration ? remove(storeName, id) : Promise.resolve();
+    if (dbReady) return operation();
+    pendingCacheOperations.push({ generation, run: operation, cancel() {} });
+    return Promise.resolve();
+  };
+  const getIfReady = id => dbReady ? get(storeName, id) : Promise.resolve(null);
+  const getWhenReady = id => dbReady ? get(storeName, id) : new Promise((resolve, reject) => {
+    pendingCacheOperations.push({ generation: dbGeneration,
+      run: async () => { try { resolve(await get(storeName, id)); } catch (error) { reject(error); throw error; } },
+      cancel: () => resolve(null) });
   });
+  return { putWhenReady, removeWhenReady, getIfReady, getWhenReady };
 }
+const avatarCache = createReadyCache('avatars');
+export const putAvatarWhenReady = avatarCache.putWhenReady;
+export const removeAvatarWhenReady = avatarCache.removeWhenReady;
+export const getAvatarIfReady = avatarCache.getIfReady;
+export const getAvatarWhenReady = avatarCache.getWhenReady;
+const entityImageCache = createReadyCache('entityImages');
+export const putEntityImageWhenReady = entityImageCache.putWhenReady;
+export const removeEntityImageWhenReady = entityImageCache.removeWhenReady;
+export const getEntityImageIfReady = entityImageCache.getIfReady;
+export const getEntityImageWhenReady = entityImageCache.getWhenReady;
 
 export function hasDb() {
   return Boolean(db);
+}
+
+/** Nested recipe cache and intent share one durable transaction. */
+export function commitRecipeMutation({ cookbook, recipe, deleteRecipeId, clearRecipeQueueId, action, data, actor_id, result,
+  database = db, timestamp = Date.now() } = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  if (action && !recipeActions.has(action)) return Promise.reject(new Error('Unknown recipe mutation'));
+  return new Promise((resolve, reject) => {
+    let tx; let failure;
+    try {
+      tx = database.transaction(['cookbooks', 'syncQueue', 'entityImages'], 'readwrite');
+      const store = tx.objectStore('syncQueue');
+      const request = store.getAll();
+      request.onsuccess = () => {
+        try {
+          const queue = request.result || [];
+          const target = data?.id ?? data?.temp_id ?? clearRecipeQueueId;
+          let related = queue.filter(entry => recipeActions.has(entry.action) && recipeReferences(entry, target));
+          if (clearRecipeQueueId != null) {
+            related.forEach(entry => store.delete(entry.id));
+            related = [];
+          }
+          tx.objectStore('cookbooks').put(cookbook);
+          if (deleteRecipeId != null) {
+            const images = tx.objectStore('entityImages').openCursor();
+            images.onsuccess = () => { const cursor = images.result; if (!cursor) return;
+              if (String(cursor.value.recipe_id) === String(deleteRecipeId) && String(cursor.value.cookbook_id) === String(cookbook.id)) cursor.delete(); cursor.continue(); };
+          }
+          if (!action) return;
+          if (action === 'UPDATE_RECIPE' && related.some(entry => entry.action === 'DELETE_RECIPE')) throw new Error('Recipe is pending deletion');
+          const create = related.find(entry => entry.action === 'CREATE_RECIPE');
+          const last = related.at(-1);
+          // A queued copy refers to this exact source receipt, even before HTTP.
+          // Later source edits must get a new receipt rather than changing it.
+          const sealed = entry => queue.some(transfer => isRecipeShoppingTransfer(transfer)
+            && String(transfer.actor_id) === String(entry.actor_id)
+            && transfer.data.source_mutation_id != null
+            && transfer.data.source_mutation_id === entry.data.client_mutation_id);
+          const record = { ...sanitizeRecipeEntry({ action, data }), actor_id, timestamp, localRecipe: recipe || result };
+          const coalesceChanges = previous => {
+            const changes = { ...previous, ...record.data.changes };
+            // Replacing an unsent steps array must retain the effective PATCH
+            // defaults from preceding edits, without widening unrelated fields.
+            if (Object.hasOwn(changes, 'steps')) {
+              const current = record.localRecipe || cookbook.recipes?.find(row => String(row.id) === String(target)) || previous;
+              changes.steps = mergeRecipeStepIngredients(current, record.data.changes).steps;
+            }
+            return changes;
+          };
+          if (action === 'DELETE_RECIPE' && create && related.every(entry => !entry.attempted && !sealed(entry))) related.forEach(entry => store.delete(entry.id));
+          else if (action === 'UPDATE_RECIPE' && create && !create.attempted && !sealed(create)) store.put({ ...create, data: coalesceChanges(create.data) });
+          else if (action === 'UPDATE_RECIPE' && last?.action === 'UPDATE_RECIPE' && !last.attempted && !sealed(last)) store.put({ ...last,
+            data: { ...last.data, changes: coalesceChanges(last.data.changes) } });
+          else if (action === 'CREATE_RECIPE' && create || action === 'DELETE_RECIPE' && last?.action === 'DELETE_RECIPE') { /* Already queued. */ }
+          else {
+            if (action === 'DELETE_RECIPE') related.filter(entry => entry.action === 'UPDATE_RECIPE' && !entry.attempted && !sealed(entry)).forEach(entry => store.delete(entry.id));
+            store.put(record);
+          }
+        } catch (error) { failure = error; tx.abort(); }
+      };
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = tx.onabort = () => reject(failure || tx.error || new Error('Recipe mutation failed'));
+    } catch (error) { tx?.abort?.(); reject(error); }
+  });
+}
+export const commitRecipeReplay = replay => commitCookbookReplay(replay);
+export function markRecipeMutationAttempt(queueId, { database = db } = {}) {
+  return markMetadataMutationAttempt({ contract: { actions: recipeActions }, queueId, database });
+}
+
+/** One actor-scoped durable intent; no guessed Shopping merge or cached preview. */
+export function commitRecipeShoppingTransfer(mutation, { database = db } = {}) {
+  if (!database) return Promise.reject(new Error('IndexedDB is not open'));
+  if (!mutation || mutation.actor_id == null) return Promise.reject(new Error('Recipe transfer actor is required'));
+  return new Promise((resolve, reject) => {
+    let tx, result = null, failure;
+    try {
+      tx = database.transaction(['syncQueue'], 'readwrite');
+      const store = tx.objectStore('syncQueue'), request = store.getAll();
+      request.onsuccess = () => {
+        try {
+          const records = (request.result || []).filter(row => isRecipeShoppingTransfer(row) && String(row.actor_id) === String(mutation.actor_id));
+          if (mutation.cancelMutationId != null) {
+            const canceled = records.find(row => row.data.client_mutation_id === mutation.cancelMutationId);
+            if (canceled && (!canceled.attempted || canceled.blocked)) { store.delete(canceled.id); result = true; }
+            else result = false;
+            return;
+          }
+          const entry = sanitizeRecipeShoppingTransfer(mutation);
+          if (!entry) throw new Error('Invalid recipe Shopping transfer');
+          const duplicate = records.find(row => row.data.client_mutation_id === entry.data.client_mutation_id || String(row.data.recipe_id) === String(entry.data.recipe_id));
+          if (duplicate) { result = duplicate; return; }
+          result = { ...entry, timestamp: Date.now(), localUpdatedAt: new Date().toISOString() };
+          const added = store.add(result);
+          added.onsuccess = () => { result.id = added.result; };
+        } catch (error) { failure = error; tx.abort(); }
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = tx.onabort = () => reject(failure || tx.error || new Error('Recipe Shopping transfer commit failed'));
+    } catch (error) { tx?.abort?.(); reject(error); }
+  });
+}
+export function markRecipeShoppingTransferAttempt(queueId, { actorId, database = db } = {}) {
+  return markMetadataMutationAttempt({ contract: { actions: new Set([TRANSFER_RECIPE_TO_SHOPPING]) }, queueId, database,
+    validateRecord: row => actorId != null && String(row.actor_id) === String(actorId) && !row.blocked });
 }

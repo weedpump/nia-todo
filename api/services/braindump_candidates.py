@@ -234,7 +234,8 @@ def _route_values(candidate: dict) -> tuple:
     if candidate.get("module_id") == "shopping":
         return (candidate.get("shopping_list_id"), candidate.get("shopping_section_id"),
                 tuple(sorted(candidate.get("shopping_store_ids") or [])))
-    return (_name_key(candidate.get("project_name")) or None, _name_key(candidate.get("section_name")) or None, ())
+    return (candidate.get("project_id") or _name_key(candidate.get("project_name")) or None,
+            candidate.get("section_id") or _name_key(candidate.get("section_name")) or None, ())
 
 
 def _present_route_fields(candidate: dict) -> set[str]:
@@ -283,9 +284,9 @@ def _explicit_route_fields(raw: dict, candidate: dict, context: dict, transcript
     # explicitly cleared one. Protect supplied fields, including null/[], while
     # a valid explicit [] still opts inferred routes into historical corrections.
     if supplied is None:
-        if any(field in raw for field in ("shopping_list_id", "shopping_list_name", "project_name", "projectName", "project")):
+        if any(field in raw for field in ("shopping_list_id", "shopping_list_name", "project_id", "project_name", "projectName", "project")):
             explicit.add("container")
-        if any(field in raw for field in ("shopping_section_id", "shopping_section_name", "section_name", "sectionName", "section")):
+        if any(field in raw for field in ("shopping_section_id", "shopping_section_name", "section_id", "section_name", "sectionName", "section")):
             explicit.add("section")
         if any(field in raw for field in ("shopping_store_ids", "shopping_store_names", "shopping_store_name")):
             explicit.add("stores")

@@ -11,6 +11,10 @@
 .empty-state h3 { font-size: 18px; color: var(--text-secondary); margin-bottom: 8px; }
 
 /* Buttons */
+.btn[hidden] {
+  display: none;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -154,10 +158,10 @@
   font-size: 12px;
 }
 .btn-icon {
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: var(--btn-icon-size, 34px);
+  min-width: var(--btn-icon-size, 34px);
+  height: var(--btn-icon-size, 34px);
+  min-height: var(--btn-icon-size, 34px);
   padding: 0;
   border-radius: 999px;
   flex: 0 0 auto;

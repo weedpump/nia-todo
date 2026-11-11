@@ -1,3 +1,5 @@
+import { normalizeQuantityUnit } from '../core/quantity-units.js';
+import { formatQuantity } from '../core/recipe-quantities.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { registerItemSwipeAdapter, renderItemSwipeShell } from '../ui/item-swipe.js';
 
@@ -23,13 +25,8 @@ function clone(value) {
 }
 
 export function formatShoppingQuantity(item = {}, locale = undefined) {
-  const hasValue = item.quantity_value !== null && item.quantity_value !== undefined && item.quantity_value !== '';
-  const numericValue = hasValue ? Number(item.quantity_value) : null;
-  const quantity = hasValue && Number.isFinite(numericValue)
-    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 20 }).format(numericValue)
-    : '';
-  const unit = String(item.quantity_unit ?? '').trim();
-  return [quantity, unit].filter(Boolean).join(' ');
+  if (item.quantity_text) return String(item.quantity_text).trim();
+  return formatQuantity(item.quantity_value, item.quantity_unit, locale, { kitchen: item.quantity_display_mode === 'kitchen' });
 }
 
 export function renderShoppingItem({ item = {}, canEdit = false, locale = undefined, labels = {} } = {}) {
@@ -37,6 +34,9 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
   const editable = canEdit === true;
   const id = escapeHtmlAttr(String(item.id ?? ''));
   const quantity = formatShoppingQuantity(item, locale);
+  const sourceTitles = [...new Set((item.recipe_sources || []).map(source => source.recipe_title).filter(Boolean))];
+  const caption = [item.note, sourceTitles.slice(0, 2).join(', ') + (sourceTitles.length > 2 ? ` +${sourceTitles.length - 2}` : '')].filter(Boolean).join(' · ');
+  const copy = `<span class="shopping-item-copy"><span class="shopping-item-title">${escapeHtml(item.name || '')}</span>${caption ? `<span class="shopping-item-caption">${escapeHtml(caption)}</span>` : ''}</span>`;
   const ariaLabel = completed ? labels.markOpen : labels.markCompleted;
   const editLabel = labels.edit || item.name || '';
   const classes = [
@@ -53,12 +53,12 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
       </button>
       ${editable ? `
         <button type="button" class="shopping-item-edit-trigger" data-shopping-item-action="open-edit" data-shopping-item-id="${id}" aria-label="${escapeHtmlAttr(editLabel)}">
-          <span class="shopping-item-title">${escapeHtml(item.name || '')}</span>
+          ${copy}
           ${quantity ? `<span class="ui-badge shopping-item-quantity">${escapeHtml(quantity)}</span>` : ''}
         </button>
       ` : `
         <div class="shopping-item-content">
-          <span class="shopping-item-title">${escapeHtml(item.name || '')}</span>
+          ${copy}
           ${quantity ? `<span class="ui-badge shopping-item-quantity">${escapeHtml(quantity)}</span>` : ''}
         </div>
       `}
@@ -90,6 +90,7 @@ export function createShoppingItemsController({
   onError = () => {},
   onEdit = () => {},
   enqueueListMutation = null,
+  routingMemory = null,
   createTempId = () => `temp-shopping-item-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
 } = {}) {
   const inFlight = new Map();
@@ -171,6 +172,13 @@ export function createShoppingItemsController({
       && (sameId(store.shopping_list_id, list.id) || sameId(store.shopping_list_id, list.client_mutation_id));
   }
 
+  function routingFeedback(value, allowedFields = ['list', 'section', 'stores']) {
+    if (!value || typeof value !== 'object' || typeof value.event_id !== 'string' || !value.event_id.trim()
+      || value.event_id.length > 200 || !Number.isInteger(value.generation) || value.generation < 0 || !Array.isArray(value.fields)) return undefined;
+    return { event_id: value.event_id, generation: value.generation,
+      fields: [...new Set(value.fields.filter(field => allowedFields.includes(field)))] };
+  }
+
   function prepareCreateInput(input = {}, live) {
     if (!input || typeof input !== 'object') return null;
     const name = String(input.name ?? '').trim();
@@ -179,31 +187,32 @@ export function createShoppingItemsController({
     const quantity = quantityText === '' || quantityText === null || quantityText === undefined
       ? null
       : Number(quantityText);
-    const unit = String(input.unit ?? input.quantity_unit ?? '').trim();
+    const unit = normalizeQuantityUnit(input.unit ?? input.quantity_unit) || '';
+    const freeQuantity = String(input.quantity_text ?? '').trim();
+    const note = String(input.note ?? '').trim();
+    if (freeQuantity.length > 500 || note.length > 2000 || (freeQuantity && quantity !== null)) return null;
     const sectionValue = input.sectionId ?? input.section_id ?? null;
     const sectionInput = sectionValue === '' ? null : sectionValue;
     const suppliedStoreIds = input.store_ids;
     if (!name || name.length > 500) return null;
     if (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) return null;
     if (unit.length > 40) return null;
-    if (suppliedStoreIds !== undefined && (!Array.isArray(suppliedStoreIds) || suppliedStoreIds.length > 1)) return null;
-    const storeValue = input.storeId ?? suppliedStoreIds?.[0] ?? null;
-    const storeInput = storeValue === '' ? null : storeValue;
+    if (suppliedStoreIds !== undefined && (!Array.isArray(suppliedStoreIds) || suppliedStoreIds.length > 50)) return null;
+    const requestedStores = suppliedStoreIds !== undefined ? suppliedStoreIds : input.storeId == null || input.storeId === '' ? [] : [input.storeId];
     const section = sectionInput == null ? null : (live.sections || []).find(candidate => (
       sameId(candidate.id, sectionInput) || sameId(candidate.client_mutation_id, sectionInput)
     ));
     if (sectionInput != null && !section) return null;
-    const store = storeInput == null ? null : getStores().find(candidate => (
-      sameId(candidate.id, storeInput) || sameId(candidate.client_mutation_id, storeInput)
-    ));
-    if (storeInput != null && !canUseCreateStore(store, live)) return null;
+    const stores = requestedStores.map(id => getStores().find(candidate => sameId(candidate.id, id) || sameId(candidate.client_mutation_id, id)));
+    if (stores.some(store => !canUseCreateStore(store, live))) return null;
     const clientMutationId = input.client_mutation_id;
     if (clientMutationId != null && (typeof clientMutationId !== 'string'
       || !clientMutationId.trim() || clientMutationId.length > 120)) return null;
     return {
-      name, quantity, unit,
+      name, quantity, unit, freeQuantity, note,
       sectionIdentity: section?.client_mutation_id ?? section?.id ?? null,
-      storeIdentity: store?.client_mutation_id ?? store?.id ?? null,
+      storeIdentities: [...new Set(stores.map(store => store.client_mutation_id ?? store.id))],
+      ...(input.routing_feedback ? { routingFeedback: routingFeedback(input.routing_feedback) } : {}),
       ...(clientMutationId != null ? { clientMutationId } : {}),
       ...(input.braindump_route ? { brainDumpRoute: clone(input.braindump_route) } : {}),
     };
@@ -214,16 +223,18 @@ export function createShoppingItemsController({
       sameId(candidate.id, input.sectionIdentity) || sameId(candidate.client_mutation_id, input.sectionIdentity)
     ));
     if (input.sectionIdentity != null && !section) return null;
-    const store = input.storeIdentity == null ? null : getStores().find(candidate => (
-      sameId(candidate.id, input.storeIdentity) || sameId(candidate.client_mutation_id, input.storeIdentity)
-    ));
-    if (input.storeIdentity != null && !canUseCreateStore(store, latest)) return null;
+    const stores = input.storeIdentities.map(identity => getStores().find(candidate => (
+      sameId(candidate.id, identity) || sameId(candidate.client_mutation_id, identity)
+    )));
+    if (stores.some(store => !canUseCreateStore(store, latest))) return null;
     const itemData = {
       name: input.name,
       section_id: section?.id ?? null,
       quantity_value: input.quantity,
       quantity_unit: input.unit || null,
-      store_ids: store ? [store.id] : [],
+      ...(input.freeQuantity ? { quantity_text: input.freeQuantity } : {}),
+      ...(input.note ? { note: input.note } : {}),
+      store_ids: stores.map(store => store.id),
       sort_order: sortOrder,
       client_mutation_id: tempId,
     };
@@ -232,15 +243,17 @@ export function createShoppingItemsController({
         id: tempId,
         shopping_list_id: latest.id,
         ...clone(itemData),
-        stores: store ? [clone(store)] : [],
+        stores: stores.map(clone),
         completed: false,
+        quantity_display_mode: 'exact',
         is_pending: true,
       },
       mutation: {
         action: 'CREATE_SHOPPING_ITEM',
         data: {
           shopping_list_id: latest.id, temp_id: tempId, client_mutation_id: tempId,
-          item: { ...itemData, ...(input.brainDumpRoute ? { braindump_route: clone(input.brainDumpRoute) } : {}) },
+          item: { ...itemData, ...(input.brainDumpRoute ? { braindump_route: clone(input.brainDumpRoute) } : {}),
+            ...(input.routingFeedback ? { routing_feedback: clone(input.routingFeedback) } : {}) },
         },
       },
     };
@@ -316,38 +329,38 @@ export function createShoppingItemsController({
     ));
     if (live?.can_edit !== true || !initialItem) return Promise.resolve(null);
     const name = String(input.name ?? '').trim();
-    const quantityInput = input.quantity ?? input.quantity_value;
+    const quantityInput = Object.hasOwn(input, 'quantity') ? input.quantity
+      : Object.hasOwn(input, 'quantity_value') ? input.quantity_value : initialItem.quantity_value;
     const quantityText = typeof quantityInput === 'string' ? quantityInput.trim() : quantityInput;
     const quantity = quantityText === '' || quantityText === null || quantityText === undefined
       ? null
       : Number(quantityText);
-    const unit = String(input.unit ?? input.quantity_unit ?? '').trim();
+    const unit = normalizeQuantityUnit(Object.hasOwn(input, 'unit') ? input.unit
+      : Object.hasOwn(input, 'quantity_unit') ? input.quantity_unit : initialItem.quantity_unit) || '';
+    const freeQuantity = Object.hasOwn(input, 'quantity_text') ? String(input.quantity_text ?? '').trim() : quantity === null ? initialItem.quantity_text || '' : '';
+    const note = Object.hasOwn(input, 'note') ? String(input.note ?? '').trim() : initialItem.note || '';
+    const quantityChanged = quantity !== (initialItem.quantity_value == null ? null : Number(initialItem.quantity_value))
+      || unit !== (normalizeQuantityUnit(initialItem.quantity_unit) || '')
+      || freeQuantity !== (initialItem.quantity_text || '');
+    if (freeQuantity.length > 500 || note.length > 2000 || (freeQuantity && quantity !== null)) return Promise.resolve(null);
     const sectionValue = input.sectionId ?? input.section_id ?? null;
     const sectionInput = sectionValue === '' ? null : sectionValue;
     const suppliedStoreIds = input.store_ids;
     if (!name || name.length > 500) return Promise.resolve(null);
     if (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) return Promise.resolve(null);
     if (unit.length > 40) return Promise.resolve(null);
-    if (suppliedStoreIds !== undefined && (!Array.isArray(suppliedStoreIds) || suppliedStoreIds.length > 1)) return Promise.resolve(null);
-    const storeValue = input.storeId ?? suppliedStoreIds?.[0] ?? null;
-    const storeInput = storeValue === '' ? null : storeValue;
-    const initialSection = sectionInput == null
-      ? null
-      : (live.sections || []).find(candidate => (
-        sameId(candidate.id, sectionInput)
-        || sameId(candidate.client_mutation_id, sectionInput)
-      ));
+    if (suppliedStoreIds !== undefined && (!Array.isArray(suppliedStoreIds) || suppliedStoreIds.length > 50)) return Promise.resolve(null);
+    const requestedStores = suppliedStoreIds !== undefined ? suppliedStoreIds : input.storeId == null || input.storeId === '' ? [] : [input.storeId];
+    const initialSection = sectionInput == null ? null : (live.sections || []).find(candidate => (
+      sameId(candidate.id, sectionInput) || sameId(candidate.client_mutation_id, sectionInput)
+    ));
     if (sectionInput != null && !initialSection) return Promise.resolve(null);
-    const initialStore = storeInput == null
-      ? null
-      : getStores().find(candidate => (
-        sameId(candidate.id, storeInput)
-        || sameId(candidate.client_mutation_id, storeInput)
-      ));
-    if (storeInput != null && (!initialStore || initialStore.active === false)) return Promise.resolve(null);
+    const initialStores = requestedStores.map(id => getStores().find(candidate => sameId(candidate.id, id) || sameId(candidate.client_mutation_id, id)));
+    if (initialStores.some((store, index) => !canUseCreateStore(store, live) && !((initialItem.store_ids || []).some(id => sameId(id, requestedStores[index]))
+      && (!store || sameId(store.shopping_list_id, live.id) || sameId(store.shopping_list_id, live.client_mutation_id))))) return Promise.resolve(null);
     const stableItemIdentity = initialItem.client_mutation_id ?? initialItem.id;
     const stableSectionIdentity = initialSection?.client_mutation_id ?? initialSection?.id ?? null;
-    const stableStoreIdentity = initialStore?.client_mutation_id ?? initialStore?.id ?? null;
+    const stableStoreIdentities = [...new Set(initialStores.map((store, index) => store?.client_mutation_id ?? store?.id ?? requestedStores[index]))];
     const stableListIdentity = live.client_mutation_id ?? live.id;
     const submissionKey = `update\u0000${String(stableListIdentity)}\u0000${String(stableItemIdentity)}`;
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
@@ -367,31 +380,35 @@ export function createShoppingItemsController({
             || sameId(candidate.client_mutation_id, stableSectionIdentity)
           ));
         if (stableSectionIdentity != null && !section) return null;
-        const store = stableStoreIdentity == null
-          ? null
-          : getStores().find(candidate => (
-            sameId(candidate.id, stableStoreIdentity)
-            || sameId(candidate.client_mutation_id, stableStoreIdentity)
-          ));
-        if (stableStoreIdentity != null && (!store || store.active === false)) return null;
+        const stores = stableStoreIdentities.map(identity => getStores().find(candidate => (
+          sameId(candidate.id, identity) || sameId(candidate.client_mutation_id, identity)
+        )));
+        if (stores.some((store, index) => !canUseCreateStore(store, latest) && !((item.store_ids || []).some(id => sameId(id, stableStoreIdentities[index]))
+          && (!store || sameId(store.shopping_list_id, latest.id) || sameId(store.shopping_list_id, latest.client_mutation_id))))) return null;
         const enumerableStores = getStores();
         const retainedHiddenStoreIds = (item.store_ids || []).filter(storeId => !enumerableStores.some(candidate => (
-          sameId(candidate.id, storeId)
-          || sameId(candidate.client_mutation_id, storeId)
+          sameId(candidate.id, storeId) || sameId(candidate.client_mutation_id, storeId)
         )));
-        const storeIds = [...retainedHiddenStoreIds, ...(store ? [store.id] : [])]
+        const storeIds = [...retainedHiddenStoreIds, ...stores.map((store, index) => store?.id ?? stableStoreIdentities[index])]
           .filter((storeId, index, values) => values.findIndex(candidate => sameId(candidate, storeId)) === index);
+        if (storeIds.length > 50) return null;
+        const changedFields = [];
+        if (!sameId(item.section_id, section?.id) && !(item.section_id == null && section == null)) changedFields.push('section');
+        if (JSON.stringify([...(item.store_ids || [])].map(String).sort()) !== JSON.stringify([...storeIds].map(String).sort())) changedFields.push('stores');
+        const feedback = routingFeedback(input.routing_feedback, changedFields);
         const changes = {
           name,
           section_id: section?.id ?? null,
-          quantity_value: quantity,
-          quantity_unit: unit || null,
+          ...(quantityChanged ? { quantity_value: quantity, quantity_unit: unit || null,
+            ...(Object.hasOwn(input, 'quantity_text') || initialItem.quantity_text ? { quantity_text: freeQuantity || null } : {}) } : {}),
+          ...(Object.hasOwn(input, 'note') ? { note } : {}),
           store_ids: storeIds,
         };
         const updated = {
           ...clone(item),
           ...clone(changes),
-          stores: store ? [clone(store)] : [],
+          ...(quantityChanged ? { quantity_display_mode: 'exact' } : {}),
+          stores: stores.filter(Boolean).map(clone),
           is_pending: true,
         };
         return {
@@ -400,7 +417,7 @@ export function createShoppingItemsController({
             items: latest.items.map(candidate => sameId(candidate.id, item.id) ? updated : clone(candidate)),
           },
           action: 'UPDATE_SHOPPING_ITEM',
-          data: { shopping_list_id: latest.id, item_id: item.id, changes },
+          data: { shopping_list_id: latest.id, item_id: item.id, changes: { ...changes, ...(feedback ? { routing_feedback: feedback } : {}) } },
           result: updated,
         };
       });
@@ -502,6 +519,7 @@ export function createShoppingItemsController({
     const stableSectionIdentity = initialSection?.client_mutation_id ?? initialSection?.id ?? null;
     const submissionKey = `move-section\u0000${String(stableListIdentity)}\u0000${String(stableItemIdentity)}`;
     if (inFlight.has(submissionKey)) return inFlight.get(submissionKey);
+    const feedback = routingFeedback(routingMemory?.feedback?.(['section']), ['section']);
     const operation = runListMutation(stableListIdentity, async () => {
       const mutation = await commitMutation(() => {
         const latest = listByIdentity(stableListIdentity);
@@ -527,7 +545,7 @@ export function createShoppingItemsController({
             items: latest.items.map(candidate => sameId(candidate.id, item.id) ? updated : clone(candidate)),
           },
           action: 'UPDATE_SHOPPING_ITEM',
-          data: { shopping_list_id: latest.id, item_id: item.id, changes: { section_id: nextSectionId } },
+          data: { shopping_list_id: latest.id, item_id: item.id, changes: { section_id: nextSectionId, ...(feedback ? { routing_feedback: feedback } : {}) } },
           result: updated,
         };
       });

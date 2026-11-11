@@ -21,6 +21,16 @@ export function jsArg(value) {
   return JSON.stringify(value);
 }
 
+/** SQLite server timestamps without an offset are UTC, matching ISO queue timestamps. */
+export function parseServerUtcTimestamp(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const date = new Date(hasTimezone ? normalized : `${normalized}Z`);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
 export function parseDateValue(value, { dateOnlyEndOfDay = false } = {}) {
   if (!value) return { date: null, dateOnly: false };
   const raw = String(value).trim();

@@ -1,3 +1,5 @@
+import { withoutPrivateRoutingMetadata } from './entity-metadata.js';
+
 function queueTodoId(item) {
   if (!item?.data || typeof item.data !== 'object') return null;
   if (['CREATE_TODO'].includes(item.action)) return item.data._tempId ?? null;
@@ -115,7 +117,7 @@ export async function acquireSyncCommitLock(syncRef) {
 export function projectPendingTodoChanges(todo, pendingItems) {
   if (!todo) return null;
   let projected = {
-    ...todo,
+    ...withoutPrivateRoutingMetadata(todo),
     comments: Array.isArray(todo.comments) ? [...todo.comments] : [],
     subtasks: Array.isArray(todo.subtasks) ? [...todo.subtasks] : [],
   };
@@ -126,7 +128,8 @@ export function projectPendingTodoChanges(todo, pendingItems) {
 
     if (item.action === 'DELETE_TODO') return null;
     if (item.action === 'UPDATE_TODO') {
-      projected = { ...projected, ...(item.data?.changes || {}) };
+      const contentChanges = withoutPrivateRoutingMetadata(item.data?.changes);
+      projected = { ...projected, ...contentChanges };
     } else if (item.action === 'CREATE_COMMENT') {
       const comment = item.data?.local_comment;
       if (comment && !projected.comments.some(existing => String(existing.id) === String(comment.id))) {

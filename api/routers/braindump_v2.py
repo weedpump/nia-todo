@@ -7,6 +7,7 @@ import ast
 import json
 import re
 import sqlite3
+import uuid
 import subprocess
 import tempfile
 import time
@@ -35,6 +36,8 @@ from routers.todos import (
 )
 from urllib.parse import urlparse
 
+from services import llm_client
+from services.ai_access import require_braindump_ai_access
 from services.braindump_config import build_effective_system_prompt, get_braindump_config, llm_chat_url, parse_extra_headers
 from services.braindump_candidates import can_apply_learned_route, candidate_context_payload, enabled_candidate_modules, is_shopping_candidate, load_shopping_context, normalize_candidates
 from services.braindump_v2 import (
@@ -51,6 +54,12 @@ from services.braindump_routes import (
     module_learning_row_count, reset_module_learning, record_confirmed_route, apply_module_routes,
 )
 from services.ops_stats import increment_duration_metric, increment_endpoint_counter, increment_llm_usage_metrics
+from services.routing_memory import (
+    RoutingFeedback, routing_state, reset_routing_memory, set_routing_enabled,
+    record_task_route_choice, routing_entries, legacy_feedback,
+    default_task_workspace, task_workspace_id,
+)
+from services.routing_matcher import suggest_task_route
 from services.sharing import get_project_access_flags, get_project_ids_for_user
 from services.utils import sanitize_text
 
@@ -395,6 +404,7 @@ class BrainDumpTodoCandidate(BaseModel):
     module_id: Literal["tasks"] = "tasks"
     client_mutation_id: str | None = Field(default=None, max_length=200)
     braindump_route: BrainDumpRouteFeedback | None = None
+    routing_feedback: RoutingFeedback | None = None
     title: str
 
     @model_validator(mode="before")
@@ -407,6 +417,8 @@ class BrainDumpTodoCandidate(BaseModel):
     notes: str = ""
     project_name: str | None = None
     section_name: str | None = None
+    project_id: int | None = Field(default=None,gt=0,strict=True)
+    section_id: int | None = Field(default=None,gt=0,strict=True)
     deadline: str | None = None
     reminder: str | None = None
     recurring_rule: dict | None = None
@@ -738,80 +750,15 @@ def _name_key(value: str | None) -> str:
 
 
 def _learning_row_count(db, user_id: int) -> int:
-    try:
-        row = db.execute("SELECT COUNT(*) AS count FROM braindump_route_learning WHERE user_id = ?", (user_id,)).fetchone()
-    except sqlite3.OperationalError:
-        return 0
-    return int(row["count"] if row else 0) + module_learning_row_count(db, user_id)
+    return routing_state(db, user_id)["learned_routes"]
 
 
 def _learn_braindump_route(db, user_id: int, workspace_id: int | None, title: str, project_id: int | None, section_id: int | None, *, corrected: bool = False):
-    if not _learning_enabled_for_user(db, user_id):
-        return
-    tokens = _learning_tokens(title)
-    if not tokens or project_id is None:
-        return
-    now = datetime.now().astimezone().isoformat(timespec="seconds")
-    for token in tokens:
-        cursor = db.execute(
-            """
-            UPDATE braindump_route_learning
-            SET hits = hits + 1, last_used_at = ?
-            WHERE user_id = ?
-              AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
-              AND token = ?
-              AND project_id = ?
-              AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
-            """,
-            (now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
-        )
-        if cursor.rowcount:
-            continue
-        insert_cursor = db.execute(
-            """
-            INSERT OR IGNORE INTO braindump_route_learning (user_id, workspace_id, token, project_id, section_id, hits, last_used_at)
-            VALUES (?, ?, ?, ?, ?, 1, ?)
-            """,
-            (user_id, workspace_id, token, project_id, section_id, now),
-        )
-        if not insert_cursor.rowcount:
-            db.execute(
-                """
-                UPDATE braindump_route_learning
-                SET hits = hits + 1, last_used_at = ?
-                WHERE user_id = ?
-                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
-                  AND token = ?
-                  AND project_id = ?
-                  AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
-                """,
-                (now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
-            )
-        if corrected:
-            competitor = db.execute(
-                """
-                SELECT MAX(hits) AS max_hits
-                FROM braindump_route_learning
-                WHERE user_id = ?
-                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
-                  AND token = ?
-                  AND NOT (project_id = ? AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?))
-                """,
-                (user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
-            ).fetchone()
-            desired_hits = int((competitor["max_hits"] if competitor else 0) or 0) + BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN
-            db.execute(
-                """
-                UPDATE braindump_route_learning
-                SET hits = MAX(hits, ?), last_used_at = ?
-                WHERE user_id = ?
-                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
-                  AND token = ?
-                  AND project_id = ?
-                  AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
-                """,
-                (desired_hits, now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
-            )
+    # Compatibility callers provide no explicit-field provenance. Plain
+    # acceptance must never become supporting evidence.
+    if corrected and project_id is not None:
+        record_task_route_choice(db, user_id, title, project_id, section_id,
+            legacy_feedback(db, user_id, "bd-compat:" + uuid.uuid4().hex, ["list", "section"]))
 
 
 def _candidate_route_ids(db, user_id: int, workspace_id: int | None, candidate: dict) -> tuple[int | None, int | None, bool]:
@@ -838,118 +785,24 @@ def _route_name_lookup(db, user_id: int, workspace_id: int | None, project_ids: 
     return project_names, section_names
 
 
-def _best_learned_route(db, user_id: int, workspace_id: int | None, title: str) -> tuple[int | None, int | None, int, int]:
-    tokens = _learning_tokens(title)
-    if not tokens:
-        return None, None, 0, 0
-    placeholders = ",".join("?" for _ in tokens)
-    rows = db.execute(
-        f"""
-        SELECT project_id, section_id, SUM(hits) AS score
-        FROM braindump_route_learning
-        WHERE user_id = ?
-          AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
-          AND token IN ({placeholders})
-        GROUP BY project_id, section_id
-        ORDER BY score DESC
-        LIMIT 2
-        """,
-        [user_id, workspace_id, workspace_id, *tokens],
-    ).fetchall()
-    if not rows:
-        return None, None, 0, 0
-    best = rows[0]
-    second_score = int(rows[1]["score"] if len(rows) > 1 else 0)
-    return best["project_id"], best["section_id"], int(best["score"] or 0), second_score
+def _best_learned_route(db, user_id: int, workspace_id: int | None, title: str):
+    route = suggest_task_route(routing_entries(db, user_id, module_id="tasks"), title,
+                               default_task_workspace(db, user_id) if workspace_id is None else workspace_id)
+    return (route["project_id"], route["section_id"], 1, 0) if route else (None, None, 0, 0)
 
 
 def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: dict, context: dict | None = None) -> dict:
-    if not _learning_enabled_for_user(db, user_id):
-        return parsed
-    candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
-    if not isinstance(candidates, list):
-        return parsed
-    try:
-        route_results = []
-        project_ids: set[int] = set()
-        section_ids: set[int] = set()
-        for candidate in candidates:
-            if not isinstance(candidate, dict) or candidate.get("module_id", "tasks") != "tasks":
-                route_results.append(None)
-                continue
-            project_id, section_id, score, second_score = _best_learned_route(db, user_id, workspace_id, str(candidate.get("title") or ""))
-            margin = score - second_score
-            if project_id is None or score < BRAINDUMP_LEARNING_APPLY_MIN_SCORE or margin < BRAINDUMP_LEARNING_APPLY_MIN_MARGIN:
-                route_results.append(None)
-                continue
-            project_ids.add(project_id)
-            if section_id is not None:
-                section_ids.add(section_id)
-            route_results.append((project_id, section_id, score, margin))
-        project_names, section_names = _route_name_lookup(db, user_id, workspace_id, project_ids, section_ids)
-        routed_candidates = []
-        for candidate, learned in zip(candidates, route_results):
-            if not isinstance(candidate, dict) or not learned:
-                routed_candidates.append(candidate)
-                continue
-            project_id, section_id, score, margin = learned
-            project_name = project_names.get(project_id)
-            if not project_name:
-                routed_candidates.append(candidate)
-                continue
-            learned_section_name = (section_names[section_id][1]
-                                    if section_id is not None and section_id in section_names and section_names[section_id][0] == project_id
-                                    else None)
-            if context is not None and context.get("typed_candidates"):
-                # Confirmation still accepts Tasks routes by name. An exact
-                # learned ID must round-trip uniquely through that same API,
-                # rather than silently becoming Inbox or an unsectioned task.
-                resolved_project, resolved_section, matched = _candidate_route_ids(db, user_id, workspace_id, {
-                    "project_name": project_name, "section_name": learned_section_name,
-                })
-                if not matched or resolved_project != project_id or resolved_section != section_id:
-                    routed_candidates.append(candidate)
-                    continue
-            if context is not None and context.get("typed_candidates") and not can_apply_learned_route(candidate, {
-                "module_id": "tasks", "project_name": project_name, "section_name": learned_section_name,
-            }):
-                routed_candidates.append(candidate)
-                continue
-            current_project_id, current_section_id, current_matched = _candidate_route_ids(db, user_id, workspace_id, candidate)
-            has_existing_project = bool(candidate.get("project_name") and current_matched)
-            has_existing_section = bool(has_existing_project and candidate.get("section_name") and current_section_id is not None)
-            may_override = score >= BRAINDUMP_LEARNING_OVERRIDE_MIN_SCORE and margin >= BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN
-            if has_existing_project and current_project_id == project_id and current_section_id == section_id:
-                routed_candidates.append(candidate)
-                continue
-            if has_existing_project and current_project_id == project_id and not has_existing_section:
-                pass
-            elif has_existing_project and not may_override:
-                routed_candidates.append(candidate)
-                continue
-            routed = dict(candidate)
-            routed["project_name"] = project_name
-            routed["section_name"] = learned_section_name
-            routed_candidates.append(routed)
-        result = {**parsed, "candidates": routed_candidates}
-        return apply_module_routes(db, user_id, workspace_id, result, context) if context is not None else result
-    except sqlite3.OperationalError:
-        if context is not None and context.get("typed_candidates"):
-            raise
-        return parsed
+    return apply_module_routes(db, user_id, workspace_id, parsed,
+                               context or {"supported_modules": ["tasks"]})
 
 
 def _braindump_learning_settings(db, user_id: int) -> dict:
-    enabled = _learning_enabled_for_user(db, user_id)
-    return {"enabled": enabled, "learned_routes": _learning_row_count(db, user_id)}
+    state = routing_state(db, user_id)
+    return {key: state[key] for key in ("enabled", "generation", "learned_routes")}
 
 
 def _reset_braindump_learning(db, user_id: int) -> int:
-    try:
-        cursor = db.execute("DELETE FROM braindump_route_learning WHERE user_id = ?", (user_id,))
-    except sqlite3.OperationalError:
-        return 0
-    return int(cursor.rowcount or 0) + reset_module_learning(db, user_id)
+    return reset_routing_memory(db, user_id)
 
 
 def _resolve_project_target(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> tuple[int | None, bool]:
@@ -1005,8 +858,16 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             raise HTTPException(422, "BrainDump candidate title is required")
         project_name = candidate.project_name
         section_name = candidate.section_name
-        project_id, project_matched = _resolve_project_target(db, user_id, project_name, workspace_id)
-        section_id = _resolve_section_id(db, project_id, section_name) if project_matched else None
+        if candidate.project_id is not None:
+            project_id, project_matched = candidate.project_id, True
+            _validate_todo_target(db,project_id,None,user_id)
+            if workspace_id is not None and task_workspace_id(db,user_id,project_id) != workspace_id:
+                raise HTTPException(400,"Project does not belong to the selected workspace")
+        else:
+            project_id, project_matched = _resolve_project_target(db, user_id, project_name, workspace_id)
+        if candidate.routing_feedback is not None and "list" in candidate.routing_feedback.fields and not project_matched:
+            raise HTTPException(422,"Explicit project target could not be resolved")
+        section_id = candidate.section_id if candidate.section_id is not None else _resolve_section_id(db, project_id, section_name) if project_matched else None
         data = TodoCreate(
             title=title,
             description=notes,
@@ -1039,7 +900,18 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
                 _insert_location_reminder(db, todo_id, user_id, location)
         todo = fetch_todo(db, todo_id, user_id)
         if todo:
+            if candidate.routing_feedback is not None:
+                record_task_route_choice(db,user_id,data.title,data.project_id,data.section_id,candidate.routing_feedback)
+                created.append(todo)
+                continue
             feedback = candidate.braindump_route
+            if feedback is None and candidate.original_route_present:
+                feedback = BrainDumpRouteFeedback(
+                    original_module_id="tasks",
+                    original_project_name=candidate.original_project_name,
+                    original_section_name=candidate.original_section_name,
+                    original_route_present=True,
+                )
             original_name = feedback.original_project_name if feedback else candidate.original_project_name
             original_section = feedback.original_section_name if feedback else candidate.original_section_name
             original_present = feedback.original_route_present if feedback else candidate.original_route_present
@@ -1052,7 +924,11 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
                 corrected_route = corrected_route or bool(
                     original_present and (not original_matched or original_project_id != data.project_id or original_section_id != data.section_id)
                 )
-                _learn_braindump_route(db, user_id, workspace_id, data.title, data.project_id, data.section_id, corrected=corrected_route)
+                if feedback is not None and feedback.original_module_id == "tasks" and feedback.original_project_id is None:
+                    feedback = feedback.model_copy(update={
+                        "original_project_id": original_project_id if original_matched else None,
+                        "original_section_id": original_section_id if original_matched else None,
+                    })
             record_confirmed_route(db, user_id, data.title, "tasks", workspace_id=workspace_id,
                                    project_id=data.project_id, task_section_id=data.section_id,
                                    feedback=feedback, corrected=corrected_route)
@@ -1067,73 +943,30 @@ def _is_local_openclaw_base_url(base_url: str) -> bool:
 
 
 
+# Compatibility wrappers keep existing extractor/probe injection points while
+# BrainDump and recipe BrainDump use one provider implementation.
 def _post_llm_chat(payload: dict, headers: dict[str, str], config: dict) -> dict:
-    body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        llm_chat_url(config),
-        data=body,
-        headers=headers,
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=float(config.get("llm_timeout_seconds") or 180)) as response:
-        return json.loads(response.read().decode("utf-8"))
+    return llm_client.post_chat(payload, headers, config)
 
 
 def _llm_request_payload(payload: dict, config: dict) -> dict:
-    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
-    if provider == "ollama":
-        options = {"temperature": payload.get("temperature", 0)}
-        if payload.get("max_tokens"):
-            options["num_predict"] = payload["max_tokens"]
-        return {
-            "model": payload["model"],
-            "messages": payload["messages"],
-            "stream": False,
-            "options": options,
-        }
-    return payload
+    return llm_client.request_payload(payload, config)
 
 
 def _llm_response_content(result: dict, config: dict) -> str:
-    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
-    if provider == "ollama":
-        return str(result.get("message", {}).get("content") or "")
-    return result["choices"][0]["message"].get("content", "")
+    return llm_client.response_content(result, config)
 
 
 def _llm_finish_reason(result: dict, config: dict) -> str | None:
-    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
-    if provider == "ollama":
-        done_reason = result.get("done_reason") or result.get("message", {}).get("done_reason")
-        return str(done_reason) if done_reason else None
-    choices = result.get("choices") or []
-    if not choices:
-        return None
-    finish_reason = choices[0].get("finish_reason")
-    return str(finish_reason) if finish_reason else None
+    return llm_client.finish_reason(result, config)
 
 
 def _llm_usage(result: dict, config: dict) -> dict | None:
-    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
-    if provider == "ollama":
-        usage = {
-            "prompt_tokens": result.get("prompt_eval_count"),
-            "completion_tokens": result.get("eval_count"),
-        }
-        usage = {key: value for key, value in usage.items() if value is not None}
-        return usage or None
-    usage = result.get("usage")
-    return usage if isinstance(usage, dict) else None
+    return llm_client.usage(result, config)
 
 
 def _llm_reasoning_tokens(usage: dict | None) -> int | None:
-    if not usage:
-        return None
-    details = usage.get("completion_tokens_details")
-    if not isinstance(details, dict):
-        return None
-    value = details.get("reasoning_tokens")
-    return int(value) if isinstance(value, int) else None
+    return llm_client.reasoning_tokens(usage)
 
 
 def _braindump_llm_max_tokens(text: str, *, retry: bool = False) -> int:
@@ -1162,16 +995,11 @@ def _llm_empty_content_diagnostic(result: dict, config: dict, max_tokens: int) -
 
 
 def _should_retry_empty_llm_content(result: dict, config: dict) -> bool:
-    finish_reason = (_llm_finish_reason(result, config) or "").lower()
-    usage = _llm_usage(result, config)
-    reasoning_tokens = _llm_reasoning_tokens(usage) or 0
-    return finish_reason in {"length", "max_tokens"} or reasoning_tokens > 0
+    return llm_client.should_retry_empty(result, config)
 
 
 def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
     config = config or get_braindump_config(include_secrets=True)
-    base_url = str(config.get("llm_base_url") or "").strip()
-    token = str(config.get("llm_api_key") or "").strip()
     system_prompt = build_effective_system_prompt(config, supported_modules=(workspace_context or {}).get("supported_modules") if (workspace_context or {}).get("typed_candidates") else None)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
@@ -1194,10 +1022,7 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
             "user": f"nia-todo-live-braindump-{segment_id}-{int(time.time() * 1000)}",
         }
 
-    headers = {"Content-Type": "application/json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
+    headers = llm_client.build_headers(config)
 
     def send_payload(payload_to_send: dict) -> dict:
         request_payload = _llm_request_payload(payload_to_send, config)
@@ -1233,16 +1058,8 @@ _extract_with_openclaw = _extract_with_llm
 
 
 def require_braindump_access(user_id: int):
-    config = get_braindump_config(include_secrets=True)
-    if not config.get("enabled"):
-        raise HTTPException(403, "BrainDump is disabled")
-    with get_db() as db:
-        try:
-            ensure_braindump_enabled(db, user_id)
-        except PermissionError as exc:
-            if str(exc) == "user_not_found":
-                raise HTTPException(404, "User not found")
-            raise HTTPException(403, "BrainDump is not enabled for this user")
+    require_braindump_ai_access(user_id, config_loader=get_braindump_config,
+                                database=get_db, user_gate=ensure_braindump_enabled)
 
 
 @router.get("/access")
@@ -1447,28 +1264,33 @@ def get_braindump_learning_settings(user_id: int = Depends(require_auth)):
 
 
 @router.patch("/learning")
-def update_braindump_learning_settings(data: BrainDumpLearningSettingsRequest, user_id: int = Depends(require_auth)):
+async def update_braindump_learning_settings(data: BrainDumpLearningSettingsRequest, user_id: int = Depends(require_auth)):
     """Enable or disable local BrainDump route learning for the current user."""
     require_braindump_access(user_id)
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
-        db.execute("UPDATE users SET braindump_learning_enabled = ? WHERE id = ?", (1 if data.enabled else 0, user_id))
-        if not data.enabled:
-            _reset_braindump_learning(db, user_id)
+        set_routing_enabled(db, user_id, data.enabled)
         db.commit()
-        return _braindump_learning_settings(db, user_id)
+        result = _braindump_learning_settings(db, user_id)
+    from routers.routing_memory import broadcast_routing_settings
+    await broadcast_routing_settings(user_id)
+    return result
 
 
 @router.delete("/learning")
-def reset_braindump_learning(user_id: int = Depends(require_auth)):
+async def reset_braindump_learning(user_id: int = Depends(require_auth)):
     """Reset only the current user's learned BrainDump route counters."""
     require_braindump_access(user_id)
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         deleted = _reset_braindump_learning(db, user_id)
         db.commit()
         settings = _braindump_learning_settings(db, user_id)
+    from routers.routing_memory import broadcast_routing_settings
+    await broadcast_routing_settings(user_id)
     return {**settings, "deleted": deleted}
 
 

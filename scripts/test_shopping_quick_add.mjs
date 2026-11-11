@@ -1,3 +1,4 @@
+import { normalizeQuantityUnit, getQuantityUnitAliases } from '../web/static/js/core/quantity-units.js';
 import { readFile, readdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const {parseShoppingQuickAdd:parse} = await import('../web/static/js/features/shopping-quick-add.js').catch(()=>({}));
@@ -6,7 +7,6 @@ const dictionary={
  'shopping.quickAdd.syntax.quantityPrefixes':'quantity|qty|menge',
  'shopping.quickAdd.syntax.unitPrefixes':'unit|einheit',
  'shopping.quickAdd.syntax.storePrefixes':'store|supermarkt',
- 'shopping.quickAdd.syntax.unitAliases':'g|kg|l|ml|Packungen|packs',
  'quickAdd.syntax.sectionPrefixes':'section|abschnitt',
 };
 const t=k=>dictionary[k] || k;
@@ -45,7 +45,7 @@ for (const token of ['@REWExtra','/Unknown','/ColdGoodsExtra']) {
 const scoped={...options,stores:[...stores,{id:'off',name:'Off',shopping_list_id:'list-a',active:false},{id:'foreign',name:'Foreign',shopping_list_id:'list-b'}]};
 for(const token of ['@Off','@Foreign']) assert.deepEqual(parse(`Milk ${token}`,scoped).changes,{});
 combined=parse('Milch menge:2 einheit:Packungen supermarkt:REWE abschnitt:Kühlung',options);
-assert.equal(combined.title,'Milch'); assert.deepEqual(combined.changes,{quantity_value:2,quantity_unit:'Packungen',store_ids:['store-local'],section_id:'section-local'});
+assert.equal(combined.title,'Milch'); assert.deepEqual(combined.changes,{quantity_value:2,quantity_unit:'pack',store_ids:['store-local'],section_id:'section-local'});
 assert.equal(parse('Milk qty: 0 unit: "free unit"',options).changes.quantity_value,0);
 assert.equal(parse('Milk qty: 0 unit: "free unit"',options).changes.quantity_unit,'free unit');
 for (const value of ['-2','Infinity','NaN','1e309','2,000.5','1,5,4','oops']) {
@@ -106,15 +106,15 @@ for(const filename of localeFiles) {
  const translate=k=>real[k] || k;
  const first=key=>real[key].split('|')[0];
  const localOptions={...options,locale,t:translate};
- const unit=first('shopping.quickAdd.syntax.unitAliases');
+ const unit='Liter';
  const quantityPrefix=first('shopping.quickAdd.syntax.quantityPrefixes');
  const unitPrefix=first('shopping.quickAdd.syntax.unitPrefixes');
  const storePrefix=first('shopping.quickAdd.syntax.storePrefixes');
  const sectionPrefix=first('quickAdd.syntax.sectionPrefixes');
  const result=parse(`Product ${quantityPrefix}:1.5 ${unitPrefix}:${unit} ${storePrefix}:REWE ${sectionPrefix}:Kühlung`,localOptions);
  assert.equal(result.title,'Product',locale); assert.deepEqual(result.errors,[],locale);
- assert.deepEqual(result.changes,{quantity_value:1.5,quantity_unit:unit,store_ids:['store-local'],section_id:'section-local'},locale);
- assert.deepEqual(result.matches.map(match=>match.label),[real['shopping.item.quantity'],real['shopping.item.unit'],real['shopping.item.store'],real['common.section']],locale);
+ assert.deepEqual(result.changes,{quantity_value:1.5,quantity_unit:'l',store_ids:['store-local'],section_id:'section-local'},locale);
+ assert.deepEqual(result.matches.map(match=>match.label),[real['common.quantity'],real['common.unit'],real['shopping.item.store'],real['common.section']],locale);
  const comma=new Intl.NumberFormat(locale).formatToParts(1.1).some(part=>part.type==='decimal'&&part.value===',');
  assert.equal(parse(`1,5 ${unit} Product`,localOptions).changes.quantity_value,comma?1.5:undefined,locale);
  assert.equal(parse(`1.5 ${unit} Product`,localOptions).changes.quantity_value,1.5,locale);
@@ -127,3 +127,20 @@ for(const hostile of ['[a]+(x).*','a|b','a'.repeat(400)]) {
  assert.equal(parse(`Milk /${hostile}`,hostileOptions).changes.section_id,'safe');
 }
 console.log(`shopping quick-add tests passed (${localeFiles.length} real locales)`);
+
+// Every supported spelling is recognized independently of the active UI locale.
+for (const alias of getQuantityUnitAliases()) {
+ if (alias.toLowerCase() === 'x') continue; // Existing multiplier syntax has no unit.
+ const parsed = parse(`2 ${alias} Product`, { ...options, locale: 'en' });
+ assert.equal(parsed.title, 'Product', alias);
+ assert.deepEqual(parsed.changes, { quantity_value: 2, quantity_unit: normalizeQuantityUnit(alias) }, alias);
+}
+for (const unit of ['ML', 'Mg', 'Lita', 'Hansdampf']) {
+ const title = `2 ${unit} Product`;
+ assert.equal(parse(title, options).title, title, unit);
+ assert.deepEqual(parse(title, options).changes, {}, unit);
+ assert.equal(parse(`Product unit:${unit}`, options).changes.quantity_unit, unit, unit);
+}
+assert.deepEqual(parse('2 kg. Mehl', options).changes, { quantity_value: 2, quantity_unit: 'kg' });
+assert.deepEqual(parse('2 LITER. Milch', options).changes, { quantity_value: 2, quantity_unit: 'l' });
+assert.deepEqual(parse('Milk unit:Liter unit:l', options).errors, [], 'equivalent aliases do not conflict');

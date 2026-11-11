@@ -1,0 +1,24 @@
+/* Shared image tile and actions; image loading belongs to the caller. */
+.ui-image-picker { position: relative; flex: 0 0 auto; width: 104px; }
+.ui-image-picker-trigger { position: relative; display: grid; place-items: center; width: 104px; height: 78px; overflow: hidden; border: 1px dashed var(--border); border-radius: 14px; background: var(--bg-tertiary); color: var(--text-muted); cursor: pointer; list-style: none; font: inherit; }
+.ui-image-picker-trigger::-webkit-details-marker { display: none; }
+.ui-image-picker-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ui-image-picker[data-disabled="true"]>.ui-image-picker-trigger { cursor: default; }
+.ui-image-picker-preview { position: absolute; inset: 0; display: block; }
+.ui-image-picker-preview>img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ui-image-picker-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 6px; font-size: 11px; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+.ui-image-picker-placeholder>.ui-icon { width: 22px; height: 22px; }
+.ui-image-picker-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 4px; background: rgb(0 0 0 / 55%); color: white; font-size: 11px; opacity: 0; transition: opacity .15s; }
+.ui-image-picker-overlay>.ui-icon { width: 14px; height: 14px; }
+.ui-image-picker[data-has-image="true"]>.ui-image-picker-trigger { border-style: solid; }
+.ui-image-picker[data-disabled="false"]>.ui-image-picker-trigger:hover .ui-image-picker-overlay,
+.ui-image-picker[data-disabled="false"]>.ui-image-picker-trigger:focus-visible .ui-image-picker-overlay,
+.ui-image-picker[data-disabled="false"][open]>.ui-image-picker-trigger .ui-image-picker-overlay { opacity: 1; }
+.ui-image-picker>.ui-image-picker-menu { position: absolute; top: calc(100% + 8px); right: 0; width: max-content; min-width: min(180px,calc(100vw - 16px)); max-width: min(240px,calc(100vw - 16px)); z-index: 400; }
+.ui-image-picker-menu>.ui-menu-item { white-space: normal; overflow-wrap: anywhere; font: inherit; }
+.ui-image-picker [hidden] { display: none; }
+@media(max-width:768px) {
+  .ui-image-picker,.ui-image-picker-trigger { width: 88px; }
+  .ui-image-picker-trigger { height: 66px; }
+}
+@media(prefers-reduced-motion:reduce) { .ui-image-picker-overlay { transition: none; } }

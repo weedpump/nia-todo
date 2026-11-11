@@ -173,6 +173,55 @@ try {
   assert.equal(reload.posts.length, 1); assert.equal(reload.remote.size, 0); assert.deepEqual(restarted.stores.syncQueue, []); assert.deepEqual(restarted.visible(), []);
   console.log('✅ Reload finishes a durable create receipt and deleted snapshot without a second POST');
 
+
+  const legacyMemory = scenario('legacy-memory-receipt', { hold: true });
+  const legacy = harness(legacyMemory, { deleted: true, grace: Date.now() + 60000, failReceiptCommit: true });
+  const legacyCreate = legacy.stores.syncQueue.find(item => item.action === 'CREATE_TODO');
+  const feedback = { event_id: 'legacy-routing-event', source: 'manual', project_id: 1, section_id: 2 };
+  const privateMetadata = { routing_feedback: feedback, braindump_route: { title: 'Private original wording' } };
+  Object.assign(legacyCreate.data, { create_attempted: true, client_mutation_id: 'legacy-create-mutation',
+    title: 'Immutable dispatched title', routing_feedback: clone(feedback) });
+  Object.assign(legacy.stores.syncQueue.find(item => item.action === 'DELETE_TODO').data.local_todo,
+    privateMetadata, { title: 'Later local title' });
+  assert.equal(legacyCreate.attempted, undefined, 'old V4 queues only recorded data.create_attempted');
+  const legacyRunning = legacy.sync(); await legacyMemory.started.promise;
+  assert.equal(legacyMemory.posts.length, 1, 'legacy attempted creates cannot be canceled as never sent');
+  assert.equal(legacyMemory.posts[0].title, 'Immutable dispatched title', 'deleted snapshots cannot rewrite the dispatched request');
+  assert.equal(legacyMemory.posts[0].client_mutation_id, 'legacy-create-mutation');
+  assert.deepEqual(legacyMemory.posts[0].routing_feedback, feedback, 'request feedback must still reach the API');
+  legacyMemory.responseGate.resolve();
+  assert.equal((await legacyRunning).failCount, 1, 'simulate a reload after storing the receipt, before remapping');
+  const durableLegacy = legacy.stores.syncQueue.find(item => item.action === 'CREATE_TODO');
+  assert(durableLegacy.data.create_receipt?.id);
+  assert.equal(durableLegacy.data.title, 'Immutable dispatched title');
+  assert.equal(durableLegacy.data.client_mutation_id, 'legacy-create-mutation');
+  assert.deepEqual(durableLegacy.data.routing_feedback, feedback, 'receipt persistence cannot erase pending request feedback');
+  for (const field of Object.keys(privateMetadata)) {
+    assert.equal(Object.hasOwn(durableLegacy.data.create_receipt, field), false, `receipt must exclude ${field}`);
+  }
+  // Reopen another old-format queue: receipt + data marker, no top-level marker.
+  delete durableLegacy.attempted;
+  const legacyReloaded = harness(legacyMemory, { stores: legacy.stores });
+  await legacyReloaded.sync();
+  assert.equal(legacyMemory.posts.length, 1, 'a durable legacy receipt must never POST again');
+  assert.deepEqual(legacyMemory.deletes, [], 'the remapped deletion must keep its Undo grace');
+  const canonicalDeletion = legacyReloaded.stores.syncQueue.find(item => item.action === 'DELETE_TODO');
+  assert.equal(canonicalDeletion.data.id, durableLegacy.data.create_receipt.id);
+  assert.equal(canonicalDeletion.data.local_todo.id, canonicalDeletion.data.id);
+  for (const field of Object.keys(privateMetadata)) {
+    assert.equal(Object.hasOwn(canonicalDeletion.data.local_todo, field), false, `canonical delete snapshot must exclude ${field}`);
+  }
+  assert.deepEqual(legacyReloaded.visible(), []);
+  await legacyReloaded.undo.restoreTodo(legacyReloaded.temporary.id, { ...legacyReloaded.temporary, ...privateMetadata });
+  assert.equal(legacyReloaded.visible()[0].id, canonicalDeletion.data.id);
+  for (const field of Object.keys(privateMetadata)) {
+    assert.equal(Object.hasOwn(legacyReloaded.visible()[0], field), false, `Undo must exclude ${field}`);
+    assert.equal(Object.hasOwn(legacyReloaded.stores.todos[0], field), false, `cached Undo must exclude ${field}`);
+  }
+  await legacyReloaded.sync();
+  assert.equal(legacyMemory.posts.length, 1); assert.deepEqual(legacyReloaded.stores.syncQueue, []);
+  console.log('✅ Legacy attempted creates retain routing feedback and immutable identity across receipt reload and private Undo snapshots');
+
   const duplicate = scenario('undo-duplicate', { hold: true });
   const duplicated = harness(duplicate); const duplicateSync = duplicated.sync(); await duplicate.started.promise;
   duplicated.undo.showToast('Duplicated', { type: 'duplicate', id: duplicated.temporary.id });
@@ -182,6 +231,25 @@ try {
   duplicate.responseGate.resolve(); await duplicateSync;
   assert.equal(duplicate.posts.length, 1); assert.equal(duplicate.remote.size, 0); assert.deepEqual(duplicated.stores.syncQueue, []);
   console.log('✅ Undo Duplicate keeps an attempted create until its canonical delete can finish');
+
+
+  const legacyDuplicate = scenario('legacy-undo-duplicate', { hold: true });
+  const legacyDuplicated = harness(legacyDuplicate);
+  const legacyDuplicateSync = legacyDuplicated.sync(); await legacyDuplicate.started.promise;
+  const legacyAttempt = legacyDuplicated.stores.syncQueue.find(item => item.action === 'CREATE_TODO');
+  assert.equal(legacyAttempt.attempted, true);
+  // Shared-memory queues originally persisted only this top-level marker.
+  delete legacyAttempt.data.create_attempted;
+  legacyDuplicated.undo.showToast('Duplicated', { type: 'duplicate', id: legacyDuplicated.temporary.id });
+  legacyDuplicated.undo.undoLastAction();
+  await until(() => legacyDuplicated.stores.syncQueue.some(item => item.action === 'DELETE_TODO'));
+  assert(legacyDuplicated.stores.syncQueue.some(item => item.action === 'CREATE_TODO'),
+    'Undo must retain a legacy top-level attempted create until its held response supplies the canonical ID');
+  legacyDuplicate.responseGate.resolve(); await legacyDuplicateSync;
+  assert.equal(legacyDuplicate.posts.length, 1); assert.equal(legacyDuplicate.deletes.length, 1);
+  assert.equal(legacyDuplicate.remote.size, 0); assert.deepEqual(legacyDuplicated.stores.syncQueue, []);
+  assert.deepEqual(legacyDuplicated.visible(), []);
+  console.log('✅ Undo Duplicate also retains old top-level attempted creates and deletes their canonical result');
 
   const callbackGap = harness(scenario('undo-callback-gap'), { deleted: true });
   callbackGap.stores.syncQueue = [{ id: 2, action: 'DELETE_TODO', data: {

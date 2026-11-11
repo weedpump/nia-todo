@@ -291,7 +291,8 @@ def count_db_rows(db) -> dict[str, int]:
     except Exception:
         result["active_braindump_enabled_users"] = 0
     try:
-        row = db.execute("SELECT COALESCE(SUM(hits), 0) AS hits, COUNT(*) AS routes FROM braindump_route_learning").fetchone()
+        row = db.execute("""SELECT (SELECT COUNT(*) FROM routing_memory_entries) AS routes,
+            COALESCE((SELECT SUM(support_count) FROM routing_memory_observations WHERE field='list'),0) AS hits""").fetchone()
         result["braindump_learned_routes"] = int(row["routes"] or 0)
         result["braindump_route_hits"] = int(row["hits"] or 0)
     except Exception:

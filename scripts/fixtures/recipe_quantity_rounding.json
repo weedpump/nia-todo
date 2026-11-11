@@ -1,0 +1,158 @@
+[
+  {
+    "amount": "83.33333333333333333333333333",
+    "unit": "ml",
+    "value": "83",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "166.6666666666666666666666667",
+    "unit": "g",
+    "value": "167",
+    "result_unit": "g"
+  },
+  {
+    "amount": "1.333333333333333333333333333",
+    "unit": "l",
+    "value": "1333",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "0.25",
+    "unit": "kg",
+    "value": "250",
+    "result_unit": "g"
+  },
+  {
+    "amount": "0.5",
+    "unit": "kg",
+    "value": "500",
+    "result_unit": "g"
+  },
+  {
+    "amount": "0.25",
+    "unit": "Liter",
+    "value": "250",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "0.25",
+    "unit": "L",
+    "value": "250",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "0.25",
+    "unit": "Mg",
+    "value": "0.25",
+    "result_unit": "Mg"
+  },
+  {
+    "amount": "1.25",
+    "unit": "l",
+    "value": "1250",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "1.333333333333333333333333333",
+    "unit": "TL",
+    "value": "1.333333333333333333333333333",
+    "result_unit": "tsp"
+  },
+  {
+    "amount": "0.1",
+    "unit": "g",
+    "value": "0.1",
+    "result_unit": "g"
+  },
+  {
+    "amount": "0.001",
+    "unit": "mg",
+    "value": "0.001",
+    "result_unit": "mg"
+  },
+  {
+    "amount": "0.25",
+    "unit": "cl",
+    "value": "2.5",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "0",
+    "unit": "l",
+    "value": "0",
+    "result_unit": "l"
+  },
+  {
+    "amount": "83.25",
+    "unit": "ml",
+    "value": "83",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "83.5",
+    "unit": "ml",
+    "value": "84",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "0.1",
+    "unit": "Hansdampf",
+    "value": "0.1",
+    "result_unit": "Hansdampf"
+  },
+  {
+    "amount": "0.25",
+    "unit": "Hansdampf",
+    "value": "0.25",
+    "result_unit": "Hansdampf"
+  },
+  {
+    "amount": "2.25",
+    "unit": null,
+    "value": "2.25",
+    "result_unit": null
+  },
+  {
+    "amount": "0.25",
+    "unit": "Packung",
+    "value": "0.25",
+    "result_unit": "pack"
+  },
+  {
+    "amount": "0.25",
+    "unit": "Lita",
+    "value": "0.25",
+    "result_unit": "Lita"
+  },
+  {
+    "amount": "9.25",
+    "unit": "g",
+    "value": "9.5",
+    "result_unit": "g"
+  },
+  {
+    "amount": "9.75",
+    "unit": "g",
+    "value": "10",
+    "result_unit": "g"
+  },
+  {
+    "amount": "10.25",
+    "unit": "g",
+    "value": "10",
+    "result_unit": "g"
+  },
+  {
+    "amount": "0.49",
+    "unit": "ml",
+    "value": "0.49",
+    "result_unit": "ml"
+  },
+  {
+    "amount": "100000000000000000000",
+    "unit": "g",
+    "value": "100000000000000000000",
+    "result_unit": "g"
+  }
+]

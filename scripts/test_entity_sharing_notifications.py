@@ -18,6 +18,20 @@ with tempfile.TemporaryDirectory() as tmp:
     from db import get_db
     from migrate import run_migrations
     import services.entity_sharing_notifications as notifications
+    from services.email_templates import EMAIL_COPY, entity_share_invite_email
+
+    # The registry-backed cookbook label must be localized and escaped by the
+    # same notification template used by existing container types.
+    for language, copy in EMAIL_COPY.items():
+        subject, text, html = entity_share_invite_email(
+            display_name="Recipient", username="recipient", entity_type="cookbook",
+            entity_name="Family <&> recipes", inviter_name="Owner",
+            link="https://nia.example.invalid/", language=language,
+        )
+        assert copy["entity_type_cookbook"] in text, language
+        assert "Family <&> recipes" in text, language
+        assert "Family &lt;&amp;&gt; recipes" in html, language
+        assert "Family <&> recipes" not in html, language
 
     run_migrations()
     with get_db() as db:

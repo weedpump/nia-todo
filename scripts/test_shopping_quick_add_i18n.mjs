@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { parseShoppingQuickAdd } from '../web/static/js/features/shopping-quick-add.js';
+import { getQuantityUnitDefinition, normalizeQuantityUnit } from '../web/static/js/core/quantity-units.js';
 
 const localesUrl = new URL('../web/static/i18n/', import.meta.url);
 const locales = ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN'];
@@ -11,7 +12,6 @@ const suffixes = [
   'syntax.quantityPrefixes',
   'syntax.unitPrefixes',
   'syntax.storePrefixes',
-  'syntax.unitAliases',
   'error.ambiguous',
   'error.conflict',
   'error.invalidQuantity',
@@ -79,7 +79,7 @@ for (const locale of locales) {
     assert.deepEqual(placeholders(value), placeholders(dictionaries.en[key]), `${locale}: placeholder parity for ${key}`);
     // International unit abbreviations are intentionally equal across languages;
     // prose and localized assignment prefixes are not exempt from this check.
-    if (locale !== 'en' && key !== `${prefix}syntax.unitAliases`) {
+    if (locale !== 'en') {
       assert.notEqual(value, dictionaries.en[key], `${locale}: untranslated ${key}`);
     }
   }
@@ -88,14 +88,13 @@ for (const locale of locales) {
   }
   assert.equal(typeof messages['quickAdd.syntax.sectionPrefixes'], 'string', `${locale}: shared section prefixes missing`);
   aliases(messages['quickAdd.syntax.sectionPrefixes'], `${locale}: shared section prefixes`);
-  const units = aliases(messages[`${prefix}syntax.unitAliases`], `${locale}: units`);
   for (const unit of [...internationalUnits, ...localUnits[locale]]) {
-    assert.ok(units.includes(unit), `${locale}: missing unit ${unit}`);
+    assert.ok(getQuantityUnitDefinition(unit), `${locale}: missing registered unit ${unit}`);
   }
   const hint = messages[`${prefix}hint`];
   const example = hint.match(/2 (?<unit>\S+) (?<name>[^@\n]+?) @(?<store>[^\s/]+) \/(?<section>[^\s"“”„«»‘’：:]+)/u);
   assert.ok(example, `${locale}: quantity/unit/name/@store/section example`);
-  assert.ok(units.includes(example.groups.unit), `${locale}: example unit must be supported`);
+  assert.ok(getQuantityUnitDefinition(example.groups.unit), `${locale}: example unit must be supported`);
   if (locale === 'ru') assert.equal(example.groups.unit, 'л', 'Russian examples use the supported Cyrillic unit');
   if (locale === 'zh-CN') assert.equal(example.groups.unit, '升', 'Chinese examples use the supported local unit');
   const exampleList = { id: 'example-list', sections: [{ id: 'example-section', name: example.groups.section }] };
@@ -108,7 +107,7 @@ for (const locale of locales) {
   const parsedExample = parseShoppingQuickAdd(example[0], exampleOptions);
   assert.equal(parsedExample.title, example.groups.name);
   assert.deepEqual(parsedExample.errors, [], `${locale}: displayed example must parse`);
-  assert.deepEqual(parsedExample.changes, { quantity_value: 2, quantity_unit: example.groups.unit, store_ids: ['example-store'], section_id: 'example-section' });
+  assert.deepEqual(parsedExample.changes, { quantity_value: 2, quantity_unit: normalizeQuantityUnit(example.groups.unit), store_ids: ['example-store'], section_id: 'example-section' });
   if (locale === 'en') {
     assert.match(hint, /1 gal Milk/u, 'English examples include gallons alongside litres');
     const gallons = parseShoppingQuickAdd('1 gal Milk', exampleOptions);

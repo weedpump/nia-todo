@@ -41,6 +41,7 @@ const route = {
 const input = {
   name: 'Milk', quantity_value: 0, quantity_unit: 'l', section_id: 21, store_ids: [22],
   client_mutation_id: 'temp-bd-item-1', braindump_route: route,
+  routing_feedback: {event_id:'bd-route-1',generation:7,fields:['list','section','stores']},
 };
 
 {
@@ -59,6 +60,8 @@ const input = {
   assert.equal(f.lists[1].items[0].quantity_value, 0);
   assert.equal('braindump_route' in f.lists[1].items[0], false, 'private feedback stays in the user queue, not the item projection');
   assert.deepEqual(f.queued[0].data.item.braindump_route, route);
+  assert.deepEqual(f.queued[0].data.item.routing_feedback,input.routing_feedback,'shared routing feedback stays in the durable mutation');
+  assert.equal('routing_feedback' in f.lists[1].items[0],false,'private learning metadata never enters shared item snapshots');
   await f.controller.createManyForList({ listId: 2, items: [input] });
   assert.equal(f.lists[1].items.length, 1, 'retrying a durably accepted candidate must not create a duplicate');
   assert.equal(f.queued.length, 1, 'idempotent local retry must not add a second queue mutation');
@@ -71,6 +74,7 @@ const input = {
     ...route, original_shopping_list_id: 2, original_shopping_section_id: 21, original_shopping_store_ids: [22],
   });
   assert.deepEqual(f.queued[0].data.item.braindump_route, route, 'rewriting must not mutate the original durable records');
+  assert.deepEqual(rewritten[0].data.item.routing_feedback,input.routing_feedback,'target identity remapping preserves the immutable learning event');
 }
 
 for (const loseAccess of [true, false]) {

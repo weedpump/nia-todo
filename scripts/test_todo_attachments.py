@@ -120,6 +120,9 @@ def make_db():
         """
     )
     db.executescript((ROOT / "api" / "migrations" / "058_add_household_entity_access.sql").read_text())
+    # Apply the actual todo idempotency schema without unrelated routing tables.
+    todo_mutation_sql = (ROOT / "api/migrations/060_add_braindump_module_routes.sql").read_text()
+    db.executescript(todo_mutation_sql.split("CREATE TABLE braindump_module_route_learning", 1)[0])
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (1, 'owner', 'Owner Display', NULL, NULL)")
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (2, 'member', 'Member Display', NULL, NULL)")
     db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (3, 'stranger', 'Stranger Display', NULL, NULL)")

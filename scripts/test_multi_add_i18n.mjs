@@ -70,7 +70,8 @@ for (const locale of locales) {
   assert.equal(parsed.title, example.groups.name);
   assert.deepEqual(parsed.errors, [], `${locale}: executable bulk hint`);
   assert.deepEqual(parsed.warnings, [], `${locale}: recognized bulk hint`);
-  assert.deepEqual(parsed.changes, { quantity_value: 2, quantity_unit: example.groups.unit, store_ids: ['store'], section_id: 'section' });
+  // Localized liter aliases remain valid input; the shared unit registry emits canonical l.
+  assert.deepEqual(parsed.changes, { quantity_value: 2, quantity_unit: 'l', store_ids: ['store'], section_id: 'section' });
   if (locale === 'en') {
     assert.match(hint, /1 gal Milk/u);
     assert.deepEqual(parseShoppingQuickAdd('1 gal Milk', options).changes, { quantity_value: 1, quantity_unit: 'gal' });

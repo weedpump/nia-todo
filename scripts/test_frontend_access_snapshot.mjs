@@ -8,6 +8,7 @@ const stores = {
   sections: [],
   workspaces: [],
   syncQueue: [],
+  cookbooks: [],
 };
 let todos = [];
 let projects = [];
@@ -15,6 +16,9 @@ let sections = [];
 let workspaces = [];
 let accessSnapshot = null;
 let modulePreferences = null;
+let cookbooks = [];
+let cookbookSnapshots = null;
+const cookbookRemaps = [];
 const syncInProgressRef = { value: false };
 
 const client = createWebSocketClient({
@@ -32,6 +36,23 @@ const client = createWebSocketClient({
   getFromDB: async (store, id) => stores[store].find(entry => String(entry.id) === String(id)) || null,
   deleteFromDB: async (store, id) => {
     stores[store] = stores[store].filter(entry => String(entry.id) !== String(id));
+  },
+  getCookbooks: () => cookbooks,
+  setCookbooks: value => { cookbooks = value; },
+  getActorId: () => 11,
+  onCookbookIdRemap: (from, to) => cookbookRemaps.push([from, to]),
+  onEntitySnapshotsCommitted: snapshot => { cookbookSnapshots = snapshot; },
+  commitCookbookReplay: async ({ entities = [], removeIds = [], queueRecords = [], queueDeleteIds = [] }) => {
+    stores.cookbooks = stores.cookbooks.filter(book => !removeIds.some(id => String(id) === String(book.id)));
+    for (const book of entities) {
+      stores.cookbooks = stores.cookbooks.filter(existing => String(existing.id) !== String(book.id));
+      stores.cookbooks.push(structuredClone(book));
+    }
+    for (const record of queueRecords) {
+      stores.syncQueue = stores.syncQueue.filter(existing => existing.id !== record.id);
+      stores.syncQueue.push(structuredClone(record));
+    }
+    stores.syncQueue = stores.syncQueue.filter(entry => !queueDeleteIds.includes(entry.id));
   },
   getTodos: () => todos,
   setTodos: value => { todos = value; },
@@ -134,6 +155,39 @@ assert.equal(accessSnapshot.household, null);
 assert.ok(stores.todos.some(todo => todo.id === 31));
 assert.ok(stores.projects.some(project => project.id === 32));
 assert.ok(stores.sections.some(section => section.id === 33));
+
+// Complete cookbook snapshots acknowledge only this actor's create receipts,
+// preserve pending edits, and atomically discard revoked management intents.
+stores.cookbooks = [{ id: 'temp-book', name: 'Draft', client_mutation_id: 'same-cmi', created_by_user_id: 11, can_manage: true }];
+cookbooks = structuredClone(stores.cookbooks);
+stores.syncQueue = [
+  { id: 81, action: 'CREATE_COOKBOOK', data: { temp_id: 'temp-book', client_mutation_id: 'same-cmi', name: 'Draft' } },
+  { id: 82, action: 'UPDATE_COOKBOOK', data: { id: 'temp-book', changes: { name: 'Pending rename' } } },
+  { id: 83, action: 'UPDATE_SHOPPING_LIST', data: { id: 77, changes: { name: 'Unrelated' } } },
+];
+const otherActorBook = { id: 76, name: 'Shared other actor', created_by_user_id: 22, client_mutation_id: 'same-cmi', can_manage: false };
+await client.handleWsMessage({ type: 'sync_response', cookbooks: [otherActorBook], cookbook_invites: [{ id: 91, cookbook_id: 90, status: 'pending' }] });
+assert.equal(stores.cookbooks.some(book => book.id === 'temp-book'), true);
+assert.equal(stores.syncQueue.some(entry => entry.id === 81), true);
+assert.deepEqual(cookbookRemaps, [], 'another actor cannot claim a local mutation identity');
+assert.deepEqual(accessSnapshot.cookbookInvites, [{ id: 91, cookbook_id: 90, status: 'pending' }]);
+const ownBook = { id: 77, name: 'Server name', created_by_user_id: 11, client_mutation_id: 'same-cmi', can_manage: true };
+await client.handleWsMessage({ type: 'sync_response', cookbooks: [otherActorBook, ownBook] });
+assert.equal(stores.cookbooks.some(book => book.id === 'temp-book'), false);
+assert.equal(stores.cookbooks.find(book => book.id === 77).name, 'Pending rename');
+assert.equal(stores.syncQueue.some(entry => entry.id === 81), false);
+assert.equal(stores.syncQueue.find(entry => entry.id === 82).data.id, 77);
+assert.deepEqual(cookbookRemaps, [['temp-book', 77]]);
+await client.handleWsMessage({ type: 'sync_response', cookbooks: [otherActorBook, { ...ownBook, can_manage: false }] });
+assert.equal(cookbooks.find(book => book.id === 77).name, 'Server name');
+assert.equal(stores.syncQueue.some(entry => entry.id === 82), false);
+stores.syncQueue.push({ id: 84, action: 'DELETE_COOKBOOK', data: { id: 77 } });
+await client.handleWsMessage({ type: 'sync_response', cookbooks: [] });
+assert.deepEqual(stores.cookbooks, []);
+assert.deepEqual(cookbooks, []);
+assert.deepEqual(stores.syncQueue.map(entry => entry.id), [83], 'revocation preserves unrelated Shopping intents with the same numeric ID');
+assert.ok(cookbookSnapshots.revokedCookbookIds.includes(77));
+stores.syncQueue = [];
 
 const originalWebSocket = globalThis.WebSocket;
 const sentMessages = [];

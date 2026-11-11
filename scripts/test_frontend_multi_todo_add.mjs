@@ -446,7 +446,7 @@ try {
     if (pathname.endsWith('.js')) {
       try {
         const relative = pathname.slice(1);
-        const file = path.resolve(root, 'web/static/js/features', relative);
+        const file = path.resolve(root, 'web/static/js', /^(?:core|i18n|icons|ui)\//.test(relative) ? relative : `features/${relative}`);
         if (!file.startsWith(path.join(root, 'web/static/js') + path.sep)) throw new Error('outside fixture');
         await route.fulfill({status:200,contentType:'text/javascript',body:await readFile(file,'utf8')});
       } catch { await route.fulfill({status:404,body:'Unknown JS fixture: '+pathname}); }

@@ -1,0 +1,45 @@
+/* One ingredient chip renderer is shared by reading and cooking. */
+.recipe-step-ingredients { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; list-style: none; margin: 10px 0; padding: 0; min-width: 0; }
+.recipe-step-ingredient { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.recipe-step-ingredient-amount { font-weight: 650; }
+.recipe-step-ingredient-amount:empty { display: none; }
+.recipe-step-ingredient-partial { color: var(--text-muted); font-size: 11px; }
+.recipe-page.recipe-page-cooking { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+.recipe-cooking { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.recipe-cooking .recipe-breadcrumb { flex: none; margin-bottom: 0; }
+.recipe-cooking .recipe-back { max-width: 100%; }
+.recipe-cooking>.form-error:empty { display: none; }
+.recipe-breadcrumb { flex-wrap: wrap; align-items: flex-start; }
+.recipe-view-mode { max-width: 100%; min-width: 0; gap: 2px; padding: 2px; }
+.recipe-view-mode .ui-segmented-option { min-width: 0; min-height: 30px; padding: 5px 12px; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+.recipe-view-mode .ui-segmented-option:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.recipe-cooking .btn { transition-property: background-color, color, box-shadow, opacity; }
+.recipe-cooking-navigation .btn { min-height: 44px; }
+.recipe-cooking-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; flex: none; gap: 12px; margin: 8px 0 28px; }
+.recipe-cooking-heading h1 { min-width: 0; font-size: 24px; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.recipe-cooking-heading .recipe-servings-field { position: relative; display: block; }
+.recipe-cooking-heading .recipe-servings-field>label { position: absolute; inset: calc(100% + 3px) 0 auto; text-align: center; }
+.recipe-cooking-progress { flex: none; color: var(--text-muted); font-size: 14px; }
+.recipe-cooking-step { flex: 1 1 0; display: flex; align-items: flex-start; gap: 14px; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin-top: 12px; padding: 20px 0 24px; border-top: 1px solid var(--border); }
+.recipe-cooking-step:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+.recipe-cooking-step .recipe-step-number { width: 36px; height: 36px; font-size: 15px; }
+.recipe-cooking-step .recipe-step-copy { flex: 1; }
+.recipe-cooking-step h2 { font-size: 24px; line-height: 1.4; }
+.recipe-cooking-step p { white-space: pre-wrap; font-size: 18px; line-height: 1.8; margin-top: 16px; color: var(--text-secondary); }
+.recipe-cooking-step .recipe-step-ingredients { margin-top: 16px; }
+.recipe-cooking-navigation { flex: none; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.recipe-cooking-navigation .btn { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+@media(max-width:768px) {
+  .recipe-reading-actions { --btn-icon-size: 44px; }
+  .recipe-reading-actions .btn { min-height: 44px; }
+  .recipe-view-mode { padding: 0; }
+  .recipe-view-mode .ui-segmented-option { min-height: 44px; }
+  .recipe-cooking .recipe-back { min-height: 44px; }
+  .recipe-cooking-heading h1 { font-size: 22px; }
+  .recipe-cooking-step { gap: 10px; padding-top: 20px; }
+  .recipe-cooking-step h2 { font-size: 22px; }
+  .recipe-cooking-step p { font-size: 17px; }
+}
+
+.recipe-step-ingredient-source { color: var(--text-muted); font-size: 11px; }
+.recipe-step-ingredient-source:empty { display: none; }

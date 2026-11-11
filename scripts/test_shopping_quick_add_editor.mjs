@@ -14,7 +14,7 @@ assert.deepEqual(editor.resolveShoppingQuickAddState(empty, parsed), {
   name: 'Milch', quantity: 2, unit: 'l', storeId: 'temp-store', sectionId: 'temp-section',
 });
 assert.deepEqual(editor.resolveShoppingQuickAddState({ ...empty, quantity: '0', unit: 'Packungen', storeId: 'chosen', sectionId: 'chosen-section' }, parsed), {
-  name: 'Milch', quantity: '0', unit: 'Packungen', storeId: 'chosen', sectionId: 'chosen-section',
+  name: 'Milch', quantity: '0', unit: 'pack', storeId: 'chosen', sectionId: 'chosen-section',
 }, 'explicit details win, including quantity zero');
 assert.deepEqual(editor.resolveShoppingQuickAddState(empty, null), empty, 'edit mode must keep the literal title');
 assert.deepEqual(editor.resolveShoppingQuickAddState(empty, { title: 'Milch', changes: {} }), { ...empty, name: 'Milch' }, 'omitted syntax preserves unspecified form values');

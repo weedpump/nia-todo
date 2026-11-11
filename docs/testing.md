@@ -41,7 +41,7 @@ The current command inventory is in `scripts/test_all.sh`; the lists below summa
 
 The gate covers generic entity ownership, invitations and access privacy alongside Shopping list/section/item/store lifecycle, shared editors and navigation, view preferences, offline queue/remapping and realtime snapshots. Shared Quick Add and multi-item capture checks cover both Tasks and Shopping, including localization and browser interaction. Representative entry points are `scripts/test_shopping_lists.py`, `scripts/test_entity_sharing_boundaries.py`, `scripts/test_shopping_items.mjs`, `scripts/test_frontend_shopping_bulk_add.mjs`, `scripts/test_multi_add.mjs`, `scripts/test_frontend_multi_todo_add.mjs`, `scripts/test_offline_shopping_sync.mjs`, and `scripts/test_frontend_shopping_realtime.mjs`.
 
-Changes to shared shells, editors, capture controllers, storage or sync require the relevant Tasks regressions as well as Shopping checks. Run DB-mutating checks serially under one coordinator; inspect each script's service/data configuration rather than assuming every focused check uses a temporary DB. Recipes currently has shell coverage only, not an implemented recipe domain suite.
+Changes to shared shells, editors, capture controllers, storage or sync require the relevant Tasks regressions as well as Shopping checks. Run DB-mutating checks serially under one coordinator; inspect each script's service/data configuration rather than assuming every focused check uses a temporary DB. Cookbook container coverage includes fresh/upgrade migration preservation, actor-scoped retries, concurrent creates, personal/household/direct access and private snapshots (`scripts/test_cookbooks.py`), shared-editor/mobile/permission lifecycle (`scripts/test_frontend_cookbooks.mjs`), actual IndexedDB upgrades and replay (`scripts/test_offline_cookbooks_sync.mjs`), and real-service two-browser CRUD/offline/reconnect (`scripts/test_frontend_cookbooks_e2e.mjs`). Recipe aggregates are covered by `scripts/test_recipes.py`, `scripts/test_recipe_images.py`, `scripts/test_frontend_recipes.mjs`, `scripts/test_offline_recipes_sync.mjs`, `scripts/test_recipe_image_cache.mjs`, and `scripts/test_frontend_recipes_e2e.mjs`. These cover child identity/order, multiline steps, tags, unit normalization and scaling, inherited permissions, revision conflicts and retries, private images, parent remapping, reloads and two-browser realtime/offline behavior.
 
 Mixed BrainDump regressions use mocked audio/extraction and isolated databases: `scripts/test_frontend_braindump_modules.mjs` covers the shared launcher, editable routing, session guards, partial retries and mobile layout; `scripts/test_braindump_shopping_queue.mjs` and `scripts/test_offline_shopping_sync.mjs` cover durable writes and reference remapping. The backend extraction/learning scripts cover permissions, opt-out/reset and idempotency; `scripts/test_fresh_migrations.py` checks upgrade rollback and retry. These checks do not exercise a real microphone, STT service or LLM.
 
@@ -52,6 +52,22 @@ Optimistic Todo deletion is covered by `scripts/test_todo_delete_identity.mjs` (
 `scripts/test_frontend_shopping_e2e.mjs` additionally runs the actual application against the isolated API service across two browser sessions. It covers list/section/store/item creation, real WebSocket delivery, mobile offline queue/reconnect, temporary-ID remapping, reload and layout overflow without mocking Shopping HTTP or WebSocket traffic. Optional screenshots are written to `NIA_TODO_TEST_OUTPUT_DIR`.
 
 Use `waitForPageCondition` from `scripts/browser_page_condition.mjs` for asynchronous browser predicates; it awaits the result and enforces one total deadline. An async `waitForFunction` callback can otherwise resolve on its first truthy Promise before the condition holds. Loopback-only test namespaces can opt into `NIA_TODO_TEST_ISOLATED_NETWORK=1`: the shared browser helper then aligns the page's online signal with Playwright's actual transport offline setting, including across reloads. This does not expose host networking or mock application API/WebSocket traffic.
+
+Recipe-to-Shopping transfer has four isolated regression scripts: `test_recipe_shopping_transfer.py` exercises full migrations, permissions, atomic rollback, quantities and concurrent idempotency on temporary SQLite databases; `test_frontend_recipe_shopping_transfer.mjs` exercises the shared transfer dialog at a mocked browser origin; `test_offline_recipe_shopping_transfer.mjs` uses real IndexedDB with controlled API transports for retry, remapping, source dependencies and privacy fences. `test_recipe_shopping_transfer_e2e.mjs` starts its own temporary FastAPI process and database, then checks actual login, transfer, private provenance, mobile PWA offline reload and reconnect. It uses the checkout venv when present, otherwise `python3`; `NIA_TODO_TEST_PYTHON` overrides the interpreter. None uses the development database or service. Run database-mutating checks serially.
+
+Unit coverage uses `test_quantity_units.py` and `test_recipe_quantities.mjs` for shared registry/rounding vectors, all twelve locale labels, no-fuzzy unknowns and frontend/backend normalization parity. `test_quantity_registry_update.py` verifies CLDR refresh preservation without network requests. Quick Add, BrainDump review and Shopping/recipe UI regressions use the same registry; transfer tests assert exact arithmetic, display-mode boundaries and manual quantity preservation.
+
+Recipe step links and cooking are covered by the expanded disposable `test_recipes.py`, shared-renderer checks in `test_recipe_step_ingredients.mjs`, private mocked editor/IndexedDB tests in `test_frontend_recipe_step_editor.mjs`, and real browser-history/mobile checks in `test_frontend_recipe_cooking.mjs`. The self-contained `test_recipe_shopping_transfer_e2e.mjs` also checks actual persistence, cooking reload, Back navigation and ingredient badges before exercising Shopping transfer/offline reload. These fixtures do not use the development database. Step-amount coverage includes full/repeated references, numeric and free-text overrides, legacy PATCH preservation, quantity validation, mobile editor focus and offline payloads. Transfer coverage includes one product checklist, default combination of compatible sources with differing notes, explicit separation, partial source selection and mixed checkbox states, original-source totals/provenance, target separation, responsive defaults spacing and immutable grouped replay.
+
+### Shared routing memory
+
+- `python3 scripts/test_routing_memory.py` uses disposable databases for exact multilingual names, partial intent, multiple stores, cross-flow writes, authorization, idempotency, reset epochs and compatibility. `test_fresh_migrations.py` covers upgrade and fresh-install migrations; the routing tests cover the schema 069 import, deduplicated legacy counters, complete hidden-target competition, generation fences for old clients and schema 070 Unicode/collision/rollback upgrades with corrections to imported evidence.
+- `node scripts/test_routing_memory_matching.mjs` verifies the generated numeric parameters and independent exact/phrase/statistical counterexamples against both JS and Python implementations, without a service/database. History tests include competing observations, decay, negative empty choices, replay/reset fences and one-seed-only schema 068 upgrades.
+- `node scripts/test_routing_memory.mjs` checks the shared client's offline cache, explicit-field feedback, access filtering, account isolation and stale reply/reset fences without a service or database. `test_frontend_shopping_routing_memory.mjs` uses a private mocked browser origin for manual/Quick Add/bulk precedence, drag learning, empty selections and asynchronous modal guards.
+- `python3 scripts/test_routing_memory_base.py` checks pure personal-corpus inference, exact personal precedence, imported evidence, conflicts and candidate budgets without a database. `node scripts/test_routing_memory_base_recognition.mjs` checks independently authored cases across twelve locales, including JS/Python route and decision parity, CJK, corpus frequency, field conflicts and immutable input evidence. Typo regressions cover all four single-edit operations, minimum lengths, unique personal spellings, per-field uncertainty barriers, list-only observations, bounded work and unchanged-input/non-learning behavior.
+- `node scripts/test_routing_memory_lifecycle.mjs` checks trailing refreshes, immutable cached results, in-place authorization changes and captured save/reset/session boundaries. `node scripts/test_routing_memory_prepared.mjs` checks raw/prepared and JS/Python parity, snapshot ownership, policy invalidation and bounded model analysis for large recipe catalogs without timing assertions.
+- `node scripts/test_task_routing_memory.mjs` checks Tasks exact/token matching with JS/Python parity, workspace isolation, access revocation and pending-feedback reset fences, without a database. `test_frontend_todo_routing_memory.mjs` uses a private mocked browser origin for normal Tasks single/bulk entry, automatic AI badges, explicit choices, live cache changes and attempted versus unsent create edits.
+- Existing BrainDump/recipe UI and offline suites verify feedback provenance, durable serialization, temporary-ID remapping and immutable attempted bodies. `test_shared_routing_memory_e2e.mjs` starts a private temporary service/database and checks actual Shopping-to-Recipe and Recipe-to-Shopping learning, proposal-only non-learning, AI-source chips without acceptance buttons, repeated confidence after corrections, personal phrase variants, multiple stores, the shared BrainDump adapter without an LLM, non-BrainDump memory settings, normal Tasks-to-BrainDump round trips, unfamiliar qualifiers in Shopping/recipe transfer and statistically discriminating Task entry, unchanged-prediction non-learning, and stale-generation rejection. Its normal and typo scenarios run serially against separate temporary services, retaining production rate limits. Run it serially with other database-mutating checks; it never uses the development database.
 
 ### Security / workflow contracts
 
@@ -250,3 +266,50 @@ For audio/STT work, use controlled fixture recordings instead of making Tobi tri
 - Review subagents should not run full gates by default. They may run static/syntax checks or a focused suite only when explicitly requested.
 - `web/manifest.json` and `src-tauri/frontend-dist/` are maintained by the dev/release flow; source tests generally target `web/` unless a native packaging test says otherwise.
 - In CI, `install-and-test.sh` runs the release gate against the real installed `.deb` service, owned by the `nia-todo` system user rather than the CI runner user (`NIA_TODO_TEST_SUDO_FS=1`). Scripts touching that data use `sudo -n` for filesystem operations and must use the app's venv Python explicitly (`APP_PYTHON` in `frontend_test_lib.mjs`, similar constant in `test_backend.py`) - a bare `python3` under `sudo -n` loses the venv from `PATH` and misses `fastapi`. New DB-touching test scripts must set `NIA_TODO_DATA_DIR` themselves rather than relying on the ambient environment, or they'll target the real service data dir.
+
+URL import regressions: `test_public_fetch.py` mocks DNS/sockets/HTTP to check public
+address pinning, redirects and download bounds; `test_recipe_import.py` parses local
+HTML fixtures with network access prohibited. `test_frontend_recipe_import.mjs` uses
+a private mocked browser origin and never the development database. Existing recipe
+API, image, migration and offline suites cover source-field persistence and upgrade.
+Grouping fixtures verify Chefkoch's HTML sections against the unchanged structured
+ingredient sequence, including similar names with different amounts and safe fallback
+when the page structure no longer matches. Step-editor fixtures cover direct access
+for one populated group and collapsed sections for multiple groups on mobile/desktop.
+
+Recipe BrainDump regressions: `test_recipe_ai.py` mocks model calls/access and checks
+protected facts, ingredient keys, strict JSON and revocation before/after retry.
+`test_llm_client.py` verifies shared provider adapters and bounded transport.
+`test_frontend_recipe_ai.mjs` uses a private mocked origin for current-draft refinement,
+text entry, cancellation and stale/access fences. `test_recipe_ai_e2e.mjs` runs its
+own temporary app/database and mocks only the external model; it never uses an
+installed service or sends test content to the configured operator model.
+
+Recipe BrainDump compact-patch cases include import-like UUIDs and long steps, partial
+updates, unknown/duplicate references and truncated nonempty replies.
+Step-title regressions cover explicit optional headings, body-only imports, semantic
+description cleanup, inferred fractions/remainders and protected manual quantities.
+Assignment regressions include formatting-only replies, a bounded focused repair,
+unknown amounts with known ingredients, legitimate empty results, malformed optional
+responses, retained existing links and access/deadline fences. The private full-app
+test deliberately starts with an unlinked text result and verifies repaired links
+through normal saving and offline replay.
+Provenance coverage distinguishes replaceable BrainDump links from manual positives,
+amounts and negative choices. Migration 073 tests preserve old content and protect
+legacy links as manual, including startup rollback; API/pending tests cover old-client
+manual reselection without rewriting durable bodies. Full-app BrainDump coverage
+checks blank group naming, removal of earlier AI mistakes, manual amount/exclusion
+precedence, step-specific source warnings and offline replay. Model semantics are
+tested with simulated finished-component/extra-amount responses; these fixtures do
+not substitute for a separate configured-model probe.
+Detailed-finding tests verify original-source excerpts, optional malformed-detail
+omission, multiple ingredients per step, stable-key inline placement, collapsed
+generic notes/evidence, escaped text and distinct borderless step cards at desktop
+and mobile widths.
+The fresh-migration suite verifies the actual startup dispatch for migration 072,
+including complete rollback, stable IDs/links/amounts and the AUTOINCREMENT high-water
+mark. Editor/cooking fixtures check both reported spacing gaps at desktop/mobile
+widths; the private full-app BrainDump test persists headings through offline replay.
+`test_recipe_ai_diagnostics.py` checks rejection logs with deliberately injected
+sensitive-looking values; recipe content, URLs, keys and provider configuration must
+never appear in those logs. It uses only mocked dependencies and no application DB.

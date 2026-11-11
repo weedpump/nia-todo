@@ -92,6 +92,9 @@
 .quick-add-chip-label {
   color: var(--text-secondary);
 }
+.quick-add-chip>strong { min-width: 0; overflow-wrap: anywhere; }
+.quick-add-memory-icon { display: inline-flex; flex: none; }
+.quick-add-memory-icon .ui-icon { width: 14px; height: 14px; }
 
 .quick-add-chip.priority { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.13); }
 .quick-add-chip.due { border-color: rgba(99, 102, 241, 0.45); background: rgba(99, 102, 241, 0.14); }

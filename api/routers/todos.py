@@ -5,6 +5,7 @@ import json
 import re
 import secrets
 import sqlite3
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -12,7 +13,7 @@ from urllib.parse import quote, unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from db import get_db, row_to_dict, now_iso
 from paths import ATTACHMENT_DIR
@@ -20,6 +21,7 @@ from routers.auth import require_auth
 from routers.websocket import broadcast_sync_to_users
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
+from services.routing_memory import RoutingFeedback, record_task_route_choice, legacy_feedback
 from services.entity_access import get_entity_ownership
 from services.sharing import can_access_project, can_access_todo, can_edit_project, can_manage_todos, get_project_ids_for_user, get_project_participant_user_ids, get_todo_reminder_recipient_user_id
 from services.attachments import AttachmentCleanupBatch, AttachmentFileCleanupBatch, AttachmentUploadStaging, AttachmentUploadTempLease, MAX_ATTACHMENT_BYTES, attachment_usage_payload, commit_with_attachment_recovery, enforce_attachment_upload_policy, sniff_attachment_content_type
@@ -36,6 +38,8 @@ class TodoSubtaskInput(BaseModel):
     sort_order: Optional[int] = None
 
 class TodoCreate(BaseModel):
+    client_mutation_id: Optional[str] = Field(default=None,max_length=200,validation_alias=AliasChoices("client_mutation_id","_tempId"))
+    routing_feedback: Optional[RoutingFeedback] = None
     title: str = Field(..., max_length=500)
     description: str = Field(default="", max_length=50000)
     priority: int = Field(default=3, ge=1, le=4)
@@ -51,6 +55,7 @@ class TodoCreate(BaseModel):
     confirm_incomplete_subtasks_completion: bool = False
 
 class TodoUpdate(BaseModel):
+    routing_feedback: Optional[RoutingFeedback] = None
     title: Optional[str] = Field(default=None, max_length=500)
     description: Optional[str] = Field(default=None, max_length=50000)
     priority: Optional[int] = None
@@ -899,6 +904,14 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     if data.status == 'done' and _has_open_subtasks(subtasks) and not data.confirm_incomplete_subtasks_completion:
         raise HTTPException(409, "Cannot complete todo with open subtasks without confirmation")
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        mutation_id = (data.client_mutation_id or "").strip() or None
+        if mutation_id:
+            receipt = db.execute("SELECT * FROM todos WHERE client_mutation_user_id=? AND client_mutation_id=?",(user_id,mutation_id)).fetchone()
+            if receipt:
+                if not can_access_todo(db,receipt,user_id):
+                    raise HTTPException(403,"Not authorized")
+                return fetch_todo(db,receipt["id"],user_id)
         if data.project_id is None and data.section_id is None:
             data.project_id = get_user_inbox_project_id(db, user_id)
         _validate_todo_target(db, data.project_id, data.section_id, user_id)
@@ -909,9 +922,9 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
             raise HTTPException(422, "Recurring todos require due_date")
         c = db.execute(
             """INSERT INTO todos
-               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, recurring_rule, now, user_id)
+               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id,client_mutation_id,client_mutation_user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, recurring_rule, now, user_id,mutation_id,user_id if mutation_id else None)
         )
         if c.lastrowid is None:
             raise RuntimeError("Todo insert did not return an id")
@@ -925,6 +938,7 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
         location = _validate_location_reminder(db, data.location_reminder, user_id)
         if location:
             _insert_location_reminder(db, todo_id, user_id, location)
+        record_task_route_choice(db,user_id,data.title,data.project_id,data.section_id,data.routing_feedback)
         db.commit()
         todo = fetch_todo(db, todo_id, user_id)
         await broadcast_todo_change(db, "todo_create", todo_id, user_id, data.project_id)
@@ -950,6 +964,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
     _validate_todo_status(data.status)
     subtasks_update = _normalize_subtasks(data.subtasks) if data.subtasks is not None else None
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         existing = fetch_todo(db, todo_id, user_id)
         if not existing:
             raise HTTPException(404, "Todo not found")
@@ -1116,6 +1131,16 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                         )
                     if next_remind_at:
                         _insert_reminder(db, recurrence_existing_next_id, next_remind_at, user_id, reminder_source)
+        feedback = data.routing_feedback
+        if feedback is None:
+            chosen_fields = []
+            if moving_projects:
+                chosen_fields.append("list")
+            if target_section_id != existing.get("section_id") and not moving_projects:
+                chosen_fields.append("section")
+            if chosen_fields:
+                feedback = legacy_feedback(db,user_id,"legacy-task-update:"+uuid.uuid4().hex,chosen_fields)
+        record_task_route_choice(db,user_id,updates.get("title",existing.get("title")),target_project_id,target_section_id,feedback)
         db.commit()
         updated_todo_row = db.execute("SELECT * FROM todos WHERE id = ?", (todo_id,)).fetchone()
         revoked_user_ids = {

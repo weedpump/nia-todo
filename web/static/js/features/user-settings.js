@@ -52,7 +52,7 @@ function isHeicFile(file) {
   return type.includes('heic') || type.includes('heif') || name.endsWith('.heic') || name.endsWith('.heif');
 }
 
-export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, setCurrentUser, onModulePreferencesChange, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
+export function createUserSettingsFeature({ authApi, placesApi, routingMemory = null, getCurrentUser, setCurrentUser, onModulePreferencesChange, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
   let lastTwoFactorState = null;
   let trustedDeviceRevokeInFlight = false;
   let modulePreferencesInFlight = false;
@@ -693,11 +693,11 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       loadApiKeys();
       updatePushSettingsUI();
     }
-    if (getCurrentUser()?.braindump_enabled) loadBrainDumpLearningSetting().catch(() => {});
+    if (getCurrentUser()?.id != null) loadBrainDumpLearningSetting().catch(() => {});
   }
 
   function renderBrainDumpLearningSetting(user = getCurrentUser()) {
-    const enabled = Boolean(user?.braindump_enabled);
+    const enabled = user?.id != null;
     const section = document.getElementById('settings-section-braindump');
     const nav = document.getElementById('settings-nav-braindump');
     if (section) section.hidden = !enabled;
@@ -709,15 +709,17 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
   function setBrainDumpLearningStatus(data = null) {
     if (!data) return;
     const countEl = document.getElementById('settings-braindump-learning-count');
-    if (countEl) countEl.textContent = t('settings.braindump.learning.count', { count: Number(data.learned_routes || 0) });
+    if (countEl) countEl.textContent = t('settings.routingMemory.learning.count', { count: Number(data.learned_routes || 0) });
   }
 
   async function loadBrainDumpLearningSetting() {
-    if (!getCurrentUser()?.braindump_enabled) {
+    if (getCurrentUser()?.id == null) {
       renderBrainDumpLearningSetting();
       return null;
     }
-    const data = await authApi.getBrainDumpLearning();
+    const capturedActor = getCurrentUser()?.id;
+    const data = await (routingMemory ? routingMemory.settings() : authApi.getBrainDumpLearning());
+    if (!data || capturedActor !== getCurrentUser()?.id) return null;
     const currentUser = getCurrentUser();
     if (currentUser) setCurrentUser({ ...currentUser, braindump_learning_enabled: data.enabled });
     renderBrainDumpLearningSetting({ ...currentUser, braindump_learning_enabled: data.enabled });
@@ -731,15 +733,17 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (errorEl) errorEl.textContent = '';
     if (successEl) successEl.textContent = '';
     try {
-      const data = await authApi.updateBrainDumpLearning(enabled);
+      const capturedActor = getCurrentUser()?.id;
+      const data = await (routingMemory ? routingMemory.setEnabled(enabled) : authApi.updateBrainDumpLearning(enabled));
+      if (!data || capturedActor !== getCurrentUser()?.id) return;
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, braindump_learning_enabled: data.enabled });
       renderBrainDumpLearningSetting({ ...currentUser, braindump_learning_enabled: data.enabled });
       setBrainDumpLearningStatus(data);
-      if (successEl) successEl.textContent = data.enabled ? t('settings.braindump.learning.enabled') : t('settings.braindump.learning.disabled');
+      if (successEl) successEl.textContent = data.enabled ? t('settings.routingMemory.learning.enabled') : t('settings.routingMemory.learning.disabled');
     } catch (error) {
       renderBrainDumpLearningSetting();
-      if (errorEl) errorEl.textContent = error?.message || t('settings.braindump.learning.saveFailed');
+      if (errorEl) errorEl.textContent = error?.message || t('settings.routingMemory.learning.saveFailed');
     }
   }
 
@@ -749,11 +753,13 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (errorEl) errorEl.textContent = '';
     if (successEl) successEl.textContent = '';
     try {
-      const data = await authApi.resetBrainDumpLearning();
+      const capturedActor = getCurrentUser()?.id;
+      const data = await (routingMemory ? routingMemory.reset() : authApi.resetBrainDumpLearning());
+      if (!data || capturedActor !== getCurrentUser()?.id) return;
       setBrainDumpLearningStatus(data);
-      if (successEl) successEl.textContent = t('settings.braindump.learning.resetDone');
+      if (successEl) successEl.textContent = t('settings.routingMemory.learning.resetDone');
     } catch (error) {
-      if (errorEl) errorEl.textContent = error?.message || t('settings.braindump.learning.resetFailed');
+      if (errorEl) errorEl.textContent = error?.message || t('settings.routingMemory.learning.resetFailed');
     }
   }
 

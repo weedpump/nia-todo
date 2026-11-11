@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { validateRecipeChanges, sanitizeRecipeEntry } from '../web/static/js/features/recipe-pending.js';
+import { brainDumpCandidatePayload } from '../web/static/js/features/braindump-candidate-review.js';
+import { resolveShoppingQuickAddState } from '../web/static/js/features/shopping-item-editor.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
@@ -16,8 +19,29 @@ const labels = {
 
 assert.equal(formatShoppingQuantity({ quantity_value: 1.5, quantity_unit: 'kg' }, 'de-DE'), '1,5 kg');
 assert.equal(formatShoppingQuantity({ quantity_value: 1.23456, quantity_unit: 'kg' }, 'de-DE'), '1,23456 kg', 'stored quantity precision must remain visible');
-assert.equal(formatShoppingQuantity({ quantity_value: 0, quantity_unit: 'Stück' }, 'de-DE'), '0 Stück');
+assert.equal(formatShoppingQuantity({ quantity_value: 0, quantity_unit: 'Stück' }, 'de-DE'), '0 Stk.');
 assert.equal(formatShoppingQuantity({ quantity_value: null, quantity_unit: '' }, 'de-DE'), '');
+
+assert.equal(formatShoppingQuantity({ quantity_text: 'nach Geschmack', quantity_value: null }, 'de-DE'), 'nach Geschmack');
+const recipeCaption = renderShoppingItem({ item: { id: 99, name: 'Salz', quantity_text: 'nach Geschmack', note: '<b>fein</b>', recipe_sources: [{ recipe_title: 'Pasta <script>' }] }, canEdit: true });
+assert.match(recipeCaption, /nach Geschmack/);
+assert.match(recipeCaption, /&lt;b&gt;fein&lt;\/b&gt;/);
+assert.match(recipeCaption, /Pasta &lt;script&gt;/);
+assert.doesNotMatch(recipeCaption, /<script>|<b>fein/);
+{
+  let recipeLists = [{ id: 99, can_edit: true, sections: [], items: [] }], recipeSequence = 0;
+  const recipeMutations = [];
+  const recipeItems = createShoppingItemsController({ getLists: () => recipeLists, setLists: next => { recipeLists = next; }, getActiveListId: () => 99,
+    createTempId: () => `temp-recipe-shopping-fields-${++recipeSequence}`, commitMutation: async build => { const mutation = build(); if (mutation) recipeMutations.push(mutation); return mutation; } });
+  const salt = await recipeItems.create({ name: 'Salz', quantity_text: 'nach Geschmack', note: 'fein' });
+  assert.equal(salt.quantity_text, 'nach Geschmack'); assert.equal(salt.note, 'fein');
+  assert.equal(recipeMutations[0].data.item.quantity_text, 'nach Geschmack');
+  const changed = await recipeItems.update(99, salt.id, { name: 'Salz', quantity: '', unit: '', quantity_text: 'eine Prise', note: 'grob' });
+  assert.equal(changed.quantity_text, 'eine Prise'); assert.equal(changed.note, 'grob');
+  assert.equal(await recipeItems.update(99, salt.id, { name: 'Salz', quantity: 2, quantity_text: 'etwas' }), null);
+  const numeric = await recipeItems.update(99, salt.id, { name: 'Salz', quantity: 2, unit: 'g', quantity_text: null, note: '' });
+  assert.equal(numeric.quantity_text, null); assert.equal(numeric.quantity_value, 2); assert.equal(numeric.note, '');
+}
 
 const openHtml = renderShoppingItem({
   item: { id: 'temp-shopping-item-1', name: '<img src=x onerror=alert(1)> Milch', quantity_value: 2.5, quantity_unit: '<b>kg</b>', completed: false, is_pending: true },
@@ -41,7 +65,7 @@ assert.match(openHtml, /aria-label="Milch als gekauft markieren"/);
 assert(!openHtml.includes('<img src=x'), 'item title must be escaped');
 assert(!openHtml.includes('<b>kg</b>'), 'free quantity unit must be escaped');
 assert.match(openHtml, /&lt;img src=x onerror=alert\(1\)&gt; Milch/);
-assert.match(openHtml, /2,5 &lt;b&gt;kg&lt;\/b&gt;/);
+assert.match(openHtml, /2 1\/2 &lt;b&gt;kg&lt;\/b&gt;/);
 for (const forbidden of ['todo-item', 'todo-check', 'todo-title', 'data-todo-action', ' data-id=', 'data-touch-dnd']) {
   assert(!openHtml.includes(forbidden), `shopping item markup must not expose ${forbidden}`);
 }
@@ -723,7 +747,7 @@ let updateLists = [{
     completed: false,
   }],
 }];
-let updateStores = [{ id: 'temp-update-store', client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
+let updateStores = [{ id: 'temp-update-store', shopping_list_id: 'update-list', client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
 const updateGate = deferred();
 let updateMutation = null;
 let updatePublishes = 0;
@@ -763,7 +787,7 @@ updateLists = [{
   items: [{ ...updateLists[0].items[0], id: 81 }],
 }];
 activeUpdateListId = 61;
-updateStores = [{ id: 91, client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
+updateStores = [{ id: 91, shopping_list_id: 61, client_mutation_id: 'temp-update-store', name: 'Market', active: true }];
 updateGate.resolve();
 const updatedItem = await firstUpdate;
 assert.equal(updateMutation.action, 'UPDATE_SHOPPING_ITEM');
@@ -774,7 +798,7 @@ assert.deepEqual(updateMutation.data, {
     name: 'Fresh milk',
     section_id: 71,
     quantity_value: 0,
-    quantity_unit: 'bottles',
+    quantity_unit: 'bottle',
     store_ids: [91],
   },
 });
@@ -1026,6 +1050,13 @@ assert.match(shoppingDialogsSource, /data-i18n-key="common\.section"/, 'shopping
 for (const source of [todoDialogsSource, todoFeatureSource, todoQuickAddSource, braindumpSource, shoppingDialogsSource]) {
   assert.doesNotMatch(source, /(?:todo|shopping\.item)\.section(?=['"])|quickAdd\.detected\.section|braindump\.quickfix\.section/, 'equivalent section labels must not retain module-specific i18n keys');
 }
+for (const path of ['modules/shopping-dialogs.js', 'features/shopping-quick-add.js', 'features/braindump-live.js', 'features/recipe-editor.js']) {
+  const source = readFileSync(new URL(`../web/static/js/${path}`, import.meta.url), 'utf8');
+  for (const key of ['common.quantity', 'common.unit']) {
+    assert(source.includes(`'${key}'`), `${path} must use the shared ${key} label`);
+  }
+  assert.doesNotMatch(source, /(?:shopping\.item|recipe)\.(?:quantity|unit)(?=['"])/, `${path} must not retain duplicate module-specific quantity or unit labels`);
+}
 
 for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'sv', 'zh-CN']) {
   const dictionary = JSON.parse(readFileSync(new URL(`../web/static/i18n/${locale}.json`, import.meta.url), 'utf8'));
@@ -1043,9 +1074,9 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
     'shopping.item.namePlaceholder',
     'shopping.item.details',
     'shopping.item.detailsHint',
-    'shopping.item.quantity',
+    'common.quantity',
     'shopping.item.quantityPlaceholder',
-    'shopping.item.unit',
+    'common.unit',
     'shopping.item.unitPlaceholder',
     'common.section',
     'shopping.item.store',
@@ -1075,6 +1106,9 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
   assert.equal(dictionary['shopping.item.section'], undefined, `${locale} must not retain the duplicate shopping.item.section key`);
   assert.equal(dictionary['quickAdd.detected.section'], undefined, `${locale} must not retain the duplicate quickAdd.detected.section key`);
   assert.equal(dictionary['braindump.quickfix.section'], undefined, `${locale} must not retain the duplicate braindump.quickfix.section key`);
+  for (const key of ['shopping.item.quantity', 'shopping.item.unit', 'recipe.quantity', 'recipe.unit']) {
+    assert.equal(dictionary[key], undefined, `${locale} must not retain the duplicate ${key} label`);
+  }
   if (locale === 'de') {
     const legacySectionValues = Object.entries(dictionary).filter(([, value]) => typeof value === 'string' && /\bSection/.test(value));
     assert.deepEqual(legacySectionValues, [], 'German task surfaces must consistently say Abschnitt instead of Section');
@@ -1082,3 +1116,50 @@ for (const locale of ['cs', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', '
 }
 
 console.log('✅ Shopping item renderer and durable create/completion controller passed');
+
+// Known units normalize before local projection; custom units never fuzzily match.
+{
+  let lists = [{ id: 301, can_edit: true, sections: [], items: [{ id: 302, name: 'Milk',
+    quantity_value: 250 / 3, quantity_unit: 'ml', quantity_text: null, quantity_display_mode: 'kitchen', store_ids: [] }] }];
+  const mutations = [];
+  const items = createShoppingItemsController({ getLists: () => lists, setLists: value => { lists = value; },
+    getActiveListId: () => 301, commitMutation: async build => { const mutation = build(); mutations.push(mutation); return mutation; },
+    createTempId: () => 'temp-unit-input' });
+  const renamed = await items.update(301, 302, { name: 'Milk renamed', quantity: 250 / 3, unit: 'milliliters', quantity_text: '', sectionId: null, storeId: null });
+  assert.equal(renamed.quantity_value, 250 / 3, 'rename preserves exact stored source quantity');
+  assert.equal(renamed.quantity_display_mode, 'kitchen');
+  for (const field of ['quantity_value', 'quantity_unit', 'quantity_text', 'quantity_display_mode']) {
+    assert.equal(Object.hasOwn(mutations.at(-1).data.changes, field), false, `rename does not submit ${field}`);
+  }
+  const changed = await items.update(301, 302, { name: 'Milk renamed', quantity: .3, unit: 'Packungen', quantity_text: '', sectionId: null, storeId: null });
+  assert.equal(changed.quantity_value, .3);
+  assert.equal(changed.quantity_unit, 'pack');
+  assert.equal(changed.quantity_display_mode, 'exact', 'manual quantity edit immediately stops kitchen rounding');
+  assert.equal(Object.hasOwn(mutations.at(-1).data.changes, 'quantity_display_mode'), false, 'server-owned mode is never PATCHed');
+  const created = await items.create({ name: 'Water', quantity: .25, unit: 'Liter' });
+  assert.equal(created.quantity_unit, 'l'); assert.equal(created.quantity_value, .25); assert.equal(created.quantity_display_mode, 'exact');
+  assert.equal(Object.hasOwn(mutations.at(-1).data.item, 'quantity_display_mode'), false);
+  assert.equal(resolveShoppingQuickAddState({ name: 'Water', quantity: '.25', unit: 'Liter' }, null).unit, 'l');
+  assert.equal(resolveShoppingQuickAddState({ name: 'Water', quantity: '.25', unit: 'Hansdampf' }, null).unit, 'Hansdampf');
+}
+{
+  const input = { title: 'Soup', ingredient_groups: [{ client_key: 'g', name: '', ingredients: [
+    { client_key: 'i', name: 'Water', quantity_value: .25, quantity_unit: 'Liter' },
+    { client_key: 'j', name: 'Special', quantity_value: .3, quantity_unit: 'Hansdampf' },
+  ] }] };
+  const valid = validateRecipeChanges(input, true);
+  assert.equal(valid.ingredient_groups[0].ingredients[0].quantity_unit, 'l');
+  assert.equal(valid.ingredient_groups[0].ingredients[0].quantity_value, .25);
+  assert.equal(valid.ingredient_groups[0].ingredients[1].quantity_unit, 'Hansdampf');
+  assert.equal(input.ingredient_groups[0].ingredients[0].quantity_unit, 'Liter', 'validation never rewrites an earlier source object');
+  const attempted = { action: 'UPDATE_RECIPE', attempted: true, data: { id: 2, cookbook_id: 1,
+    expected_revision: 4, client_mutation_id: 'immutable-recipe-body', changes: input } };
+  assert.equal(sanitizeRecipeEntry(attempted).data.changes.ingredient_groups[0].ingredients[0].quantity_unit, 'Liter', 'attempted body stays byte-semantic immutable');
+  const candidate = { module_id: 'shopping', title: 'Water', quantity_value: .25, quantity_unit: 'Liter' };
+  assert.equal(brainDumpCandidatePayload(candidate).quantity_unit, 'l');
+  assert.equal(candidate.quantity_unit, 'Liter');
+  assert.equal(brainDumpCandidatePayload({ ...candidate, quantity_unit: 'Hansdampf' }).quantity_unit, 'Hansdampf');
+}
+assert.equal(formatShoppingQuantity({ quantity_value: 250 / 3, quantity_unit: 'ml', quantity_display_mode: 'kitchen' }, 'de'), '83 ml');
+assert.equal(formatShoppingQuantity({ quantity_value: .25, quantity_unit: 'pack', quantity_display_mode: 'kitchen' }, 'de'), '1/4 Pack.');
+assert.equal(formatShoppingQuantity({ quantity_value: .3, quantity_unit: 'Hansdampf', quantity_display_mode: 'kitchen' }, 'de'), '0,3 Hansdampf');

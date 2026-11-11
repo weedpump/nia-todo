@@ -1,3 +1,4 @@
+import { normalizeQuantityUnit, formatQuantityUnit } from '../core/quantity-units.js';
 import { API } from '../core/config.js';
 import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
@@ -7,8 +8,9 @@ import { closeOpenDropdown, hydrateSelect, refreshSelect } from '../ui/dropdowns
 import { createNativeBridge } from './native-bridge.js';
 import { openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { renderDetailModalFrame } from '../ui/detail-modal.js';
-import { brainDumpCandidateModule, brainDumpOriginalRoute, brainDumpCandidateError, brainDumpCandidatePayload, changeBrainDumpCandidateModule, resolveBrainDumpShoppingTarget } from './braindump-candidate-review.js';
+import { brainDumpCandidateModule, brainDumpOriginalRoute, brainDumpCandidateError, brainDumpCandidatePayload, brainDumpCandidateMemoryFields, changeBrainDumpCandidateModule, resolveBrainDumpShoppingTarget } from './braindump-candidate-review.js';
 import { formatShoppingQuantity } from './shopping-items.js';
+import { renderQuickAddChips } from './quick-add.js';
 
 const SILENCE_LEVEL = 0.035;
 const NATIVE_VOICE_LEVEL = 0.09;
@@ -104,6 +106,9 @@ export function createBrainDumpLiveFeature(options = {}) {
     editingCandidateKey: '',
     workspaceId: null,
     savedPlaces: [],
+    taskSections: null,
+    taskSectionsRequest: 0,
+    taskSectionsPromise: null,
   };
 
   async function init({ forceAccess = false } = {}) {
@@ -182,7 +187,11 @@ export function createBrainDumpLiveFeature(options = {}) {
     return [...new Set(options.getSupportedModules() || [])].filter(id => ['tasks', 'shopping'].includes(id));
   }
 
+  let publishedAccess = null;
+  const hasAccess = () => Boolean(state.accessChecked && state.enabled && state.accessToken === getAuthToken() && getAuthToken());
   function refreshLauncher({ checkAccess = true } = {}) {
+    const access = hasAccess();
+    if (publishedAccess !== access) { publishedAccess = access; options.onAccessChange?.(access); }
     const fab = document.getElementById('braindump-fab');
     const root = options.getLauncherRoot?.() || document.body;
     if (fab && fab.parentElement !== root) root?.appendChild(fab);
@@ -194,7 +203,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     }
     if (document.getElementById('braindump-modal')?.classList.contains('active')) {
       if (!visible || (state.sessionAuthToken && state.sessionAuthToken !== getAuthToken())) void close();
-      else { state.candidateRenderSignature = ''; render(); }
+      else { state.candidateRenderSignature = ''; render(); void loadTaskSections({force:true}); }
     }
     if (checkAccess && (!state.enabled || state.accessToken !== getAuthToken()) && getAuthToken()) void init();
   }
@@ -295,6 +304,9 @@ export function createBrainDumpLiveFeature(options = {}) {
       updateLauncherLabel();
       updateStaticLabels();
       render();
+    });
+    window.addEventListener('nia:access-snapshot', () => {
+      if (document.getElementById('braindump-modal')?.classList.contains('active')) void loadTaskSections({force:true});
     });
     window.addEventListener('nia:saved-places-updated', (event) => {
       state.savedPlaces = Array.isArray(event.detail?.places) ? event.detail.places : [];
@@ -409,6 +421,39 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.voiceStartedAt = 0;
     state.workspaceId = null;
     state.sessionAuthToken = null;
+    state.taskSections = null;
+    state.taskSectionsRequest++;
+    state.taskSectionsPromise = null;
+  }
+
+  function getTaskSections() {
+    return typeof options.loadTaskSections === 'function' ? state.taskSections || [] : options.getSections?.() || [];
+  }
+
+  async function loadTaskSections({force=false} = {}) {
+    if (typeof options.loadTaskSections !== 'function') return true;
+    if (!force && state.taskSectionsPromise) return state.taskSectionsPromise;
+    if (!force && state.taskSections !== null) return true;
+    const auth = getAuthToken(), token = state.startToken, workspace = activeWorkspaceId();
+    const request = ++state.taskSectionsRequest;
+    const sameSession = () => Boolean(auth && auth === getAuthToken() && auth === state.sessionAuthToken
+      && token === state.startToken && workspace === activeWorkspaceId()
+      && document.getElementById('braindump-modal')?.classList.contains('active'));
+    const current = () => sameSession() && request === state.taskSectionsRequest;
+    const operation = Promise.resolve().then(() => options.loadTaskSections()).then(rows => {
+      if (!sameSession()) return false;
+      if (!current()) return loadTaskSections();
+      if (!Array.isArray(rows)) throw new Error('Invalid section catalog');
+      state.taskSections = rows;
+      state.candidateRenderSignature = '';
+      render();
+      return true;
+    }).catch(() => {
+      if (sameSession() && !current()) return loadTaskSections();
+      return false;
+    }).finally(() => { if (state.taskSectionsPromise === operation) state.taskSectionsPromise = null; });
+    state.taskSectionsPromise = operation;
+    return operation;
   }
 
   async function loadSavedPlaces() {
@@ -478,6 +523,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.sessionAuthToken = getAuthToken();
     const startToken = state.startToken + 1;
     state.startToken = startToken;
+    void loadTaskSections();
     state.starting = true;
     render();
     try {
@@ -828,6 +874,8 @@ export function createBrainDumpLiveFeature(options = {}) {
       if (state.stoppedAt && item.segmentId < state.finalSegmentId) return;
       if (!state.stoppedAt && item.segmentId < state.latestQueuedSegmentId) return;
       const candidates = Array.isArray(data.json?.candidates) ? data.json.candidates : [];
+      if (candidates.some(candidate => brainDumpCandidateModule(candidate) === 'tasks') && !await loadTaskSections()) throw new Error(t('common.error'));
+      if (sessionToken !== state.startToken || !item.authToken || item.authToken !== getAuthToken()) return;
       state.latestAppliedSegmentId = Math.max(state.latestAppliedSegmentId, item.segmentId);
       applyCandidates(candidates);
       state.error = '';
@@ -842,7 +890,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function rawCandidateKey(candidate) {
-    return JSON.stringify([brainDumpCandidateModule(candidate), candidate.title, candidate.project_name, candidate.section_name,
+    return JSON.stringify([brainDumpCandidateModule(candidate), candidate.title, candidate.project_id, candidate.section_id, candidate.project_name, candidate.section_name,
       candidate.deadline, candidate.reminder, candidate.recurring_rule, candidate.location_reminder,
       candidate.shopping_list_id, candidate.shopping_section_id, candidate.shopping_store_ids,
       candidate.quantity_value, candidate.quantity_unit]);
@@ -873,9 +921,16 @@ export function createBrainDumpLiveFeature(options = {}) {
       next._bdEdited = previous?._bdEdited || {};
       next._bdSaved = Boolean(previous?._bdSaved);
       next._bdOriginalRoute = previous?._bdOriginalRoute || brainDumpOriginalRoute(candidate);
+      next._bdRoutingFields = previous?._bdRoutingFields || [];
+      next._bdMemoryInvalidated = Boolean(previous?._bdMemoryInvalidated);
+      next._bdMemoryFields = next._bdMemoryInvalidated ? [] : candidate.memory_route_fields ?? [];
+      next._bdRoutingListChanged = previous?._bdRoutingListChanged || false;
+      next._bdRoutingProjectChanged = previous?._bdRoutingProjectChanged || false;
+      next._bdRoutingEventId = previous?._bdRoutingEventId || `bd-route-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
       next.client_mutation_id = previous?.client_mutation_id || `temp-bd-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${state.candidateIdCounter + 1}-${Math.random().toString(16).slice(2)}`}`;
       next._bdSubmittedPayload = previous?._bdSubmittedPayload || null;
       next._bdModuleDrafts = previous?._bdModuleDrafts || {};
+      next._bdModuleRoutingDrafts = previous?._bdModuleRoutingDrafts || {};
       next.original_project_name = next._bdOriginalRoute.original_project_name;
       next.original_section_name = next._bdOriginalRoute.original_section_name;
       next.original_route_present = true;
@@ -889,7 +944,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function candidateForCreate(candidate) {
-    return brainDumpCandidatePayload(candidate);
+    return brainDumpCandidatePayload(candidate, { routingMemory: options.routingMemory });
   }
 
   function selectedCandidateRecords() {
@@ -901,7 +956,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function candidateError(candidate) {
-    return brainDumpCandidateError(candidate, { modules: supportedModules(), lists: options.getShoppingLists?.() || [], stores: options.getShoppingStores?.() || [] });
+    return brainDumpCandidateError(candidate, { modules: supportedModules(), lists: options.getShoppingLists?.() || [], stores: options.getShoppingStores?.() || [], projects: getProjectOptions(), sections: getTaskSections() });
   }
 
   function toggleAllCandidates() {
@@ -922,14 +977,33 @@ export function createBrainDumpLiveFeature(options = {}) {
     if (name === 'module_id') {
       if (!supportedModules().includes(field.value)) return;
       changeBrainDumpCandidateModule(candidate, field.value);
+    } else if (name === 'project_name') {
+      const project = projectForOption(field.value);
+      candidate.project_id = project?.id ?? null;
+      candidate.project_name = project?.name || field.value || null;
+      candidate.section_id = null;
+      candidate.section_name = null;
+      candidate._bdRoutingProjectChanged = true;
+      candidate._bdRoutingFields = (candidate._bdRoutingFields || []).filter(value => value === 'list');
+    } else if (name === 'section_name') {
+      const sections = getSectionOptionsForProject(candidate);
+      const named = sections.filter(value => String(value.name) === field.value);
+      const section = sections.find(value => String(value.id) === field.value) || (named.length === 1 ? named[0] : null);
+      candidate.section_id = section?.id ?? null;
+      candidate.section_name = section?.name || field.value || null;
     } else if (name === 'shopping_list_id') {
       candidate.shopping_list_id = field.value || null;
+      candidate._bdRoutingListChanged = true;
+      candidate._bdRoutingFields = (candidate._bdRoutingFields || []).filter(field => field === 'list');
       candidate.shopping_section_id = null;
       candidate.shopping_store_ids = [];
     } else if (name === 'shopping_section_id') {
       candidate.shopping_section_id = field.value || null;
     } else if (name === 'shopping_store_ids') {
       candidate.shopping_store_ids = field.value ? [field.value] : [];
+    } else if (name === 'quantity_unit') {
+      candidate.quantity_unit = rerender ? normalizeQuantityUnit(field.value) : field.value || null;
+      if (rerender) field.value = formatQuantityUnit(candidate.quantity_unit, getActiveLocale());
     } else if (name === 'quantity_value') {
       candidate.quantity_value = field.value === '' ? null : field.value;
     } else if (name === 'deadline' || name === 'reminder') {
@@ -967,11 +1041,18 @@ export function createBrainDumpLiveFeature(options = {}) {
     } else {
       candidate[name] = field.value || null;
     }
-    if (name === 'project_name') candidate.section_name = null;
+    if (['title', 'shopping_list_id', 'project_name', 'module_id'].includes(name)) { candidate._bdMemoryFields = []; candidate._bdMemoryInvalidated = true; }
+    const routeField = { project_name: 'list', section_name: 'section', shopping_list_id: 'list', shopping_section_id: 'section', shopping_store_ids: 'stores' }[name];
+    if (routeField) {
+      candidate._bdRoutingFields = [...new Set([...(candidate._bdRoutingFields || []), routeField])];
+      candidate._bdMemoryFields = brainDumpCandidateMemoryFields(candidate).filter(field => field !== routeField);
+    }
     candidate._bdEdited = Object.fromEntries(Object.entries(candidate).filter(([key]) => !key.startsWith('_bd')));
     state.candidateRenderSignature = '';
     if (rerender) render();
     else {
+      const meta = field.closest('.braindump-candidate-card')?.querySelector('.braindump-meta-row');
+      if (meta) meta.innerHTML = candidateMeta(candidate);
       const createButton = document.getElementById('braindump-create');
       if (createButton) createButton.disabled = state.creating || state.processing || state.recording || !selectedCandidates().length || selectedCandidateRecords().some(candidate => candidateError(candidate));
     }
@@ -988,14 +1069,6 @@ export function createBrainDumpLiveFeature(options = {}) {
     closeOpenDropdown('braindump-create');
     const records = selectedCandidateRecords();
     if (!records.length || state.creating) return;
-    const invalid = records.find(candidate => candidateError(candidate));
-    if (invalid) {
-      state.createMessage = t(candidateError(invalid));
-      state.editingCandidateKey = candidateKey(invalid);
-      state.candidateRenderSignature = '';
-      render();
-      return;
-    }
     const sessionToken = state.startToken;
     const authToken = getAuthToken();
     const current = () => Boolean(authToken && authToken === getAuthToken() && sessionToken === state.startToken
@@ -1012,6 +1085,16 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.createMessage = '';
     render();
     try {
+      if (records.some(candidate => brainDumpCandidateModule(candidate) === 'tasks') && !await loadTaskSections({force:true})) throw new Error(t('common.error'));
+      if (!current()) return;
+      const invalid = records.find(candidate => candidateError(candidate));
+      if (invalid) {
+        state.createMessage = t(candidateError(invalid));
+        state.editingCandidateKey = candidateKey(invalid);
+        state.candidateRenderSignature = '';
+        render();
+        return;
+      }
       const groups = new Map();
       for (const candidate of records) {
         const moduleId = brainDumpCandidateModule(candidate);
@@ -1047,6 +1130,7 @@ export function createBrainDumpLiveFeature(options = {}) {
         }
         if (!current()) return;
         markSaved(group.records);
+        void Promise.resolve().then(() => options.routingMemory?.refresh?.()).catch(() => {});
       }
       if (!current()) return;
       const count = records.length;
@@ -1172,7 +1256,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       modules: supportedModules(), creating: state.creating, captureBusy: Boolean(state.starting || state.recording || state.processing || state.active || state.queue.length),
       selected: Array.from(state.selectedCandidateKeys).sort(),
       projectOptions: getProjectOptions().map(project => `${project.id}:${project.name}`).join('|'),
-      sectionOptions: (typeof options.getSections === 'function' ? options.getSections() : []).map(section => `${section.project_id}:${section.name}`).join('|'),
+      sectionOptions: getTaskSections().map(section => `${section.id}:${section.project_id}:${section.name}`).join('|'),
       places: state.savedPlaces.map(place => `${place.id}:${place.name}`).join('|'),
       editing: state.editingCandidateKey,
       language: document.documentElement.lang || '',
@@ -1205,7 +1289,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   function getProjectOptions() {
     const workspaceId = activeWorkspaceId();
     const projects = (typeof options.getProjects === 'function' ? options.getProjects() : [])
-      .filter(project => project && !project.archived)
+      .filter(project => project && !project.archived && project.can_edit !== false && project.can_edit !== 0 && project.can_edit_content !== false && project.can_edit_content !== 0)
       .filter(project => !workspaceId || String(project.workspace_id || '') === String(workspaceId));
     const projectMap = new Map();
     projects.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
@@ -1231,17 +1315,35 @@ export function createBrainDumpLiveFeature(options = {}) {
   function getProjectByName(name) {
     const normalized = String(name || '').trim().toLowerCase();
     if (!normalized) return null;
-    return getProjectOptions().find(project => String(project.name || '').trim().toLowerCase() === normalized) || null;
+    const matches = getProjectOptions().filter(project => String(project.name || '').trim().toLowerCase() === normalized);
+    return matches.length === 1 ? matches[0] : null;
   }
 
-  function getSectionOptionsForProject(projectName) {
-    const sections = typeof options.getSections === 'function' ? options.getSections() : [];
-    const project = getProjectByName(projectName);
+  function projectForOption(value) {
+    if (!value) return null;
+    return getProjectOptions().find(project => String(project.id) === String(value)) || getProjectByName(value);
+  }
+
+  function projectForCandidate(candidate) {
+    if (candidate.project_id != null) return getProjectOptions().find(project => String(project.id) === String(candidate.project_id)) || null;
+    return getProjectByName(candidate.project_name);
+  }
+
+  function getSectionOptionsForProject(candidate) {
+    const sections = getTaskSections();
+    const project = typeof candidate === 'object' ? projectForCandidate(candidate) : getProjectByName(candidate);
     if (!project) return [];
     return sections
       .filter(section => String(section.project_id || '') === String(project.id))
       .slice()
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+  }
+
+  function sectionForCandidate(candidate) {
+    const sections = getSectionOptionsForProject(candidate);
+    if (candidate.section_id != null) return sections.find(section => String(section.id) === String(candidate.section_id)) || null;
+    const matches = sections.filter(section => String(section.name || '') === String(candidate.section_name || ''));
+    return matches.length === 1 ? matches[0] : null;
   }
 
   function shoppingListForCandidate(candidate) {
@@ -1252,14 +1354,15 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   function candidateTargetLabel(candidate) {
     if (brainDumpCandidateModule(candidate) === 'shopping') return shoppingListForCandidate(candidate)?.name || t('capture.target.chooseList');
-    return candidate.project_name || t('braindump.route.inbox');
+    const project = projectForCandidate(candidate);
+    return candidate.project_id != null && !project ? t('capture.target.required') : project?.name || candidate.project_name || t('braindump.route.inbox');
   }
 
   function groupedCandidates() {
     const groups = new Map();
     state.candidates.forEach((candidate, index) => {
       const moduleId = brainDumpCandidateModule(candidate);
-      const identity = moduleId === 'shopping' ? candidate.shopping_list_id : (candidate.project_name || '');
+      const identity = moduleId === 'shopping' ? candidate.shopping_list_id : (candidate.project_id ?? candidate.project_name ?? '');
       const key = `${moduleId}:${String(identity ?? '')}`;
       if (!groups.has(key)) groups.set(key, {
         key, project: `${t(`module.${moduleId}.label`)} · ${candidateTargetLabel(candidate)}`, items: [],
@@ -1283,27 +1386,26 @@ export function createBrainDumpLiveFeature(options = {}) {
     `).join('');
   }
 
-  function renderProjectOptions(selectedName) {
-    const selected = String(selectedName || '');
-    const optionsHtml = [`<option value="">${escapeHtml(t('braindump.route.inbox'))}</option>`];
+  function renderProjectOptions(candidate) {
+    const selected = projectForCandidate(candidate);
+    const optionsHtml = [`<option value="" ${!candidate.project_id && !candidate.project_name ? 'selected' : ''}>${escapeHtml(t('braindump.route.inbox'))}</option>`];
     getProjectOptions().forEach(project => {
       const name = String(project.name || '');
       const depth = Number(project._bdDepth || 0);
-      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" data-depth="${depth}" data-project-color="${escapeHtmlAttr(project.color || '#6366f1')}" data-project-icon="${escapeHtmlAttr(project.icon || '')}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`);
+      optionsHtml.push(`<option value="${escapeHtmlAttr(project.id)}" data-depth="${depth}" data-project-color="${escapeHtmlAttr(project.color || '#6366f1')}" data-project-icon="${escapeHtmlAttr(project.icon || '')}" ${project === selected || String(project.id) === String(selected?.id) ? 'selected' : ''}>${escapeHtml(name)}</option>`);
     });
-    if (selected && !getProjectByName(selected)) optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(selected)}</option>`);
+    if ((candidate.project_id != null || candidate.project_name) && !selected) optionsHtml.push(`<option value="${escapeHtmlAttr(candidate.project_id ?? candidate.project_name)}" selected>${escapeHtml(candidate.project_id != null ? t('capture.target.required') : candidate.project_name || t('capture.target.required'))}</option>`);
     return optionsHtml.join('');
   }
 
   function renderSectionOptions(candidate) {
-    const selected = String(candidate.section_name || '');
-    const sections = getSectionOptionsForProject(candidate.project_name);
-    const optionsHtml = [`<option value="">${escapeHtml(t('braindump.quickfix.noSection'))}</option>`];
+    const selected = sectionForCandidate(candidate);
+    const sections = getSectionOptionsForProject(candidate);
+    const optionsHtml = [`<option value="" ${!candidate.section_id && !candidate.section_name ? 'selected' : ''}>${escapeHtml(t('braindump.quickfix.noSection'))}</option>`];
     sections.forEach(section => {
-      const name = String(section.name || '');
-      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`);
+      optionsHtml.push(`<option value="${escapeHtmlAttr(section.id)}" ${String(section.id) === String(selected?.id) ? 'selected' : ''}>${escapeHtml(section.name || '')}</option>`);
     });
-    if (selected && !sections.some(section => String(section.name || '') === selected)) optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(selected)}</option>`);
+    if ((candidate.section_id != null || candidate.section_name) && !selected) optionsHtml.push(`<option value="${escapeHtmlAttr(candidate.section_id ?? candidate.section_name)}" selected>${escapeHtml(candidate.section_id != null ? t('capture.target.required') : candidate.section_name || t('capture.target.required'))}</option>`);
     return optionsHtml.join('');
   }
 
@@ -1323,9 +1425,8 @@ export function createBrainDumpLiveFeature(options = {}) {
     return `${t(triggerKey)}: ${place}`;
   }
 
-  function renderCandidateMetaChips({ route, due, reminder, recurrence, location }) {
+  function renderCandidateMetaChips({ due, reminder, recurrence, location }) {
     return [
-      route ? `<span class="todo-meta-chip ui-badge braindump-route">${iconSvg('folder')} ${escapeHtml(route)}</span>` : '',
       due ? `<span class="todo-meta-chip ui-badge todo-due">${iconSvg('calendar')} ${escapeHtml(t('braindump.meta.due', { date: due }))}</span>` : '',
       reminder ? `<span class="todo-meta-chip ui-badge todo-reminder">${iconSvg('bell')} ${escapeHtml(t('braindump.meta.reminder', { date: reminder }))}</span>` : '',
       recurrence ? `<span class="todo-meta-chip ui-badge todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrence)}</span>` : '',
@@ -1400,21 +1501,46 @@ export function createBrainDumpLiveFeature(options = {}) {
     return `${renderCandidateSelect(candidate, 'shopping_list_id', 'capture.target.list', listOptions.join(''))}
       ${renderCandidateSelect(candidate, 'shopping_section_id', 'common.section', sectionOptions.join(''), { disabled: !list })}
       ${renderCandidateSelect(candidate, 'shopping_store_ids', 'shopping.item.store', storeOptions.join(''), { disabled: !list })}
-      <label class="braindump-quickfix-field"><span>${escapeHtml(t('shopping.item.quantity'))}</span>
+      <label class="braindump-quickfix-field"><span>${escapeHtml(t('common.quantity'))}</span>
         <input class="ui-field braindump-field" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtmlAttr(candidate.quantity_value ?? '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_value">
       </label>
-      <label class="braindump-quickfix-field"><span>${escapeHtml(t('shopping.item.unit'))}</span>
-        <input class="ui-field braindump-field" type="text" maxlength="40" value="${escapeHtmlAttr(candidate.quantity_unit || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_unit">
+      <label class="braindump-quickfix-field"><span>${escapeHtml(t('common.unit'))}</span>
+        <input class="ui-field braindump-field" type="text" maxlength="40" value="${escapeHtmlAttr(formatQuantityUnit(candidate.quantity_unit, getActiveLocale()))}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="quantity_unit">
       </label>`;
   }
 
   function shoppingMeta(candidate) {
     const target = resolveBrainDumpShoppingTarget(candidate, options.getShoppingLists?.() || [], options.getShoppingStores?.() || []);
-    const route = [target?.list.name || t('capture.target.chooseList'), target?.section?.name].filter(Boolean).join(' / ');
+    const remembered = new Set(brainDumpCandidateMemoryFields(candidate));
+    const matches = [{ type: 'list', label: t('capture.target.list'), value: target?.list.name || t('capture.target.chooseList'), source: target && remembered.has('list') ? 'memory' : undefined }];
+    if (target?.section || (target && remembered.has('section'))) matches.push({ type: 'section', label: t('common.section'), value: target.section?.name || t('shopping.section.unsorted'), source: remembered.has('section') ? 'memory' : undefined });
+    if (target?.stores.length || (target && remembered.has('stores'))) matches.push({ type: 'store', label: t('shopping.item.store'), value: target.stores.map(store => store.name || '').join(', ') || t('shopping.item.store.none'), source: remembered.has('stores') ? 'memory' : undefined });
     const quantity = formatShoppingQuantity({ quantity_value: candidate.quantity_value, quantity_unit: candidate.quantity_unit }, getActiveLocale());
-    return `<span class="ui-badge">${iconSvg('shopping-cart')} ${escapeHtml(route)}</span>
-      ${quantity ? `<span class="ui-badge">${escapeHtml(quantity)}</span>` : ''}
-      ${target?.stores.map(store => `<span class="ui-badge">${iconSvg('store')} ${escapeHtml(store.name || '')}</span>`).join('') || ''}`;
+    return `${renderQuickAddChips(matches, t)}${quantity ? `<span class="ui-badge">${escapeHtml(quantity)}</span>` : ''}`;
+  }
+
+  function taskMeta(candidate) {
+    const project = projectForCandidate(candidate);
+    const section = sectionForCandidate(candidate);
+    const remembered = new Set(brainDumpCandidateMemoryFields(candidate));
+    const hasProject = candidate.project_id != null || Boolean(candidate.project_name);
+    const invalidProject = candidate.project_id != null && !project;
+    const invalidSection = candidate.section_id != null && !section;
+    const matches = [{ type: 'list', label: t('braindump.quickfix.project'), value: invalidProject ? t('capture.target.required') : project?.name || candidate.project_name || t('braindump.route.inbox'), source: (!hasProject || project) && remembered.has('list') ? 'memory' : undefined }];
+    if (!invalidProject && (section || candidate.section_name || remembered.has('section'))) matches.push({ type: 'section', label: t('common.section'), value: invalidSection ? t('capture.target.required') : section?.name || candidate.section_name || t('braindump.quickfix.noSection'), source: (section || (project && candidate.section_id == null && !candidate.section_name)) && remembered.has('section') ? 'memory' : undefined });
+    return renderQuickAddChips(matches, t) + renderCandidateMetaChips({
+      due: candidate.deadline ? formatDate(candidate.deadline) : '',
+      reminder: candidate.reminder ? formatDate(candidate.reminder) : '',
+      recurrence: recurringLabel(candidate.recurring_rule),
+      location: locationReminderLabel(candidate.location_reminder),
+    });
+  }
+
+  function candidateMeta(candidate) {
+    const moduleId = brainDumpCandidateModule(candidate);
+    const moduleChip = brainDumpCandidateMemoryFields(candidate).includes('module')
+      ? renderQuickAddChips([{type:'module',label:t('capture.module'),value:t(`module.${moduleId}.label`),source:'memory'}],t) : '';
+    return moduleChip + (moduleId === 'shopping' ? shoppingMeta(candidate) : taskMeta(candidate));
   }
 
   function renderCandidate(candidate, index) {
@@ -1427,12 +1553,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     const captureBusy = Boolean(state.starting || state.recording || state.processing || state.active || state.queue.length);
     const isEditing = !pending && state.editingCandidateKey === key;
     const checkboxId = `braindump-candidate-${key}`;
-    const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || t('braindump.route.inbox');
-    const due = candidate.deadline ? formatDate(candidate.deadline) : '';
-    const reminder = candidate.reminder ? formatDate(candidate.reminder) : '';
-    const recurrence = recurringLabel(candidate.recurring_rule);
-    const location = locationReminderLabel(candidate.location_reminder);
-    const meta = shopping ? shoppingMeta(candidate) : renderCandidateMetaChips({ route, due, reminder, recurrence, location });
+    const meta = candidateMeta(candidate);
     return `
       <div class="braindump-candidate-card ui-item-card ${isEditing ? 'is-editing' : ''} ${saved ? 'is-saved' : ''}" data-bd-module="${brainDumpCandidateModule(candidate)}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
         <label class="ui-checkbox-label braindump-check" for="${escapeHtmlAttr(checkboxId)}"><input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-label="${escapeHtmlAttr(candidate.title || '')}" ${checked} ${saved || state.creating ? 'disabled' : ''}><span class="ui-checkbox-box" aria-hidden="true">${iconSvg('check')}</span></label>
@@ -1454,11 +1575,11 @@ export function createBrainDumpLiveFeature(options = {}) {
               ${shopping ? renderShoppingFields(candidate) : `
               <div class="braindump-quickfix-field">
                 <span id="braindump-project-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.project'))}</span>
-                <select data-ui-select data-project-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate.project_name)}</select>
+                <select data-ui-select data-project-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate)}</select>
               </div>
               <div class="braindump-quickfix-field">
                 <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('common.section'))}</span>
-                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${projectForCandidate(candidate) ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
               </div>
               <label class="braindump-quickfix-field">
                 <span>${escapeHtml(t('todo.deadline'))}</span>
@@ -1492,5 +1613,5 @@ export function createBrainDumpLiveFeature(options = {}) {
     `;
   }
 
-  return { init, open, refreshLauncher };
+  return { init, open, refreshLauncher, hasAccess };
 }

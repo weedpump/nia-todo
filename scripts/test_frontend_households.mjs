@@ -246,6 +246,7 @@ try {
     if (pathname === '/static/js/features/entity-direct-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: directSharingSource });
     if (pathname === '/static/js/features/entity-invitations.js') return route.fulfill({ contentType: 'text/javascript', body: entityInvitationsSource });
     if (pathname === '/static/js/features/entity-access-privacy.js') return route.fulfill({ contentType: 'text/javascript', body: entityAccessPrivacySource });
+    if (pathname === '/static/js/features/entity-metadata.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/entity-metadata.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/form-save-state.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/form-save-state.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/todo-pending.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/features/todo-pending.js', import.meta.url), 'utf8') });
     if (pathname === '/static/js/features/project-sharing.js') return route.fulfill({ contentType: 'text/javascript', body: sharingSource });
@@ -257,7 +258,7 @@ try {
     if (pathname === '/static/js/icons/lucide-icons.js') return route.fulfill({ contentType: 'text/javascript', body: lucideIconsSource });
     if (pathname === '/static/js/icons/lucide-generated.js') return route.fulfill({ contentType: 'text/javascript', body: iconsSource });
     if (pathname === '/static/js/ui/color-picker.js') return route.fulfill({ contentType: 'text/javascript', body: colorPickerSource });
-    if (pathname === '/static/js/ui/dropdowns.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const hydrateSelect=()=>{}; export const refreshSelect=()=>{};' });
+    if (pathname === '/static/js/ui/dropdowns.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const hydrateSelect=()=>{}; export const refreshSelect=()=>{}; export const isDropdownOpen=()=>false; export const closeOpenDropdown=()=>{};' });
     if (pathname === '/static/js/features/ui-history.js') return route.fulfill({ contentType: 'text/javascript', body: 'export const openUiLayer=()=>{}; export const registerUiLayer=()=>{}; export const requestCloseUiLayer=()=>false;' });
     if (pathname === '/static/js/core/config.js') return route.fulfill({ contentType: 'text/javascript', body: "export const apiResourceUrl=value=>value;" });
     if (pathname === '/static/js/core/utils.js') return route.fulfill({ contentType: 'text/javascript', body: readFileSync(new URL('../web/static/js/core/utils.js', import.meta.url), 'utf8') });

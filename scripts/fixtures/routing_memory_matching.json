@@ -1,0 +1,5699 @@
+{
+  "version": 2,
+  "description": "Independent personal-history matching; no linguistic or product vocabulary is part of runtime rules.",
+  "vectors": [
+    {
+      "id": "exact-normalized-full-title",
+      "name": "  ＭＡＲＧＥＲＩＮＥ  ",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "exact-whitespace-and-case",
+      "name": "  Red   Apples ",
+      "entries": [
+        {
+          "name_key": "red apples",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "casefold-sharp-s",
+      "name": "STRASSE",
+      "entries": [
+        {
+          "name_key": "straße",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "complete-name-preserved",
+      "name": "pflanzliche Margerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase",
+        "name_key": "pflanzliche margerine"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "arbitrary-unknown-prefix",
+      "name": "Zorblax Margerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "unknown-insertions-preserve-learned-subsequence",
+      "name": "extra virgin local olive premium oil",
+      "entries": [
+        {
+          "name_key": "olive oil",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "long-personal-spelling-fallback",
+      "name": "Margarine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "no-compound-splitting",
+      "name": "Butterkekse",
+      "entries": [
+        {
+          "name_key": "butter",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "no-implicit-translation",
+      "name": "beurre",
+      "entries": [
+        {
+          "name_key": "butter",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "no-implicit-inflection",
+      "name": "Tomaten",
+      "entries": [
+        {
+          "name_key": "tomate",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "numbers-short-words-retained",
+      "name": "a 2 XL",
+      "entries": [
+        {
+          "name_key": "a 2 xl",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "unknown-semantic-qualifier-can-inherit",
+      "name": "getrocknete Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "longer-personal-exception-dominates",
+      "name": "bio getrocknete Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "getrocknete tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 21,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "specific-complete-phrase-internal-unknown",
+      "name": "getrocknete sonnengereifte Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "getrocknete tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 21,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "exact-personal-exception",
+      "name": "getrocknete Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "getrocknete tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 21,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "disjoint-full-phrases-conflict",
+      "name": "rote Äpfel und grüne Birnen",
+      "entries": [
+        {
+          "name_key": "rote äpfel",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "grüne birnen",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "disjoint-full-phrases-agree",
+      "name": "rote Äpfel und grüne Birnen",
+      "entries": [
+        {
+          "name_key": "rote äpfel",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "grüne birnen",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "disjoint-longer-phrase-cannot-silence-other",
+      "name": "bitte unbedingt kaufen Margerine",
+      "entries": [
+        {
+          "name_key": "bitte unbedingt kaufen",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "exact-overrides-import",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "token",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ],
+          "legacy_hits": 100
+        },
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "observed-exact-list-unknown-blocks-import",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "token",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": false,
+          "preferred": false,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "exact-unknown-section-blocks-weaker-section",
+      "name": "bio getrocknete Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "getrocknete tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": false,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": false,
+        "match_kind": "phrase",
+        "stores_known": true,
+        "store_ids": [
+          30
+        ]
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "unobserved-specific-section-allows-independent-base",
+      "name": "bio getrocknete Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "getrocknete tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": false,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "explicit-empty-section-is-known",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": null,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": null,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "explicit-empty-stores-are-known",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact",
+        "stores_known": true,
+        "store_ids": []
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "section-conflict-keeps-list-and-stores",
+      "name": "rote Äpfel und grüne Birnen",
+      "entries": [
+        {
+          "name_key": "rote äpfel",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "grüne birnen",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": false,
+        "match_kind": "phrase",
+        "stores_known": true,
+        "store_ids": [
+          30
+        ]
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "fixed-list-never-picks-other-child",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping",
+      "list_id": 10
+    },
+    {
+      "id": "fixed-list-uses-only-child-history",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact",
+        "list_known": false,
+        "memory_fields": [
+          "section",
+          "stores"
+        ]
+      },
+      "module": "shopping",
+      "list_id": 10
+    },
+    {
+      "id": "no-evidence-no-route",
+      "name": "Margerine",
+      "entries": [],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "cold-start-noun-verb-symmetry-laundry",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "cold-start-noun-verb-symmetry-car",
+      "name": "Auto waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "contrast-corpus-object-helps",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_known": false,
+        "match_kind": "statistical"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "contrast-corpus-other-object-helps",
+      "name": "Auto machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 11,
+        "section_known": false,
+        "match_kind": "statistical"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "common-action-does-not-predict",
+      "name": "waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "unknown-object-common-action-abstains",
+      "name": "Fenster waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "more-consistent-names-enable-recurring-object",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche trocknen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche falten",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "statistical"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "repeating-same-title-is-not-independent-evidence",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "high-legacy-hitcount-does-not-invent-reliability",
+      "name": "Auto waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "legacy_hits": 1000000
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "three-consistent-and-one-contrast",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche trocknen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche falten",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "statistical"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "unknown-context-remains-significant",
+      "name": "Wäsche unbekannt sonderfall projektfremd",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche trocknen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche falten",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "hund baden",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 12,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 22,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "fenster putzen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 13,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 23,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "imported-action-does-not-gain-exact-priority",
+      "name": "waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "waschen",
+          "key_kind": "token",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "legacy_hits": 100
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "explicit-single-action-exact-keeps-priority",
+      "name": "waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 12,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 22,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 12,
+        "section_known": true,
+        "section_id": 22,
+        "match_kind": "exact"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "fixed-project-corpus-has-own-confidence",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9,
+      "project_id": 10
+    },
+    {
+      "id": "fixed-project-consistent-corpus",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche trocknen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche falten",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "statistical",
+        "list_known": false,
+        "memory_fields": [
+          "section"
+        ]
+      },
+      "module": "tasks",
+      "workspace_id": 9,
+      "project_id": 10
+    },
+    {
+      "id": "workspace-private",
+      "name": "Wäsche waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 8,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "workspace-null-is-distinct",
+      "name": "Wäsche waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": null,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "task-module-has-no-food-translation",
+      "name": "beurre",
+      "entries": [
+        {
+          "name_key": "butter",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "task-full-source-allows-unknown-courtesy",
+      "name": "please Wäsche waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "object-switch-with-common-action-is-not-synonym",
+      "name": "Auto waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche trocknen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche falten",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto putzen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto polieren",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto tanken",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 11,
+        "section_known": true,
+        "section_id": 21,
+        "match_kind": "statistical"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "project-statistics-do-not-pretend-child-certainty",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": false,
+        "match_kind": "statistical",
+        "stores_known": false
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "focused-extra-does-not-change-cold-statistics",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "inference_direct_only": true
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "focused-extra-literal-can-recall",
+      "name": "heute Auto waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "inference_direct_only": true
+        }
+      ],
+      "expected": {
+        "project_id": 11,
+        "section_known": true,
+        "section_id": 21,
+        "match_kind": "phrase"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "focused-extra-partial-is-not-statistical-candidate",
+      "name": "Auto machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "inference_direct_only": true
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "focused-unknown-model-word-literal-recall",
+      "name": "morgen staubsaugen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "staubsaugen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "inference_direct_only": true
+        }
+      ],
+      "expected": {
+        "project_id": 11,
+        "section_known": true,
+        "section_id": 21,
+        "match_kind": "phrase"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "focused-token-does-not-hide-model-ambiguity",
+      "name": "waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "waschen",
+          "key_kind": "token",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "inference_direct_only": true
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "cjk-complete-source",
+      "name": "植物性人造黄油",
+      "entries": [
+        {
+          "name_key": "人造黄油",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "cjk-single-character-not-generalized",
+      "name": "酱油",
+      "entries": [
+        {
+          "name_key": "油",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "cjk-single-character-exact-is-valid",
+      "name": "油",
+      "entries": [
+        {
+          "name_key": "油",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "cjk-punctuation-breaks-raw-source",
+      "name": "人,造黄油",
+      "entries": [
+        {
+          "name_key": "人造黄油",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "cjk-space-breaks-raw-source",
+      "name": "人 造黄油",
+      "entries": [
+        {
+          "name_key": "人造黄油",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "cjk-punctuated-personal-exact-valid",
+      "name": "人,造黄油",
+      "entries": [
+        {
+          "name_key": "人,造黄油",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "cjk-partial-fragments-do-not-infer",
+      "name": "洗碗",
+      "entries": [
+        {
+          "name_key": "洗衣服",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "cjk-longer-personal-exception",
+      "name": "玻璃酱油瓶",
+      "entries": [
+        {
+          "name_key": "酱油",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "酱油瓶",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 11,
+        "section_known": true,
+        "section_id": 21,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "cjk-reordered-chars-not-statistical",
+      "name": "油黄造人",
+      "entries": [
+        {
+          "name_key": "人造黄油",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "emoji-separator-keeps-complete-words",
+      "name": "🧺 Wäsche waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": true,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "over-token-budget-abstains",
+      "name": "x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x",
+      "entries": [
+        {
+          "name_key": "x",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "over-input-budget-abstains",
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "entries": [
+        {
+          "name_key": "x",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "imported-cjk-single-literal-is-usable",
+      "name": "油",
+      "entries": [
+        {
+          "name_key": "油",
+          "key_kind": "token",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "imported-cjk-single-not-substring-generalized",
+      "name": "酱油",
+      "entries": [
+        {
+          "name_key": "油",
+          "key_kind": "token",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "focused-exact-does-not-rewrite-model-token-statistics",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "waschen",
+          "key_kind": "token",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "waschen",
+          "key_kind": "exact",
+          "project_id": 12,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 22,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "inference_direct_only": true
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_known": false,
+        "match_kind": "statistical"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "focused-exact-literal-is-authoritative",
+      "name": "waschen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "waschen",
+          "key_kind": "token",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "waschen",
+          "key_kind": "exact",
+          "project_id": 12,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 22,
+          "history_fields": [
+            "list",
+            "section"
+          ],
+          "inference_direct_only": true
+        }
+      ],
+      "expected": {
+        "project_id": 12,
+        "section_id": 22,
+        "match_kind": "exact"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "duplicate-support-does-not-inflate-route-purity",
+      "name": "Wäsche machen",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "auto waschen",
+          "key_kind": "exact",
+          "project_id": 11,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_known": false,
+        "match_kind": "statistical"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "specific-unknown-stores-block-bare-product",
+      "name": "bio getrocknete Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "getrocknete tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": false,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 21,
+        "stores_known": false,
+        "memory_fields": [
+          "list",
+          "section"
+        ],
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "specific-unobserved-stores-allow-base",
+      "name": "bio getrocknete Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "getrocknete tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": false,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 21,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "disjoint-same-list-different-store-keeps-section",
+      "name": "rote Äpfel und grüne Birnen",
+      "entries": [
+        {
+          "name_key": "rote äpfel",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "grüne birnen",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            31
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "stores_known": false,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "full-personal-negation-exception",
+      "name": "keine Butter",
+      "entries": [
+        {
+          "name_key": "butter",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "keine butter",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 11,
+        "section_id": 21,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "negation-word-is-not-a-hardcoded-stopword",
+      "name": "Butter kaufen",
+      "entries": [
+        {
+          "name_key": "keine butter",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "unknown-field-stays-unknown-under-longer-query",
+      "name": "frische getrocknete Tomaten",
+      "entries": [
+        {
+          "name_key": "tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "getrocknete tomaten",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": false,
+          "preferred": false,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "single-action-learned-full-phrase-can-infer",
+      "name": "morgen staubsaugen",
+      "entries": [
+        {
+          "name_key": "staubsaugen",
+          "key_kind": "exact",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "typo-one-insertion",
+      "name": "marggerine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo",
+        "name_key": "marggerine"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-one-deletion",
+      "name": "margeine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo",
+        "name_key": "margeine"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-one-substitution",
+      "name": "margarine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo",
+        "name_key": "margarine"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-one-transpose",
+      "name": "margerien",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo",
+        "name_key": "margerien"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-preserves-input-not-spelling",
+      "name": "pflanzliche Margerien",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo",
+        "name_key": "pflanzliche margerien"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-two-long-words-one-infix-edit",
+      "name": "Margerine lokale Schokloade",
+      "entries": [
+        {
+          "name_key": "margerine schokolade",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-two-edits-entire-phrase-budget",
+      "name": "Margarine Schokloade",
+      "entries": [
+        {
+          "name_key": "margerine schokolade",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-short-word-never-edited",
+      "name": "Milhc",
+      "entries": [
+        {
+          "name_key": "milch",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-short-query-six-source-seven",
+      "name": "Paprka",
+      "entries": [
+        {
+          "name_key": "paprika",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-short-source-six-query-seven",
+      "name": "Butterx",
+      "entries": [
+        {
+          "name_key": "butter",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-both-seven-supported",
+      "name": "Paprila",
+      "entries": [
+        {
+          "name_key": "paprika",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-insertion-seven-to-eight-supported",
+      "name": "Paprikas",
+      "entries": [
+        {
+          "name_key": "paprika",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-not-word-split",
+      "name": "Marge rine",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-not-adjacent-token-merge",
+      "name": "Margerineschokolade",
+      "entries": [
+        {
+          "name_key": "margerine schokolade",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-two-nonadjacent-substitutions",
+      "name": "Margorina",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-repeated-letter-deletion",
+      "name": "Schokoladde",
+      "entries": [
+        {
+          "name_key": "schokoladdde",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-two-alternate-spellings-different-targets",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margorine",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-two-alternate-spellings-even-same-target",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margorine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-alternate-with-no-field-history-still-ambiguous",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margorine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": false,
+          "preferred": false,
+          "section_known": false,
+          "section_id": 20,
+          "stores_known": false,
+          "store_ids": [
+            30
+          ],
+          "history_fields": []
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-duplicate-spelling-counts-once",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-same-spelling-conflicting-targets",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-list-only-variant-keeps-child-fallback",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": false,
+          "section_id": 20,
+          "stores_known": false,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "mixed",
+        "memory_sources": {
+          "list": "exact",
+          "section": "typo",
+          "stores": "typo"
+        }
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-observed-empty-section-remains-explicit",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": null,
+          "stores_known": false,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": null,
+        "match_kind": "mixed",
+        "memory_sources": {
+          "list": "exact",
+          "section": "exact",
+          "stores": "typo"
+        }
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-observed-unknown-section-is-barrier",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": false,
+          "section_id": 20,
+          "stores_known": false,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": false,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "match_kind": "mixed",
+        "memory_sources": {
+          "list": "exact",
+          "stores": "typo"
+        }
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-observed-unknown-exact-list-is-barrier",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": false,
+          "preferred": false,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-observed-known-query-word-in-other-title-is-barrier",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margerine kaufen",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-exact-personal-long-word-exception-wins",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 11,
+        "section_id": 21,
+        "match_kind": "exact"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-ordinary-complete-source-wins-first",
+      "name": "Margerine kaufen",
+      "entries": [
+        {
+          "name_key": "margerine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "phrase"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-statistical-first-no-change",
+      "name": "frische Schokloade kaufen",
+      "entries": [
+        {
+          "name_key": "frische schokolade kaufen",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "statistical"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-unknown-child-is-not-resurrected",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": false,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_known": false,
+        "stores_known": true,
+        "store_ids": [
+          30
+        ],
+        "match_kind": "typo"
+      },
+      "module": "shopping"
+    },
+    {
+      "id": "typo-fixed-list-cannot-use-cross-list-source",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping",
+      "list_id": 10
+    },
+    {
+      "id": "typo-fixed-list-neighbor-ambiguity-is-global",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        },
+        {
+          "name_key": "margorine",
+          "key_kind": "exact",
+          "shopping_list_id": 11,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping",
+      "list_id": 10
+    },
+    {
+      "id": "typo-fixed-list-child-only",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo",
+        "list_known": false,
+        "memory_fields": [
+          "section",
+          "stores"
+        ]
+      },
+      "module": "shopping",
+      "list_id": 10
+    },
+    {
+      "id": "typo-task-project-and-section",
+      "name": "Wäsche waschne",
+      "entries": [
+        {
+          "name_key": "wäsche waschen",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "typo-task-private-workspace-vocabulary",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 9,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        },
+        {
+          "name_key": "margorine",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 11,
+          "workspace_id": 8,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 21,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": {
+        "project_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      },
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "typo-task-wrong-workspace-no-source",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": 8,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "typo-task-null-workspace-distinct",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "module_id": "tasks",
+          "project_id": 10,
+          "workspace_id": null,
+          "project_known": true,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "history_fields": [
+            "list",
+            "section"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "tasks",
+      "workspace_id": 9
+    },
+    {
+      "id": "typo-focused-older-record-not-statistical-typo-source",
+      "name": "Margerine",
+      "entries": [
+        {
+          "name_key": "margarine",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ],
+          "inference_direct_only": true
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-ideographic-fragments-never-long-word",
+      "name": "有机全麦米粉袋",
+      "entries": [
+        {
+          "name_key": "有机全麦面粉袋",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-source-order-is-preserved",
+      "name": "Schokloade Margerine",
+      "entries": [
+        {
+          "name_key": "margerine schokolade",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null,
+      "module": "shopping"
+    },
+    {
+      "id": "typo-unicode-seven-codepoints-positive",
+      "module": "shopping",
+      "name": "𐐨abcdeg",
+      "entries": [
+        {
+          "name_key": "𐐨abcdef",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": {
+        "shopping_list_id": 10,
+        "section_id": 20,
+        "match_kind": "typo"
+      }
+    },
+    {
+      "id": "typo-unicode-six-codepoints-not-seven-codeunits",
+      "module": "shopping",
+      "name": "𐐨abcdf",
+      "entries": [
+        {
+          "name_key": "𐐨abcde",
+          "key_kind": "exact",
+          "shopping_list_id": 10,
+          "list_known": true,
+          "preferred": true,
+          "section_known": true,
+          "section_id": 20,
+          "stores_known": true,
+          "store_ids": [
+            30
+          ],
+          "history_fields": [
+            "list",
+            "section",
+            "stores"
+          ]
+        }
+      ],
+      "expected": null
+    }
+  ]
+}
