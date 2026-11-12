@@ -73,6 +73,14 @@ try {
     onDenied: async () => { denied++; },
   }), false, 'authoritative denial cannot fall back to a late private cache entry');
   assert.equal(denied, 1);
+
+  let unversionedRequests = 0;
+  globalThis.fetch = async () => { unversionedRequests++; return { ok: true, blob: async () => new Blob(['unversioned']) }; };
+  const sharedNode = {};
+  const unversionedUrl = 'https://todo.example/api/me/avatar';
+  assert.equal(await loadAuthenticatedImage(sharedNode, unversionedUrl, { userId: 1 }), true);
+  assert.equal(await loadAuthenticatedImage(sharedNode, unversionedUrl, { userId: 2 }), true);
+  assert.equal(unversionedRequests, 2, 'known account identity remains part of object-URL reuse even without a timestamp');
   assert.equal(deniedImage.src, undefined);
   console.log('✅ Authenticated image loading uses shared session headers');
 } finally {

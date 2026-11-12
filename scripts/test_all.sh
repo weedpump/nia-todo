@@ -247,6 +247,7 @@ run_step "Workspace Modal Lifecycle" node scripts/test_frontend_workspace_modal_
 run_step "Account Module Settings" node scripts/test_frontend_module_settings.mjs
 run_step "Settings Navigation Lifecycle" node scripts/test_frontend_settings_navigation_lifecycle.mjs
 run_step "Avatar IndexedDB" node scripts/test_avatar_indexeddb.mjs
+run_step "Avatar Cold Start" node scripts/test_avatar_cold_start.mjs
 run_step "Avatar Offline Cache" node scripts/test_avatar_cache.mjs
 run_step "Avatar Realtime Updates" node scripts/test_avatar_realtime.mjs
 run_step "Todo Attachment Thumbnails" node scripts/test_todo_attachment_thumbnails.mjs

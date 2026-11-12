@@ -9,11 +9,15 @@ import { commitEntityReplay, commitMetadataMutation, evictEntityMetadata, markMe
 let db = null;
 let dbReady = false;
 let dbGeneration = 0;
+let dbUnavailable = false;
 const pendingCacheOperations = [];
 
-function cancelPendingCacheOperations() {
+function cancelPendingCacheOperations({ readsOnly = false } = {}) {
   const operations = pendingCacheOperations.splice(0);
-  for (const operation of operations) operation.cancel();
+  for (const operation of operations) {
+    if (readsOnly && !operation.read) pendingCacheOperations.push(operation);
+    else operation.cancel();
+  }
 }
 
 async function flushPendingCacheOperations(generation) {
@@ -39,6 +43,7 @@ export async function closeAndDeleteDatabase() {
   return new Promise((resolve) => {
     dbGeneration += 1;
     dbReady = false;
+    dbUnavailable = false;
     cancelPendingCacheOperations();
     if (db) {
       db.close();
@@ -53,8 +58,26 @@ export async function closeAndDeleteDatabase() {
 
 export function openDatabase() {
   const generation = dbGeneration;
+  dbUnavailable = false;
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    let readinessTimer;
+    const unavailable = () => {
+      clearTimeout(readinessTimer);
+      if (generation !== dbGeneration || dbReady) return;
+      dbUnavailable = true;
+      cancelPendingCacheOperations({ readsOnly: true });
+    };
+    let request;
+    try {
+      request = indexedDB.open(DB_NAME, DB_VERSION);
+    } catch (error) {
+      unavailable();
+      reject(error);
+      return;
+    }
+    // Match the app lifecycle's five-second open budget. A browser that never
+    // reports success/error must not strand private image reads indefinitely.
+    readinessTimer = setTimeout(unavailable, 5000);
 
     request.onupgradeneeded = (event) => {
       db = event.target.result;
@@ -103,6 +126,7 @@ export function openDatabase() {
     };
 
     request.onsuccess = async (event) => {
+      clearTimeout(readinessTimer);
       if (generation !== dbGeneration) {
         event.target.result.close();
         resolve(null);
@@ -110,11 +134,13 @@ export function openDatabase() {
       }
       db = event.target.result;
       dbReady = true;
+      dbUnavailable = false;
       console.log('IndexedDB opened');
       await flushPendingCacheOperations(generation);
       resolve(db);
     };
-    request.onerror = () => reject(request.error);
+    request.onblocked = unavailable;
+    request.onerror = () => { unavailable(); reject(request.error); };
   });
 }
 
@@ -593,16 +619,16 @@ function createReadyCache(storeName) {
     pendingCacheOperations.push({ generation, run: operation, cancel() {} });
     return Promise.resolve();
   };
-  const removeWhenReady = id => {
-    const generation = dbGeneration;
-    const operation = () => generation === dbGeneration ? remove(storeName, id) : Promise.resolve();
+  const removeWhenReady = (id, isCurrent = () => true, generation = dbGeneration) => {
+    const operation = () => generation === dbGeneration && isCurrent() ? remove(storeName, id) : Promise.resolve();
+    if (generation !== dbGeneration) return Promise.resolve();
     if (dbReady) return operation();
     pendingCacheOperations.push({ generation, run: operation, cancel() {} });
     return Promise.resolve();
   };
   const getIfReady = id => dbReady ? get(storeName, id) : Promise.resolve(null);
-  const getWhenReady = id => dbReady ? get(storeName, id) : new Promise((resolve, reject) => {
-    pendingCacheOperations.push({ generation: dbGeneration,
+  const getWhenReady = id => dbReady ? get(storeName, id) : dbUnavailable ? Promise.resolve(null) : new Promise((resolve, reject) => {
+    pendingCacheOperations.push({ generation: dbGeneration, read: true,
       run: async () => { try { resolve(await get(storeName, id)); } catch (error) { reject(error); throw error; } },
       cancel: () => resolve(null) });
   });

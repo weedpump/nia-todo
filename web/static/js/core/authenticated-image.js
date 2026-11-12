@@ -1,6 +1,5 @@
 import { getAuthHeaders } from '../api/http.js';
 import {
-  getAvatarIfReady,
   getAvatarWhenReady,
   getDatabaseGeneration,
   putAvatarWhenReady,
@@ -12,13 +11,21 @@ const imageKeys = new WeakMap();
 const activeLoads = new WeakMap();
 const inFlightFetches = new Map();
 const cacheGenerations = new Map();
+let readyAvatar = null;
 
 const indexedDbAvatarCache = {
-  get: id => getAvatarIfReady(id),
+  get: id => getAvatarWhenReady(id),
   getWhenReady: id => getAvatarWhenReady(id),
   put: (record, isCurrent, expectedGeneration) => putAvatarWhenReady(record, isCurrent, expectedGeneration),
-  remove: id => removeAvatarWhenReady(id),
+  remove: (id, isCurrent, expectedGeneration) => removeAvatarWhenReady(id, isCurrent, expectedGeneration),
 };
+
+function rememberAvatar(cache, id, version, blob, databaseGeneration) {
+  if (cache !== indexedDbAvatarCache || !id || !version || databaseGeneration !== getDatabaseGeneration()) return;
+  // One bounded, generation-fenced handoff from the early menu/settings load to
+  // the dashboard's first render. IndexedDB remains the persistent source.
+  readyAvatar = { id, version, blob, databaseGeneration, cacheGeneration: cacheGenerations.get(id)?.generation };
+}
 
 function selectCacheGeneration(id, version) {
   if (!id || !version) return 0;
@@ -65,12 +72,22 @@ export function releaseAuthenticatedImage(img) {
   objectUrls.delete(img);
 }
 
-export async function removeCachedAvatar(url, { userId, cache = indexedDbAvatarCache } = {}) {
+export async function removeCachedAvatar(url, {
+  userId, version = null, isCurrent = () => true,
+  expectedGeneration = getDatabaseGeneration(), cache = indexedDbAvatarCache,
+} = {}) {
   const id = avatarCacheKey(url, userId);
   if (id) {
+    if (expectedGeneration !== getDatabaseGeneration() || !isCurrent()
+      || (version !== null && cacheGenerations.get(id)?.version !== String(version))) return false;
+    if (readyAvatar?.id === id) readyAvatar = null;
     invalidateCacheGeneration(id);
-    await cache.remove(id);
+    const removalGeneration = cacheGenerations.get(id).generation;
+    await cache.remove(id, () => expectedGeneration === getDatabaseGeneration() && isCurrent()
+      && cacheGenerations.get(id)?.generation === removalGeneration, expectedGeneration);
+    return true;
   }
+  return false;
 }
 
 export async function loadAuthenticatedImage(img, url, {
@@ -84,19 +101,30 @@ export async function loadAuthenticatedImage(img, url, {
 } = {}) {
   if (!img || !url || !isConsumerCurrent() || !isAccessible()) return false;
   const databaseGeneration = getDatabaseGeneration();
+  if (readyAvatar?.databaseGeneration !== databaseGeneration) readyAvatar = null;
   const id = cacheKey ?? avatarCacheKey(url, userId);
   const cacheVersion = String(version || '');
   const cacheGeneration = selectCacheGeneration(id, cacheVersion);
   const isCurrent = () => isAccessible() && isCurrentCacheGeneration(id, cacheVersion, cacheGeneration);
-  const imageKey = id && cacheVersion ? `${id}|${cacheVersion}` : String(url);
+  const imageKey = id && cacheVersion
+    ? `${databaseGeneration}|${id}|${cacheVersion}|${cacheGeneration}`
+    : `${databaseGeneration}|${id}|${String(url)}`;
   if (imageKeys.get(img) === imageKey && objectUrls.has(img)) return true;
 
   const loadToken = {};
   activeLoads.set(img, loadToken);
+  if (cache === indexedDbAvatarCache && readyAvatar?.id === id && readyAvatar.version === cacheVersion
+    && readyAvatar.cacheGeneration === cacheGeneration) {
+    showBlob(img, readyAvatar.blob, imageKey);
+    return true;
+  }
   if (id && cacheVersion) {
-    const cached = await cache.get(id);
+    let cached = null;
+    try { cached = await cache.get(id); } catch (_error) { /* Unavailable local storage falls back to the server. */ }
+    if (databaseGeneration !== getDatabaseGeneration()) return false;
     if (activeLoads.get(img) !== loadToken || !isConsumerCurrent() || !isCurrent()) return false;
     if (cached?.version === cacheVersion && cached.blob) {
+      rememberAvatar(cache, id, cacheVersion, cached.blob, databaseGeneration);
       showBlob(img, cached.blob, imageKey);
       return true;
     }
@@ -109,6 +137,7 @@ export async function loadAuthenticatedImage(img, url, {
     const cached = await cache.getWhenReady(id);
     if (activeLoads.get(img) !== loadToken || !isConsumerCurrent() || !isCurrent()) return false;
     if (cached?.version !== cacheVersion || !cached.blob) return false;
+    rememberAvatar(cache, id, cacheVersion, cached.blob, databaseGeneration);
     showBlob(img, cached.blob, imageKey);
     return true;
   };
@@ -133,6 +162,7 @@ export async function loadAuthenticatedImage(img, url, {
           if (!isCurrent()) return null;
           await cache.put({ id, version: cacheVersion, blob }, isCurrent, databaseGeneration);
           if (!isCurrent()) return null;
+          rememberAvatar(cache, id, cacheVersion, blob, databaseGeneration);
         }
         return blob;
       })();

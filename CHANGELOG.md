@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Fixed blank Dashboard avatars and unnecessary image downloads on cold starts. Matching local avatars now load before a network lookup, with initials visible until decoding finishes and safe recovery from unavailable storage or corrupt cached images.
+
 ## [4.0.1] - 2026-11-12
 
 ### Fixed

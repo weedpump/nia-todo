@@ -76,8 +76,19 @@ try {
   releaseAuthenticatedImage(changedA);
   assert.ok(revoked.includes(changedA.src), 'released consumers revoke their object URL');
 
-  await removeCachedAvatar(changedUrl, { userId: 7, cache });
+  assert.equal(await removeCachedAvatar(changedUrl, { userId: 7, version: identity.version, cache }), false,
+    'an old decode failure must not evict a newer avatar version');
+  assert.equal(await removeCachedAvatar(changedUrl, { userId: 7, version: changedIdentity.version, isCurrent: () => false, cache }), false,
+    'a detached consumer must not evict the current avatar');
+  assert.equal(await removeCachedAvatar(changedUrl, { userId: 7, version: changedIdentity.version, expectedGeneration: 999999, cache }), false,
+    'a previous database lifecycle must not delete the current cached avatar');
+  assert.equal(records.size, 1);
+  await removeCachedAvatar(changedUrl, { userId: 7, version: changedIdentity.version, cache });
   assert.equal(records.size, 0, 'deletion removes the persisted avatar');
+  const beforeEvictionReload = requests.length;
+  assert.equal(await loadAuthenticatedImage(changedB, changedUrl, changedIdentity), true);
+  assert.equal(requests.length, beforeEvictionReload + 1, 'cache eviction also invalidates an existing consumer object URL');
+  await removeCachedAvatar(changedUrl, { userId: 7, cache });
 
   const deferredResponses = new Map();
   globalThis.fetch = async (requestUrl) => new Promise((resolve) => {

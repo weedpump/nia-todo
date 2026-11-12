@@ -242,6 +242,7 @@ validation responses keep the standard FastAPI shape.
 - Password setup/reset links are valid for 24 hours and are stored hashed
 - Users can change their own email and display name in the settings modal; the username remains immutable
 - Avatar images live as WebP files under `api/data/avatars/`; the database stores only the URL and modification timestamp
+- Own-avatar blobs are cached in IndexedDB by server origin and account, with the profile modification timestamp as their version. Early UI loads wait for the local cache before requesting the server; failed, blocked or timed-out database opens allow network fallback. A single version- and database-generation-bound in-memory blob lets the Dashboard reuse the early menu/settings load synchronously. WebSocket/profile metadata changes invalidate the version match. Decode failures evict only the current version, and account/cache resets fence both pending loads and retained Dashboard elements.
 - Avatar uploads accept JPEG/PNG/WebP/GIF as well as HEIC/HEIF; HEIC is processed server-side via `pillow-heif` or `heif-convert` when the browser does not support preview/cropping
 - Production now runs on a separate LXC; this dev checkout does not contain or manage live data/backups.
 

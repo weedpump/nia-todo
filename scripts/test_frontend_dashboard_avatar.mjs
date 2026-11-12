@@ -18,9 +18,43 @@ globalThis.localStorage = {
 
 const requests = [];
 const responses = [];
+const decodeResponses = [];
 globalThis.fetch = async (url, options = {}) => {
   requests.push({ url, options });
   return responses.shift() || { ok: true, blob: async () => new Blob(['avatar']) };
+};
+
+// Exercise actor-scoped avatar caching through the real readiness controller.
+const avatarRecords = new Map();
+globalThis.indexedDB = {
+  open() {
+    const request = {};
+    const database = {
+      close() {},
+      transaction(name) {
+        assert.equal(name, 'avatars');
+        const tx = {};
+        tx.objectStore = () => ({
+          get(id) {
+            const result = {};
+            queueMicrotask(() => { result.result = avatarRecords.get(id) || null; result.onsuccess?.(); });
+            return result;
+          },
+          put(record) { avatarRecords.set(record.id, record); },
+          delete(id) { avatarRecords.delete(id); },
+        });
+        queueMicrotask(() => tx.oncomplete?.());
+        return tx;
+      },
+    };
+    queueMicrotask(() => request.onsuccess?.({ target: { result: database } }));
+    return request;
+  },
+  deleteDatabase() {
+    const request = {};
+    queueMicrotask(() => { avatarRecords.clear(); request.onsuccess?.(); });
+    return request;
+  },
 };
 
 const originalCreateObjectURL = URL.createObjectURL;
@@ -37,9 +71,16 @@ function deferredResponse() {
 }
 
 function createAvatarNode() {
+  const classes = new Set();
   return {
     dataset: {},
     src: '',
+    classList: {
+      add(name) { classes.add(name); },
+      contains(name) { return classes.has(name); },
+    },
+    decode() { return decodeResponses.shift() || Promise.resolve(); },
+    removeAttribute(name) { if (name === 'src') this.src = ''; },
     replaceWith() {},
   };
 }
@@ -79,6 +120,8 @@ globalThis.document = {
 };
 
 try {
+  const { openDatabase, closeAndDeleteDatabase } = await import('../web/static/js/storage/indexed-db.js');
+  await openDatabase();
   const { createAppRenderingFeature } = await import('../web/static/js/features/app-rendering.js');
   let currentFilter = 'all';
   let dashboardPreferences = {
@@ -93,6 +136,7 @@ try {
     activeProjects: { limit: 4, sort: 'recent' },
   };
   const currentUser = {
+    id: 1,
     display_name: 'Tobi',
     avatar_url: '/api/me/avatar',
     avatar_updated_at: '2026-10-02T08:00:00Z',
@@ -117,9 +161,18 @@ try {
   });
 
   console.log('🖼️ Running dashboard avatar refresh regression test...');
+  const firstDecode = deferredResponse();
+  decodeResponses.push(firstDecode.promise);
   renderStats();
+  assert.match(statsBar.innerHTML, /overview-avatar-initial">T<\/span>/, 'the initial remains available while the image is loading');
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), false, 'an image without bytes must not cover the initial');
   await new Promise(resolve => setTimeout(resolve, 0));
   const firstAvatar = statsBar.avatar;
+  assert.equal(firstAvatar.src, 'blob:dashboard-avatar-1');
+  assert.equal(firstAvatar.classList.contains('is-ready'), false, 'downloaded bytes must finish decoding before covering the initial');
+  firstDecode.resolve();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(firstAvatar.classList.contains('is-ready'), true, 'the decoded image replaces the initial');
 
   renderStats();
   await new Promise(resolve => setTimeout(resolve, 0));
@@ -155,6 +208,7 @@ try {
   renderStats();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(requests.length, 3, 'the first request for another avatar version must run');
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), false, 'a failed image leaves the initial visible');
 
   renderStats();
   await new Promise(resolve => setTimeout(resolve, 0));
@@ -167,6 +221,7 @@ try {
   renderStats();
   const pendingAvatar = statsBar.avatar;
   renderStats();
+  await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(requests.length, 5, 'an unchanged avatar request already in flight must not be duplicated');
   assert.equal(statsBar.avatar, pendingAvatar, 'an in-flight avatar element must survive periodic rendering');
   pendingSameVersion.resolve({ ok: true, blob: async () => new Blob(['pending-avatar']) });
@@ -178,6 +233,7 @@ try {
   responses.push(staleRequest.promise);
   renderStats();
   const staleAvatar = statsBar.avatar;
+  await new Promise(resolve => setTimeout(resolve, 0));
 
   currentUser.avatar_updated_at = '2026-10-02T13:00:00Z';
   renderStats();
@@ -200,6 +256,78 @@ try {
   assert.equal(statsBar.avatar, currentAvatar, 'returning to the dashboard must synchronously reuse the unchanged avatar element');
   assert.equal(statsBar.avatar.src, currentAvatar.src, 'the cached avatar must already be visible in the first render frame');
   assert.equal(requests.length, requestsBeforeReturn, 'returning to the dashboard must not fetch the unchanged avatar again');
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), true, 'returning to the dashboard preserves the decoded image state');
+
+  currentUser.avatar_updated_at = '2026-10-02T14:00:00Z';
+  const staleDecode = deferredResponse();
+  decodeResponses.push(staleDecode.promise);
+  renderStats();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const decodingAvatar = statsBar.avatar;
+  assert.equal(decodingAvatar.classList.contains('is-ready'), false);
+  currentUser.avatar_updated_at = '2026-10-02T15:00:00Z';
+  renderStats();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const newestAvatar = statsBar.avatar;
+  staleDecode.resolve();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(decodingAvatar.classList.contains('is-ready'), false, 'a late decode must not reveal a replaced image');
+  assert.equal(newestAvatar.classList.contains('is-ready'), true);
+
+  const failedDecode = deferredResponse();
+  decodeResponses.push(failedDecode.promise);
+  currentUser.avatar_updated_at = '2026-10-02T16:00:00Z';
+  renderStats();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  failedDecode.resolve(Promise.reject(new Error('Invalid image bytes')));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), false, 'decode failure keeps the initial visible');
+  assert.equal(statsBar.avatar.src, '');
+  const requestsBeforeDecodeRetry = requests.length;
+  assert.equal(avatarRecords.size, 0, 'undecodable bytes must be removed from the persistent cache');
+  renderStats();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(requests.length, requestsBeforeDecodeRetry + 1, 'decode failure must fetch fresh bytes instead of retrying the damaged cached blob');
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), true, 'a later render retries after a decode failure');
+
+  const previousActorAvatar = statsBar.avatar;
+  currentUser.id = 2;
+  renderStats();
+  assert.notEqual(statsBar.avatar, previousActorAvatar, 'the same avatar URL and timestamp cannot reuse another account image');
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), false, 'a changed account begins with its own initial');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), true);
+
+  const previousGenerationAvatar = statsBar.avatar;
+  const beforeResetRequests = requests.length;
+  await closeAndDeleteDatabase();
+  await openDatabase();
+  renderStats();
+  assert.notEqual(statsBar.avatar, previousGenerationAvatar, 'a reset private cache cannot reuse an old account-lifecycle image');
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), false);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(requests.length, beforeResetRequests + 1, 'the new lifecycle resolves its own missing cached bytes');
+  assert.equal(statsBar.avatar.classList.contains('is-ready'), true);
+
+  const oldLifecycleResponse = deferredResponse();
+  responses.push(oldLifecycleResponse.promise);
+  currentUser.avatar_updated_at = '2026-10-02T17:00:00Z';
+  renderStats();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const oldLifecyclePendingAvatar = statsBar.avatar;
+  const beforePendingResetRequests = requests.length;
+  await closeAndDeleteDatabase();
+  await openDatabase();
+  renderStats();
+  assert.notEqual(statsBar.avatar, oldLifecyclePendingAvatar, 'a pending image from the previous database lifecycle is replaced too');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const restoredAvatar = statsBar.avatar;
+  assert.equal(requests.length, beforePendingResetRequests + 1, 'new lifecycle consumers cannot join a previous lifecycle network request');
+  assert.equal(restoredAvatar.classList.contains('is-ready'), true);
+  oldLifecycleResponse.resolve({ ok: true, blob: async () => new Blob(['obsolete lifecycle']) });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(statsBar.avatar, restoredAvatar);
+  assert.equal(oldLifecyclePendingAvatar.classList.contains('is-ready'), false);
 
   console.log('✅ Dashboard avatar remains stable across periodic rendering and navigation');
 } finally {
