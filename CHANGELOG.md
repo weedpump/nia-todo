@@ -5,10 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [4.0.2] - 2026-11-12
+## [4.0.2] - 2026-11-13
 
 ### Fixed
-- Fixed blank Dashboard avatars and unnecessary image downloads on cold starts. Matching local avatars now load before a network lookup, with initials visible until decoding finishes and safe recovery from unavailable storage or corrupt cached images.
+- Fixed missing profile pictures on the Dashboard after opening the app.
+- Show pending changes in the top bar only while offline, so the indicator no longer flashes after every online edit.
+- Made Shopping item cards look and behave like Tasks, including hover effects and dragging.
+- Added Shopping keyboard shortcuts: Space checks or unchecks the item under the mouse pointer; Delete removes it after confirmation.
+- Fixed section editing getting stuck when cancelling or saving without changes. Unsaved text is kept if saving fails.
 
 ## [4.0.1] - 2026-11-12
 

@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Ouvrir l’espace de travail 1 à 6",
   "shortcuts.cycleStatus": "Faire défiler l’état de la tâche ciblée ou survolée",
   "shortcuts.deleteTodo": "Supprimer la tâche ciblée ou survolée",
+  "shortcuts.toggleItemCompletion": "Cocher / rouvrir l’article sous le pointeur",
+  "shortcuts.deleteItem": "Supprimer l’article sous le pointeur",
   "shortcuts.saveTodo": "Enregistrer la tâche depuis le champ de titre",
   "shortcuts.multiAddNext": "Tâches multiples : ajouter une ligne",
   "shortcuts.multiAddRemove": "Tâches multiples : supprimer une ligne vide",

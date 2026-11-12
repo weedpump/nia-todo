@@ -13,6 +13,7 @@ const fixtureSource = `
   await initI18n();
 
   let todos = [{ id: 1, title: 'Todo swipe', status: 'pending', priority: 3 }];
+  let todoDeleteConfirmations = 0;
   const renderTodos = () => {
     document.getElementById('todo-root').innerHTML = todos.map(renderTodoItem).join('');
   };
@@ -22,7 +23,7 @@ const fixtureSource = `
     getProjects: () => [],
     getCurrentProjectId: () => null,
     getCurrentWorkspaceId: () => null,
-    getCurrentUser: () => null,
+    getCurrentUser: () => ({ id: 1 }),
     setCurrentUser: () => {},
     getAppInitialized: () => true,
     getDb: () => ({}),
@@ -34,7 +35,7 @@ const fixtureSource = `
     syncWithServer: async () => {},
     todosApi: {}, sectionsApi: {}, placesApi: null,
     renderProjects: () => {}, renderStats: () => {}, renderTodos,
-    closeModal: () => {}, confirmDanger: async () => false, showToast: () => {},
+    closeModal: () => {}, confirmDanger: async () => { todoDeleteConfirmations += 1; return false; }, showToast: () => {},
     setupDescPreview: () => {}, renderMarkdown: value => String(value || ''),
   });
 
@@ -92,6 +93,7 @@ const fixtureSource = `
     editCount: () => editCount,
     item: id => lists[0].items.find(item => String(item.id) === String(id)),
     todoStatus: () => todos[0].status,
+    todoDeleteConfirmations: () => todoDeleteConfirmations,
     renderShopping,
   };
 `;
@@ -225,6 +227,13 @@ try {
   await pointer(todoCard, 'pointermove', { dx: 180, pointerId: 57 });
   await pointer(todoCard, 'pointerup', { dx: 180, pointerId: 57 });
   await page.waitForFunction(() => window.test.todoStatus() === 'in_progress');
+
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.locator(todoCard).dispatchEvent('pointerover');
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.test.todoStatus() === 'done');
+  await page.keyboard.press('Delete');
+  assert.equal(await page.evaluate(() => window.test.todoDeleteConfirmations()), 1, 'existing Tasks hover Space/Delete shortcuts must retain their actions');
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await pointer(milkCard, 'pointerdown', { pointerId: 58 });

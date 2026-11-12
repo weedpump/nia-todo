@@ -153,6 +153,7 @@ try {
         itemBoxShadow: itemStyle.boxShadow,
         shellMarginBottom: shellStyle.marginBottom,
         shellRadius: shellStyle.borderRadius,
+        itemRadius: itemStyle.borderRadius,
         shellOverflow: shellStyle.overflow,
         underlayOpacity: getComputedStyle(shell.querySelector('.ui-swipe-underlay')).opacity,
         underlayVisibility: getComputedStyle(shell.querySelector('.ui-swipe-underlay')).visibility,
@@ -160,9 +161,10 @@ try {
     };
     return { pending: read(36), done: read(37), progress: read(38), pinned: read(39), details: read(40) };
   });
-  for (const state of Object.values(idleStyles)) {
+  for (const [name, state] of Object.entries(idleStyles)) {
     assert.equal(state.shellMarginBottom, '8px', 'native swipe shells must preserve card spacing outside grid lists');
-    assert.equal(state.shellRadius, '24px', 'phone swipe shell radius must match the native card radius');
+    assert.equal(state.itemRadius, name === 'details' ? '26px' : '24px', 'phone card shape must preserve the shared plain/detail variants');
+    assert.equal(state.shellRadius, state.itemRadius, 'phone swipe shell radius must match the native card radius');
     assert.equal(state.shellOverflow, 'hidden', 'swipe clipping must be established before the first gesture');
     assert.equal(state.underlayOpacity, '0', 'semantic underlay must not bleed through idle cards');
     assert.equal(state.underlayVisibility, 'hidden', 'idle semantic underlay must be excluded from painting');

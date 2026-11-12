@@ -115,6 +115,7 @@ const PRECACHE_ASSETS = [
   '/static/js/ui/detail-modal.js',
   '/static/js/ui/image-picker.js',
   '/static/js/ui/item-swipe.js',
+  '/static/js/ui/item-card.js',
   '/static/js/ui/topbar-toggle.js',
   '/static/js/ui/color-picker.js',
   '/static/i18n/de.json',

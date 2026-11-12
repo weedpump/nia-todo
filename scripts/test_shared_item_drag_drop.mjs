@@ -37,7 +37,6 @@ const fixtureSource = `
 
   const itemDrag = {
     cardSelector: '[data-item-dnd="true"][data-shopping-item-key]',
-    interactiveStartSelector: '.shopping-item-edit-trigger',
     protectedStartSelector: '.shopping-item-check',
     canDrag: () => lists[0]?.can_edit === true,
     keyFromElement: element => element.dataset.shoppingItemKey,
@@ -141,14 +140,37 @@ try {
 
   const source = page.locator('.shopping-item-card[data-shopping-item-key="711"]');
   const target = page.locator('#shopping-root .section-todos[data-section-id="72"]');
+  const editTrigger = source.locator('.shopping-item-edit-trigger');
+  const triggerBounds = await editTrigger.boundingBox();
+  await page.mouse.move(triggerBounds.x + triggerBounds.width / 2, triggerBounds.y + triggerBounds.height / 2);
+  await page.mouse.down();
+  assert.equal(await editTrigger.evaluate(element => element.matches(':active')), true, 'the regression must exercise an actually pressed edit button');
+  await source.dispatchEvent('dragstart', { dataTransfer: await page.evaluateHandle(() => new DataTransfer()) });
+  const pressedDragStyle = await editTrigger.evaluate(async element => {
+    await Promise.all(element.getAnimations().map(animation => animation.finished));
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, shadow: style.boxShadow, transform: style.transform };
+  });
+  assert.equal(pressedDragStyle.background, 'rgba(0, 0, 0, 0)', 'drag feedback must belong to the shared card, without a rectangular button background');
+  assert.equal(pressedDragStyle.shadow, 'none', 'the pressed edit button must not paint its inset press overlay during dragging');
+  assert.equal(pressedDragStyle.transform, 'none', 'the edit surface must move with the card without an additional press transform');
+  await source.dispatchEvent('dragend');
+  await page.mouse.up();
+
   await source.locator('.shopping-item-edit-trigger').focus();
   await source.dispatchEvent('dragstart', { dataTransfer: await page.evaluateHandle(() => new DataTransfer()) });
   const draggingStyle = await source.evaluate(element => ({
     borderStyle: getComputedStyle(element).borderStyle,
+    borderWidth: getComputedStyle(element).borderWidth,
     opacity: getComputedStyle(element).opacity,
+    transform: getComputedStyle(element).transform,
+    shadow: getComputedStyle(element).boxShadow,
   }));
-  assert.equal(draggingStyle.borderStyle, 'dashed', 'all dragged item cards must share the Todo source feedback');
-  assert.equal(draggingStyle.opacity, '0.6');
+  assert.equal(draggingStyle.borderStyle, 'solid', 'dragging must preserve the normal card border instead of adding a dashed perimeter');
+  assert.equal(draggingStyle.borderWidth, '1px');
+  assert.equal(draggingStyle.opacity, '1', 'dragging must not fade the card');
+  assert.equal(draggingStyle.transform, 'none', 'dragging must not scale the card');
+  assert.match(draggingStyle.shadow, /inset/, 'dragging uses the shared left accent');
   await target.dispatchEvent('dragover', { dataTransfer: await page.evaluateHandle(() => new DataTransfer()) });
   await target.dispatchEvent('drop', { dataTransfer: await page.evaluateHandle(() => new DataTransfer()) });
   await page.waitForFunction(() => window.test.sectionId('stable-milk') === 72);
@@ -227,15 +249,31 @@ try {
 
   const destination = mobilePage.locator('#shopping-root .section-todos[data-section-id="72"]');
   const destinationBox = await destination.boundingBox();
+  const mobileNormalOpacity = await mobilePage.locator('.shopping-item-card[data-shopping-item-key="711"]')
+    .evaluate(element => getComputedStyle(element).opacity);
+  // The app's shared touch feedback can still be active when the hold starts.
+  await mobilePage.locator(mobileTrigger).evaluate(element => element.classList.add('touch-feedback'));
   await touch('pointerdown', mobileTrigger, { pointerId: 84 });
   await mobilePage.waitForTimeout(360);
   assert.equal(await mobilePage.locator('body.native-pointer-dragging').count(), 1, 'a stationary 320ms hold on the edit surface must activate drag-and-drop');
   const mobileSourceStyle = await mobilePage.locator('.shopping-item-card[data-shopping-item-key="711"]:not(.native-drag-ghost)').evaluate(element => ({
     borderStyle: getComputedStyle(element).borderStyle,
     opacity: getComputedStyle(element).opacity,
+    transform: getComputedStyle(element).transform,
+    shadow: getComputedStyle(element).boxShadow,
   }));
-  assert.equal(mobileSourceStyle.borderStyle, 'dashed', 'the held source card must keep the shared dragged-item outline');
-  assert.equal(mobileSourceStyle.opacity, '0.6');
+  assert.equal(mobileSourceStyle.borderStyle, 'solid', 'a held card must keep its normal border');
+  assert.equal(mobileSourceStyle.opacity, mobileNormalOpacity, 'a held card must keep its normal status opacity');
+  assert.equal(mobileSourceStyle.transform, 'none');
+  assert.match(mobileSourceStyle.shadow, /inset/, 'touch dragging uses the same left accent as desktop');
+  for (const selector of ['.shopping-item-card.dragging', '.native-drag-ghost.shopping-item-card']) {
+    const feedback = await mobilePage.locator(`${selector} .shopping-item-edit-trigger`).evaluate(async element => {
+      await Promise.all(element.getAnimations().map(animation => animation.finished));
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, shadow: style.boxShadow, transform: style.transform };
+    });
+    assert.deepEqual(feedback, { background: 'rgba(0, 0, 0, 0)', shadow: 'none', transform: 'none' }, `${selector}: touch feedback must not add a rectangular overlay inside the dragged card`);
+  }
   const ghostBeforeMove = await mobilePage.locator('.native-drag-ghost.shopping-item-card').evaluate(element => {
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
@@ -251,9 +289,9 @@ try {
   });
   assert.equal(ghostBeforeMove.position, 'fixed', 'the cloned item must be viewport-positioned so it follows the finger independently of document flow');
   assert.equal(ghostBeforeMove.visibility, 'visible');
-  assert.equal(ghostBeforeMove.opacity, '0.92');
-  assert.equal(ghostBeforeMove.borderStyle, 'solid', 'the moving clone must keep the highlighted outline');
-  assert.notEqual(ghostBeforeMove.boxShadow, 'none');
+  assert.equal(ghostBeforeMove.opacity, mobileNormalOpacity, 'the moving clone must preserve status opacity without adding transparency');
+  assert.equal(ghostBeforeMove.borderStyle, 'solid', 'the moving clone must keep the normal card border');
+  assert.match(ghostBeforeMove.boxShadow, /inset/, 'the moving clone must use the same left accent without an outer glow');
   await touch('pointermove', mobileTrigger, {
     pointerId: 84,
     x: destinationBox.x + destinationBox.width / 2,

@@ -56,12 +56,15 @@ const openHtml = renderShoppingItem({
   labels,
 });
 assert.match(openHtml, /class="ui-item-card shopping-item-card ui-swipe-card is-pending"/);
-assert.match(openHtml, /class="shopping-item-title"/);
+assert.match(openHtml, /class="shopping-item-title ui-item-card-title"/);
 assert.match(openHtml, /class="ui-badge shopping-item-quantity"/);
 assert(openHtml.indexOf('shopping-item-title') < openHtml.indexOf('shopping-item-quantity'), 'title must precede the right-side quantity badge');
 assert.match(openHtml, /data-shopping-item-action="toggle-completed"/);
 assert.match(openHtml, /data-shopping-item-action="open-edit"/);
-assert.match(openHtml, /class="shopping-item-edit-trigger"/);
+assert.match(openHtml, /class="ui-item-card-open shopping-item-edit-trigger"/);
+assert.match(openHtml, /<div class="shopping-item-content">/);
+assert.match(openHtml, /data-item-card-open/);
+assert.doesNotMatch(openHtml, /<button[^>]*shopping-item-edit-trigger[^>]*>[\s\S]*shopping-item-quantity[\s\S]*<\/button>/, 'the title action must not wrap the full content surface or quantity');
 assert.match(openHtml, /data-shopping-item-id="temp-shopping-item-1"/);
 assert.match(openHtml, /data-item-dnd="true"/);
 assert.match(openHtml, /draggable="true"/);
@@ -1034,14 +1037,17 @@ const shoppingDialogsSource = readFileSync(new URL('../web/static/js/modules/sho
 const primitiveCss = readFileSync(new URL('../web/static/css/99-ui-primitives.css', import.meta.url), 'utf8');
 const todoCardCss = readFileSync(new URL('../web/static/css/81-todo-cards-refresh.css', import.meta.url), 'utf8');
 const shoppingCardCss = readFileSync(new URL('../web/static/css/14-module-content.css', import.meta.url), 'utf8');
-assert.match(todoRenderingSource, /class="todo-item[^"$]*ui-item-card|class="ui-item-card[^"$]*todo-item/, 'todo cards must consume the neutral item-card primitive');
+assert.match(todoRenderingSource, /renderItemCard\(\{/, 'todo cards must consume the shared item-card renderer');
+const shoppingRenderingSource = readFileSync(new URL('../web/static/js/features/shopping-items.js', import.meta.url), 'utf8');
+assert.match(shoppingRenderingSource, /renderItemCard\(\{/, 'shopping cards must consume the same item-card renderer');
 assert.match(todoRenderingSource, /class="todo-meta-chip ui-badge|class="ui-badge todo-meta-chip/, 'todo metadata badges must consume the neutral badge primitive');
 assert.match(primitiveCss, /\.ui-item-card\s*\{[^}]*min-height:[^}]*gap:[^}]*padding:[^}]*border:[^}]*border-radius:[^}]*background:[^}]*box-shadow:/s, 'the shared primitive authority must own the complete common item-card surface');
 assert.match(primitiveCss, /\.ui-badge\s*\{/, 'the shared primitive authority must define neutral badge styling');
 const todoCardBlocks = [...todoCardCss.matchAll(/^\s*\.todo-item\s*\{([^}]*)\}/gm)].map(match => match[1]);
 const shoppingCardBlock = shoppingCardCss.match(/\.shopping-item-card\s*\{([^}]*)\}/s)?.[1] || '';
-assert(todoCardBlocks.length > 0, 'the todo stylesheet must still contain domain-specific todo-item blocks');
-for (const property of ['min-height', 'gap', 'padding', 'border-color', 'border-radius', 'background', 'box-shadow']) {
+assert.equal(todoCardBlocks.length, 0, 'the todo stylesheet must not redefine the shared base card surface');
+assert.doesNotMatch(todoCardCss, /\.todo-item:(?:hover|focus-within)\s*[,\{]/, 'generic card interactions must not be hidden in Tasks-only hover/focus rules');
+for (const property of ['min-height', 'gap', 'padding', 'border-color', 'border-radius', 'background', 'box-shadow', 'opacity', 'overflow', 'transition', 'transform']) {
   for (const block of todoCardBlocks) {
     const declarations = [...block.matchAll(/(?:^|;)\s*([a-z-]+)\s*:/g)].map(match => match[1]);
     assert(!declarations.includes(property), `plain todo cards must inherit shared ${property} instead of redefining it`);

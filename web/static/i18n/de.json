@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Workspace 1 bis 6 öffnen",
   "shortcuts.cycleStatus": "Status des Todos mit Fokus oder Mauszeiger weiterschalten",
   "shortcuts.deleteTodo": "Todo mit Fokus oder Mauszeiger löschen",
+  "shortcuts.toggleItemCompletion": "Eintrag unter dem Mauszeiger abhaken / wieder öffnen",
+  "shortcuts.deleteItem": "Eintrag unter dem Mauszeiger löschen",
   "shortcuts.saveTodo": "Todo aus dem Titelfeld speichern",
   "shortcuts.multiAddNext": "Mehrfachanlage: neue Zeile",
   "shortcuts.multiAddRemove": "Mehrfachanlage: leere Zeile entfernen",

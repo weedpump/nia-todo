@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Open workspace 1 through 6",
   "shortcuts.cycleStatus": "Cycle the focused or hovered todo status",
   "shortcuts.deleteTodo": "Delete the focused or hovered todo",
+  "shortcuts.toggleItemCompletion": "Mark the hovered item complete / reopen it",
+  "shortcuts.deleteItem": "Delete the hovered item",
   "shortcuts.saveTodo": "Save todo from the title field",
   "shortcuts.multiAddNext": "Multiple todos: add a row",
   "shortcuts.multiAddRemove": "Multiple todos: remove an empty row",

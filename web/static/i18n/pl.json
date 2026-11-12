@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Otwórz obszar roboczy od 1 do 6",
   "shortcuts.cycleStatus": "Przełącz stan zadania z fokusem lub pod kursorem",
   "shortcuts.deleteTodo": "Usuń zadanie z fokusem lub pod kursorem",
+  "shortcuts.toggleItemCompletion": "Oznacz pozycję pod kursorem jako ukończoną / otwórz ponownie",
+  "shortcuts.deleteItem": "Usuń pozycję pod kursorem",
   "shortcuts.saveTodo": "Zapisz zadanie z pola tytułu",
   "shortcuts.multiAddNext": "Wiele zadań: dodaj wiersz",
   "shortcuts.multiAddRemove": "Wiele zadań: usuń pusty wiersz",
