@@ -1,6 +1,6 @@
 [package]
 name = "nia-todo-desktop"
-version = "4.0.1"
+version = "4.0.2"
 default-run = "nia-todo-desktop"
 description = "Native desktop client for Nia"
 authors = ["Tobias Kneidl"]
