@@ -4,6 +4,7 @@ import { getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/in
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { registerItemSwipeAdapter } from '../ui/item-swipe.js';
+import { bindItemCardInteractions, isItemCardInteractiveTarget } from '../ui/item-card.js';
 import { shouldAutoFocusEntityEditorTitle } from './entity-editor-focus.js';
 import { createNativeBridge } from './native-bridge.js';
 import { createTodoAttachmentsFeature } from './todo-attachments.js';
@@ -2127,53 +2128,19 @@ export function createTodosFeature({
     await setTodoStatus(todo.id, todo.status === status ? 'pending' : status);
   }
 
-  const todoInteractiveTargetSelector = 'button, input, select, textarea, a, label, summary, details, .todo-check, .todo-actions, [role="button"], [contenteditable="true"]';
-
   function isTodoInteractiveTarget(target) {
-    return Boolean(target?.closest?.(todoInteractiveTargetSelector));
+    return isItemCardInteractiveTarget(target, '.todo-check, .todo-actions, .todo-status-control');
   }
 
   function bindTodoItemClickBehavior() {
     if (document.documentElement.dataset.todoItemClickBound === '1') return;
     document.documentElement.dataset.todoItemClickBound = '1';
-    let press = null;
-
-    document.addEventListener('pointerdown', (event) => {
-      if (!event.isPrimary || event.button > 0) return;
-      const item = event.target?.closest?.('.todo-item[data-id]');
-      if (!item || isTodoInteractiveTarget(event.target)) return;
-      press = { item, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
-      item.classList.add('todo-press-active');
-    }, { passive: true });
-
-    document.addEventListener('pointermove', (event) => {
-      if (!press || event.pointerId !== press.pointerId) return;
-      if (Math.abs(event.clientX - press.startX) > 6 || Math.abs(event.clientY - press.startY) > 6) {
-        press.moved = true;
-        press.item.classList.remove('todo-press-active');
-      }
-    }, { passive: true });
-
-    const clearPress = (event) => {
-      if (!press || event.pointerId !== press.pointerId) return;
-      press.item.classList.remove('todo-press-active');
-      press = null;
-    };
-    document.addEventListener('pointerup', clearPress, { passive: true });
-    document.addEventListener('pointercancel', clearPress, { passive: true });
-
-    document.addEventListener('click', (event) => {
-      if (event.defaultPrevented) return;
-      const item = event.target?.closest?.('.todo-item[data-id]');
-      if (!item) return;
-      if (item.__niaRevealHandledAt && Date.now() - item.__niaRevealHandledAt < 700) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      if (isTodoInteractiveTarget(event.target)) return;
-      event.preventDefault();
-      editTodo(item.dataset.id);
+    bindItemCardInteractions({
+      root: document,
+      cardSelector: '.todo-item[data-id]',
+      protectedTargetSelector: '.todo-check, .todo-actions, .todo-status-control',
+      canActivate: item => !(item.__niaRevealHandledAt && Date.now() - item.__niaRevealHandledAt < 700),
+      onActivate: item => editTodo(item.dataset.id),
     });
   }
 

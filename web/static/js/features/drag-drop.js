@@ -1,5 +1,6 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { resolveSectionDragSourceAdapter, resolveSectionDropAdapter } from './section-ui.js';
+import { clearItemCardPress, isItemCardInteractiveTarget } from '../ui/item-card.js';
 
 export function sectionDragSourceMatches({ currentId, currentAdapter, completedId, completedAdapter } = {}) {
   return currentAdapter === completedAdapter
@@ -82,6 +83,7 @@ export function createDragDropFeature({
     if (!source) return;
     source.restoreFocus = source.item.contains(document.activeElement);
     dragSrcItem = source;
+    clearItemCardPress(source.item);
     source.item.classList.add('dragging');
     const transfer = eventDataTransfer(e);
     transfer.effectAllowed = 'move';
@@ -380,7 +382,7 @@ export function createDragDropFeature({
   function createNativeGhost(source) {
     const rect = source.getBoundingClientRect();
     const ghost = source.cloneNode(true);
-    ghost.classList.remove('dragging', 'touch-feedback', 'todo-press-active', 'swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
+    ghost.classList.remove('dragging', 'touch-feedback', 'ui-item-card-press-active', 'swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
     ghost.classList.add('native-drag-ghost');
     ghost.removeAttribute('id');
     ghost.removeAttribute('draggable');
@@ -620,6 +622,7 @@ export function createDragDropFeature({
     const sourceRect = pointerDrag.source.getBoundingClientRect();
     pointerDrag.offsetX = Math.max(0, Math.min(event.clientX - sourceRect.left, sourceRect.width));
     pointerDrag.offsetY = Math.max(0, Math.min(event.clientY - sourceRect.top, sourceRect.height));
+    clearItemCardPress(pointerDrag.source);
     pointerDrag.ghost = createNativeGhost(pointerDrag.source);
     pointerDrag.source.classList.add('dragging');
     if (pointerDrag.type === 'item') dragSrcItem = pointerDrag.itemSource;
@@ -696,7 +699,7 @@ export function createDragDropFeature({
   function isNativePointerDragInteractiveTarget(target, itemAdapter = null) {
     if (itemAdapter?.protectedStartSelector && target?.closest?.(itemAdapter.protectedStartSelector)) return true;
     if (itemAdapter?.interactiveStartSelector && target?.closest?.(itemAdapter.interactiveStartSelector)) return false;
-    return Boolean(target?.closest?.('button, input, textarea, select, a, summary, details, .todo-check, .todo-actions, [role="button"]'));
+    return isItemCardInteractiveTarget(target, '.todo-check, .todo-actions');
   }
 
   function nativeTodoDetailsSummaryFromTarget(target) {

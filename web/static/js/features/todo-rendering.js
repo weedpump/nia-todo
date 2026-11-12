@@ -2,6 +2,7 @@ import { escapeHtml, escapeHtmlAttr, formatDate, parseDateValue, renderMarkdown,
 import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { renderItemSwipeShell } from '../ui/item-swipe.js';
+import { renderItemCard, renderItemCardOpenAction } from '../ui/item-card.js';
 
 function locationReminderLabel(todo) {
   const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
@@ -73,8 +74,12 @@ export function renderTodoItem(t) {
           </div>
         </details>`;
 
-  const cardMarkup = `
-    <div class="todo-item ui-item-card ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${todoIdAttr}" data-status="${escapeHtmlAttr(t.status)}" data-priority="${escapeHtmlAttr(String(t.priority || ''))}" data-item-dnd="true" draggable="true">
+  const cardMarkup = renderItemCard({
+    className: `todo-item ui-item-card ui-swipe-card ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}`,
+    attributes: { 'data-id': t.id, 'data-status': t.status, 'data-priority': t.priority || '' },
+    completed: t.status === 'done',
+    details: Boolean(hasMeta || hasDesc),
+    content: `
       <div class="todo-status-control">
         <button type="button" class="todo-check" data-todo-action="toggle-status" data-todo-id="${todoIdAttr}" aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
           ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}
@@ -85,7 +90,7 @@ export function renderTodoItem(t) {
         <div class="todo-main">
           <span class="todo-prio priority-dot" title="${escapeHtml(i18nT('todo.priority'))}" style="background:${prioColor}"></span>
           <div class="todo-title-wrap">
-            <span class="todo-title">${escapeHtml(t.title)}</span>
+            ${renderItemCardOpenAction({ content: `<span class="todo-title ui-item-card-title">${escapeHtml(t.title)}</span>`, label: `${i18nT('common.edit')}: ${t.title}` })}
             ${hasMeta ? `
             <div class="todo-meta-row">
               ${dueStr ? `<span class="todo-meta-chip ui-badge todo-due ${isOverdue ? 'overdue' : dueTone} ${isOverdue || isDueToday ? 'minimal-attention' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
@@ -118,12 +123,12 @@ export function renderTodoItem(t) {
         <button type="button" class="btn btn-danger btn-icon" data-todo-action="delete" data-todo-id="${todoIdAttr}" title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
         <button type="button" class="btn btn-secondary btn-icon todo-actions-reveal-btn" data-todo-actions-reveal="true" aria-expanded="false" aria-label="${escapeHtml(i18nT('common.more'))}" title="${escapeHtml(i18nT('common.more'))}">${iconSvg('chevron-left')}</button>
       </div>
-    </div>
-  `;
+  `,
+  });
 
   return renderItemSwipeShell({
     key: todoIdAttr,
-    cardMarkup: cardMarkup.replace('class="todo-item ', 'class="todo-item ui-swipe-card '),
+    cardMarkup,
     actions: {
       right: { icon: 'flame', label: i18nT('todo.status.inProgress'), tone: 'warning' },
       left: { icon: 'check', label: i18nT('todo.status.done'), tone: 'success' },

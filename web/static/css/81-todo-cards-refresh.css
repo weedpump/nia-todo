@@ -32,42 +32,22 @@
   border-left: 0;
 }
 
-.todo-item {
-  margin-bottom: 8px;
-  transition: border-color .15s, background .15s, box-shadow .15s, transform .12s, opacity .15s;
-}
-
-.todo-item:hover,
-.todo-item:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
-  background:
-    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14)), transparent 44%),
-    var(--bg-secondary);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary)), 0 14px 30px rgba(0,0,0,.11);
-  transform: translateY(-1px);
-}
-
-.todo-item.swiping,
-.todo-item.swiping:hover,
-.todo-item.swiping:focus-within,
+.ui-item-card:where([data-item-card]).swiping,
+.ui-item-card:where([data-item-card]).swiping:hover,
+.ui-item-card:where([data-item-card]).swiping:focus-within,
 .calendar-view .calendar-event.swiping,
 .calendar-view .calendar-event.swiping:hover,
 .calendar-view .calendar-event.swiping:focus-within {
   transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012)));
 }
 
-.todo-item.swiping:not(.swipe-settling):not(.swipe-committing),
-.todo-item.swiping:not(.swipe-settling):not(.swipe-committing):hover,
-.todo-item.swiping:not(.swipe-settling):not(.swipe-committing):focus-within,
+.ui-item-card:where([data-item-card]).swiping:not(.swipe-settling):not(.swipe-committing),
+.ui-item-card:where([data-item-card]).swiping:not(.swipe-settling):not(.swipe-committing):hover,
+.ui-item-card:where([data-item-card]).swiping:not(.swipe-settling):not(.swipe-committing):focus-within,
 .calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing),
 .calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing):hover,
 .calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing):focus-within {
   transition: none;
-}
-
-.todo-item.done {
-  opacity: .58;
-  background: color-mix(in srgb, var(--bg-secondary) 84%, var(--bg-primary));
 }
 
 .todo-check {
@@ -110,10 +90,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.35;
-  color: var(--text-primary);
 }
 
 .todo-badges {
@@ -121,7 +97,6 @@
   gap: 6px;
   flex-wrap: wrap;
 }
-
 
 .todo-badge.pinned {
   color: var(--accent);
@@ -222,11 +197,6 @@
 @media (max-width: 768px) {
   .todo-list {
     padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
-  }
-
-
-  .todo-item {
-    align-items: center;
   }
 
   .todo-check {
@@ -446,7 +416,6 @@
   }
 }
 
-
 /* Flat project/todo view preview — no extra cards, just calmer existing surfaces. */
 .todo-list {
   padding: 16px 24px max(116px, calc(96px + env(safe-area-inset-bottom, 0px)));
@@ -519,10 +488,10 @@
   border-left: 0;
 }
 
-.project-group-todos .todo-item,
-.section-todos .todo-item,
-.todo-list > .todo-item,
-.pinned-todos .todo-item {
+.project-group-todos [data-item-card],
+.section-todos [data-item-card],
+.todo-list > [data-item-card],
+.pinned-todos [data-item-card] {
   margin-bottom: 0;
 }
 
@@ -633,24 +602,11 @@
   color: var(--text-primary);
 }
 
-.todo-item:hover,
-.todo-item:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
-  background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-tertiary));
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 58%, transparent);
-  transform: none;
-}
-
 .todo-check {
   width: 26px;
   height: 26px;
   border-width: 1px;
   border-radius: 999px;
-  background: transparent;
-}
-
-.todo-item.done {
-  opacity: .54;
   background: transparent;
 }
 
@@ -665,10 +621,6 @@
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
   background: color-mix(in srgb, var(--accent) 7%, var(--bg-secondary));
   box-shadow: inset 3px 0 0 var(--accent);
-}
-
-.todo-title {
-  font-weight: 560;
 }
 
 .todo-badge {
@@ -765,45 +717,18 @@
   }
 }
 
-.todo-item.has-open-menu,
-.todo-item:has(.todo-meta-row:not(:empty)),
-.todo-item:has(.todo-desc-preview) {
+.todo-item.has-open-menu {
   border-radius: 26px;
-}
-
-.todo-item.ui-item-card.pinned {
-  border-radius: 999px;
-}
-
-.todo-item:hover,
-.todo-item:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-  background: color-mix(in srgb, var(--bg-secondary) 80%, var(--bg-tertiary));
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 48%, transparent);
 }
 
 .todo-item.in-progress {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 82%, transparent);
-}
-
-.todo-item.in-progress:has(.todo-meta-row:not(:empty)),
-.todo-item.in-progress:has(.todo-desc-preview) {
-  border-radius: 26px;
+  --ui-item-card-interaction-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 82%, transparent);
+  box-shadow: var(--ui-item-card-interaction-shadow);
 }
 
 .todo-item.pinned {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
-}
-
-.todo-item.pinned:has(.todo-meta-row:not(:empty)),
-.todo-item.pinned:has(.todo-desc-preview) {
-  border-radius: 26px;
-}
-
-@media (max-width: 768px) {
-  .todo-item.ui-item-card.pinned {
-    border-radius: 24px;
-  }
+  --ui-item-card-interaction-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
+  box-shadow: var(--ui-item-card-interaction-shadow);
 }
 
 .todo-check {
@@ -822,8 +747,8 @@
   border-radius: 999px;
 }
 
-.todo-item.swiping::before,
-.todo-item.swiping::after,
+.ui-item-card:where([data-item-card]).swiping::before,
+.ui-item-card:where([data-item-card]).swiping::after,
 .calendar-view .calendar-event.swiping::before,
 .calendar-view .calendar-event.swiping::after {
   top: 0;
@@ -832,12 +757,12 @@
   border-radius: inherit;
 }
 
-.todo-item.swiping::before,
+.ui-item-card:where([data-item-card]).swiping::before,
 .calendar-view .calendar-event.swiping::before {
   right: calc(100% + 10px);
 }
 
-.todo-item.swiping::after,
+.ui-item-card:where([data-item-card]).swiping::after,
 .calendar-view .calendar-event.swiping::after {
   left: calc(100% + 10px);
 }
@@ -860,7 +785,6 @@
   text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .todo-meta-row {
@@ -908,10 +832,6 @@
 
 /* Local preview mobile fix: prevent chips/description from escaping pill rows. */
 @media (max-width: 768px) {
-  .todo-item {
-    overflow: hidden;
-    padding-right: 52px;
-  }
 
   .todo-body,
   .todo-body.has-meta,
@@ -986,26 +906,12 @@
 }
 
 /* Local preview: remove todo row borders while keeping status/accent paint. */
-.todo-item:hover,
-.todo-item:focus-within,
 .todo-item.in-progress,
 .todo-item.pinned {
   border-color: transparent;
 }
 
 /* Local preview: improve borderless todo contrast on light theme. */
-[data-theme="light"] .todo-item {
-  background: color-mix(in srgb, var(--bg-tertiary) 72%, white);
-}
-
-[data-theme="light"] .todo-item:hover,
-[data-theme="light"] .todo-item:focus-within {
-  background: color-mix(in srgb, var(--bg-hover) 62%, white);
-}
-
-[data-theme="light"] .todo-item.done {
-  background: color-mix(in srgb, var(--bg-tertiary) 40%, white);
-}
 
 [data-theme="light"] .todo-item.in-progress {
   background: color-mix(in srgb, var(--warning) 8%, color-mix(in srgb, var(--bg-tertiary) 72%, white));
@@ -1127,11 +1033,5 @@
   .todo-item[data-status="done"] .todo-status-menu-left summary {
     color: var(--success);
     background: color-mix(in srgb, var(--success) 10%, transparent);
-  }
-}
-
-@media (max-width: 768px) {
-  .todo-item {
-    overflow: visible;
   }
 }

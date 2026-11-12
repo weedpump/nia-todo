@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Fixed
 - Fixed blank Dashboard avatars and unnecessary image downloads on cold starts. Matching local avatars now load before a network lookup, with initials visible until decoding finishes and safe recovery from unavailable storage or corrupt cached images.
 - Show the topbar sync queue indicator only while offline across Tasks, Shopping, and Recipes, preventing brief flashes after online edits. Pending changes remain visible during reconnect attempts and disappear as soon as the connection returns.
+- Unified Tasks and Shopping cards through one shared shell and surface styles based on Tasks, including hover/focus backgrounds, transitions, light theme, typography and detail rounding. Dragged cards and touch previews keep the same opaque active surface and left accent without added fading, scaling or dashed borders. Whole-card activation and an accessible title action replace Shopping's full-width edit button; checkboxes, menus, links and module-specific status actions remain independent.
 
 ## [4.0.1] - 2026-11-12
 

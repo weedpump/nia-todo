@@ -86,6 +86,35 @@ Guidelines:
 - Keep hints short; one sentence is enough.
 - Use nested subcards only for dense areas such as security, 2FA, native app, or integrations.
 
+### Item card interactions
+
+Tasks and Shopping use `ui/item-card.js` for the card shell (`renderItemCard`),
+whole-card activation and pointer press feedback. Their renderers supply module
+content and the shared native title action (`renderItemCardOpenAction`); do not wrap a card's content in a separate
+full-width edit button or turn a card containing controls into a button role.
+Clicks on free card space open the same editor as its title action. Checkboxes,
+menus, links and other nested controls keep their own actions. The title action
+provides native Enter/Space activation and visible keyboard focus; Tasks' existing
+hover Space/Delete shortcuts remain separate.
+
+The card root owns press feedback. Movement, cancellation, dragging and swipe
+activation clear that state. Drag/drop and swipe recognize the shared title action
+without module-specific exceptions. Restore focus to that action after rerendering
+a moved item. The shared list-card surface in `99-ui-primitives.css` owns normal,
+hover, focus, press and drag paint, transitions, light theme, title typography and
+completed/detail variants. Renderers declare these through neutral `data-item-card*`
+markers; do not infer shared card geometry from module-specific child selectors.
+BrainDump review cards use the structural primitive without these list-card states.
+
+Dragged cards and touch previews use the same opaque active surface and inset left
+accent as hovered/focused cards. Their dimensions and status opacity stay intact;
+paint switches immediately during drag to avoid a residual press animation. Do not
+add fading, scaling, dashed borders or an outer glow. Swipe shells use the same
+plain/detail rounding as their cards. Tasks status/pin colors, option-slot spacing
+and minimal mode remain module-owned; Shopping checkboxes and quantity badges do
+not define another card surface. Section drop targets retain separate drop feedback.
+Read-only Shopping cards expose no edit action.
+
 ### Section Heading Contract
 
 Section headings with an icon, title, and short hint use one shared visual rhythm:

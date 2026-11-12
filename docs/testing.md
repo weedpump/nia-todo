@@ -140,6 +140,7 @@ Recipe step links and cooking are covered by the expanded disposable `test_recip
 These checks run before the frontend DB suite because they do not need a browser-backed dev DB reset.
 
 - `node scripts/test_sw_precache.mjs`
+- `node scripts/test_item_card_interactions.mjs` uses a private mocked origin and the real renderers/drag controller to compare Tasks and Shopping directly: dark/light desktop, mobile browser and native Android, plain/detail/completed cards, hover/focus/press, trusted mouse drag and detached touch previews. It checks opaque active paint, transitions, typography, clipping and wrapper shape as well as activation, keyboard, control isolation and permission guards.
 - `node scripts/test_todo_attachment_thumbnails.mjs`
 - `node scripts/test_frontend_quick_add_inline.mjs`
 - `node scripts/test_frontend_project_counters.mjs`

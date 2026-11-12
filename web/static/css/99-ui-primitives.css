@@ -25,12 +25,109 @@
   box-sizing: border-box;
 }
 
+/* List-card surface authority. BrainDump review cards use the structural
+   primitive above, without opting into list-card activation or hover paint. */
+.ui-item-card:where([data-item-card]) {
+  margin-bottom: 8px;
+  overflow: visible;
+  transition: border-color .15s, background .15s, box-shadow .15s, transform .12s, opacity .15s;
+}
+
+.ui-item-card:where([data-item-card-openable]) {
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.ui-item-card:where([data-item-card-completed]) {
+  opacity: .54;
+  background: transparent;
+}
+
+.ui-item-card:where([data-item-card-openable]):is(:hover, :focus-within, .dragging, .native-drag-ghost) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--bg-secondary) 80%, var(--bg-tertiary));
+  box-shadow: var(--ui-item-card-interaction-shadow, inset 3px 0 0 color-mix(in srgb, var(--accent) 48%, transparent));
+  transform: none;
+}
+
+.ui-item-card:where([data-item-card]):is(.dragging, .native-drag-ghost) {
+  transition: none;
+}
+
+[data-theme="light"] .ui-item-card:where([data-item-card]) {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, white);
+}
+
+[data-theme="light"] :where(.ui-item-card[data-item-card-openable]):is(:hover, :focus-within, .dragging, .native-drag-ghost) {
+  background: color-mix(in srgb, var(--bg-hover) 62%, white);
+}
+
+[data-theme="light"] .ui-item-card:where([data-item-card-completed]) {
+  background: color-mix(in srgb, var(--bg-tertiary) 40%, white);
+}
+
+.ui-item-card[data-item-card-details] {
+  border-radius: 26px;
+}
+
+.ui-item-card-title {
+  display: block;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ui-item-card[data-item-card-completed] .ui-item-card-title {
+  text-decoration: line-through;
+}
+
+/* Touch has no persistent hover. A moving item/clone uses the same opaque
+   Android press surface, with the shared left marker retained during dragging. */
+.native-android .ui-item-card:where([data-item-card-openable]):is(.dragging, .native-drag-ghost) {
+  border-color: var(--border) !important;
+  background: var(--bg-secondary) !important;
+  box-shadow: var(--ui-item-card-interaction-shadow, inset 3px 0 0 color-mix(in srgb, var(--accent) 48%, transparent)) !important;
+  transform: none !important;
+}
+
+/* Opening a card is a title action; pointer feedback belongs to the whole card. */
+.ui-item-card-open,
+.ui-item-card-open:active,
+.ui-item-card-open.touch-feedback {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  overflow-wrap: anywhere;
+  box-shadow: none;
+  transform: none;
+  cursor: pointer;
+}
+
+.ui-item-card-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .ui-swipe-card {
   touch-action: pan-y;
 }
 
-.ui-swipe-card.swiping {
-  transform: translate3d(var(--swipe-x, 0), 0, 0);
+.ui-swipe-card.swiping,
+.ui-swipe-card.swiping:hover,
+.ui-swipe-card.swiping:focus-within {
+  transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012)));
   transition: none;
   user-select: none;
   z-index: 2;
@@ -39,7 +136,7 @@
 
 .ui-swipe-card.swipe-settling,
 .ui-swipe-card.swipe-committing {
-  transition: transform 0.2s cubic-bezier(.2, .82, .22, 1);
+  transition: transform 0.2s cubic-bezier(.2, .82, .22, 1), border-color .16s ease, box-shadow .16s ease, background .16s ease;
 }
 
 .ui-swipe-card.swipe-committing {
@@ -74,6 +171,7 @@
     gap: 10px;
     border-radius: 24px;
   }
+
 }
 
 /* Shared full-width section primitives */

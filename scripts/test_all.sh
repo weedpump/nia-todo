@@ -268,6 +268,7 @@ run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.m
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run_step "Shared Item Swipe" node scripts/test_shared_item_swipe.mjs
+run_step "Shared Item Card Interactions" node scripts/test_item_card_interactions.mjs
 run_shared_item_drag_drop
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs

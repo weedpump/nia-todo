@@ -2,6 +2,7 @@ import { hideAutoScrollbars } from './auto-scrollbars.js';
 import { closeUiLayerNow, openUiLayer, registerUiLayer, requestCloseUiLayer } from './ui-history.js';
 import { t } from '../i18n/index.js';
 import { isDropdownOpen } from '../ui/dropdowns.js';
+import { isItemCardInteractiveTarget } from '../ui/item-card.js';
 
 const DESKTOP_SIDEBAR_MODES = ['expanded', 'rail', 'hidden'];
 const DESKTOP_SIDEBAR_MODE_STORAGE_KEY = 'nia-desktop-sidebar-mode';
@@ -239,8 +240,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
   function bindTouchFeedback() {
     if (touchFeedbackBound || typeof document === 'undefined') return;
     touchFeedbackBound = true;
-    const selector = 'button, [role="button"], .nav-btn, .workspace-current-btn, .user-menu-item, .todo-item, .overview-project-item, .section-name';
-    const interactiveWithinTodo = 'button, input, textarea, select, a, summary, details, .todo-check, .todo-actions, [role="button"]';
+    const selector = 'button, [role="button"], .nav-btn, .workspace-current-btn, .user-menu-item, .ui-item-card, .overview-project-item, .section-name';
     const clear = (el) => {
       if (!el) return;
       window.clearTimeout(el.__niaTouchFeedbackTimer);
@@ -251,7 +251,8 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
       if (event.pointerType && event.pointerType !== 'touch') return;
       const target = event.target?.closest?.(selector);
       if (!target || target.disabled) return;
-      if (target.classList?.contains('todo-item') && event.target?.closest?.(interactiveWithinTodo)) return;
+      if (target.classList?.contains('ui-item-card')
+        || (target.closest?.('.ui-item-card') && !isItemCardInteractiveTarget(event.target))) return;
       target.classList.add('touch-feedback');
       window.clearTimeout(target.__niaTouchFeedbackTimer);
     }, { passive: true });
