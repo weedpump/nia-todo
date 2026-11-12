@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Abrir espacio de trabajo del 1 al 6",
   "shortcuts.cycleStatus": "Cambiar el estado de la tarea enfocada o bajo el cursor",
   "shortcuts.deleteTodo": "Eliminar la tarea enfocada o bajo el cursor",
+  "shortcuts.toggleItemCompletion": "Marcar como completado / reabrir el artículo bajo el cursor",
+  "shortcuts.deleteItem": "Eliminar el artículo bajo el cursor",
   "shortcuts.saveTodo": "Guardar la tarea desde el campo de título",
   "shortcuts.multiAddNext": "Varias tareas: añadir fila",
   "shortcuts.multiAddRemove": "Varias tareas: eliminar fila vacía",

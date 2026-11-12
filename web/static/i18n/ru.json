@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Открыть рабочую область от 1 до 6",
   "shortcuts.cycleStatus": "Переключить статус задачи в фокусе или под указателем",
   "shortcuts.deleteTodo": "Удалить задачу в фокусе или под указателем",
+  "shortcuts.toggleItemCompletion": "Отметить пункт под указателем выполненным / открыть снова",
+  "shortcuts.deleteItem": "Удалить пункт под указателем",
   "shortcuts.saveTodo": "Сохранить задачу из поля заголовка",
   "shortcuts.multiAddNext": "Несколько задач: добавить строку",
   "shortcuts.multiAddRemove": "Несколько задач: удалить пустую строку",

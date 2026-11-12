@@ -229,6 +229,7 @@ run_step "Todo Delete Identity" node scripts/test_todo_delete_identity.mjs
 run_step "Entity Invitation i18n" node scripts/test_entity_invitation_i18n.mjs
 run_step "Shopping List Access Browser" node scripts/test_frontend_shopping_access.mjs
 run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
+run_step "Shared Section Inline Editors" node scripts/test_section_inline_edit.mjs
 run_step "Shopping Sections" node scripts/test_shopping_sections.mjs
 run_step "Shopping View Preferences" node scripts/test_shopping_view_preferences.mjs
 run_step "Shopping Stores" node scripts/test_shopping_stores.mjs
@@ -269,6 +270,7 @@ run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_andro
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run_step "Shared Item Swipe" node scripts/test_shared_item_swipe.mjs
 run_step "Shared Item Card Interactions" node scripts/test_item_card_interactions.mjs
+run_step "Shopping Item Keyboard Shortcuts" node scripts/test_shopping_item_shortcuts.mjs
 run_shared_item_drag_drop
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs

@@ -5,12 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [4.0.2] - 2026-11-12
+## [4.0.2] - 2026-11-13
 
 ### Fixed
 - Fixed blank Dashboard avatars and unnecessary image downloads on cold starts. Matching local avatars now load before a network lookup, with initials visible until decoding finishes and safe recovery from unavailable storage or corrupt cached images.
 - Show the topbar sync queue indicator only while offline across Tasks, Shopping, and Recipes, preventing brief flashes after online edits. Pending changes remain visible during reconnect attempts and disappear as soon as the connection returns.
 - Unified Tasks and Shopping cards through one shared shell and surface styles based on Tasks, including hover/focus backgrounds, transitions, light theme, typography and detail rounding. Dragged cards and touch previews keep the same opaque active surface and left accent without added fading, scaling or dashed borders. Whole-card activation and an accessible title action replace Shopping's full-width edit button; checkboxes, menus, links and module-specific status actions remain independent.
+- Added Shopping hover shortcuts through the shared card keyboard controller: Space marks an item complete or reopens it; Delete uses the existing confirmation dialog. Inputs and open dialogs retain their keys, and pending deletion confirmations cannot cross account, session, module, list or permission changes. The shortcuts are listed in all supported languages.
+- Fixed section inline editors remaining open after Cancel or saving an unchanged title. The shared controller now closes its own form even when Shopping retains unchanged list markup, skips no-op rename writes, and preserves drafts and focus when saving fails.
 
 ## [4.0.1] - 2026-11-12
 

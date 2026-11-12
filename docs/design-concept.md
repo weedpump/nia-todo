@@ -94,8 +94,14 @@ content and the shared native title action (`renderItemCardOpenAction`); do not 
 full-width edit button or turn a card containing controls into a button role.
 Clicks on free card space open the same editor as its title action. Checkboxes,
 menus, links and other nested controls keep their own actions. The title action
-provides native Enter/Space activation and visible keyboard focus; Tasks' existing
-hover Space/Delete shortcuts remain separate.
+provides native Enter/Space activation and visible keyboard focus; hover
+Space/Delete shortcuts retain their module-specific action semantics.
+
+Hover/focus shortcuts also use the shared card controller: modules supply their
+toggle and delete actions, active-module boundary and optional list/session scope.
+Native controls, editable fields, open dialogs and active gestures retain their
+own keys. Shopping deletion captures stable item/list identities and revalidates
+the account, session, active list and edit access after confirmation.
 
 The card root owns press feedback. Movement, cancellation, dragging and swipe
 activation clear that state. Drag/drop and swipe recognize the shared title action
@@ -114,6 +120,11 @@ plain/detail rounding as their cards. Tasks status/pin colors, option-slot spaci
 and minimal mode remain module-owned; Shopping checkboxes and quantity badges do
 not define another card surface. Section drop targets retain separate drop feedback.
 Read-only Shopping cards expose no edit action.
+
+The shared section controller owns inline form dismissal. Cancel/Escape and an
+unchanged save must restore its DOM directly before requesting a domain render;
+Shopping may retain unchanged collection markup. Persistence failures keep the
+current draft and input focus available for retry.
 
 ### Section Heading Contract
 

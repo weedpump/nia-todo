@@ -44,6 +44,64 @@ export function clearItemCardPress(item) {
   item?.classList?.remove('ui-item-card-press-active');
 }
 
+export function bindItemCardKeyboardShortcuts({ root, cardSelector, keyFromCard, isActive = () => true, getScope = () => null, canAct = () => true, onToggle, onDelete, onError = console.error }) {
+  const doc = root?.ownerDocument || root;
+  let hovered = null;
+  const cardFromTarget = target => {
+    const card = target?.closest?.(cardSelector);
+    return card && root?.contains?.(card) && !card.classList.contains('native-drag-ghost') ? card : null;
+  };
+  const reset = () => { hovered = null; };
+  const onPointerOver = event => {
+    if (!isActive()) return reset();
+    const item = cardFromTarget(event.target);
+    if (item) hovered = { key: keyFromCard(item), scope: getScope() };
+  };
+  const onPointerOut = event => {
+    const item = cardFromTarget(event.target);
+    if (item && !item.contains(event.relatedTarget) && String(hovered?.key) === String(keyFromCard(item))) reset();
+  };
+  const onKeyDown = async event => {
+    const action = event.key === 'Delete' ? onDelete : (event.key === ' ' || event.key === 'Spacebar') ? onToggle : null;
+    if (!action || event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (!isActive()) return reset();
+    // Native controls (including the title action) keep their own keyboard
+    // behavior. Hover shortcuts never act through an editor or open dialog.
+    if (doc?.activeElement?.isContentEditable || event.target?.isContentEditable
+      || doc?.activeElement?.closest?.(interactiveSelector)
+      || event.target?.closest?.(interactiveSelector)
+      || doc?.querySelector?.('.modal.active, dialog[open]')
+      || doc?.body?.classList?.contains('native-pointer-dragging')) return;
+    let item = cardFromTarget(doc?.activeElement);
+    if (!item && hovered && hovered.scope === getScope()) {
+      item = Array.from(root?.querySelectorAll?.(cardSelector) || [])
+        .find(card => String(keyFromCard(card)) === String(hovered.key));
+    }
+    if (!item || !canAct(item) || item.matches('.dragging, .swiping')) return;
+    event.preventDefault();
+    try {
+      await action(keyFromCard(item), item);
+    } catch (error) {
+      onError(error);
+    }
+  };
+  root?.addEventListener?.('pointerover', onPointerOver, { passive: true });
+  root?.addEventListener?.('pointerout', onPointerOut, { passive: true });
+  doc?.addEventListener?.('keydown', onKeyDown);
+  return {
+    reset,
+    remapKey(from, to) {
+      if (hovered && String(hovered.key) === String(from)) hovered.key = to;
+    },
+    destroy() {
+      reset();
+      root?.removeEventListener?.('pointerover', onPointerOver);
+      root?.removeEventListener?.('pointerout', onPointerOut);
+      doc?.removeEventListener?.('keydown', onKeyDown);
+    },
+  };
+}
+
 export function bindItemCardInteractions({ root, cardSelector, onActivate, canActivate = () => true, protectedTargetSelector = '' }) {
   const doc = root?.ownerDocument || root;
   let press = null;

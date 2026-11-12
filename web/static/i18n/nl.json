@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Werkruimte 1 tot en met 6 openen",
   "shortcuts.cycleStatus": "Status van de taak met focus of onder de aanwijzer wisselen",
   "shortcuts.deleteTodo": "Taak met focus of onder de aanwijzer verwijderen",
+  "shortcuts.toggleItemCompletion": "Item onder de muisaanwijzer afvinken / opnieuw openen",
+  "shortcuts.deleteItem": "Item onder de muisaanwijzer verwijderen",
   "shortcuts.saveTodo": "Taak opslaan vanuit het titelveld",
   "shortcuts.multiAddNext": "Meerdere taken: rij toevoegen",
   "shortcuts.multiAddRemove": "Meerdere taken: lege rij verwijderen",

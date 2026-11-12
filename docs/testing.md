@@ -141,6 +141,8 @@ These checks run before the frontend DB suite because they do not need a browser
 
 - `node scripts/test_sw_precache.mjs`
 - `node scripts/test_item_card_interactions.mjs` uses a private mocked origin and the real renderers/drag controller to compare Tasks and Shopping directly: dark/light desktop, mobile browser and native Android, plain/detail/completed cards, hover/focus/press, trusted mouse drag and detached touch previews. It checks opaque active paint, transitions, typography, clipping and wrapper shape as well as activation, keyboard, control isolation and permission guards.
+- `node scripts/test_shopping_item_shortcuts.mjs` checks Shopping hover Space/Delete with guarded inputs/dialogs, confirmation, permission and session/list boundaries at a private mocked origin.
+- `node scripts/test_section_inline_edit.mjs` checks shared Tasks/Shopping inline forms with actual adapters, including memoized Shopping rendering, unchanged saves, Cancel/Escape and retained drafts after persistence errors; it uses no application service or database.
 - `node scripts/test_todo_attachment_thumbnails.mjs`
 - `node scripts/test_frontend_quick_add_inline.mjs`
 - `node scripts/test_frontend_project_counters.mjs`

@@ -3,7 +3,8 @@ import { normalizeQuantityUnit } from '../core/quantity-units.js';
 import { formatQuantity } from '../core/recipe-quantities.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { registerItemSwipeAdapter, renderItemSwipeShell } from '../ui/item-swipe.js';
-import { bindItemCardInteractions, renderItemCard, renderItemCardOpenAction } from '../ui/item-card.js';
+import { bindItemCardInteractions, bindItemCardKeyboardShortcuts, renderItemCard, renderItemCardOpenAction } from '../ui/item-card.js';
+import { t } from '../i18n/index.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -87,6 +88,8 @@ export function renderShoppingItem({ item = {}, canEdit = false, locale = undefi
 export function createShoppingItemsController({
   getLists = () => [],
   getActorId = () => null,
+  getSessionIdentity = () => getActorId(),
+  getActiveModule = () => 'shopping',
   setLists = () => {},
   getActiveListId = () => null,
   getStores = () => [],
@@ -96,6 +99,7 @@ export function createShoppingItemsController({
   syncWithServer = async () => {},
   onError = () => {},
   onEdit = () => {},
+  confirmDanger = async () => false,
   enqueueListMutation = null,
   routingMemory = null,
   createTempId = () => `temp-shopping-item-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
@@ -106,6 +110,9 @@ export function createShoppingItemsController({
   const createdItemAliases = new Map();
   let root = null;
   let unbindCardInteractions = null;
+  let keyboardShortcuts = null;
+  let cardBindingGeneration = 0;
+  const pendingRemovals = new Map();
 
   registerItemSwipeAdapter({
     id: 'shopping-items',
@@ -474,6 +481,42 @@ export function createShoppingItemsController({
     return operation;
   }
 
+  function requestRemove(listId, itemId, { returnFocus = null } = {}) {
+    const list = currentList(listId);
+    const item = itemByIdentity(list, itemId);
+    if (getActiveModule() !== 'shopping' || list?.can_edit !== true || !item) return Promise.resolve(null);
+    const actorId = getActorId();
+    const session = getSessionIdentity();
+    const bindingGeneration = cardBindingGeneration;
+    const listIdentity = entityIdentity(list, actorId);
+    const itemIdentity = entityIdentity(item, actorId);
+    const key = `${String(actorId)}\u0000${String(session)}\u0000${String(listIdentity)}\u0000${String(itemIdentity)}`;
+    if (pendingRemovals.has(key)) return pendingRemovals.get(key);
+    const operation = (async () => {
+      const confirmed = await confirmDanger({
+        title: t('shopping.item.delete.title'),
+        message: t('shopping.item.delete.message', { name: item.name || '' }),
+        confirmText: t('shopping.item.delete.confirm'),
+        returnFocus: () => {
+          if (cardBindingGeneration !== bindingGeneration || String(getActorId()) !== String(actorId)
+            || getSessionIdentity() !== session) return null;
+          if (returnFocus?.isConnected) return returnFocus;
+          const liveItem = itemByIdentity(currentList(listIdentity), itemIdentity);
+          return Array.from(root?.querySelectorAll?.('.shopping-item-card[data-shopping-item-key]') || [])
+            .find(card => sameId(card.dataset.shoppingItemKey, liveItem?.id))?.querySelector('[data-item-card-open]');
+        },
+      });
+      if (!confirmed || cardBindingGeneration !== bindingGeneration
+        || String(getActorId()) !== String(actorId) || getSessionIdentity() !== session
+        || getActiveModule() !== 'shopping') return null;
+      const liveList = currentList(listIdentity);
+      if (liveList?.can_edit !== true || !itemByIdentity(liveList, itemIdentity)) return null;
+      return remove(listIdentity, itemIdentity);
+    })().finally(() => pendingRemovals.delete(key));
+    pendingRemovals.set(key, operation);
+    return operation;
+  }
+
   function toggleCompleted(listId, itemId) {
     const live = currentList(listId);
     const initialItem = itemByIdentity(live, itemId);
@@ -594,12 +637,16 @@ export function createShoppingItemsController({
     createManyForList,
     update,
     remove,
+    requestRemove,
     toggleCompleted,
     moveToSection,
     dragAdapter,
+    resetShortcutTarget: () => keyboardShortcuts?.reset(),
     bindRoot(nextRoot) {
       if (root === nextRoot) return;
+      cardBindingGeneration += 1;
       unbindCardInteractions?.();
+      keyboardShortcuts?.destroy();
       root?.removeEventListener?.('click', onClick);
       root = nextRoot || null;
       root?.addEventListener?.('click', onClick);
@@ -610,9 +657,24 @@ export function createShoppingItemsController({
           && Boolean(item.querySelector('[data-item-card-open]')),
         onActivate: (item, trigger) => onEdit(getActiveListId(), item.dataset.shoppingItemKey, trigger),
       });
+      keyboardShortcuts = bindItemCardKeyboardShortcuts({
+        root,
+        cardSelector: '.shopping-item-card[data-shopping-item-key]',
+        keyFromCard: item => entityIdentity(itemByIdentity(currentList(getActiveListId()), item.dataset.shoppingItemKey), getActorId()) ?? item.dataset.shoppingItemKey,
+        isActive: () => getActiveModule() === 'shopping',
+        getScope: () => `${String(getSessionIdentity())}\u0000${String(getActorId())}\u0000${String(entityIdentity(currentList(getActiveListId()), getActorId()))}`,
+        canAct: item => currentList(getActiveListId())?.can_edit === true
+          && item.matches('[data-item-card-openable]')
+          && Boolean(itemByIdentity(currentList(getActiveListId()), item.dataset.shoppingItemKey)),
+        onToggle: itemId => toggleCompleted(getActiveListId(), itemId),
+        onDelete: itemId => requestRemove(getActiveListId(), itemId, { returnFocus: root?.ownerDocument?.activeElement }),
+        onError,
+      });
     },
     destroy() {
+      cardBindingGeneration += 1;
       unbindCardInteractions?.();
+      keyboardShortcuts?.destroy();
       root?.removeEventListener?.('click', onClick);
       root = null;
       inFlight.clear();
