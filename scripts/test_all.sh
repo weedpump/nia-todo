@@ -121,6 +121,7 @@ run_step "Household Entity Access" python3 scripts/test_household_entity_access.
 run_step "Frontend Households" node scripts/test_frontend_households.mjs
 run_step "Shopping Lists" python3 scripts/test_shopping_lists.py
 run_step "Shopping Identity Boundaries" node scripts/test_shopping_identity.mjs
+run_step "Secure Mutation Identities" node scripts/test_mutation_ids.mjs
 run_step "Shopping Mutation Session Boundaries" node scripts/test_shopping_mutation_session.mjs
 run_step "Deleted Creation Replay" node scripts/test_creation_tombstone_sync.mjs
 run_step "Cookbooks API and Ownership" python3 scripts/test_cookbooks.py

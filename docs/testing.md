@@ -77,6 +77,8 @@ Recipe step links and cooking are covered by the expanded disposable `test_recip
 
 ### Identity, deletion receipts and account transitions
 
+- `node scripts/test_mutation_ids.mjs` checks the shared cryptographic ID generator through the actual Cookbook and Shopping list controllers, including HTTP contexts without `randomUUID`, actor-bound queue identities, unavailable Web Crypto and injectable IDs. It uses no service or database.
+
 - `test_avatar_cold_start.mjs` uses a private browser origin, real IndexedDB and fresh JavaScript realms to check desktop/mobile cold starts with a persisted avatar and blocked image transport. It verifies zero requests for unchanged versions, first-frame image/fallback rendering, version refresh and real corrupt-image recovery. The Node avatar/IndexedDB/Dashboard tests cover storage errors, blocked/silent opens, queued write retention, decode races, account/cache-generation changes and stale evictions; the service-worker test keeps authenticated images out of public caches. These checks never access the installed service or its SQLite database.
 
 - `python3 scripts/test_creation_receipts.py` uses disposable, fully migrated databases for Tasks and Shopping creation scopes, live retries, deletion followed by a lost-response retry, concurrent creates, access revocation and missing parents. It also checks migration 074 backfill, insert triggers and atomic rollback. Store deactivation must remain a replay of the existing inactive store, without reactivation; a physically missing entity produces the typed 410 receipt.

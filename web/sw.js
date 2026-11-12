@@ -96,6 +96,7 @@ const PRECACHE_ASSETS = [
   '/static/js/core/raster-image.js',
   '/static/js/core/utils.js',
   '/static/js/core/entity-identity.js',
+  '/static/js/core/mutation-id.js',
   '/static/js/core/state.js',
   '/static/js/core/device-labels.js',
   '/static/js/storage/app-storage.js',
