@@ -4,6 +4,7 @@ import { getActiveLanguage, getActiveLocale, t, translatePage } from '../i18n/in
 import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { registerItemSwipeAdapter } from '../ui/item-swipe.js';
+import { bindItemCardInteractions, bindItemCardKeyboardShortcuts, isItemCardInteractiveTarget } from '../ui/item-card.js';
 import { shouldAutoFocusEntityEditorTitle } from './entity-editor-focus.js';
 import { createNativeBridge } from './native-bridge.js';
 import { createTodoAttachmentsFeature } from './todo-attachments.js';
@@ -100,7 +101,8 @@ export function createTodosFeature({
   let todoFormBound = false;
   let savedPlaces = [];
   let todoSaveSnapshot = null;
-  let hoveredTodoId = null;
+  let todoKeyboardShortcuts = null;
+  let todoEditorFocusGeneration = 0;
   const pendingDeleteTargets = new Set();
   let badgeOpenedSingleChoiceTarget = null;
   let pendingMetaReturnFocusTarget = null;
@@ -2127,59 +2129,20 @@ export function createTodosFeature({
     await setTodoStatus(todo.id, todo.status === status ? 'pending' : status);
   }
 
-  const todoInteractiveTargetSelector = 'button, input, select, textarea, a, label, summary, details, .todo-check, .todo-actions, [role="button"], [contenteditable="true"]';
-
   function isTodoInteractiveTarget(target) {
-    return Boolean(target?.closest?.(todoInteractiveTargetSelector));
+    return isItemCardInteractiveTarget(target, '.todo-check, .todo-actions, .todo-status-control');
   }
 
   function bindTodoItemClickBehavior() {
     if (document.documentElement.dataset.todoItemClickBound === '1') return;
     document.documentElement.dataset.todoItemClickBound = '1';
-    let press = null;
-
-    document.addEventListener('pointerdown', (event) => {
-      if (!event.isPrimary || event.button > 0) return;
-      const item = event.target?.closest?.('.todo-item[data-id]');
-      if (!item || isTodoInteractiveTarget(event.target)) return;
-      press = { item, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
-      item.classList.add('todo-press-active');
-    }, { passive: true });
-
-    document.addEventListener('pointermove', (event) => {
-      if (!press || event.pointerId !== press.pointerId) return;
-      if (Math.abs(event.clientX - press.startX) > 6 || Math.abs(event.clientY - press.startY) > 6) {
-        press.moved = true;
-        press.item.classList.remove('todo-press-active');
-      }
-    }, { passive: true });
-
-    const clearPress = (event) => {
-      if (!press || event.pointerId !== press.pointerId) return;
-      press.item.classList.remove('todo-press-active');
-      press = null;
-    };
-    document.addEventListener('pointerup', clearPress, { passive: true });
-    document.addEventListener('pointercancel', clearPress, { passive: true });
-
-    document.addEventListener('click', (event) => {
-      if (event.defaultPrevented) return;
-      const item = event.target?.closest?.('.todo-item[data-id]');
-      if (!item) return;
-      if (item.__niaRevealHandledAt && Date.now() - item.__niaRevealHandledAt < 700) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      if (isTodoInteractiveTarget(event.target)) return;
-      event.preventDefault();
-      editTodo(item.dataset.id);
+    bindItemCardInteractions({
+      root: document,
+      cardSelector: '.todo-item[data-id]',
+      protectedTargetSelector: '.todo-check, .todo-actions, .todo-status-control',
+      canActivate: item => !(item.__niaRevealHandledAt && Date.now() - item.__niaRevealHandledAt < 700),
+      onActivate: item => editTodo(item.dataset.id),
     });
-  }
-
-  function isInteractiveTarget(element) {
-    const tag = element?.tagName;
-    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || element?.isContentEditable;
   }
 
   function setTodoActionsExpanded(current, expanded) {
@@ -2405,44 +2368,18 @@ export function createTodosFeature({
   function bindTodoHoverKeyboardShortcuts() {
     if (document.documentElement.dataset.todoHoverKeyboardBound === '1') return;
     document.documentElement.dataset.todoHoverKeyboardBound = '1';
-    document.addEventListener('pointerover', (event) => {
-      if (getActiveModule() !== 'tasks') return;
-      const item = event.target?.closest?.('.todo-item[data-id]');
-      if (item) hoveredTodoId = item.dataset.id;
-    }, { passive: true });
-
-    document.addEventListener('pointerout', (event) => {
-      const item = event.target?.closest?.('.todo-item[data-id]');
-      if (!item || item.contains(event.relatedTarget)) return;
-      if (hoveredTodoId === item.dataset.id) hoveredTodoId = null;
-    }, { passive: true });
-
-    function getShortcutTodoId() {
-      const focusedItem = document.activeElement?.closest?.('.todo-item[data-id]');
-      const id = focusedItem?.dataset.id || hoveredTodoId;
-      if (!id) return null;
-      const item = Array.from(document.querySelectorAll('.todo-item[data-id]')).find(el => el.dataset.id === String(id));
-      return item ? item.dataset.id : null;
-    }
-
-    document.addEventListener('keydown', async (event) => {
-      const isSpace = event.key === ' ' || event.key === 'Spacebar';
-      const isDelete = event.key === 'Delete';
-      if (!isSpace && !isDelete) return;
-      if (getActiveModule() !== 'tasks') return;
-      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (isInteractiveTarget(document.activeElement)) return;
-      if (document.querySelector('.modal.active')) return;
-      const todoId = getShortcutTodoId();
-      if (!todoId) return;
-      event.preventDefault();
-      if (isDelete) await deleteTodo(todoId);
-      else await toggleTodo(todoId);
+    todoKeyboardShortcuts = bindItemCardKeyboardShortcuts({
+      root: document,
+      cardSelector: '.todo-item[data-id]',
+      keyFromCard: item => item.dataset.id,
+      isActive: () => getActiveModule() === 'tasks',
+      onToggle: toggleTodo,
+      onDelete: deleteTodo,
     });
   }
 
   function resetTodoShortcutTarget() {
-    hoveredTodoId = null;
+    todoKeyboardShortcuts?.reset();
   }
 
   bindTodoItemClickBehavior();
@@ -2477,13 +2414,24 @@ export function createTodosFeature({
     await setTodoStatus(todo.id, cycle[todo.status] || 'pending');
   }
 
-  function focusTodoTitle() {
-    const focus = () => document.getElementById('todo-title')?.focus();
+  function focusTodoTitle(generation) {
+    const focusAtOpen = document.activeElement;
+    const focus = () => {
+      const modal = getTodoModal();
+      if (generation !== todoEditorFocusGeneration || !modal?.classList.contains('active')
+        || !modal.classList.contains(TODO_MODAL_CLASSES.create)) return;
+      const title = document.getElementById('todo-title');
+      const currentFocus = document.activeElement;
+      if (currentFocus !== focusAtOpen && currentFocus !== document.body && currentFocus !== title
+        && currentFocus?.isConnected) return;
+      title?.focus();
+    };
     window.requestAnimationFrame?.(focus);
     window.setTimeout(focus, 80);
   }
 
   async function showTodoModal(todo = null) {
+    const focusGeneration = ++todoEditorFocusGeneration;
     bindTodoForm();
     bindDateTimeValidation();
     hydrateTodoSelects();
@@ -2605,7 +2553,7 @@ export function createTodosFeature({
     openUiLayer('todo-modal');
     resizeTodoTitleField();
     window.requestAnimationFrame?.(resizeTodoTitleField);
-    if (shouldAutoFocusEntityEditorTitle(todo ? 'edit' : 'create')) focusTodoTitle();
+    if (shouldAutoFocusEntityEditorTitle(todo ? 'edit' : 'create')) focusTodoTitle(focusGeneration);
   }
 
   async function onProjectChange(selectedSectionId = null) {
@@ -3065,7 +3013,7 @@ export function createTodosFeature({
     for (const target of pendingDeleteTargets) {
       if (target.isCurrent() && same(target.id)) target.id = to;
     }
-    if (same(hoveredTodoId)) hoveredTodoId = to;
+    todoKeyboardShortcuts?.remapKey(from, to);
     const field = document.getElementById('todo-id');
     if (field?.value && same(field.value)) field.value = String(to);
   }

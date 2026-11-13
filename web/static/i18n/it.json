@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Apri lo spazio di lavoro da 1 a 6",
   "shortcuts.cycleStatus": "Cambia lo stato dell’attività con focus o sotto il puntatore",
   "shortcuts.deleteTodo": "Elimina l’attività con focus o sotto il puntatore",
+  "shortcuts.toggleItemCompletion": "Segna come completato / riapri l’articolo sotto il puntatore",
+  "shortcuts.deleteItem": "Elimina l’articolo sotto il puntatore",
   "shortcuts.saveTodo": "Salva l’attività dal campo del titolo",
   "shortcuts.multiAddNext": "Attività multiple: aggiungi una riga",
   "shortcuts.multiAddRemove": "Attività multiple: rimuovi una riga vuota",

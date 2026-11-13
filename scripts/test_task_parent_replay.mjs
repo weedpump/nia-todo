@@ -23,6 +23,7 @@ try {
       '/icons/lucide-icons.js': '../web/static/js/icons/lucide-icons.js',
       '/icons/lucide-generated.js': '../web/static/js/icons/lucide-generated.js',
       '/i18n/index.js': '../web/static/js/i18n/index.js',
+      '/core/mutation-id.js': '../web/static/js/core/mutation-id.js',
       '/core/quantity-units.js': '../web/static/js/core/quantity-units.js',
       '/core/quantity-unit-data.js': '../web/static/js/core/quantity-unit-data.js',
     };

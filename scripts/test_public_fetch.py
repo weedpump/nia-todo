@@ -133,21 +133,30 @@ class FetchTests(unittest.TestCase):
                 finally:
                     stop.set(); client.close(); server.close(); worker.join(timeout=1)
 
-    def test_tls_connect_pins_ip_but_verifies_hostname(self):
+    def test_tls_connect_pins_ip_verifies_hostname_and_requires_tls12(self):
         class Sock:
             def settimeout(self,value): pass
             def connect(self,target): self.target=target
             def close(self): pass
             def do_handshake(self): pass
         sock=Sock()
-        class Context:
-            def wrap_socket(self,actual,server_hostname,do_handshake_on_connect):
-                self.host=server_hostname; self.actual=actual; return actual
-        context=Context()
-        with patch.object(fetch.socket,'socket',return_value=sock), patch.object(fetch.ssl,'create_default_context',return_value=context), patch.object(fetch.socket,'getaddrinfo',side_effect=AssertionError('must not resolve again')):
+        context=fetch.ssl.create_default_context()
+        # Exercise an initially permissive context even on runtimes whose
+        # defaults already require TLS 1.2.
+        context.minimum_version=fetch.ssl.TLSVersion.MINIMUM_SUPPORTED
+        def wrap_socket(actual,server_hostname,do_handshake_on_connect):
+            self.assertIs(actual,sock)
+            self.assertEqual(server_hostname,'real.example')
+            self.assertFalse(do_handshake_on_connect)
+            self.assertEqual(context.minimum_version,fetch.ssl.TLSVersion.TLSv1_2)
+            self.assertEqual(context.verify_mode,fetch.ssl.CERT_REQUIRED)
+            self.assertTrue(context.check_hostname)
+            return actual
+        with patch.object(fetch.socket,'socket',return_value=sock), patch.object(fetch.ssl,'create_default_context',return_value=context), patch.object(context,'wrap_socket',side_effect=wrap_socket) as wrap, patch.object(fetch.socket,'getaddrinfo',side_effect=AssertionError('must not resolve again')):
             connection=fetch._PinnedConnection('real.example',443,socket.AF_INET,'8.8.8.8',tls=True,deadline=fetch.time.monotonic()+2)
             connection.connect()
-        self.assertEqual(sock.target,('8.8.8.8',443)); self.assertEqual(context.host,'real.example')
+        self.assertEqual(sock.target,('8.8.8.8',443))
+        wrap.assert_called_once()
 
 
 if __name__ == '__main__': unittest.main()

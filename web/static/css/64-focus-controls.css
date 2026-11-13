@@ -193,13 +193,6 @@
   transform: scale(1) rotate(0deg);
 }
 
-.todo-item.pinned {
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
-  border-radius: 16px;
-  background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13)), var(--bg-secondary) 42%);
-  box-shadow: inset 4px 0 0 var(--accent), 0 0 0 1px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12));
-}
-
 .todo-pin-marker {
   display: inline-flex;
   color: var(--accent);

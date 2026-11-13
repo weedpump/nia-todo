@@ -1,6 +1,7 @@
 import { TRANSFER_RECIPE_TO_SHOPPING, transferReferencesCookbook } from './recipe-shopping-pending.js';
 import { recipeActions, recipeBookId, mergeRecipeSnapshot, projectRecipeCookbook, reconcileRecipeSnapshot, rewriteRecipeQueue } from './recipe-pending.js';
 import { createEntityMutationQueue, createMetadataCollection, createOptimisticMetadataEntity, sameEntityId, updateMetadataProjection } from './entity-metadata.js';
+import { createMutationId } from '../core/mutation-id.js';
 
 const metadata = createMetadataCollection({ storeName: 'cookbooks',
   createAction: 'CREATE_COOKBOOK', updateAction: 'UPDATE_COOKBOOK', deleteAction: 'DELETE_COOKBOOK',
@@ -29,7 +30,7 @@ export const cookbookMetadata = Object.freeze({ ...metadata,
 export function createCookbooksController({ getCookbooks = () => [], setCookbooks = () => {}, commitMutation,
   enqueueCookbookMutation = null, getSessionIdentity = null, getCurrentUser = () => null, getAccessSnapshot = () => null,
   isOnlineForSync = () => false, syncWithServer = async () => {}, onError = console.error,
-  createTempId = () => `temp-cookbook-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
+  createTempId = () => createMutationId('temp-cookbook-'),
 } = {}) {
   const session = () => getSessionIdentity ? getSessionIdentity() : 'embedded';
   const run = enqueueCookbookMutation || createEntityMutationQueue({ getSessionIdentity: session });

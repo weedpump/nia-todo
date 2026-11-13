@@ -1166,6 +1166,9 @@ const shoppingSectionsAdapter = createShoppingSectionsAdapter({
 });
 const shoppingItemsController = createShoppingItemsController({
   getActorId: () => currentUser?.id ?? null,
+  getSessionIdentity: getEntitySessionIdentity,
+  getActiveModule: () => moduleShell?.getActiveModule?.() || 'tasks',
+  confirmDanger,
   routingMemory,
   getLists: () => shoppingLists,
   setLists: next => setShoppingListsState(next, { reconcileDetails: false }),
@@ -1431,7 +1434,10 @@ moduleShell.registerController('shopping', {
     shoppingItemEditorFeature.reconcile();
     shoppingViewPreferencesFeature.updateButton();
   },
-  onDeactivate: () => shoppingNavigationFeature.deactivate(),
+  onDeactivate: () => {
+    shoppingItemsController.resetShortcutTarget();
+    shoppingNavigationFeature.deactivate();
+  },
   onLanguageChange: renderShopping,
   onSearch: value => shoppingNavigationFeature.setSearchQuery(value),
 });

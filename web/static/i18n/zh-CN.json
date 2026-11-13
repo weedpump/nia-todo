@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "打开工作区 1 到 6",
   "shortcuts.cycleStatus": "切换获得焦点或鼠标指向的待办事项状态",
   "shortcuts.deleteTodo": "删除获得焦点或鼠标指向的待办事项",
+  "shortcuts.toggleItemCompletion": "勾选完成／重新打开鼠标指向的条目",
+  "shortcuts.deleteItem": "删除鼠标指向的条目",
   "shortcuts.saveTodo": "从标题字段保存待办事项",
   "shortcuts.multiAddNext": "多个待办事项：添加一行",
   "shortcuts.multiAddRemove": "多个待办事项：删除空行",

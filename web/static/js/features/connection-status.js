@@ -14,7 +14,12 @@ export function updateConnectionStatus(wsState, { pendingCount = 0 } = {}) {
   const indicator = document.getElementById('online-status');
   if (!indicator) return;
 
-  if (pendingCount > 0) {
+  // Keep confirmed offline state through reconnect attempts until connected again.
+  const isOffline = navigator.onLine === false || wsState === 'disconnected'
+    || (wsState === 'reconnecting'
+      && ['status-offline', 'status-pending-sync'].includes(indicator.className));
+
+  if (isOffline && pendingCount > 0) {
     indicator.style.display = 'inline-flex';
     indicator.className = 'status-pending-sync';
     indicator.dataset.count = String(Math.min(pendingCount, 99));
@@ -24,7 +29,7 @@ export function updateConnectionStatus(wsState, { pendingCount = 0 } = {}) {
     return;
   }
 
-  if (wsState === 'connected') {
+  if (!isOffline && wsState === 'connected') {
     indicator.style.display = 'none';
     indicator.className = 'status-online';
     indicator.dataset.count = '';
@@ -33,7 +38,7 @@ export function updateConnectionStatus(wsState, { pendingCount = 0 } = {}) {
     setForceRefreshButtonsEnabled(true);
   } else if (wsState === 'reconnecting' && indicator.className === 'status-offline') {
     setForceRefreshButtonsEnabled(false);
-  } else if (wsState === 'connecting' || wsState === 'reconnecting') {
+  } else if (!isOffline && (wsState === 'connecting' || wsState === 'reconnecting')) {
     indicator.style.display = 'none';
     indicator.className = 'status-checking';
     indicator.dataset.count = '';

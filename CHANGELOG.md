@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [4.0.2] - 2026-11-13
+
+### Security
+- Explicitly require TLS 1.2 or newer for recipe downloads and HTTPS connections to LLM providers, while retaining certificate and hostname verification.
+- Use cryptographically secure random values for temporary cookbook and shopping-list IDs when `crypto.randomUUID()` is unavailable.
+
+### Fixed
+- Fixed missing profile pictures on the Dashboard after opening the app.
+- Show pending changes in the top bar only while offline, so the indicator no longer flashes after every online edit.
+- Made Shopping item cards look and behave like Tasks, including hover effects and dragging.
+- Added Shopping keyboard shortcuts: Space checks or unchecks the item under the mouse pointer; Delete removes it after confirmation.
+- Fixed section editing getting stuck when cancelling or saving without changes. Unsaved text is kept if saving fails.
+- Prevented delayed title autofocus from stealing focus from Task metadata editors or a subsequently opened dialog.
+- Updated Shopping sidebar and content regression fixtures for shared item-card styling, retaining title, sizing, permission and navigation coverage.
+- Kept isolated Task replay tests in sync with the shared mutation-ID dependency.
+- Made the shared swipe regression wait for press animations to settle while continuing to reject unsupported right-swipe movement.
+
 ## [4.0.1] - 2026-11-12
 
 ### Fixed

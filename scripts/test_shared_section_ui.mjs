@@ -237,12 +237,14 @@ await clickController('save-edit', 'opaque-controller');
 assert.equal(focusedControl, renamedFocus, 'rename restores focus to the live section name');
 
 const failedCreateFocus = focusable('failed-create');
-liveControllerRoot = { querySelector: selector => selector === '[data-section-input="new"]' ? { value: 'Fails' } : null };
+const failedCreateInput = { value: 'Fails', ...failedCreateFocus };
+liveControllerRoot = { querySelector: selector => selector === '[data-section-input="new"]' ? failedCreateInput : null };
 controllerAdapter.createSection = async () => { throw new Error('storage failed'); };
 controllerAdapter.onError = () => {};
-controllerAdapter.render = () => { liveControllerRoot = { querySelector: selector => selector === '[data-section-action="show-add"]' ? failedCreateFocus : null }; };
+controllerAdapter.render = () => { throw new Error('a failed save must retain the input instead of rerendering away its draft'); };
 await clickController('save-new');
-assert.equal(focusedControl, failedCreateFocus, 'storage failure restores focus to a live retry control');
+assert.equal(focusedControl, failedCreateInput, 'storage failure keeps focus on the unchanged draft for retry');
+assert.equal(failedCreateInput.value, 'Fails');
 
 const replacementDelete = focusable('replacement-delete');
 liveControllerRoot = { querySelectorAll: () => [] };

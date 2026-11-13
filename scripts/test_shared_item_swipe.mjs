@@ -13,6 +13,7 @@ const fixtureSource = `
   await initI18n();
 
   let todos = [{ id: 1, title: 'Todo swipe', status: 'pending', priority: 3 }];
+  let todoDeleteConfirmations = 0;
   const renderTodos = () => {
     document.getElementById('todo-root').innerHTML = todos.map(renderTodoItem).join('');
   };
@@ -22,7 +23,7 @@ const fixtureSource = `
     getProjects: () => [],
     getCurrentProjectId: () => null,
     getCurrentWorkspaceId: () => null,
-    getCurrentUser: () => null,
+    getCurrentUser: () => ({ id: 1 }),
     setCurrentUser: () => {},
     getAppInitialized: () => true,
     getDb: () => ({}),
@@ -34,7 +35,7 @@ const fixtureSource = `
     syncWithServer: async () => {},
     todosApi: {}, sectionsApi: {}, placesApi: null,
     renderProjects: () => {}, renderStats: () => {}, renderTodos,
-    closeModal: () => {}, confirmDanger: async () => false, showToast: () => {},
+    closeModal: () => {}, confirmDanger: async () => { todoDeleteConfirmations += 1; return false; }, showToast: () => {},
     setupDescPreview: () => {}, renderMarkdown: value => String(value || ''),
   });
 
@@ -92,6 +93,7 @@ const fixtureSource = `
     editCount: () => editCount,
     item: id => lists[0].items.find(item => String(item.id) === String(id)),
     todoStatus: () => todos[0].status,
+    todoDeleteConfirmations: () => todoDeleteConfirmations,
     renderShopping,
   };
 `;
@@ -165,18 +167,28 @@ try {
 
   await pointer(milkCard, 'pointerdown');
   await pointer(milkCard, 'pointermove', { dx: 130 });
-  const ignoredRight = await page.locator(milkCard).evaluate(element => ({
-    className: element.className,
-    swipeX: element.style.getPropertyValue('--swipe-x'),
-    transform: getComputedStyle(element).transform,
-    shellClass: element.parentElement.className,
-    underlayVisibility: getComputedStyle(element.parentElement.querySelector('.ui-swipe-underlay')).visibility,
-  }));
+  const ignoredRight = await page.locator(milkCard).evaluate(element => {
+    const transform = getComputedStyle(element).transform;
+    return {
+      className: element.className,
+      swipeX: element.style.getPropertyValue('--swipe-x'),
+      swipeProgress: element.style.getPropertyValue('--swipe-progress'),
+      horizontalOffset: transform === 'none' ? 0 : new DOMMatrixReadOnly(transform).m41,
+      shellClass: element.parentElement.className,
+      underlayVisibility: getComputedStyle(element.parentElement.querySelector('.ui-swipe-underlay')).visibility,
+    };
+  });
   assert(!ignoredRight.className.includes('swiping'), 'right swipe must not activate the card');
+  assert(!ignoredRight.className.includes('ui-item-card-press-active'), 'horizontal movement must release card press feedback');
   assert.equal(ignoredRight.swipeX, '', 'right swipe must not set a movement value');
-  assert.equal(ignoredRight.transform, 'none', 'right swipe must not move the card');
+  assert.equal(ignoredRight.swipeProgress, '', 'right swipe must not set swipe progress');
+  assert.equal(ignoredRight.horizontalOffset, 0, 'right swipe must not translate the card horizontally');
   assert(!ignoredRight.shellClass.includes('is-swiping'), 'right swipe must not activate the shell');
   assert.equal(ignoredRight.underlayVisibility, 'hidden', 'right swipe must not reveal an underlay');
+  // Movement releases the shared press scale/vertical feedback through a CSS
+  // transition. Its intermediate matrix is unrelated to horizontal swiping.
+  await page.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).transform === 'none', milkCard);
+  assert.equal(await page.locator(milkCard).evaluate(element => getComputedStyle(element).transform), 'none', 'ignored right swipe must settle without a transform');
   await pointer(milkCard, 'pointerup', { dx: 130 });
   assert.equal(await page.evaluate(() => window.test.mutationCount()), 0);
   await page.locator(`${milkCard} .shopping-item-edit-trigger`).click();
@@ -225,6 +237,13 @@ try {
   await pointer(todoCard, 'pointermove', { dx: 180, pointerId: 57 });
   await pointer(todoCard, 'pointerup', { dx: 180, pointerId: 57 });
   await page.waitForFunction(() => window.test.todoStatus() === 'in_progress');
+
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.locator(todoCard).dispatchEvent('pointerover');
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.test.todoStatus() === 'done');
+  await page.keyboard.press('Delete');
+  assert.equal(await page.evaluate(() => window.test.todoDeleteConfirmations()), 1, 'existing Tasks hover Space/Delete shortcuts must retain their actions');
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await pointer(milkCard, 'pointerdown', { pointerId: 58 });

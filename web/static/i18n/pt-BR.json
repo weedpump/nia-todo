@@ -233,6 +233,8 @@
   "shortcuts.switchWorkspace": "Abrir espaço de trabalho de 1 a 6",
   "shortcuts.cycleStatus": "Alternar o status da tarefa com foco ou sob o ponteiro",
   "shortcuts.deleteTodo": "Excluir a tarefa com foco ou sob o ponteiro",
+  "shortcuts.toggleItemCompletion": "Marcar como concluído / reabrir o item sob o cursor",
+  "shortcuts.deleteItem": "Excluir o item sob o cursor",
   "shortcuts.saveTodo": "Salvar a tarefa pelo campo de título",
   "shortcuts.multiAddNext": "Várias tarefas: adicionar linha",
   "shortcuts.multiAddRemove": "Várias tarefas: remover linha vazia",

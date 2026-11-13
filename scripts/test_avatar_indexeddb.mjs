@@ -73,22 +73,28 @@ const { loadAuthenticatedImage, releaseAuthenticatedImage } = await import('../w
 
 const storage = new Map([['jwt_token', 'header.payload.signature']]);
 globalThis.localStorage = { getItem(key) { return storage.get(key) ?? null; } };
-globalThis.fetch = async () => ({ ok: true, blob: async () => new Blob(['early-avatar']) });
+const requests = [];
+globalThis.fetch = async url => {
+  requests.push(url);
+  return { ok: true, blob: async () => new Blob(['network-avatar']) };
+};
 const originalCreateObjectURL = URL.createObjectURL;
 URL.createObjectURL = () => 'blob:early-avatar';
 
 const earlyImage = {};
+avatarRecords.set('https://todo.example|7', { id: 'https://todo.example|7', version: 'early', blob: new Blob(['cached-avatar']) });
+let earlySettled = false;
 const earlyLoad = loadAuthenticatedImage(
   earlyImage,
   'https://todo.example/api/avatars/user-7.webp?v=early',
   { userId: 7, version: 'early' },
-);
-assert.equal(await earlyLoad, true, 'network response renders before IndexedDB opens');
-assert.equal(avatarRecords.size, 0, 'persistence waits while IndexedDB is unavailable');
+).finally(() => { earlySettled = true; });
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(earlySettled, false, 'early UI loads wait for their persisted cache lookup');
+assert.equal(requests.length, 0, 'an unopened database is not evidence of a cache miss');
 
 const offlineId = 'https://todo.example|9';
 avatarRecords.set(offlineId, { id: offlineId, version: 'offline', blob: new Blob(['offline-avatar']) });
-globalThis.fetch = async () => { throw new TypeError('offline'); };
 const offlineImage = {};
 let offlineSettled = false;
 const offlineLoad = loadAuthenticatedImage(
@@ -102,26 +108,33 @@ assert.equal(offlineSettled, false, 'offline cache read remains pending until In
 const opening = openDatabase();
 upgradeInProgress = true;
 openRequest.onupgradeneeded?.({ target: { result: database } });
-globalThis.fetch = async () => ({ ok: true, blob: async () => new Blob(['upgrade-avatar']) });
 const duringUpgradeImage = {};
 const duringUpgradeLoad = loadAuthenticatedImage(
   duringUpgradeImage,
   'https://todo.example/api/avatars/user-8.webp?v=during-upgrade',
   { userId: 8, version: 'during-upgrade' },
 );
-assert.equal(await duringUpgradeLoad, true, 'network response renders while the database upgrade is still active');
-assert.equal(avatarRecords.size, 1, 'avatar persistence waits for upgrade completion');
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(requests.length, 0, 'an upgrading database is not evidence of a cache miss either');
+assert.equal(avatarRecords.size, 2, 'reading the cache waits for upgrade completion');
 upgradeInProgress = false;
 openRequest.onsuccess?.({ target: { result: database } });
 await opening;
+assert.equal(await earlyLoad, true, 'early UI loads render their cached image after open');
 assert.equal(await offlineLoad, true, 'offline avatar renders after IndexedDB becomes ready without a lifecycle rerender');
+assert.equal(await duringUpgradeLoad, true, 'a genuinely missing avatar fetches after its cache lookup');
+assert.equal(requests.length, 1, 'matching persisted versions never issue a cold-start network request');
+const warmedImage = {};
+const warmedLoad = loadAuthenticatedImage(warmedImage, 'https://todo.example/api/avatars/user-8.webp?v=during-upgrade', { userId: 8, version: 'during-upgrade' });
+assert.equal(warmedImage.src, 'blob:early-avatar', 'the next consumer gets the warmed avatar synchronously');
+assert.equal(await warmedLoad, true);
 assert.equal(DB_VERSION, 10, 'recipe image cache requires IndexedDB schema version 10');
 assert.equal(openedVersion, DB_VERSION);
 assert.ok(createdStores.includes('avatars'), 'migration preserves the avatars object store');
 assert.ok(createdStores.includes('shoppingStores'), 'migration creates the stable shopping-store object store');
 assert.ok(createdStores.includes('shoppingLists'), 'migration creates the shopping-lists object store');
 assert.ok(createdStores.includes('cookbooks'), 'migration adds cookbooks alongside existing avatar and Shopping stores');
-assert.equal(avatarRecords.size, 3, 'avatars fetched before DB readiness persist after open');
+assert.equal(avatarRecords.size, 3, 'cached avatars and a new download persist after open');
 
 await closeAndDeleteDatabase();
 assert.equal(closed, true, 'logout closes the database before deletion');
@@ -162,6 +175,10 @@ assert.equal(avatarRecords.has(lifecycleRaceId), false, 'a fetch started in the 
 
 await closeAndDeleteDatabase();
 const unavailableRaceId = 'https://todo.example|unavailable-user';
+const failedOpening = openDatabase();
+openRequest.error = new Error('storage unavailable');
+openRequest.onerror();
+await assert.rejects(failedOpening, /storage unavailable/);
 let resolveUnavailableFetch;
 globalThis.fetch = async () => new Promise((resolve) => {
   resolveUnavailableFetch = resolve;
@@ -183,6 +200,58 @@ const reopenedAfterUnavailableFetch = openDatabase();
 openRequest.onsuccess?.({ target: { result: database } });
 await reopenedAfterUnavailableFetch;
 assert.equal(avatarRecords.has(unavailableRaceId), false, 'a fetch begun before database readiness cannot persist after lifecycle deletion');
+
+await closeAndDeleteDatabase();
+let blockedSettled = false;
+const blockedImage = {};
+globalThis.fetch = async () => ({ ok: true, blob: async () => new Blob(['blocked-fallback']) });
+const blockedLoad = loadAuthenticatedImage(blockedImage, 'https://todo.example/api/avatars/blocked.webp', { userId: 'blocked', version: 'v1' })
+  .finally(() => { blockedSettled = true; });
+const blockedOpening = openDatabase();
+openRequest.onblocked();
+await blockedLoad;
+assert.equal(blockedSettled, true, 'a blocked local database permits network fallback without hanging the avatar');
+openRequest.onsuccess({ target: { result: database } });
+await blockedOpening;
+assert.ok(avatarRecords.has('https://todo.example|blocked'), 'writes queued during a blocked open still persist when it recovers');
+
+await closeAndDeleteDatabase();
+const originalOpen = indexedDB.open;
+indexedDB.open = () => { throw new DOMException('storage disabled', 'SecurityError'); };
+await assert.rejects(openDatabase(), /storage disabled/);
+const disabledImage = {};
+assert.equal(await loadAuthenticatedImage(disabledImage, 'https://todo.example/api/avatars/disabled.webp', { userId: 'disabled', version: 'v1' }), true,
+  'disabled local storage falls back to the authenticated network');
+indexedDB.open = originalOpen;
+
+await closeAndDeleteDatabase();
+let cancelledFetches = 0;
+globalThis.fetch = async () => { cancelledFetches++; return { ok: true, blob: async () => new Blob(['wrong-session']) }; };
+const cancelledImage = {};
+const cancelledLoad = loadAuthenticatedImage(cancelledImage, 'https://todo.example/api/avatars/cancelled.webp', { userId: 'cancelled', version: 'v1' });
+await closeAndDeleteDatabase();
+assert.equal(await cancelledLoad, false, 'cache reads cancelled by logout do not start a stale request');
+assert.equal(cancelledFetches, 0);
+
+const hungImage = {};
+const hungLoad = loadAuthenticatedImage(hungImage, 'https://todo.example/api/avatars/hung.webp', { userId: 'hung', version: 'v1' });
+const realSetTimeout = globalThis.setTimeout;
+let expireReadiness;
+globalThis.setTimeout = (callback, delay) => {
+  assert.equal(delay, 5000, 'image readiness uses the app startup open budget');
+  expireReadiness = callback;
+  return undefined;
+};
+const hungOpening = openDatabase();
+globalThis.setTimeout = realSetTimeout;
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(cancelledFetches, 0, 'pending database open keeps checking the local cache first');
+expireReadiness();
+assert.equal(await hungLoad, true, 'a silent IndexedDB open eventually permits network fallback');
+assert.equal(cancelledFetches, 1);
+openRequest.onsuccess({ target: { result: database } });
+await hungOpening;
+assert.ok(avatarRecords.has('https://todo.example|hung'), 'a late database open preserves the queued fallback write');
 
 URL.createObjectURL = originalCreateObjectURL;
 

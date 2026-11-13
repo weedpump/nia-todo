@@ -1,5 +1,6 @@
 import { apiResourceUrl } from '../core/config.js';
-import { loadAuthenticatedImage, releaseAuthenticatedImage } from '../core/authenticated-image.js';
+import { loadAuthenticatedImage, releaseAuthenticatedImage, removeCachedAvatar } from '../core/authenticated-image.js';
+import { getDatabaseGeneration } from '../storage/indexed-db.js';
 import { getActiveLocale, t } from '../i18n/index.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
@@ -224,12 +225,17 @@ export function createAppRenderingFeature({
     const user = getCurrentUser?.();
     const displayName = user?.display_name || user?.username || t('overview.defaultUser');
     const initial = (displayName.trim()[0] || 'U').toUpperCase();
-    const avatarVersion = user?.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
+    const avatarTimestamp = user?.avatar_updated_at || '';
+    const avatarVersion = avatarTimestamp ? encodeURIComponent(avatarTimestamp) : '';
     const avatarBaseSrc = user?.avatar_url ? apiResourceUrl(user.avatar_url) : '';
     const avatarSrc = avatarBaseSrc ? `${avatarBaseSrc}${avatarVersion ? `?v=${avatarVersion}` : ''}` : '';
+    const avatarActor = String(user?.id ?? '');
+    const avatarDatabaseGeneration = getDatabaseGeneration();
     const currentAvatar = el.querySelector('[data-auth-avatar]');
     const availableAvatar = currentAvatar || retainedDashboardAvatar;
     const reusableAvatar = availableAvatar
+      && availableAvatar.dataset.authAvatarActor === avatarActor
+      && availableAvatar.dataset.authAvatarGeneration === String(avatarDatabaseGeneration)
       && (availableAvatar.dataset.authAvatarSrc === avatarSrc || availableAvatar.dataset.authAvatarPendingSrc === avatarSrc)
       ? availableAvatar
       : null;
@@ -253,7 +259,7 @@ export function createAppRenderingFeature({
     const showDashboard = currentFilter === 'all' && !currentProjectId && !search;
     el.hidden = !showDashboard;
     if (!showDashboard) {
-      if (currentAvatar?.dataset.authAvatarSrc === avatarSrc) {
+      if (currentAvatar === reusableAvatar && currentAvatar?.dataset.authAvatarSrc === avatarSrc) {
         retainedDashboardAvatar = currentAvatar;
       } else if (currentAvatar) {
         releaseAuthenticatedImage(currentAvatar);
@@ -339,7 +345,7 @@ export function createAppRenderingFeature({
         <div class="overview-dashboard-header">
           <div class="overview-greeting">
             <div class="overview-avatar" aria-hidden="true">
-              ${avatarSrc ? `<img data-auth-avatar alt="">` : escapeHtml(initial)}
+              ${avatarSrc ? `<img data-auth-avatar alt=""><span class="overview-avatar-initial">${escapeHtml(initial)}</span>` : escapeHtml(initial)}
             </div>
             <div>
               <div class="overview-kicker">${escapeHtml(dateTime)}</div>
@@ -392,16 +398,60 @@ export function createAppRenderingFeature({
         nextAvatar?.replaceWith(reusableAvatar);
         retainedDashboardAvatar = reusableAvatar;
       } else if (nextAvatar) {
+        nextAvatar.dataset.authAvatarActor = avatarActor;
+        nextAvatar.dataset.authAvatarGeneration = String(avatarDatabaseGeneration);
         nextAvatar.dataset.authAvatarPendingSrc = avatarSrc;
-        loadAuthenticatedImage(nextAvatar, avatarSrc, { userId: user?.id, version: user?.avatar_updated_at }).then(loaded => {
-          const stillCurrent = el.querySelector('[data-auth-avatar]') === nextAvatar
-            && nextAvatar.dataset.authAvatarPendingSrc === avatarSrc;
-          if (!stillCurrent) {
+        const stillCurrent = () => el.querySelector('[data-auth-avatar]') === nextAvatar
+          && nextAvatar.dataset.authAvatarPendingSrc === avatarSrc
+          && String(getCurrentUser?.()?.id ?? '') === avatarActor
+          && getDatabaseGeneration() === avatarDatabaseGeneration;
+        loadAuthenticatedImage(nextAvatar, avatarSrc, {
+          userId: user?.id,
+          version: avatarTimestamp,
+          isCurrent: stillCurrent,
+        }).then(async loaded => {
+          if (!stillCurrent()) {
             if (loaded) releaseAuthenticatedImage(nextAvatar);
             return;
           }
+          const loadedSrc = nextAvatar.src;
+          let decodeFailed = false;
+          if (loaded) {
+            try {
+              await nextAvatar.decode?.();
+            } catch (_error) {
+              loaded = false;
+              decodeFailed = true;
+            }
+            if (!stillCurrent() || nextAvatar.src !== loadedSrc) {
+              releaseAuthenticatedImage(nextAvatar);
+              return;
+            }
+          }
+          if (decodeFailed) {
+            try {
+              await removeCachedAvatar(avatarSrc, {
+                userId: avatarActor,
+                version: avatarTimestamp,
+                isCurrent: stillCurrent,
+                expectedGeneration: avatarDatabaseGeneration,
+              });
+            } catch (_error) {
+              // Keep the initial usable if storage became unavailable mid-load.
+            }
+            if (!stillCurrent() || nextAvatar.src !== loadedSrc) {
+              releaseAuthenticatedImage(nextAvatar);
+              return;
+            }
+          }
           delete nextAvatar.dataset.authAvatarPendingSrc;
-          if (loaded) nextAvatar.dataset.authAvatarSrc = avatarSrc;
+          if (loaded) {
+            nextAvatar.dataset.authAvatarSrc = avatarSrc;
+            nextAvatar.classList.add('is-ready');
+          } else {
+            releaseAuthenticatedImage(nextAvatar);
+            nextAvatar.removeAttribute('src');
+          }
         });
       }
     }

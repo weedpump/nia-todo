@@ -214,6 +214,7 @@ export function createSectionController({
   labels = {},
 } = {}) {
   let bound = false;
+  const inlineEditors = new WeakMap();
 
   function label(adapter, key) {
     const value = adapter?.labels?.[key] ?? labels[key];
@@ -232,6 +233,23 @@ export function createSectionController({
     adapter?.render?.();
   }
 
+  function dismissInlineEditor(adapter, target) {
+    const form = target?.closest?.('.inline-edit-form, .inline-section-form');
+    const container = form?.parentElement;
+    const previousMarkup = container ? inlineEditors.get(container) : undefined;
+    const editId = form?.querySelector?.('[data-section-input="edit"]')?.dataset?.sectionId;
+    // Inline forms are controller-owned DOM. A domain renderer may correctly
+    // retain an unchanged collection, so rendering alone cannot dismiss them.
+    if (previousMarkup !== undefined) {
+      container.innerHTML = previousMarkup;
+      inlineEditors.delete(container);
+    }
+    render(adapter);
+    focusLive(adapter, editId == null
+      ? '[data-section-action="show-add"]'
+      : `.section-name[data-section-id="${CSS.escape(String(editId))}"]`);
+  }
+
   function showAdd(adapter) {
     const canCreate = typeof adapter?.canCreate === 'function'
       ? adapter.canCreate() === true
@@ -240,6 +258,7 @@ export function createSectionController({
     const row = liveRoot(adapter)?.querySelector?.('.add-section-row');
     if (!row) return false;
     const inputId = adapter.newInputId?.() || 'new-section-name';
+    if (!inlineEditors.has(row)) inlineEditors.set(row, row.innerHTML);
     row.innerHTML = `
       <div class="inline-section-form">
         <input type="text" id="${escapeHtmlAttr(inputId)}" data-section-input="new" placeholder="${escapeHtmlAttr(label(adapter, 'namePlaceholder'))}" autocomplete="off">
@@ -257,6 +276,7 @@ export function createSectionController({
       .find(candidate => sameId(candidate.dataset.sectionId, id));
     if (!section || !header) return false;
     const inputId = adapter.editInputId?.(section.id) || `edit-section-name-${section.id}`;
+    if (!inlineEditors.has(header)) inlineEditors.set(header, header.innerHTML);
     header.innerHTML = `
       <div class="inline-edit-form">
         <input type="text" id="${escapeHtmlAttr(inputId)}" data-section-input="edit" data-section-id="${escapeHtmlAttr(section.id)}" value="${escapeHtmlAttr(section.name)}" autocomplete="off">
@@ -281,8 +301,7 @@ export function createSectionController({
       focusLive(adapter, `.section-name[data-section-id="${CSS.escape(String(created.id))}"]`);
       return true;
     } catch (error) {
-      render(adapter);
-      focusLive(adapter, '[data-section-action="show-add"]');
+      focusLive(adapter, '[data-section-input="new"]');
       adapter.onError?.(error);
       return false;
     }
@@ -292,6 +311,11 @@ export function createSectionController({
     if (!adapter?.canManage?.()) return false;
     const name = input?.value?.trim();
     if (!name) return false;
+    const current = adapter.getSections?.().find(section => sameId(section.id, id));
+    if (current && current.name === name) {
+      dismissInlineEditor(adapter, input);
+      return true;
+    }
     try {
       const updated = await adapter.renameSection?.(id, name);
       if (!updated) return false;
@@ -299,8 +323,7 @@ export function createSectionController({
       focusLive(adapter, `.section-name[data-section-id="${CSS.escape(String(updated.id))}"]`);
       return true;
     } catch (error) {
-      render(adapter);
-      focusLive(adapter, `.section-name[data-section-id="${CSS.escape(String(id))}"]`);
+      focusLive(adapter, `[data-section-input="edit"][data-section-id="${CSS.escape(String(id))}"]`);
       adapter.onError?.(error);
       return false;
     }
@@ -345,7 +368,7 @@ export function createSectionController({
     else if (action === 'save-edit') {
       const id = registry.resolveSectionId(target, target.dataset.sectionId);
       await saveEdit(adapter, id, liveRoot(adapter)?.querySelector?.(`[data-section-input="edit"][data-section-id="${CSS.escape(String(target.dataset.sectionId))}"]`));
-    } else if (action === 'cancel') render(adapter);
+    } else if (action === 'cancel') dismissInlineEditor(adapter, target);
   }
 
   async function onKeydown(event) {
@@ -356,7 +379,7 @@ export function createSectionController({
     if (!adapter) return;
     event.preventDefault();
     if (event.key === 'Escape') {
-      render(adapter);
+      dismissInlineEditor(adapter, input);
       return;
     }
     if (input.dataset.sectionInput === 'new') await saveNew(adapter, input);

@@ -60,7 +60,18 @@ export const shoppingModule = Object.freeze({
       titleKey: 'shopping.item.add',
     });
     slots.userMenu.innerHTML = '';
-    slots.shortcuts.innerHTML = '';
+    slots.shortcuts.innerHTML = `
+      <section class="ui-section-card ui-detail-section ui-section-divider shortcuts-section" aria-labelledby="shortcuts-shopping-title">
+        <div class="ui-section-heading">
+          <div class="ui-section-icon" data-icon="shopping-cart"></div>
+          <div><h4 id="shortcuts-shopping-title" data-i18n-key="module.shopping.label">${t('module.shopping.label')}</h4></div>
+        </div>
+        <div class="shortcuts-list">
+          <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.toggleItemCompletion">${t('shortcuts.toggleItemCompletion')}</span><span class="shortcuts-keys"><kbd>Space</kbd></span></div>
+          <div class="shortcuts-row"><span class="shortcuts-label" data-i18n-key="shortcuts.deleteItem">${t('shortcuts.deleteItem')}</span><span class="shortcuts-keys"><kbd>Delete</kbd></span></div>
+        </div>
+      </section>
+    `;
     slots.settingsNav.innerHTML = '';
     slots.settings.innerHTML = '';
     slots.desktopHotkeys.innerHTML = '';

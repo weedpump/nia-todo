@@ -120,7 +120,7 @@ export function createSectionActionsFeature({
     focusItem(id) {
       const item = Array.from(adapter.getRoot()?.querySelectorAll?.('.todo-item[data-id]') || [])
         .find(candidate => String(candidate.dataset.id) === String(id));
-      item?.querySelector?.('.todo-body')?.focus?.();
+      item?.querySelector?.('[data-item-card-open]')?.focus?.();
     },
   };
 

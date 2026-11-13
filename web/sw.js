@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v4.0.1';
+const SW_VERSION = 'v4.0.2';
 const CACHE_REVISION = 'nia-v4-module-platform-preview-363';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION + '-' + CACHE_REVISION;
 
@@ -96,6 +96,7 @@ const PRECACHE_ASSETS = [
   '/static/js/core/raster-image.js',
   '/static/js/core/utils.js',
   '/static/js/core/entity-identity.js',
+  '/static/js/core/mutation-id.js',
   '/static/js/core/state.js',
   '/static/js/core/device-labels.js',
   '/static/js/storage/app-storage.js',
@@ -115,6 +116,7 @@ const PRECACHE_ASSETS = [
   '/static/js/ui/detail-modal.js',
   '/static/js/ui/image-picker.js',
   '/static/js/ui/item-swipe.js',
+  '/static/js/ui/item-card.js',
   '/static/js/ui/topbar-toggle.js',
   '/static/js/ui/color-picker.js',
   '/static/i18n/de.json',

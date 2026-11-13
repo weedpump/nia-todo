@@ -75,7 +75,9 @@ class DeadlineConnection(http.client.HTTPConnection):
             sock.connect((self.address, self.port))
             self._check_deadline()
             if self.tls:
-                sock = ssl.create_default_context().wrap_socket(sock, server_hostname=self.host, do_handshake_on_connect=False)
+                context = ssl.create_default_context()
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+                sock = context.wrap_socket(sock, server_hostname=self.host, do_handshake_on_connect=False)
                 self._deadline_socket = sock
                 self._check_deadline()
                 sock.do_handshake()

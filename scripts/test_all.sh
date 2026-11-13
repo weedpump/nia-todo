@@ -121,6 +121,7 @@ run_step "Household Entity Access" python3 scripts/test_household_entity_access.
 run_step "Frontend Households" node scripts/test_frontend_households.mjs
 run_step "Shopping Lists" python3 scripts/test_shopping_lists.py
 run_step "Shopping Identity Boundaries" node scripts/test_shopping_identity.mjs
+run_step "Secure Mutation Identities" node scripts/test_mutation_ids.mjs
 run_step "Shopping Mutation Session Boundaries" node scripts/test_shopping_mutation_session.mjs
 run_step "Deleted Creation Replay" node scripts/test_creation_tombstone_sync.mjs
 run_step "Cookbooks API and Ownership" python3 scripts/test_cookbooks.py
@@ -179,6 +180,7 @@ run_step "Shared Routing Memory Matching" node scripts/test_routing_memory_match
 run_step "Routing Base Recognition" node scripts/test_routing_memory_base_recognition.mjs
 run_step "Tasks Routing Memory Matching" node scripts/test_task_routing_memory.mjs
 run_step "Tasks Routing Memory UI" node scripts/test_frontend_todo_routing_memory.mjs
+run_step "Tasks Editor Autofocus" node scripts/test_frontend_todo_editor_focus.mjs
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
 run_step "Recurring Todos" python3 scripts/test_recurring_todos.py
 run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.py
@@ -229,6 +231,7 @@ run_step "Todo Delete Identity" node scripts/test_todo_delete_identity.mjs
 run_step "Entity Invitation i18n" node scripts/test_entity_invitation_i18n.mjs
 run_step "Shopping List Access Browser" node scripts/test_frontend_shopping_access.mjs
 run_step "Shared Section UI" node scripts/test_shared_section_ui.mjs
+run_step "Shared Section Inline Editors" node scripts/test_section_inline_edit.mjs
 run_step "Shopping Sections" node scripts/test_shopping_sections.mjs
 run_step "Shopping View Preferences" node scripts/test_shopping_view_preferences.mjs
 run_step "Shopping Stores" node scripts/test_shopping_stores.mjs
@@ -247,6 +250,7 @@ run_step "Workspace Modal Lifecycle" node scripts/test_frontend_workspace_modal_
 run_step "Account Module Settings" node scripts/test_frontend_module_settings.mjs
 run_step "Settings Navigation Lifecycle" node scripts/test_frontend_settings_navigation_lifecycle.mjs
 run_step "Avatar IndexedDB" node scripts/test_avatar_indexeddb.mjs
+run_step "Avatar Cold Start" node scripts/test_avatar_cold_start.mjs
 run_step "Avatar Offline Cache" node scripts/test_avatar_cache.mjs
 run_step "Avatar Realtime Updates" node scripts/test_avatar_realtime.mjs
 run_step "Todo Attachment Thumbnails" node scripts/test_todo_attachment_thumbnails.mjs
@@ -267,6 +271,8 @@ run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.m
 run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step "Mobile Swipe Runtime" node scripts/test_mobile_swipe_runtime.mjs
 run_step "Shared Item Swipe" node scripts/test_shared_item_swipe.mjs
+run_step "Shared Item Card Interactions" node scripts/test_item_card_interactions.mjs
+run_step "Shopping Item Keyboard Shortcuts" node scripts/test_shopping_item_shortcuts.mjs
 run_shared_item_drag_drop
 run_step "Mobile Swipe Underlay" node scripts/test_mobile_swipe_underlay.mjs
 run_step "Frontend Todo Details Layout" node scripts/test_frontend_todo_details_layout.mjs

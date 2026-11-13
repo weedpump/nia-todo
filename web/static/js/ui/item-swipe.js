@@ -1,7 +1,7 @@
 import { iconSvg } from '../icons/lucide-icons.js';
+import { clearItemCardPress, isItemCardInteractiveTarget } from './item-card.js';
 
 const documentStates = new WeakMap();
-const interactiveSelector = 'button, input, select, textarea, a, label, summary, details, [role="button"], [contenteditable="true"]';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -209,7 +209,7 @@ function bindState(state) {
     const { adapter, item } = match;
     const protectedStart = Boolean(adapter.protectedStartSelector && event.target?.closest?.(adapter.protectedStartSelector));
     const interactiveStart = Boolean(adapter.interactiveStartSelector && event.target?.closest?.(adapter.interactiveStartSelector));
-    if (event.target?.closest?.(interactiveSelector) && !protectedStart && !interactiveStart) return;
+    if (isItemCardInteractiveTarget(event.target) && !protectedStart && !interactiveStart) return;
     state.active = {
       adapter,
       item,
@@ -264,6 +264,7 @@ function bindState(state) {
         active.item.setAttribute('data-swipe-right-label', active.adapter.labelFor?.('right', active.item) || '');
         active.item.setAttribute('data-swipe-left-label', active.adapter.labelFor?.('left', active.item) || '');
       }
+      clearItemCardPress(active.item);
       active.adapter.onActivate?.(active.item, active.shell);
       active.item.classList.add('swiping');
       active.shell?.classList.add('is-swiping');

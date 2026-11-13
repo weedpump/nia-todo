@@ -1,4 +1,5 @@
 import { resolveEntityIdentity, entityIdentity } from '../core/entity-identity.js';
+import { createMutationId } from '../core/mutation-id.js';
 import { t } from '../i18n/index.js';
 import { createOptimisticMetadataEntity, updateMetadataProjection } from './entity-metadata.js';
 import { safeColor, safeIconName } from '../icons/lucide-icons.js';
@@ -66,7 +67,7 @@ export function createShoppingListDetailsFeature({
   focusActiveListAction = () => false,
   getAccessSnapshot = () => globalThis.window?.niaAccessSnapshot || null,
   shoppingApi = null,
-  createTempListId = () => `temp-shopping-list-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
+  createTempListId = () => createMutationId('temp-shopping-list-'),
   onError = console.error,
 } = {}) {
   const resolve = (records, identity, parentId) => resolveEntityIdentity(records, identity, { actorId: getActorId(), ...(parentId === undefined ? {} : { parentId, parentField: 'shopping_list_id' }) });
