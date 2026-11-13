@@ -5,11 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [4.0.4] - 2026-11-13
+## [4.0.3] - 2026-11-13
 
 ### Security
 - Explicitly require TLS 1.2 or newer for recipe downloads and HTTPS connections to LLM providers, while retaining certificate and hostname verification.
 - Use cryptographically secure random values for temporary cookbook and shopping-list IDs when `crypto.randomUUID()` is unavailable.
+
+### Fixed
+- Updated the Shopping sidebar regression check for the shared item-card title styling so release tests retain their content and navigation coverage.
 
 ## [4.0.2] - 2026-11-13
 

@@ -316,7 +316,10 @@ assert.deepEqual(featureCalls.at(-1), ['remap', 'temp-shopping-list-older', 88],
 assert.equal(featureRoot.remappedFocusId, '88', 'a focused non-active Temp-ID row must regain focus on its server-ID replacement');
 navigationFeature.replaceLists([{ ...entities[0], id: 77, items: [{ id: 1, name: 'Milk', completed: false }] }]);
 assert.equal(mainTarget.dataset.shoppingContentState, 'populated');
-assert.match(mainTarget.innerHTML, /class="shopping-item-title">Milk</);
+const itemTitle = [...mainTarget.innerHTML.matchAll(/<span class="([^"]+)">([^<]*)<\/span>/g)]
+  .find(([, classes]) => classes.split(/\s+/).includes('shopping-item-title'));
+assert.equal(itemTitle?.[2], 'Milk', 'the populated list must render its item title');
+assert(itemTitle[1].split(/\s+/).includes('ui-item-card-title'), 'shopping titles must use the shared item-card title style');
 navigationFeature.replaceLists([]);
 assert.equal(navigationFeature.getActiveListId(), null);
 assert.equal(featureStorage.has('nia-shopping-active-list'), false);
