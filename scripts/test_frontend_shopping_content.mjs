@@ -65,7 +65,7 @@ const fixtureSource = `
     <button type="button" hidden data-entity-sidebar-action="add" data-entity-type="shopping-list">Liste hinzufügen</button>
     <div id="todo-card-reference" class="todo-item ui-item-card" style="position:absolute;left:-9999px"><span>Referenz</span></div>
     <div id="todo-pinned-reference" class="todo-item ui-item-card pinned" style="position:absolute;left:-9999px"><span>Gepinnt</span></div>
-    <div id="todo-pinned-meta-reference" class="todo-item ui-item-card pinned" style="position:absolute;left:-9999px"><span class="todo-meta-row"><span class="todo-meta-chip ui-badge">Meta</span></span></div>
+    <div id="todo-pinned-meta-reference" class="todo-item ui-item-card pinned" data-item-card-details="true" style="position:absolute;left:-9999px"><span class="todo-meta-row"><span class="todo-meta-chip ui-badge">Meta</span></span></div>
     <div id="shopping-card-reference" class="shopping-item-card ui-item-card" style="position:absolute;left:-9999px"><span>Referenz</span></div>
     <div class="todo-meta-row">
       <span id="todo-badge-reference" class="todo-meta-chip ui-badge">Referenz</span>

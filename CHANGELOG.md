@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Use cryptographically secure random values for temporary cookbook and shopping-list IDs when `crypto.randomUUID()` is unavailable.
 
 ### Fixed
-- Updated the Shopping sidebar regression check for the shared item-card title styling so release tests retain their content and navigation coverage.
+- Updated Shopping sidebar and content regression fixtures for shared item-card styling, retaining title, sizing, permission and navigation coverage.
 
 ## [4.0.2] - 2026-11-13
 
