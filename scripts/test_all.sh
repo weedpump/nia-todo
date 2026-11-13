@@ -180,6 +180,7 @@ run_step "Shared Routing Memory Matching" node scripts/test_routing_memory_match
 run_step "Routing Base Recognition" node scripts/test_routing_memory_base_recognition.mjs
 run_step "Tasks Routing Memory Matching" node scripts/test_task_routing_memory.mjs
 run_step "Tasks Routing Memory UI" node scripts/test_frontend_todo_routing_memory.mjs
+run_step "Tasks Editor Autofocus" node scripts/test_frontend_todo_editor_focus.mjs
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
 run_step "Recurring Todos" python3 scripts/test_recurring_todos.py
 run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.py

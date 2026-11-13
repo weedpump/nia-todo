@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Use cryptographically secure random values for temporary cookbook and shopping-list IDs when `crypto.randomUUID()` is unavailable.
 
 ### Fixed
+- Prevented delayed title autofocus from stealing focus from Task metadata editors or a subsequently opened dialog.
 - Updated Shopping sidebar and content regression fixtures for shared item-card styling, retaining title, sizing, permission and navigation coverage.
 - Kept isolated Task replay tests in sync with the shared mutation-ID dependency.
 - Made the shared swipe regression wait for press animations to settle while continuing to reject unsupported right-swipe movement.

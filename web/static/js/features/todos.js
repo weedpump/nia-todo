@@ -102,6 +102,7 @@ export function createTodosFeature({
   let savedPlaces = [];
   let todoSaveSnapshot = null;
   let todoKeyboardShortcuts = null;
+  let todoEditorFocusGeneration = 0;
   const pendingDeleteTargets = new Set();
   let badgeOpenedSingleChoiceTarget = null;
   let pendingMetaReturnFocusTarget = null;
@@ -2413,13 +2414,24 @@ export function createTodosFeature({
     await setTodoStatus(todo.id, cycle[todo.status] || 'pending');
   }
 
-  function focusTodoTitle() {
-    const focus = () => document.getElementById('todo-title')?.focus();
+  function focusTodoTitle(generation) {
+    const focusAtOpen = document.activeElement;
+    const focus = () => {
+      const modal = getTodoModal();
+      if (generation !== todoEditorFocusGeneration || !modal?.classList.contains('active')
+        || !modal.classList.contains(TODO_MODAL_CLASSES.create)) return;
+      const title = document.getElementById('todo-title');
+      const currentFocus = document.activeElement;
+      if (currentFocus !== focusAtOpen && currentFocus !== document.body && currentFocus !== title
+        && currentFocus?.isConnected) return;
+      title?.focus();
+    };
     window.requestAnimationFrame?.(focus);
     window.setTimeout(focus, 80);
   }
 
   async function showTodoModal(todo = null) {
+    const focusGeneration = ++todoEditorFocusGeneration;
     bindTodoForm();
     bindDateTimeValidation();
     hydrateTodoSelects();
@@ -2541,7 +2553,7 @@ export function createTodosFeature({
     openUiLayer('todo-modal');
     resizeTodoTitleField();
     window.requestAnimationFrame?.(resizeTodoTitleField);
-    if (shouldAutoFocusEntityEditorTitle(todo ? 'edit' : 'create')) focusTodoTitle();
+    if (shouldAutoFocusEntityEditorTitle(todo ? 'edit' : 'create')) focusTodoTitle(focusGeneration);
   }
 
   async function onProjectChange(selectedSectionId = null) {
