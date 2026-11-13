@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - Updated Shopping sidebar and content regression fixtures for shared item-card styling, retaining title, sizing, permission and navigation coverage.
+- Kept isolated Task replay tests in sync with the shared mutation-ID dependency.
 
 ## [4.0.2] - 2026-11-13
 
