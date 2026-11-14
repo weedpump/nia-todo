@@ -33,7 +33,7 @@ pillow_heif==1.8.1
 propcache==0.5.4
 py-vapid==1.9.6
 pycparser==3.12
-pydantic==2.14.2
+pydantic==2.14.3
 PyJWT==2.15.1
 pyparsing==3.3.3
 pyrdfa3==3.6.5
