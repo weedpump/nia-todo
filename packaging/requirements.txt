@@ -41,7 +41,7 @@ python-dotenv==1.2.4
 pywebpush==2.5.0
 PyYAML==6.0.3
 rdflib==7.6.0
-recipe-scrapers==15.13.0
+recipe-scrapers==15.14.0
 requests==2.34.2
 six==1.17.0
 soupsieve==4.1
